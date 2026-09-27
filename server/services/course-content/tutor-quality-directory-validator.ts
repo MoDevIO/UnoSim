@@ -4,6 +4,8 @@ import { parse as parseYaml } from "yaml";
 import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { CourseContentLoader } from "./course-content-loader";
 import { tutorQualityCasesSchema } from "./tutor-quality-schema";
+import type { LoadedCourseContentSnapshot } from "./course-content-loader";
+import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 import {
   validateTutorContentQuality,
   type ResolvedTutorQualityCase,
@@ -33,7 +35,7 @@ export async function validateTutorCourseContentDirectory(directory: string): Pr
     if (!parsed.success) {
       return [directoryIssue("invalid-quality-cases", "Tutor quality case manifest is invalid")];
     }
-    const resolution = resolveCases(parsed.data.cases, loaded.examples);
+    const resolution = resolveCases(parsed.data.cases, loaded);
     if (resolution.issues.length > 0) return resolution.issues;
     return validateTutorContentQuality(loaded.tutor.topics, resolution.cases);
   } catch {
@@ -55,12 +57,12 @@ async function readBoundedLocalFile(root: string, url: URL, maxBytes: number): P
 
 function resolveCases(
   cases: readonly { id: string; example: string; expectedTopics: readonly string[]; forbiddenTopics: readonly string[] }[],
-  examples: Awaited<ReturnType<CourseContentLoader["load"]>>["examples"],
+  loaded: LoadedCourseContentSnapshot,
 ): { cases: ResolvedTutorQualityCase[]; issues: TutorContentQualityIssue[] } {
   const resolved: ResolvedTutorQualityCase[] = [];
   const issues: TutorContentQualityIssue[] = [];
   for (const qualityCase of cases) {
-    const example = examples.find(({ id }) => id === qualityCase.example);
+    const example = loaded.examples.find(({ id }) => id === qualityCase.example);
     const main = example?.files.find(({ name }) => name === example.main);
     if (!example || !main) {
       issues.push({
@@ -76,9 +78,27 @@ function resolveCases(
       code: main.content,
       expectedTopics: qualityCase.expectedTopics,
       forbiddenTopics: qualityCase.forbiddenTopics,
+      learnStrategy: resolveCaseStrategy(loaded, example.tutorAnnotation?.strategy, "LEARN"),
+      deepenStrategy: resolveCaseStrategy(loaded, example.tutorAnnotation?.strategy, "DEEPEN"),
     });
   }
   return { cases: resolved, issues };
+}
+
+function resolveCaseStrategy(
+  loaded: LoadedCourseContentSnapshot,
+  exampleStrategyId: string | undefined,
+  phase: "LEARN" | "DEEPEN",
+): EffectiveTutorStrategy {
+  if (loaded.tutor.status !== "valid") return BUILT_IN_TUTOR_STRATEGY;
+  const perExample = loaded.tutor.strategies.find(({ id }) => id === exampleStrategyId);
+  if (perExample) return perExample;
+  const manifest = loaded.tutor.manifest;
+  const phaseStrategyId = phase === "DEEPEN" && manifest.schemaVersion === 2
+    ? manifest.phaseStrategies?.deepen
+    : undefined;
+  const strategyId = phaseStrategyId ?? manifest.defaultStrategy;
+  return loaded.tutor.strategies.find(({ id }) => id === strategyId) ?? BUILT_IN_TUTOR_STRATEGY;
 }
 
 function directoryIssue(

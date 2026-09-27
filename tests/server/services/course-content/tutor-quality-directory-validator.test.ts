@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { validateTutorCourseContentDirectory } from "../../../../server/services/course-content/tutor-quality-directory-validator";
 
 const temporaryDirectories: string[] = [];
+const executeFile = promisify(execFile);
 
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
@@ -33,6 +36,16 @@ describe("Tutor Course Content directory validator", () => {
     await expect(validateTutorCourseContentDirectory(directory)).resolves.toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "invalid-quality-cases" }),
     ]));
+  });
+
+  it("returns a nonzero CLI status when the hard gate finds issues", async () => {
+    const directory = await courseContentDirectory(false);
+
+    await expect(executeFile(
+      path.resolve("node_modules/.bin/tsx"),
+      ["scripts/validate-tutor-course-content.mjs", directory],
+      { cwd: process.cwd() },
+    )).rejects.toMatchObject({ code: 1 });
   });
 });
 

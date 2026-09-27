@@ -10,6 +10,7 @@ import { deepeningCriteria, hasMetDeepeningCriteria } from "../tutor/curriculum/
 import { DefaultSketchFactExtractor, type SketchFacts } from "../tutor/curriculum/sketch-facts";
 import { DefaultTopicMatcher } from "../tutor/curriculum/topic-matcher";
 import { BUILT_IN_TUTOR_STRATEGY } from "../tutor/strategy/effective-tutor-strategy";
+import type { EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 
 export interface ResolvedTutorQualityCase {
   readonly id: string;
@@ -17,6 +18,8 @@ export interface ResolvedTutorQualityCase {
   readonly code: string;
   readonly expectedTopics: readonly string[];
   readonly forbiddenTopics: readonly string[];
+  readonly learnStrategy?: EffectiveTutorStrategy;
+  readonly deepenStrategy?: EffectiveTutorStrategy;
 }
 
 export type TutorContentQualityIssueCode =
@@ -210,13 +213,20 @@ function validateExecutablePath(
       observations,
       new Set(history.flatMap(({ questionId }) => questionId ? [questionId] : [])),
       30,
-      BUILT_IN_TUTOR_STRATEGY,
+      context.qualityCase.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY,
     );
     if (classification.status === "mastered") {
       masteryReached = true;
       break;
     }
-    const plan = planner.start(topic, "0".repeat(40), context.facts, history, 30, BUILT_IN_TUTOR_STRATEGY);
+    const plan = planner.start(
+      topic,
+      "0".repeat(40),
+      context.facts,
+      history,
+      30,
+      context.qualityCase.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY,
+    );
     if (!plan) break;
     history.push(successfulTurn(plan.brief));
   }
@@ -235,7 +245,7 @@ function validateExecutablePath(
   const criteria = deepeningCriteria(topic);
   for (let step = 0; step <= topic.questions.length; step += 1) {
     if (hasMetDeepeningCriteria(topic, postMastery)) return;
-    const plan = planner.start(topic, "0".repeat(40), context.facts, history, 30, BUILT_IN_TUTOR_STRATEGY, {
+    const plan = planner.start(topic, "0".repeat(40), context.facts, history, 30, context.qualityCase.deepenStrategy ?? BUILT_IN_TUTOR_STRATEGY, {
       phase: "DEEPEN",
       preferredQuestionKinds: criteria.requiredQuestionKinds,
       existingQuestionKinds: postMastery.map(({ kind }) => kind),
