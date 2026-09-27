@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   loadTutorQualityEvaluationScenarios,
+  isTutorQualityRelevantUntrackedPath,
   parseTutorQualityCliArgs,
   runTutorQualityCli,
 } from "../../../../../scripts/tutor-quality-real-provider-eval";
@@ -32,6 +33,12 @@ describe("Tutor Quality real-provider CLI contract", () => {
   it("rejects malformed numeric limits and credential values", () => {
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", "0"])).toThrow();
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--credential-env", "not-a-value"])).toThrow();
+  });
+
+  it("does not treat protected editor SSOT files or the output directory as relevant inputs", () => {
+    expect(isTutorQualityRelevantUntrackedPath("ssot/ssot_function_tutor_model_registration.md", ".tutor-quality-output")).toBe(false);
+    expect(isTutorQualityRelevantUntrackedPath("evals/tutor-quality/anchor-corpus.yaml", ".tutor-quality-output")).toBe(true);
+    expect(isTutorQualityRelevantUntrackedPath(".tutor-quality-output/report.json", ".tutor-quality-output")).toBe(false);
   });
 
   it("materializes and runs the complete versioned anchor corpus with a fake provider", async () => {

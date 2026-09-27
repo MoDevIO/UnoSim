@@ -154,7 +154,7 @@ function statusLines(cwd: string): readonly string[] {
   return output.split("\n").map((line) => line.trimEnd()).filter(Boolean);
 }
 
-function relevantUntrackedPath(relativePath: string, outputDir: string): boolean {
+export function isTutorQualityRelevantUntrackedPath(relativePath: string, outputDir: string): boolean {
   const normalized = relativePath.replaceAll("\\", "/");
   const normalizedOutput = outputDir.replaceAll("\\", "/").replace(/\/$/, "");
   if (normalizedOutput && (normalized === normalizedOutput || normalized.startsWith(`${normalizedOutput}/`))) return false;
@@ -172,7 +172,7 @@ export function readTutorQualityGitState(cwd: string, outputDir: string): TutorQ
   const outputRelative = path.relative(cwd, path.resolve(cwd, outputDir));
   const relevantUntrackedClean = lines.every((line) => {
     if (line.slice(0, 2) !== "??") return true;
-    return !relevantUntrackedPath(line.slice(3).trim(), outputRelative);
+    return !isTutorQualityRelevantUntrackedPath(line.slice(3).trim(), outputRelative);
   });
   return { sha, trackedClean, relevantUntrackedClean };
 }

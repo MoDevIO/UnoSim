@@ -100,6 +100,9 @@ export interface TutorQualityProviderRequestArtifact {
 export interface TutorQualityTranscriptTurn {
   readonly index: number;
   readonly input: TutorQualityTurn;
+  readonly startedAt: string;
+  readonly durationMs: number;
+  readonly providerCalls: TutorQualityProviderCallCounts;
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
   readonly rawProviderResult?: Record<string, unknown>;
   readonly finalTutorResult?: TutorContentResult;
@@ -315,6 +318,7 @@ function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string 
       temperature: options.temperature,
       sampleCount: options.samples,
       maxCalls: options.maxCalls,
+      difficulties: options.scenarios.flatMap((scenario) => scenario.turns.map((turn) => turn.difficulty ?? 30)),
     },
   });
 }
@@ -572,6 +576,8 @@ async function runSample(
   const service = new TutorService(provider, content ? new CurriculumTutorAdapter() : undefined);
 
   for (const [turnIndex, turn] of scenario.turns.entries()) {
+    const turnStartedAt = (options.now ?? (() => new Date()))();
+    const callsBeforeTurn = provider.counts;
     const turnChecks: TutorQualityDeterministicCheck[] = [];
     const beforeGenerationCount = provider.generationCaptures.length;
     let finalResult: TutorContentResult | undefined;
@@ -629,9 +635,13 @@ async function runSample(
       addCheck(turnChecks, "final-tutor-response-present", false, error.kind);
     }
     const captureRequest = capture?.request;
+    const turnFinishedAt = (options.now ?? (() => new Date()))();
     turns.push({
       index: turnIndex,
       input: turn,
+      startedAt: turnStartedAt.toISOString(),
+      durationMs: Math.max(0, turnFinishedAt.getTime() - turnStartedAt.getTime()),
+      providerCalls: subtractCounts(provider.counts, callsBeforeTurn),
       ...(captureRequest ? { providerRequest: requestArtifact(captureRequest) } : {}),
       ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result), returnedModel: capture.response.model } : {}),
       ...(finalResult ? { finalTutorResult: finalResult } : {}),
