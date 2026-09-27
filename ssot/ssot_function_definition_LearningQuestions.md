@@ -320,12 +320,15 @@ probeable acquisition candidate when it has a non-empty mastery domain and the
 normal planner can produce at least one fact-applicable question under the
 active strategy, difficulty, repetition, and anti-loop rules.
 
-A Topic activation match with no probeable question is neither mastered nor a
-valid acquisition candidate. It remains an unresolved diagnostic result and
-must not silently be treated as mastered or used to enter DEEPEN. A
-mastery-domain concept whose applicable questions are exhausted or otherwise
-cannot currently produce a fresh probe remains an unmet blocker when its
-mastery criteria are false; it is not silently removed from the domain.
+A Topic activation match with a non-empty mastery domain, unmet mastery
+criteria, and no probeable question is an unmastered unresolved diagnostic
+result and must not silently be treated as mastered or used to enter DEEPEN. A
+Topic activation match with an empty mastery domain is not mastered and is not
+an acquisition candidate or progression blocker; it cannot justify a Topic
+question or a mastery claim. A mastery-domain concept whose applicable
+questions are exhausted or otherwise cannot currently produce a fresh probe
+remains an unmet blocker when its mastery criteria are false; it is not
+silently removed from the domain.
 Existing evidence may still satisfy it if its criteria are already true.
 
 In the transition rules below, “currently applicable Topic” means a normal
@@ -344,12 +347,36 @@ Topic mastery is true only when every concept in the non-empty current mastery
 domain satisfies its concept-level mastery criteria. A concept with no
 fact-applicable question is outside that evaluation and creates no false
 requirement. A Topic with no mastery-domain concept is not mastered. This
-aggregation is deterministic and application-controlled. Once true, mastery is
-latched for that Topic in the current Tutor session and Course revision. Later
-weak answers do not erase the latch while the Topic and sketch context remain
-valid. If the sketch context makes the Topic inapplicable, the active Topic
-state ends. If it is selected again in a new sketch context, it starts in LEARN
-and does not inherit the old active mastery state.
+aggregation is deterministic and application-controlled.
+
+Each relevant Topic is classified as exactly one of: mastered; unmastered and
+probeable; or unmastered and unresolved. An unresolved Topic has a non-empty
+current mastery domain with unmet Concept mastery requirements, but the normal
+planner cannot currently produce a valid fresh probe. It is not equivalent to
+mastery or to an inapplicable Topic.
+
+If no probeable unmastered Topic remains but an applicable unresolved
+unmastered Topic remains, progression is blocked. The conceptual phase remains
+LEARN, the application emits the safe diagnostic
+`progressionBlockedReason: content-exhausted`, and it never marks the Topic
+mastered or enters DEEPEN. The existing null-plan free-Tutor fallback may
+provide one bounded, user-initiated sketch-grounded remediation question under
+the normal safety contract, without Topic mastery claims or new Topic
+evidence. If no safe free response can be produced, the request fails as a
+controlled content-exhaustion condition without mutating mastery or phase
+state.
+
+Once true, mastery is latched for that Topic in the current Tutor session and
+Course revision. Topic applicability controls whether the Topic may currently
+be used; it does not erase session-local mastery evidence. When a learner edit
+makes a mastered Topic fact-inapplicable, UnoSim suspends it as the active
+Topic but retains its mastered state, evidence, and retained `DEEPEN` or
+`EXPAND` phase. No fact-dependent question or Topic claim may use it while
+inapplicable. If it becomes fact-applicable again in the same session, it
+remains mastered and resumes that retained phase rather than restarting LEARN.
+A new Tutor dialog/session or a Course source, ref, revision, or
+example-context reset clears the retained state under the existing reset
+contract.
 
 `learningObjectives` remain additional teacher-authored emphasis in LEARN,
 DEEPEN, and EXPAND. They may guide the question, deepening, or extension
@@ -358,15 +385,21 @@ direction, but never define mastery, activate a Topic, or select a strategy.
 #### LEARN to DEEPEN
 
 When the active Topic reaches mastery, UnoSim recomputes currently applicable
-and probeable Topics and applies normal precedence: applicable embedded primary
-Topic, other applicable embedded Topics, then fact-matched repository Topics.
-Mastered Topics are skipped for acquisition selection during the current
-session. If an applicable unmastered Topic remains, the highest-precedence such
-Topic becomes active and remains in LEARN. Only when no currently applicable
-unmastered Topic remains does the mastered active Topic transition to DEEPEN.
-Thus a mastered Topic A plus an applicable unmastered Topic B selects Topic B
-in LEARN, never DEEPEN on A. No special user control or additional LLM
-judgment is required; the internal phase is application-owned.
+Topics and applies normal precedence: applicable embedded primary Topic, other
+applicable embedded Topics, then fact-matched repository Topics. Mastered
+Topics are skipped for acquisition selection during the current session. If an
+applicable unmastered and probeable Topic remains, the highest-precedence such
+Topic becomes active and remains in LEARN. Thus a mastered Topic A plus an
+applicable probeable unmastered Topic B selects Topic B in LEARN, never DEEPEN
+on A.
+
+If no probeable unmastered Topic remains but an unresolved unmastered Topic
+remains, the blocked LEARN outcome applies. DEEPEN is admitted only when every
+currently relevant acquisition Topic is mastered or no longer fact-applicable,
+and no unresolved unmastered Topic remains. A Topic activation match with an
+empty mastery domain is not a relevant acquisition Topic and is never treated
+as mastered. No special user control or additional LLM judgment is required;
+the internal phase is application-owned.
 
 #### DEEPEN
 
@@ -461,13 +494,16 @@ named target is never active merely because it is listed.
 
 After a learner edit, UnoSim re-extracts facts and reruns normal Topic
 selection. If a new unmastered Topic becomes applicable during DEEPEN or
-EXPAND, the highest-precedence currently applicable unmastered Topic becomes
-active and starts independently in LEARN. If the current Topic becomes
-inapplicable, the same selection is rerun: a probeable unmastered Topic starts
-in LEARN, an applicable mastered Topic may resume its already latched
-post-mastery state, and if no applicable Topic can be selected the Tutor falls
-back to free mode. Previous Topic IDs may remain as session history for loop
-avoidance and diagnostics, but their mastery is not carried across Topics or
+EXPAND, the highest-precedence currently applicable unmastered and probeable
+Topic becomes active and starts independently in LEARN. If a new unresolved
+unmastered Topic becomes applicable, progression leaves DEEPEN/EXPAND for the
+blocked LEARN state; it cannot be bypassed by the absence of a question. If
+the current Topic becomes inapplicable, the same selection is rerun: a
+probeable unmastered Topic starts in LEARN, an unresolved Topic blocks in LEARN,
+an applicable mastered Topic resumes its retained DEEPEN or EXPAND phase, and
+if no applicable Topic can be selected the Tutor falls back to free mode.
+Previous Topic IDs may remain as session history for loop avoidance and
+diagnostics, but their mastery is not carried across different Topic IDs or
 used as cross-topic competence.
 
 If several Topics are applicable, only one primary Topic drives the next
@@ -481,9 +517,9 @@ Course revision. Conceptually it contains:
 
 - the server-authorized revision;
 - active primary Topic ID;
-- current phase;
-- mastered Topic IDs and per-Topic mastery evidence;
-- post-mastery/deepening evidence.
+- current phase and any progression-blocked reason;
+- per-Topic mastery state and evidence;
+- retained per-Topic post-mastery/deepening phase evidence.
 
 The state is process-local and session-local like the current one-hour opaque
 Tutor-session store. It is not a persistent learner model, grade, or identity-
@@ -520,13 +556,15 @@ without formal Topic mastery claims.
 |---|---|---|---|---|
 | LEARN | Topic mastery criteria not all true | LEARN | unchanged Topic | LEARN precedence |
 | LEARN | Topic A mastered; applicable unmastered Topic B exists | LEARN | highest-precedence unmastered Topic | acquisition precedence; mastered Topics skipped |
-| LEARN | Topic mastered; no applicable unmastered Topic remains | DEEPEN | same mastered Topic | post-mastery resolution begins |
+| LEARN | No probeable unmastered Topic, but unresolved unmastered Topic remains | LEARN (blocked) | highest-precedence unresolved Topic | `progressionBlockedReason: content-exhausted`; bounded free fallback only |
+| LEARN | All relevant acquisition Topics mastered or no longer fact-applicable; no unresolved blocker | DEEPEN | same mastered Topic | post-mastery resolution begins |
 | DEEPEN | insufficient successful transfer evidence | DEEPEN | same mastered Topic | prefer application/prediction/transfer |
 | DEEPEN | deepening criterion satisfied | EXPAND | same Topic | EXPAND phase strategy/fallback |
 | EXPAND | no sketch change or no new Topic | EXPAND, or bounded DEEPEN for a demonstrated gap | same Topic | anti-loop bounded extension/transfer behavior |
 | DEEPEN/EXPAND | new applicable unmastered Topic exists | LEARN | highest-precedence unmastered Topic | normal Topic precedence; new evidence |
-| EXPAND | changed sketch activates a new unmastered primary Topic | LEARN | highest-precedence unmastered Topic | new Topic starts its own mastery evidence |
-| Any phase | current Topic becomes inapplicable | rerun selection; unmastered probeable Topic starts LEARN, mastered Topic may resume, or free Tutor | selected applicable Topic or none | existing Topic/strategy precedence |
+| DEEPEN/EXPAND | new applicable unresolved unmastered Topic exists | LEARN (blocked) | highest-precedence unresolved Topic | no DEEPEN/EXPAND; content-exhaustion handling |
+| EXPAND | changed sketch activates a new unmastered primary Topic | LEARN | highest-precedence unmastered Topic | new Topic starts/continues its own acquisition evidence |
+| Any phase | current Topic becomes inapplicable | rerun selection; unmastered probeable Topic starts LEARN, unresolved Topic blocks LEARN, mastered Topic resumes retained phase, or free Tutor | selected applicable Topic or none | no fact-dependent use while inactive |
 | Any phase | Tutor capability becomes invalid | free Tutor | none | built-in-default; no partial bundle |
 
 #### Diagnostics and security

@@ -145,10 +145,14 @@ cannot declare mastery. After mastery, currently applicable unmastered Topics
 are selected by normal precedence and remain in LEARN; only when none remain
 does the mastered Topic enter DEEPEN. DEEPEN changes to EXPAND after bounded
 successful transfer evidence. A changed sketch reruns Topic matching, and a
-newly selected unmastered Topic starts in LEARN. A free Tutor without an active
-Topic remains available with its EffectiveTutorStrategy but does not claim
-formal Topic mastery. This state is pinned to the same opaque Tutor session
-and immutable Course revision and is not a persistent learner profile.
+newly selected unmastered Topic starts in LEARN. An unresolved unmastered Topic
+blocks DEEPEN/EXPAND in a safe `LEARN` content-exhaustion state. A mastered
+Topic made inapplicable by a sketch edit is suspended, not erased; if it later
+matches again in the same session, its retained DEEPEN/EXPAND phase resumes.
+A free Tutor without an active Topic remains available with its
+EffectiveTutorStrategy but does not claim formal Topic mastery. This state is
+pinned to the same opaque Tutor session and immutable Course revision and is
+not a persistent learner profile.
 
 The server extracts an optional terminal `@unosim-tutor` annotation from only
 the declared main `.ino` file before the Example leaves the Course Content
