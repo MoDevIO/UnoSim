@@ -690,7 +690,10 @@ async function runSample(
       durationMs: Math.max(0, turnFinishedAt.getTime() - turnStartedAt.getTime()),
       providerCalls: subtractCounts(provider.counts, callsBeforeTurn),
       ...(captureRequest ? { providerRequest: requestArtifact(captureRequest, options.credential) } : {}),
-      ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result, options.credential), returnedModel: redact(capture.response.model, options.credential) } : {}),
+      ...(capture?.response ? {
+        rawProviderResult: safeResult(capture.response.result, options.credential),
+        ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
+      } : {}),
       ...(finalResult ? { finalTutorResult: safeResult(finalResult, options.credential) } : {}),
       deterministicChecks: turnChecks,
       ...(error ? { technicalError: error } : {}),

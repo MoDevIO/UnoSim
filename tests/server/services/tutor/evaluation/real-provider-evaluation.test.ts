@@ -118,6 +118,25 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.invariantViolations).toHaveLength(0);
   });
 
+  it("marks a missing returned model invalid without leaking or throwing", async () => {
+    const result = await runTutorQualityEvaluation(options({
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion() {
+        return {
+          model: undefined as never,
+          result: { question: "Welche Beobachtung ist belegt?" },
+        };
+      },
+    }));
+    const transcript = result.transcripts[0]!;
+
+    expect(transcript.executionStatus).toBe("invalid");
+    expect(transcript.invalidReason).toBe("returned-model-missing");
+    expect(transcript.turns[0]).not.toHaveProperty("returnedModel");
+  });
+
   it("counts every provider call against the budget and stops before generation", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({ question: "Welche Beobachtung ist belegt?" }), { maxCalls: 2 }));
     const transcript = result.transcripts[0]!;
