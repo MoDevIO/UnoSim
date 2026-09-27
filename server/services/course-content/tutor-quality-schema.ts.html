@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for client/src/hooks/use-telemetry.ts</title>
+    <title>Code coverage report for server/services/course-content/tutor-quality-schema.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">client/src/hooks</a> use-telemetry.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">server/services/course-content</a> tutor-quality-schema.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>9/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">62.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>5/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">70% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>7/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -88,56 +88,68 @@
 <a name='L23'></a><a href='#L23'>23</a>
 <a name='L24'></a><a href='#L24'>24</a>
 <a name='L25'></a><a href='#L25'>25</a>
-<a name='L26'></a><a href='#L26'>26</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useMemo } from "react";
-import { TelemetryMetrics, useTelemetryStore } from "./use-telemetry-store";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { z } from "zod";
 &nbsp;
-/**
- * Helper hook bundling telemetry store subscription with some derived data
- * that is useful for UI components. Separates metrics-specific logic out of
- * pages and places it in a reusable hook.
- */
-export function useTelemetry() {
-  const telemetryData = useTelemetryStore();
+const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 &nbsp;
-  // derive a few commonly used rate values so callers don't have to guard
-  // against null/undefined all over the place.
-  const rates = useMemo(() =&gt; {
-    const last: TelemetryMetrics | null = telemetryData.last;
-    return {
-      serialOutputPerSecond: last?.serialOutputPerSecond ?? 0,
-      serialBytesPerSecond: last?.serialBytesPerSecond ?? 0,
-      serialDroppedBytesPerSecond: last?.serialDroppedBytesPerSecond ?? 0,
-      serialBytesTotal: last?.serialBytesTotal ?? 0,
-    };
-  }, [telemetryData.last]);
+const tutorQualityCaseSchema = z.object({
+  id: z.string().regex(SAFE_ID),
+  example: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
+  expectedTopics: z.array(z.string().regex(SAFE_ID)).max(64).default([]),
+  forbiddenTopics: z.array(z.string().regex(SAFE_ID)).max(64).default([]),
+}).strict().superRefine((value, context) =&gt; {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (value.expectedTopics.length === 0 &amp;&amp; value.forbiddenTopics.length === 0) {
+<span class="cstat-no" title="statement not covered" >    context.addIssue({ code: z.ZodIssueCode.custom, message: "A quality case must declare an expected or forbidden Topic" });</span>
+  }
+  const overlap = value.expectedTopics.find((topicId) =&gt; value.forbiddenTopics.includes(topicId));
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (overlap) {
+<span class="cstat-no" title="statement not covered" >    context.addIssue({ code: z.ZodIssueCode.custom, message: `Topic cannot be expected and forbidden: ${overlap}` });</span>
+  }
+});
 &nbsp;
-  return { telemetryData, rates };
-}
+export const tutorQualityCasesSchema = z.object({
+  schemaVersion: z.literal(1),
+  cases: z.array(tutorQualityCaseSchema).min(1).max(256),
+}).strict().superRefine((value, context) =&gt; {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (new Set(value.cases.map(({ id }) =&gt; id)).size !== value.cases.length) {
+<span class="cstat-no" title="statement not covered" >    context.addIssue({ code: z.ZodIssueCode.custom, path: ["cases"], message: "Quality case ids must be unique" });</span>
+  }
+});
+&nbsp;
+export type TutorQualityCases = z.infer&lt;typeof tutorQualityCasesSchema&gt;;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
