@@ -75,6 +75,17 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(result.report.providerCalls).toMatchObject({ total: 3, modelListCalls: 2, generationCalls: 1 });
   });
 
+  it("records the existing bounded heuristic for a near-repeat", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 3,
+      question: "Welche Rolle hat counter im Sketch?",
+    })));
+    const repeat = result.transcripts[0]?.invariantViolations.find(({ code }) => code === "question-repeat");
+
+    expect(repeat?.details).toBe("stage1-heuristic");
+  });
+
   it("separates provider failure from state mutation and does not commit state", async () => {
     const content = createAnchorCourseContent("progression-learn");
     const provider: LLMProvider = {
@@ -140,6 +151,18 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.executionStatus).toBe("technical-failure");
     expect(transcript.technicalError?.kind).toBe("invalid-response");
     expect(transcript.invariantViolations.map(({ code }) => code)).toContain("complete-solution");
+  });
+
+  it("records malformed provider output as a schema violation and technical failure", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: "not-a-rating",
+    })));
+    const transcript = result.transcripts[0]!;
+
+    expect(transcript.executionStatus).toBe("technical-failure");
+    expect(transcript.technicalError?.kind).toBe("invalid-response");
+    expect(transcript.invariantViolations.map(({ code }) => code)).toContain("schema-invalid");
   });
 
   it("does not trust provider-supplied planning metadata", async () => {
