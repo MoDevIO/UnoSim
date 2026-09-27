@@ -16,7 +16,7 @@
 - Do not call a provider directly from the evaluator; use `TutorService` and the existing provider implementation.
 - Do not modify normal provider fallback behavior. Stage 2A requires an explicit model and marks missing/mismatched model metadata `invalid`.
 - Never accept or print a credential value, authorization header, `process.env`, or an uploaded diff. Accept only a credential environment-variable name.
-- A dirty relevant Git worktree is an invalid preflight and issues no provider call.
+- Any tracked or indexed Git change is an invalid preflight and issues no provider call. Untracked files are invalidating only under versioned evaluation/runtime input roots; unrelated editor files, protected local SSOT files, and ignored output directories are excluded.
 - No real-provider call is made by unit tests, pull-request CI, or required checks. Missing credentials produce `not-run` output.
 - No semantic grades, LLM-as-Judge, adaptive strategy, fact-extractor expansion, learner profiles, or learning-effect claims.
 - Keep artifact schemas allow-listed, bounded, deterministic, and disposable. Do not commit generated run output.
@@ -37,8 +37,9 @@
 ## Task 1 – Lock the corpus and fixture contract with tests
 
 - [ ] Add a failing loader/contract test for a manifest with `corpusId`, `corpusVersion`, stable scenario IDs, sketch references, course fixture/free-Tutor mode, synthetic answers, explicit turn bindings, and structural expectations.
-- [ ] Add a failing test that rejects duplicate IDs, missing fixture references, `auto` model declarations, unbound continuation answers, and a corpus edit that does not increase the version when the parsed scenario digest changes.
-- [ ] Add `evals/tutor-quality/anchor-corpus.yaml` at version 1 with the ten approved anchors: `TQ-REG-001`, simple variable, Serial prediction, incorrect answer, partial answer, strong answer/progression, unmatched/free Tutor, LEARN→DEEPEN, EXPAND, and off-topic answer.
+- [ ] Add a failing test that rejects duplicate IDs, missing fixture references, `auto` model declarations, and unbound continuation answers.
+- [ ] Add a separate corpus-evolution validator and failing tests for `compare(previousCorpus, currentCorpus)`: a parsed/digest-changing add, removal, or semantic edit requires a higher `corpusVersion`; formatting-only changes may keep the version only when parsed content and digest are unchanged. Keep historical comparison out of the current-corpus loader.
+- [ ] Add `evals/tutor-quality/anchor-corpus.yaml` at version 1 with the ten approved anchors: `TQ-REG-001` (no variables-topic activation and no exact or Stage-1-heuristic repeat), simple variable, Serial prediction, incorrect answer, partial answer, strong answer/progression, unmatched/free Tutor, LEARN→DEEPEN, EXPAND, and off-topic answer.
 - [ ] Add only the small required `.ino` fixtures under `evals/tutor-quality/fixtures/`; reuse the existing PWM fixture where possible rather than copying production content.
 - [ ] Add a typed `anchor-course-content.ts` fixture factory for the small valid Course Content snapshots and seeded progression states required by topic activation, LEARN/DEEPEN, and EXPAND cases. Keep revision strings and question IDs explicit and reviewable.
 - [ ] Run the focused corpus tests red before implementation and green after the loader/factory exists.
@@ -52,16 +53,17 @@
 
 ## Task 3 – Implement the injectable evaluation runner and transcript model
 
-- [ ] Add failing tests for fresh state/history cloning per sample, normal `TutorService` initial/dialog invocation, provider capture before validation/repair, deterministic repeat/solution/schema checks, state-before/state-after snapshots, and explicit expected structural checks.
+- [ ] Add failing tests for fresh state/history cloning per sample, normal `TutorService` initial/dialog invocation, provider capture before validation/repair, shared diagnostic repeat/solution/schema checks, state-before/state-after snapshots, and explicit expected structural checks.
 - [ ] Add `server/services/tutor/evaluation/real-provider-evaluation.ts` with small typed contracts for corpus scenarios, invocation options, sample metadata, logical turns, deterministic check records, transcript artifacts, and aggregate reports.
 - [ ] Inject the provider, clock, random suffix, Git metadata, and output writer seams so tests never need credentials, network, or a mutable repository.
 - [ ] Wrap the provider to capture requests and parsed `ProviderQuestionResult` values before `TutorService` receives them. Keep the raw capture allow-listed and exclude transport envelopes/headers.
 - [ ] Invoke `TutorService` with `CurriculumTutorAdapter` when a scenario declares Course Content; invoke the same service without planning for free-Tutor cases.
-- [ ] Reuse exported `validateLearningQuestion` and `isSemanticallyRepeatedQuestion` for deterministic checks. Record raw complete-solution/repeat violations even when TutorService rejects or repairs the response; never turn these into semantic scores.
-- [ ] Enforce fixed requested model, preflight model availability, returned-model equality, explicit call/sample limits, and no call beyond the budget.
+- [ ] Split the existing pure learning-question validation internally into one shared diagnostic function that returns granular deterministic violation records and keep `validateLearningQuestion` as the existing throw/normalization wrapper. Export the diagnostic function for Stage 2A; add no new rule and preserve runtime behavior.
+- [ ] Reuse that diagnostic function and `isSemanticallyRepeatedQuestion` for deterministic checks. Record raw complete-solution/repeat violations even when TutorService rejects or repairs the response; never turn these into semantic scores.
+- [ ] Enforce fixed requested model, preflight model availability, returned-model equality, explicit sample limits, and a provider-call budget covering *all* external calls, including `listModels()` and generation. Report `providerCalls`, `modelListCalls`, and `generationCalls` separately; stop before any call that would exceed the budget.
 - [ ] Implement the two status axes from the SSOT: `executionStatus` (`completed`, `invalid`, `technical-failure`, `not-run`) and `invariantViolations` (array). Classify missing credentials/zero preflight budget as `not-run`; provider errors, timeout, malformed responses, and mid-run budget exhaustion as technical failures; metadata/model/binding problems as invalid.
 - [ ] Implement canonical JSON hashing for `evaluationIdentity`, run IDs with UTC timestamp plus collision-resistant suffix, and secret-free allow-listed JSON transcript writing.
-- [ ] Implement aggregate counts/rates per scenario and overall with explicit denominators, exact provider-call counts, budget exhaustion, and cost `unavailable` when the provider supplies no cost data.
+- [ ] Implement aggregate counts/rates per scenario and overall with explicit denominators, exact provider-call counts, separate model-list/generation counts, budget exhaustion, and cost `unavailable` when the provider supplies no cost data. Always write a run-level `not-run` report for missing credentials with `reason: missing-credential`, zero provider calls, and no sample transcripts.
 - [ ] Run the focused evaluator tests red before implementation and green after each runner slice.
 
 ## Task 4 – Add adversarial fake-provider coverage
@@ -89,8 +91,7 @@
 ## Task 7 – Verification and review handoff
 
 - [ ] Run the Node-version check, focused Stage-2A tests, existing `npm run test:tutor-quality`, `npm run check`, `npm run check:docs`, and `git diff --check`.
-- [ ] Run the CLI in no-credential mode and verify it writes only the documented not-run artifact (or exits without artifacts according to the contract), with no secret-like data.
+- [ ] Run the CLI in no-credential mode and verify it writes the documented run-level `not-run` report with `reason: missing-credential`, zero provider calls, no sample transcripts, and no secret-like data.
 - [ ] Confirm generated transcripts/reports are ignored or written only to caller-selected disposable directories.
 - [ ] Review the diff for accidental production behavior changes, duplicated Stage-1 validation, direct HTTP access, semantic scoring, and CI hard-gate coupling.
 - [ ] Commit the implementation in coherent commits and report branch/base/HEAD, files, anchors, deterministic metrics, excluded Stage-2B dimensions, tests, and the absence of a real-provider run if credentials are unavailable.
-

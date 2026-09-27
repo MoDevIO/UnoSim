@@ -123,9 +123,13 @@ system/user prompt templates (before scenario values are inserted). A change
 to an application-owned prompt template MUST change this revision. Per-turn
 prompt digests MAY additionally be stored in transcripts.
 
-Real-provider evaluation requires a clean Git working tree. A dirty relevant
-worktree makes the run preflight `invalid` and no provider call is issued; the
-runner does not upload a diff as a substitute for the exact Git SHA.
+Real-provider evaluation requires a clean relevant Git state. Any tracked or
+indexed change makes the run preflight `invalid` and no provider call is
+issued. Untracked files are invalidating only when they are under a
+versioned evaluation/runtime input root and could affect the run; known
+untracked editor files, protected local SSOT files, and ignored output
+directories do not affect the preflight. The runner does not upload a diff as
+a substitute for the exact Git SHA.
 
 Missing or inconsistent identity metadata, including an omitted or `auto`
 model, makes a sample `invalid`. It MUST NOT be reported as a Tutor-quality
@@ -147,8 +151,9 @@ Git diff, or uploaded artifact. Authorization headers are provider-internal
 and are never part of the evaluation artifact model.
 
 Missing credentials cause an explicit `not-run/missing-credential` result for
-manual/workflow execution. They do not fail normal CI because Stage 2A is not
-part of normal CI.
+manual/workflow execution. The runner still writes a run-level report with
+that reason and zero provider calls, but no sample transcripts. Missing
+credentials do not fail normal CI because Stage 2A is not part of normal CI.
 
 ## 6. Transcript artifact contract
 
@@ -190,7 +195,11 @@ provider response envelopes.
 
 Stage 2A may report only properties with a deterministic rule. The runner
 reuses the existing TutorService validation and bounded repeat heuristic and
-records at least:
+records at least. The validation exposes one shared pure diagnostic result for
+schema, question-count, complete-solution, and related deterministic issues;
+`TutorService` retains its existing throw/repair behavior by consuming that
+result, and the evaluator consumes the same records rather than duplicating
+rules.
 
 - provider response/schema validity;
 - exactly one primary question;
@@ -216,11 +225,13 @@ scenario and overall. It MUST keep these categories separate:
 There are no semantic quality grades, learning-support scores, or pass/fail
 claims about actual learning in Stage 2A.
 
-Every invocation has a hard maximum sample count and provider-call budget.
-The runner stops before issuing a call that would exceed the budget. Provider
-token/cost data is reported only when the provider supplies it; otherwise the
-report states that monetary cost is unavailable and still reports exact call
-counts.
+Every invocation has a hard maximum sample count and provider-call budget. The
+budget covers every external provider call, including `listModels()` preflight
+and model resolution as well as generation; reports additionally separate
+model-list calls from generation calls. The runner stops before issuing a call
+that would exceed the budget. Provider token/cost data is reported only when
+the provider supplies it; otherwise the report states that monetary cost is
+unavailable and still reports exact call counts.
 
 ## 8. Execution and CI
 
