@@ -155,6 +155,27 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcriptText).toContain("[REDACTED]");
   });
 
+  it("redacts credentials from scripted learner input in every transcript turn", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 4,
+      question: "Welche Beobachtung ist belegt?",
+    }), {
+      scenarios: [scenario({
+        turns: [{
+          kind: "dialog",
+          question: "Welche Beobachtung ist belegt?",
+          answer: "super-secret-value",
+          bindsToQuestion: "Welche Beobachtung ist belegt?",
+        }],
+      })],
+    }));
+    const transcriptText = JSON.stringify(result.transcripts[0]);
+
+    expect(transcriptText).not.toContain("super-secret-value");
+    expect(transcriptText).toContain("[REDACTED]");
+  });
+
   it("records raw complete-solution and schema violations separately from technical failure", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({
       question: "void setup() {} void loop() {}",

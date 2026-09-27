@@ -678,7 +678,7 @@ async function runSample(
     const turnFinishedAt = (options.now ?? (() => new Date()))();
     turns.push({
       index: turnIndex,
-      input: turn,
+      input: safeTurn(turn, options.credential),
       startedAt: turnStartedAt.toISOString(),
       durationMs: Math.max(0, turnFinishedAt.getTime() - turnStartedAt.getTime()),
       providerCalls: subtractCounts(provider.counts, callsBeforeTurn),
