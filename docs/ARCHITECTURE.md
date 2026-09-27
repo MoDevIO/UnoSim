@@ -141,13 +141,14 @@ validation, and editor boundary are never repository-controlled.
 For an active applicable Topic, the Tutor additionally tracks the application-
 owned session-local didactic phase `LEARN`, `DEEPEN`, or `EXPAND`. Deterministic
 Topic mastery is derived from the existing concept mastery criteria; the LLM
-cannot declare mastery. LEARN changes to DEEPEN after Topic mastery, DEEPEN
-changes to EXPAND after bounded successful transfer evidence, and a changed
-sketch reruns Topic matching so a newly selected Topic starts in LEARN. A free
-Tutor without an active Topic remains available with its EffectiveTutorStrategy
-but does not claim formal Topic mastery. This state is pinned to the same
-opaque Tutor session and immutable Course revision and is not a persistent
-learner profile.
+cannot declare mastery. After mastery, currently applicable unmastered Topics
+are selected by normal precedence and remain in LEARN; only when none remain
+does the mastered Topic enter DEEPEN. DEEPEN changes to EXPAND after bounded
+successful transfer evidence. A changed sketch reruns Topic matching, and a
+newly selected unmastered Topic starts in LEARN. A free Tutor without an active
+Topic remains available with its EffectiveTutorStrategy but does not claim
+formal Topic mastery. This state is pinned to the same opaque Tutor session
+and immutable Course revision and is not a persistent learner profile.
 
 The server extracts an optional terminal `@unosim-tutor` annotation from only
 the declared main `.ino` file before the Example leaves the Course Content

@@ -265,11 +265,14 @@ strategies:
 
 defaultStrategy is optional. topics and strategies may each be empty; this
 explicitly supports a strategy-only repository and a topics-only repository.
-The fixed optional `phaseStrategies.deepen` and `phaseStrategies.expand`
-entries belong to a future versioned Tutor manifest schema extension for
-mastery-driven progression; they may reference only strategies enumerated in
-the same validated bundle. The existing Tutor manifest schema remains valid
-when the field is absent.
+Tutor manifest `schemaVersion: 1` remains exactly this contract: it has the
+existing fields above and has no `phaseStrategies` field. Tutor manifest
+`schemaVersion: 2` retains every v1 field and may add the fixed optional
+entries `phaseStrategies.deepen` and `phaseStrategies.expand`; each entry may
+reference only a strategy enumerated in the same validated bundle. A future
+implementation MUST support both versions. A v1 manifest therefore continues
+to work unchanged, while an unknown field in a strict v1 manifest remains
+invalid rather than being reinterpreted as a v2 field.
 IDs are unique, lower-case safe IDs. File counts, individual file sizes, total
 Tutor bytes, and total referenced files are bounded by server configuration.
 
@@ -327,11 +330,13 @@ the generic schema. The existing pilot fields are normalized as follows:
 Repository text is untrusted educational data. It is bounded, control-character
 checked, URL-free, and passed only as structured didactic context.
 
-The deepening criteria and extension fields are future versioned Topic schema
-extensions. A repository using them must declare the supported schema version;
-an implementation that does not support that version invalidates the Tutor
-capability rather than partially activating the Topic. The existing schema-v1
-Topics remain valid and use the normative application default for deepening.
+Curriculum Topic `schemaVersion: 1` remains exactly this contract and has no
+`deepening` or `extensions` fields. Curriculum Topic `schemaVersion: 2`
+retains every v1 semantic and may add the optional bounded `deepening` and
+`extensions` fields defined in section 9.2. A future implementation MUST
+support both versions. A v1 Topic therefore continues to work unchanged and
+uses the normative application default for deepening; strict v1 validation
+does not reinterpret v2-only fields.
 
 ## 9. Strategy model
 
@@ -507,12 +512,45 @@ the active primary Topic. A free Tutor without an active Topic remains normal
 free Tutor behavior and does not claim formal Topic mastery. This restriction
 also applies to arbitrary sketches with no matching Topic.
 
-Topic mastery is application-controlled and deterministic. For the active
-Topic, a concept is eligible for Topic mastery when the current facts make at
-least one of its questions applicable. Topic mastery requires every eligible
-concept to satisfy its existing concept-level mastery criteria; a Topic with no
-eligible concept is not mastered. The application evaluates the existing
-fields as follows:
+Topic activation and Topic mastery use two explicit domains. The
+`TopicMatcher`'s activation match is only a candidate. For the active Topic:
+
+- a question is fact-applicable when it is schema-valid and every question
+  `requires` entry matches the current sketch facts;
+- a concept is in the current Topic mastery domain when at least one of its
+  questions is fact-applicable;
+- a Topic is a probeable acquisition candidate when it has a non-empty mastery
+  domain and the normal planner can produce at least one fact-applicable
+  question under the active strategy, difficulty, repetition, and anti-loop
+  rules;
+- a Topic activation match with no probeable question is neither mastered nor
+  a valid acquisition candidate. It remains an unresolved diagnostic result;
+  the application must not silently treat it as mastered or use it to enter
+  DEEPEN;
+- a mastery-domain concept whose applicable questions are exhausted or
+  otherwise cannot currently produce a fresh probe remains an unmet blocker
+  when its mastery criteria are false. It is not silently removed from the
+  domain. Existing evidence may still satisfy it if its criteria are already
+  true.
+
+In the transition rules below, “currently applicable Topic” means a normal
+TopicMatcher match that is also a probeable acquisition candidate. A bare
+activation match with no valid probe does not qualify as an unmastered
+acquisition Topic.
+
+The current Topic schema expresses factual applicability on Questions, not on
+Concepts or individual mastery indicators. It therefore cannot statically
+guarantee that every required indicator has a fact-applicable probe for every
+sketch. This contract does not invent concept-level requirements: when such a
+probe is unavailable, the concept remains unresolved and blocks Topic mastery.
+That is an explicit authoring/runtime limitation for the current schema.
+
+Topic mastery is application-controlled and deterministic. It requires every
+concept in the non-empty current mastery domain to satisfy its existing
+concept-level mastery criteria. A concept with no fact-applicable question is
+outside that evaluation and does not create a false requirement. A Topic with
+no mastery-domain concept is not mastered. The application evaluates the
+existing fields as follows:
 
 - `minimumSuccessfulProbes` counts rated, valid probes for that concept whose
   `answerRating` meets that concept's `successRatingAtLeast`;
@@ -545,21 +583,41 @@ sketch context remain valid. A source/context change that makes the Topic
 inapplicable ends the active Topic state; if the Topic is selected again after a
 new sketch context, it starts in `LEARN` rather than inheriting prior mastery.
 
-The transition `LEARN -> DEEPEN` occurs immediately when deterministic Topic
-mastery changes from false to true. It does not require a special user control
-or another LLM judgment. DEEPEN remains centered on that Topic and prefers
-application, prediction, transfer, changed examples, consequences, and small
-conceptual variations. It must not activate an unrelated Topic.
+After the active Topic reaches mastery, UnoSim recomputes currently applicable
+and probeable Topics and applies the existing precedence: applicable embedded
+primary Topic, other applicable embedded Topics, then fact-matched repository
+Topics. Mastered Topics are skipped for acquisition selection during the
+current session. If a currently applicable unmastered Topic remains, the
+highest-precedence such Topic becomes active and the phase remains `LEARN`.
+Only when no currently applicable unmastered Topic remains does the mastered
+active Topic enter `DEEPEN`. Thus a mastered Topic A plus an applicable
+unmastered Topic B selects Topic B in `LEARN`, never `DEEPEN` on A.
 
-The Topic may optionally define bounded deepening criteria in a future Topic
-schema extension. The normative default for the first phase-enabled schema
-version is two successful post-mastery probes, each rated at least `4`, with
-at least one `transfer` probe and no trailing weak probe. Configured criteria
-may only use bounded numeric values, the fixed question kinds `application`,
-`prediction`, and `transfer`, and the same trailing-weak semantics. Deepening
-evidence starts at the LEARN-to-DEEPEN transition; pre-mastery answers do not
-count toward it. When the criteria are met, `DEEPEN -> EXPAND` occurs
-deterministically.
+The transition into `DEEPEN` is therefore deterministic and does not require
+a special user control or another LLM judgment. DEEPEN remains centered on the
+mastered Topic only after that acquisition check and prefers application,
+prediction, transfer, changed examples, consequences, and small conceptual
+variations. It must not activate an unrelated Topic.
+
+Topic `schemaVersion: 2` may optionally define bounded deepening criteria:
+
+~~~yaml
+deepening:
+  minimumSuccessfulProbes: 2
+  successRatingAtLeast: 4
+  requiredQuestionKinds:
+    - transfer
+  recentWeakAnswersAllowed: 0
+~~~
+
+The fields are bounded as follows: probes `1..10`, success threshold `3..5`,
+one to three unique required kinds from `application`, `prediction`, and
+`transfer`, and trailing weak allowance `0..3`. The normative default when
+`deepening` is absent is two successful post-mastery probes, each rated at
+least `4`, with at least one `transfer` probe and no trailing weak probe.
+Deepening evidence starts at the LEARN-to-DEEPEN transition; pre-mastery
+answers do not count toward it. When the criteria are met, `DEEPEN -> EXPAND`
+occurs deterministically. Schema v1 Topics cannot contain this field.
 
 `learningObjectives` remain applicable didactic emphasis in all three phases:
 they may guide question, deepening, and extension direction, but they never
@@ -571,7 +629,7 @@ continue bounded transfer, offer another finite extension direction, or revisit
 a demonstrated gap, subject to the existing anti-loop rules. It must not repeat
 the same extension indefinitely or fabricate a new Topic.
 
-An optional Topic extension list is bounded structured data:
+An optional Topic v2 extension list is bounded structured data:
 
 ~~~yaml
 extensions:
@@ -579,8 +637,9 @@ extensions:
     objective: Repeated behavior can be moved into a function.
 ~~~
 
-Each Topic may contain at most eight extensions. Each entry has only a safe
-target Topic ID and a trimmed bounded objective/reason (maximum 500 Unicode
+Each schemaVersion 2 Topic may contain at most eight extensions. Each entry has
+only a safe target Topic ID and a trimmed bounded objective/reason (maximum 500
+Unicode
 characters, no control characters, URLs, prompts, roles, templates, scripts,
 or expressions). The target must exist in the same validated Tutor bundle.
 An extension is educational guidance, never activation authority. The target
@@ -588,13 +647,17 @@ becomes active only when the normal fact matcher proves it applicable to the
 current changed sketch.
 
 After a sketch edit, UnoSim re-extracts facts and reruns normal Topic
-precedence. If a new primary Topic is selected, that Topic starts independently
-in `LEARN`; previous Topic mastery is not transferred across Topics. Multiple
-applicable Topics remain candidates, but only one primary Topic and one primary
-question exist at a time.
+precedence. If a new unmastered Topic becomes applicable during `DEEPEN` or
+`EXPAND`, the highest-precedence currently applicable unmastered Topic becomes
+active and starts independently in `LEARN`. If the current Topic becomes
+inapplicable, the same selection is rerun: a probeable unmastered Topic starts
+in `LEARN`, an applicable mastered Topic may resume its already latched
+post-mastery state, and if no applicable Topic can be selected the Tutor falls
+back to free mode. Multiple applicable Topics remain candidates, but only one
+primary Topic and one primary question exist at a time.
 
-The minimal post-mastery strategy design is a fixed phase-strategy map in a
-future versioned Tutor manifest schema extension:
+The minimal post-mastery strategy design is a fixed phase-strategy map in
+Tutor manifest `schemaVersion: 2`:
 
 ~~~yaml
 phaseStrategies:

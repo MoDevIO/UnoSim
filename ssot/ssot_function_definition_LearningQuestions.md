@@ -268,6 +268,14 @@ This includes arbitrary sketches when a Topic matches. A free Tutor without an
 active Topic remains ordinary sketch-grounded free Tutor behavior and does not
 claim formal Topic mastery, DEEPEN, or EXPAND.
 
+The phase-related content versions are explicit. Tutor manifest
+`schemaVersion: 1` has no `phaseStrategies`; manifest `schemaVersion: 2`
+retains all v1 fields and may add only the fixed `deepen` and `expand` phase
+strategy references. Curriculum Topic `schemaVersion: 1` has no `deepening`
+or `extensions`; Topic `schemaVersion: 2` retains all v1 semantics and may
+add those bounded fields. Future implementations support both versions, and
+strict v1 validation does not reinterpret v2-only fields.
+
 #### LEARN
 
 LEARN is the normal Topic-learning phase. It combines current sketch facts,
@@ -303,15 +311,45 @@ Topic's mastery against all accumulated evidence. Mastery evidence and
 algorithm may influence question selection, but difficulty neither declares
 mastery nor replaces any mastery criterion.
 
-Topic mastery is true when every concept that has at least one currently
-applicable question in the active Topic satisfies its concept-level mastery
-criteria. A Topic with no applicable concept is not mastered. This aggregation
-is deterministic and application-controlled. Once true, mastery is latched for
-that Topic in the current Tutor session and Course revision. Later weak answers
-do not erase the latch while the Topic and sketch context remain valid. If the
-sketch context makes the Topic inapplicable, the active Topic state ends. If it
-is selected again in a new sketch context, it starts in LEARN and does not
-inherit the old active mastery state.
+Topic activation and Topic mastery use two explicit domains. The
+`TopicMatcher` activation result is only a candidate. A question is
+fact-applicable when it is schema-valid and every question `requires` entry
+matches the current sketch facts. A concept is in the current Topic mastery
+domain when at least one of its questions is fact-applicable. A Topic is a
+probeable acquisition candidate when it has a non-empty mastery domain and the
+normal planner can produce at least one fact-applicable question under the
+active strategy, difficulty, repetition, and anti-loop rules.
+
+A Topic activation match with no probeable question is neither mastered nor a
+valid acquisition candidate. It remains an unresolved diagnostic result and
+must not silently be treated as mastered or used to enter DEEPEN. A
+mastery-domain concept whose applicable questions are exhausted or otherwise
+cannot currently produce a fresh probe remains an unmet blocker when its
+mastery criteria are false; it is not silently removed from the domain.
+Existing evidence may still satisfy it if its criteria are already true.
+
+In the transition rules below, “currently applicable Topic” means a normal
+TopicMatcher match that is also a probeable acquisition candidate. A bare
+activation match with no valid probe does not qualify as an unmastered
+acquisition Topic.
+
+The current Topic schema expresses factual applicability on Questions, not on
+Concepts or individual mastery indicators. It therefore cannot statically
+guarantee that every required indicator has a fact-applicable probe for every
+sketch. This contract does not invent concept-level requirements: when such a
+probe is unavailable, the concept remains unresolved and blocks Topic mastery.
+That is an explicit authoring/runtime limitation for the current schema.
+
+Topic mastery is true only when every concept in the non-empty current mastery
+domain satisfies its concept-level mastery criteria. A concept with no
+fact-applicable question is outside that evaluation and creates no false
+requirement. A Topic with no mastery-domain concept is not mastered. This
+aggregation is deterministic and application-controlled. Once true, mastery is
+latched for that Topic in the current Tutor session and Course revision. Later
+weak answers do not erase the latch while the Topic and sketch context remain
+valid. If the sketch context makes the Topic inapplicable, the active Topic
+state ends. If it is selected again in a new sketch context, it starts in LEARN
+and does not inherit the old active mastery state.
 
 `learningObjectives` remain additional teacher-authored emphasis in LEARN,
 DEEPEN, and EXPAND. They may guide the question, deepening, or extension
@@ -319,10 +357,16 @@ direction, but never define mastery, activate a Topic, or select a strategy.
 
 #### LEARN to DEEPEN
 
-The transition occurs immediately and deterministically when active Topic
-mastery changes from false to true. No separate user click and no additional
-LLM judgment are required. The Tutor may communicate the transition naturally,
-but its internal phase is application-owned.
+When the active Topic reaches mastery, UnoSim recomputes currently applicable
+and probeable Topics and applies normal precedence: applicable embedded primary
+Topic, other applicable embedded Topics, then fact-matched repository Topics.
+Mastered Topics are skipped for acquisition selection during the current
+session. If an applicable unmastered Topic remains, the highest-precedence such
+Topic becomes active and remains in LEARN. Only when no currently applicable
+unmastered Topic remains does the mastered active Topic transition to DEEPEN.
+Thus a mastered Topic A plus an applicable unmastered Topic B selects Topic B
+in LEARN, never DEEPEN on A. No special user control or additional LLM
+judgment is required; the internal phase is application-owned.
 
 #### DEEPEN
 
@@ -340,11 +384,22 @@ criterion for `DEEPEN -> EXPAND` is:
 - at least one probe is `transfer`;
 - no trailing weak probe.
 
-Topics may configure bounded criteria in a future Topic schema extension using
-only a number from `1..10`, a success threshold from `3..5`, the fixed kinds
-`application`, `prediction`, and `transfer`, and the existing trailing-weak
-allowance from `0..3`. An absent configuration uses the default above. No
-expression language, arbitrary predicate, or repository prompt is allowed.
+Topic `schemaVersion: 2` may configure bounded criteria using this structure:
+
+~~~yaml
+deepening:
+  minimumSuccessfulProbes: 2
+  successRatingAtLeast: 4
+  requiredQuestionKinds:
+    - transfer
+  recentWeakAnswersAllowed: 0
+~~~
+
+The bounds are probes `1..10`, success threshold `3..5`, one to three unique
+required kinds from `application`, `prediction`, and `transfer`, and trailing
+weak allowance `0..3`. An absent `deepening` configuration uses the default
+above. No expression language, arbitrary predicate, or repository prompt is
+allowed. Schema v1 Topics cannot contain this field.
 
 #### DEEPEN to EXPAND
 
@@ -369,7 +424,7 @@ The existing LEARN strategy precedence remains unchanged:
 2. repository `defaultStrategy`;
 3. application-owned `built-in-default`.
 
-A future Tutor manifest extension may add only the fixed optional keys
+A Tutor manifest `schemaVersion: 2` may add only the fixed optional keys
 `phaseStrategies.deepen` and `phaseStrategies.expand`. Resolution for each
 post-mastery phase is:
 
@@ -389,7 +444,8 @@ Example-specific override in every phase.
 
 #### Topic extensions and EXPAND to new LEARN
 
-A Topic may optionally declare at most eight bounded extensions:
+A Topic `schemaVersion: 2` may optionally declare at most eight bounded
+extensions:
 
 ~~~yaml
 extensions:
@@ -404,17 +460,19 @@ exist in the same validated Tutor bundle. Extension data is guidance only; a
 named target is never active merely because it is listed.
 
 After a learner edit, UnoSim re-extracts facts and reruns normal Topic
-selection. If an extension candidate or another repository Topic becomes
-applicable, the existing Topic precedence decides the one active primary Topic.
-That Topic starts in LEARN with independent mastery evidence, even when the
-previous Topic remains applicable. Previous Topic IDs may remain as session
-history for loop avoidance and diagnostics, but their mastery is not carried
-across Topics or used as cross-topic competence.
+selection. If a new unmastered Topic becomes applicable during DEEPEN or
+EXPAND, the highest-precedence currently applicable unmastered Topic becomes
+active and starts independently in LEARN. If the current Topic becomes
+inapplicable, the same selection is rerun: a probeable unmastered Topic starts
+in LEARN, an applicable mastered Topic may resume its already latched
+post-mastery state, and if no applicable Topic can be selected the Tutor falls
+back to free mode. Previous Topic IDs may remain as session history for loop
+avoidance and diagnostics, but their mastery is not carried across Topics or
+used as cross-topic competence.
 
-If the current Topic becomes inapplicable, it is not preserved merely because
-it was previously mastered. If several Topics are applicable, only one primary
-Topic drives the next question; the others remain candidates/context. The
-one-primary-question rule is unchanged.
+If several Topics are applicable, only one primary Topic drives the next
+question; the others remain candidates/context. The one-primary-question rule
+is unchanged.
 
 #### Session, reset, and persistence semantics
 
@@ -460,13 +518,15 @@ without formal Topic mastery claims.
 
 | Current phase | Condition | Next phase | Active Topic | Strategy behavior |
 |---|---|---|---|---|
-| LEARN | Topic mastery criteria not all true | LEARN | unchanged applicable Topic | LEARN precedence |
-| LEARN | Topic mastery becomes true | DEEPEN | same Topic | post-mastery resolution begins |
+| LEARN | Topic mastery criteria not all true | LEARN | unchanged Topic | LEARN precedence |
+| LEARN | Topic A mastered; applicable unmastered Topic B exists | LEARN | highest-precedence unmastered Topic | acquisition precedence; mastered Topics skipped |
+| LEARN | Topic mastered; no applicable unmastered Topic remains | DEEPEN | same mastered Topic | post-mastery resolution begins |
 | DEEPEN | insufficient successful transfer evidence | DEEPEN | same mastered Topic | prefer application/prediction/transfer |
 | DEEPEN | deepening criterion satisfied | EXPAND | same Topic | EXPAND phase strategy/fallback |
 | EXPAND | no sketch change or no new Topic | EXPAND, or bounded DEEPEN for a demonstrated gap | same Topic | anti-loop bounded extension/transfer behavior |
-| EXPAND | changed sketch activates a new primary Topic | LEARN | new Topic | new Topic starts its own mastery evidence |
-| Any phase | current Topic becomes inapplicable | rerun selection; new Topic starts LEARN, or free Tutor | selected applicable Topic or none | existing Topic/strategy precedence |
+| DEEPEN/EXPAND | new applicable unmastered Topic exists | LEARN | highest-precedence unmastered Topic | normal Topic precedence; new evidence |
+| EXPAND | changed sketch activates a new unmastered primary Topic | LEARN | highest-precedence unmastered Topic | new Topic starts its own mastery evidence |
+| Any phase | current Topic becomes inapplicable | rerun selection; unmastered probeable Topic starts LEARN, mastered Topic may resume, or free Tutor | selected applicable Topic or none | existing Topic/strategy precedence |
 | Any phase | Tutor capability becomes invalid | free Tutor | none | built-in-default; no partial bundle |
 
 #### Diagnostics and security
