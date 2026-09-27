@@ -25,12 +25,14 @@ import type {
   TutorPlanningContentContext,
   TutorPlanningExtension,
   TutorPlanningResult,
+  TutorExpansionBrief,
 } from "./tutor-planning";
 import {
   appendEvidence,
   createTutorProgressionState,
   deepeningCriteria,
   hasMetDeepeningCriteria,
+  markExpansionTargetUsed,
   markTopicMastered,
   type DidacticPhase,
   type TutorProgressionState,
@@ -94,16 +96,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
-    const plan = this.planner.start(
-      context.topic,
-      context.revision,
-      context.facts,
-      input.history,
-      input.difficulty,
-      context.strategy.strategy,
-      progressionOptions(context.topic, context.phase, context.state),
-    );
-    return plan ? normalizePlan(plan, context.strategy, context.state, context.phase, context.extensionTargetTopicId) : null;
+    return this.startPlan(context, input.history, input.difficulty, context.phase);
   }
 
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
@@ -111,32 +104,46 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!context) return null;
     if (context.blocked) return context.blocked;
     recordFollowupObservation(context, input);
+    const stateUpdate = updateStateAfterFollowup(context, input);
     const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
-    return this.continueFollowup(context, refreshed, input);
+    return this.continueFollowup(context, refreshed, input, stateUpdate);
   }
 
-  private continueFollowup(context: AdapterContext, refreshed: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
+  private continueFollowup(context: AdapterContext, refreshed: AdapterContext, input: TutorFollowupInput, stateUpdate: FollowupStateUpdate): TutorPlanningResult | null {
     const activeChanged = refreshed.topic.id !== context.topic.id;
-    const blocked = updateStateAfterFollowup(context, refreshed, input, activeChanged);
-    if (blocked) return blocked;
-    const nextPhase = context.state.phase ?? refreshed.phase;
+    if (!activeChanged && stateUpdate.status === "unresolved") return blockedResult(refreshed, context.state);
+    const nextPhase = refreshed.phase;
     const planningHistory = activeChanged
       ? input.history
       : progressionHistory(refreshed.topic, input.history, context.state, input.currentQuestion);
-    if (activeChanged || nextPhase !== context.phase) return this.startPlan(refreshed, planningHistory, input.difficulty, nextPhase);
+    if (activeChanged) return this.startPlan(refreshed, planningHistory, input.difficulty, nextPhase);
+    // The answer is evaluated by the strategy that produced the current turn.
+    // A phase transition is committed to session state now, but its first plan
+    // and strategy are exposed at the next request boundary.
+    if (nextPhase !== context.phase) return this.currentTurnPlan(context, planningHistory, input.difficulty);
     if (nextPhase === "DEEPEN" && hasMetDeepeningCriteria(refreshed.topic, context.state.postMasteryEvidence[refreshed.topic.id] ?? [])) {
       context.state.phase = "EXPAND";
       context.state.retainedPhases[refreshed.topic.id] = "EXPAND";
-      return this.startPlan(refreshed, planningHistory, input.difficulty, "EXPAND");
+      return this.currentTurnPlan(context, planningHistory, input.difficulty);
     }
     return this.advancePlan(refreshed, input);
   }
 
   private startPlan(context: AdapterContext, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, phase: DidacticPhase): TutorPlanningResult | null {
+    if (phase === "EXPAND" && context.expansionBrief) {
+      markExpansionTargetUsed(context.state, context.expansionBrief.sourceTopicId, context.expansionBrief.targetTopicId);
+      return buildExpansionPlan(context, phase, context.expansionBrief);
+    }
     const plan = this.planner.start(context.topic, context.revision, context.facts, history, difficulty, context.strategy.strategy, progressionOptions(context.topic, phase, context.state));
-    return plan ? normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId) : null;
+    if (plan) return normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId, context.expansionBrief);
+    return phase === "LEARN" ? null : exhaustionResult(context, phase);
+  }
+
+  private currentTurnPlan(context: AdapterContext, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty): TutorPlanningResult {
+    return this.startPlan(context, history, difficulty, context.phase)
+      ?? transitionResult(context);
   }
 
   private advancePlan(context: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
@@ -146,7 +153,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       ...progressionOptions(context.topic, context.state.phase ?? context.phase, context.state),
     });
     const phase = context.state.phase ?? context.phase;
-    return plan ? normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId) : null;
+    if (plan) return normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId, context.expansionBrief);
+    return phase === "LEARN" ? null : exhaustionResult(context, phase);
   }
 
   private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
@@ -200,6 +208,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     state.progressionBlockedReason = undefined;
     const strategy = this.resolveSnapshotStrategy(snapshot, annotation, phase);
     const extensionTargetTopicId = resolveExtensionTarget(snapshot.tutor.topics, previousActiveTopicId, previousPhase, match.topic.id);
+    const expansionBrief = resolveExpansionBrief(snapshot.tutor.topics, match.topic, phase, state);
     const context = {
       revision: snapshot.revision,
       facts,
@@ -208,6 +217,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       phase,
       state,
       ...(extensionTargetTopicId ? { extensionTargetTopicId } : {}),
+      ...(expansionBrief ? { expansionBrief } : {}),
     };
     return classification?.status === "unresolved"
       ? { ...context, blocked: blockedResult(context, state) }
@@ -290,6 +300,22 @@ function resolveExtensionTarget(
     : undefined;
 }
 
+function resolveExpansionBrief(
+  topics: readonly CurriculumTopic[],
+  topic: CurriculumTopic,
+  phase: DidacticPhase,
+  state: TutorProgressionState,
+): TutorExpansionBrief | undefined {
+  if (phase !== "EXPAND" || topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  const usedTargets = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
+  const extension = topic.extensions.find(({ topic: targetTopicId }) =>
+    topics.some(({ id }) => id === targetTopicId) && !usedTargets.has(targetTopicId),
+  );
+  return extension
+    ? { sourceTopicId: topic.id, targetTopicId: extension.topic, objective: extension.objective }
+    : undefined;
+}
+
 function recordFollowupObservation(context: AdapterContext, input: TutorFollowupInput): void {
   const current = findQuestion(context.topic, input.currentQuestion, input.history);
   if (!current) return;
@@ -299,30 +325,28 @@ function recordFollowupObservation(context: AdapterContext, input: TutorFollowup
   appendEvidence(context.state, evidenceKey, context.topic.id, toObservation(current, input.rating));
 }
 
-function updateStateAfterFollowup(
-  context: AdapterContext,
-  refreshed: AdapterContext,
-  input: TutorFollowupInput,
-  activeChanged: boolean,
-): TutorPlanningBlocked | null {
-  if (activeChanged || context.phase !== "LEARN") return null;
+type FollowupStateUpdate = {
+  readonly status: TopicClassification["status"];
+};
+
+function updateStateAfterFollowup(context: AdapterContext, input: TutorFollowupInput): FollowupStateUpdate {
+  if (context.phase !== "LEARN") return { status: "mastered" };
   const classification = classifyWithState(
-    refreshed.topic,
-    refreshed.facts,
+    context.topic,
+    context.facts,
     input.history,
     context.state,
     input.difficulty,
-    refreshed.strategy.strategy,
+    context.strategy.strategy,
   );
-  if (classification.status === "unresolved") return blockedResult(refreshed, context.state);
-  if (classification.status !== "mastered") return null;
-  markTopicMastered(context.state, refreshed.topic.id);
+  if (classification.status !== "mastered") return { status: classification.status };
+  markTopicMastered(context.state, context.topic.id);
   context.state.phase = "DEEPEN";
-  context.state.retainedPhases[refreshed.topic.id] = "DEEPEN";
-  return null;
+  context.state.retainedPhases[context.topic.id] = "DEEPEN";
+  return { status: classification.status };
 }
 
-function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, strategy = resolveEffectiveTutorStrategy({}), state?: TutorProgressionState, phase: DidacticPhase = "LEARN", extensionTargetTopicId?: string): TutorPlan {
+function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, strategy = resolveEffectiveTutorStrategy({}), state?: TutorProgressionState, phase: DidacticPhase = "LEARN", extensionTargetTopicId?: string, expansionBrief?: TutorExpansionBrief): TutorPlan {
   if (!plan) throw new Error("Cannot normalize an empty tutor plan");
   return {
     ...plan.brief,
@@ -335,6 +359,7 @@ function normalizePlan(plan: Awaited<ReturnType<LearningPlanner["start"]>>, stra
     ...(state ? { masteredTopicIds: [...state.masteredTopicIds] } : {}),
     ...(state?.progressionBlockedReason ? { progressionBlockedReason: state.progressionBlockedReason } : {}),
     ...(extensionTargetTopicId ? { extensionTargetTopicId } : {}),
+    ...(expansionBrief ? { expansionBrief } : {}),
   };
 }
 
@@ -346,6 +371,7 @@ type AdapterContext = {
   readonly phase: DidacticPhase;
   readonly state: TutorProgressionState;
   readonly extensionTargetTopicId?: string;
+  readonly expansionBrief?: TutorExpansionBrief;
   readonly blocked?: TutorPlanningBlocked;
 };
 
@@ -416,14 +442,65 @@ function classifyWithState(
   return classification;
 }
 
+function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expansionBrief: TutorExpansionBrief): TutorPlan {
+  const targetKey = expansionBrief.targetTopicId.slice(0, 56);
+  return {
+    topicId: context.topic.id,
+    topicTitle: context.topic.title,
+    conceptId: `expand-${targetKey}`,
+    conceptTitle: "Eigene Erweiterung",
+    objective: expansionBrief.objective,
+    questionId: `expand-${targetKey}`,
+    questionKind: "transfer",
+    indicatorId: "expansion",
+    indicator: expansionBrief.objective,
+    question: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, und woran würdest du ihre Wirkung erkennen?",
+    misconceptions: [],
+    contentRevision: context.revision,
+    strategyId: context.strategy.strategy.id,
+    strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+    learningPhase: phase,
+    activeTopicId: context.state.activeTopicId,
+    masteredTopicIds: [...context.state.masteredTopicIds],
+    expansionBrief,
+  };
+}
+
+function exhaustionResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">, phase: DidacticPhase): TutorPlanningBlocked {
+  context.state.phase = phase;
+  context.state.progressionBlockedReason = "content-exhausted";
+  return {
+    kind: "blocked",
+    progressionBlockedReason: "content-exhausted",
+    contentRevision: context.revision,
+    learningPhase: phase,
+    activeTopicId: context.topic.id,
+    masteredTopicIds: [...context.state.masteredTopicIds],
+    strategyId: context.strategy.strategy.id,
+    strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+  };
+}
+
+function transitionResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">): import("./tutor-planning").TutorPlanningTransition {
+  return {
+    kind: "transition",
+    contentRevision: context.revision,
+    learningPhase: context.phase,
+    activeTopicId: context.topic.id,
+    masteredTopicIds: [...context.state.masteredTopicIds],
+    strategyId: context.strategy.strategy.id,
+    strategySource: context.strategy.source === "built-in" ? "built-in" : "repository",
+  };
+}
+
 function blockedResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">, state: TutorProgressionState): TutorPlanningBlocked {
-  state.phase = "LEARN";
+  state.phase = context.phase;
   state.progressionBlockedReason = "content-exhausted";
   return {
     kind: "blocked",
     progressionBlockedReason: "content-exhausted",
     contentRevision: context.revision,
-    learningPhase: "LEARN",
+    learningPhase: context.phase,
     activeTopicId: context.topic.id,
     masteredTopicIds: [...state.masteredTopicIds],
     strategyId: context.strategy.strategy.id,

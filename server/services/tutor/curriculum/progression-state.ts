@@ -12,6 +12,7 @@ export interface TutorProgressionState {
   masteryEvidence: Record<string, Observation[]>;
   postMasteryEvidence: Record<string, Observation[]>;
   retainedPhases: Record<string, "DEEPEN" | "EXPAND">;
+  usedExpansionTargetTopicIds: Record<string, string[]>;
   progressionBlockedReason?: ProgressionBlockedReason;
 }
 
@@ -29,6 +30,7 @@ export function createTutorProgressionState(revision: string): TutorProgressionS
     masteryEvidence: {},
     postMasteryEvidence: {},
     retainedPhases: {},
+    usedExpansionTargetTopicIds: {},
   };
 }
 
@@ -39,6 +41,7 @@ export function resetTutorProgressionState(state: TutorProgressionState, revisio
   state.masteryEvidence = {};
   state.postMasteryEvidence = {};
   state.retainedPhases = {};
+  state.usedExpansionTargetTopicIds = {};
   state.progressionBlockedReason = undefined;
   state.revision = revision;
 }
@@ -56,6 +59,12 @@ export function appendEvidence(
 
 export function markTopicMastered(state: TutorProgressionState, topicId: string): void {
   if (!state.masteredTopicIds.includes(topicId)) state.masteredTopicIds.push(topicId);
+}
+
+export function markExpansionTargetUsed(state: TutorProgressionState, sourceTopicId: string, targetTopicId: string): void {
+  const targets = state.usedExpansionTargetTopicIds[sourceTopicId] ?? [];
+  if (!targets.includes(targetTopicId)) targets.push(targetTopicId);
+  state.usedExpansionTargetTopicIds[sourceTopicId] = targets;
 }
 
 export function deepeningCriteria(topic: CurriculumTopic): TopicDeepening {

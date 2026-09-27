@@ -14,7 +14,15 @@ import {
   type LLMProvider,
   type ProviderQuestionResult,
 } from "./llm-provider";
-import { isTutorPlan, type TutorPlan, type TutorPlanningBlocked, type TutorPlanningContentContext, type TutorPlanningExtension } from "./tutor-planning";
+import {
+  isTutorPlan,
+  isTutorPlanningBlocked,
+  type TutorPlan,
+  type TutorPlanningBlocked,
+  type TutorPlanningContentContext,
+  type TutorPlanningExtension,
+  type TutorPlanningTransition,
+} from "./tutor-planning";
 import {
   BUILT_IN_TUTOR_STRATEGY,
   resolveEffectiveTutorStrategy,
@@ -482,6 +490,18 @@ function applyBlockedResult(result: TutorContentResult, blocked: TutorPlanningBl
   };
 }
 
+function applyTransitionResult(result: TutorContentResult, transition: TutorPlanningTransition): TutorContentResult {
+  return {
+    ...result,
+    strategyId: transition.strategyId,
+    strategySource: transition.strategySource,
+    learningPhase: transition.learningPhase,
+    ...(transition.activeTopicId ? { activeTopicId: transition.activeTopicId } : {}),
+    masteredTopicIds: [...transition.masteredTopicIds],
+    contentRevision: transition.contentRevision,
+  };
+}
+
 function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyResolution): TutorContentResult {
   return {
     ...result,
@@ -528,8 +548,10 @@ export class TutorService {
     let plannedResult: TutorContentResult;
     if (planningResult && isTutorPlan(planningResult)) {
       plannedResult = applyPlanningResult(validatedResult, planningResult);
-    } else if (planningResult) {
+    } else if (planningResult && isTutorPlanningBlocked(planningResult)) {
       plannedResult = applyBlockedResult(validatedResult, planningResult);
+    } else if (planningResult) {
+      plannedResult = applyTransitionResult(validatedResult, planningResult);
     } else {
       plannedResult = applyStrategyMetadata(validatedResult, strategy);
     }
@@ -552,11 +574,15 @@ export class TutorService {
       };
     }
     const context = buildTutorContext(code);
+    const currentPlanningResult = this.planningExtension
+      ? await this.planningExtension.planInitial({ code, history: parsedHistory, difficulty, courseContent })
+      : null;
     const providerResult = await this.provider.generateLearningQuestion(
       {
         model: await this.resolveModel(requestedModel, requestCredential),
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
+          didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
           learningObjectives: courseContent?.exampleTutorAnnotation?.learningObjectives,
         }),
@@ -573,7 +599,8 @@ export class TutorService {
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
       if (nextPlan && isTutorPlan(nextPlan)) distinctResult = applyPlanningResult(validatedResult, nextPlan);
-      else if (nextPlan) distinctResult = applyBlockedResult(validatedResult, nextPlan);
+      else if (nextPlan && isTutorPlanningBlocked(nextPlan)) distinctResult = applyBlockedResult(validatedResult, nextPlan);
+      else if (nextPlan) distinctResult = applyTransitionResult(validatedResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     return {
