@@ -97,4 +97,30 @@ describe("Tutor topic precedence", () => {
     const result = await adapter([memory]).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
     expect(result).toMatchObject({ kind: "blocked", progressionBlockedReason: "content-exhausted", learningPhase: "LEARN" });
   });
+
+  it("uses an extension only as guidance after normal fact matching activates its target", async () => {
+    const source = await pilotTopic();
+    const primary = { ...source, schemaVersion: 2 as const, id: "memory", extensions: [{ topic: "arrays", objective: "Ein Array-Beispiel vergleichen." }] };
+    const target = { ...source, schemaVersion: 2 as const, id: "arrays" };
+    const state = createTutorProgressionState(revision);
+    state.activeTopicId = primary.id;
+    state.phase = "EXPAND";
+    state.retainedPhases[primary.id] = "EXPAND";
+    markTopicMastered(state, primary.id);
+    const result = await new CurriculumTutorAdapter({
+      courseContent: {
+        getSnapshot: async () => ({
+          revision,
+          progressionState: state,
+          tutor: {
+            status: "valid" as const,
+            manifest: { schemaVersion: 2 as const, topics: [], strategies: [] },
+            topics: [primary, target],
+            strategies: [],
+          },
+        }),
+      },
+    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+    expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN", extensionTargetTopicId: "arrays" });
+  });
 });

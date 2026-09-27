@@ -181,6 +181,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const orderedMatches = orderTopicMatches(matches, annotation);
     const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
     const previousActiveTopicId = state.activeTopicId;
+    const previousPhase = state.phase;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = orderedMatches.map((match) => ({
       match,
@@ -201,7 +202,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const previousTopic = previousActiveTopicId
       ? snapshot.tutor.topics.find(({ id }) => id === previousActiveTopicId)
       : undefined;
-    const extensionTargetTopicId = previousActiveTopicId && phase === "EXPAND" && previousActiveTopicId !== match.topic.id
+    const extensionTargetTopicId = previousActiveTopicId && previousPhase === "EXPAND" && previousActiveTopicId !== match.topic.id
       && previousTopic?.schemaVersion === 2
       && previousTopic.extensions?.some((extension) => extension.topic === match.topic.id)
       ? match.topic.id
