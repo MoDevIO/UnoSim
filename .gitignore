@@ -46,6 +46,7 @@ storage/binaries/
 !/temp/.gitkeep
 /cache/
 /test-results/
+.tutor-quality-output/
 /playwright-report/
 # /screenshots/
 .scannerwork/
