@@ -29,6 +29,7 @@ export type TutorQualityTurn =
     readonly question: string;
     readonly answer: string;
     readonly bindsToQuestion: string;
+    readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorDialogTurn[];
   };
@@ -594,6 +595,7 @@ async function runSample(
   const violations: TutorQualityInvariantViolation[] = [];
   const turns: TutorQualityTranscriptTurn[] = [];
   const returnedModels: string[] = [];
+  const finalQuestions = new Map<number, string>();
   let executionStatus: TutorQualityExecutionStatus = "completed";
   let invalidReason: string | undefined;
   let terminalError: TutorQualityTechnicalError | undefined;
@@ -616,6 +618,15 @@ async function runSample(
           invalidReason = "unbound-question-context";
           addViolation(violations, "unbound-question-context", "scenario", turnIndex);
           break;
+        }
+        if (turn.continuationOf !== undefined) {
+          const precedingQuestion = finalQuestions.get(turn.continuationOf);
+          if (precedingQuestion === undefined || precedingQuestion !== turn.bindsToQuestion) {
+            executionStatus = "invalid";
+            invalidReason = "preceding-question-mismatch";
+            addViolation(violations, "preceding-question-mismatch", "scenario", turnIndex);
+            break;
+          }
         }
         const response = await service.generateDialogResponse(
           scenario.sketch,
@@ -651,6 +662,7 @@ async function runSample(
       deterministicRawChecks(capture.response.result, turn, turnIndex, turnChecks, violations);
     }
     if (finalResult) {
+      finalQuestions.set(turnIndex, finalResult.question);
       addCheck(turnChecks, "final-tutor-response-present", true);
       expectedChecks(scenario, finalResult, turn, stateBefore, content?.progressionState, turnChecks, violations, turnIndex);
       applicationMetadataChecks(finalResult, content, content?.progressionState, turnChecks, violations, turnIndex);

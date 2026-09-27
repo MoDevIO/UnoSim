@@ -249,4 +249,32 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(unavailable.report).toMatchObject({ runStatus: "invalid", reason: "model-unavailable" });
     expect(unavailable.report.providerCalls).toMatchObject({ total: 1, generationCalls: 0 });
   });
+
+  it("does not apply a learner answer to an arbitrary preceding real-model question", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      question: "Welche neue Beobachtung ist belegt?",
+      answerRating: 4,
+    }), {
+      scenarios: [scenario({
+        id: "bound-continuation",
+        turns: [
+          { kind: "initial", difficulty: 20 },
+          {
+            kind: "dialog",
+            question: "Welche deklarierte Frage soll gelten?",
+            answer: "Eine Antwort auf die deklarierte Frage.",
+            bindsToQuestion: "Welche deklarierte Frage soll gelten?",
+            continuationOf: 0,
+            difficulty: 20,
+          },
+        ],
+      })],
+    }));
+    const transcript = result.transcripts[0]!;
+
+    expect(transcript.executionStatus).toBe("invalid");
+    expect(transcript.invalidReason).toBe("preceding-question-mismatch");
+    expect(transcript.turns).toHaveLength(1);
+  });
 });

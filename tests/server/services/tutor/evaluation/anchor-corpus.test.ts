@@ -96,6 +96,13 @@ describe("Tutor Quality anchor corpus contract", () => {
         turns: [{ ...source.scenarios[0]!.turns[0]!, bindsToQuestion: undefined }],
       }],
     })],
+    ["self-referencing continuation", (source: TutorQualityCorpusSource) => ({
+      ...source,
+      scenarios: [{
+        ...source.scenarios[0]!,
+        turns: [{ ...source.scenarios[0]!.turns[0]!, continuationOf: 0 }],
+      }],
+    })],
   ])("rejects %s", (_label, mutate) => {
     expect(() => parseTutorQualityCorpus(mutate(validSource()), references)).toThrow();
   });

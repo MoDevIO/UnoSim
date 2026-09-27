@@ -20,6 +20,7 @@ export type TutorQualityTurnSource =
     readonly question: string;
     readonly answer: string;
     readonly bindsToQuestion: string;
+    readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorQualityHistoryEntrySource[];
   };
@@ -88,6 +89,9 @@ function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
   assertNonEmptyString(value.answer, `${label}.answer`);
   assertNonEmptyString(value.bindsToQuestion, `${label}.bindsToQuestion`);
   if (value.question !== value.bindsToQuestion) fail(`${label} bindsToQuestion must equal question`);
+  if (value.continuationOf !== undefined && (typeof value.continuationOf !== "number" || !Number.isInteger(value.continuationOf) || value.continuationOf < 0)) {
+    fail(`${label}.continuationOf must reference a preceding turn`);
+  }
   assertDifficulty(value.difficulty, `${label}.difficulty`);
   if (value.history !== undefined) {
     if (!Array.isArray(value.history)) fail(`${label}.history must be an array`);
@@ -110,6 +114,7 @@ function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
     question: value.question,
     answer: value.answer,
     bindsToQuestion: value.bindsToQuestion,
+    ...(value.continuationOf === undefined ? {} : { continuationOf: value.continuationOf as number }),
     ...(value.difficulty === undefined ? {} : { difficulty: value.difficulty as number }),
     ...(value.history === undefined ? {} : { history: value.history as readonly TutorQualityHistoryEntrySource[] }),
   };
@@ -170,6 +175,11 @@ export function parseTutorQualityCorpus(
     }
     if (!Array.isArray(rawScenario.turns) || rawScenario.turns.length === 0) fail(`${label}.turns must be a non-empty array`);
     const turns = rawScenario.turns.map((turn, turnIndex) => parseTurn(turn, `${label}.turns[${turnIndex}]`));
+    turns.forEach((turn, turnIndex) => {
+      if (turn.kind === "dialog" && turn.continuationOf !== undefined && turn.continuationOf >= turnIndex) {
+        fail(`${label}.turns[${turnIndex}].continuationOf must reference a preceding turn`);
+      }
+    });
     if (rawScenario.expected !== undefined) {
       assertObject(rawScenario.expected, `${label}.expected`);
       if (rawScenario.expected.learningPhase !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(rawScenario.expected.learningPhase as string)) {
