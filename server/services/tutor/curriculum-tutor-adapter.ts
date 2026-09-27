@@ -77,7 +77,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string; courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     const plan = this.planner.start(
@@ -101,7 +101,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     exampleId?: string;
     courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     const state = context.state;
@@ -115,7 +115,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       }
     }
 
-    const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent);
+    const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
     const activeChanged = refreshed.topic.id !== context.topic.id;
@@ -150,11 +150,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return plan ? normalizePlan(plan, refreshed.strategy, state, nextPhase, refreshed.extensionTargetTopicId) : null;
   }
 
-  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext) {
+  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
     try {
       const snapshot = supplied ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
       if (snapshot) {
-        return this.matchCourseContent(code, history, difficulty, snapshot);
+        return this.matchCourseContent(code, history, difficulty, snapshot, exampleId);
       }
       if (!this.courseContent) {
         const legacy = this.repository ? await this.repository.getSnapshot() : null;
@@ -177,11 +177,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     }
   }
 
-  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext): AdapterContext | null {
+  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): AdapterContext | null {
     if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
     const facts = this.factExtractor.extract(code);
     const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
-    const annotation = snapshot.exampleTutorAnnotation;
+    const annotation = (snapshot.exampleId ?? requestedExampleId) !== undefined ? snapshot.exampleTutorAnnotation : undefined;
     const orderedMatches = orderTopicMatches(matches, annotation);
     const state = snapshot.progressionState?.revision === snapshot.revision
       ? snapshot.progressionState
