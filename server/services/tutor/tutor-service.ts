@@ -502,6 +502,12 @@ function applyTransitionResult(result: TutorContentResult, transition: TutorPlan
   };
 }
 
+function applyPlanningOutcome(result: TutorContentResult, planningResult: Exclude<Awaited<ReturnType<TutorPlanningExtension["planInitial"]>>, null>): TutorContentResult {
+  if (isTutorPlan(planningResult)) return applyPlanningResult(result, planningResult);
+  if (isTutorPlanningBlocked(planningResult)) return applyBlockedResult(result, planningResult);
+  return applyTransitionResult(result, planningResult);
+}
+
 function applyStrategyMetadata(result: TutorContentResult, strategy: StrategyResolution): TutorContentResult {
   return {
     ...result,
@@ -545,16 +551,9 @@ export class TutorService {
       requestCredential,
     );
     const validatedResult = validateLearningQuestion(providerResult.result, difficulty);
-    let plannedResult: TutorContentResult;
-    if (planningResult && isTutorPlan(planningResult)) {
-      plannedResult = applyPlanningResult(validatedResult, planningResult);
-    } else if (planningResult && isTutorPlanningBlocked(planningResult)) {
-      plannedResult = applyBlockedResult(validatedResult, planningResult);
-    } else if (planningResult) {
-      plannedResult = applyTransitionResult(validatedResult, planningResult);
-    } else {
-      plannedResult = applyStrategyMetadata(validatedResult, strategy);
-    }
+    const plannedResult = planningResult
+      ? applyPlanningOutcome(validatedResult, planningResult)
+      : applyStrategyMetadata(validatedResult, strategy);
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
       model: providerResult.model,
@@ -598,9 +597,7 @@ export class TutorService {
       : validatedResult;
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent });
-      if (nextPlan && isTutorPlan(nextPlan)) distinctResult = applyPlanningResult(validatedResult, nextPlan);
-      else if (nextPlan && isTutorPlanningBlocked(nextPlan)) distinctResult = applyBlockedResult(validatedResult, nextPlan);
-      else if (nextPlan) distinctResult = applyTransitionResult(validatedResult, nextPlan);
+      if (nextPlan) distinctResult = applyPlanningOutcome(validatedResult, nextPlan);
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     return {

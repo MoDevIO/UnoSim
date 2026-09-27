@@ -466,7 +466,9 @@ function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expan
   };
 }
 
-function exhaustionResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">, phase: DidacticPhase): TutorPlanningBlocked {
+type PlanningContext = Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">;
+
+function exhaustionResult(context: PlanningContext, phase: DidacticPhase): TutorPlanningBlocked {
   context.state.phase = phase;
   context.state.progressionBlockedReason = "content-exhausted";
   return {
@@ -481,7 +483,7 @@ function exhaustionResult(context: Pick<AdapterContext, "revision" | "topic" | "
   };
 }
 
-function transitionResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">): import("./tutor-planning").TutorPlanningTransition {
+function transitionResult(context: PlanningContext): import("./tutor-planning").TutorPlanningTransition {
   return {
     kind: "transition",
     contentRevision: context.revision,
@@ -493,7 +495,7 @@ function transitionResult(context: Pick<AdapterContext, "revision" | "topic" | "
   };
 }
 
-function blockedResult(context: Pick<AdapterContext, "revision" | "topic" | "strategy" | "phase" | "state">, state: TutorProgressionState): TutorPlanningBlocked {
+function blockedResult(context: PlanningContext, state: TutorProgressionState): TutorPlanningBlocked {
   state.phase = context.phase;
   state.progressionBlockedReason = "content-exhausted";
   return {
