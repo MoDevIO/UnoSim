@@ -63,7 +63,8 @@ Minimum scenario fields:
 
 The initial Stage-2A anchor set is deliberately small:
 
-1. `TQ-REG-001` PWM: strong answer and no semantic question repetition;
+1. `TQ-REG-001` PWM: strong answer and no exact or Stage-1-heuristic question
+   repetition;
 2. simple variable question;
 3. Serial-output prediction;
 4. incorrect answer and remediation;
@@ -74,9 +75,17 @@ The initial Stage-2A anchor set is deliberately small:
 9. EXPAND;
 10. clearly off-topic learner answer.
 
-The corpus may grow only by adding a reviewed scenario or a corpus-version
-change. A scenario edit is an evaluation change, not a hidden implementation
-change.
+Adding, removing, or semantically changing an anchor scenario MUST increase
+`corpusVersion`. A scenario edit is an evaluation change, not a hidden
+implementation change. Non-semantic formatting changes may keep the version
+only when the parsed scenario and its digest remain identical.
+
+The first implementation uses state-seeded turns for multi-step cases. Every
+scripted learner answer is bound to a declared preceding question context. A
+continuation step without that binding, or with a different preceding
+question, is `invalid`; the runner MUST NOT silently pretend that the answer
+was given to an arbitrary real-model question. Scenarios that do not need a
+deterministic binding should remain single-step cases.
 
 ## 4. Run identity and metadata
 
@@ -89,7 +98,7 @@ Each run has both a unique `runId` and a stable `evaluationIdentity`.
 - corpus ID and version;
 - provider ID;
 - requested model ID;
-- prompt revision;
+- prompt revision identifier and effective-template digest;
 - relevant provider parameters, including timeout, temperature when known,
   difficulty, sample count, and call budget.
 
@@ -101,12 +110,22 @@ The runner MUST record, without secrets:
 
 - provider ID and endpoint origin when useful for diagnosis;
 - requested model and returned model;
-- prompt revision;
+- prompt revision identifier and effective-template digest;
 - Course Content revision;
 - scenario/corpus version;
 - Git SHA and dirty-state indicator;
 - sample index, turn index, timestamps, duration, and call counts;
 - timeout, temperature, difficulty, and configured call/sample limits.
+
+`promptRevision` is not an arbitrary label. It consists of a versioned
+application-owned prompt identifier and a SHA-256 digest of the effective
+system/user prompt templates (before scenario values are inserted). A change
+to an application-owned prompt template MUST change this revision. Per-turn
+prompt digests MAY additionally be stored in transcripts.
+
+Real-provider evaluation requires a clean Git working tree. A dirty relevant
+worktree makes the run preflight `invalid` and no provider call is issued; the
+runner does not upload a diff as a substitute for the exact Git SHA.
 
 Missing or inconsistent identity metadata, including an omitted or `auto`
 model, makes a sample `invalid`. It MUST NOT be reported as a Tutor-quality
@@ -121,7 +140,8 @@ scenario invocation. A runner preflight MUST verify that the requested model
 is available. Any returned-model mismatch invalidates the sample rather than
 silently accepting `auto` fallback.
 
-Credentials are read only from an invocation environment variable. They MUST
+Credentials are read only from a configured invocation environment variable.
+The CLI may accept the variable's name, but never its value. They MUST
 never appear in a transcript, aggregate report, log line, exception message,
 Git diff, or uploaded artifact. Authorization headers are provider-internal
 and are never part of the evaluation artifact model.
@@ -139,20 +159,28 @@ One JSON transcript is written per scenario sample. It contains:
 - ordered logical Tutor turns;
 - the Tutor request context needed for later review, excluding credentials and
   transport headers;
-- raw provider result as returned to the service, normalized final Tutor
-  result, returned model, or technical error;
+- parsed `LLMProvider` result as received by `TutorService` before
+  application-side repair/normalization, normalized final Tutor result,
+  returned model, or technical error;
 - deterministic check records and state-before/state-after snapshots;
 - a terminal sample status.
 
-Transcript status is one of:
+Every sample has two independent status axes:
+
+`executionStatus` is one of:
 
 - `completed`: all requested turns executed and metadata is valid;
 - `invalid`: identity/model/contract metadata is missing or inconsistent;
-- `technical-failure`: provider error, timeout, malformed provider response, or
-  call-budget exhaustion prevented a turn;
-- `deterministic-violation`: a Stage-1 invariant was observed on raw/final
-  output. A repaired raw response may be both technically completed and have a
-  violation record; the report MUST preserve that distinction.
+- `technical-failure`: a provider error, timeout, malformed provider response,
+  or mid-run call-budget exhaustion prevented a turn;
+- `not-run`: preflight stopped execution, for example because credentials were
+  missing or the call budget was zero before the first call.
+
+`invariantViolations` is always an array. It is empty or contains deterministic
+Stage-1 violation records. A repaired raw response may therefore be
+`executionStatus: completed` with non-empty `invariantViolations`; the report
+MUST preserve that distinction. Missing credentials and preflight budget
+exhaustion are `not-run`, not Tutor-quality failures.
 
 The artifact writer uses an allow-list of fields. It MUST NOT serialize the
 credential environment, `process.env`, Authorization headers, or arbitrary
@@ -180,9 +208,10 @@ The aggregate report contains counts and rates with explicit denominators per
 scenario and overall. It MUST keep these categories separate:
 
 1. `invalid` evaluation metadata;
-2. technical provider failures;
-3. deterministic Tutor-quality invariant violations;
-4. completed observations.
+2. `not-run` preflight outcomes;
+3. technical provider failures;
+4. deterministic Tutor-quality invariant violations;
+5. completed observations.
 
 There are no semantic quality grades, learning-support scores, or pass/fail
 claims about actual learning in Stage 2A.
@@ -196,7 +225,8 @@ counts.
 ## 8. Execution and CI
 
 The evaluation is available through a local CLI with explicit model, sample,
-output-directory, credential, and call-budget inputs. A manual
+output-directory, credential-environment-variable name, and call-budget
+inputs. A credential value is never a CLI argument. A manual
 `workflow_dispatch` job MAY invoke the same CLI with a repository secret and
 upload transcripts/report artifacts. The workflow MUST have no `pull_request`
 trigger and MUST not gate merges. A missing secret is a skipped/not-run
