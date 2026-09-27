@@ -142,6 +142,19 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(reportText).not.toContain("super-secret-value");
   });
 
+  it("redacts a credential echoed by a fake provider from every transcript field", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 4,
+      question: "super-secret-value?",
+      feedback: "super-secret-value",
+    })));
+    const transcriptText = JSON.stringify(result.transcripts[0]);
+
+    expect(transcriptText).not.toContain("super-secret-value");
+    expect(transcriptText).toContain("[REDACTED]");
+  });
+
   it("records raw complete-solution and schema violations separately from technical failure", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({
       question: "void setup() {} void loop() {}",

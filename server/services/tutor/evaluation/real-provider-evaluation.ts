@@ -105,7 +105,7 @@ export interface TutorQualityTranscriptTurn {
   readonly providerCalls: TutorQualityProviderCallCounts;
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
   readonly rawProviderResult?: Record<string, unknown>;
-  readonly finalTutorResult?: TutorContentResult;
+  readonly finalTutorResult?: Record<string, unknown>;
   readonly returnedModel?: string;
   readonly deterministicChecks: readonly TutorQualityDeterministicCheck[];
   readonly technicalError?: TutorQualityTechnicalError;
@@ -365,10 +365,14 @@ function metadata(
 function technicalError(error: unknown): TutorQualityTechnicalError {
   if (error instanceof EvaluationBudgetExceeded) return { kind: "call-budget-exhausted", name: error.name };
   if (error instanceof TutorProviderError) return { kind: error.kind, name: error.name };
-  return { kind: "provider-error", name: error instanceof Error ? error.name : "UnknownError" };
+  return { kind: "provider-error", name: "ProviderError" };
 }
 
-function safeResult(value: unknown): Record<string, unknown> | undefined {
+function redact(value: string, credential: string | undefined): string {
+  return credential && credential.length > 0 ? value.split(credential).join("[REDACTED]") : value;
+}
+
+function safeResult(value: unknown, credential?: string): Record<string, unknown> | undefined {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
   const allowed = new Set([
     "responseStyle", "feedback", "question", "topic", "difficulty", "answerRating", "mermaid",
@@ -379,20 +383,40 @@ function safeResult(value: unknown): Record<string, unknown> | undefined {
   const result: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (!allowed.has(key)) continue;
-    if (typeof item === "string" || typeof item === "number" || typeof item === "boolean" || item === undefined) {
+    if (typeof item === "string") {
+      result[key] = redact(item, credential);
+    } else if (typeof item === "number" || typeof item === "boolean" || item === undefined) {
       result[key] = item;
     } else if (Array.isArray(item) && item.every((entry) => typeof entry === "string")) {
-      result[key] = [...item];
+      result[key] = item.map((entry) => redact(entry, credential));
     }
   }
   return result;
 }
 
-function requestArtifact(request: LLMProviderRequest): TutorQualityProviderRequestArtifact {
+function requestArtifact(request: LLMProviderRequest, credential?: string): TutorQualityProviderRequestArtifact {
   return {
     model: request.model,
-    systemPrompt: request.systemPrompt,
-    userPrompt: request.userPrompt,
+    systemPrompt: redact(request.systemPrompt, credential),
+    userPrompt: redact(request.userPrompt, credential),
+  };
+}
+
+function safeTurn(turn: TutorQualityTurn, credential?: string): TutorQualityTurn {
+  if (turn.kind === "initial") return turn;
+  return {
+    ...turn,
+    question: redact(turn.question, credential),
+    answer: redact(turn.answer, credential),
+    bindsToQuestion: redact(turn.bindsToQuestion, credential),
+    ...(turn.history === undefined ? {} : {
+      history: turn.history.map((entry) => ({
+        ...entry,
+        question: redact(entry.question, credential),
+        answer: redact(entry.answer, credential),
+        ...(entry.feedback === undefined ? {} : { feedback: redact(entry.feedback, credential) }),
+      })),
+    }),
   };
 }
 
@@ -544,8 +568,8 @@ function sampleTemplate(
       corpusId: scenario.corpusId,
       corpusVersion: scenario.corpusVersion,
       sketchRef: scenario.sketchRef,
-      sketch: scenario.sketch,
-      syntheticTurns: scenario.turns,
+      sketch: redact(scenario.sketch, options.credential),
+      syntheticTurns: scenario.turns.map((turn) => safeTurn(turn, options.credential)),
     },
     ...(scenario.courseContent?.progressionState ? { stateBefore: clone(scenario.courseContent.progressionState) } : {}),
     turns: [],
@@ -642,9 +666,9 @@ async function runSample(
       startedAt: turnStartedAt.toISOString(),
       durationMs: Math.max(0, turnFinishedAt.getTime() - turnStartedAt.getTime()),
       providerCalls: subtractCounts(provider.counts, callsBeforeTurn),
-      ...(captureRequest ? { providerRequest: requestArtifact(captureRequest) } : {}),
-      ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result), returnedModel: capture.response.model } : {}),
-      ...(finalResult ? { finalTutorResult: finalResult } : {}),
+      ...(captureRequest ? { providerRequest: requestArtifact(captureRequest, options.credential) } : {}),
+      ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result, options.credential), returnedModel: redact(capture.response.model, options.credential) } : {}),
+      ...(finalResult ? { finalTutorResult: safeResult(finalResult, options.credential) } : {}),
       deterministicChecks: turnChecks,
       ...(error ? { technicalError: error } : {}),
     });
