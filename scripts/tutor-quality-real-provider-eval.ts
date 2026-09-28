@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
+import { accessSync, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
@@ -40,10 +41,16 @@ export interface TutorQualityCliDependencies {
 const DEFAULT_CORPUS_PATH = "evals/tutor-quality/anchor-corpus.yaml";
 const DEFAULT_CREDENTIAL_ENV = "UNOSIM_TUTOR_EVAL_CREDENTIAL";
 
-function readArgument(argv: readonly string[], index: number, flag: string): string {
-  const value = argv[index + 1];
-  if (!value || value.startsWith("--")) throw new Error(`${flag} requires a value`);
-  return value;
+function argumentPairs(argv: readonly string[]): readonly (readonly [string, string])[] {
+  if (argv.length % 2 !== 0) throw new Error("Tutor Quality evaluation options require values");
+  return Array.from({ length: argv.length / 2 }, (_, pairIndex) => {
+    const index = pairIndex * 2;
+    const flag = argv[index];
+    const value = argv[index + 1];
+    if (!flag?.startsWith("--")) throw new Error(`Unknown Tutor Quality evaluation option: ${flag ?? ""}`);
+    if (!value || value.startsWith("--")) throw new Error(`${flag} requires a value`);
+    return [flag, value] as const;
+  });
 }
 
 function parsePositiveInteger(value: string, flag: string, allowZero = false, maximum?: number): number {
@@ -66,32 +73,25 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
   let outputDir: string | undefined;
   let corpusPath = DEFAULT_CORPUS_PATH;
   let credentialEnv = DEFAULT_CREDENTIAL_ENV;
-  for (let index = 0; index < argv.length; index += 1) {
-    const flag = argv[index];
+  for (const [flag, value] of argumentPairs(argv)) {
     switch (flag) {
       case "--model":
-        model = readArgument(argv, index, flag);
-        index += 1;
+        model = value;
         break;
       case "--samples":
-        samples = parsePositiveInteger(readArgument(argv, index, flag), flag, false, MAX_TUTOR_QUALITY_SAMPLES);
-        index += 1;
+        samples = parsePositiveInteger(value, flag, false, MAX_TUTOR_QUALITY_SAMPLES);
         break;
       case "--max-calls":
-        maxCalls = parsePositiveInteger(readArgument(argv, index, flag), flag, true, MAX_TUTOR_QUALITY_CALLS);
-        index += 1;
+        maxCalls = parsePositiveInteger(value, flag, true, MAX_TUTOR_QUALITY_CALLS);
         break;
       case "--output-dir":
-        outputDir = readArgument(argv, index, flag);
-        index += 1;
+        outputDir = value;
         break;
       case "--corpus":
-        corpusPath = readArgument(argv, index, flag);
-        index += 1;
+        corpusPath = value;
         break;
       case "--credential-env":
-        credentialEnv = parseCredentialEnvironmentName(readArgument(argv, index, flag));
-        index += 1;
+        credentialEnv = parseCredentialEnvironmentName(value);
         break;
       default:
         throw new Error(`Unknown Tutor Quality evaluation option: ${flag}`);
@@ -101,6 +101,23 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
   if (!outputDir) throw new Error("--output-dir is required");
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model)) throw new Error("--model is invalid");
   return { model, samples, maxCalls, outputDir, corpusPath, credentialEnv };
+}
+
+const GIT_EXECUTABLE_CANDIDATES = process.platform === "win32"
+  ? [String.raw`C:\Program Files\Git\cmd\git.exe`, String.raw`C:\Program Files\Git\bin\git.exe`]
+  : ["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"];
+
+function resolveGitExecutable(): string {
+  const executable = GIT_EXECUTABLE_CANDIDATES.find((candidate) => {
+    try {
+      accessSync(candidate, fsConstants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!executable) throw new Error("git executable not found in fixed system locations");
+  return executable;
 }
 
 function historyEntry(entry: TutorQualityHistoryEntrySource): import("../shared/tutor").TutorDialogTurn {
@@ -153,7 +170,7 @@ export async function loadTutorQualityEvaluationScenarios(
 }
 
 function statusLines(cwd: string): readonly string[] {
-  const output = execFileSync("git", ["status", "--porcelain=v1", "-uall"], { cwd, encoding: "utf8" });
+  const output = execFileSync(resolveGitExecutable(), ["status", "--porcelain=v1", "-uall"], { cwd, encoding: "utf8" });
   return output.split("\n").map((line) => line.trimEnd()).filter(Boolean);
 }
 
@@ -169,7 +186,7 @@ export function isTutorQualityRelevantUntrackedPath(relativePath: string, output
 }
 
 export function readTutorQualityGitState(cwd: string, outputDir: string): TutorQualityGitState {
-  const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+  const sha = execFileSync(resolveGitExecutable(), ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
   const lines = statusLines(cwd);
   const trackedClean = lines.every((line) => line.slice(0, 2) === "??");
   const outputRelative = path.relative(cwd, path.resolve(cwd, outputDir));
@@ -212,12 +229,11 @@ const invokedDirectly = process.argv[1] !== undefined
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (invokedDirectly) {
-  runTutorQualityCli(process.argv.slice(2))
-    .then(({ report }) => {
-      console.log(JSON.stringify({ runId: report.runId, runStatus: report.runStatus, reason: report.reason, providerCalls: report.providerCalls }));
-    })
-    .catch((error: unknown) => {
-      console.error(error instanceof Error ? error.message : "Tutor Quality evaluation failed");
-      process.exitCode = 1;
-    });
+  try {
+    const { report } = await runTutorQualityCli(process.argv.slice(2));
+    console.log(JSON.stringify({ runId: report.runId, runStatus: report.runStatus, reason: report.reason, providerCalls: report.providerCalls }));
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : "Tutor Quality evaluation failed");
+    process.exitCode = 1;
+  }
 }

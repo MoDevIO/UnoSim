@@ -8,6 +8,7 @@ import {
   loadTutorQualityEvaluationScenarios,
   isTutorQualityRelevantUntrackedPath,
   parseTutorQualityCliArgs,
+  readTutorQualityGitState,
   runTutorQualityCli,
 } from "../../../../../scripts/tutor-quality-real-provider-eval";
 import type { LLMProvider } from "../../../../../server/services/tutor/llm-provider";
@@ -43,6 +44,11 @@ describe("Tutor Quality real-provider CLI contract", () => {
     expect(isTutorQualityRelevantUntrackedPath("ssot/ssot_function_tutor_model_registration.md", ".tutor-quality-output")).toBe(false);
     expect(isTutorQualityRelevantUntrackedPath("evals/tutor-quality/anchor-corpus.yaml", ".tutor-quality-output")).toBe(true);
     expect(isTutorQualityRelevantUntrackedPath(".tutor-quality-output/report.json", ".tutor-quality-output")).toBe(false);
+  });
+
+  it("reads the local Git state through a fixed executable location", () => {
+    const state = readTutorQualityGitState(process.cwd(), "test-results");
+    expect(state.sha).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it("materializes and runs the complete versioned anchor corpus with a fake provider", async () => {

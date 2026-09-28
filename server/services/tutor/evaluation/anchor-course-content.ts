@@ -152,20 +152,19 @@ function baseState(): TutorProgressionState {
   return createTutorProgressionState(REVISION);
 }
 
+function variablesCourseContent(): TutorPlanningContentContext {
+  return {
+    revision: REVISION,
+    tutor: tutorCapability([variableTopic()]),
+    progressionState: baseState(),
+  };
+}
+
 export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureId): TutorPlanningContentContext {
   switch (fixtureId) {
     case "variables":
-      return {
-        revision: REVISION,
-        tutor: tutorCapability([variableTopic()]),
-        progressionState: baseState(),
-      };
     case "progression-learn":
-      return {
-        revision: REVISION,
-        tutor: tutorCapability([variableTopic()]),
-        progressionState: baseState(),
-      };
+      return variablesCourseContent();
     case "progression-expand": {
       const state = baseState();
       state.activeTopicId = "variables-and-serial";

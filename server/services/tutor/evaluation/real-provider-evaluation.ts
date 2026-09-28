@@ -21,6 +21,11 @@ export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-f
 
 export const MAX_TUTOR_QUALITY_SAMPLES = 20;
 export const MAX_TUTOR_QUALITY_CALLS = 500;
+const EMPTY_PROVIDER_CALLS: TutorQualityProviderCallCounts = {
+  total: 0,
+  modelListCalls: 0,
+  generationCalls: 0,
+};
 
 export type TutorQualityTurn =
   | {
@@ -312,7 +317,7 @@ function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string 
   const first = options.scenarios[0];
   return hashCanonical({
     unosimGitSha: options.git.sha,
-    courseContentRevisions: [...new Set(options.scenarios.map(courseRevision))].sort(),
+    courseContentRevisions: [...new Set(options.scenarios.map(courseRevision))].sort((left, right) => left.localeCompare(right)),
     corpusId: first?.corpusId,
     corpusVersion: first?.corpusVersion,
     providerId: options.providerId,
@@ -343,7 +348,7 @@ function metadata(
   returnedModels: readonly string[] = [],
   sampleStartedAt = new Date(0).toISOString(),
   sampleDurationMs = 0,
-  providerCalls: TutorQualityProviderCallCounts = { total: 0, modelListCalls: 0, generationCalls: 0 },
+  providerCalls: TutorQualityProviderCallCounts = EMPTY_PROVIDER_CALLS,
 ): TutorQualityMetadata {
   return {
     providerId: options.providerId,
@@ -480,43 +485,63 @@ function deterministicRawChecks(
   }
 }
 
-function expectedChecks(
-  scenario: TutorQualityEvaluationScenario,
-  result: TutorContentResult | undefined,
-  turn: TutorQualityTurn,
-  stateBefore: TutorProgressionState | undefined,
-  stateAfter: TutorProgressionState | undefined,
-  checks: TutorQualityDeterministicCheck[],
-  violations: TutorQualityInvariantViolation[],
-  turnIndex: number,
-): void {
-  const expected = scenario.expected;
-  if (!expected || !result) return;
-  if (expected.topicId !== undefined) {
-    const passed = result.topicId === expected.topicId;
-    addCheck(checks, "expected-topic", passed, expected.topicId);
-    if (!passed) addViolation(violations, "topic-mismatch", "final-tutor", turnIndex, expected.topicId);
-  }
-  if (expected.topicIdAbsent !== undefined) {
-    const passed = result.topicId !== expected.topicIdAbsent && result.activeTopicId !== expected.topicIdAbsent;
-    addCheck(checks, "expected-topic-absent", passed, expected.topicIdAbsent);
-    if (!passed) addViolation(violations, "forbidden-topic-activation", "final-tutor", turnIndex, expected.topicIdAbsent);
-  }
-  if (expected.learningPhase !== undefined) {
-    const passed = result.learningPhase === expected.learningPhase || stateAfter?.phase === expected.learningPhase;
-    addCheck(checks, "expected-learning-phase", passed, expected.learningPhase);
-    if (!passed) addViolation(violations, "phase-mismatch", "final-tutor", turnIndex, expected.learningPhase);
-  }
-  if (expected.stateUnchanged && stateBefore !== undefined && stateAfter !== undefined) {
-    const passed = stableJson(stateBefore) === stableJson(stateAfter);
-    addCheck(checks, "expected-state-unchanged", passed);
-    if (!passed) addViolation(violations, "state-changed-unexpectedly", "state", turnIndex);
-  }
-  if (expected.questionNotRepeat === "exact-or-heuristic" && turn.kind === "dialog") {
-    const passed = !isSemanticallyRepeatedQuestion(result.question, [turn.question, ...(turn.history ?? []).map(({ question }) => question)]);
-    addCheck(checks, "final-question-not-repeated", passed);
-    if (!passed) addViolation(violations, "question-repeat", "final-tutor", turnIndex, "stage1-heuristic");
-  }
+interface ExpectedCheckContext {
+  readonly scenario: TutorQualityEvaluationScenario;
+  readonly result: TutorContentResult;
+  readonly turn: TutorQualityTurn;
+  readonly stateBefore: TutorProgressionState | undefined;
+  readonly stateAfter: TutorProgressionState | undefined;
+  readonly checks: TutorQualityDeterministicCheck[];
+  readonly violations: TutorQualityInvariantViolation[];
+  readonly turnIndex: number;
+}
+
+function expectedTopicCheck(context: ExpectedCheckContext): void {
+  const expectedTopic = context.scenario.expected?.topicId;
+  if (expectedTopic === undefined) return;
+  const passed = context.result.topicId === expectedTopic;
+  addCheck(context.checks, "expected-topic", passed, expectedTopic);
+  if (!passed) addViolation(context.violations, "topic-mismatch", "final-tutor", context.turnIndex, expectedTopic);
+}
+
+function expectedTopicAbsentCheck(context: ExpectedCheckContext): void {
+  const forbiddenTopic = context.scenario.expected?.topicIdAbsent;
+  if (forbiddenTopic === undefined) return;
+  const passed = context.result.topicId !== forbiddenTopic && context.result.activeTopicId !== forbiddenTopic;
+  addCheck(context.checks, "expected-topic-absent", passed, forbiddenTopic);
+  if (!passed) addViolation(context.violations, "forbidden-topic-activation", "final-tutor", context.turnIndex, forbiddenTopic);
+}
+
+function expectedPhaseCheck(context: ExpectedCheckContext): void {
+  const expectedPhase = context.scenario.expected?.learningPhase;
+  if (expectedPhase === undefined) return;
+  const passed = context.result.learningPhase === expectedPhase || context.stateAfter?.phase === expectedPhase;
+  addCheck(context.checks, "expected-learning-phase", passed, expectedPhase);
+  if (!passed) addViolation(context.violations, "phase-mismatch", "final-tutor", context.turnIndex, expectedPhase);
+}
+
+function expectedStateCheck(context: ExpectedCheckContext): void {
+  if (!context.scenario.expected?.stateUnchanged || !context.stateBefore || !context.stateAfter) return;
+  const passed = stableJson(context.stateBefore) === stableJson(context.stateAfter);
+  addCheck(context.checks, "expected-state-unchanged", passed);
+  if (!passed) addViolation(context.violations, "state-changed-unexpectedly", "state", context.turnIndex);
+}
+
+function expectedQuestionCheck(context: ExpectedCheckContext): void {
+  if (context.scenario.expected?.questionNotRepeat !== "exact-or-heuristic" || context.turn.kind !== "dialog") return;
+  const previousQuestions = [context.turn.question, ...(context.turn.history ?? []).map(({ question }) => question)];
+  const passed = !isSemanticallyRepeatedQuestion(context.result.question, previousQuestions);
+  addCheck(context.checks, "final-question-not-repeated", passed);
+  if (!passed) addViolation(context.violations, "question-repeat", "final-tutor", context.turnIndex, "stage1-heuristic");
+}
+
+function expectedChecks(context: ExpectedCheckContext): void {
+  if (!context.scenario.expected) return;
+  expectedTopicCheck(context);
+  expectedTopicAbsentCheck(context);
+  expectedPhaseCheck(context);
+  expectedStateCheck(context);
+  expectedQuestionCheck(context);
 }
 
 function applicationMetadataChecks(
@@ -587,6 +612,247 @@ function sampleTemplate(
   };
 }
 
+interface SampleTurnContext {
+  readonly options: TutorQualityEvaluationOptions;
+  readonly provider: CountingProvider;
+  readonly service: TutorService;
+  readonly scenario: TutorQualityEvaluationScenario;
+  readonly content: TutorPlanningContentContext | undefined;
+  readonly stateBefore: TutorProgressionState | undefined;
+  readonly finalQuestions: Map<number, string>;
+  readonly violations: TutorQualityInvariantViolation[];
+  readonly turn: TutorQualityTurn;
+  readonly turnIndex: number;
+}
+
+interface InvokedTutorTurn {
+  readonly finalResult?: TutorContentResult;
+  readonly error?: TutorQualityTechnicalError;
+  readonly invalidReason?: string;
+}
+
+interface ProcessedCapture {
+  readonly returnedModel?: string;
+  readonly invalidReason?: string;
+}
+
+interface SampleTurnOutcome {
+  readonly transcriptTurn?: TutorQualityTranscriptTurn;
+  readonly returnedModel?: string;
+  readonly executionStatus?: Extract<TutorQualityExecutionStatus, "invalid" | "technical-failure">;
+  readonly invalidReason?: string;
+  readonly terminalError?: TutorQualityTechnicalError;
+  readonly stop: boolean;
+}
+
+function invalidTurnContext(context: SampleTurnContext): string | undefined {
+  const { turn, turnIndex, finalQuestions, violations } = context;
+  if (turn.kind === "initial") return undefined;
+  if (turn.bindsToQuestion !== turn.question) {
+    addViolation(violations, "unbound-question-context", "scenario", turnIndex);
+    return "unbound-question-context";
+  }
+  if (turn.continuationOf !== undefined) {
+    const precedingQuestion = finalQuestions.get(turn.continuationOf);
+    if (precedingQuestion === undefined || precedingQuestion !== turn.bindsToQuestion) {
+      addViolation(violations, "preceding-question-mismatch", "scenario", turnIndex);
+      return "preceding-question-mismatch";
+    }
+  }
+  return undefined;
+}
+
+async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutorTurn> {
+  const { options, service, scenario, content, turn } = context;
+  const invalidReason = invalidTurnContext(context);
+  if (invalidReason) return { invalidReason };
+  try {
+    if (turn.kind === "initial") {
+      const response = await service.generateQuestion(scenario.sketch, options.credential, options.requestedModel, turn.difficulty ?? 30, content);
+      return { finalResult: response.result };
+    }
+    const response = await service.generateDialogResponse(
+      scenario.sketch,
+      historyFromSource(turn.history),
+      turn.question,
+      turn.answer,
+      options.credential,
+      options.requestedModel,
+      turn.difficulty ?? 30,
+      content,
+    );
+    return { finalResult: response.result };
+  } catch (error_) {
+    return { error: technicalError(error_) };
+  }
+}
+
+function latestCapture(provider: CountingProvider, beforeGenerationCount: number): ProviderCapture | undefined {
+  return provider.generationCaptures.length > beforeGenerationCount
+    ? provider.generationCaptures.at(-1)
+    : undefined;
+}
+
+function processCapture(
+  capture: ProviderCapture | undefined,
+  context: SampleTurnContext,
+  checks: TutorQualityDeterministicCheck[],
+): ProcessedCapture {
+  if (!capture?.response) return {};
+  const returnedModel = capture.response.model;
+  if (typeof returnedModel === "string" && returnedModel.length > 0) {
+    if (returnedModel !== context.options.requestedModel) {
+      addCheck(checks, "returned-model-matches-request", false, returnedModel);
+      deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
+      return { returnedModel, invalidReason: "returned-model-mismatch" };
+    }
+    addCheck(checks, "returned-model-matches-request", true);
+    deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
+    return { returnedModel };
+  }
+  addCheck(checks, "returned-model-matches-request", false, "missing");
+  deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
+  return { invalidReason: "returned-model-missing" };
+}
+
+function processFinalResult(
+  context: SampleTurnContext,
+  invocation: InvokedTutorTurn,
+  checks: TutorQualityDeterministicCheck[],
+): void {
+  const { finalResult, error } = invocation;
+  if (!finalResult) {
+    if (error) addCheck(checks, "final-tutor-response-present", false, error.kind);
+    return;
+  }
+  context.finalQuestions.set(context.turnIndex, finalResult.question);
+  addCheck(checks, "final-tutor-response-present", true);
+  expectedChecks({
+    scenario: context.scenario,
+    result: finalResult,
+    turn: context.turn,
+    stateBefore: context.stateBefore,
+    stateAfter: context.content?.progressionState,
+    checks,
+    violations: context.violations,
+    turnIndex: context.turnIndex,
+  });
+  applicationMetadataChecks(finalResult, context.content, context.content?.progressionState, checks, context.violations, context.turnIndex);
+  questionIdReuseCheck(finalResult, context.turn, context.content, checks, context.violations, context.turnIndex);
+}
+
+function buildTranscriptTurn(
+  context: SampleTurnContext,
+  startedAt: Date,
+  callsBefore: TutorQualityProviderCallCounts,
+  finishedAt: Date,
+  capture: ProviderCapture | undefined,
+  invocation: InvokedTutorTurn,
+  checks: readonly TutorQualityDeterministicCheck[],
+): TutorQualityTranscriptTurn {
+  const { options, provider, turn, turnIndex } = context;
+  return {
+    index: turnIndex,
+    input: safeTurn(turn, options.credential),
+    startedAt: startedAt.toISOString(),
+    durationMs: Math.max(0, finishedAt.getTime() - startedAt.getTime()),
+    providerCalls: subtractCounts(provider.counts, callsBefore),
+    ...(capture?.request ? { providerRequest: requestArtifact(capture.request, options.credential) } : {}),
+    ...(capture?.response ? {
+      rawProviderResult: safeResult(capture.response.result, options.credential),
+      ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
+    } : {}),
+    ...(invocation.finalResult ? { finalTutorResult: safeResult(invocation.finalResult, options.credential) } : {}),
+    deterministicChecks: checks,
+    ...(invocation.error ? { technicalError: invocation.error } : {}),
+  };
+}
+
+async function executeSampleTurn(context: SampleTurnContext): Promise<SampleTurnOutcome> {
+  const startedAt = (context.options.now ?? (() => new Date()))();
+  const callsBefore = context.provider.counts;
+  const checks: TutorQualityDeterministicCheck[] = [];
+  const beforeGenerationCount = context.provider.generationCaptures.length;
+  const invocation = await invokeTutorTurn(context);
+  if (invocation.invalidReason) return { invalidReason: invocation.invalidReason, executionStatus: "invalid", stop: true };
+  const capture = latestCapture(context.provider, beforeGenerationCount);
+  const captureResult = processCapture(capture, context, checks);
+  processFinalResult(context, invocation, checks);
+  const finishedAt = (context.options.now ?? (() => new Date()))();
+  return {
+    transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, capture, invocation, checks),
+    returnedModel: captureResult.returnedModel,
+    ...(invocation.error ? { executionStatus: "technical-failure" as const, terminalError: invocation.error } : {}),
+    ...(captureResult.invalidReason ? { executionStatus: "invalid" as const, invalidReason: captureResult.invalidReason } : {}),
+    stop: invocation.error !== undefined,
+  };
+}
+
+interface SampleExecutionState {
+  readonly violations: TutorQualityInvariantViolation[];
+  readonly turns: TutorQualityTranscriptTurn[];
+  readonly returnedModels: string[];
+  readonly finalQuestions: Map<number, string>;
+  executionStatus: TutorQualityExecutionStatus;
+  invalidReason: string | undefined;
+  terminalError: TutorQualityTechnicalError | undefined;
+}
+
+function applySampleTurnOutcome(state: SampleExecutionState, outcome: SampleTurnOutcome): void {
+  if (outcome.executionStatus === "technical-failure") state.executionStatus = "technical-failure";
+  if (outcome.executionStatus === "invalid") state.executionStatus = "invalid";
+  if (outcome.invalidReason) state.invalidReason = state.invalidReason ?? outcome.invalidReason;
+  if (outcome.terminalError) state.terminalError = outcome.terminalError;
+  if (outcome.returnedModel) state.returnedModels.push(outcome.returnedModel);
+  if (outcome.transcriptTurn) state.turns.push(outcome.transcriptTurn);
+}
+
+interface SampleTurnsContext {
+  readonly options: TutorQualityEvaluationOptions;
+  readonly provider: CountingProvider;
+  readonly service: TutorService;
+  readonly scenario: TutorQualityEvaluationScenario;
+  readonly content: TutorPlanningContentContext | undefined;
+  readonly stateBefore: TutorProgressionState | undefined;
+  readonly execution: SampleExecutionState;
+}
+
+async function executeSampleTurns(context: SampleTurnsContext): Promise<void> {
+  const { options, provider, service, scenario, content, stateBefore, execution } = context;
+  for (const [turnIndex, turn] of scenario.turns.entries()) {
+    const outcome = await executeSampleTurn({
+      options,
+      provider,
+      service,
+      scenario,
+      content,
+      stateBefore,
+      finalQuestions: execution.finalQuestions,
+      violations: execution.violations,
+      turn,
+      turnIndex,
+    });
+    applySampleTurnOutcome(execution, outcome);
+    if (outcome.stop) break;
+  }
+}
+
+function recordFailureStateCheck(
+  terminalError: TutorQualityTechnicalError | undefined,
+  stateBefore: TutorProgressionState | undefined,
+  stateAfter: TutorProgressionState | undefined,
+  turns: TutorQualityTranscriptTurn[],
+  violations: TutorQualityInvariantViolation[],
+): void {
+  if (!terminalError || !stateBefore || !stateAfter) return;
+  const unchanged = stableJson(stateBefore) === stableJson(stateAfter);
+  const stateChecks = turns.at(-1)?.deterministicChecks;
+  if (stateChecks) {
+    (stateChecks as TutorQualityDeterministicCheck[]).push({ name: "state-unchanged-after-failure", passed: unchanged });
+  }
+  if (!unchanged) addViolation(violations, "state-mutated-after-failure", "state", undefined);
+}
+
 async function runSample(
   options: TutorQualityEvaluationOptions,
   provider: CountingProvider,
@@ -599,117 +865,20 @@ async function runSample(
   const callsBeforeSample = provider.counts;
   const content = scenario.courseContent ? clone(scenario.courseContent) : undefined;
   const stateBefore = content?.progressionState ? clone(content.progressionState) : undefined;
-  const violations: TutorQualityInvariantViolation[] = [];
-  const turns: TutorQualityTranscriptTurn[] = [];
-  const returnedModels: string[] = [];
-  const finalQuestions = new Map<number, string>();
-  let executionStatus: TutorQualityExecutionStatus = "completed";
-  let invalidReason: string | undefined;
-  let terminalError: TutorQualityTechnicalError | undefined;
   const service = new TutorService(provider, content ? new CurriculumTutorAdapter() : undefined);
-
-  for (const [turnIndex, turn] of scenario.turns.entries()) {
-    const turnStartedAt = (options.now ?? (() => new Date()))();
-    const callsBeforeTurn = provider.counts;
-    const turnChecks: TutorQualityDeterministicCheck[] = [];
-    const beforeGenerationCount = provider.generationCaptures.length;
-    let finalResult: TutorContentResult | undefined;
-    let error: TutorQualityTechnicalError | undefined;
-    try {
-      if (turn.kind === "initial") {
-        const response = await service.generateQuestion(scenario.sketch, options.credential, options.requestedModel, turn.difficulty ?? 30, content);
-        finalResult = response.result;
-      } else {
-        if (turn.bindsToQuestion !== turn.question) {
-          executionStatus = "invalid";
-          invalidReason = "unbound-question-context";
-          addViolation(violations, "unbound-question-context", "scenario", turnIndex);
-          break;
-        }
-        if (turn.continuationOf !== undefined) {
-          const precedingQuestion = finalQuestions.get(turn.continuationOf);
-          if (precedingQuestion === undefined || precedingQuestion !== turn.bindsToQuestion) {
-            executionStatus = "invalid";
-            invalidReason = "preceding-question-mismatch";
-            addViolation(violations, "preceding-question-mismatch", "scenario", turnIndex);
-            break;
-          }
-        }
-        const response = await service.generateDialogResponse(
-          scenario.sketch,
-          historyFromSource(turn.history),
-          turn.question,
-          turn.answer,
-          options.credential,
-          options.requestedModel,
-          turn.difficulty ?? 30,
-          content,
-        );
-        finalResult = response.result;
-      }
-    } catch (caught) {
-      error = technicalError(caught);
-      executionStatus = "technical-failure";
-      terminalError = error;
-    }
-
-    const capture = provider.generationCaptures.length > beforeGenerationCount
-      ? provider.generationCaptures.at(-1)
-      : undefined;
-    if (capture?.response) {
-      const returnedModel = capture.response.model;
-      if (typeof returnedModel !== "string" || returnedModel.length === 0) {
-        executionStatus = "invalid";
-        invalidReason = "returned-model-missing";
-        addCheck(turnChecks, "returned-model-matches-request", false, "missing");
-      } else if (returnedModel !== options.requestedModel) {
-        executionStatus = "invalid";
-        invalidReason = "returned-model-mismatch";
-        addCheck(turnChecks, "returned-model-matches-request", false, returnedModel);
-      } else {
-        addCheck(turnChecks, "returned-model-matches-request", true);
-      }
-      if (typeof returnedModel === "string" && returnedModel.length > 0) returnedModels.push(returnedModel);
-      deterministicRawChecks(capture.response.result, turn, turnIndex, turnChecks, violations);
-    }
-    if (finalResult) {
-      finalQuestions.set(turnIndex, finalResult.question);
-      addCheck(turnChecks, "final-tutor-response-present", true);
-      expectedChecks(scenario, finalResult, turn, stateBefore, content?.progressionState, turnChecks, violations, turnIndex);
-      applicationMetadataChecks(finalResult, content, content?.progressionState, turnChecks, violations, turnIndex);
-      questionIdReuseCheck(finalResult, turn, content, turnChecks, violations, turnIndex);
-    } else if (error) {
-      addCheck(turnChecks, "final-tutor-response-present", false, error.kind);
-    }
-    const captureRequest = capture?.request;
-    const turnFinishedAt = (options.now ?? (() => new Date()))();
-    turns.push({
-      index: turnIndex,
-      input: safeTurn(turn, options.credential),
-      startedAt: turnStartedAt.toISOString(),
-      durationMs: Math.max(0, turnFinishedAt.getTime() - turnStartedAt.getTime()),
-      providerCalls: subtractCounts(provider.counts, callsBeforeTurn),
-      ...(captureRequest ? { providerRequest: requestArtifact(captureRequest, options.credential) } : {}),
-      ...(capture?.response ? {
-        rawProviderResult: safeResult(capture.response.result, options.credential),
-        ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
-      } : {}),
-      ...(finalResult ? { finalTutorResult: safeResult(finalResult, options.credential) } : {}),
-      deterministicChecks: turnChecks,
-      ...(error ? { technicalError: error } : {}),
-    });
-    if (error) break;
-  }
+  const execution: SampleExecutionState = {
+    violations: [],
+    turns: [],
+    returnedModels: [],
+    finalQuestions: new Map<number, string>(),
+    executionStatus: "completed",
+    invalidReason: undefined,
+    terminalError: undefined,
+  };
+  await executeSampleTurns({ options, provider, service, scenario, content, stateBefore, execution });
 
   const stateAfter = content?.progressionState ? clone(content.progressionState) : undefined;
-  if (terminalError && stateBefore && stateAfter) {
-    const unchanged = stableJson(stateBefore) === stableJson(stateAfter);
-    const stateChecks = turns.at(-1)?.deterministicChecks;
-    if (stateChecks) {
-      (stateChecks as TutorQualityDeterministicCheck[]).push({ name: "state-unchanged-after-failure", passed: unchanged });
-    }
-    if (!unchanged) addViolation(violations, "state-mutated-after-failure", "state", undefined);
-  }
+  recordFailureStateCheck(execution.terminalError, stateBefore, stateAfter, execution.turns, execution.violations);
   const sample = sampleTemplate(options, scenario, runId, evaluationIdentity, sampleIndex);
   const sampleFinishedAt = (options.now ?? (() => new Date()))();
   const sampleCalls = subtractCounts(provider.counts, callsBeforeSample);
@@ -719,19 +888,19 @@ async function runSample(
       options,
       scenario,
       sampleIndex,
-      returnedModels,
+      execution.returnedModels,
       sampleStartedAt.toISOString(),
       Math.max(0, sampleFinishedAt.getTime() - sampleStartedAt.getTime()),
       sampleCalls,
     ),
     ...(stateBefore ? { stateBefore } : {}),
     ...(stateAfter ? { stateAfter } : {}),
-    turns,
-    deterministicChecks: turns.flatMap(({ deterministicChecks }) => deterministicChecks),
-    executionStatus,
-    ...(invalidReason ? { invalidReason } : {}),
-    ...(terminalError ? { technicalError: terminalError } : {}),
-    invariantViolations: violations,
+    turns: execution.turns,
+    deterministicChecks: execution.turns.flatMap(({ deterministicChecks }) => deterministicChecks),
+    executionStatus: execution.executionStatus,
+    ...(execution.invalidReason ? { invalidReason: execution.invalidReason } : {}),
+    ...(execution.terminalError ? { technicalError: execution.terminalError } : {}),
+    invariantViolations: execution.violations,
   };
 }
 
@@ -821,16 +990,19 @@ function addTranscriptToAggregate(
   };
 }
 
-function baseReport(
-  options: TutorQualityEvaluationOptions,
-  runId: string,
-  evaluationIdentity: string,
-  runStatus: TutorQualityExecutionStatus,
-  reason: string | undefined,
-  calls: TutorQualityProviderCallCounts,
-  byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>,
-  samplesObserved = 0,
-): TutorQualityEvaluationReport {
+interface BaseReportContext {
+  readonly options: TutorQualityEvaluationOptions;
+  readonly runId: string;
+  readonly evaluationIdentity: string;
+  readonly runStatus: TutorQualityExecutionStatus;
+  readonly reason?: string;
+  readonly calls: TutorQualityProviderCallCounts;
+  readonly byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>;
+  readonly samplesObserved?: number;
+}
+
+function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
+  const { options, runId, evaluationIdentity, runStatus, reason, calls, byScenario, samplesObserved = 0 } = context;
   const aggregates = Object.values(byScenario);
   const completed = aggregates.reduce((sum, item) => sum + item.completed, 0);
   const invalid = aggregates.reduce((sum, item) => sum + item.invalid, 0);
@@ -901,7 +1073,7 @@ async function writeArtifacts(
   await writeArtifactsToDirectory(options.outputDir, report, transcripts);
 }
 
-function invalidPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
+function invalidBasicPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
   if (!options.requestedModel || options.requestedModel === "auto") return "fixed-model-required";
   if (!options.git.sha) return "git-sha-missing";
   if (!options.git.trackedClean || !options.git.relevantUntrackedClean) return "dirty-relevant-worktree";
@@ -909,6 +1081,10 @@ function invalidPreflightReason(options: TutorQualityEvaluationOptions): string 
   if (options.samples > MAX_TUTOR_QUALITY_SAMPLES) return "sample-count-exceeds-limit";
   if (!Number.isInteger(options.maxCalls) || options.maxCalls < 0) return "invalid-call-budget";
   if (options.maxCalls > MAX_TUTOR_QUALITY_CALLS) return "call-budget-exceeds-limit";
+  return undefined;
+}
+
+function invalidCorpusPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
   if (options.scenarios.length === 0) return "empty-corpus";
   const first = options.scenarios[0];
   if (options.scenarios.some((scenario) => scenario.corpusId !== first?.corpusId || scenario.corpusVersion !== first?.corpusVersion)) {
@@ -922,6 +1098,10 @@ function invalidPreflightReason(options: TutorQualityEvaluationOptions): string 
   return undefined;
 }
 
+function invalidPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
+  return invalidBasicPreflightReason(options) ?? invalidCorpusPreflightReason(options);
+}
+
 export async function runTutorQualityEvaluation(options: TutorQualityEvaluationOptions): Promise<TutorQualityEvaluationResult> {
   const runId = makeRunId(options);
   const evaluationIdentity = makeEvaluationIdentity(options);
@@ -929,17 +1109,17 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   const emptyByScenario = Object.fromEntries(options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]));
 
   if (invalidReason) {
-    const report = baseReport(options, runId, evaluationIdentity, "invalid", invalidReason, { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: invalidReason, calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (!options.credential) {
-    const report = baseReport(options, runId, evaluationIdentity, "not-run", "missing-credential", { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "not-run", reason: "missing-credential", calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (options.maxCalls === 0) {
-    const report = baseReport(options, runId, evaluationIdentity, "not-run", "call-budget-zero", { total: 0, modelListCalls: 0, generationCalls: 0 }, emptyByScenario);
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "not-run", reason: "call-budget-zero", calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
@@ -949,12 +1129,12 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   try {
     availableModels = await provider.listModels(options.credential);
   } catch (error) {
-    const report = baseReport(options, runId, evaluationIdentity, "technical-failure", technicalError(error).kind, provider.counts, emptyByScenario);
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
   if (!availableModels.includes(options.requestedModel)) {
-    const report = baseReport(options, runId, evaluationIdentity, "invalid", "model-unavailable", provider.counts, emptyByScenario);
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [] };
   }
@@ -968,13 +1148,15 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
       const callsBeforeSample = provider.counts;
       const transcript = await runSample(options, provider, scenario, runId, evaluationIdentity, sampleIndex);
       transcripts.push(transcript);
-      byScenario[scenario.id] = addTranscriptToAggregate(byScenario[scenario.id]!, transcript, subtractCounts(provider.counts, callsBeforeSample));
+      const aggregate = byScenario[scenario.id];
+      if (!aggregate) throw new Error(`Missing scenario aggregate for ${scenario.id}`);
+      byScenario[scenario.id] = addTranscriptToAggregate(aggregate, transcript, subtractCounts(provider.counts, callsBeforeSample));
       if (transcript.executionStatus === "invalid" && transcript.invalidReason === "returned-model-mismatch") {
         // The mismatch belongs to this sample; subsequent samples remain observable.
       }
     }
   }
-  const report = baseReport(options, runId, evaluationIdentity, "completed", undefined, provider.counts, byScenario, transcripts.length);
+  const report = baseReport({ options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length });
   await writeArtifacts(options, report, transcripts);
   return { report, transcripts };
 }

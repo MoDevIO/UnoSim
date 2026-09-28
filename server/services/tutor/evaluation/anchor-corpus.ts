@@ -1,7 +1,5 @@
 import { createHash } from "node:crypto";
 
-export type TutorQualityCourseContentRef = "free" | string;
-
 export interface TutorQualityHistoryEntrySource {
   readonly question: string;
   readonly answer?: string;
@@ -28,7 +26,7 @@ export type TutorQualityTurnSource =
 export interface TutorQualityScenarioSource {
   readonly id: string;
   readonly sketch: string;
-  readonly courseContent: TutorQualityCourseContentRef;
+  readonly courseContent: string;
   readonly model?: string;
   readonly turns: readonly TutorQualityTurnSource[];
   readonly expected?: {
@@ -72,52 +70,65 @@ function assertNonEmptyString(value: unknown, label: string): asserts value is s
   if (typeof value !== "string" || value.trim().length === 0) fail(`${label} must be a non-empty string`);
 }
 
-function assertDifficulty(value: unknown, label: string): void {
-  if (value !== undefined && (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 100)) {
+function optionalInteger(value: unknown, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 100) {
     fail(`${label} must be an integer from 1 to 100`);
   }
+  return value;
 }
 
-function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
-  assertObject(value, label);
-  if (value.kind === "initial") {
-    assertDifficulty(value.difficulty, `${label}.difficulty`);
-    return { kind: "initial", ...(value.difficulty === undefined ? {} : { difficulty: value.difficulty as number }) };
+function parseHistory(value: unknown, label: string): readonly TutorQualityHistoryEntrySource[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) fail(`${label}.history must be an array`);
+  for (const [index, entry] of value.entries()) {
+    const historyLabel = `${label}.history[${index}]`;
+    assertObject(entry, historyLabel);
+    assertNonEmptyString(entry.question, `${historyLabel}.question`);
+    if (entry.answer !== undefined) assertNonEmptyString(entry.answer, `${historyLabel}.answer`);
+    if (entry.responseStyle !== undefined && entry.responseStyle !== "normal" && entry.responseStyle !== "philosophical") {
+      fail(`${historyLabel}.responseStyle is invalid`);
+    }
+    if (entry.answerRating !== undefined && ![1, 2, 3, 4, 5].includes(entry.answerRating as 1 | 2 | 3 | 4 | 5)) {
+      fail(`${historyLabel}.answerRating is invalid`);
+    }
+    if (entry.questionId !== undefined) assertNonEmptyString(entry.questionId, `${historyLabel}.questionId`);
   }
+  return value as readonly TutorQualityHistoryEntrySource[];
+}
+
+function parseInitialTurn(value: Record<string, unknown>, label: string): TutorQualityTurnSource | undefined {
+  if (value.kind !== "initial") return undefined;
+  const difficulty = optionalInteger(value.difficulty, `${label}.difficulty`);
+  return { kind: "initial", ...(difficulty === undefined ? {} : { difficulty }) };
+}
+
+function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQualityTurnSource {
   if (value.kind !== "dialog") fail(`${label}.kind must be initial or dialog`);
   assertNonEmptyString(value.question, `${label}.question`);
   assertNonEmptyString(value.answer, `${label}.answer`);
   assertNonEmptyString(value.bindsToQuestion, `${label}.bindsToQuestion`);
   if (value.question !== value.bindsToQuestion) fail(`${label} bindsToQuestion must equal question`);
-  if (value.continuationOf !== undefined && (typeof value.continuationOf !== "number" || !Number.isInteger(value.continuationOf) || value.continuationOf < 0)) {
+  const continuationOf = value.continuationOf;
+  if (continuationOf !== undefined && (typeof continuationOf !== "number" || !Number.isInteger(continuationOf) || continuationOf < 0)) {
     fail(`${label}.continuationOf must reference a preceding turn`);
   }
-  assertDifficulty(value.difficulty, `${label}.difficulty`);
-  if (value.history !== undefined) {
-    if (!Array.isArray(value.history)) fail(`${label}.history must be an array`);
-    for (const [index, entry] of value.history.entries()) {
-      const historyLabel = `${label}.history[${index}]`;
-      assertObject(entry, historyLabel);
-      assertNonEmptyString(entry.question, `${historyLabel}.question`);
-      if (entry.answer !== undefined) assertNonEmptyString(entry.answer, `${historyLabel}.answer`);
-      if (entry.responseStyle !== undefined && entry.responseStyle !== "normal" && entry.responseStyle !== "philosophical") {
-        fail(`${historyLabel}.responseStyle is invalid`);
-      }
-      if (entry.answerRating !== undefined && ![1, 2, 3, 4, 5].includes(entry.answerRating as 1 | 2 | 3 | 4 | 5)) {
-        fail(`${historyLabel}.answerRating is invalid`);
-      }
-      if (entry.questionId !== undefined) assertNonEmptyString(entry.questionId, `${historyLabel}.questionId`);
-    }
-  }
+  const difficulty = optionalInteger(value.difficulty, `${label}.difficulty`);
+  const history = parseHistory(value.history, label);
   return {
     kind: "dialog",
     question: value.question,
     answer: value.answer,
     bindsToQuestion: value.bindsToQuestion,
-    ...(value.continuationOf === undefined ? {} : { continuationOf: value.continuationOf as number }),
-    ...(value.difficulty === undefined ? {} : { difficulty: value.difficulty as number }),
-    ...(value.history === undefined ? {} : { history: value.history as readonly TutorQualityHistoryEntrySource[] }),
+    ...(continuationOf === undefined ? {} : { continuationOf }),
+    ...(difficulty === undefined ? {} : { difficulty }),
+    ...(history === undefined ? {} : { history }),
   };
+}
+
+function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
+  assertObject(value, label);
+  return parseInitialTurn(value, label) ?? parseDialogTurn(value, label);
 }
 
 function normalizedCorpusSource(source: TutorQualityCorpusSource): TutorQualityCorpusSource {
@@ -146,6 +157,63 @@ export function tutorQualityCorpusDigest(source: TutorQualityCorpusSource): stri
   return createHash("sha256").update(stableJson(normalizedCorpusSource(source))).digest("hex");
 }
 
+function parseExpected(value: unknown, label: string): TutorQualityScenarioSource["expected"] | undefined {
+  if (value === undefined) return undefined;
+  assertObject(value, `${label}.expected`);
+  if (value.learningPhase !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(value.learningPhase as string)) {
+    fail(`${label}.expected.learningPhase is invalid`);
+  }
+  if (value.questionNotRepeat !== undefined && value.questionNotRepeat !== "exact-or-heuristic") {
+    fail(`${label}.expected.questionNotRepeat is invalid`);
+  }
+  return value as TutorQualityScenarioSource["expected"];
+}
+
+function parseTurns(value: unknown, label: string): readonly TutorQualityTurnSource[] {
+  if (!Array.isArray(value) || value.length === 0) fail(`${label}.turns must be a non-empty array`);
+  const turns = value.map((turn, turnIndex) => parseTurn(turn, `${label}.turns[${turnIndex}]`));
+  turns.forEach((turn, turnIndex) => {
+    if (turn.kind === "dialog" && turn.continuationOf !== undefined && turn.continuationOf >= turnIndex) {
+      fail(`${label}.turns[${turnIndex}].continuationOf must reference a preceding turn`);
+    }
+  });
+  return turns;
+}
+
+function parseScenario(
+  rawScenario: unknown,
+  index: number,
+  references: TutorQualityCorpusReferences,
+  ids: Set<string>,
+): TutorQualityScenarioSource {
+  const label = `scenarios[${index}]`;
+  assertObject(rawScenario, label);
+  assertNonEmptyString(rawScenario.id, `${label}.id`);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(rawScenario.id)) fail(`${label}.id is not stable-safe`);
+  if (ids.has(rawScenario.id)) fail(`duplicate scenario id ${rawScenario.id}`);
+  ids.add(rawScenario.id);
+  assertNonEmptyString(rawScenario.sketch, `${label}.sketch`);
+  if (!references.sketches.has(rawScenario.sketch)) fail(`${label}.sketch is not a registered fixture`);
+  assertNonEmptyString(rawScenario.courseContent, `${label}.courseContent`);
+  if (rawScenario.courseContent !== "free" && !references.courseContentFixtures.has(rawScenario.courseContent)) {
+    fail(`${label}.courseContent is not a registered fixture`);
+  }
+  if (rawScenario.model !== undefined) {
+    assertNonEmptyString(rawScenario.model, `${label}.model`);
+    if (rawScenario.model === "auto") fail(`${label}.model must be a fixed model id`);
+  }
+  const turns = parseTurns(rawScenario.turns, label);
+  const expected = parseExpected(rawScenario.expected, label);
+  return {
+    id: rawScenario.id,
+    sketch: rawScenario.sketch,
+    courseContent: rawScenario.courseContent,
+    ...(rawScenario.model === undefined ? {} : { model: rawScenario.model }),
+    turns,
+    ...(expected === undefined ? {} : { expected }),
+  } satisfies TutorQualityScenarioSource;
+}
+
 export function parseTutorQualityCorpus(
   source: TutorQualityCorpusSource,
   references: TutorQualityCorpusReferences,
@@ -156,48 +224,7 @@ export function parseTutorQualityCorpus(
   if (!Array.isArray(source.scenarios) || source.scenarios.length === 0) fail("scenarios must be a non-empty array");
 
   const ids = new Set<string>();
-  const scenarios = source.scenarios.map((rawScenario, index) => {
-    const label = `scenarios[${index}]`;
-    assertObject(rawScenario, label);
-    assertNonEmptyString(rawScenario.id, `${label}.id`);
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(rawScenario.id)) fail(`${label}.id is not stable-safe`);
-    if (ids.has(rawScenario.id)) fail(`duplicate scenario id ${rawScenario.id}`);
-    ids.add(rawScenario.id);
-    assertNonEmptyString(rawScenario.sketch, `${label}.sketch`);
-    if (!references.sketches.has(rawScenario.sketch)) fail(`${label}.sketch is not a registered fixture`);
-    assertNonEmptyString(rawScenario.courseContent, `${label}.courseContent`);
-    if (rawScenario.courseContent !== "free" && !references.courseContentFixtures.has(rawScenario.courseContent)) {
-      fail(`${label}.courseContent is not a registered fixture`);
-    }
-    if (rawScenario.model !== undefined) {
-      assertNonEmptyString(rawScenario.model, `${label}.model`);
-      if (rawScenario.model === "auto") fail(`${label}.model must be a fixed model id`);
-    }
-    if (!Array.isArray(rawScenario.turns) || rawScenario.turns.length === 0) fail(`${label}.turns must be a non-empty array`);
-    const turns = rawScenario.turns.map((turn, turnIndex) => parseTurn(turn, `${label}.turns[${turnIndex}]`));
-    turns.forEach((turn, turnIndex) => {
-      if (turn.kind === "dialog" && turn.continuationOf !== undefined && turn.continuationOf >= turnIndex) {
-        fail(`${label}.turns[${turnIndex}].continuationOf must reference a preceding turn`);
-      }
-    });
-    if (rawScenario.expected !== undefined) {
-      assertObject(rawScenario.expected, `${label}.expected`);
-      if (rawScenario.expected.learningPhase !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(rawScenario.expected.learningPhase as string)) {
-        fail(`${label}.expected.learningPhase is invalid`);
-      }
-      if (rawScenario.expected.questionNotRepeat !== undefined && rawScenario.expected.questionNotRepeat !== "exact-or-heuristic") {
-        fail(`${label}.expected.questionNotRepeat is invalid`);
-      }
-    }
-    return {
-      id: rawScenario.id,
-      sketch: rawScenario.sketch,
-      courseContent: rawScenario.courseContent,
-      ...(rawScenario.model === undefined ? {} : { model: rawScenario.model }),
-      turns,
-      ...(rawScenario.expected === undefined ? {} : { expected: rawScenario.expected as TutorQualityScenarioSource["expected"] }),
-    } satisfies TutorQualityScenarioSource;
-  });
+  const scenarios = source.scenarios.map((rawScenario, index) => parseScenario(rawScenario, index, references, ids));
 
   const normalized = { corpusId: source.corpusId, corpusVersion: source.corpusVersion, scenarios } satisfies TutorQualityCorpusSource;
   return { ...normalized, digest: tutorQualityCorpusDigest(normalized) };
