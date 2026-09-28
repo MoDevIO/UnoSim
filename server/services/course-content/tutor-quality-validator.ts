@@ -83,20 +83,46 @@ function validateActivationReferences(
   issues: TutorContentQualityIssue[],
 ): void {
   for (const { qualityCase, activatedTopicIds } of contexts) {
-    for (const topicId of [...qualityCase.expectedTopics, ...qualityCase.forbiddenTopics]) {
-      if (!topicIds.has(topicId)) {
-        issues.push(issue("unknown-topic-reference", `Quality case references unknown Topic ${topicId}`, qualityCase.id, topicId));
-      }
+    validateUnknownTopicReferences(qualityCase, topicIds, issues);
+    validateExpectedTopicActivation(qualityCase, activatedTopicIds, topicIds, issues);
+    validateForbiddenTopicActivation(qualityCase, activatedTopicIds, topicIds, issues);
+  }
+}
+
+function validateUnknownTopicReferences(
+  qualityCase: ResolvedTutorQualityCase,
+  topicIds: ReadonlySet<string>,
+  issues: TutorContentQualityIssue[],
+): void {
+  for (const topicId of [...qualityCase.expectedTopics, ...qualityCase.forbiddenTopics]) {
+    if (!topicIds.has(topicId)) {
+      issues.push(issue("unknown-topic-reference", `Quality case references unknown Topic ${topicId}`, qualityCase.id, topicId));
     }
-    for (const topicId of qualityCase.expectedTopics) {
-      if (topicIds.has(topicId) && !activatedTopicIds.has(topicId)) {
-        issues.push(issue("expected-topic-not-activated", `Expected Topic ${topicId} is not activated`, qualityCase.id, topicId));
-      }
+  }
+}
+
+function validateExpectedTopicActivation(
+  qualityCase: ResolvedTutorQualityCase,
+  activatedTopicIds: ReadonlySet<string>,
+  topicIds: ReadonlySet<string>,
+  issues: TutorContentQualityIssue[],
+): void {
+  for (const topicId of qualityCase.expectedTopics) {
+    if (topicIds.has(topicId) && !activatedTopicIds.has(topicId)) {
+      issues.push(issue("expected-topic-not-activated", `Expected Topic ${topicId} is not activated`, qualityCase.id, topicId));
     }
-    for (const topicId of qualityCase.forbiddenTopics) {
-      if (topicIds.has(topicId) && activatedTopicIds.has(topicId)) {
-        issues.push(issue("forbidden-topic-activated", `Forbidden Topic ${topicId} is activated`, qualityCase.id, topicId));
-      }
+  }
+}
+
+function validateForbiddenTopicActivation(
+  qualityCase: ResolvedTutorQualityCase,
+  activatedTopicIds: ReadonlySet<string>,
+  topicIds: ReadonlySet<string>,
+  issues: TutorContentQualityIssue[],
+): void {
+  for (const topicId of qualityCase.forbiddenTopics) {
+    if (topicIds.has(topicId) && activatedTopicIds.has(topicId)) {
+      issues.push(issue("forbidden-topic-activated", `Forbidden Topic ${topicId} is activated`, qualityCase.id, topicId));
     }
   }
 }
