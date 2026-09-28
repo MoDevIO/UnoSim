@@ -46,4 +46,4 @@ export function createStage2ATranscriptReference(
   return { ...identitySource, identity: canonicalSemanticDigest(identitySource) };
 }
 
-export { canonicalSemanticJson as canonicalStage2BJson };
+export { canonicalSemanticJson as canonicalStage2BJson } from "./semantic-canonical";

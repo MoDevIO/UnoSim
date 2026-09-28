@@ -46,26 +46,47 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[])
   return Object.keys(value).every((key) => allowed.includes(key));
 }
 
+const LEARNING_PHASES = new Set(["LEARN", "DEEPEN", "EXPAND"]);
+
+function isExpectedScenario(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value) || !hasOnlyKeys(value, ["topicId", "topicIdAbsent", "learningPhase", "stateUnchanged", "questionNotRepeat"])) return false;
+  if (["topicId", "topicIdAbsent"].some((key) => value[key] !== undefined && !isNonEmptyString(value[key]))) return false;
+  const phase = value.learningPhase;
+  if (phase !== undefined && (typeof phase !== "string" || !LEARNING_PHASES.has(phase))) return false;
+  if (value.stateUnchanged !== undefined && typeof value.stateUnchanged !== "boolean") return false;
+  return value.questionNotRepeat === undefined || value.questionNotRepeat === "exact-or-heuristic";
+}
+
 function isStageAScenarioObject(value: unknown): value is TutorQualityEvaluationScenario {
   if (!isRecord(value) || !hasOnlyKeys(value, ["id", "corpusId", "corpusVersion", "sketchRef", "sketch", "courseContent", "turns", "expected"])) return false;
   if (!isNonEmptyString(value.id) || !isNonEmptyString(value.corpusId) || !Number.isInteger(value.corpusVersion)
     || !isNonEmptyString(value.sketchRef) || typeof value.sketch !== "string" || !Array.isArray(value.turns)) return false;
-  if (value.expected !== undefined) {
-    if (!isRecord(value.expected) || !hasOnlyKeys(value.expected, ["topicId", "topicIdAbsent", "learningPhase", "stateUnchanged", "questionNotRepeat"])) return false;
-    if (["topicId", "topicIdAbsent"].some((key) => value.expected && (value.expected as Record<string, unknown>)[key] !== undefined && !isNonEmptyString((value.expected as Record<string, unknown>)[key]))) return false;
-    if (value.expected.learningPhase !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(String(value.expected.learningPhase))) return false;
-    if (value.expected.stateUnchanged !== undefined && typeof value.expected.stateUnchanged !== "boolean") return false;
-    if (value.expected.questionNotRepeat !== undefined && value.expected.questionNotRepeat !== "exact-or-heuristic") return false;
-  }
-  if (value.courseContent !== undefined && !isRecord(value.courseContent)) return false;
-  return true;
+  return isExpectedScenario(value.expected) && (value.courseContent === undefined || isRecord(value.courseContent));
 }
 
 function isExecutionStatus(value: unknown): value is TutorQualityExecutionStatus {
   return value === "completed" || value === "invalid" || value === "technical-failure" || value === "not-run";
 }
 
-function isCallCounts(value: unknown): value is { readonly total: number; readonly modelListCalls: number; readonly generationCalls: number } {
+interface TranscriptCallCounts {
+  readonly total: number;
+  readonly modelListCalls: number;
+  readonly generationCalls: number;
+}
+
+const LAST_C0_CONTROL_CODE = 0x1f;
+const DELETE_CONTROL_CODE = 0x7f;
+
+function containsAsciiControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined && (codePoint <= LAST_C0_CONTROL_CODE || codePoint === DELETE_CONTROL_CODE)) return true;
+  }
+  return false;
+}
+
+function isCallCounts(value: unknown): value is TranscriptCallCounts {
   return isRecord(value)
     && ["total", "modelListCalls", "generationCalls"].every((key) => Number.isInteger(value[key]) && Number(value[key]) >= 0)
     && Number(value.total) === Number(value.modelListCalls) + Number(value.generationCalls);
@@ -80,11 +101,11 @@ function isDeterministicChecks(value: unknown): boolean {
 }
 
 function isInvariantViolations(value: unknown, turnCount: number): boolean {
-  const sources = ["raw-provider", "final-tutor", "state", "scenario"];
+  const sources = new Set(["raw-provider", "final-tutor", "state", "scenario"]);
   return Array.isArray(value) && value.every((violation) => isRecord(violation)
     && hasOnlyKeys(violation, ["code", "source", "turnIndex", "details"])
     && isNonEmptyString(violation.code)
-    && sources.includes(String(violation.source))
+    && sources.has(String(violation.source))
     && (violation.turnIndex === undefined || (Number.isInteger(violation.turnIndex) && Number(violation.turnIndex) >= 0 && Number(violation.turnIndex) < turnCount))
     && (violation.details === undefined || typeof violation.details === "string"));
 }
@@ -93,47 +114,89 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isTranscriptEnvelope(value: unknown): value is Record<string, unknown> {
+  return isRecord(value)
+    && value.schemaVersion === "tutor-quality-transcript-v1"
+    && isSha256Digest(value.evaluationIdentity)
+    && typeof value.runId === "string"
+    && value.runId.length > 0
+    && isExecutionStatus(value.executionStatus)
+    && Array.isArray(value.turns)
+    && isDeterministicChecks(value.deterministicChecks)
+    && isRecord(value.scenario)
+    && isRecord(value.metadata);
+}
+
+function isTranscriptScenario(value: unknown, executionStatus: TutorQualityExecutionStatus, turnCount: number): value is Record<string, unknown> & { readonly syntheticTurns: unknown[] } {
+  if (!isRecord(value) || !Array.isArray(value.syntheticTurns)) return false;
+  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.corpusId)
+    || !Number.isInteger(value.corpusVersion) || Number(value.corpusVersion) < 1) return false;
+  if (!isNonEmptyString(value.sketchRef) || typeof value.sketch !== "string") return false;
+  if (executionStatus === "completed" && turnCount !== value.syntheticTurns.length) return false;
+  return turnCount <= value.syntheticTurns.length;
+}
+
+function isTranscriptMetadata(metadata: unknown, scenario: Record<string, unknown>): metadata is Record<string, unknown> {
+  if (!isRecord(metadata) || metadata.corpusId !== scenario.corpusId || metadata.corpusVersion !== scenario.corpusVersion) return false;
+  if (!isNonEmptyString(metadata.providerId) || !isNonEmptyString(metadata.requestedModel)
+    || !Array.isArray(metadata.returnedModels) || !metadata.returnedModels.every(isNonEmptyString)) return false;
+  if (!isRecord(metadata.promptRevision) || !isNonEmptyString(metadata.promptRevision.id)
+    || !isSha256Digest(metadata.promptRevision.templateDigest) || !isNonEmptyString(metadata.courseContentRevision)) return false;
+  if (typeof metadata.gitSha !== "string" || !/^[0-9a-f]{40}$/.test(metadata.gitSha) || metadata.gitState !== "clean") return false;
+  if (!Number.isInteger(metadata.sampleIndex) || Number(metadata.sampleIndex) < 0
+    || !Number.isInteger(metadata.sampleCount) || Number(metadata.sampleCount) < 1) return false;
+  return Number.isFinite(metadata.sampleDurationMs) && Number(metadata.sampleDurationMs) >= 0
+    && isCallCounts(metadata.providerCalls)
+    && Number.isInteger(metadata.maxCalls) && Number(metadata.maxCalls) >= 1;
+}
+
+function isTranscriptTurn(
+  turn: unknown,
+  index: number,
+  syntheticTurn: unknown,
+  executionStatus: TutorQualityExecutionStatus,
+): turn is Record<string, unknown> & { readonly providerCalls: TranscriptCallCounts } {
+  if (!isRecord(turn) || !isRecord(turn.input)) return false;
+  if (Number(turn.index) !== index || !Number.isFinite(turn.durationMs) || Number(turn.durationMs) < 0) return false;
+  if (!isDeterministicChecks(turn.deterministicChecks) || !isCallCounts(turn.providerCalls)) return false;
+  const finalTutorResult = turn.finalTutorResult;
+  if (finalTutorResult !== undefined && (!isRecord(finalTutorResult) || !tutorContentResultSchema.safeParse(finalTutorResult).success)) return false;
+  if (turn.returnedModel !== undefined && typeof turn.returnedModel !== "string") return false;
+  if (executionStatus === "completed" && finalTutorResult === undefined) return false;
+  return canonicalSemanticJson(turn.input) === canonicalSemanticJson(syntheticTurn);
+}
+
+function transcriptTurnCallTotals(
+  turns: unknown[],
+  syntheticTurns: unknown[],
+  executionStatus: TutorQualityExecutionStatus,
+): TranscriptCallCounts | undefined {
+  if (executionStatus === "completed" && turns.length !== syntheticTurns.length) return undefined;
+  if (turns.length > syntheticTurns.length) return undefined;
+  const totals = { total: 0, modelListCalls: 0, generationCalls: 0 };
+  for (const [index, turn] of turns.entries()) {
+    if (!isTranscriptTurn(turn, index, syntheticTurns[index], executionStatus)) return undefined;
+    totals.total += Number(turn.providerCalls.total);
+    totals.modelListCalls += Number(turn.providerCalls.modelListCalls);
+    totals.generationCalls += Number(turn.providerCalls.generationCalls);
+  }
+  return totals;
+}
+
 function isTranscriptMinimum(value: unknown): value is TutorQualityTranscript {
   try {
-  if (!isRecord(value) || value.schemaVersion !== "tutor-quality-transcript-v1" || !isSha256Digest(value.evaluationIdentity)) return false;
-  if (typeof value.runId !== "string" || value.runId.length === 0 || !isExecutionStatus(value.executionStatus)) return false;
-  if (!Array.isArray(value.turns) || !isDeterministicChecks(value.deterministicChecks)) return false;
-  if (!isRecord(value.scenario) || !isRecord(value.metadata)) return false;
-  const scenario = value.scenario;
-  const metadata = value.metadata;
-  const syntheticTurns = scenario.syntheticTurns;
-  if (!isNonEmptyString(scenario.id) || !isNonEmptyString(scenario.corpusId) || !Number.isInteger(scenario.corpusVersion) || Number(scenario.corpusVersion) < 1) return false;
-  if (!isNonEmptyString(scenario.sketchRef) || typeof scenario.sketch !== "string" || !Array.isArray(syntheticTurns)) return false;
-  if (!isInvariantViolations(value.invariantViolations, syntheticTurns.length)) return false;
-  if (metadata.corpusId !== scenario.corpusId || metadata.corpusVersion !== scenario.corpusVersion) return false;
-  if (!isNonEmptyString(metadata.providerId) || !isNonEmptyString(metadata.requestedModel)
-    || !Array.isArray(metadata.returnedModels) || !metadata.returnedModels.every(isNonEmptyString)
-    || !isRecord(metadata.promptRevision) || !isNonEmptyString(metadata.promptRevision.id) || !isSha256Digest(metadata.promptRevision.templateDigest)
-    || !isNonEmptyString(metadata.courseContentRevision) || typeof metadata.gitSha !== "string" || !/^[0-9a-f]{40}$/.test(metadata.gitSha)
-    || metadata.gitState !== "clean" || !Number.isInteger(metadata.sampleIndex) || Number(metadata.sampleIndex) < 0
-    || !Number.isInteger(metadata.sampleCount) || Number(metadata.sampleCount) < 1 || !Number.isFinite(metadata.sampleDurationMs)
-    || Number(metadata.sampleDurationMs) < 0 || !isCallCounts(metadata.providerCalls)
-    || !Number.isInteger(metadata.maxCalls) || Number(metadata.maxCalls) < 1) return false;
-  if (value.executionStatus === "completed" && value.turns.length !== syntheticTurns.length) return false;
-  if (value.turns.length > syntheticTurns.length) return false;
-  const turnCalls = { total: 0, modelListCalls: 0, generationCalls: 0 };
-  for (const [index, turn] of value.turns.entries()) {
-    if (!isRecord(turn)) return false;
-    const providerCalls = turn.providerCalls;
-    const finalTutorResult = turn.finalTutorResult;
-    if (Number(turn.index) !== index || !isRecord(turn.input)
-      || !Number.isFinite(turn.durationMs) || Number(turn.durationMs) < 0
-      || !isDeterministicChecks(turn.deterministicChecks) || !isCallCounts(providerCalls)
-      || (finalTutorResult !== undefined && (!isRecord(finalTutorResult) || !tutorContentResultSchema.safeParse(finalTutorResult).success))
-      || (turn.returnedModel !== undefined && typeof turn.returnedModel !== "string")
-      || (value.executionStatus === "completed" && finalTutorResult === undefined)
-      || canonicalSemanticJson(turn.input) !== canonicalSemanticJson(syntheticTurns[index])) return false;
-    turnCalls.total += Number(providerCalls.total);
-    turnCalls.modelListCalls += Number(providerCalls.modelListCalls);
-    turnCalls.generationCalls += Number(providerCalls.generationCalls);
-  }
-  return isCallCounts(metadata.providerCalls)
-    && canonicalSemanticJson(turnCalls) === canonicalSemanticJson(metadata.providerCalls);
+    if (!isTranscriptEnvelope(value)) return false;
+    const scenario = value.scenario as Record<string, unknown>;
+    const metadata = value.metadata as Record<string, unknown>;
+    const turns = value.turns as unknown[];
+    const executionStatus = value.executionStatus as TutorQualityExecutionStatus;
+    if (!isTranscriptScenario(scenario, executionStatus, turns.length)) return false;
+    if (!isInvariantViolations(value.invariantViolations, scenario.syntheticTurns.length)) return false;
+    if (!isTranscriptMetadata(metadata, scenario)) return false;
+    const turnCalls = transcriptTurnCallTotals(turns, scenario.syntheticTurns, executionStatus);
+    return turnCalls !== undefined
+      && isCallCounts(metadata.providerCalls)
+      && canonicalSemanticJson(turnCalls) === canonicalSemanticJson(metadata.providerCalls);
   } catch {
     return false;
   }
@@ -179,7 +242,7 @@ export function createExistingTranscriptCompatibilityMapping(input: {
 }): ExistingTranscriptCompatibilityMapping {
   const { sourceId, transcript, sourceScenario, semanticCase } = input;
   if (!sourceId.trim()) throw new Error("Existing-transcript mapping requires a stable source identity");
-  if (sourceId.length > 512 || /[\u0000-\u001f\u007f]/u.test(sourceId)) throw new Error("Existing-transcript source identity must be bounded and contain no control characters");
+  if (sourceId.length > 512 || containsAsciiControlCharacter(sourceId)) throw new Error("Existing-transcript source identity must be bounded and contain no control characters");
   if (!isStageAScenarioObject(sourceScenario)) throw new Error("Existing Stage-A source scenario contains invalid or unsupported fields");
   if (!isTranscriptMinimum(transcript)) throw new Error("Existing Stage-2A transcript schema or identity is invalid");
   const compatibility = assessStageAScenarioCompatibility(sourceScenario, semanticCase);
@@ -230,7 +293,7 @@ function validateExistingProvenance(
   transcript: TutorQualityTranscript,
   semanticCase: SemanticCase,
 ): string | undefined {
-  if (!provenance.sourceId.trim() || provenance.sourceId.length > 512 || /[\u0000-\u001f\u007f]/u.test(provenance.sourceId)) return "existing-transcript-source-identity-missing-or-invalid";
+  if (!provenance.sourceId.trim() || provenance.sourceId.length > 512 || containsAsciiControlCharacter(provenance.sourceId)) return "existing-transcript-source-identity-missing-or-invalid";
   if (!isStageAScenarioObject(provenance.sourceScenario)) return "existing-transcript-source-scenario-invalid";
   if (provenance.sourceEvaluationIdentity !== transcript.evaluationIdentity) return "existing-transcript-evaluation-identity-mismatch";
   if (provenance.sourceScenarioId !== transcript.scenario.id || provenance.sourceScenario.id !== transcript.scenario.id) return "existing-transcript-source-scenario-mismatch";
@@ -260,11 +323,14 @@ export function validateStage2ATranscript(
     ? ["kind", "semanticCorpusId", "semanticCorpusVersion", "semanticCaseId", "semanticCaseDigest", "frozenPreTurnContextDigest", "scenarioId", "stageAScenario", "stageAScenarioDigest", "identity"]
     : ["kind", "mappingVersion", "sourceId", "sourceEvaluationIdentity", "sourceScenarioId", "sourceScenario", "sourceScenarioDigest", "semanticCorpusId", "semanticCorpusVersion", "semanticCaseId", "semanticCaseDigest", "frozenPreTurnContextDigest", "compatibilityDigest", "identity"];
   if (!isRecord(provenance) || !hasOnlyKeys(provenance, mappingKeys)) return { valid: false, reason: "stage-b-transcript-mapping-schema-invalid" };
-  const reason = provenance.kind === "adapter-generated"
-    ? validateAdapterProvenance(provenance, transcript, semanticCase)
-    : provenance.kind === "existing-transcript-compatibility"
-      ? validateExistingProvenance(provenance, transcript, semanticCase)
-      : "unsupported-stage-b-transcript-mapping";
+  let reason: string | undefined;
+  if (provenance.kind === "adapter-generated") {
+    reason = validateAdapterProvenance(provenance, transcript, semanticCase);
+  } else if (provenance.kind === "existing-transcript-compatibility") {
+    reason = validateExistingProvenance(provenance, transcript, semanticCase);
+  } else {
+    reason = "unsupported-stage-b-transcript-mapping";
+  }
   if (reason) return { valid: false, reason };
   try {
     return {
@@ -279,4 +345,4 @@ export function validateStage2ATranscript(
   }
 }
 
-export { stage2bTranscriptDigest };
+export { stage2bTranscriptDigest } from "./transcript-reference";

@@ -198,7 +198,7 @@ function normalizedCorpus(corpus: Pick<SemanticCorpus, "schemaVersion" | "corpus
   };
 }
 
-export function semanticCorpusDigest(corpus: SemanticCorpus | SemanticCorpusSource | unknown): string {
+export function semanticCorpusDigest(corpus: unknown): string {
   if (corpus === null || typeof corpus !== "object" || Array.isArray(corpus)) throw new TypeError("Semantic Corpus must be an object");
   const source = corpus as Record<string, unknown>;
   if (!Array.isArray(source.cases)) throw new TypeError("Semantic Corpus cases must be an array");
@@ -211,7 +211,7 @@ export function semanticCorpusDigest(corpus: SemanticCorpus | SemanticCorpusSour
     schemaVersion: source.schemaVersion,
     corpusId: source.corpusId,
     corpusVersion: source.corpusVersion,
-    cases: cases.sort((left, right) => compareUtf8(String(left.id), String(right.id))),
+    cases: cases.toSorted((left, right) => compareUtf8(String(left.id), String(right.id))),
   });
 }
 
@@ -235,7 +235,7 @@ function assertUnique(values: readonly string[], label: string): void {
   if (new Set(values).size !== values.length) invalidCorpus(`${label} must be duplicate-free`);
 }
 
-function checkCaseReferences(semanticCase: SemanticCase, references: SemanticCorpusReferences): void {
+function checkSketchReferences(semanticCase: SemanticCase, references: SemanticCorpusReferences): void {
   if (semanticCase.frozenPreTurnContext.sketchRef !== semanticCase.sketch.reference
     || semanticCase.frozenPreTurnContext.sketchDigest !== semanticCase.sketch.digest) {
     invalidCorpus(`${semanticCase.id} Frozen Pre-Turn Context must bind to the exact Semantic Case sketch and digest`);
@@ -244,11 +244,14 @@ function checkCaseReferences(semanticCase: SemanticCase, references: SemanticCor
   if (sketch === undefined) invalidCorpus(`${semanticCase.id} references missing sketch ${semanticCase.sketch.reference}`);
   if (semanticSha256(sketch) !== semanticCase.sketch.digest) invalidCorpus(`${semanticCase.id} sketch digest does not match fixture bytes`);
   const sourceSketch = semanticCase.evidenceSources.find(({ id }) => id === "sketch");
-  if (!sourceSketch || sourceSketch.kind !== "repository/sketch" || sourceSketch.reference !== semanticCase.sketch.reference || sourceSketch.digest !== semanticCase.sketch.digest) {
+  if (sourceSketch?.kind !== "repository/sketch" || sourceSketch?.reference !== semanticCase.sketch.reference || sourceSketch?.digest !== semanticCase.sketch.digest) {
     invalidCorpus(`${semanticCase.id} must identify its exact sketch as repository/sketch evidence`);
   }
+}
+
+function checkFactualReference(semanticCase: SemanticCase): void {
   const factualSource = semanticCase.evidenceSources.find(({ kind }) => kind === semanticCase.factualReferenceBundle.sourceKind);
-  if (!factualSource || factualSource.reference !== semanticCase.factualReferenceBundle.id || factualSource.digest !== semanticCase.factualReferenceBundle.digest) {
+  if (factualSource?.reference !== semanticCase.factualReferenceBundle.id || factualSource?.digest !== semanticCase.factualReferenceBundle.digest) {
     invalidCorpus(`${semanticCase.id} factual reference source must bind to its bundle identity and digest`);
   }
   if (semanticCase.factualReferenceBundle.sourceKind === "draft-factual-reference" && semanticCase.factualReferenceBundle.reviewStatus !== "pending-review") {
@@ -257,13 +260,19 @@ function checkCaseReferences(semanticCase: SemanticCase, references: SemanticCor
   if (semanticCase.factualReferenceBundle.sourceKind === "reviewed-factual-reference" && semanticCase.factualReferenceBundle.reviewStatus !== "reviewed") {
     invalidCorpus(`${semanticCase.id} reviewed factual references must be marked reviewed`);
   }
+}
+
+function checkExternalEvidencePolicy(semanticCase: SemanticCase): void {
   const hasExternalSource = semanticCase.evidenceSources.some(({ kind }) => kind === "permitted-external-knowledge");
   if (hasExternalSource !== semanticCase.permittedExternalKnowledge) invalidCorpus(`${semanticCase.id} external evidence and evidence policy disagree`);
+}
+
+function checkCourseContentReferences(semanticCase: SemanticCase, references: SemanticCorpusReferences): void {
   const courseSources = semanticCase.evidenceSources.filter(({ kind }) => kind === "repository/course-content");
   if (semanticCase.frozenPreTurnContext.courseContent.kind === "repository-course-content") {
     if (courseSources.length !== 1
-      || courseSources[0]!.reference !== semanticCase.frozenPreTurnContext.courseContent.reference
-      || courseSources[0]!.digest !== semanticCase.frozenPreTurnContext.courseContent.digest) {
+      || courseSources[0].reference !== semanticCase.frozenPreTurnContext.courseContent.reference
+      || courseSources[0].digest !== semanticCase.frozenPreTurnContext.courseContent.digest) {
       invalidCorpus(`${semanticCase.id} repository Course Content evidence must bind to its exact context reference and digest`);
     }
   } else if (courseSources.length > 0) {
@@ -275,6 +284,13 @@ function checkCaseReferences(semanticCase: SemanticCase, references: SemanticCor
     if (content.revision !== semanticCase.frozenPreTurnContext.courseContent.revision) invalidCorpus(`${semanticCase.id} Course Content revision does not match its fixture`);
     if (canonicalSemanticDigest(content) !== semanticCase.frozenPreTurnContext.courseContent.digest) invalidCorpus(`${semanticCase.id} Course Content digest does not match its fixture`);
   }
+}
+
+function checkCaseReferences(semanticCase: SemanticCase, references: SemanticCorpusReferences): void {
+  checkSketchReferences(semanticCase, references);
+  checkFactualReference(semanticCase);
+  checkExternalEvidencePolicy(semanticCase);
+  checkCourseContentReferences(semanticCase, references);
 }
 
 export function parseSemanticCorpus(input: unknown, references: SemanticCorpusReferences): SemanticCorpus {

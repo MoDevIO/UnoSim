@@ -11,7 +11,7 @@ function serializeCanonical(value: unknown, active: Set<object>): string {
     if (!Number.isFinite(value)) throw new TypeError("Canonical JSON does not allow non-finite numbers");
     return JSON.stringify(value);
   }
-  if (typeof value === "undefined") return "null";
+  if (value === undefined) return "null";
   if (typeof value !== "object") throw new TypeError("Canonical JSON accepts only JSON values");
   if (active.has(value)) throw new TypeError("Canonical JSON does not allow cyclic values");
   active.add(value);

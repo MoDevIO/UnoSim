@@ -67,16 +67,25 @@ function exposureStatus(snapshot: CaseExposureSnapshot): CaseExposureStatus {
   return "unexposed";
 }
 
-function validateSnapshot(snapshot: CaseExposureSnapshot, index: number, previous?: CaseExposureSnapshot): void {
+function validateSnapshotObject(snapshot: CaseExposureSnapshot, index: number): void {
   if (snapshot === null || typeof snapshot !== "object") throw new Error(`Exposure history[${index}] must be an object`);
   if (Object.keys(snapshot).some((key) => !["recordedAt", "availableArtifacts", "targetedChange"].includes(key))) throw new Error(`Exposure history[${index}] contains an unsupported field`);
+}
+
+function validateSnapshotTimestamp(snapshot: CaseExposureSnapshot, index: number, previous?: CaseExposureSnapshot): void {
   if (typeof snapshot.recordedAt !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(snapshot.recordedAt) || Number.isNaN(Date.parse(snapshot.recordedAt))) {
     throw new Error(`Exposure history[${index}] recordedAt must be an explicit UTC timestamp`);
   }
   if (previous && Date.parse(snapshot.recordedAt) <= Date.parse(previous.recordedAt)) throw new Error("Exposure history timestamps must be strictly increasing");
-  if (!snapshot.availableArtifacts || Object.keys(snapshot.availableArtifacts).length !== ARTIFACTS.length || ARTIFACTS.some((artifact) => !Object.prototype.hasOwnProperty.call(snapshot.availableArtifacts, artifact) || !["available", "unavailable", "unknown"].includes(snapshot.availableArtifacts[artifact]))) {
+}
+
+function validateSnapshotArtifacts(snapshot: CaseExposureSnapshot, index: number): void {
+  if (!snapshot.availableArtifacts || Object.keys(snapshot.availableArtifacts).length !== ARTIFACTS.length || ARTIFACTS.some((artifact) => Object.getOwnPropertyDescriptor(snapshot.availableArtifacts, artifact) === undefined || !["available", "unavailable", "unknown"].includes(snapshot.availableArtifacts[artifact]))) {
     throw new Error(`Exposure history[${index}] must record availability for every artifact`);
   }
+}
+
+function validateSnapshotTargetedChange(snapshot: CaseExposureSnapshot, index: number): void {
   if (!snapshot.targetedChange || !["informed", "not-informed", "unknown"].includes(snapshot.targetedChange.status)) {
     throw new Error(`Exposure history[${index}] targeted-change state is invalid`);
   }
@@ -87,6 +96,9 @@ function validateSnapshot(snapshot: CaseExposureSnapshot, index: number, previou
   if (snapshot.targetedChange.status !== "informed" && snapshot.targetedChange.rationale !== undefined) {
     throw new Error(`Exposure history[${index}] cannot attach a targeted-change rationale to a non-targeted state`);
   }
+}
+
+function validateSnapshotHistory(snapshot: CaseExposureSnapshot, previous?: CaseExposureSnapshot): void {
   if (previous) {
     for (const artifact of ARTIFACTS) {
       if (previous.availableArtifacts[artifact] === "available" && snapshot.availableArtifacts[artifact] !== "available") {
@@ -97,6 +109,14 @@ function validateSnapshot(snapshot: CaseExposureSnapshot, index: number, previou
       throw new Error("Exposure history cannot erase a previously recorded targeted change");
     }
   }
+}
+
+function validateSnapshot(snapshot: CaseExposureSnapshot, index: number, previous?: CaseExposureSnapshot): void {
+  validateSnapshotObject(snapshot, index);
+  validateSnapshotTimestamp(snapshot, index, previous);
+  validateSnapshotArtifacts(snapshot, index);
+  validateSnapshotTargetedChange(snapshot, index);
+  validateSnapshotHistory(snapshot, previous);
 }
 
 function validateInput(input: CaseExposureRecordInput, record = false): void {

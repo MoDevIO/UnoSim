@@ -61,13 +61,13 @@ export function assessStageAScenarioCompatibility(
   if (scenario.sketchRef !== semanticCase.sketch.reference || semanticSha256(scenario.sketch) !== semanticCase.sketch.digest) {
     return { compatible: false, reason: "sketch-reference-or-digest-mismatch" };
   }
-  if (scenario.turns.length !== 1 || canonicalSemanticJson(stageAEffectiveTurn(scenario.turns[0]!)) !== canonicalSemanticJson(makeExpectedTurn(semanticCase))) {
+  if (scenario.turns.length !== 1 || canonicalSemanticJson(stageAEffectiveTurn(scenario.turns[0])) !== canonicalSemanticJson(makeExpectedTurn(semanticCase))) {
     return { compatible: false, reason: "preceding-question-answer-history-or-difficulty-mismatch" };
   }
   if (context.courseContent.kind === "free-tutor") {
     if (scenario.courseContent !== undefined) return { compatible: false, reason: "course-content-present-for-free-tutor-case" };
   } else {
-    if (!scenario.courseContent || scenario.courseContent.revision !== context.courseContent.revision) {
+    if (scenario.courseContent?.revision !== context.courseContent.revision) {
       return { compatible: false, reason: "course-content-revision-mismatch" };
     }
     if (canonicalSemanticDigest(scenario.courseContent) !== context.courseContent.digest) {
@@ -103,7 +103,7 @@ export function toStage2AScenario(
   if (contextValidation.context.courseContent.kind === "repository-course-content") {
     const reference = contextValidation.context.courseContent;
     courseContent = fixtures.courseContent.get(reference.reference);
-    if (!courseContent || courseContent.revision !== reference.revision || canonicalSemanticDigest(courseContent) !== reference.digest) {
+    if (courseContent?.revision !== reference.revision || canonicalSemanticDigest(courseContent) !== reference.digest) {
       throw new Error("Stage-2A adapter cannot resolve the exact Course Content and Strategy context");
     }
   }

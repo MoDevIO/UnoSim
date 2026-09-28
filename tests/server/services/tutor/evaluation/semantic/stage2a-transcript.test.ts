@@ -11,6 +11,7 @@ import {
   canonicalStage2ATranscriptJson,
   createStage2ATranscriptReference,
 } from "../../../../../../server/services/tutor/evaluation/semantic/transcript-reference";
+import { canonicalSemanticDigest } from "../../../../../../server/services/tutor/evaluation/semantic/semantic-canonical";
 import {
   validFrozenPreTurnContextInput,
   validSemanticCorpusReferences,
@@ -66,6 +67,70 @@ describe("Stage-2A transcript compatibility and Stage-B digest", () => {
     expect(transcript.scenario.id).toBe("legacy-input-pullup");
     expect(transcript.evaluationIdentity).toBe("a".repeat(64));
     expect(JSON.stringify(transcript)).toBe(bytesBefore);
+  });
+
+  it.each([0x00, 0x1f, 0x7f])("rejects ASCII control character with code point %i in existing-transcript source identities", (code) => {
+    const semanticCase = parsedCorpus().cases[0]!;
+    const sourceScenario = validStageAScenario({ id: "legacy-input-pullup", corpusId: "legacy-anchor-corpus", corpusVersion: 3 });
+    const transcript = validStageATranscript(sourceScenario);
+    const validMapping = createExistingTranscriptCompatibilityMapping({
+      sourceId: "stage-a/source-identity",
+      transcript,
+      sourceScenario,
+      semanticCase,
+    });
+    const sourceId = `stage-a/source${String.fromCharCode(code)}identity`;
+
+    expect(() => createExistingTranscriptCompatibilityMapping({
+      sourceId,
+      transcript,
+      sourceScenario,
+      semanticCase,
+    })).toThrow(/control characters/i);
+
+    const { identity: _identity, ...mappingContent } = { ...validMapping, sourceId };
+    const invalidMapping = { ...mappingContent, identity: canonicalSemanticDigest(mappingContent) };
+    expect(validateStage2ATranscript(transcript, semanticCase, invalidMapping)).toMatchObject({
+      valid: false,
+      reason: "existing-transcript-source-identity-missing-or-invalid",
+    });
+  });
+
+  it("rejects an expected learning phase that only string-coerces to a supported value", () => {
+    const semanticCase = parsedCorpus().cases[0]!;
+    const sourceScenario = validStageAScenario({
+      id: "legacy-input-pullup",
+      corpusId: "legacy-anchor-corpus",
+      corpusVersion: 3,
+      expected: { learningPhase: ["LEARN"] as unknown as "LEARN" },
+    });
+    const transcript = validStageATranscript(sourceScenario);
+
+    expect(() => createExistingTranscriptCompatibilityMapping({
+      sourceId: "stage-a/source-identity",
+      transcript,
+      sourceScenario,
+      semanticCase,
+    })).toThrow(/invalid or unsupported fields/i);
+  });
+
+  it.each(["LEARN", "DEEPEN", "EXPAND"] as const)("accepts the exact Stage-A learning phase %s", (learningPhase) => {
+    const semanticCase = parsedCorpus().cases[0]!;
+    const sourceScenario = validStageAScenario({
+      id: "legacy-input-pullup",
+      corpusId: "legacy-anchor-corpus",
+      corpusVersion: 3,
+      expected: { learningPhase },
+    });
+    const transcript = validStageATranscript(sourceScenario);
+    const mapping = createExistingTranscriptCompatibilityMapping({
+      sourceId: "stage-a/source-identity",
+      transcript,
+      sourceScenario,
+      semanticCase,
+    });
+
+    expect(validateStage2ATranscript(transcript, semanticCase, mapping)).toMatchObject({ valid: true });
   });
 
   it("treats an omitted legacy dialog history as Stage-A's empty-history default", () => {

@@ -41,7 +41,10 @@ export type FrozenPreTurnContextValidation =
 
 function parseInput(input: unknown): FrozenPreTurnContextInput {
   const parsed = frozenContextSchema.safeParse(input);
-  if (!parsed.success) throw new Error(`Invalid Frozen Pre-Turn Context: ${parsed.error.issues.map(({ path, message }) => `${path.join(".")}: ${message}`).join("; ")}`);
+  if (!parsed.success) {
+    const details = parsed.error.issues.map(({ path, message }) => `${path.join(".")}: ${message}`).join("; ");
+    throw new Error(`Invalid Frozen Pre-Turn Context: ${details}`);
+  }
   if (parsed.data.question !== parsed.data.learnerAnswer.bindsToQuestion) {
     throw new Error("Invalid Frozen Pre-Turn Context: learner answer must bind to the exact preceding question");
   }
