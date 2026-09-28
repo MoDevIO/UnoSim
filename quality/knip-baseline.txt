@@ -1,0 +1,14 @@
+# Known Knip findings.
+# Normalized as: <category> :: <symbol/type information> <repository path>
+# Source line/column positions are intentionally excluded.
+# Do not add new findings merely to make the quality gate pass.
+Duplicate exports :: SandboxStartSemaphore|DockerCompileSemaphore server/services/sandbox/docker-compile-semaphore.ts
+Duplicate exports :: getSandboxStartSemaphore|getDockerCompileSemaphore server/services/sandbox/docker-compile-semaphore.ts
+Unused exported types :: CourseContentManifest type server/services/course-content/course-content-schema.ts
+Unused exported types :: TopicExtension type server/services/tutor/curriculum/curriculum-schema.ts
+Unused exported types :: TutorPhase type server/services/course-content/course-content-schema.ts
+Unused exported types :: TutorQualityCases type server/services/course-content/tutor-quality-schema.ts
+Unused exports :: DockerCompileSemaphore server/services/sandbox/docker-compile-semaphore.ts
+Unused exports :: anchorCourseContentRevision function server/services/tutor/evaluation/anchor-course-content.ts
+Unused exports :: getDockerCompileSemaphore server/services/sandbox/docker-compile-semaphore.ts
+Unused exports :: isTutorPlanningTransition function server/services/tutor/tutor-planning.ts
