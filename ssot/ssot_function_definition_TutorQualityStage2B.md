@@ -935,14 +935,29 @@ Samples whose Stage-2A `executionStatus` is not `completed` MUST have
 `semanticEvaluationStatus: not-evaluated`, unless the purpose is an explicitly
 separate evaluator robustness test that cannot enter Tutor-quality aggregates.
 
-Every Benchmark Run MUST additionally report a `calibrationStatus` and a
-benchmark-level `comparabilityStatus`. These are independent metadata axes:
-neither may be encoded as a semantic score or overwrite sample execution,
+Every Benchmark Run MUST report the `calibrationStatus` and
+`calibrationIdentity` of every Judge configuration whose results contribute
+to the run. When exactly one Judge configuration is used, a run-level
+`calibrationStatus` MAY mirror that configuration. With multiple Judge
+configurations, their statuses MUST remain separately attributable and MUST
+NOT be collapsed into a single scalar status without a separately versioned
+aggregation policy.
+
+Every Benchmark Run MUST report the `comparabilityStatus` of every
+Baseline/Candidate comparison. A benchmark-level comparability summary MAY be
+derived for reporting, but it MUST NOT replace, weaken, or collapse the
+individual comparison statuses.
+
+These are independent metadata axes. Neither calibration nor comparability
+status may be encoded as a semantic score or overwrite sample execution,
 invariant, or semantic evaluation status. A result may therefore be
-semantically assessed while its Judge is uncalibrated or its model comparison
-is invalid; the corresponding claim restrictions still apply.
-An invalid comparison MUST be expressed through `comparabilityStatus`, not by
-rewriting otherwise valid sample-level `semanticEvaluationStatus` values.
+semantically assessed while its Judge configuration is uncalibrated or its
+model comparison is invalid; the corresponding claim restrictions still
+apply.
+
+An invalid comparison MUST be expressed through its `comparabilityStatus`,
+not by rewriting otherwise valid sample-level `semanticEvaluationStatus`
+values.
 
 ## 15. Reproducibility and identity
 
