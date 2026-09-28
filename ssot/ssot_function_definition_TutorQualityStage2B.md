@@ -83,6 +83,32 @@ declared rubric dimensions:
 - the Stage-2A execution status and Stage-1 invariant results;
 - explicitly declared reference evidence allowed by the semantic corpus.
 
+### 3.1 Frozen Pre-Turn Context
+
+A **Frozen Pre-Turn Context** is the versioned, immutable situation immediately
+before the Tutor response being compared. A controlled semantic comparison
+MUST start each Tutor variant from the same Frozen Pre-Turn Context. It MUST
+include, at minimum:
+
+- the identical preceding Tutor question;
+- the identical synthetic learner answer, bound to that exact question;
+- the identical sketch and digest;
+- the identical Course Content revision and application-owned Strategy,
+  phase, and progression state;
+- the identical relevant dialog history and ordering.
+
+The evaluated output is the Tutor reaction to that shared context. A learner
+answer MUST NOT be silently applied to a different or newly generated question
+from one Candidate. Each answer MUST retain Stage-2A's explicit binding to the
+declared preceding question.
+
+If variants have already diverged before the compared turn, the inputs are not
+a controlled single-turn comparison. The benchmark MUST reset to a valid
+shared Frozen Pre-Turn Context or label the comparison `invalid-comparison`;
+it MUST NOT compare the resulting reactions as if their conditions matched.
+Freely diverging, extended multi-turn trajectories are outside the Stage-2B
+core and remain a possible Stage-2C concern.
+
 The primary subject of Tutor-quality evaluation is the normalized final Tutor
 response that the application would present after `TutorService` validation,
 repair, and plan application. The parsed raw provider result MAY be inspected
@@ -107,6 +133,12 @@ not be exposed to the Judge unless a separately declared calibration protocol
 requires a specific item. Human-authored factual reference notes MAY be
 provided as reference evidence when the protocol declares this in advance;
 the associated human score or verdict MUST remain hidden.
+
+The evidence object MUST label repository/sketch evidence, reviewed factual
+reference evidence, and permitted external knowledge as distinct sources.
+External knowledge MAY be permitted only by the versioned case evidence
+contract. It MUST NOT substitute for absent evidence when making a Critical
+Semantic Failure claim.
 
 ## 4. Semantic quality model
 
@@ -352,12 +384,15 @@ Each case MUST declare:
 - sketch reference and digest;
 - Course Content/Strategy context or explicit absence;
 - Tutor question and bounded prior dialog;
+- Frozen Pre-Turn Context components or a resolvable immutable reference and
+  digest;
 - deterministic synthetic learner answer and answer-category label;
 - expected factual interpretation of that answer;
 - acceptable range of Tutor diagnoses, feedback approaches, and follow-ups;
 - known semantic failure patterns;
 - rubric dimensions that are assessable and any known evidence limitations;
-- human reference labels, evidence, notes, review status, and provenance;
+- Human Reference status; for Gold Cases, labels, evidence, notes, review
+  status, and provenance;
 - case revision or containing corpus version.
 
 The expected interpretation MUST describe meaning and constraints, not mandate
@@ -369,7 +404,64 @@ Human reference material MUST NOT be used as a hidden Tutor prompt. Case
 authors MUST distinguish reference facts that a Judge may see from human
 outcome labels that remain blinded.
 
-### 6.2 Initial reference cases
+Each Semantic Case MUST declare its evaluation role and exposure state. The
+roles MUST distinguish at least:
+
+- `development`: available for Tutor, prompt, or Strategy improvement;
+- `calibration`: used to establish or assess human/Judge agreement;
+- `held-out-evaluation`: reserved from targeted Candidate optimization before
+  the declared evaluation.
+
+A case MAY move between roles only through a versioned Corpus/Protocol change
+that records its prior role and exposure. A Candidate deliberately changed in
+response to a case result MUST NOT use that case as independent held-out
+evidence for that Candidate. Reports MUST disclose role, exposure, and
+contamination for the evaluated case set.
+
+Exposure MUST be recorded per Candidate identity, including whether the case
+definition, Tutor output, Human Reference, or Judge result was available before
+the declared evaluation and whether it informed a targeted change. The record
+MUST distinguish at least `unexposed`, `case-known`, `outcome-exposed`,
+`used-for-targeted-change`, and `unknown`. The status `used-for-targeted-change`
+disqualifies the case as independent held-out evidence for that Candidate.
+`unknown` MUST NOT be presented as uncontaminated held-out evidence.
+Any role or exposure-status change MUST increment the relevant Corpus or
+Protocol version, preserve the earlier record, and appear in evaluation
+identity and reporting.
+
+Comparative or ranking claims about generalization SHOULD use suitable
+`held-out-evaluation` cases. A benchmark containing only `development` and/or
+`calibration` cases MAY be reported as a Development Benchmark or Calibration
+Benchmark, but MUST NOT be called an unbiased generalization result.
+
+### 6.2 Factual Reference Bundle
+
+A **Factual Reference Bundle** is a versioned, case-scoped collection of
+reviewed factual statements and their provenance, included only when needed to
+evaluate that case. It MAY contain checked Arduino/C++ semantics, derivations
+from the concrete sketch, or hardware/API semantics required by the case. It
+is reference evidence, not an ideal Tutor answer.
+
+Gold Cases SHOULD include a Factual Reference Bundle when technical facts are
+material to their Human Reference or likely Critical Semantic Failures. A
+bundle MUST exclude Human outcome labels, preferred Judge verdicts, and desired
+ranking positions. Its facts, sources, review state, and digest MUST be
+versioned with the case.
+
+Judge evidence MUST distinguish:
+
+- repository/sketch evidence;
+- reviewed factual reference evidence;
+- permitted external knowledge, if any.
+
+A Critical Semantic Failure based on a technical fact MUST be supported by
+repository/sketch evidence or reviewed factual reference evidence. The Judge
+MUST NOT issue such a failure solely because it believes it has relevant
+external knowledge. If the required fact is not secured by the case's allowed
+evidence contract, the Judge MUST use `not-assessable` or abstain for the
+affected judgment.
+
+### 6.3 Initial reference cases
 
 The initial Gold Corpus MUST conceptually cover these cases before Stage 2B is
 used for comparative claims:
@@ -392,7 +484,8 @@ used for comparative claims:
    actual error accurately.
 
 These descriptions reserve IDs and semantic intent. They are not complete
-Gold Cases until all fields in Section 6.1 have human-reviewed values.
+Gold Cases until all fields in Sections 6.1 and 6.2 applicable to the case have
+human-reviewed values.
 
 ## 7. Synthetic learner answers
 
@@ -492,6 +585,15 @@ evaluation. Absolute evaluation is the primary source for dimension-specific
 results, weakness taxonomy, and Critical Semantic Failures. It allows a model
 to be compared with the declared standard rather than only with another model.
 
+Absolute Evaluation is the canonical source of sample-level Critical Semantic
+Failures. A pairwise Judge MAY flag a potential additional critical issue, but
+that observation MUST either be reconciled against an Absolute Evaluation or
+retained as a separate comparative observation. It MUST NOT silently create a
+second canonical failure or double-count the same defect. Any unresolved
+disagreement between Absolute and Pairwise Evaluations MUST remain visible in
+the artifacts and report. Stage 2B does not prescribe an automatic
+reconciliation algorithm.
+
 Absolute results MUST preserve dimension-level observations and MAY NOT be
 reduced to an opaque total. If a future rubric defines an aggregate, its
 formula and weights MUST be versioned and the component results MUST remain
@@ -514,7 +616,9 @@ The pairwise schema MUST support at least:
 - `cannot-determine`.
 
 It MUST also contain cited comparative evidence, relevant dimensions, and any
-critical failures observed for either response.
+potential critical-failure observations for either response. These are
+comparative observations and do not replace or silently augment the canonical
+sample-level Critical Semantic Failure records from Absolute Evaluation.
 
 Candidate identities MUST be blinded behind neutral labels. A/B position MUST
 be randomized with a recorded seed or deterministically balanced across the
@@ -568,16 +672,47 @@ retroactively rewrite the original benchmark result.
 
 ### 10.3 Calibration validity
 
-The Judge MUST be recalibrated after a Judge model change, Judge prompt or
-digest change, rubric change, material evidence-policy change, or semantic Gold
-Corpus change. Results from incompatible calibration identities MUST NOT be
-pooled as though they came from one instrument.
+Each Judge configuration MUST have one explicit `calibrationStatus` for a
+declared scope:
 
-Stage 2B MUST NOT publish or rely on an automatic comparative ranking while
-the selected Judge configuration lacks sufficient human calibration for the
-dimensions and failure types used. What constitutes sufficient calibration
-requires empirical evidence and remains an open question; an implementation
-MUST expose the evidence rather than invent a precise threshold.
+- `uncalibrated`: the configuration lacks sufficient Human Reference
+  evidence. It MAY produce technical and exploratory semantic observations,
+  but MUST NOT support automatic ranking or validated superiority claims.
+- `provisional`: Human Reference and agreement evidence exists, but the
+  empirical basis is limited or does not cover all claimed dimensions and
+  failure types. It MAY support internal exploratory comparison only; reports
+  MUST prominently state the uncovered scope and calibration limitations.
+- `calibrated`: the predeclared Calibration Policy is satisfied for the
+  stated dimensions, failure types, and corpus scope. It MAY support automated
+  comparative claims only within that scope.
+
+The status MUST be bound to a `calibrationIdentity` containing at least the
+Judge model/provider and output-affecting parameters, Judge prompt
+revision/digest, rubric version, evidence-policy revision, Semantic/Gold Corpus
+version, and Calibration Policy version.
+It MUST also reference the immutable Human Reference set and calibration
+evidence artifact identities/digests used to establish the status.
+Any material change to those inputs makes the old identity inapplicable to the
+new configuration. Existing reports retain their historical status and
+identity; the new configuration starts `uncalibrated` until evaluated.
+
+`calibrationStatus` is metadata about the measurement instrument. It MUST NOT
+be folded into a Tutor semantic score, and it MUST be reported independently
+from `semanticEvaluationStatus`.
+
+The Judge MUST be recalibrated after an output-affecting Judge model/parameter
+change, Judge prompt or digest change, rubric change, material evidence-policy
+change, semantic Gold Corpus change, or Human Reference/calibration evidence
+change. Results from incompatible calibration identities MUST NOT be pooled as
+though they came from one instrument.
+
+Only `calibrated` results MAY support an automated ranking or validated
+superiority claim, and only for the scope named by that calibration identity.
+`uncalibrated` results MUST be labeled exploratory. `provisional` results MAY
+support internal exploratory comparisons but MUST NOT be presented as validated
+ranking or superiority claims. Calibration sufficiency is established by a
+predeclared policy; its empirical thresholds remain open and MUST be reported,
+not silently invented by an implementation.
 
 Human reviewers remain able to challenge any Judge result. Corrections MUST be
 versioned and MUST NOT mutate already published benchmark artifacts in place.
@@ -589,7 +724,8 @@ versioned and MUST NOT mutate already published benchmark artifacts in place.
 A Tutor-model benchmark MUST hold constant, for Baseline and Candidate:
 
 - Semantic Corpus ID/version and selected cases;
-- Stage-2A anchor/scenario inputs and sketch digests;
+- Stage-2A evaluation scenario inputs and sketch digests;
+- the same versioned Frozen Pre-Turn Context for every paired case;
 - Course Content and revision;
 - Tutor prompt revision and digest;
 - Tutor Strategy and phase/state inputs;
@@ -640,8 +776,35 @@ one Candidate. For each variant it MUST record:
 
 A Candidate result is comparable only when the experiment manifest declares
 the intended differing fields and all other controlled fields match. Any
-unplanned mismatch makes the comparison `invalid`, not evidence for either
-variant.
+unplanned mismatch makes the comparison `invalid-comparison`, not evidence for
+either variant.
+
+### 11.4 Comparability status
+
+Every Baseline/Candidate comparison MUST have an independent
+`comparabilityStatus`:
+
+- `fully-comparable`: all manifest fields declared as controlled match and
+  only the explicitly varied factor differs;
+- `qualified-comparison`: one or more documented confounds remain, such as a
+  different provider, unsupported parameter, or unavoidable execution
+  condition; results MAY be reported but MUST NOT be described as isolating
+  the declared factor;
+- `invalid-comparison`: an undeclared or material difference prevents a
+  supported comparison.
+
+Comparability status MUST be derived as deterministically as possible from
+the experiment manifest, resolved artifact identities, and declared provider
+capabilities. The manifest MUST declare controlled fields, the varied factor,
+and permitted confounds before execution. Semantic scores and Judge verdicts
+MUST NOT influence comparability classification.
+
+`comparabilityStatus` is independent of semantic evaluation status and
+semantic scores. An `invalid-comparison` MUST NOT produce a ranking,
+superiority claim, or pooled comparative estimate. A `qualified-comparison`
+MUST report each confound prominently and MAY support only a qualified
+descriptive comparison. The report MUST retain both comparability status and
+its evidence.
 
 ## 12. Repeated sampling and uncertainty
 
@@ -688,6 +851,12 @@ Stage 2B does not yet prescribe a universal exclusion threshold. A benchmark
 MAY declare a pre-registered decision policy, but the threshold and rationale
 MUST be explicit and MUST NOT be chosen after viewing Candidate results.
 
+Only Critical Semantic Failures from Absolute Evaluation are included in the
+canonical Critical Semantic Failure counts and rates. Pairwise-only potential
+failures MUST be counted separately as comparative observations until they
+are reconciled into an Absolute Evaluation; they MUST NOT inflate canonical
+failure rates on their own.
+
 ### 13.2 Required result families
 
 A benchmark report MUST keep at least these result families separate:
@@ -722,8 +891,15 @@ before it is used. Models for which the selected statistical method does not
 support a clear distinction MUST be reported as not clearly distinguishable;
 the presentation MUST NOT force a total order.
 
-Uncalibrated Judge results, single samples, unmatched experiment conditions,
-or unavailable cost data MUST NOT produce a public ranking claim.
+Automated ranking claims MUST use `calibrationStatus: calibrated` for the
+relevant scope and repeated samples as required by Section 12. A
+`fully-comparable` result MAY support an unqualified factor comparison. A
+`qualified-comparison` MAY be shown as qualified descriptive evidence only,
+with confounds adjacent to the result; it MUST NOT be presented as an isolated
+factor effect. An `invalid-comparison` MUST NOT produce a ranking or
+superiority claim. A single sample MUST NOT support a ranking. Unavailable
+cost data prevents a Quality / Cost view, but does not by itself invalidate a
+separately supported Tutor Quality or Quality / Latency view.
 
 ## 14. Status axes
 
@@ -744,12 +920,12 @@ Every evaluated sample MUST preserve:
   `not-assessable` or `abstained`;
 - `abstained`: no substantive semantic verdict was issued because the Judge
   abstained on the complete unit;
-- `invalid`: identity, evidence, comparison, model metadata, or Judge schema is
-  inconsistent;
+- `invalid`: the sample identity, evidence contract, returned model metadata,
+  or Judge output schema is missing or inconsistent;
 - `judge-technical-failure`: provider error, timeout, or exhausted Judge-call
   budget prevented semantic evaluation;
 - `not-evaluated`: Stage-2A eligibility or Stage-2B preflight prevented a Judge
-  call.
+  call, or the case contract has no assessable rubric dimensions.
 
 `semanticEvaluationStatus: completed` does not mean all rubric results are
 positive and does not mean no critical failure exists. Conversely, a critical
@@ -758,6 +934,15 @@ failure is a semantic finding, not a technical status.
 Samples whose Stage-2A `executionStatus` is not `completed` MUST have
 `semanticEvaluationStatus: not-evaluated`, unless the purpose is an explicitly
 separate evaluator robustness test that cannot enter Tutor-quality aggregates.
+
+Every Benchmark Run MUST additionally report a `calibrationStatus` and a
+benchmark-level `comparabilityStatus`. These are independent metadata axes:
+neither may be encoded as a semantic score or overwrite sample execution,
+invariant, or semantic evaluation status. A result may therefore be
+semantically assessed while its Judge is uncalibrated or its model comparison
+is invalid; the corresponding claim restrictions still apply.
+An invalid comparison MUST be expressed through `comparabilityStatus`, not by
+rewriting otherwise valid sample-level `semanticEvaluationStatus` values.
 
 ## 15. Reproducibility and identity
 
@@ -770,15 +955,35 @@ allow-listed metadata including at least:
 - Course Content revisions and sketch digests;
 - Stage-2A corpus ID/version and scenario/sample selection;
 - Semantic Corpus ID/version and canonical digest;
+- selected case IDs, case roles/exposure states, Frozen Pre-Turn Context
+  digests, and Factual Reference Bundle digests where applicable;
 - Tutor model, provider, prompt revision/digest, Strategy, and parameters;
 - Judge model, provider, prompt revision/digest, and parameters;
-- rubric, output-schema, and evidence-policy versions;
+- rubric, output-schema, evidence-policy, and Calibration Policy versions;
+- calibration identity/status and calibration evidence digests;
+- declared experiment comparability inputs;
 - absolute/pairwise protocol, blinding method, ordering seed, and pairing rule;
+- the declared comparability status and the evidence used to derive it;
 - requested sample counts and all call/safety limits.
 
 The run ID MUST additionally contain or reference a UTC start time and a
 collision-resistant suffix. Timestamps identify an invocation but MUST NOT be
 the sole input to comparison identity.
+
+Canonical identity MUST treat declared sets and unordered collections
+consistently. Before canonical serialization, semantically unordered
+collections such as sets of case IDs, Stage-2A identities/transcript digests,
+Course Content revisions, and model variant IDs MUST be duplicate-free and
+sorted by ascending UTF-8 byte order of their canonical string values. Fields
+whose order has meaning MUST remain ordered, including dialog turns, ordered
+history, ordered experiment factors where declared, and the actual A/B position
+presented to a Judge. When unordered items are represented by linked records,
+the complete records MUST be sorted by their canonical key so identities,
+transcript digests, revisions, and other associated values remain linked; they
+MUST NOT be sorted as independent parallel collections. The randomized order
+seed and balancing protocol MUST also be retained. Thus logically identical
+manifests MUST yield the same stable identity even if unordered inputs were
+supplied in a different order.
 
 Any material identity field that is missing, unresolved, or inconsistent makes
 the affected evaluation or comparison `invalid`. Benchmark artifacts MUST
@@ -797,8 +1002,8 @@ The benchmark protocol MUST minimize avoidable measurement bias:
 - prevent Judge outputs from changing Tutor prompts, strategies, samples, or
   later Judge instructions within the same Benchmark Run;
 - version and disclose any case-specific tuning or corpus exposure;
-- keep calibration cases and any future held-out validation cases explicitly
-  labeled.
+- keep development, calibration, and held-out evaluation cases explicitly
+  labeled with exposure history.
 
 The report MUST state whether Tutor Model and Judge Model are identical, share
 a model family, share a provider, or have another plausible dependency. Such
@@ -852,8 +1057,10 @@ Artifact schemas MUST be versioned, allow-listed, bounded, and secret-free.
 Stage 2B MUST produce or explicitly represent these artifact types:
 
 1. **Semantic sample evaluation:** reference to one Stage-2A transcript,
-   identities, Judge metadata, semantic status, dimension results, issues,
-   critical failures, uncertainty, evidence citations, timing, and call usage.
+   identities, Judge metadata, calibration status/identity, semantic status,
+   dimension results, issues, canonical critical failures, comparative
+   observations when applicable, uncertainty, evidence citations, timing, and
+   call usage.
 2. **Pairwise evaluation:** references to both candidate transcripts, blinded
    ordering metadata, outcome, comparative evidence, order-balance group, and
    Judge metadata.
@@ -861,8 +1068,9 @@ Stage 2B MUST produce or explicitly represent these artifact types:
    rates, reliability, latency, calls, available token/cost data, and
    uncertainty for one Tutor variant.
 4. **Benchmark comparison report:** experiment manifest, Baseline/Candidate
-   identities, comparability checks, absolute and pairwise summaries,
-   calibration identity, bias disclosures, and any ranking view.
+   identities, `comparabilityStatus` and evidence, case roles/exposure,
+   absolute and pairwise summaries, `calibrationStatus` and identity, bias
+   disclosures, and any ranking view.
 
 Artifacts MUST refer to Stage-2A transcripts by immutable identity and digest;
 they SHOULD avoid duplicating complete transcript content. If evidence excerpts
@@ -885,6 +1093,10 @@ each variant it MUST show:
 - major and minor weaknesses with representative evidence;
 - Critical Semantic Failures by type and affected case;
 - uncertainty, abstentions, disagreement, and calibration limitations;
+- calibration status and identity, selected corpus roles, and exposure or
+  contamination disclosures;
+- comparison status and documented confounds for each Baseline/Candidate
+  comparison;
 - requested, valid, and semantically evaluated observation counts;
 - deterministic violations and technical failures as separate categories;
 - latency, provider calls, and available Tutor/Judge token and cost data;
@@ -990,6 +1202,41 @@ The versioned process and evidence used to compare a Judge configuration with
 Human References, analyze disagreement, and determine the scope in which its
 measurements may support comparative claims.
 
+**Calibration Status:**
+The scoped state `uncalibrated`, `provisional`, or `calibrated` for one
+calibration identity, as defined in Section 10.3.
+
+**Comparability Status:**
+The independent benchmark classification `fully-comparable`,
+`qualified-comparison`, or `invalid-comparison`, derived from controlled
+experiment fields and declared confounds.
+
+**Frozen Pre-Turn Context:**
+The versioned, immutable question, learner answer, sketch, Course Content,
+Strategy, phase, progression state, and relevant ordered history shared by
+variants immediately before the Tutor response being compared.
+
+**Factual Reference Bundle:**
+A versioned, case-scoped set of reviewed technical facts and provenance that
+may support semantic evaluation but contains no human outcome labels or desired
+ranking positions.
+
+**Case Exposure Record:**
+A Candidate-specific, versioned record of which case artifacts and outcomes
+were available before evaluation and whether they informed targeted changes.
+
+**Development Case:**
+A Semantic Case permitted for targeted Tutor, prompt, or Strategy improvement.
+
+**Calibration Case:**
+A Semantic Case assigned to human/Judge agreement assessment and Judge
+calibration.
+
+**Held-Out Evaluation Case:**
+A Semantic Case reserved from targeted Candidate optimization for the declared
+evaluation; targeted use of its outcome for Candidate changes ends its
+independent held-out status for that Candidate.
+
 ## 23. Open questions
 
 The following decisions lack sufficient empirical evidence and MUST remain
@@ -1001,7 +1248,10 @@ explicit rather than being hidden in an implementation default:
 4. the statistical uncertainty, interval, and multiple-comparison methods;
 5. the number, diversity, and aggregation method of Judge Models;
 6. concrete human/Judge agreement and calibration-sufficiency thresholds;
-7. whether calibration needs a held-out semantic corpus and how it is governed;
+7. the minimum number, composition, refresh policy, and governance of cases in
+   development, calibration, and held-out evaluation roles. The role model,
+   exposure record, and disqualification after targeted use are resolved by
+   Sections 6.1 and 16;
 8. the ranking method and conditions for partial orders or equivalence groups;
 9. the treatment of provider and model-family dependence between Tutor and
    Judge;
