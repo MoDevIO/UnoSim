@@ -1,5 +1,5 @@
 import { canonicalSemanticDigest, canonicalSemanticJson, deepFreeze, isSha256Digest } from "./semantic-canonical";
-import { CASE_EXPOSURE_STATUSES, type CaseExposureStatus } from "./semantic-types";
+import type { CaseExposureStatus } from "./semantic-types";
 
 export type CaseExposureAvailability = "available" | "unavailable" | "unknown";
 export type CaseExposureArtifact = "caseDefinition" | "tutorOutput" | "humanReference" | "judgeResult";
@@ -231,8 +231,4 @@ export function validateCaseExposureRecord(input: unknown, expected: CaseExposur
   } catch (error) {
     return { valid: false, reason: error instanceof Error ? error.message : "invalid-case-exposure-record" };
   }
-}
-
-export function caseExposureStatusValues(): readonly CaseExposureStatus[] {
-  return CASE_EXPOSURE_STATUSES;
 }

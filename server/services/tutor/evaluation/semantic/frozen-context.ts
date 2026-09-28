@@ -1,7 +1,6 @@
 import { tutorDialogTurnSchema, type TutorDialogTurn } from "@shared/tutor";
 import { z } from "zod";
 import { canonicalSemanticDigest, canonicalSemanticJson, deepFreeze, isSha256Digest } from "./semantic-canonical";
-import type { SemanticAnswerCategory } from "./semantic-types";
 
 const courseContentContextSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("free-tutor") }).strict(),
@@ -64,10 +63,6 @@ function digestInput(input: FrozenPreTurnContextInput): Record<string, unknown> 
   return source;
 }
 
-export function frozenPreTurnContextDigest(input: FrozenPreTurnContextInput): string {
-  return canonicalSemanticDigest(digestInput(parseInput(input)));
-}
-
 export function createFrozenPreTurnContext(input: FrozenPreTurnContextInput): FrozenPreTurnContext {
   const parsed = parseInput(input);
   const digest = canonicalSemanticDigest(digestInput(parsed));
@@ -87,8 +82,4 @@ export function validateFrozenPreTurnContext(input: unknown): FrozenPreTurnConte
   } catch (error) {
     return { valid: false, reason: error instanceof Error ? error.message : "invalid-frozen-context" };
   }
-}
-
-export function isSemanticAnswerCategory(value: unknown): value is SemanticAnswerCategory {
-  return typeof value === "string" && ["fully-correct", "partially-correct", "typical-misconception", "terminology-confusion", "correct-poorly-phrased", "explicitly-unknown", "off-topic", "unexpectedly-strong"].includes(value);
 }

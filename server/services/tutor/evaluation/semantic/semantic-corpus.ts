@@ -1,12 +1,13 @@
 import { z } from "zod";
 import type { TutorPlanningContentContext } from "../../tutor-planning";
-import { canonicalSemanticDigest, canonicalSemanticJson, semanticSha256 } from "./semantic-canonical";
+import { canonicalSemanticDigest, semanticSha256 } from "./semantic-canonical";
 import { validateFrozenPreTurnContext, type FrozenPreTurnContext } from "./frozen-context";
 import {
   SEMANTIC_ANSWER_CATEGORIES,
   SEMANTIC_CASE_ROLES,
   SEMANTIC_EVIDENCE_SOURCE_KINDS,
   SEMANTIC_RUBRIC_DIMENSIONS,
+  type SemanticAnswerCategory,
   type SemanticCaseRole,
   type SemanticEvidenceSource,
   type SemanticRubricDimension,
@@ -97,7 +98,7 @@ export interface SemanticCase {
     readonly feedbackApproaches: readonly string[];
     readonly followUps: readonly string[];
   };
-  readonly answerCategory: typeof SEMANTIC_ANSWER_CATEGORIES[number];
+  readonly answerCategory: SemanticAnswerCategory;
   readonly knownFailurePatterns: readonly string[];
   readonly assessableDimensions: readonly SemanticRubricDimension[];
   readonly dimensionEvidenceLimitations: Readonly<Record<string, string>>;
@@ -115,7 +116,6 @@ export interface SemanticCorpus {
   readonly digest: string;
 }
 
-export type SemanticCorpusSource = Omit<z.infer<typeof corpusSchema>, "digest"> & { readonly digest?: string };
 export type SemanticCorpusEvolutionComparison =
   | { readonly valid: true }
   | { readonly valid: false; readonly reason: "version-not-increased" | "version-regressed" };
@@ -186,15 +186,6 @@ function normalizedCaseSource(caseItem: Record<string, unknown>): Record<string,
         } : {}),
       },
     } : {}),
-  };
-}
-
-function normalizedCorpus(corpus: Pick<SemanticCorpus, "schemaVersion" | "corpusId" | "corpusVersion" | "cases">) {
-  return {
-    schemaVersion: corpus.schemaVersion,
-    corpusId: corpus.corpusId,
-    corpusVersion: corpus.corpusVersion,
-    cases: [...corpus.cases].map(normalizedCase).sort((left, right) => compareUtf8(String(left.id), String(right.id))),
   };
 }
 
@@ -376,8 +367,4 @@ export function compareSemanticCorpusVersions(previous: SemanticCorpus, current:
   const changed = semanticCorpusContentDigest(previous) !== semanticCorpusContentDigest(current);
   if (changed && current.corpusVersion <= previous.corpusVersion) return { valid: false, reason: "version-not-increased" };
   return { valid: true };
-}
-
-export function semanticCorpusCanonicalJson(corpus: SemanticCorpus): string {
-  return canonicalSemanticJson(normalizedCorpus(corpus));
 }
