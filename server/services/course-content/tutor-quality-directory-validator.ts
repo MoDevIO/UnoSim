@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { CourseContentLoader, type LoadedCourseContentSnapshot } from "./course-content-loader";
 import { tutorQualityCasesSchema } from "./tutor-quality-schema";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
@@ -11,8 +10,8 @@ import {
   type TutorContentQualityIssue,
 } from "./tutor-quality-validator";
 
-const LOCAL_REVISION = "0".repeat(40) as FullCommitSha;
-const LOCAL_REPOSITORY = "local/course-content" as RepositorySlug;
+const LOCAL_REVISION = "0".repeat(40);
+const LOCAL_REPOSITORY = "local/course-content";
 
 export async function validateTutorCourseContentDirectory(directory: string): Promise<TutorContentQualityIssue[]> {
   const root = path.resolve(directory);

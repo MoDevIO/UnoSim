@@ -47,6 +47,14 @@ describe("Tutor Course Content directory validator", () => {
       { cwd: process.cwd() },
     )).rejects.toMatchObject({ code: 1 });
   });
+
+  it("returns usage status when no Course Content directory is provided", async () => {
+    await expect(executeFile(
+      path.resolve("node_modules/.bin/tsx"),
+      ["scripts/validate-tutor-course-content.mjs"],
+      { cwd: process.cwd() },
+    )).rejects.toMatchObject({ code: 2 });
+  });
 });
 
 async function courseContentDirectory(withCases = true): Promise<string> {

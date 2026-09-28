@@ -106,6 +106,15 @@ describe("deterministic Tutor Course Content quality", () => {
     ]));
   });
 
+  it("reports quality cases that reference an unknown Topic", () => {
+    const unknownTopicCase: ResolvedTutorQualityCase = {
+      ...cases()[0]!,
+      expectedTopics: ["missing-topic"],
+    };
+
+    expect(codes(validateTutorContentQuality([validTopic()], [unknownTopicCase]))).toContain("unknown-topic-reference");
+  });
+
   it("reports Concepts and required Indicators with no applicable question", () => {
     const topic = validTopic();
     topic.concepts.push({
