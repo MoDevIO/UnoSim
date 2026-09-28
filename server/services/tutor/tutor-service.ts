@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { analyzeStaticIO } from "@shared/io-registry-parser";
 import {
   tutorContentResultSchema,
@@ -439,25 +440,59 @@ function buildPhilosophicalFallback(
   };
 }
 
-function validateLearningQuestion(result: TutorContentResult, difficulty?: TutorDifficulty): TutorContentResult {
-  const { mermaid: rawMermaid, ...resultWithoutMermaid } = result;
-  const sanitizedMermaid = sanitizeMermaid(rawMermaid);
+export type LearningQuestionViolationCode =
+  | "schema-invalid"
+  | "multiple-primary-questions"
+  | "complete-solution"
+  | "philosophical-answer-rating";
+
+export interface LearningQuestionViolation {
+  readonly code: LearningQuestionViolationCode;
+}
+
+export interface LearningQuestionInspection {
+  readonly normalizedResult?: TutorContentResult;
+  readonly violations: readonly LearningQuestionViolation[];
+}
+
+function inspectLearningQuestion(result: unknown, difficulty?: TutorDifficulty): LearningQuestionInspection {
+  const input = typeof result === "object" && result !== null && !Array.isArray(result)
+    ? result as Record<string, unknown>
+    : {};
+  const preSchemaViolations: LearningQuestionViolation[] = [];
+  if (input.responseStyle === "philosophical" && input.answerRating !== undefined) {
+    preSchemaViolations.push({ code: "philosophical-answer-rating" });
+  }
+  const { mermaid: rawMermaid, ...resultWithoutMermaid } = input;
+  const sanitizedMermaid = typeof rawMermaid === "string" ? sanitizeMermaid(rawMermaid) : undefined;
   const parsed = tutorContentResultSchema.safeParse({
     ...resultWithoutMermaid,
     ...(sanitizedMermaid ? { mermaid: sanitizedMermaid } : {}),
   });
-  if (
-    !parsed.success
-    || (parsed.data.question.match(/\?/g)?.length ?? 0) > 1
-    || containsCompleteSolution(parsed.data.question)
-    || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))
-  ) {
+  if (!parsed.success) {
+    return {
+      violations: [...preSchemaViolations, { code: "schema-invalid" }],
+    };
+  }
+  const violations: LearningQuestionViolation[] = [...preSchemaViolations];
+  if ((parsed.data.question.match(/\?/g)?.length ?? 0) > 1) {
+    violations.push({ code: "multiple-primary-questions" });
+  }
+  if (containsCompleteSolution(parsed.data.question) || (parsed.data.feedback !== undefined && containsCompleteSolution(parsed.data.feedback))) {
+    violations.push({ code: "complete-solution" });
+  }
+  return {
+    normalizedResult: difficulty === undefined ? parsed.data : { ...parsed.data, difficulty },
+    violations,
+  };
+}
+
+function validateLearningQuestion(result: TutorContentResult, difficulty?: TutorDifficulty): TutorContentResult {
+  const inspection = inspectLearningQuestion(result, difficulty);
+  if (inspection.violations.length > 0 || inspection.normalizedResult === undefined) {
     throw new TutorProviderError("invalid-response");
   }
-  if (parsed.data.responseStyle === "philosophical" && parsed.data.answerRating !== undefined) {
-    throw new TutorProviderError("invalid-response");
-  }
-  return difficulty === undefined ? parsed.data : { ...parsed.data, difficulty };
+  return inspection.normalizedResult;
 }
 
 function stripProviderPlanningMetadata(result: TutorContentResult): TutorContentResult {
@@ -710,5 +745,40 @@ export {
   isClearlyNonLearningAnswer,
   isSemanticallyRepeatedQuestion,
   sanitizeMermaid,
+  inspectLearningQuestion,
   validateLearningQuestion,
 };
+
+export interface TutorPromptTemplateSources {
+  readonly system: string;
+  readonly initialUser: string;
+  readonly dialogUser: string;
+}
+
+export function digestTutorPromptTemplates(sources: TutorPromptTemplateSources): string {
+  return createHash("sha256").update(JSON.stringify(sources)).digest("hex");
+}
+
+const TUTOR_PROMPT_TEMPLATE_SOURCES: TutorPromptTemplateSources = {
+  system: TUTOR_SYSTEM_PROMPT,
+  initialUser: [
+    buildUserPrompt.toString(),
+    TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
+    buildTutorStrategyGuidance.toString(),
+    buildTutorLearningObjectivesGuidance.toString(),
+  ].join("\n"),
+  dialogUser: [
+    buildDialogPrompt.toString(),
+    TUTOR_DIFFICULTY_GUIDANCE,
+    TUTOR_CONCRETE_REFERENCE_GUIDANCE,
+    buildTutorStrategyGuidance.toString(),
+    buildTutorLearningObjectivesGuidance.toString(),
+  ].join("\n"),
+};
+
+export const TUTOR_PROMPT_REVISION = {
+  id: "tutor-prompts-v1",
+  sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
+  templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
+} as const;

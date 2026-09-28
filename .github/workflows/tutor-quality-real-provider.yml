@@ -1,0 +1,56 @@
+name: Tutor Quality Real-Provider Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Fixed provider model ID (auto is rejected)
+        required: true
+        type: string
+      samples:
+        description: Samples per anchor scenario
+        required: true
+        default: "1"
+        type: string
+      max_calls:
+        description: Maximum provider calls, including model-list calls
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Stage 2A observation run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run optional real-provider evaluation
+        env:
+          UNOSIM_TUTOR_EVAL_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_EVAL_CREDENTIAL }}
+        run: |
+          npm run eval:tutor-quality:real -- \
+            --model "${{ inputs.model }}" \
+            --samples "${{ inputs.samples }}" \
+            --max-calls "${{ inputs.max_calls }}" \
+            --credential-env UNOSIM_TUTOR_EVAL_CREDENTIAL \
+            --output-dir .tutor-quality-output
+
+      - name: Upload Stage 2A artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tutor-quality-stage-2a-${{ github.run_id }}
+          path: .tutor-quality-output/
+          if-no-files-found: error
+          retention-days: 14

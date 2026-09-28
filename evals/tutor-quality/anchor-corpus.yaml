@@ -1,0 +1,104 @@
+corpusId: unosim-tutor-quality-anchor
+corpusVersion: 1
+scenarios:
+  - id: TQ-REG-001
+    sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
+    courseContent: variables
+    turns:
+      - kind: dialog
+        question: Welchen Wert verwendet der Sketch an der betrachteten Integer-Variablen?
+        answer: brightness läuft in Fünferschritten zwischen 0 und 255 und bestimmt den PWM-Tastgrad.
+        bindsToQuestion: Welchen Wert verwendet der Sketch an der betrachteten Integer-Variablen?
+        difficulty: 35
+    expected:
+      topicIdAbsent: variables-and-serial
+      stateUnchanged: true
+      questionNotRepeat: exact-or-heuristic
+
+  - id: simple-variable
+    sketch: evals/tutor-quality/fixtures/simple-variable.ino
+    courseContent: variables
+    turns:
+      - kind: initial
+        difficulty: 20
+    expected:
+      topicId: variables-and-serial
+
+  - id: serial-output-prediction
+    sketch: evals/tutor-quality/fixtures/serial-output.ino
+    courseContent: variables
+    turns:
+      - kind: initial
+        difficulty: 35
+    expected:
+      topicId: variables-and-serial
+
+  - id: incorrect-answer-remediation
+    sketch: evals/tutor-quality/fixtures/simple-variable.ino
+    courseContent: free
+    turns:
+      - kind: dialog
+        question: Welchen Wert gibt der Sketch über Serial aus?
+        answer: Der Sketch gibt immer 99 aus.
+        bindsToQuestion: Welchen Wert gibt der Sketch über Serial aus?
+        difficulty: 25
+
+  - id: partial-answer-follow-up
+    sketch: evals/tutor-quality/fixtures/simple-variable.ino
+    courseContent: free
+    turns:
+      - kind: dialog
+        question: Wie hängt counter mit der Schleife zusammen?
+        answer: counter ist eine Zahl.
+        bindsToQuestion: Wie hängt counter mit der Schleife zusammen?
+        difficulty: 30
+
+  - id: strong-answer-progression
+    sketch: evals/tutor-quality/fixtures/serial-output.ino
+    courseContent: free
+    turns:
+      - kind: dialog
+        question: Welche Ausgabe erzeugt Serial.println im Sketch?
+        answer: Die Funktion schreibt den aktuellen Wert von counter als Zeile in die serielle Ausgabe.
+        bindsToQuestion: Welche Ausgabe erzeugt Serial.println im Sketch?
+        difficulty: 40
+
+  - id: unmatched-topic-free-tutor
+    sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
+    courseContent: variables
+    turns:
+      - kind: initial
+        difficulty: 35
+    expected:
+      topicIdAbsent: variables-and-serial
+
+  - id: learn-to-deepen
+    sketch: evals/tutor-quality/fixtures/simple-variable.ino
+    courseContent: progression-learn
+    turns:
+      - kind: dialog
+        question: Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?
+        answer: int speichert den ganzzahligen Wert von counter, der anschließend im Sketch verwendet wird.
+        bindsToQuestion: Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?
+        difficulty: 30
+    expected:
+      learningPhase: DEEPEN
+
+  - id: expand
+    sketch: evals/tutor-quality/fixtures/serial-output.ino
+    courseContent: progression-expand
+    turns:
+      - kind: initial
+        difficulty: 55
+    expected:
+      learningPhase: EXPAND
+
+  - id: off-topic-answer
+    sketch: evals/tutor-quality/fixtures/simple-variable.ino
+    courseContent: free
+    turns:
+      - kind: dialog
+        question: Welche konkrete Beobachtung zeigt der Sketch?
+        answer: Ich möchte lieber über Fußball und das Wetter sprechen.
+        bindsToQuestion: Welche konkrete Beobachtung zeigt der Sketch?
+        difficulty: 20
