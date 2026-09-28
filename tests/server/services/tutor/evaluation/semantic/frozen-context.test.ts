@@ -3,6 +3,7 @@ import {
   createFrozenPreTurnContext,
   validateFrozenPreTurnContext,
 } from "../../../../../../server/services/tutor/evaluation/semantic/frozen-context";
+import { deepFreeze } from "../../../../../../server/services/tutor/evaluation/semantic/semantic-canonical";
 import { INPUT_PULLUP_QUESTION, validFrozenPreTurnContextInput } from "./semantic-test-fixtures";
 
 describe("Frozen Pre-Turn Context", () => {
@@ -45,5 +46,30 @@ describe("Frozen Pre-Turn Context", () => {
     expect(left.digest).not.toBe(right.digest);
     expect(validateFrozenPreTurnContext(right)).toMatchObject({ valid: true });
     expect(validateFrozenPreTurnContext({ ...right, digest: left.digest })).toMatchObject({ valid: false });
+  });
+
+  it("recursively freezes nested values even when a prior dialog turn is already shallow-frozen", () => {
+    const turn = Object.freeze({
+      question: "Which topic was mastered?",
+      answer: "Timing.",
+      responseStyle: "normal" as const,
+      masteredTopicIds: ["timing"],
+    });
+    const context = createFrozenPreTurnContext({
+      ...validFrozenPreTurnContextInput(),
+      priorDialog: [turn],
+    });
+
+    expect(Object.isFrozen(context.priorDialog[0])).toBe(true);
+    expect(Object.isFrozen(context.priorDialog[0]?.masteredTopicIds)).toBe(true);
+  });
+
+  it("recursively freezes descendants of any already-frozen object", () => {
+    const nested = [] as string[];
+    const frozenParent = Object.freeze({ nested });
+
+    deepFreeze(frozenParent);
+
+    expect(Object.isFrozen(nested)).toBe(true);
   });
 });

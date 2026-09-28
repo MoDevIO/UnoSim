@@ -128,6 +128,24 @@ function recordDigestContent(record: Omit<CaseExposureRecord, "digest"> | CaseEx
   return source;
 }
 
+function buildCaseExposureRecord(input: CaseExposureRecordInput, previousRecordDigest?: string): CaseExposureRecord {
+  const recordVersion = input.history.length;
+  const base = {
+    schemaVersion: "tutor-quality-case-exposure-v1" as const,
+    ...input,
+    history: input.history.map((snapshot) => ({
+      ...snapshot,
+      availableArtifacts: { ...snapshot.availableArtifacts },
+      targetedChange: { ...snapshot.targetedChange },
+    })),
+    recordVersion,
+    exposureStatus: exposureStatus(input.history.at(-1)!),
+    identity: recordIdentity(input, recordVersion, previousRecordDigest),
+    ...(previousRecordDigest ? { previousRecordDigest } : {}),
+  };
+  return { ...base, digest: canonicalSemanticDigest(base) };
+}
+
 export function createCaseExposureRecord(input: CaseExposureRecordInput, previous?: CaseExposureRecord): CaseExposureRecord {
   validateInput(input);
   const recordVersion = input.history.length;
@@ -144,21 +162,7 @@ export function createCaseExposureRecord(input: CaseExposureRecordInput, previou
   }
   const previousRecordDigest = previous?.digest;
   if (previousRecordDigest !== undefined && !isSha256Digest(previousRecordDigest)) throw new Error("Previous CaseExposureRecord digest is invalid");
-  const base = {
-    schemaVersion: "tutor-quality-case-exposure-v1" as const,
-    ...input,
-    history: input.history.map((snapshot) => ({
-      ...snapshot,
-      availableArtifacts: { ...snapshot.availableArtifacts },
-      targetedChange: { ...snapshot.targetedChange },
-    })),
-    recordVersion,
-    exposureStatus: exposureStatus(input.history.at(-1)!),
-    identity: recordIdentity(input, recordVersion, previousRecordDigest),
-    ...(previousRecordDigest ? { previousRecordDigest } : {}),
-  };
-  const digest = canonicalSemanticDigest(base);
-  return deepFreeze({ ...base, digest }) as CaseExposureRecord;
+  return deepFreeze(buildCaseExposureRecord(input, previousRecordDigest));
 }
 
 export function validateCaseExposureRecord(input: unknown, expected: CaseExposureBinding): CaseExposureRecordValidation {
@@ -170,6 +174,20 @@ export function validateCaseExposureRecord(input: unknown, expected: CaseExposur
     if (record.recordVersion !== record.history.length) return { valid: false, reason: "record-version-history-mismatch" };
     if (!sameBinding(record, expected)) return { valid: false, reason: "candidate-or-case-binding-mismatch" };
     if (record.exposureStatus !== exposureStatus(record.history.at(-1)!)) return { valid: false, reason: "exposure-status-mismatch" };
+    if (record.recordVersion === 1 ? record.previousRecordDigest !== undefined : !isSha256Digest(record.previousRecordDigest)) {
+      return { valid: false, reason: "previous-record-digest-history-mismatch" };
+    }
+    if (record.recordVersion > 1) {
+      const prefix: CaseExposureRecordInput = {
+        candidateIdentity: record.candidateIdentity,
+        corpusId: record.corpusId,
+        corpusVersion: record.corpusVersion,
+        caseId: record.caseId,
+        semanticCaseDigest: record.semanticCaseDigest,
+        history: record.history.slice(0, -1),
+      };
+      if (buildCaseExposureRecord(prefix).digest !== record.previousRecordDigest) return { valid: false, reason: "previous-record-digest-history-mismatch" };
+    }
     if (!isSha256Digest(record.identity) || record.identity !== recordIdentity(record, record.recordVersion, record.previousRecordDigest)) return { valid: false, reason: "record-identity-mismatch" };
     if (!isSha256Digest(record.digest) || record.digest !== canonicalSemanticDigest(recordDigestContent(record))) return { valid: false, reason: "record-digest-mismatch" };
     return { valid: true, record };

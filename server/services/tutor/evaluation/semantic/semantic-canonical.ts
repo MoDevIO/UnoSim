@@ -47,8 +47,8 @@ export function isSha256Digest(value: unknown): value is string {
 }
 
 export function deepFreeze<T>(value: T): T {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return value;
-  Object.freeze(value);
+  if (value === null || typeof value !== "object") return value;
   for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  if (!Object.isFrozen(value)) Object.freeze(value);
   return value;
 }

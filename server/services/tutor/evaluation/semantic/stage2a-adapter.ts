@@ -44,6 +44,12 @@ function makeExpectedTurn(semanticCase: SemanticCase): TutorQualityEvaluationSce
   };
 }
 
+function stageAEffectiveTurn(turn: TutorQualityEvaluationScenario["turns"][number]): TutorQualityEvaluationScenario["turns"][number] {
+  // Stage 2A's historyFromSource() treats an omitted history as an empty list.
+  // Normalize only that runtime default; preserve every declared history entry and its order.
+  return turn.kind === "dialog" && turn.history === undefined ? { ...turn, history: [] } : turn;
+}
+
 export function assessStageAScenarioCompatibility(
   scenario: TutorQualityEvaluationScenario,
   semanticCase: SemanticCase,
@@ -55,7 +61,7 @@ export function assessStageAScenarioCompatibility(
   if (scenario.sketchRef !== semanticCase.sketch.reference || semanticSha256(scenario.sketch) !== semanticCase.sketch.digest) {
     return { compatible: false, reason: "sketch-reference-or-digest-mismatch" };
   }
-  if (scenario.turns.length !== 1 || canonicalSemanticJson(scenario.turns[0]) !== canonicalSemanticJson(makeExpectedTurn(semanticCase))) {
+  if (scenario.turns.length !== 1 || canonicalSemanticJson(stageAEffectiveTurn(scenario.turns[0]!)) !== canonicalSemanticJson(makeExpectedTurn(semanticCase))) {
     return { compatible: false, reason: "preceding-question-answer-history-or-difficulty-mismatch" };
   }
   if (context.courseContent.kind === "free-tutor") {

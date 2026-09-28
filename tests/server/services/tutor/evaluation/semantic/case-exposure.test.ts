@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { canonicalSemanticDigest } from "../../../../../../server/services/tutor/evaluation/semantic/semantic-canonical";
 import {
   createCaseExposureRecord,
   validateCaseExposureRecord,
@@ -74,9 +75,68 @@ describe("Candidate-specific CaseExposureRecord", () => {
     expect(second.previousRecordDigest).toBe(first.digest);
     expect(second.exposureStatus).toBe("outcome-exposed");
     expect(first.recordVersion).toBe(1);
+    expect(validateCaseExposureRecord(second, binding)).toMatchObject({ valid: true });
     expect(first.exposureStatus).toBe("case-known");
     expect(first.history).toHaveLength(1);
     expect(Object.isFrozen(first)).toBe(true);
+  });
+
+  it("verifies the previous-record digest against the actual history prefix", () => {
+    const first = createCaseExposureRecord({
+      ...binding,
+      history: [snapshot({ caseDefinition: "available", tutorOutput: "unavailable", humanReference: "unavailable", judgeResult: "unavailable" })],
+    });
+    const second = createCaseExposureRecord({
+      ...binding,
+      history: [
+        ...first.history,
+        snapshot({ caseDefinition: "available", tutorOutput: "available", humanReference: "unavailable", judgeResult: "unavailable" }, { status: "not-informed" }, "2026-09-28T10:00:00.000Z"),
+      ],
+    }, first);
+    const { digest: _originalDigest, ...secondWithoutDigest } = second;
+    const forgedBase = { ...secondWithoutDigest, previousRecordDigest: "f".repeat(64) };
+    const forgedIdentity = canonicalSemanticDigest({
+      schemaVersion: forgedBase.schemaVersion,
+      candidateIdentity: forgedBase.candidateIdentity,
+      corpusId: forgedBase.corpusId,
+      corpusVersion: forgedBase.corpusVersion,
+      caseId: forgedBase.caseId,
+      semanticCaseDigest: forgedBase.semanticCaseDigest,
+      recordVersion: forgedBase.recordVersion,
+      previousRecordDigest: forgedBase.previousRecordDigest,
+    });
+    const forgedWithoutDigest = { ...forgedBase, identity: forgedIdentity };
+    const forged = { ...forgedWithoutDigest, digest: canonicalSemanticDigest(forgedWithoutDigest) };
+
+    expect(validateCaseExposureRecord(forged, binding)).toMatchObject({ valid: false, reason: "previous-record-digest-history-mismatch" });
+  });
+
+  it("requires a verifiable previous-record link after the initial exposure version", () => {
+    const first = createCaseExposureRecord({
+      ...binding,
+      history: [snapshot({ caseDefinition: "available", tutorOutput: "unavailable", humanReference: "unavailable", judgeResult: "unavailable" })],
+    });
+    const second = createCaseExposureRecord({
+      ...binding,
+      history: [
+        ...first.history,
+        snapshot({ caseDefinition: "available", tutorOutput: "available", humanReference: "unavailable", judgeResult: "unavailable" }, { status: "not-informed" }, "2026-09-28T10:00:00.000Z"),
+      ],
+    }, first);
+    const { previousRecordDigest: _previousRecordDigest, digest: _originalDigest, ...withoutPrevious } = second;
+    const withoutPreviousIdentity = canonicalSemanticDigest({
+      schemaVersion: withoutPrevious.schemaVersion,
+      candidateIdentity: withoutPrevious.candidateIdentity,
+      corpusId: withoutPrevious.corpusId,
+      corpusVersion: withoutPrevious.corpusVersion,
+      caseId: withoutPrevious.caseId,
+      semanticCaseDigest: withoutPrevious.semanticCaseDigest,
+      recordVersion: withoutPrevious.recordVersion,
+    });
+    const withoutPreviousBase = { ...withoutPrevious, identity: withoutPreviousIdentity };
+    const forged = { ...withoutPreviousBase, digest: canonicalSemanticDigest(withoutPreviousBase) };
+
+    expect(validateCaseExposureRecord(forged, binding)).toMatchObject({ valid: false, reason: "previous-record-digest-history-mismatch" });
   });
 
   it("rejects a revision that drops prior events or changes Candidate/case ownership", () => {

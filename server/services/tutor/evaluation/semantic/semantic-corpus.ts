@@ -118,7 +118,7 @@ export interface SemanticCorpus {
 export type SemanticCorpusSource = Omit<z.infer<typeof corpusSchema>, "digest"> & { readonly digest?: string };
 export type SemanticCorpusEvolutionComparison =
   | { readonly valid: true }
-  | { readonly valid: false; readonly reason: "version-not-increased" };
+  | { readonly valid: false; readonly reason: "version-not-increased" | "version-regressed" };
 
 export function factualReferenceBundleDigest(bundle: Omit<SemanticFactualReferenceBundle, "digest"> | Record<string, unknown>): string {
   const { digest: _digest, ...source } = bundle as Record<string, unknown>;
@@ -356,6 +356,7 @@ export function parseSemanticCorpus(input: unknown, references: SemanticCorpusRe
 }
 
 export function compareSemanticCorpusVersions(previous: SemanticCorpus, current: SemanticCorpus): SemanticCorpusEvolutionComparison {
+  if (current.corpusVersion < previous.corpusVersion) return { valid: false, reason: "version-regressed" };
   const changed = semanticCorpusContentDigest(previous) !== semanticCorpusContentDigest(current);
   if (changed && current.corpusVersion <= previous.corpusVersion) return { valid: false, reason: "version-not-increased" };
   return { valid: true };

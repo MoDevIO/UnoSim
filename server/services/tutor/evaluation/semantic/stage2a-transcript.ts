@@ -70,6 +70,24 @@ function isCallCounts(value: unknown): value is { readonly total: number; readon
     && Number(value.total) === Number(value.modelListCalls) + Number(value.generationCalls);
 }
 
+function isDeterministicChecks(value: unknown): boolean {
+  return Array.isArray(value) && value.every((check) => isRecord(check)
+    && hasOnlyKeys(check, ["name", "passed", "details"])
+    && isNonEmptyString(check.name)
+    && typeof check.passed === "boolean"
+    && (check.details === undefined || typeof check.details === "string"));
+}
+
+function isInvariantViolations(value: unknown, turnCount: number): boolean {
+  const sources = ["raw-provider", "final-tutor", "state", "scenario"];
+  return Array.isArray(value) && value.every((violation) => isRecord(violation)
+    && hasOnlyKeys(violation, ["code", "source", "turnIndex", "details"])
+    && isNonEmptyString(violation.code)
+    && sources.includes(String(violation.source))
+    && (violation.turnIndex === undefined || (Number.isInteger(violation.turnIndex) && Number(violation.turnIndex) >= 0 && Number(violation.turnIndex) < turnCount))
+    && (violation.details === undefined || typeof violation.details === "string"));
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -78,13 +96,14 @@ function isTranscriptMinimum(value: unknown): value is TutorQualityTranscript {
   try {
   if (!isRecord(value) || value.schemaVersion !== "tutor-quality-transcript-v1" || !isSha256Digest(value.evaluationIdentity)) return false;
   if (typeof value.runId !== "string" || value.runId.length === 0 || !isExecutionStatus(value.executionStatus)) return false;
-  if (!Array.isArray(value.invariantViolations) || !Array.isArray(value.turns) || !Array.isArray(value.deterministicChecks)) return false;
+  if (!Array.isArray(value.turns) || !isDeterministicChecks(value.deterministicChecks)) return false;
   if (!isRecord(value.scenario) || !isRecord(value.metadata)) return false;
   const scenario = value.scenario;
   const metadata = value.metadata;
   const syntheticTurns = scenario.syntheticTurns;
   if (!isNonEmptyString(scenario.id) || !isNonEmptyString(scenario.corpusId) || !Number.isInteger(scenario.corpusVersion) || Number(scenario.corpusVersion) < 1) return false;
   if (!isNonEmptyString(scenario.sketchRef) || typeof scenario.sketch !== "string" || !Array.isArray(syntheticTurns)) return false;
+  if (!isInvariantViolations(value.invariantViolations, syntheticTurns.length)) return false;
   if (metadata.corpusId !== scenario.corpusId || metadata.corpusVersion !== scenario.corpusVersion) return false;
   if (!isNonEmptyString(metadata.providerId) || !isNonEmptyString(metadata.requestedModel)
     || !Array.isArray(metadata.returnedModels) || !metadata.returnedModels.every(isNonEmptyString)
@@ -102,7 +121,7 @@ function isTranscriptMinimum(value: unknown): value is TutorQualityTranscript {
     const providerCalls = turn.providerCalls;
     if (Number(turn.index) !== index || !isRecord(turn.input)
       || !Number.isFinite(turn.durationMs) || Number(turn.durationMs) < 0
-      || !Array.isArray(turn.deterministicChecks) || !isCallCounts(providerCalls)
+      || !isDeterministicChecks(turn.deterministicChecks) || !isCallCounts(providerCalls)
       || (turn.finalTutorResult !== undefined && !isRecord(turn.finalTutorResult))
       || (turn.returnedModel !== undefined && typeof turn.returnedModel !== "string")
       || (value.executionStatus === "completed" && !isRecord(turn.finalTutorResult))

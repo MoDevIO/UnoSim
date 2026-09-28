@@ -68,6 +68,32 @@ describe("Stage-2A transcript compatibility and Stage-B digest", () => {
     expect(JSON.stringify(transcript)).toBe(bytesBefore);
   });
 
+  it("treats an omitted legacy dialog history as Stage-A's empty-history default", () => {
+    const semanticCase = parsedCorpus().cases[0]!;
+    const sourceScenario = validStageAScenario({
+      id: "legacy-no-history-field",
+      corpusId: "legacy-anchor-corpus",
+      corpusVersion: 3,
+      turns: [{
+        kind: "dialog",
+        question: semanticCase.frozenPreTurnContext.question,
+        answer: semanticCase.frozenPreTurnContext.learnerAnswer.text,
+        bindsToQuestion: semanticCase.frozenPreTurnContext.question,
+        difficulty: semanticCase.frozenPreTurnContext.difficulty,
+      }],
+    });
+    const transcript = validStageATranscript(sourceScenario);
+    const mapping = createExistingTranscriptCompatibilityMapping({
+      sourceId: "stage-a/source-with-default-history",
+      transcript,
+      sourceScenario,
+      semanticCase,
+    });
+
+    expect(sourceScenario.turns[0]).not.toHaveProperty("history");
+    expect(validateStage2ATranscript(transcript, semanticCase, mapping)).toMatchObject({ valid: true, semanticEligibility: "eligible" });
+  });
+
   it("rejects missing mappings and any unproven question, answer, sketch, order, or context change", () => {
     const semanticCase = parsedCorpus().cases[0]!;
     const sourceScenario = validStageAScenario({ id: "legacy-input-pullup", corpusId: "legacy-anchor-corpus", corpusVersion: 3 });
@@ -159,5 +185,24 @@ describe("Stage-2A transcript compatibility and Stage-B digest", () => {
     expect(validateStage2ATranscript({ ...transcript, turns: [{ ...transcript.turns[0]!, input: { ...transcript.turns[0]!.input, bindsToQuestion: "different" } }] }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
     expect(validateStage2ATranscript({ ...transcript, evaluationIdentity: "" }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
     expect(validateStage2ATranscript({ ...transcript, metadata: { ...transcript.metadata, promptRevision: undefined } }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+  });
+
+  it("rejects malformed invariant and deterministic-check entries, not only malformed arrays", () => {
+    const corpus = parsedCorpus();
+    const semanticCase = corpus.cases[0]!;
+    const adapted = toStage2AScenario(corpus, semanticCase, validSemanticCorpusReferences());
+    const transcript = validStageATranscript(adapted.scenario);
+
+    expect(validateStage2ATranscript({ ...transcript, invariantViolations: [null] }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+    expect(validateStage2ATranscript({ ...transcript, invariantViolations: [{ code: "", source: "invented" }] }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+    expect(validateStage2ATranscript({ ...transcript, deterministicChecks: [null] }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+    expect(validateStage2ATranscript({
+      ...transcript,
+      deterministicChecks: [{ name: "", passed: "yes" }],
+    }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+    expect(validateStage2ATranscript({
+      ...transcript,
+      turns: [{ ...transcript.turns[0]!, deterministicChecks: [null] }],
+    }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
   });
 });

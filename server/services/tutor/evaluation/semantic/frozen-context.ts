@@ -51,7 +51,7 @@ function parseInput(input: unknown): FrozenPreTurnContextInput {
     if (!turn.success || canonicalSemanticJson(turn.data) !== canonicalSemanticJson(rawTurn)) {
       throw new Error(`Invalid Frozen Pre-Turn Context: priorDialog[${index}] is invalid or would require normalization`);
     }
-    priorDialog.push(rawTurn as TutorDialogTurn);
+    priorDialog.push(turn.data);
   }
   return { ...parsed.data, priorDialog } as FrozenPreTurnContextInput;
 }

@@ -76,6 +76,13 @@ describe("Stage-2B Semantic Corpus", () => {
     expect(compareSemanticCorpusVersions(previous, currentBumpedVersion)).toMatchObject({ valid: true });
   });
 
+  it("rejects corpus-version rollback even when parsed content is otherwise identical", () => {
+    const previous = parseSemanticCorpus({ ...source(), corpusVersion: 2 }, validSemanticCorpusReferences());
+    const rolledBack = parseSemanticCorpus(source(), validSemanticCorpusReferences());
+
+    expect(compareSemanticCorpusVersions(previous, rolledBack)).toMatchObject({ valid: false, reason: "version-regressed" });
+  });
+
   it("does not put Candidate exposure into the static corpus digest", () => {
     const corpus = parseSemanticCorpus(source(), validSemanticCorpusReferences());
     const before = semanticCorpusDigest(corpus);
@@ -113,6 +120,14 @@ describe("Stage-2B Semantic Corpus", () => {
     const sources = relinked.cases[0]!.evidenceSources;
     [sources[0]!.digest, sources[1]!.digest] = [sources[1]!.digest, sources[0]!.digest];
     expect(semanticCorpusDigest(relinked)).not.toBe(semanticCorpusDigest(original));
+  });
+
+  it("canonicalizes case-list order when multiple cases are present", () => {
+    const oneCase = source();
+    const secondCase = { ...oneCase.cases[0]!, id: "TQ-SEM-001-SECOND" };
+    const twoCases = { ...oneCase, cases: [oneCase.cases[0]!, secondCase] };
+
+    expect(semanticCorpusDigest(twoCases)).toBe(semanticCorpusDigest({ ...twoCases, cases: [...twoCases.cases].reverse() }));
   });
 
   it("rejects a sketch fixture whose bytes do not match the pinned digest", () => {
