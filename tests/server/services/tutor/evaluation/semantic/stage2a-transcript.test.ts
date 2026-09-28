@@ -205,4 +205,16 @@ describe("Stage-2A transcript compatibility and Stage-B digest", () => {
       turns: [{ ...transcript.turns[0]!, deterministicChecks: [null] }],
     }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
   });
+
+  it("rejects a completed transcript whose normalized final Tutor result is not valid Tutor content", () => {
+    const corpus = parsedCorpus();
+    const semanticCase = corpus.cases[0]!;
+    const adapted = toStage2AScenario(corpus, semanticCase, validSemanticCorpusReferences());
+    const transcript = validStageATranscript(adapted.scenario);
+
+    expect(validateStage2ATranscript({
+      ...transcript,
+      turns: [{ ...transcript.turns[0]!, finalTutorResult: {} }],
+    }, semanticCase, adapted.provenance)).toMatchObject({ valid: false });
+  });
 });

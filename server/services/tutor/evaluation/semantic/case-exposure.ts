@@ -146,6 +146,23 @@ function buildCaseExposureRecord(input: CaseExposureRecordInput, previousRecordD
   return { ...base, digest: canonicalSemanticDigest(base) };
 }
 
+function rebuildExposureHistoryPrefix(input: CaseExposureRecordInput): CaseExposureRecord {
+  let previous: CaseExposureRecord | undefined;
+  for (let end = 1; end <= input.history.length; end += 1) {
+    const prefix: CaseExposureRecordInput = {
+      candidateIdentity: input.candidateIdentity,
+      corpusId: input.corpusId,
+      corpusVersion: input.corpusVersion,
+      caseId: input.caseId,
+      semanticCaseDigest: input.semanticCaseDigest,
+      history: input.history.slice(0, end),
+    };
+    previous = buildCaseExposureRecord(prefix, previous?.digest);
+  }
+  if (!previous) throw new Error("Exposure history prefix must not be empty");
+  return previous;
+}
+
 export function createCaseExposureRecord(input: CaseExposureRecordInput, previous?: CaseExposureRecord): CaseExposureRecord {
   validateInput(input);
   const recordVersion = input.history.length;
@@ -186,7 +203,7 @@ export function validateCaseExposureRecord(input: unknown, expected: CaseExposur
         semanticCaseDigest: record.semanticCaseDigest,
         history: record.history.slice(0, -1),
       };
-      if (buildCaseExposureRecord(prefix).digest !== record.previousRecordDigest) return { valid: false, reason: "previous-record-digest-history-mismatch" };
+      if (rebuildExposureHistoryPrefix(prefix).digest !== record.previousRecordDigest) return { valid: false, reason: "previous-record-digest-history-mismatch" };
     }
     if (!isSha256Digest(record.identity) || record.identity !== recordIdentity(record, record.recordVersion, record.previousRecordDigest)) return { valid: false, reason: "record-identity-mismatch" };
     if (!isSha256Digest(record.digest) || record.digest !== canonicalSemanticDigest(recordDigestContent(record))) return { valid: false, reason: "record-digest-mismatch" };

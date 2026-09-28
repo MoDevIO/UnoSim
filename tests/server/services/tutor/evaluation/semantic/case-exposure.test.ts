@@ -81,6 +81,29 @@ describe("Candidate-specific CaseExposureRecord", () => {
     expect(Object.isFrozen(first)).toBe(true);
   });
 
+  it("validates exposure chains beyond two revisions", () => {
+    const first = createCaseExposureRecord({
+      ...binding,
+      history: [snapshot({ caseDefinition: "available", tutorOutput: "unavailable", humanReference: "unavailable", judgeResult: "unavailable" })],
+    });
+    const second = createCaseExposureRecord({
+      ...binding,
+      history: [
+        ...first.history,
+        snapshot({ caseDefinition: "available", tutorOutput: "available", humanReference: "unavailable", judgeResult: "unavailable" }, { status: "not-informed" }, "2026-09-28T10:00:00.000Z"),
+      ],
+    }, first);
+    const third = createCaseExposureRecord({
+      ...binding,
+      history: [
+        ...second.history,
+        snapshot({ caseDefinition: "available", tutorOutput: "available", humanReference: "available", judgeResult: "unavailable" }, { status: "not-informed" }, "2026-09-29T10:00:00.000Z"),
+      ],
+    }, second);
+
+    expect(validateCaseExposureRecord(third, binding)).toMatchObject({ valid: true });
+  });
+
   it("verifies the previous-record digest against the actual history prefix", () => {
     const first = createCaseExposureRecord({
       ...binding,

@@ -1,3 +1,4 @@
+import { tutorContentResultSchema } from "@shared/tutor";
 import type {
   TutorQualityEvaluationScenario,
   TutorQualityExecutionStatus,
@@ -119,12 +120,13 @@ function isTranscriptMinimum(value: unknown): value is TutorQualityTranscript {
   for (const [index, turn] of value.turns.entries()) {
     if (!isRecord(turn)) return false;
     const providerCalls = turn.providerCalls;
+    const finalTutorResult = turn.finalTutorResult;
     if (Number(turn.index) !== index || !isRecord(turn.input)
       || !Number.isFinite(turn.durationMs) || Number(turn.durationMs) < 0
       || !isDeterministicChecks(turn.deterministicChecks) || !isCallCounts(providerCalls)
-      || (turn.finalTutorResult !== undefined && !isRecord(turn.finalTutorResult))
+      || (finalTutorResult !== undefined && (!isRecord(finalTutorResult) || !tutorContentResultSchema.safeParse(finalTutorResult).success))
       || (turn.returnedModel !== undefined && typeof turn.returnedModel !== "string")
-      || (value.executionStatus === "completed" && !isRecord(turn.finalTutorResult))
+      || (value.executionStatus === "completed" && finalTutorResult === undefined)
       || canonicalSemanticJson(turn.input) !== canonicalSemanticJson(syntheticTurns[index])) return false;
     turnCalls.total += Number(providerCalls.total);
     turnCalls.modelListCalls += Number(providerCalls.modelListCalls);
