@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { KiconnectProvider } from "../../../../server/services/tutor/kiconnect-provider";
+import { KiconnectProvider, TUTOR_TEMPERATURE } from "../../../../server/services/tutor/kiconnect-provider";
 
 describe("KiconnectProvider", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -50,6 +50,7 @@ describe("KiconnectProvider", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer request-key");
     expect(JSON.parse(String(init.body))).toMatchObject({
       model: "pilot-model",
+      temperature: TUTOR_TEMPERATURE,
       messages: [
         { role: "system", content: "system" },
         { role: "user", content: "user" },

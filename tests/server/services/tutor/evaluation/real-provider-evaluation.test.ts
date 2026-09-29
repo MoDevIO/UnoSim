@@ -9,6 +9,7 @@ import {
   runTutorQualityEvaluation,
   type TutorQualityEvaluationScenario,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
+import { sha256 } from "../../../../../server/services/tutor/evaluation/canonical";
 import { TutorProviderError, type LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
 const temporaryDirectories: string[] = [];
@@ -75,6 +76,20 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.turns[0]?.rawProviderResult).toMatchObject({ question: "Welche Rolle spielt counter im Sketch?" });
     expect(transcript.turns[0]?.finalTutorResult?.question).not.toBe("Welche Rolle spielt counter im Sketch?");
     expect(result.report.providerCalls).toMatchObject({ total: 3, modelListCalls: 2, generationCalls: 1 });
+  });
+
+  it("records digests of the prompts sent to the provider for every transcript turn", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 4,
+      question: "Welche Beobachtung ist im Sketch belegt?",
+    })));
+    const request = result.transcripts[0]?.turns[0]?.providerRequest;
+
+    expect(request).toMatchObject({
+      systemPromptDigest: sha256(request?.systemPrompt ?? ""),
+      userPromptDigest: sha256(request?.userPrompt ?? ""),
+    });
   });
 
   it("records the existing bounded heuristic for a near-repeat", async () => {

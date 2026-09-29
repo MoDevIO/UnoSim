@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import type { TutorContentResult, TutorDialogTurn } from "@shared/tutor";
 import {
@@ -16,6 +16,8 @@ import {
 import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
+import { canonicalDigest, canonicalJson, sha256 } from "./canonical";
+import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
 
@@ -75,7 +77,6 @@ export interface TutorQualityEvaluationOptions {
   readonly samples: number;
   readonly maxCalls: number;
   readonly timeoutMs?: number;
-  readonly temperature?: number;
   readonly outputDir?: string;
   readonly git: TutorQualityGitState;
   readonly now?: () => Date;
@@ -107,7 +108,9 @@ export interface TutorQualityTechnicalError {
 export interface TutorQualityProviderRequestArtifact {
   readonly model: string;
   readonly systemPrompt: string;
+  readonly systemPromptDigest: string;
   readonly userPrompt: string;
+  readonly userPromptDigest: string;
 }
 
 export interface TutorQualityTranscriptTurn {
@@ -289,22 +292,6 @@ class CountingProvider implements LLMProvider {
   }
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .filter(([, item]) => item !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function hashCanonical(value: unknown): string {
-  return createHash("sha256").update(stableJson(value)).digest("hex");
-}
-
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -315,7 +302,7 @@ function courseRevision(scenario: TutorQualityEvaluationScenario): string {
 
 function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string {
   const first = options.scenarios[0];
-  return hashCanonical({
+  return canonicalDigest({
     unosimGitSha: options.git.sha,
     courseContentRevisions: [...new Set(options.scenarios.map(courseRevision))].sort((left, right) => left.localeCompare(right)),
     corpusId: first?.corpusId,
@@ -328,7 +315,7 @@ function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string 
     },
     parameters: {
       timeoutMs: options.timeoutMs,
-      temperature: options.temperature,
+      temperature: TUTOR_TEMPERATURE,
       sampleCount: options.samples,
       maxCalls: options.maxCalls,
       difficulties: options.scenarios.flatMap((scenario) => scenario.turns.map((turn) => turn.difficulty ?? 30)),
@@ -370,7 +357,7 @@ function metadata(
     sampleDurationMs,
     providerCalls,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+    temperature: TUTOR_TEMPERATURE,
     maxCalls: options.maxCalls,
   };
 }
@@ -411,7 +398,9 @@ function requestArtifact(request: LLMProviderRequest, credential?: string): Tuto
   return {
     model: request.model,
     systemPrompt: redact(request.systemPrompt, credential),
+    systemPromptDigest: sha256(request.systemPrompt),
     userPrompt: redact(request.userPrompt, credential),
+    userPromptDigest: sha256(request.userPrompt),
   };
 }
 
@@ -522,7 +511,7 @@ function expectedPhaseCheck(context: ExpectedCheckContext): void {
 
 function expectedStateCheck(context: ExpectedCheckContext): void {
   if (!context.scenario.expected?.stateUnchanged || !context.stateBefore || !context.stateAfter) return;
-  const passed = stableJson(context.stateBefore) === stableJson(context.stateAfter);
+  const passed = canonicalJson(context.stateBefore) === canonicalJson(context.stateAfter);
   addCheck(context.checks, "expected-state-unchanged", passed);
   if (!passed) addViolation(context.violations, "state-changed-unexpectedly", "state", context.turnIndex);
 }
@@ -845,7 +834,7 @@ function recordFailureStateCheck(
   violations: TutorQualityInvariantViolation[],
 ): void {
   if (!terminalError || !stateBefore || !stateAfter) return;
-  const unchanged = stableJson(stateBefore) === stableJson(stateAfter);
+  const unchanged = canonicalJson(stateBefore) === canonicalJson(stateAfter);
   const stateChecks = turns.at(-1)?.deterministicChecks;
   if (stateChecks) {
     (stateChecks as TutorQualityDeterministicCheck[]).push({ name: "state-unchanged-after-failure", passed: unchanged });

@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { createAnchorCourseContent, ANCHOR_COURSE_CONTENT_FIXTURE_IDS, type AnchorCourseContentFixtureId } from "../server/services/tutor/evaluation/anchor-course-content";
+import { config } from "../server/config";
 import {
   parseTutorQualityCorpus,
   type TutorQualityCorpusSource,
@@ -207,7 +208,6 @@ export async function runTutorQualityCli(
   const scenarios = await loadTutorQualityEvaluationScenarios(cwd, options.corpusPath);
   const git = dependencies.git ?? readTutorQualityGitState(cwd, options.outputDir);
   const provider = dependencies.provider ?? new KiconnectProvider();
-  const timeoutMs = Number(environment.UNOSIM_LLM_TIMEOUT_MS ?? 30_000);
   const credential = environment[options.credentialEnv];
   return runTutorQualityEvaluation({
     scenarios,
@@ -218,8 +218,7 @@ export async function runTutorQualityCli(
     requestedModel: options.model,
     samples: options.samples,
     maxCalls: options.maxCalls,
-    timeoutMs,
-    temperature: 0.2,
+    timeoutMs: config.tutor.timeoutMs,
     outputDir: path.resolve(cwd, options.outputDir),
     git,
   });
