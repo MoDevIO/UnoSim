@@ -1,0 +1,77 @@
+schemaVersion: tutor-quality-semantic-corpus-v1
+corpusId: tutor-quality-semantic
+corpusVersion: 1
+digest: 00f7848de47e08547b86a5da0210ded6b3eb1e83f31a0ba34f7d56ad4205dac8
+cases:
+  - id: TQ-SEM-001
+    caseVersion: 1
+    digest: 04ba6e31a87e4595fc11b72c5a1f9ac260fa22fcd0d7186a6dcd4729d3e6a0b9
+    purpose: Check that a substantively correct INPUT_PULLUP answer is recognized without false correction.
+    role: development
+    sketch:
+      reference: semantic-fixtures/TQ-SEM-001-input-pullup.ino
+      digest: e0ab46c8cadd3bbf5cab80b0237d8303918e152023de1793b2d1f40ae698d9c5
+    frozenPreTurnContext:
+      schemaVersion: tutor-quality-frozen-context-v1
+      sketchRef: semantic-fixtures/TQ-SEM-001-input-pullup.ino
+      sketchDigest: e0ab46c8cadd3bbf5cab80b0237d8303918e152023de1793b2d1f40ae698d9c5
+      question: Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?
+      learnerAnswer:
+        text: buttonPin, also an PIN2 muss GND anliegen!
+        category: fully-correct
+        bindsToQuestion: Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?
+      priorDialog: []
+      courseContent:
+        kind: free-tutor
+      difficulty: 30
+      digest: f89c3200af9ff90d7ab282b8e90f511b50c6c8593b20745bc51a005639340e0a
+    expectedAnswerInterpretation: When the button connects buttonPin to GND, INPUT_PULLUP makes the input read LOW; this sketch writes HIGH to ledPin when digitalRead(buttonPin) == LOW.
+    acceptableTutorResponses:
+      diagnoses:
+        - Recognizes the learner's core condition as correct, allowing substantively equivalent wording.
+      feedbackApproaches:
+        - May clarify the active-low input without claiming the learner's answer is wrong.
+      followUps:
+        - May ask a sketch-grounded question that adds a distinct reasoning demand.
+    answerCategory: fully-correct
+    knownFailurePatterns:
+      - correct-answer-rejected
+    assessableDimensions:
+      - factual-correctness
+      - sketch-code-grounding
+      - learner-answer-diagnosis
+      - precision
+    dimensionEvidenceLimitations:
+      instructional-usefulness: No learner history beyond this synthetic answer is represented.
+      scaffolding: No learner history beyond this synthetic answer is represented.
+      dialogic-progression: The case has no preceding dialog turn.
+      non-repetition: The case has no preceding dialog turn.
+      difficulty-appropriateness: The case scopes any judgment to its fixed synthetic input only.
+    evidenceSources:
+      - id: sketch
+        kind: repository/sketch
+        reference: semantic-fixtures/TQ-SEM-001-input-pullup.ino
+        digest: e0ab46c8cadd3bbf5cab80b0237d8303918e152023de1793b2d1f40ae698d9c5
+      - id: input-pullup-reference-draft
+        kind: draft-factual-reference
+        reference: TQ-SEM-001-factual-reference
+        digest: e0d1f86e092f980a8adf4b771cfc673d943a5492129f95dc850409a3123b5af0
+    permittedExternalKnowledge: false
+    factualReferenceBundle:
+      id: TQ-SEM-001-factual-reference
+      version: 1
+      sourceKind: draft-factual-reference
+      reviewStatus: pending-review
+      digest: e0d1f86e092f980a8adf4b771cfc673d943a5492129f95dc850409a3123b5af0
+      provenance: Draft facts derived from the pinned sketch and requiring reviewer confirmation of board and wiring assumptions.
+      limitations:
+        - Confirm the target board, button-to-GND wiring, and LED_BUILTIN active-high behavior before Gold use.
+      facts:
+        - id: internal-pullup
+          statement: pinMode(buttonPin, INPUT_PULLUP) enables the microcontroller's internal pull-up for buttonPin.
+        - id: grounded-input-low
+          statement: With the declared button-to-GND wiring, pressing the button makes digitalRead(buttonPin) return LOW.
+        - id: sketch-condition
+          statement: The sketch writes HIGH to ledPin, which is LED_BUILTIN, when digitalRead(buttonPin) == LOW.
+    humanReference:
+      status: pending-review
