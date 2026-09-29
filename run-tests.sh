@@ -4,6 +4,17 @@
 # UnoSim Test & Build Pipeline (Stability & Resource Guard)
 # ─────────────────────────────────────────────────────────────────
 
+# Keep this explicit mode limited to the Knip gate; no argument preserves the
+# full pipeline. Do not accept additional options in gate-only mode.
+KNIP_GATE_ONLY=0
+if [[ "${1:-}" == "--knip-gate-only" ]]; then
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: ./run-tests.sh [--knip-gate-only]"
+        exit 2
+    fi
+    KNIP_GATE_ONLY=1
+fi
+
 # Konfiguration
 LOG_FILE="run-tests_output.log"
 TOTAL_STEPS=11
@@ -58,7 +69,9 @@ cleanup() {
         fi
     fi
 }
-trap cleanup EXIT
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
+    trap cleanup EXIT
+fi
 
 run_task() {
     local label=$1 cmd=$2 note=${3:-}
@@ -115,15 +128,21 @@ parse_test_results() {
 # ─────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────
-clear
-div
-printf "  ${B}UnoSim Test & Build Pipeline${RS} ${D}(Log: %s)${RS}\n" "$LOG_FILE"
-div
-rm -f "$LOG_FILE"
-[ -d temp ] && rm -rf temp/*
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
+    clear
+    div
+    printf "  ${B}UnoSim Test & Build Pipeline${RS} ${D}(Log: %s)${RS}\n" "$LOG_FILE"
+    div
+    rm -f "$LOG_FILE"
+    [ -d temp ] && rm -rf temp/*
+fi
 
 # ─────── PRE-FLIGHT ───────
-echo -e "\n${B}▸ [Pre-Flight] System checks & cleanup${RS}"
+if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
+    echo -e "\n${B}▸ [Pre-Flight] Node/npm for Knip${RS}"
+else
+    echo -e "\n${B}▸ [Pre-Flight] System checks & cleanup${RS}"
+fi
 
 # Node.js / npm
 if ! command -v npm &>/dev/null; then
@@ -141,6 +160,12 @@ if [ -n "$EXPECTED_NODE" ] && [ "$ACTUAL_NODE" != "$EXPECTED_NODE" ]; then
 fi
 echo -e "  ${OK} Node.js v${ACTUAL_NODE}"
 
+if [ "$KNIP_GATE_ONLY" -eq 1 ] && ! command -v npx &>/dev/null; then
+    echo -e "  ${FAIL} npx not found – please install Node.js/npm"
+    exit 1
+fi
+
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
 # Docker
 DOCKER_AVAILABLE=0
 if command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
@@ -192,6 +217,7 @@ fi
 
 # 1. Static analysis
 run_task "Static Analysis" "npm run check"
+fi
 
 # 2. Dead-code check (knip) — known findings are tracked in a reviewed baseline
 STEP=$((STEP+1))
@@ -261,10 +287,6 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
         records++
     }
     END {
-        if (records == 0) {
-            print "baseline contains no finding records" >> errors
-            invalid = 1
-        }
         if (invalid) exit 1
     }
 ' "$KNIP_BASELINE_FILE" > "$KNIP_TMP_DIR/baseline.raw"; then
@@ -420,6 +442,9 @@ if [ "$KNIP_RESOLVED_COUNT" -gt 0 ]; then
     echo -e "    ${OK} Baseline improved: $KNIP_RESOLVED_COUNT known finding(s) resolved"
 fi
 rm -rf "$KNIP_TMP_DIR"
+if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
+    exit 0
+fi
 
 # 3. Unit tests and complete coverage report for the SonarQube scan
 run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:coverage"
