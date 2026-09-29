@@ -25,5 +25,3 @@ export const tutorQualityCasesSchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["cases"], message: "Quality case ids must be unique" });
   }
 });
-
-export type TutorQualityCases = z.infer<typeof tutorQualityCasesSchema>;
