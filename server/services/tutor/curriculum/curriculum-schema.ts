@@ -173,7 +173,6 @@ export type CurriculumConcept = CurriculumTopic["concepts"][number];
 export type CurriculumQuestion = CurriculumTopic["questions"][number];
 export type CurriculumScaffold = CurriculumTopic["scaffolds"][number];
 export type TopicDeepening = z.infer<typeof deepeningSchema>;
-export type TopicExtension = z.infer<typeof topicExtensionSchema>;
 
 function assertUnique(values: readonly string[], label: string): void {
   if (new Set(values).size !== values.length) throw new Error(`Duplicate ${label}`);

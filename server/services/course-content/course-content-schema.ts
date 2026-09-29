@@ -23,7 +23,6 @@ const v2ManifestSchema = z.object({
 
 export const courseContentManifestSchema = z.union([examplesManifestSchema, v2ManifestSchema]);
 
-export type CourseContentManifest = z.infer<typeof courseContentManifestSchema>;
 export type TutorDescriptor = z.infer<typeof tutorDescriptorSchema>;
 
 export const courseContentTopicEntrySchema = z.object({
@@ -61,7 +60,6 @@ const tutorManifestV2Schema = z.object({
 export const courseContentTutorManifestSchema = z.union([tutorManifestV1Schema, tutorManifestV2Schema]);
 
 export type CourseContentTutorManifest = z.infer<typeof courseContentTutorManifestSchema>;
-export type TutorPhase = "LEARN" | "DEEPEN" | "EXPAND";
 
 type InvalidCapability = { readonly status: "invalid"; readonly reason: string };
 
