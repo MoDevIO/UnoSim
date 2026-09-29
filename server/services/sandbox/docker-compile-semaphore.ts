@@ -95,8 +95,3 @@ export function getSandboxStartSemaphore(maxOverride?: number): SandboxStartSema
   }
   return _instance;
 }
-
-/** @deprecated Internal compatibility alias; use SandboxStartSemaphore. */
-export const DockerCompileSemaphore = SandboxStartSemaphore;
-/** @deprecated Internal compatibility alias; use getSandboxStartSemaphore. */
-export const getDockerCompileSemaphore = getSandboxStartSemaphore;

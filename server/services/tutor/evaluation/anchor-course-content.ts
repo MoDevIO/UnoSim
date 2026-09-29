@@ -179,7 +179,3 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
     }
   }
 }
-
-export function anchorCourseContentRevision(): string {
-  return REVISION;
-}
