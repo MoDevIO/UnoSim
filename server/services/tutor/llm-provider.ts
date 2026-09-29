@@ -11,6 +11,25 @@ export interface ProviderQuestionResult {
   readonly result: TutorContentResult;
 }
 
+export interface StructuredLLMProviderRequest {
+  readonly model: string;
+  readonly systemPrompt: string;
+  readonly userPrompt: string;
+  readonly temperature: number;
+}
+
+export interface ProviderStructuredResult {
+  readonly model: string | undefined;
+  readonly result: unknown;
+}
+
+export interface StructuredLLMProvider {
+  generateStructuredResponse(
+    request: StructuredLLMProviderRequest,
+    credential: string,
+  ): Promise<ProviderStructuredResult>;
+}
+
 export type TutorProviderErrorKind =
   | "credential-invalid"
   | "provider-unavailable"
