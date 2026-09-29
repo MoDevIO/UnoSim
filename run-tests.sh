@@ -220,6 +220,26 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
         sub(/[[:space:]]+$/, "", value)
         return value
     }
+    function valid_path(path) {
+        return path ~ /^([[:alnum:]_.-]+\/)+[[:alnum:]_.-]+$/ && path !~ /(^|\/)\.\.?($|\/)/
+    }
+    function valid_record(category, detail, fields, field_count) {
+        field_count = split(detail, fields, " ")
+        if (field_count < 2 || !valid_path(fields[field_count])) return 0
+
+        if (category == "Unused exports") {
+            if (field_count != 2 && field_count != 3) return 0
+            return field_count == 2 || fields[2] ~ /^[[:alpha:]_][[:alnum:]_-]*$/
+        }
+        if (category == "Unused exported types") {
+            return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Duplicate exports") {
+            if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
+            return 1
+        }
+        return 0
+    }
     {
         original = $0
         sub(/\r$/, "", original)
@@ -229,7 +249,10 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
         normalized = line
         gsub(/[[:space:]]+/, " ", normalized)
         delimiter = index(line, " :: ")
-        if (delimiter < 2 || delimiter + 4 > length(line) || normalized != line || line ~ /:[0-9]+:[0-9]+$/ || substr(line, 1, delimiter - 1) == "__UNCLASSIFIED__") {
+        category = substr(line, 1, delimiter - 1)
+        detail = substr(line, delimiter + 4)
+        if (delimiter < 2 || delimiter + 4 > length(line) || normalized != line ||
+            line ~ /:[0-9]+:[0-9]+$/ || !valid_record(category, detail)) {
             print NR ": " original >> errors
             invalid = 1
             next
@@ -276,6 +299,26 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
         sub(/[[:space:]]+$/, "", value)
         return value
     }
+    function valid_path(path) {
+        return path ~ /^([[:alnum:]_.-]+\/)+[[:alnum:]_.-]+$/ && path !~ /(^|\/)\.\.?($|\/)/
+    }
+    function valid_record(category, detail, fields, field_count) {
+        field_count = split(detail, fields, " ")
+        if (field_count < 2 || !valid_path(fields[field_count])) return 0
+
+        if (category == "Unused exports") {
+            if (field_count != 2 && field_count != 3) return 0
+            return field_count == 2 || fields[2] ~ /^[[:alpha:]_][[:alnum:]_-]*$/
+        }
+        if (category == "Unused exported types") {
+            return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Duplicate exports") {
+            if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
+            return 1
+        }
+        return 0
+    }
     function fail(message) {
         print message >> errors
         invalid = 1
@@ -293,6 +336,9 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
             count = line
             sub(/^.* \(/, "", count)
             sub(/\)$/, "", count)
+            if (category != "Unused exports" && category != "Unused exported types" && category != "Duplicate exports") {
+                fail("unrecognized section heading: " line)
+            }
             if (category == "" || seen[category]++) {
                 fail("invalid or duplicate section heading: " line)
             }
@@ -313,8 +359,8 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
         sub(/:[0-9]+:[0-9]+$/, "", finding)
         finding = trim(finding)
         gsub(/[[:space:]]+/, " ", finding)
-        if (finding == "") {
-            fail("empty finding in section " section)
+        if (!valid_record(section, finding)) {
+            fail("malformed finding in section " section ": " finding)
             next
         }
         print section " :: " finding >> records
