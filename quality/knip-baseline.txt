@@ -1,0 +1,4 @@
+# Known Knip findings (currently none).
+# Normalized as: <category> :: <symbol/type information> <repository path>
+# Source line/column positions are intentionally excluded.
+# Do not add new findings merely to make the quality gate pass.

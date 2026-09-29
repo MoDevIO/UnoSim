@@ -4,6 +4,17 @@
 # UnoSim Test & Build Pipeline (Stability & Resource Guard)
 # ─────────────────────────────────────────────────────────────────
 
+# Keep this explicit mode limited to the Knip gate; no argument preserves the
+# full pipeline. Do not accept additional options in gate-only mode.
+KNIP_GATE_ONLY=0
+if [[ "${1:-}" == "--knip-gate-only" ]]; then
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: ./run-tests.sh [--knip-gate-only]"
+        exit 2
+    fi
+    KNIP_GATE_ONLY=1
+fi
+
 # Konfiguration
 LOG_FILE="run-tests_output.log"
 TOTAL_STEPS=11
@@ -58,7 +69,9 @@ cleanup() {
         fi
     fi
 }
-trap cleanup EXIT
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
+    trap cleanup EXIT
+fi
 
 run_task() {
     local label=$1 cmd=$2 note=${3:-}
@@ -115,15 +128,21 @@ parse_test_results() {
 # ─────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────
-clear
-div
-printf "  ${B}UnoSim Test & Build Pipeline${RS} ${D}(Log: %s)${RS}\n" "$LOG_FILE"
-div
-rm -f "$LOG_FILE"
-[ -d temp ] && rm -rf temp/*
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
+    clear
+    div
+    printf "  ${B}UnoSim Test & Build Pipeline${RS} ${D}(Log: %s)${RS}\n" "$LOG_FILE"
+    div
+    rm -f "$LOG_FILE"
+    [ -d temp ] && rm -rf temp/*
+fi
 
 # ─────── PRE-FLIGHT ───────
-echo -e "\n${B}▸ [Pre-Flight] System checks & cleanup${RS}"
+if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
+    echo -e "\n${B}▸ [Pre-Flight] Node/npm for Knip${RS}"
+else
+    echo -e "\n${B}▸ [Pre-Flight] System checks & cleanup${RS}"
+fi
 
 # Node.js / npm
 if ! command -v npm &>/dev/null; then
@@ -141,6 +160,12 @@ if [ -n "$EXPECTED_NODE" ] && [ "$ACTUAL_NODE" != "$EXPECTED_NODE" ]; then
 fi
 echo -e "  ${OK} Node.js v${ACTUAL_NODE}"
 
+if [ "$KNIP_GATE_ONLY" -eq 1 ] && ! command -v npx &>/dev/null; then
+    echo -e "  ${FAIL} npx not found – please install Node.js/npm"
+    exit 1
+fi
+
+if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
 # Docker
 DOCKER_AVAILABLE=0
 if command -v docker &>/dev/null && docker info >/dev/null 2>&1; then
@@ -192,19 +217,233 @@ fi
 
 # 1. Static analysis
 run_task "Static Analysis" "npm run check"
+fi
 
-# 2. Dead-code check (knip) — non-blocking, zeigt unused exports/types als Warnung
+# 2. Dead-code check (knip) — known findings are tracked in a reviewed baseline
 STEP=$((STEP+1))
 echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Dead-Code Check (knip)${RS}"
+KNIP_BASELINE_FILE="${KNIP_BASELINE_FILE:-quality/knip-baseline.txt}"
+KNIP_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/unosim-knip.XXXXXX")
+if [ $? -ne 0 ] || [ -z "$KNIP_TMP_DIR" ] || [ ! -d "$KNIP_TMP_DIR" ]; then
+    echo -e "  ${FAIL} Dead-Code Check                    FAIL: could not create scratch directory"
+    exit 1
+fi
+
+knip_gate_fail() {
+    echo -e "  ${FAIL} Dead-Code Check                    FAIL: $1"
+    rm -rf "$KNIP_TMP_DIR"
+    exit 1
+}
+
+if [ ! -f "$KNIP_BASELINE_FILE" ] || [ ! -r "$KNIP_BASELINE_FILE" ]; then
+    knip_gate_fail "baseline missing or unreadable: $KNIP_BASELINE_FILE"
+fi
+
+# Baseline records are data, never generated or updated by this pipeline.
+if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
+    function trim(value) {
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        return value
+    }
+    function valid_path(path) {
+        return path ~ /^([[:alnum:]_.-]+\/)+[[:alnum:]_.-]+$/ && path !~ /(^|\/)\.\.?($|\/)/
+    }
+    function valid_record(category, detail, fields, field_count) {
+        field_count = split(detail, fields, " ")
+        if (field_count < 2 || !valid_path(fields[field_count])) return 0
+
+        if (category == "Unused exports") {
+            if (field_count != 2 && field_count != 3) return 0
+            return field_count == 2 || fields[2] ~ /^[[:alpha:]_][[:alnum:]_-]*$/
+        }
+        if (category == "Unused exported types") {
+            return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Duplicate exports") {
+            if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
+            return 1
+        }
+        return 0
+    }
+    {
+        original = $0
+        sub(/\r$/, "", original)
+        line = trim(original)
+        if (line == "" || line ~ /^#/) next
+
+        normalized = line
+        gsub(/[[:space:]]+/, " ", normalized)
+        delimiter = index(line, " :: ")
+        category = substr(line, 1, delimiter - 1)
+        detail = substr(line, delimiter + 4)
+        if (delimiter < 2 || delimiter + 4 > length(line) || normalized != line ||
+            line ~ /:[0-9]+:[0-9]+$/ || !valid_record(category, detail)) {
+            print NR ": " original >> errors
+            invalid = 1
+            next
+        }
+        print line
+        records++
+    }
+    END {
+        if (invalid) exit 1
+    }
+' "$KNIP_BASELINE_FILE" > "$KNIP_TMP_DIR/baseline.raw"; then
+    if [ -s "$KNIP_TMP_DIR/baseline-errors" ]; then
+        sed 's/^/    /' "$KNIP_TMP_DIR/baseline-errors"
+    fi
+    knip_gate_fail "invalid baseline: $KNIP_BASELINE_FILE"
+fi
+
+LC_ALL=C sort -u "$KNIP_TMP_DIR/baseline.raw" > "$KNIP_TMP_DIR/baseline.sorted"
+KNIP_BASELINE_COUNT=$(wc -l < "$KNIP_TMP_DIR/baseline.raw" | tr -d '[:space:]')
+KNIP_BASELINE_UNIQUE_COUNT=$(wc -l < "$KNIP_TMP_DIR/baseline.sorted" | tr -d '[:space:]')
+if [ "$KNIP_BASELINE_COUNT" -ne "$KNIP_BASELINE_UNIQUE_COUNT" ]; then
+    knip_gate_fail "duplicate finding records in baseline: $KNIP_BASELINE_FILE"
+fi
+
 KNIP_OUT=$(npx knip 2>&1)
 KNIP_EXIT=$?
-if [ $KNIP_EXIT -eq 0 ]; then
-    echo -e "  ${OK} Dead-Code Check                    no issues"
-else
-    KNIP_LINES=$(echo "$KNIP_OUT" | wc -l | tr -d ' ')
-    echo -e "  ${WARN} Dead-Code Check                    ${KNIP_LINES} line(s) – see $LOG_FILE"
-    echo "=== knip output ==" >> "$LOG_FILE"
-    echo "$KNIP_OUT" >> "$LOG_FILE"
+if [ -n "$KNIP_OUT" ] || [ "$KNIP_EXIT" -ne 0 ]; then
+    printf '=== knip output (exit %s) ===\n' "$KNIP_EXIT" >> "$LOG_FILE"
+    if [ -n "$KNIP_OUT" ]; then
+        printf '%s\n' "$KNIP_OUT" >> "$LOG_FILE"
+    fi
+fi
+
+# Convert each Knip section into a stable record, independent of line/column
+# positions and terminal alignment. Unrecognized output fails closed.
+: > "$KNIP_TMP_DIR/current.raw"
+if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-errors" '
+    function trim(value) {
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        return value
+    }
+    function valid_path(path) {
+        return path ~ /^([[:alnum:]_.-]+\/)+[[:alnum:]_.-]+$/ && path !~ /(^|\/)\.\.?($|\/)/
+    }
+    function valid_record(category, detail, fields, field_count) {
+        field_count = split(detail, fields, " ")
+        if (field_count < 2 || !valid_path(fields[field_count])) return 0
+
+        if (category == "Unused exports") {
+            if (field_count != 2 && field_count != 3) return 0
+            return field_count == 2 || fields[2] ~ /^[[:alpha:]_][[:alnum:]_-]*$/
+        }
+        if (category == "Unused exported types") {
+            return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Duplicate exports") {
+            if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
+            return 1
+        }
+        return 0
+    }
+    function fail(message) {
+        print message >> errors
+        invalid = 1
+    }
+    {
+        original = $0
+        sub(/\r$/, "", original)
+        line = trim(original)
+        if (line == "") next
+        nonempty++
+
+        if (line ~ /^.+ \([0-9]+\)$/) {
+            category = line
+            sub(/ \([0-9]+\)$/, "", category)
+            count = line
+            sub(/^.* \(/, "", count)
+            sub(/\)$/, "", count)
+            if (category != "Unused exports" && category != "Unused exported types" && category != "Duplicate exports") {
+                fail("unrecognized section heading: " line)
+            }
+            if (category == "" || seen[category]++) {
+                fail("invalid or duplicate section heading: " line)
+            }
+            section = category
+            expected[category] = count + 0
+            sections++
+            next
+        }
+
+        if (section == "") {
+            fail("unclassified Knip output: " line)
+            gsub(/[[:space:]]+/, " ", line)
+            print "__UNCLASSIFIED__ :: " line >> records
+            next
+        }
+
+        finding = line
+        sub(/:[0-9]+:[0-9]+$/, "", finding)
+        finding = trim(finding)
+        gsub(/[[:space:]]+/, " ", finding)
+        if (!valid_record(section, finding)) {
+            fail("malformed finding in section " section ": " finding)
+            next
+        }
+        print section " :: " finding >> records
+        actual[section]++
+        findings++
+    }
+    END {
+        for (category in expected) {
+            if (actual[category] != expected[category]) {
+                fail("section " category " declared " expected[category] " finding(s), parsed " (actual[category] + 0))
+            }
+        }
+        if (nonempty > 0 && sections == 0) {
+            fail("Knip output has no parseable section headings")
+        }
+        if (invalid) exit 1
+    }
+' <<< "$KNIP_OUT"; then
+    if [ -s "$KNIP_TMP_DIR/parse-errors" ]; then
+        sed 's/^/    /' "$KNIP_TMP_DIR/parse-errors"
+    fi
+    knip_gate_fail "Knip output was not fully interpretable; see $LOG_FILE"
+fi
+
+LC_ALL=C sort -u "$KNIP_TMP_DIR/current.raw" > "$KNIP_TMP_DIR/current.sorted"
+KNIP_CURRENT_COUNT=$(wc -l < "$KNIP_TMP_DIR/current.raw" | tr -d '[:space:]')
+KNIP_CURRENT_UNIQUE_COUNT=$(wc -l < "$KNIP_TMP_DIR/current.sorted" | tr -d '[:space:]')
+if [ "$KNIP_CURRENT_COUNT" -ne "$KNIP_CURRENT_UNIQUE_COUNT" ]; then
+    knip_gate_fail "duplicate normalized Knip findings; see $LOG_FILE"
+fi
+if { [ "$KNIP_EXIT" -eq 0 ] && [ "$KNIP_CURRENT_COUNT" -ne 0 ]; } || \
+   { [ "$KNIP_EXIT" -ne 0 ] && [ "$KNIP_CURRENT_COUNT" -eq 0 ]; } || \
+   [ "$KNIP_EXIT" -gt 1 ]; then
+    knip_gate_fail "Knip exited with status $KNIP_EXIT inconsistent with parsed findings; see $LOG_FILE"
+fi
+
+LC_ALL=C comm -23 "$KNIP_TMP_DIR/current.sorted" "$KNIP_TMP_DIR/baseline.sorted" > "$KNIP_TMP_DIR/new"
+LC_ALL=C comm -12 "$KNIP_TMP_DIR/current.sorted" "$KNIP_TMP_DIR/baseline.sorted" > "$KNIP_TMP_DIR/known"
+LC_ALL=C comm -13 "$KNIP_TMP_DIR/current.sorted" "$KNIP_TMP_DIR/baseline.sorted" > "$KNIP_TMP_DIR/resolved"
+KNIP_NEW_COUNT=$(wc -l < "$KNIP_TMP_DIR/new" | tr -d '[:space:]')
+KNIP_KNOWN_COUNT=$(wc -l < "$KNIP_TMP_DIR/known" | tr -d '[:space:]')
+KNIP_RESOLVED_COUNT=$(wc -l < "$KNIP_TMP_DIR/resolved" | tr -d '[:space:]')
+
+if [ "$KNIP_NEW_COUNT" -gt 0 ]; then
+    echo -e "  ${FAIL} Dead-Code Check                    $KNIP_NEW_COUNT new finding(s)"
+    echo "    Known baseline: $KNIP_KNOWN_COUNT"
+    echo "    New findings:"
+    sed 's/^/      ✘ /' "$KNIP_TMP_DIR/new"
+    printf '=== normalized new knip findings ===\n' >> "$LOG_FILE"
+    cat "$KNIP_TMP_DIR/new" >> "$LOG_FILE"
+    rm -rf "$KNIP_TMP_DIR"
+    exit 1
+fi
+
+echo -e "  ${OK} Dead-Code Check                    new: 0, baseline: $KNIP_KNOWN_COUNT, resolved: $KNIP_RESOLVED_COUNT"
+if [ "$KNIP_RESOLVED_COUNT" -gt 0 ]; then
+    echo -e "    ${OK} Baseline improved: $KNIP_RESOLVED_COUNT known finding(s) resolved"
+fi
+rm -rf "$KNIP_TMP_DIR"
+if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
+    exit 0
 fi
 
 # 3. Unit tests and complete coverage report for the SonarQube scan
