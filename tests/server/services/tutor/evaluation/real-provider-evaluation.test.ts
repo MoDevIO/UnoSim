@@ -74,7 +74,7 @@ describe("real-provider Tutor Quality evaluation runner", () => {
         return { model: "judge-model", result: { verdict: "pass" } };
       },
     };
-    const countingProvider = new CountingProvider(provider, 1);
+    const countingProvider = new CountingProvider(provider, 2);
     const request = {
       model: "judge-model",
       systemPrompt: "judge system",
@@ -82,6 +82,10 @@ describe("real-provider Tutor Quality evaluation runner", () => {
       temperature: 0,
     };
 
+    await expect(countingProvider.generateLearningQuestion({ model: "tutor-model", systemPrompt: "tutor system", userPrompt: "tutor user" }, "credential")).resolves.toEqual({
+      model: "fake-model",
+      result: {},
+    });
     await expect(countingProvider.generateStructuredResponse(request, "credential")).resolves.toEqual({
       model: "judge-model",
       result: { verdict: "pass" },
@@ -90,7 +94,30 @@ describe("real-provider Tutor Quality evaluation runner", () => {
       name: "EvaluationBudgetExceeded",
     });
     expect(structuredCallCount).toBe(1);
-    expect(countingProvider.counts).toEqual({ total: 1, modelListCalls: 0, generationCalls: 0, judgeCalls: 1 });
+    expect(countingProvider.counts).toEqual({ total: 2, modelListCalls: 0, generationCalls: 1, judgeCalls: 1 });
+  });
+
+  it("keeps Stage-A identity independent of structured Judge calls", async () => {
+    let structuredCalls = 0;
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        question: "Welche Beobachtung ist im Sketch belegt?",
+      }),
+      async generateStructuredResponse() {
+        structuredCalls += 1;
+        return { model: "judge-model", result: { verdict: "pass" } };
+      },
+    };
+    const first = await runTutorQualityEvaluation(options(provider));
+    await provider.generateStructuredResponse();
+    await provider.generateStructuredResponse();
+    const second = await runTutorQualityEvaluation(options(provider));
+
+    expect(structuredCalls).toBe(2);
+    expect(first.transcripts[0]?.evaluationIdentity).toBe(second.transcripts[0]?.evaluationIdentity);
+    expect(first.transcripts[0]?.metadata.providerCalls).toEqual(second.transcripts[0]?.metadata.providerCalls);
   });
 
   it("captures the raw repeated question and preserves the repaired final response", async () => {

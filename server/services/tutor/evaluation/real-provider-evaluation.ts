@@ -26,10 +26,13 @@ export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-f
 
 export const MAX_TUTOR_QUALITY_SAMPLES = 20;
 export const MAX_TUTOR_QUALITY_CALLS = 500;
-const EMPTY_PROVIDER_CALLS: TutorQualityProviderCallCounts = {
+const EMPTY_STAGE_A_PROVIDER_CALLS: TutorQualityStageAProviderCallCounts = {
   total: 0,
   modelListCalls: 0,
   generationCalls: 0,
+};
+const EMPTY_PROVIDER_CALLS: TutorQualityProviderCallCounts = {
+  ...EMPTY_STAGE_A_PROVIDER_CALLS,
   judgeCalls: 0,
 };
 
@@ -122,7 +125,7 @@ export interface TutorQualityTranscriptTurn {
   readonly input: TutorQualityTurn;
   readonly startedAt: string;
   readonly durationMs: number;
-  readonly providerCalls: TutorQualityProviderCallCounts;
+  readonly providerCalls: TutorQualityStageAProviderCallCounts;
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
   readonly rawProviderResult?: Record<string, unknown>;
   readonly finalTutorResult?: Record<string, unknown>;
@@ -172,16 +175,19 @@ export interface TutorQualityMetadata {
   readonly sampleCount: number;
   readonly sampleStartedAt: string;
   readonly sampleDurationMs: number;
-  readonly providerCalls: TutorQualityProviderCallCounts;
+  readonly providerCalls: TutorQualityStageAProviderCallCounts;
   readonly timeoutMs?: number;
   readonly temperature?: number;
   readonly maxCalls: number;
 }
 
-export interface TutorQualityProviderCallCounts {
+export interface TutorQualityStageAProviderCallCounts {
   readonly total: number;
   readonly modelListCalls: number;
   readonly generationCalls: number;
+}
+
+export interface TutorQualityProviderCallCounts extends TutorQualityStageAProviderCallCounts {
   readonly judgeCalls: number;
 }
 
@@ -270,6 +276,14 @@ export class CountingProvider implements LLMProvider, StructuredLLMProvider {
     };
   }
 
+  get stageACounts(): TutorQualityStageAProviderCallCounts {
+    return {
+      total: this.modelListCalls + this.generationCalls,
+      modelListCalls: this.modelListCalls,
+      generationCalls: this.generationCalls,
+    };
+  }
+
   get generationCaptures(): readonly ProviderCapture[] {
     return this.generations;
   }
@@ -353,7 +367,7 @@ function metadata(
   returnedModels: readonly string[] = [],
   sampleStartedAt = new Date(0).toISOString(),
   sampleDurationMs = 0,
-  providerCalls: TutorQualityProviderCallCounts = EMPTY_PROVIDER_CALLS,
+  providerCalls: TutorQualityStageAProviderCallCounts = EMPTY_STAGE_A_PROVIDER_CALLS,
 ): TutorQualityMetadata {
   return {
     providerId: options.providerId,
@@ -751,7 +765,7 @@ function processFinalResult(
 function buildTranscriptTurn(
   context: SampleTurnContext,
   startedAt: Date,
-  callsBefore: TutorQualityProviderCallCounts,
+  callsBefore: TutorQualityStageAProviderCallCounts,
   finishedAt: Date,
   capture: ProviderCapture | undefined,
   invocation: InvokedTutorTurn,
@@ -763,7 +777,7 @@ function buildTranscriptTurn(
     input: safeTurn(turn, options.credential),
     startedAt: startedAt.toISOString(),
     durationMs: Math.max(0, finishedAt.getTime() - startedAt.getTime()),
-    providerCalls: subtractCounts(provider.counts, callsBefore),
+    providerCalls: subtractStageACounts(provider.stageACounts, callsBefore),
     ...(capture?.request ? { providerRequest: requestArtifact(capture.request, options.credential) } : {}),
     ...(capture?.response ? {
       rawProviderResult: safeResult(capture.response.result, options.credential),
@@ -777,7 +791,7 @@ function buildTranscriptTurn(
 
 async function executeSampleTurn(context: SampleTurnContext): Promise<SampleTurnOutcome> {
   const startedAt = (context.options.now ?? (() => new Date()))();
-  const callsBefore = context.provider.counts;
+  const callsBefore = context.provider.stageACounts;
   const checks: TutorQualityDeterministicCheck[] = [];
   const beforeGenerationCount = context.provider.generationCaptures.length;
   const invocation = await invokeTutorTurn(context);
@@ -869,7 +883,7 @@ async function runSample(
   sampleIndex: number,
 ): Promise<TutorQualityTranscript> {
   const sampleStartedAt = (options.now ?? (() => new Date()))();
-  const callsBeforeSample = provider.counts;
+  const callsBeforeSample = provider.stageACounts;
   const content = scenario.courseContent ? clone(scenario.courseContent) : undefined;
   const stateBefore = content?.progressionState ? clone(content.progressionState) : undefined;
   const service = new TutorService(provider, content ? new CurriculumTutorAdapter() : undefined);
@@ -888,7 +902,7 @@ async function runSample(
   recordFailureStateCheck(execution.terminalError, stateBefore, stateAfter, execution.turns, execution.violations);
   const sample = sampleTemplate(options, scenario, runId, evaluationIdentity, sampleIndex);
   const sampleFinishedAt = (options.now ?? (() => new Date()))();
-  const sampleCalls = subtractCounts(provider.counts, callsBeforeSample);
+  const sampleCalls = subtractStageACounts(provider.stageACounts, callsBeforeSample);
   return {
     ...sample,
     metadata: metadata(
@@ -921,7 +935,7 @@ function emptyAggregate(samples: number): TutorQualityScenarioAggregate {
     notRun: 0,
     invariantViolationSamples: 0,
     budgetExhausted: 0,
-    providerCalls: { total: 0, modelListCalls: 0, generationCalls: 0, judgeCalls: 0 },
+    providerCalls: { ...EMPTY_PROVIDER_CALLS },
     technicalErrorKinds: {},
     rates: ratesFor(0, 0, 0, 0, 0, 0),
   };
@@ -966,6 +980,17 @@ function subtractCounts(
     modelListCalls: current.modelListCalls - previous.modelListCalls,
     generationCalls: current.generationCalls - previous.generationCalls,
     judgeCalls: current.judgeCalls - previous.judgeCalls,
+  };
+}
+
+function subtractStageACounts(
+  current: TutorQualityStageAProviderCallCounts,
+  previous: TutorQualityStageAProviderCallCounts,
+): TutorQualityStageAProviderCallCounts {
+  return {
+    total: current.total - previous.total,
+    modelListCalls: current.modelListCalls - previous.modelListCalls,
+    generationCalls: current.generationCalls - previous.generationCalls,
   };
 }
 
