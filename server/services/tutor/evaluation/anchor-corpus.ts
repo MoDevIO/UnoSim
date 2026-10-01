@@ -28,6 +28,7 @@ export interface TutorQualityScenarioSource {
   readonly sketch: string;
   readonly courseContent: string;
   readonly model?: string;
+  readonly judge?: TutorQualityJudgeSource;
   readonly turns: readonly TutorQualityTurnSource[];
   readonly expected?: {
     readonly topicId?: string;
@@ -36,6 +37,14 @@ export interface TutorQualityScenarioSource {
     readonly stateUnchanged?: boolean;
     readonly questionNotRepeat?: "exact-or-heuristic";
   };
+}
+
+export interface TutorQualityJudgeSource {
+  readonly facts: readonly string[];
+  readonly criteria: readonly {
+    readonly id: string;
+    readonly text: string;
+  }[];
 }
 
 export interface TutorQualityCorpusSource {
@@ -167,6 +176,30 @@ function parseExpected(value: unknown, label: string): TutorQualityScenarioSourc
   return value as TutorQualityScenarioSource["expected"];
 }
 
+function parseJudge(value: unknown, label: string): TutorQualityJudgeSource | undefined {
+  if (value === undefined) return undefined;
+  assertObject(value, `${label}.judge`);
+  if (!Array.isArray(value.facts) || value.facts.length === 0) {
+    fail(`${label}.judge.facts must contain at least one fact`);
+  }
+  value.facts.forEach((fact, index) => assertNonEmptyString(fact, `${label}.judge.facts[${index}]`));
+  if (!Array.isArray(value.criteria) || value.criteria.length < 1 || value.criteria.length > 6) {
+    fail(`${label}.judge.criteria must contain 1 to 6 criteria`);
+  }
+  const ids = new Set<string>();
+  const criteria = value.criteria.map((criterion, index) => {
+    const criterionLabel = `${label}.judge.criteria[${index}]`;
+    assertObject(criterion, criterionLabel);
+    assertNonEmptyString(criterion.id, `${criterionLabel}.id`);
+    if (!/^[a-z][a-z0-9-]{0,63}$/.test(criterion.id)) fail(`${criterionLabel}.id is invalid`);
+    if (ids.has(criterion.id)) fail(`${label}.judge.criteria has duplicate id ${criterion.id}`);
+    ids.add(criterion.id);
+    assertNonEmptyString(criterion.text, `${criterionLabel}.text`);
+    return { id: criterion.id, text: criterion.text };
+  });
+  return { facts: value.facts as string[], criteria };
+}
+
 function parseTurns(value: unknown, label: string): readonly TutorQualityTurnSource[] {
   if (!Array.isArray(value) || value.length === 0) fail(`${label}.turns must be a non-empty array`);
   const turns = value.map((turn, turnIndex) => parseTurn(turn, `${label}.turns[${turnIndex}]`));
@@ -202,11 +235,13 @@ function parseScenario(
   }
   const turns = parseTurns(rawScenario.turns, label);
   const expected = parseExpected(rawScenario.expected, label);
+  const judge = parseJudge(rawScenario.judge, label);
   return {
     id: rawScenario.id,
     sketch: rawScenario.sketch,
     courseContent: rawScenario.courseContent,
     ...(rawScenario.model === undefined ? {} : { model: rawScenario.model }),
+    ...(judge === undefined ? {} : { judge }),
     turns,
     ...(expected === undefined ? {} : { expected }),
   } satisfies TutorQualityScenarioSource;

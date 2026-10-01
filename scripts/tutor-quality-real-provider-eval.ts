@@ -4,6 +4,7 @@ import { accessSync, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { sha256 } from "../server/services/tutor/evaluation/canonical";
 import { createAnchorCourseContent, ANCHOR_COURSE_CONTENT_FIXTURE_IDS, type AnchorCourseContentFixtureId } from "../server/services/tutor/evaluation/anchor-course-content";
 import { config } from "../server/config";
 import {
@@ -29,6 +30,9 @@ export interface TutorQualityCliOptions {
   readonly outputDir: string;
   readonly corpusPath: string;
   readonly credentialEnv: string;
+  readonly judgeModel?: string;
+  readonly judgeCredentialEnv: string;
+  readonly cases: readonly string[];
 }
 
 export interface TutorQualityCliDependencies {
@@ -40,6 +44,7 @@ export interface TutorQualityCliDependencies {
 
 const DEFAULT_CORPUS_PATH = "evals/tutor-quality/anchor-corpus.yaml";
 const DEFAULT_CREDENTIAL_ENV = "UNOSIM_TUTOR_EVAL_CREDENTIAL";
+const DEFAULT_JUDGE_CREDENTIAL_ENV = "UNOSIM_TUTOR_JUDGE_CREDENTIAL";
 
 function argumentPairs(argv: readonly string[]): readonly (readonly [string, string])[] {
   if (argv.length % 2 !== 0) throw new Error("Tutor Quality evaluation options require values");
@@ -73,6 +78,10 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
   let outputDir: string | undefined;
   let corpusPath = DEFAULT_CORPUS_PATH;
   let credentialEnv = DEFAULT_CREDENTIAL_ENV;
+  let judgeModel: string | undefined;
+  let judgeCredentialEnv = DEFAULT_JUDGE_CREDENTIAL_ENV;
+  let judgeCredentialEnvWasSet = false;
+  const cases: string[] = [];
   for (const [flag, value] of argumentPairs(argv)) {
     switch (flag) {
       case "--model":
@@ -93,6 +102,16 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
       case "--credential-env":
         credentialEnv = parseCredentialEnvironmentName(value);
         break;
+      case "--case":
+        cases.push(value);
+        break;
+      case "--judge-model":
+        judgeModel = value;
+        break;
+      case "--judge-credential-env":
+        judgeCredentialEnv = parseCredentialEnvironmentName(value);
+        judgeCredentialEnvWasSet = true;
+        break;
       default:
         throw new Error(`Unknown Tutor Quality evaluation option: ${flag}`);
     }
@@ -100,7 +119,21 @@ export function parseTutorQualityCliArgs(argv: readonly string[]): TutorQualityC
   if (!model || model === "auto") throw new Error("--model requires a fixed model id; auto is not allowed");
   if (!outputDir) throw new Error("--output-dir is required");
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(model)) throw new Error("--model is invalid");
-  return { model, samples, maxCalls, outputDir, corpusPath, credentialEnv };
+  if (judgeModel === "auto") throw new Error("--judge-model requires a fixed model id; auto is not allowed");
+  if (judgeModel !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(judgeModel)) throw new Error("--judge-model is invalid");
+  if (judgeCredentialEnvWasSet && !judgeModel) throw new Error("--judge-credential-env requires --judge-model");
+  if (judgeModel && judgeCredentialEnv === credentialEnv) throw new Error("Tutor and Judge must use separate credential environment-variable names");
+  return {
+    model,
+    samples,
+    maxCalls,
+    outputDir,
+    corpusPath,
+    credentialEnv,
+    ...(judgeModel ? { judgeModel } : {}),
+    judgeCredentialEnv,
+    cases,
+  };
 }
 
 const GIT_EXECUTABLE_CANDIDATES = process.platform === "win32"
@@ -159,7 +192,9 @@ export async function loadTutorQualityEvaluationScenarios(
   corpusPath: string,
 ): Promise<readonly TutorQualityEvaluationScenario[]> {
   const manifestPath = path.resolve(cwd, corpusPath);
-  const source: unknown = parseYaml(await readFile(manifestPath, "utf8"));
+  const sourceText = await readFile(manifestPath, "utf8");
+  const corpusFileDigest = sha256(sourceText);
+  const source: unknown = parseYaml(sourceText);
   const sketchRefs = new Set<string>();
   for (const sketch of declaredSketchReferences(source)) {
     try {
@@ -171,18 +206,24 @@ export async function loadTutorQualityEvaluationScenarios(
   }
   const courseContentFixtures = new Set<string>(ANCHOR_COURSE_CONTENT_FIXTURE_IDS);
   const corpus = parseTutorQualityCorpus(source, { sketches: sketchRefs, courseContentFixtures });
-  return Promise.all(corpus.scenarios.map(async (scenario) => ({
-    id: scenario.id,
-    corpusId: corpus.corpusId,
-    corpusVersion: corpus.corpusVersion,
-    sketchRef: scenario.sketch,
-    sketch: await readFile(path.resolve(cwd, scenario.sketch), "utf8"),
-    ...(scenario.courseContent === "free"
-      ? {}
-      : { courseContent: createAnchorCourseContent(scenario.courseContent as AnchorCourseContentFixtureId) }),
-    turns: scenario.turns.map(materializeTurn),
-    ...(scenario.expected === undefined ? {} : { expected: scenario.expected }),
-  })));
+  return Promise.all(corpus.scenarios.map(async (scenario) => {
+    const sketch = await readFile(path.resolve(cwd, scenario.sketch), "utf8");
+    return {
+      id: scenario.id,
+      corpusId: corpus.corpusId,
+      corpusVersion: corpus.corpusVersion,
+      corpusFileDigest,
+      sketchRef: scenario.sketch,
+      sketch,
+      sketchDigest: sha256(sketch),
+      ...(scenario.courseContent === "free"
+        ? {}
+        : { courseContent: createAnchorCourseContent(scenario.courseContent as AnchorCourseContentFixtureId) }),
+      turns: scenario.turns.map(materializeTurn),
+      ...(scenario.judge === undefined ? {} : { judge: scenario.judge }),
+      ...(scenario.expected === undefined ? {} : { expected: scenario.expected }),
+    };
+  }));
 }
 
 function statusLines(cwd: string): readonly string[] {
@@ -220,10 +261,15 @@ export async function runTutorQualityCli(
   const options = parseTutorQualityCliArgs(argv);
   const cwd = dependencies.cwd ?? process.cwd();
   const environment = dependencies.environment ?? process.env;
-  const scenarios = await loadTutorQualityEvaluationScenarios(cwd, options.corpusPath);
+  const loadedScenarios = await loadTutorQualityEvaluationScenarios(cwd, options.corpusPath);
+  const requestedCases = new Set(options.cases);
+  const unknownCases = [...requestedCases].filter((id) => !loadedScenarios.some((scenario) => scenario.id === id));
+  if (unknownCases.length) throw new Error(`Unknown Tutor Quality case: ${unknownCases.join(", ")}`);
+  const scenarios = requestedCases.size ? loadedScenarios.filter(({ id }) => requestedCases.has(id)) : loadedScenarios;
   const git = dependencies.git ?? readTutorQualityGitState(cwd, options.outputDir);
   const provider = dependencies.provider ?? new KiconnectProvider();
   const credential = environment[options.credentialEnv];
+  const judgeCredential = options.judgeModel ? environment[options.judgeCredentialEnv] : undefined;
   return runTutorQualityEvaluation({
     scenarios,
     provider,
@@ -231,6 +277,8 @@ export async function runTutorQualityCli(
     endpointOrigin: environment.UNOSIM_LLM_BASE_URL ? new URL(environment.UNOSIM_LLM_BASE_URL).origin : undefined,
     ...(credential ? { credential } : {}),
     requestedModel: options.model,
+    ...(options.judgeModel ? { judgeModel: options.judgeModel } : {}),
+    ...(judgeCredential ? { judgeCredential } : {}),
     samples: options.samples,
     maxCalls: options.maxCalls,
     timeoutMs: config.tutor.timeoutMs,

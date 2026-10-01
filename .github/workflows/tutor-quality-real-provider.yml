@@ -17,13 +17,21 @@ on:
         required: true
         default: "30"
         type: string
+      judge_model:
+        description: Fixed Judge model ID (leave empty for Stage 2A only)
+        required: false
+        type: string
+      case:
+        description: Optional anchor case ID
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   evaluate:
-    name: Stage 2A observation run
+    name: Tutor and Judge observation run
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,13 +46,27 @@ jobs:
       - name: Run optional real-provider evaluation
         env:
           UNOSIM_TUTOR_EVAL_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_EVAL_CREDENTIAL }}
+          UNOSIM_TUTOR_JUDGE_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_JUDGE_CREDENTIAL }}
+          TUTOR_MODEL: ${{ inputs.model }}
+          JUDGE_MODEL: ${{ inputs.judge_model }}
+          CASE_ID: ${{ inputs.case }}
+          SAMPLES: ${{ inputs.samples }}
+          MAX_CALLS: ${{ inputs.max_calls }}
         run: |
-          npm run eval:tutor-quality:real -- \
-            --model "${{ inputs.model }}" \
-            --samples "${{ inputs.samples }}" \
-            --max-calls "${{ inputs.max_calls }}" \
-            --credential-env UNOSIM_TUTOR_EVAL_CREDENTIAL \
+          args=(
+            --model "$TUTOR_MODEL"
+            --samples "$SAMPLES"
+            --max-calls "$MAX_CALLS"
+            --credential-env UNOSIM_TUTOR_EVAL_CREDENTIAL
             --output-dir .tutor-quality-output
+          )
+          if [ -n "$JUDGE_MODEL" ]; then
+            args+=(--judge-model "$JUDGE_MODEL" --judge-credential-env UNOSIM_TUTOR_JUDGE_CREDENTIAL)
+          fi
+          if [ -n "$CASE_ID" ]; then
+            args+=(--case "$CASE_ID")
+          fi
+          npm run eval:tutor-quality:real -- "${args[@]}"
 
       - name: Upload Stage 2A artifacts
         if: always()

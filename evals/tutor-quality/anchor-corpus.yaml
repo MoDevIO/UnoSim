@@ -1,6 +1,28 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 1
+corpusVersion: 2
 scenarios:
+  - id: TQ-SEM-001
+    sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
+    courseContent: free
+    turns:
+      - kind: dialog
+        question: Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?
+        answer: buttonPin, also an PIN2 muss GND anliegen!
+        bindsToQuestion: Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?
+        difficulty: 30
+    judge:
+      facts:
+        - pinMode(buttonPin, INPUT_PULLUP) aktiviert den internen Pull-up an buttonPin.
+        - Mit Taster gegen GND liefert digitalRead(buttonPin) beim Drücken LOW.
+        - Der Sketch schaltet ledPin (LED_BUILTIN) HIGH, wenn digitalRead(buttonPin) == LOW.
+      criteria:
+        - id: accepts-correct-answer
+          text: Das Feedback erkennt die Kernaussage der Antwort als fachlich korrekt an.
+        - id: no-false-claim
+          text: Feedback und Folgefrage enthalten keine fachlich falsche Aussage über den Sketch.
+        - id: distinct-followup
+          text: Die Folgefrage ist sketchbezogen und fordert einen neuen Denkschritt.
+
   - id: TQ-REG-001
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
     courseContent: variables
