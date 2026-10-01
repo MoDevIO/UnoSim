@@ -28,6 +28,7 @@ describe("KiconnectProvider", () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: "pilot-model" }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
+        model: "pilot-model-resolved",
         choices: [{ message: { content: "```json\n{\"responseStyle\":\"normal\",\"feedback\":\"Deine Begründung geht in die richtige Richtung.\",\"answerRating\":\"4\",\"question\":\"Was ändert sich, wenn der Pegel erneut gesetzt wird?\",\"topic\":null,\"difficulty\":\"70\",\"mermaid\":null}\n```" } }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -39,7 +40,7 @@ describe("KiconnectProvider", () => {
     }, "request-key");
 
     expect(result).toEqual({
-      model: "pilot-model",
+      model: "pilot-model-resolved",
       result: {
         feedback: "Deine Begründung geht in die richtige Richtung.",
         answerRating: 4,
@@ -162,6 +163,7 @@ describe("KiconnectProvider", () => {
         ],
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
+        model: "qwen3-32b-instruct",
         choices: [{ message: { content: "Welche Wirkung hat digitalWrite(13, HIGH)?" } }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -181,6 +183,7 @@ describe("KiconnectProvider", () => {
   it("accepts normal text and text-part content when structured output is unavailable", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
+        model: "pilot-model",
         choices: [{ message: { content: [{ type: "text", text: "Welche Ausgabe erwartest du?" }] } }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -192,6 +195,19 @@ describe("KiconnectProvider", () => {
     }, "request-key")).resolves.toMatchObject({
       result: { question: "Welche Ausgabe erwartest du?" },
     });
+  });
+
+  it("fails closed when the Tutor response omits resolved-model provenance", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: "Welche Ausgabe erwartest du?" } }],
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new KiconnectProvider().generateLearningQuestion({
+      model: "pilot-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+    }, "request-key")).rejects.toMatchObject({ kind: "invalid-response" });
   });
 
   it("maps provider authentication failures without exposing provider details", async () => {

@@ -746,17 +746,12 @@ function processCapture(
 ): ProcessedCapture {
   if (!capture?.response) return {};
   const returnedModel = capture.response.model;
-  if (typeof returnedModel === "string" && returnedModel.length > 0) {
-    if (returnedModel !== context.options.requestedModel) {
-      addCheck(checks, "returned-model-matches-request", false, returnedModel);
-      deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
-      return { returnedModel, invalidReason: "returned-model-mismatch" };
-    }
-    addCheck(checks, "returned-model-matches-request", true);
+  if (typeof returnedModel === "string" && returnedModel.trim().length > 0) {
+    addCheck(checks, "returned-model-present", true);
     deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
     return { returnedModel };
   }
-  addCheck(checks, "returned-model-matches-request", false, "missing");
+  addCheck(checks, "returned-model-present", false, "missing");
   deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
   return { invalidReason: "returned-model-missing" };
 }
@@ -1170,6 +1165,11 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
+  if (options.judgeModel && !availableModels.includes(options.judgeModel)) {
+    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: "judge-model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
+    await writeArtifacts(options, report, []);
+    return { report, transcripts: [], semanticEvaluations: [] };
+  }
 
   const { transcripts, semanticEvaluations, byScenario } = await evaluateSamples(options, provider, runId, evaluationIdentity);
   const report: TutorQualityEvaluationReport = {
@@ -1312,10 +1312,10 @@ async function evaluateJudgeResponse(
 ): Promise<TutorQualitySemanticEvaluation> {
   const { result, prompt } = await callJudge(provider, options.judgeModel!, options.judgeCredential!, input);
   const metadata = judgePromptMetadata(prompt, Date.now() - startedAt);
-  if (result.model !== options.judgeModel) {
+  if (typeof result.model !== "string" || result.model.trim().length === 0) {
     return {
       status: "judge-invalid",
-      reason: result.model ? "returned-model-mismatch" : "returned-model-missing",
+      reason: "returned-model-missing",
       model: result.model,
       ...metadata,
     };

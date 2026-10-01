@@ -131,18 +131,29 @@ untracked editor files, protected local SSOT files, and ignored output
 directories do not affect the preflight. The runner does not upload a diff as
 a substitute for the exact Git SHA.
 
-Missing or inconsistent identity metadata, including an omitted or `auto`
-model, makes a sample `invalid`. It MUST NOT be reported as a Tutor-quality
-failure. If the provider returns a model different from the requested fixed
-model, the sample is also `invalid` and no quality conclusion is drawn.
+The requested model MUST be fixed, explicit, and non-`auto`; preflight MUST
+verify that exact requested ID is available. The provider response MUST also
+include a non-empty returned model ID, which is recorded as provenance. A
+provider may resolve a public request alias to a concrete model snapshot, so
+the returned ID need not be string-identical to the requested ID. A different
+returned ID alone does not invalidate a sample or its Judge result. Missing
+identity metadata makes the sample/result `invalid`, not a Tutor-quality
+failure. Reports MUST retain requested and returned IDs separately so the
+resolved provenance remains observable. Returned IDs MUST be consistent
+within a reproducible batch; the batch report MUST make the set of returned
+IDs inspectable.
 
 ## 5. Provider and credential rules
 
 The first implementation supports the existing Kiconnect/OpenAI-compatible
 provider through `KiconnectProvider` and a fixed model ID supplied by the
 scenario invocation. A runner preflight MUST verify that the requested model
-is available. Any returned-model mismatch invalidates the sample rather than
-silently accepting `auto` fallback.
+is available. It MUST NOT substitute `auto`. The completion response's
+returned model ID is required provenance and may be a resolved ID different
+from the requested alias; the runner MUST record both IDs without a hardcoded
+alias map or string-normalization heuristic. A missing returned ID invalidates
+the result. Batch-level consistency is checked from the returned IDs recorded
+in the report.
 
 Credentials are read only from a configured invocation environment variable.
 The CLI may accept the variable's name, but never its value. They MUST
@@ -208,7 +219,8 @@ rules.
 - application-owned State-/Topic-/Phase-/revision consistency;
 - no forbidden Question-ID reuse when Course Content is active;
 - state unchanged after provider/technical failure;
-- requested/returned model consistency;
+- fixed requested-model/preflight availability, returned-model presence, and
+  observable batch-level returned-model consistency;
 - provider error category and timeout category;
 - successful scenario/turn execution;
 - provider-call count and budget exhaustion.
