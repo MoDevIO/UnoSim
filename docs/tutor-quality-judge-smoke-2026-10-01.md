@@ -1,10 +1,12 @@
 # Tutor Quality Judge Smoke — 2026-10-01
 
-## Ergebnis
+## Aktueller Status
 
-Protocol A wird für PR 1.4 als **`NON_REPRODUCIBLE_HISTORICAL_PROTOCOL`** klassifiziert. Es war historisch vorgesehen, lässt sich aus Code und Tests aber nicht eindeutig rekonstruieren und wird deshalb nicht als Baseline verwendet. Es wurden keine Rubrik-ID, Version oder Outcome-Codes erfunden oder widersprüchliche Fixtures harmonisiert. Ein valider A/B-Vergleich ist damit nicht möglich; der Engineering-Smoke prüft ausschließlich den aktuell implementierten Minimal-Judge Protocol B.
+Maßgeblich für PR 1.4 sind die Offline-Korrektur in Abschnitt J und die anschließende formale Protocol-B-Revalidierung in Abschnitt K: **G1 PASS**. Die früheren FAIL-Ergebnisse in den Abschnitten E, H und I dokumentieren unverändert ihre jeweiligen damaligen Batches und werden nicht rückwirkend umgedeutet. PR 1.4 enthält keinen Stage-2B-Removal.
 
-Der erste B-Batch bleibt als `connectivity-invalidated batch` dokumentiert und zählt nicht zu G1. Der einzige formale B-Batch ist abgeschlossen und G1 **FAIL**. Es wurden keine Produktionsdateien verändert und keine Kriterien für `learn-to-deepen` oder `expand` ergänzt. Wegen G1 FAIL wurden weder Removal noch LOC-Messung oder Removal-Gates begonnen.
+Protocol A bleibt als **`NON_REPRODUCIBLE_HISTORICAL_PROTOCOL`** klassifiziert. Es war historisch vorgesehen, lässt sich aus Code und Tests aber nicht eindeutig rekonstruieren und wird deshalb nicht als Baseline verwendet. Es wurden keine Rubrik-ID, Version oder Outcome-Codes erfunden oder widersprüchliche Fixtures harmonisiert. Ein valider A/B-Vergleich ist damit nicht möglich; der Engineering-Smoke prüft ausschließlich den aktuell implementierten Minimal-Judge Protocol B.
+
+Der erste B-Batch bleibt als `connectivity-invalidated batch` dokumentiert und zählt nicht zu G1. Frühere formale B-Batches und ihre Ergebnisse sind in den Abschnitten E, H und I festgehalten; Abschnitt K enthält die abschließende Revalidierung.
 
 ## A. Historischer Protocol-A-Vertrag
 
@@ -133,7 +135,7 @@ G1 ist fehlgeschlagen. Deshalb wurde die Stage-2B-Removal-Slice nicht begonnen; 
 
 ## H. Follow-up nach Model-Identity-Korrektur
 
-Dieser Abschnitt ist der aktuelle Stand und ersetzt für G1 die frühere Auswertung in Abschnitt E. Der zuvor ausgewertete Batch mit 15 `returned-model-mismatch`-Fehlern bleibt historisch und wird nicht neu interpretiert. Seine Verdicts wurden damals nicht gespeichert und sind nicht rekonstruierbar.
+Dieser Abschnitt dokumentiert den damaligen Follow-up-Stand nach der Model-Identity-Korrektur. Abschnitt K ist der spätere maßgebliche G1-Stand und ersetzt diese damalige Auswertung für die PR-Entscheidung. Der zuvor ausgewertete Batch mit 15 `returned-model-mismatch`-Fehlern bleibt historisch und wird nicht neu interpretiert. Seine Verdicts wurden damals nicht gespeichert und sind nicht rekonstruierbar.
 
 ### Root Cause und korrigierte Invariante
 
@@ -269,7 +271,7 @@ Ohne weitere Provider-Aufrufe wurde der belegte Prompt/Parser-Vertragsfehler min
 
 RED wurde für die bislang nicht unterstützten Fälle `pass` mit `""`, Whitespace und `null` sowie `unclear` mit `""` beobachtet. Die neuen Offline-Regressionstests bestehen jetzt für diese Fälle, für fehlende/ungültige Quotes bei `fail`, eine gültige Evidence-Quote bei `fail` sowie Zahl, Objekt und Array bei `pass`. Die normalisierten Resultate enthalten kein `quote`-Feld für die als absent behandelten Werte.
 
-Dies ist ein lokaler Contract-Fix, keine empirische G1-Neubewertung. G1 bleibt **FAIL** auf Basis des unveränderten letzten formalen B-Batches (14/15 schema-valid). External-call budget: **75/80**, verbleibend **5**. Es gab keine Provider-Aufrufe und keinen Removal.
+Dies war ein lokaler Contract-Fix ohne empirische G1-Neubewertung zu diesem Zeitpunkt. Der damals letzte formale B-Batch blieb unverändert bei 14/15 schema-valid; Abschnitt K dokumentiert die spätere Revalidierung. Zu diesem damaligen Zeitpunkt lag das External-call budget bei **75/80**, mit 5 verbleibenden Calls. Es gab in diesem Contract-Fix keine Provider-Aufrufe und keinen Removal.
 
 ## K. Offline-Korrektur: formale Revalidierung
 
