@@ -30,8 +30,8 @@ describe("Frozen Pre-Turn Context", () => {
       ],
     });
     const reordered = createFrozenPreTurnContext({ ...context, priorDialog: [...context.priorDialog].reverse(), digest: undefined });
-    const changedDifficulty = createFrozenPreTurnContext({ ...context, difficulty: 31, digest: undefined });
-    const changedSketch = createFrozenPreTurnContext({ ...context, sketchDigest: "f".repeat(64), digest: undefined });
+    const changedDifficulty = createFrozenPreTurnContext({ ...context, priorDialog: [...context.priorDialog], difficulty: 31, digest: undefined });
+    const changedSketch = createFrozenPreTurnContext({ ...context, priorDialog: [...context.priorDialog], sketchDigest: "f".repeat(64), digest: undefined });
 
     expect(reordered.digest).not.toBe(context.digest);
     expect(changedDifficulty.digest).not.toBe(context.digest);

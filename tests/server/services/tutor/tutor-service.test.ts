@@ -11,6 +11,7 @@ import {
   TutorService,
 } from "../../../../server/services/tutor/tutor-service";
 import { TutorProviderError, type LLMProvider } from "../../../../server/services/tutor/llm-provider";
+import type { TutorDialogTurn } from "../../../../shared/tutor";
 import { BUILT_IN_TUTOR_STRATEGY } from "../../../../server/services/tutor/strategy/effective-tutor-strategy";
 
 const sketch = `
@@ -68,7 +69,7 @@ describe("TutorService", () => {
       listModels: vi.fn().mockResolvedValue(["pilot-model"]),
       async generateLearningQuestion(request) {
         prompts.push(request.userPrompt);
-        return { model: "pilot-model", result: { question: "Welche Schleife läuft?" } };
+        return { model: "pilot-model", result: { question: "Welche Schleife läuft?", responseStyle: "normal" } };
       },
     };
     const objectives = ["Den Unterschied zwischen setup und loop verstehen."];
@@ -114,7 +115,7 @@ describe("TutorService", () => {
         calls.push({ credential, prompt: request.userPrompt });
         return {
           model: "pilot-model",
-          result: { question: "Was bewirkt die Ausgabe an Pin 13?", answerRating: 5 },
+          result: { question: "Was bewirkt die Ausgabe an Pin 13?", answerRating: 5, responseStyle: "normal" },
         };
       },
     };
@@ -139,7 +140,7 @@ describe("TutorService", () => {
       },
       async generateLearningQuestion(request) {
         requests.push(request.model);
-        return { model: "current-model", result: { question: "Welche Ausgabe erwartest du?" } };
+        return { model: "current-model", result: { question: "Welche Ausgabe erwartest du?", responseStyle: "normal" } };
       },
     };
 
@@ -162,14 +163,16 @@ describe("TutorService", () => {
             feedback: "Der Bezug zum Pin ist nachvollziehbar.",
             answerRating: 4,
             question: "Woran würdest du die Änderung im Serial Output erkennen?",
+            responseStyle: "normal",
           },
         };
       },
     };
+    // Legacy history turn without responseStyle; the service must normalize it to "normal".
     const history = [{
       question: "Was passiert an Pin 13?",
       answer: "Der Pin wird HIGH gesetzt.",
-    }] as const;
+    }] as unknown as readonly TutorDialogTurn[];
 
     const result = await new TutorService(provider).generateDialogResponse(
       sketch,
@@ -256,6 +259,7 @@ describe("TutorService", () => {
             feedback: "Wir zerlegen das in einen kleineren Schritt.",
             answerRating: 2,
             question: "Welche Wirkung hat der HIGH-Pegel an Pin 13?",
+            responseStyle: "normal",
           },
         };
       },

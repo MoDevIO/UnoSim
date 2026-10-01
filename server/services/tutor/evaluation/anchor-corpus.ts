@@ -78,6 +78,10 @@ function optionalInteger(value: unknown, label: string): number | undefined {
   return value;
 }
 
+function hasPhilosophicalAnswerRating(entry: Record<string, unknown>): boolean {
+  return entry.responseStyle === "philosophical" && entry.answerRating !== undefined;
+}
+
 function parseHistory(value: unknown, label: string): readonly TutorQualityHistoryEntrySource[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value)) fail(`${label}.history must be an array`);
@@ -91,6 +95,11 @@ function parseHistory(value: unknown, label: string): readonly TutorQualityHisto
     }
     if (entry.answerRating !== undefined && ![1, 2, 3, 4, 5].includes(entry.answerRating as 1 | 2 | 3 | 4 | 5)) {
       fail(`${historyLabel}.answerRating is invalid`);
+    }
+    // Keep corpus history aligned with the existing TutorDialogTurn contract in
+    // ssot/ssot_function_definition_LearningQuestions.md (philosophical fallback).
+    if (hasPhilosophicalAnswerRating(entry)) {
+      fail(`${historyLabel}.answerRating is not allowed for philosophical responses`);
     }
     if (entry.questionId !== undefined) assertNonEmptyString(entry.questionId, `${historyLabel}.questionId`);
   }
@@ -204,12 +213,14 @@ function parseScenario(
 }
 
 export function parseTutorQualityCorpus(
-  source: TutorQualityCorpusSource,
+  source: unknown,
   references: TutorQualityCorpusReferences,
 ): TutorQualityCorpus {
   assertObject(source, "corpus");
   assertNonEmptyString(source.corpusId, "corpusId");
-  if (!Number.isInteger(source.corpusVersion) || source.corpusVersion < 1) fail("corpusVersion must be a positive integer");
+  if (typeof source.corpusVersion !== "number" || !Number.isInteger(source.corpusVersion) || source.corpusVersion < 1) {
+    fail("corpusVersion must be a positive integer");
+  }
   if (!Array.isArray(source.scenarios) || source.scenarios.length === 0) fail("scenarios must be a non-empty array");
 
   const ids = new Set<string>();

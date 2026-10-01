@@ -141,7 +141,7 @@ describe("real-provider Tutor Quality evaluation runner", () => {
       async generateLearningQuestion() {
         return {
           model: undefined as never,
-          result: { question: "Welche Beobachtung ist belegt?" },
+          result: { question: "Welche Beobachtung ist belegt?", responseStyle: "normal" },
         };
       },
     }));

@@ -11,16 +11,17 @@ const nextRevision = "b".repeat(40);
 const sketch = "int value = 3; void setup() { Serial.println(value); } void loop() {}";
 
 function metadataOutcome(kind: "transition" | "blocked"): Awaited<ReturnType<TutorPlanningExtension["planFollowup"]>> {
-  return {
-    kind,
-    ...(kind === "blocked" ? { progressionBlockedReason: "content-exhausted" as const } : {}),
+  const metadata = {
     contentRevision: revision,
     learningPhase: "DEEPEN",
     activeTopicId: "variables-and-serial",
     masteredTopicIds: ["variables-and-serial"],
     strategyId: "built-in-default",
     strategySource: "built-in",
-  };
+  } as const;
+  return kind === "blocked"
+    ? { kind, progressionBlockedReason: "content-exhausted", ...metadata, masteredTopicIds: [...metadata.masteredTopicIds] }
+    : { kind, ...metadata, masteredTopicIds: [...metadata.masteredTopicIds] };
 }
 
 function planningWithFollowup(kind: "transition" | "blocked"): TutorPlanningExtension {

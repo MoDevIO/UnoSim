@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { TutorQualityEvaluationScenario, TutorQualityTranscript } from "../../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import type { TutorPlanningContentContext } from "../../../../../../server/services/tutor/tutor-planning";
 import { factualReferenceBundleDigest } from "../../../../../../server/services/tutor/evaluation/semantic/semantic-corpus";
+import type { FrozenPreTurnContextInput } from "../../../../../../server/services/tutor/evaluation/semantic/frozen-context";
 
 export const INPUT_PULLUP_SKETCH_REF = "semantic-fixtures/TQ-SEM-001-input-pullup.ino";
 export const INPUT_PULLUP_SKETCH = `const int buttonPin = 2;
@@ -23,7 +24,7 @@ export const INPUT_PULLUP_SKETCH_DIGEST = createHash("sha256").update(INPUT_PULL
 export const INPUT_PULLUP_QUESTION = "Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?";
 export const INPUT_PULLUP_ANSWER = "buttonPin, also an PIN2 muss GND anliegen!";
 
-export function validFrozenPreTurnContextInput() {
+export function validFrozenPreTurnContextInput(): FrozenPreTurnContextInput {
   return {
     schemaVersion: "tutor-quality-frozen-context-v1",
     sketchRef: INPUT_PULLUP_SKETCH_REF,
@@ -40,7 +41,7 @@ export function validFrozenPreTurnContextInput() {
   };
 }
 
-export function validSemanticCaseSource(frozenPreTurnContext: Record<string, unknown>) {
+export function validSemanticCaseSource<T extends object>(frozenPreTurnContext: T) {
   const factualReferenceBundle = {
     id: "TQ-SEM-001-factual-reference",
     version: 1,
@@ -101,7 +102,7 @@ export function validSemanticCaseSource(frozenPreTurnContext: Record<string, unk
   };
 }
 
-export function validSemanticCorpusSource(frozenPreTurnContext: Record<string, unknown>) {
+export function validSemanticCorpusSource<T extends object>(frozenPreTurnContext: T) {
   return {
     schemaVersion: "tutor-quality-semantic-corpus-v1",
     corpusId: "tutor-quality-semantic",

@@ -40,7 +40,8 @@ describe("Course Content manifest schema", () => {
       tutor: { manifest: "tutor/manifest.yaml" },
     };
 
-    expect(courseContentManifestSchema.parse(value).tutor?.manifest).toBe("tutor/manifest.yaml");
+    const parsed = courseContentManifestSchema.parse(value);
+    expect("tutor" in parsed ? parsed.tutor?.manifest : undefined).toBe("tutor/manifest.yaml");
     const result = parseCourseContentManifest(value);
     expect(result.examples.status).toBe("valid");
     expect(result.tutor.status).toBe("valid");

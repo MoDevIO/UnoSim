@@ -134,7 +134,7 @@ describe("Tutor final review conformance", () => {
     const provider = successfulProvider();
     vi.mocked(provider.generateLearningQuestion).mockResolvedValueOnce({
       model: "pilot-model",
-      result: { question: "```cpp\nvoid setup() {}\nvoid loop() {}\n```" },
+      result: { question: "```cpp\nvoid setup() {}\nvoid loop() {}\n```", responseStyle: "normal" },
     });
     const before = structuredClone(pinned.progressionState);
 
@@ -200,7 +200,7 @@ describe("Tutor final review conformance", () => {
     const provider = successfulProvider();
     vi.mocked(provider.generateLearningQuestion).mockResolvedValueOnce({
       model: "pilot-model",
-      result: { question: "```cpp\nvoid setup() {}\nvoid loop() {}\n```" },
+      result: { question: "```cpp\nvoid setup() {}\nvoid loop() {}\n```", responseStyle: "normal" },
     });
     const before = structuredClone(pinned.progressionState);
 
@@ -223,7 +223,8 @@ describe("Tutor final review conformance", () => {
       const state = createTutorProgressionState(revision);
       state.activeTopicId = topicA.id;
       state.phase = phase;
-      state.retainedPhases[topicA.id] = phase;
+      // Production retains only DEEPEN/EXPAND; a LEARN context has no retained phase.
+      if (phase !== "LEARN") state.retainedPhases[topicA.id] = phase;
       markTopicMastered(state, topicA.id);
       const precision = strategy("precision-policy", { feedbackVerbosity: "short", progression: "mastery-then-advance", hintFirst: false });
       const exploration = strategy("exploration-policy", { feedbackVerbosity: "detailed", progression: "advance-immediately", hintFirst: true });

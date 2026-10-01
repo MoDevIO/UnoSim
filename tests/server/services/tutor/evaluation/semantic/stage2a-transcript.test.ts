@@ -179,7 +179,7 @@ describe("Stage-2A transcript compatibility and Stage-B digest", () => {
       sourceScenario: { ...sourceScenario, unexpected: "must not enter a Stage-B mapping" } as typeof sourceScenario,
       semanticCase,
     })).toThrow(/unsupported fields/i);
-    expect(validateStage2ATranscript(transcript, semanticCase, { ...mapping, unexpected: "must be rejected" })).toMatchObject({ valid: false, reason: "stage-b-transcript-mapping-schema-invalid" });
+    expect(validateStage2ATranscript(transcript, semanticCase, { ...mapping, unexpected: "must be rejected" } as typeof mapping)).toMatchObject({ valid: false, reason: "stage-b-transcript-mapping-schema-invalid" });
   });
 
   it("keeps a compatible non-completed Stage-A sample not-evaluated and preserves invariant violations", () => {
