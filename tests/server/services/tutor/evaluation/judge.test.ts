@@ -101,4 +101,40 @@ describe("minimal Tutor Quality Judge", () => {
       criticalIssues: [],
     }, judgeInput)).toMatchObject({ status: "evaluated", criteria: [{ verdict: "unclear" }] });
   });
+
+  it.each([
+    ["pass without quote", "pass", false, undefined, true],
+    ["pass with empty quote", "pass", true, "", true],
+    ["pass with whitespace quote", "pass", true, "   ", true],
+    ["pass with null quote", "pass", true, null, true],
+    ["unclear with empty quote", "unclear", true, "", true],
+    ["fail without quote", "fail", false, undefined, false],
+    ["fail with empty quote", "fail", true, "", false],
+    ["fail with null quote", "fail", true, null, false],
+    ["fail with an exact evidence quote", "fail", true, "Correct, counter starts at three.", true],
+    ["pass with a number quote", "pass", true, 7, false],
+    ["pass with an object quote", "pass", true, { text: "evidence" }, false],
+    ["pass with an array quote", "pass", true, ["evidence"], false],
+    ["pass with a boolean quote", "pass", true, true, false],
+  ] as const)("normalizes quote contract for %s", (_label, verdict, quoteProvided, quote, valid) => {
+    const criterion: Record<string, unknown> = {
+      id: "correct-answer",
+      verdict,
+      reason: "The criterion was evaluated.",
+    };
+    if (quoteProvided) criterion.quote = quote;
+    const result = parseJudgeResult({ criteria: [criterion], criticalIssues: [] }, judgeInput);
+
+    expect(result.status).toBe(valid ? "evaluated" : "judge-invalid");
+    if (valid && verdict !== "fail") {
+      expect(result.criteria?.[0]).not.toHaveProperty("quote");
+    }
+  });
+
+  it("states the quote omission and null/empty normalization contract in the prompt", () => {
+    const prompt = buildJudgePrompt(judgeInput);
+
+    expect(prompt.systemPrompt).toMatch(/fail verdict.*non-empty exact quote from the allowed evidence/i);
+    expect(prompt.systemPrompt).toMatch(/pass and unclear.*quote may be omitted, null, empty, or whitespace-only.*absent/i);
+  });
 });
