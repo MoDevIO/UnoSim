@@ -246,7 +246,7 @@ describe("Tutor HTTP route", () => {
     const contentA = {
       repository: "owner/repo" as const,
       ref: "main" as const,
-      revision: "a".repeat(40) as const,
+      revision: "a".repeat(40),
       exampleId: "arrays-example",
       tutor: { status: "invalid" as const, reason: "invalid-tutor-bundle" },
     };

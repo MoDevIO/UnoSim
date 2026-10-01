@@ -492,7 +492,7 @@ function inspectLearningQuestion(result: unknown, difficulty?: TutorDifficulty):
   };
 }
 
-function validateLearningQuestion(result: TutorContentResult, difficulty?: TutorDifficulty): TutorContentResult {
+function validateLearningQuestion(result: unknown, difficulty?: TutorDifficulty): TutorContentResult {
   const inspection = inspectLearningQuestion(result, difficulty);
   if (inspection.violations.length > 0 || inspection.normalizedResult === undefined) {
     throw new TutorProviderError("invalid-response");

@@ -24,7 +24,9 @@ async function loadPilot() {
   };
 }
 
-function turn(question: string, answerRating: 1 | 2 | 3 | 4 | 5, metadata: Partial<TutorDialogTurn> = {}): TutorDialogTurn {
+type NormalTurnMetadata = Partial<Omit<Extract<TutorDialogTurn, { responseStyle: "normal" }>, "responseStyle">>;
+
+function turn(question: string, answerRating: 1 | 2 | 3 | 4 | 5, metadata: NormalTurnMetadata = {}): TutorDialogTurn {
   return {
     question,
     answer: "Antwort",

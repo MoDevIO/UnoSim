@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "server/services/tutor",
+    "server/services/course-content",
+    "server/routes/tutor.routes.test.ts",
+    "shared/tutor.test.ts"
+  ]
+}

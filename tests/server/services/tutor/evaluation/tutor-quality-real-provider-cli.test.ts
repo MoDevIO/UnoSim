@@ -4,14 +4,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { config } from "../../../../../server/config";
 import {
-  MAX_TUTOR_QUALITY_CALLS,
-  MAX_TUTOR_QUALITY_SAMPLES,
   loadTutorQualityEvaluationScenarios,
   isTutorQualityRelevantUntrackedPath,
   parseTutorQualityCliArgs,
   readTutorQualityGitState,
   runTutorQualityCli,
 } from "../../../../../scripts/tutor-quality-real-provider-eval";
+import {
+  MAX_TUTOR_QUALITY_CALLS,
+  MAX_TUTOR_QUALITY_SAMPLES,
+} from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import type { LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
 describe("Tutor Quality real-provider CLI contract", () => {
@@ -37,8 +39,9 @@ describe("Tutor Quality real-provider CLI contract", () => {
   it("rejects malformed numeric limits and credential values", () => {
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", "0"])).toThrow();
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--credential-env", "not-a-value"])).toThrow();
-    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", String(MAX_TUTOR_QUALITY_SAMPLES + 1)])).toThrow();
-    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--max-calls", String(MAX_TUTOR_QUALITY_CALLS + 1)])).toThrow();
+    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", String(MAX_TUTOR_QUALITY_SAMPLES + 1)])).toThrow(/exceeds maximum/);
+    expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--max-calls", String(MAX_TUTOR_QUALITY_CALLS + 1)])).toThrow(/exceeds maximum/);
+    expect(parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "pilot", "--samples", String(MAX_TUTOR_QUALITY_SAMPLES)]).samples).toBe(MAX_TUTOR_QUALITY_SAMPLES);
   });
 
   it("does not treat protected editor SSOT files or the output directory as relevant inputs", () => {
@@ -111,7 +114,7 @@ describe("Tutor Quality real-provider CLI contract", () => {
       async generateLearningQuestion() {
         return {
           model: "pilot-model",
-          result: { question: "Welche Beobachtung ist im Sketch belegt?" },
+          result: { question: "Welche Beobachtung ist im Sketch belegt?", responseStyle: "normal" },
         };
       },
     };

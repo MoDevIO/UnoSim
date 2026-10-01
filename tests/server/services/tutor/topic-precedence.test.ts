@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
+import { isTutorPlan, type TutorPlanningResult } from "../../../../server/services/tutor/tutor-planning";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
 
 const revision = "a".repeat(40);
@@ -13,7 +14,7 @@ async function pilotTopic() {
 }
 
 function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], annotation?: {
-  readonly topics?: readonly string[];
+  readonly topics?: string[];
   readonly primaryTopic?: string;
 }) {
   return new CurriculumTutorAdapter({
@@ -32,6 +33,11 @@ function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], annotation?: 
   });
 }
 
+function plannedTopicId(result: TutorPlanningResult | null): string | undefined {
+  expect(isTutorPlan(result)).toBe(true);
+  return isTutorPlan(result) ? result.topicId : undefined;
+}
+
 describe("Tutor topic precedence", () => {
   it("chooses an applicable active-example primary topic first", async () => {
     const memory = await pilotTopic();
@@ -40,7 +46,7 @@ describe("Tutor topic precedence", () => {
       topics: ["arrays", "memory-and-data-types"],
       primaryTopic: "memory-and-data-types",
     }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
-    expect(result?.topicId).toBe("memory-and-data-types");
+    expect(plannedTopicId(result)).toBe("memory-and-data-types");
   });
 
   it("uses other bound topics before fact-matched repository topics", async () => {
@@ -48,14 +54,14 @@ describe("Tutor topic precedence", () => {
     const arrays = { ...memory, id: "arrays" };
     const result = await adapter([memory, arrays], { topics: ["memory-and-data-types", "arrays"] })
       .planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
-    expect(result?.topicId).toBe("memory-and-data-types");
+    expect(plannedTopicId(result)).toBe("memory-and-data-types");
   });
 
   it("falls back to fact matching and then to free Tutor when no bound topic applies", async () => {
     const memory = await pilotTopic();
     const arrays = { ...memory, id: "arrays" };
     const factMatch = await adapter([memory, arrays]).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
-    expect(factMatch?.topicId).toBe("arrays");
+    expect(plannedTopicId(factMatch)).toBe("arrays");
 
     const noMatch = await adapter([memory]).planInitial({ code: "void setup(){} void loop(){}", history: [], difficulty: 30 });
     expect(noMatch).toBeNull();

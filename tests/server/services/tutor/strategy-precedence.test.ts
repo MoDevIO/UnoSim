@@ -18,6 +18,10 @@ function strategy(id: string, overrides: Partial<EffectiveTutorStrategy> = {}) {
   return { ...BUILT_IN_TUTOR_STRATEGY, id, ...overrides };
 }
 
+function strategyEntry({ id }: { readonly id: string }) {
+  return { id, path: `tutor/strategies/${id}.yaml`, sha256: "0".repeat(64) };
+}
+
 describe("Tutor strategy precedence", () => {
   it("chooses per-example strategy over repository default", async () => {
     const adapter = new CurriculumTutorAdapter({
@@ -68,9 +72,9 @@ describe("Tutor strategy precedence", () => {
 
   it("keeps strategy precedence on the free Tutor path when no topics exist", async () => {
     const repositoryDefault = strategy("repository-default");
-    const provider = {
+    const provider: LLMProvider = {
       listModels: async () => ["pilot-model"],
-      generateLearningQuestion: async () => ({ model: "pilot-model", result: { question: "Was passiert?" } }),
+      generateLearningQuestion: async () => ({ model: "pilot-model", result: { question: "Was passiert?", responseStyle: "normal" } }),
     };
     const context = {
       revision,
@@ -141,16 +145,16 @@ describe("Tutor strategy precedence", () => {
     markTopicMastered(state, tutor.id);
     const repositoryDefault = strategy("repository-default");
     const exploration = strategy("exploration-policy");
-    const provider = {
+    const provider: LLMProvider = {
       listModels: async () => ["pilot-model"],
-      generateLearningQuestion: async () => ({ model: "pilot-model", result: { question: "Was passiert?" } }),
+      generateLearningQuestion: async () => ({ model: "pilot-model", result: { question: "Was passiert?", responseStyle: "normal" } }),
     };
     const context = {
       revision,
       progressionState: state,
       tutor: {
         status: "valid" as const,
-        manifest: { schemaVersion: 2 as const, defaultStrategy: repositoryDefault.id, phaseStrategies: { deepen: exploration.id }, topics: [], strategies: [repositoryDefault, exploration] },
+        manifest: { schemaVersion: 2 as const, defaultStrategy: repositoryDefault.id, phaseStrategies: { deepen: exploration.id }, topics: [], strategies: [repositoryDefault, exploration].map(strategyEntry) },
         topics: [tutor],
         strategies: [repositoryDefault, exploration],
       },
@@ -189,6 +193,7 @@ describe("Tutor strategy precedence", () => {
             feedback: "Weiter.",
             answerRating: 4,
             question: "Providerfrage",
+            responseStyle: "normal",
           },
         };
       },
@@ -265,7 +270,7 @@ describe("Tutor strategy precedence", () => {
       listModels: async () => ["pilot-model"],
       async generateLearningQuestion(request) {
         prompts.push(request.userPrompt);
-        return { model: "pilot-model", result: { feedback: "Weiter.", answerRating: 4, question: "Providerfrage" } };
+        return { model: "pilot-model", result: { feedback: "Weiter.", answerRating: 4, question: "Providerfrage", responseStyle: "normal" } };
       },
     };
     const context = {

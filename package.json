@@ -30,7 +30,7 @@
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
     "build:sandbox": "docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc -p tests/tsconfig.tutor.json --noEmit",
     "check:node-version": "node scripts/check-node-version.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",

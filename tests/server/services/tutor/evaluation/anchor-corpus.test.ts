@@ -100,6 +100,16 @@ describe("Tutor Quality anchor corpus contract", () => {
       ...source,
       scenarios: [{ ...source.scenarios[0]!, model: "auto" }],
     })],
+    ["rated philosophical history", (source: TutorQualityCorpusSource) => ({
+      ...source,
+      scenarios: [{
+        ...source.scenarios[0]!,
+        turns: [{
+          ...source.scenarios[0]!.turns[0]!,
+          history: [{ question: "Was ist x?", responseStyle: "philosophical", answerRating: 3 }],
+        }],
+      }],
+    })],
     ["unbound continuation", (source: TutorQualityCorpusSource) => ({
       ...source,
       scenarios: [{

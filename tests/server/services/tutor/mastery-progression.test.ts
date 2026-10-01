@@ -9,6 +9,7 @@ import {
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import { createTutorProgressionState, hasMetDeepeningCriteria, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
+import type { TutorDialogTurn } from "../../../../shared/tutor";
 
 async function topic() {
   return parseTopic(await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8"));

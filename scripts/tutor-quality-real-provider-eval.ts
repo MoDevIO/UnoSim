@@ -8,7 +8,6 @@ import { createAnchorCourseContent, ANCHOR_COURSE_CONTENT_FIXTURE_IDS, type Anch
 import { config } from "../server/config";
 import {
   parseTutorQualityCorpus,
-  type TutorQualityCorpusSource,
   type TutorQualityHistoryEntrySource,
   type TutorQualityTurnSource,
 } from "../server/services/tutor/evaluation/anchor-corpus";
@@ -122,21 +121,37 @@ function resolveGitExecutable(): string {
 }
 
 function historyEntry(entry: TutorQualityHistoryEntrySource): import("../shared/tutor").TutorDialogTurn {
-  return {
+  const common = {
     question: entry.question,
     answer: entry.answer ?? "synthetic scripted history",
-    responseStyle: entry.responseStyle ?? "normal",
-    ...(entry.answerRating === undefined ? {} : { answerRating: entry.answerRating }),
     ...(entry.questionId === undefined ? {} : { questionId: entry.questionId }),
+  };
+  // The corpus parser rejects ratings on philosophical turns, matching the shared dialog schema.
+  if (entry.responseStyle === "philosophical") return { ...common, responseStyle: "philosophical" };
+  return {
+    ...common,
+    responseStyle: "normal",
+    ...(entry.answerRating === undefined ? {} : { answerRating: entry.answerRating }),
   };
 }
 
 function materializeTurn(turn: TutorQualityTurnSource): TutorQualityTurn {
   if (turn.kind === "initial") return turn;
+  const { history, ...dialogTurn } = turn;
   return {
-    ...turn,
-    ...(turn.history === undefined ? {} : { history: turn.history.map(historyEntry) }),
+    ...dialogTurn,
+    ...(history === undefined ? {} : { history: history.map(historyEntry) }),
   };
+}
+
+function declaredSketchReferences(source: unknown): string[] {
+  // Collect references from the unvalidated YAML only; parseTutorQualityCorpus reports malformed input.
+  if (typeof source !== "object" || source === null || !("scenarios" in source) || !Array.isArray(source.scenarios)) return [];
+  return source.scenarios.flatMap((scenario: unknown) => (
+    typeof scenario === "object" && scenario !== null && "sketch" in scenario && typeof scenario.sketch === "string"
+      ? [scenario.sketch]
+      : []
+  ));
 }
 
 export async function loadTutorQualityEvaluationScenarios(
@@ -144,9 +159,9 @@ export async function loadTutorQualityEvaluationScenarios(
   corpusPath: string,
 ): Promise<readonly TutorQualityEvaluationScenario[]> {
   const manifestPath = path.resolve(cwd, corpusPath);
-  const source = parseYaml(await readFile(manifestPath, "utf8")) as TutorQualityCorpusSource;
+  const source: unknown = parseYaml(await readFile(manifestPath, "utf8"));
   const sketchRefs = new Set<string>();
-  for (const { sketch } of source.scenarios) {
+  for (const sketch of declaredSketchReferences(source)) {
     try {
       await access(path.resolve(cwd, sketch));
       sketchRefs.add(sketch);
