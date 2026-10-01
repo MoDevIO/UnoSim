@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { canonicalDigest } from "./canonical";
 
 export interface TutorQualityHistoryEntrySource {
   readonly question: string;
@@ -142,19 +142,8 @@ function normalizedCorpusSource(source: TutorQualityCorpusSource): TutorQualityC
   };
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
 export function tutorQualityCorpusDigest(source: TutorQualityCorpusSource): string {
-  return createHash("sha256").update(stableJson(normalizedCorpusSource(source))).digest("hex");
+  return canonicalDigest(normalizedCorpusSource(source));
 }
 
 function parseExpected(value: unknown, label: string): TutorQualityScenarioSource["expected"] | undefined {

@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   compareTutorQualityCorpusVersions,
   parseTutorQualityCorpus,
+  tutorQualityCorpusDigest,
   type TutorQualityCorpusSource,
 } from "../../../../../server/services/tutor/evaluation/anchor-corpus";
+import { canonicalDigest } from "../../../../../server/services/tutor/evaluation/canonical";
 import {
   ANCHOR_COURSE_CONTENT_FIXTURE_IDS,
   createAnchorCourseContent,
@@ -74,6 +76,15 @@ describe("Tutor Quality anchor corpus contract", () => {
       courseContent: "variables",
       turns: [{ bindsToQuestion: "Welchen Wert hat x?" }],
     });
+  });
+
+  it("uses the shared canonical digest for optional undefined fields", () => {
+    const source = {
+      ...validSource(),
+      scenarios: [{ ...validSource().scenarios[0]!, model: undefined }],
+    } as unknown as TutorQualityCorpusSource;
+
+    expect(tutorQualityCorpusDigest(source)).toBe(canonicalDigest(source));
   });
 
   it.each([

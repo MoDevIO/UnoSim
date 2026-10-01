@@ -10,6 +10,8 @@ import {
 } from "./llm-provider";
 import { rankTutorModels } from "./model-preference";
 
+export const TUTOR_TEMPERATURE = 0.2;
+
 const completionSchema = z.object({
   choices: z.array(z.object({
     message: z.object({
@@ -213,7 +215,7 @@ export class KiconnectProvider implements LLMProvider {
         },
         body: JSON.stringify({
           model,
-          temperature: 0.2,
+          temperature: TUTOR_TEMPERATURE,
           messages: [
             { role: "system", content: request.systemPrompt },
             { role: "user", content: request.userPrompt },

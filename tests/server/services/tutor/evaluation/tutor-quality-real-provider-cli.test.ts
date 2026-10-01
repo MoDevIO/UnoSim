@@ -2,6 +2,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { config } from "../../../../../server/config";
 import {
   MAX_TUTOR_QUALITY_CALLS,
   MAX_TUTOR_QUALITY_SAMPLES,
@@ -96,6 +97,40 @@ describe("Tutor Quality real-provider CLI contract", () => {
       });
       expect(result.report.providerCalls.generationCalls).toBeGreaterThan(0);
       expect(await readdir(outputDir)).toContain("report.json");
+    } finally {
+      await rm(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the centrally validated Tutor timeout instead of an injected environment value", async () => {
+    const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-cli-timeout-"));
+    const provider: LLMProvider = {
+      async listModels() {
+        return ["pilot-model"];
+      },
+      async generateLearningQuestion() {
+        return {
+          model: "pilot-model",
+          result: { question: "Welche Beobachtung ist im Sketch belegt?" },
+        };
+      },
+    };
+    try {
+      const result = await runTutorQualityCli([
+        "--model", "pilot-model",
+        "--output-dir", outputDir,
+        "--credential-env", "TEST_TUTOR_CREDENTIAL",
+      ], {
+        cwd: process.cwd(),
+        environment: {
+          TEST_TUTOR_CREDENTIAL: "secret-value",
+          UNOSIM_LLM_TIMEOUT_MS: "9000",
+        },
+        provider,
+        git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      });
+
+      expect(result.transcripts[0]?.metadata.timeoutMs).toBe(config.tutor.timeoutMs);
     } finally {
       await rm(outputDir, { recursive: true, force: true });
     }

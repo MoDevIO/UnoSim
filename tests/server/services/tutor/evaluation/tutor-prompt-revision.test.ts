@@ -12,6 +12,8 @@ describe("Tutor prompt revision metadata", () => {
     expect(TUTOR_PROMPT_REVISION.sources.system).toContain("didaktischer Tutor");
     expect(TUTOR_PROMPT_REVISION.sources.initialUser).toContain("Sketch:");
     expect(TUTOR_PROMPT_REVISION.sources.dialogUser).toContain("Nutzerantwort");
+    expect(TUTOR_PROMPT_REVISION.sources.initialUser).not.toContain("function buildUserPrompt");
+    expect(TUTOR_PROMPT_REVISION.sources.dialogUser).not.toContain("function buildDialogPrompt");
     expect(TUTOR_PROMPT_REVISION.templateDigest).toBe(digestTutorPromptTemplates(TUTOR_PROMPT_REVISION.sources));
   });
 
