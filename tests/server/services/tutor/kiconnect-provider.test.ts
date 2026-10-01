@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KiconnectProvider, TUTOR_TEMPERATURE } from "../../../../server/services/tutor/kiconnect-provider";
+import { config } from "../../../../server/config";
 
 describe("KiconnectProvider", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it("loads the current model list from the provider", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -57,6 +61,95 @@ describe("KiconnectProvider", () => {
       ],
     });
     expect(JSON.parse(String(init.body))).not.toHaveProperty("response_format");
+  });
+
+  it("requests JSON-object output and returns the response model with the parsed value", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: "judge-returned-model",
+      choices: [{ message: { content: "{\"verdict\":\"supported\",\"score\":2}" } }],
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new KiconnectProvider().generateStructuredResponse({
+      model: "judge-requested-model",
+      systemPrompt: "judge system",
+      userPrompt: "judge user",
+      temperature: 0,
+    }, "request-key");
+
+    expect(result).toEqual({
+      model: "judge-returned-model",
+      result: { verdict: "supported", score: 2 },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://chat.kiconnect.nrw/api/v1/chat/completions");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer request-key");
+    expect(JSON.parse(String(init.body))).toEqual({
+      model: "judge-requested-model",
+      temperature: 0,
+      messages: [
+        { role: "system", content: "judge system" },
+        { role: "user", content: "judge user" },
+      ],
+      response_format: { type: "json_object" },
+    });
+  });
+
+  it("preserves missing returned-model metadata instead of substituting the requested model", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: "{\"ok\":true}" } }],
+    }), { status: 200 })));
+
+    await expect(new KiconnectProvider().generateStructuredResponse({
+      model: "judge-requested-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      temperature: 0,
+    }, "request-key")).resolves.toEqual({ model: undefined, result: { ok: true } });
+  });
+
+  it("rejects a malformed structured JSON response as invalid-response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      model: "judge-model",
+      choices: [{ message: { content: "{not-json}" } }],
+    }), { status: 200 })));
+
+    await expect(new KiconnectProvider().generateStructuredResponse({
+      model: "judge-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      temperature: 0,
+    }, "request-key")).rejects.toMatchObject({ kind: "invalid-response" });
+  });
+
+  it("maps structured completion authentication errors through the provider error boundary", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 })));
+
+    await expect(new KiconnectProvider().generateStructuredResponse({
+      model: "judge-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      temperature: 0,
+    }, "request-key")).rejects.toMatchObject({ kind: "credential-invalid" });
+  });
+
+  it("maps structured completion aborts to provider-timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+    })));
+
+    const pending = new KiconnectProvider().generateStructuredResponse({
+      model: "judge-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+      temperature: 0,
+    }, "request-key");
+    const timeoutAssertion = expect(pending).rejects.toMatchObject({ kind: "provider-timeout" });
+    await vi.advanceTimersByTimeAsync(config.tutor.timeoutMs);
+
+    await timeoutAssertion;
   });
 
   it("prefers an available Qwen family for Automatic selection without requiring a fixed deployment ID", async () => {

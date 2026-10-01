@@ -12,6 +12,8 @@ import {
   createStage2ATranscriptReference,
 } from "../../../../../../server/services/tutor/evaluation/semantic/transcript-reference";
 import { canonicalSemanticDigest } from "../../../../../../server/services/tutor/evaluation/semantic/semantic-canonical";
+import { runTutorQualityEvaluation } from "../../../../../../server/services/tutor/evaluation/real-provider-evaluation";
+import type { LLMProvider } from "../../../../../../server/services/tutor/llm-provider";
 import {
   validFrozenPreTurnContextInput,
   validSemanticCorpusReferences,
@@ -25,6 +27,46 @@ function parsedCorpus() {
 }
 
 describe("Stage-2A transcript compatibility and Stage-B digest", () => {
+  it("accepts a Stage-A transcript emitted by the runner without Judge runtime metadata", async () => {
+    const corpus = parsedCorpus();
+    const semanticCase = corpus.cases[0]!;
+    const sourceScenario = validStageAScenario();
+    const provider: LLMProvider = {
+      async listModels() { return ["fixed-model-v1"]; },
+      async generateLearningQuestion() {
+        return {
+          model: "fixed-model-v1",
+          result: {
+            responseStyle: "normal",
+            answerRating: 5,
+            question: "Warum liest der Eingang beim Drücken LOW?",
+          } as never,
+        };
+      },
+    };
+    const { transcripts } = await runTutorQualityEvaluation({
+      scenarios: [sourceScenario],
+      provider,
+      providerId: "fixture-provider",
+      credential: "test-credential",
+      requestedModel: "fixed-model-v1",
+      samples: 1,
+      maxCalls: 10,
+      git: { sha: "c".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+    });
+    const transcript = transcripts[0]!;
+    const mapping = createExistingTranscriptCompatibilityMapping({
+      sourceId: "stage-a/runner-generated-transcript",
+      transcript,
+      sourceScenario,
+      semanticCase,
+    });
+
+    expect(transcript.metadata.providerCalls).not.toHaveProperty("judgeCalls");
+    expect(transcript.turns[0]?.providerCalls).not.toHaveProperty("judgeCalls");
+    expect(validateStage2ATranscript(transcript, semanticCase, mapping)).toMatchObject({ valid: true });
+  });
+
   it("validates an adapter-generated transcript without changing its Stage-A identity or invariant array", () => {
     const corpus = parsedCorpus();
     const semanticCase = corpus.cases[0]!;

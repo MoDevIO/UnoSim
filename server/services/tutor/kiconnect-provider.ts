@@ -7,22 +7,42 @@ import {
   type LLMProvider,
   type LLMProviderRequest,
   type ProviderQuestionResult,
+  type ProviderStructuredResult,
+  type StructuredLLMProvider,
+  type StructuredLLMProviderRequest,
 } from "./llm-provider";
 import { rankTutorModels } from "./model-preference";
 
 export const TUTOR_TEMPERATURE = 0.2;
 
+const completionChoicesSchema = z.array(z.object({
+  message: z.object({
+    content: z.unknown(),
+  }),
+})).min(1);
+
 const completionSchema = z.object({
-  choices: z.array(z.object({
-    message: z.object({
-      content: z.unknown(),
-    }),
-  })).min(1),
+  choices: completionChoicesSchema,
+});
+
+const structuredCompletionSchema = z.object({
+  model: z.string().min(1).optional(),
+  choices: completionChoicesSchema,
 });
 
 const modelsSchema = z.object({
   data: z.array(z.object({ id: z.string().min(1).max(128) })),
 });
+
+interface ChatCompletionRequestBody {
+  readonly model: string;
+  readonly temperature: number;
+  readonly messages: readonly [
+    { readonly role: "system"; readonly content: string },
+    { readonly role: "user"; readonly content: string },
+  ];
+  readonly response_format?: { readonly type: "json_object" };
+}
 
 function parseRetryAfter(value: string | null): number | undefined {
   if (!value) return undefined;
@@ -164,7 +184,7 @@ function parseProviderQuestion(body: unknown, model: string, logger: Logger): Pr
   }
 }
 
-export class KiconnectProvider implements LLMProvider {
+export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
   private readonly baseUrl = config.tutor.baseUrl;
   private readonly logger = new Logger("KiconnectProvider");
 
@@ -203,6 +223,51 @@ export class KiconnectProvider implements LLMProvider {
     credential: string,
   ): Promise<ProviderQuestionResult> {
     const model = await this.resolveModel(request.model, credential);
+    const body = await this.requestChatCompletion({
+      model,
+      temperature: TUTOR_TEMPERATURE,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt },
+      ],
+    }, credential);
+    return parseProviderQuestion(body, model, this.logger);
+  }
+
+  async generateStructuredResponse(
+    request: StructuredLLMProviderRequest,
+    credential: string,
+  ): Promise<ProviderStructuredResult> {
+    const body = await this.requestChatCompletion({
+      model: request.model,
+      temperature: request.temperature,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    }, credential);
+
+    const parsed = structuredCompletionSchema.safeParse(body);
+    if (!parsed.success) throw new TutorProviderError("invalid-response");
+
+    const content = textContentFromMessage(parsed.data.choices[0].message.content);
+    if (!content) throw new TutorProviderError("invalid-response");
+
+    let result: unknown;
+    try {
+      result = JSON.parse(content);
+    } catch {
+      throw new TutorProviderError("invalid-response");
+    }
+
+    return { model: parsed.data.model, result };
+  }
+
+  private async requestChatCompletion(
+    requestBody: ChatCompletionRequestBody,
+    credential: string,
+  ): Promise<unknown> {
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), config.tutor.timeoutMs);
 
@@ -213,23 +278,13 @@ export class KiconnectProvider implements LLMProvider {
           "Content-Type": "application/json",
           Authorization: `Bearer ${credential}`,
         },
-        body: JSON.stringify({
-          model,
-          temperature: TUTOR_TEMPERATURE,
-          messages: [
-            { role: "system", content: request.systemPrompt },
-            { role: "user", content: request.userPrompt },
-          ],
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
-
       if (!response.ok) {
         throw providerErrorForStatus(response.status, parseRetryAfter(response.headers.get("retry-after")));
       }
-
-      const body = await response.json().catch(() => null);
-      return parseProviderQuestion(body, model, this.logger);
+      return await response.json().catch(() => null);
     } catch (error) {
       if (error instanceof TutorProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
