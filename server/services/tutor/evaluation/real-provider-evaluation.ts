@@ -12,6 +12,9 @@ import {
   type LLMProvider,
   type LLMProviderRequest,
   type ProviderQuestionResult,
+  type ProviderStructuredResult,
+  type StructuredLLMProvider,
+  type StructuredLLMProviderRequest,
 } from "../llm-provider";
 import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
@@ -27,6 +30,7 @@ const EMPTY_PROVIDER_CALLS: TutorQualityProviderCallCounts = {
   total: 0,
   modelListCalls: 0,
   generationCalls: 0,
+  judgeCalls: 0,
 };
 
 export type TutorQualityTurn =
@@ -178,6 +182,7 @@ export interface TutorQualityProviderCallCounts {
   readonly total: number;
   readonly modelListCalls: number;
   readonly generationCalls: number;
+  readonly judgeCalls: number;
 }
 
 export interface TutorQualityScenarioAggregate {
@@ -244,10 +249,11 @@ class EvaluationBudgetExceeded extends Error {
   }
 }
 
-class CountingProvider implements LLMProvider {
+export class CountingProvider implements LLMProvider, StructuredLLMProvider {
   private totalCalls = 0;
   private modelListCalls = 0;
   private generationCalls = 0;
+  private judgeCalls = 0;
   private readonly generations: ProviderCapture[] = [];
 
   constructor(
@@ -260,6 +266,7 @@ class CountingProvider implements LLMProvider {
       total: this.totalCalls,
       modelListCalls: this.modelListCalls,
       generationCalls: this.generationCalls,
+      judgeCalls: this.judgeCalls,
     };
   }
 
@@ -284,6 +291,17 @@ class CountingProvider implements LLMProvider {
       this.generations.push({ request, error });
       throw error;
     }
+  }
+
+  async generateStructuredResponse(
+    request: StructuredLLMProviderRequest,
+    credential: string,
+  ): Promise<ProviderStructuredResult> {
+    this.reserveCall();
+    this.judgeCalls += 1;
+    const provider = this.provider as LLMProvider & Partial<StructuredLLMProvider>;
+    if (!provider.generateStructuredResponse) throw new TutorProviderError("invalid-response");
+    return provider.generateStructuredResponse(request, credential);
   }
 
   private reserveCall(): void {
@@ -903,7 +921,7 @@ function emptyAggregate(samples: number): TutorQualityScenarioAggregate {
     notRun: 0,
     invariantViolationSamples: 0,
     budgetExhausted: 0,
-    providerCalls: { total: 0, modelListCalls: 0, generationCalls: 0 },
+    providerCalls: { total: 0, modelListCalls: 0, generationCalls: 0, judgeCalls: 0 },
     technicalErrorKinds: {},
     rates: ratesFor(0, 0, 0, 0, 0, 0),
   };
@@ -935,6 +953,7 @@ function addCounts(left: TutorQualityProviderCallCounts, right: TutorQualityProv
     total: left.total + right.total,
     modelListCalls: left.modelListCalls + right.modelListCalls,
     generationCalls: left.generationCalls + right.generationCalls,
+    judgeCalls: left.judgeCalls + right.judgeCalls,
   };
 }
 
@@ -946,6 +965,7 @@ function subtractCounts(
     total: current.total - previous.total,
     modelListCalls: current.modelListCalls - previous.modelListCalls,
     generationCalls: current.generationCalls - previous.generationCalls,
+    judgeCalls: current.judgeCalls - previous.judgeCalls,
   };
 }
 
