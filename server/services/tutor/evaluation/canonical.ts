@@ -41,7 +41,3 @@ export function sha256(value: string | Uint8Array): string {
 export function canonicalDigest(value: unknown): string {
   return sha256(canonicalJson(value));
 }
-
-export function isSha256Digest(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
-}
