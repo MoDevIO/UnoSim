@@ -22,6 +22,7 @@ const completionChoicesSchema = z.array(z.object({
 })).min(1);
 
 const completionSchema = z.object({
+  model: z.string().min(1).optional(),
   choices: completionChoicesSchema,
 });
 
@@ -169,13 +170,14 @@ function parseTutorContent(content: string): TutorContentResult {
   return parseTutorContentObject(candidate);
 }
 
-function parseProviderQuestion(body: unknown, model: string, logger: Logger): ProviderQuestionResult {
+function parseProviderQuestion(body: unknown, logger: Logger): ProviderQuestionResult {
   const parsed = completionSchema.safeParse(body);
-  const content = parsed.success ? textContentFromMessage(parsed.data.choices[0].message.content) : undefined;
+  if (!parsed.success || !parsed.data.model) throw new TutorProviderError("invalid-response");
+  const content = textContentFromMessage(parsed.data.choices[0].message.content);
   if (!content) throw new TutorProviderError("invalid-response");
 
   try {
-    return { model, result: parseTutorContent(content) };
+    return { model: parsed.data.model, result: parseTutorContent(content) };
   } catch (error) {
     if (error instanceof TutorProviderError && error.kind === "invalid-response" && config.nodeEnv === "development") {
       logger.debug(`KI:connect model content (diagnostic, no credentials): ${content.slice(0, 12_000)}`);
@@ -231,7 +233,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
         { role: "user", content: request.userPrompt },
       ],
     }, credential);
-    return parseProviderQuestion(body, model, this.logger);
+    return parseProviderQuestion(body, this.logger);
   }
 
   async generateStructuredResponse(

@@ -41,7 +41,7 @@ function scenario(overrides: Partial<TutorQualityEvaluationScenario> = {}): Tuto
 function providerFor(result: unknown, returnedModel = "fake-model"): LLMProvider {
   return {
     async listModels() {
-      return ["fake-model"];
+      return ["fake-model", "judge-model"];
     },
     async generateLearningQuestion() {
       return { model: returnedModel, result: result as never };
@@ -97,6 +97,124 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(result.report.providerCalls).toMatchObject({ judgeCalls: 1, total: 4 });
     expect(judgeInputs).not.toMatch(/fake-model|judge-model|secret/);
     expect(result.transcripts[0]?.metadata.providerCalls).not.toHaveProperty("judgeCalls");
+  });
+
+  it("accepts a resolved Judge model ID and reports it beside the requested alias", async () => {
+    const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-judge-model-alias-"));
+    temporaryDirectories.push(outputDir);
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async listModels() { return ["fake-model", "openai-gpt5.5"]; },
+      async generateStructuredResponse() {
+        return {
+          model: "gpt-5.5-2026-04-24",
+          result: {
+            criteria: [{
+              id: "correct-answer",
+              verdict: "pass",
+              reason: "Feedback confirms the answer.",
+              quote: "Correct, counter starts at three.",
+            }],
+            criticalIssues: [],
+          },
+        };
+      },
+    };
+
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: {
+        facts: ["counter starts at three"],
+        criteria: [{ id: "correct-answer", text: "Feedback accepts the right value." }],
+      } })],
+      judgeModel: "openai-gpt5.5",
+      judgeCredential: "judge-secret",
+      outputDir,
+    }));
+    const report = JSON.parse(await readFile(path.join(outputDir, "report.json"), "utf8"));
+
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({
+      status: "evaluated",
+      model: "gpt-5.5-2026-04-24",
+      criteria: [{ id: "correct-answer", verdict: "pass" }],
+    });
+    expect(report.manifest.judgeModel).toEqual({
+      requested: "openai-gpt5.5",
+      returned: ["gpt-5.5-2026-04-24"],
+    });
+  });
+
+  it("fails closed when a Judge response omits its returned model identity", async () => {
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async listModels() { return ["fake-model", "openai-gpt5.5"]; },
+      async generateStructuredResponse() {
+        return {
+          model: undefined,
+          result: {
+            criteria: [{
+              id: "correct-answer",
+              verdict: "pass",
+              reason: "Feedback confirms the answer.",
+              quote: "Correct, counter starts at three.",
+            }],
+            criticalIssues: [],
+          },
+        };
+      },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: {
+        facts: ["counter starts at three"],
+        criteria: [{ id: "correct-answer", text: "Feedback accepts the right value." }],
+      } })],
+      judgeModel: "openai-gpt5.5",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({
+      status: "judge-invalid",
+      reason: "returned-model-missing",
+    });
+  });
+
+  it("requires the fixed Judge alias in the existing model-list preflight", async () => {
+    let generationCalls = 0;
+    let judgeCalls = 0;
+    const provider = {
+      ...providerFor({ question: "What changes counter?" }),
+      async listModels() { return ["fake-model"]; },
+      async generateLearningQuestion() {
+        generationCalls += 1;
+        return { model: "fake-model", result: { responseStyle: "normal" as const, answerRating: 5 as const, feedback: "Correct, counter starts at three.", question: "What changes counter?" } };
+      },
+      async generateStructuredResponse() {
+        judgeCalls += 1;
+        return { model: "gpt-5.5-2026-04-24", result: {} };
+      },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: {
+        facts: ["counter starts at three"],
+        criteria: [{ id: "correct-answer", text: "Feedback accepts the right value." }],
+      } })],
+      judgeModel: "openai-gpt5.5",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(result.report).toMatchObject({ runStatus: "invalid", reason: "judge-model-unavailable" });
+    expect(result.report.providerCalls).toMatchObject({ total: 1, modelListCalls: 1, generationCalls: 0, judgeCalls: 0 });
+    expect(generationCalls).toBe(0);
+    expect(judgeCalls).toBe(0);
   });
 
   it("reports an exhausted shared budget instead of aborting before a Judge call", async () => {
@@ -330,12 +448,17 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.stateBefore).toEqual(transcript.stateAfter);
   });
 
-  it("marks a returned-model mismatch invalid without treating it as quality", async () => {
-    const result = await runTutorQualityEvaluation(options(providerFor({ question: "Welche Beobachtung ist belegt?" }, "other-model")));
+  it("accepts and preserves a resolved Tutor model ID as sample provenance", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 4,
+      question: "Welche Beobachtung ist belegt?",
+    }, "other-model")));
     const transcript = result.transcripts[0]!;
 
-    expect(transcript.executionStatus).toBe("invalid");
-    expect(transcript.invalidReason).toBe("returned-model-mismatch");
+    expect(transcript.executionStatus).toBe("completed");
+    expect(transcript.turns[0]?.returnedModel).toBe("other-model");
+    expect(transcript.deterministicChecks.find(({ name }) => name === "returned-model-present")?.passed).toBe(true);
     expect(transcript.invariantViolations).toHaveLength(0);
   });
 
