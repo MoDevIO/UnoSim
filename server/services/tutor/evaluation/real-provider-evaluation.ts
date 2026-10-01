@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import type { TutorContentResult, TutorDialogTurn } from "@shared/tutor";
 import {
   inspectLearningQuestion,
@@ -21,6 +20,15 @@ import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
 import { canonicalDigest, canonicalJson, sha256 } from "./canonical";
 import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
+import {
+  buildJudgeInput,
+  callJudge,
+  parseJudgeResult,
+  JudgeProviderCallError,
+  type TutorQualityJudgePrompt,
+  type TutorQualitySemanticEvaluation,
+} from "./judge";
+import { createTutorQualityRunManifest, writeRunArtifacts } from "./report";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
 
@@ -57,6 +65,12 @@ export interface TutorQualityEvaluationScenario {
   readonly corpusVersion: number;
   readonly sketchRef: string;
   readonly sketch: string;
+  readonly sketchDigest?: string;
+  readonly corpusFileDigest?: string;
+  readonly judge?: {
+    readonly facts: readonly string[];
+    readonly criteria: readonly { readonly id: string; readonly text: string }[];
+  };
   readonly courseContent?: TutorPlanningContentContext;
   readonly turns: readonly TutorQualityTurn[];
   readonly expected?: {
@@ -81,6 +95,8 @@ export interface TutorQualityEvaluationOptions {
   readonly endpointOrigin?: string;
   readonly credential?: string;
   readonly requestedModel: string;
+  readonly judgeModel?: string;
+  readonly judgeCredential?: string;
   readonly samples: number;
   readonly maxCalls: number;
   readonly timeoutMs?: number;
@@ -235,11 +251,20 @@ export interface TutorQualityEvaluationReport {
   readonly byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>;
   readonly rates: TutorQualityRates;
   readonly monetaryCost: "unavailable";
+  readonly semanticEvaluations?: readonly TutorQualitySemanticEvaluationRecord[];
+}
+
+export interface TutorQualitySemanticEvaluationRecord {
+  readonly scenarioId: string;
+  readonly sampleIndex: number;
+  readonly learningPhase?: string;
+  readonly evaluation: TutorQualitySemanticEvaluation;
 }
 
 export interface TutorQualityEvaluationResult {
   readonly report: TutorQualityEvaluationReport;
   readonly transcripts: readonly TutorQualityTranscript[];
+  readonly semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[];
 }
 
 interface ProviderCapture {
@@ -311,10 +336,10 @@ export class CountingProvider implements LLMProvider, StructuredLLMProvider {
     request: StructuredLLMProviderRequest,
     credential: string,
   ): Promise<ProviderStructuredResult> {
+    const provider = this.provider as LLMProvider & Partial<StructuredLLMProvider>;
+    if (!provider.generateStructuredResponse) throw new TutorProviderError("provider-unavailable");
     this.reserveCall();
     this.judgeCalls += 1;
-    const provider = this.provider as LLMProvider & Partial<StructuredLLMProvider>;
-    if (!provider.generateStructuredResponse) throw new TutorProviderError("invalid-response");
     return provider.generateStructuredResponse(request, credential);
   }
 
@@ -1080,21 +1105,6 @@ function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
   };
 }
 
-async function writeArtifactsToDirectory(
-  outputDir: string | undefined,
-  report: TutorQualityEvaluationReport,
-  transcripts: readonly TutorQualityTranscript[],
-): Promise<void> {
-  if (!outputDir) return;
-  await mkdir(outputDir, { recursive: true });
-  await writeFile(`${outputDir}/report.json`, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  await Promise.all(transcripts.map((transcript) => {
-    const safeId = transcript.scenario.id.replaceAll(/[^A-Za-z0-9._-]/g, "_");
-    const index = transcript.metadata.sampleIndex;
-    return writeFile(`${outputDir}/transcript-${safeId}-${index}.json`, `${JSON.stringify(transcript, null, 2)}\n`, "utf8");
-  }));
-}
-
 async function writeArtifacts(
   options: TutorQualityEvaluationOptions,
   report: TutorQualityEvaluationReport,
@@ -1104,11 +1114,13 @@ async function writeArtifacts(
     await options.artifactWriter(report, transcripts);
     return;
   }
-  await writeArtifactsToDirectory(options.outputDir, report, transcripts);
+  const manifest = createTutorQualityRunManifest(options, transcripts, report.semanticEvaluations ?? []);
+  await writeRunArtifacts(options.outputDir, report, manifest, transcripts);
 }
 
 function invalidBasicPreflightReason(options: TutorQualityEvaluationOptions): string | undefined {
   if (!options.requestedModel || options.requestedModel === "auto") return "fixed-model-required";
+  if (options.judgeModel === "auto" || (options.judgeModel !== undefined && !options.judgeModel)) return "fixed-judge-model-required";
   if (!options.git.sha) return "git-sha-missing";
   if (!options.git.trackedClean || !options.git.relevantUntrackedClean) return "dirty-relevant-worktree";
   if (!Number.isInteger(options.samples) || options.samples < 1) return "invalid-sample-count";
@@ -1139,24 +1151,10 @@ function invalidPreflightReason(options: TutorQualityEvaluationOptions): string 
 export async function runTutorQualityEvaluation(options: TutorQualityEvaluationOptions): Promise<TutorQualityEvaluationResult> {
   const runId = makeRunId(options);
   const evaluationIdentity = makeEvaluationIdentity(options);
-  const invalidReason = invalidPreflightReason(options);
   const emptyByScenario = Object.fromEntries(options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]));
-
-  if (invalidReason) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: invalidReason, calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
-    await writeArtifacts(options, report, []);
-    return { report, transcripts: [] };
-  }
-  if (!options.credential) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "not-run", reason: "missing-credential", calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
-    await writeArtifacts(options, report, []);
-    return { report, transcripts: [] };
-  }
-  if (options.maxCalls === 0) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "not-run", reason: "call-budget-zero", calls: EMPTY_PROVIDER_CALLS, byScenario: emptyByScenario });
-    await writeArtifacts(options, report, []);
-    return { report, transcripts: [] };
-  }
+  const earlyResult = await createEarlyResult(options, runId, evaluationIdentity, emptyByScenario);
+  if (earlyResult) return earlyResult;
+  if (!options.credential) throw new Error("Tutor credential preflight did not reject missing credentials");
 
   const provider = new CountingProvider(options.provider, options.maxCalls);
   let availableModels: readonly string[];
@@ -1165,15 +1163,64 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   } catch (error) {
     const report = baseReport({ options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
-    return { report, transcripts: [] };
+    return { report, transcripts: [], semanticEvaluations: [] };
   }
   if (!availableModels.includes(options.requestedModel)) {
     const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
-    return { report, transcripts: [] };
+    return { report, transcripts: [], semanticEvaluations: [] };
   }
 
+  const { transcripts, semanticEvaluations, byScenario } = await evaluateSamples(options, provider, runId, evaluationIdentity);
+  const report: TutorQualityEvaluationReport = {
+    ...baseReport({ options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length }),
+    ...(semanticEvaluations.length ? { semanticEvaluations } : {}),
+  };
+  await writeArtifacts(options, report, transcripts);
+  return { report, transcripts, semanticEvaluations };
+}
+
+async function createEarlyResult(
+  options: TutorQualityEvaluationOptions,
+  runId: string,
+  evaluationIdentity: string,
+  byScenario: Record<string, TutorQualityScenarioAggregate>,
+  status?: TutorQualityEvaluationReport["runStatus"],
+  reason?: string,
+  calls: TutorQualityProviderCallCounts = EMPTY_PROVIDER_CALLS,
+): Promise<TutorQualityEvaluationResult | undefined> {
+  const invalidReason = invalidPreflightReason(options);
+  if (invalidReason) {
+    status = "invalid";
+    reason = invalidReason;
+    calls = EMPTY_PROVIDER_CALLS;
+  } else if (!options.credential) {
+    status = "not-run";
+    reason = "missing-credential";
+    calls = EMPTY_PROVIDER_CALLS;
+  } else if (options.maxCalls === 0) {
+    status = "not-run";
+    reason = "call-budget-zero";
+    calls = EMPTY_PROVIDER_CALLS;
+  }
+  if (!status || !reason) return undefined;
+  const report = baseReport({ options, runId, evaluationIdentity, runStatus: status, reason, calls, byScenario });
+  await writeArtifacts(options, report, []);
+  return { report, transcripts: [], semanticEvaluations: [] };
+}
+
+async function evaluateSamples(
+  options: TutorQualityEvaluationOptions,
+  provider: CountingProvider,
+  runId: string,
+  evaluationIdentity: string,
+): Promise<{
+  readonly transcripts: TutorQualityTranscript[];
+  readonly semanticEvaluations: TutorQualitySemanticEvaluationRecord[];
+  readonly byScenario: Record<string, TutorQualityScenarioAggregate>;
+}> {
   const transcripts: TutorQualityTranscript[] = [];
+  const semanticEvaluations: TutorQualitySemanticEvaluationRecord[] = [];
   const byScenario: Record<string, TutorQualityScenarioAggregate> = Object.fromEntries(
     options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]),
   );
@@ -1182,17 +1229,110 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
       const callsBeforeSample = provider.counts;
       const transcript = await runSample(options, provider, scenario, runId, evaluationIdentity, sampleIndex);
       transcripts.push(transcript);
+      if (scenario.judge && options.judgeModel) {
+        const evaluation = redactSemanticEvaluation(
+          await evaluateSemanticSample(provider, options, scenario, transcript),
+          [options.credential, options.judgeCredential],
+        );
+        const phase = transcript.turns.at(-1)?.finalTutorResult?.learningPhase;
+        semanticEvaluations.push({
+          scenarioId: scenario.id,
+          sampleIndex,
+          ...(typeof phase === "string" ? { learningPhase: phase } : {}),
+          evaluation,
+        });
+      }
       const aggregate = byScenario[scenario.id];
       if (!aggregate) throw new Error(`Missing scenario aggregate for ${scenario.id}`);
       byScenario[scenario.id] = addTranscriptToAggregate(aggregate, transcript, subtractCounts(provider.counts, callsBeforeSample));
-      if (transcript.executionStatus === "invalid" && transcript.invalidReason === "returned-model-mismatch") {
-        // The mismatch belongs to this sample; subsequent samples remain observable.
-      }
     }
   }
-  const report = baseReport({ options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length });
-  await writeArtifacts(options, report, transcripts);
-  return { report, transcripts };
+  return { transcripts, semanticEvaluations, byScenario };
+}
+
+function redactSemanticEvaluation(
+  evaluation: TutorQualitySemanticEvaluation,
+  credentials: readonly (string | undefined)[],
+): TutorQualitySemanticEvaluation {
+  const redactValue = (value: string): string => credentials.reduce<string>((safe, credential) => redact(safe, credential), value);
+  return {
+    ...evaluation,
+    ...(evaluation.reason ? { reason: redactValue(evaluation.reason) } : {}),
+    ...(evaluation.model ? { model: redactValue(evaluation.model) } : {}),
+    ...(evaluation.criteria ? {
+      criteria: evaluation.criteria.map((criterion) => ({
+        ...criterion,
+        reason: redactValue(criterion.reason),
+        ...(criterion.quote ? { quote: redactValue(criterion.quote) } : {}),
+      })),
+    } : {}),
+    ...(evaluation.criticalIssues ? {
+      criticalIssues: evaluation.criticalIssues.map((issue) => ({
+        ...issue,
+        reason: redactValue(issue.reason),
+        quote: redactValue(issue.quote),
+      })),
+    } : {}),
+  };
+}
+
+async function evaluateSemanticSample(
+  provider: CountingProvider,
+  options: TutorQualityEvaluationOptions,
+  scenario: TutorQualityEvaluationScenario,
+  transcript: TutorQualityTranscript,
+): Promise<TutorQualitySemanticEvaluation> {
+  if (transcript.executionStatus !== "completed") return { status: "not-evaluated", reason: "tutor-turn-not-completed" };
+  if (!options.judgeCredential) return { status: "judge-error", reason: "missing-credential" };
+  const input = buildJudgeInput(scenario, transcript);
+  if (!input) return { status: "not-evaluated", reason: "judge-evidence-unavailable" };
+  const startedAt = Date.now();
+  try {
+    return await evaluateJudgeResponse(provider, options, input, startedAt);
+  } catch (error) {
+    return classifyJudgeError(error, startedAt);
+  }
+}
+
+function judgePromptMetadata(prompt: TutorQualityJudgePrompt, durationMs: number) {
+  return {
+    durationMs,
+    promptRevision: prompt.revision,
+    promptDigest: prompt.digest,
+    systemPromptDigest: prompt.systemDigest,
+    userPromptDigest: prompt.userDigest,
+  };
+}
+
+async function evaluateJudgeResponse(
+  provider: CountingProvider,
+  options: TutorQualityEvaluationOptions,
+  input: NonNullable<ReturnType<typeof buildJudgeInput>>,
+  startedAt: number,
+): Promise<TutorQualitySemanticEvaluation> {
+  const { result, prompt } = await callJudge(provider, options.judgeModel!, options.judgeCredential!, input);
+  const metadata = judgePromptMetadata(prompt, Date.now() - startedAt);
+  if (result.model !== options.judgeModel) {
+    return {
+      status: "judge-invalid",
+      reason: result.model ? "returned-model-mismatch" : "returned-model-missing",
+      model: result.model,
+      ...metadata,
+    };
+  }
+  return { ...parseJudgeResult(result.result, input), model: result.model, ...metadata };
+}
+
+function classifyJudgeError(error: unknown, startedAt: number): TutorQualitySemanticEvaluation {
+  const providerError = error instanceof JudgeProviderCallError ? error.providerError : error;
+  const prompt = error instanceof JudgeProviderCallError ? error.prompt : undefined;
+  const metadata = prompt ? judgePromptMetadata(prompt, Date.now() - startedAt) : {};
+  if (providerError instanceof EvaluationBudgetExceeded) return { status: "budget-exhausted", reason: "call-budget-exhausted" };
+  if (providerError instanceof TutorProviderError && providerError.kind === "invalid-response") {
+    return { status: "judge-invalid", reason: "provider-invalid-response", ...metadata };
+  }
+  if (providerError instanceof TutorProviderError) return { status: "judge-error", reason: providerError.kind, ...metadata };
+  return { status: "judge-error", reason: "provider-error", ...metadata };
 }
 
 export { EvaluationBudgetExceeded };

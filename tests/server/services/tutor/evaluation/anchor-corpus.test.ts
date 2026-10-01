@@ -51,8 +51,9 @@ describe("Tutor Quality anchor corpus contract", () => {
       courseContentFixtures: new Set(["variables", "progression-learn", "progression-expand"]),
     });
 
-    expect(corpus.corpusVersion).toBe(1);
+    expect(corpus.corpusVersion).toBe(2);
     expect(corpus.scenarios.map(({ id }) => id)).toEqual([
+      "TQ-SEM-001",
       "TQ-REG-001",
       "simple-variable",
       "serial-output-prediction",
@@ -64,6 +65,7 @@ describe("Tutor Quality anchor corpus contract", () => {
       "expand",
       "off-topic-answer",
     ]);
+    expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
   });
 
   it("parses stable scenario references and explicit question bindings", () => {
@@ -76,6 +78,34 @@ describe("Tutor Quality anchor corpus contract", () => {
       courseContent: "variables",
       turns: [{ bindsToQuestion: "Welchen Wert hat x?" }],
     });
+  });
+
+  it("parses an optional minimal Judge contract", () => {
+    const source = {
+      ...validSource(),
+      scenarios: [{
+        ...validSource().scenarios[0]!,
+        judge: {
+          facts: ["int x = 3; sets x to three."],
+          criteria: [{ id: "correct", text: "Recognizes the correct value." }],
+        },
+      }],
+    };
+
+    expect(parseTutorQualityCorpus(source, references).scenarios[0]?.judge).toEqual({
+      facts: ["int x = 3; sets x to three."],
+      criteria: [{ id: "correct", text: "Recognizes the correct value." }],
+    });
+  });
+
+  it.each([
+    ["empty facts", { facts: [], criteria: [{ id: "correct", text: "Check correctness." }] }],
+    ["empty criteria", { facts: ["x is three"], criteria: [] }],
+    ["duplicate criterion ids", { facts: ["x is three"], criteria: [{ id: "correct", text: "A" }, { id: "correct", text: "B" }] }],
+    ["invalid criterion id", { facts: ["x is three"], criteria: [{ id: "bad id", text: "Check correctness." }] }],
+  ])("rejects Judge contract with %s", (_label, judge) => {
+    const source = { ...validSource(), scenarios: [{ ...validSource().scenarios[0]!, judge }] };
+    expect(() => parseTutorQualityCorpus(source, references)).toThrow();
   });
 
   it("uses the shared canonical digest for optional undefined fields", () => {

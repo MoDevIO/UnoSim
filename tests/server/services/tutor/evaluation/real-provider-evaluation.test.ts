@@ -64,6 +64,155 @@ function options(provider: LLMProvider, overrides: Partial<Parameters<typeof run
 }
 
 describe("real-provider Tutor Quality evaluation runner", () => {
+  it("judges only completed cases and reports the structured call separately", async () => {
+    let judgeInputs = "";
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async generateStructuredResponse(request: { readonly userPrompt: string }) {
+        judgeInputs = request.userPrompt;
+        return {
+          model: "judge-model",
+          result: {
+            criteria: [{ id: "correct-answer", verdict: "pass", reason: "Feedback confirms the answer.", quote: "Correct, counter starts at three." }],
+            criticalIssues: [],
+          },
+        };
+      },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: {
+        facts: ["counter starts at three"],
+        criteria: [{ id: "correct-answer", text: "Feedback accepts the right value." }],
+      } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(result.semanticEvaluations).toMatchObject([{ evaluation: { status: "evaluated", model: "judge-model" } }]);
+    expect(result.report.providerCalls).toMatchObject({ judgeCalls: 1, total: 4 });
+    expect(judgeInputs).not.toMatch(/fake-model|judge-model|secret/);
+    expect(result.transcripts[0]?.metadata.providerCalls).not.toHaveProperty("judgeCalls");
+  });
+
+  it("reports an exhausted shared budget instead of aborting before a Judge call", async () => {
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async generateStructuredResponse() {
+        throw new Error("must not reach Judge provider");
+      },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: {
+        facts: ["counter starts at three"],
+        criteria: [{ id: "correct-answer", text: "Feedback accepts the right value." }],
+      } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+      maxCalls: 3,
+    }));
+
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({ status: "budget-exhausted" });
+    expect(result.report.providerCalls).toMatchObject({ total: 3, judgeCalls: 0 });
+    expect(result.report.runStatus).toBe("completed");
+  });
+
+  it("does not count a Judge call when the injected provider lacks structured capability", async () => {
+    const result = await runTutorQualityEvaluation(options(providerFor({
+      responseStyle: "normal",
+      answerRating: 5,
+      feedback: "Correct, counter starts at three.",
+      question: "What changes counter?",
+    }), {
+      scenarios: [scenario({ judge: { facts: ["fact"], criteria: [{ id: "correct", text: "Correct." }] } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({ status: "judge-error", reason: "provider-unavailable" });
+    expect(result.report.providerCalls).toMatchObject({ total: 3, judgeCalls: 0 });
+  });
+
+  it("does not call the Judge when the Tutor turn fails", async () => {
+    let judgeCalls = 0;
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async generateLearningQuestion() { throw new TutorProviderError("provider-timeout"); },
+      async generateStructuredResponse() { judgeCalls += 1; return { model: "judge-model", result: {} }; },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: { facts: ["fact"], criteria: [{ id: "correct", text: "Correct." }] } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(judgeCalls).toBe(0);
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({ status: "not-evaluated", reason: "tutor-turn-not-completed" });
+  });
+
+  it("records a Judge timeout as a typed error with no retry", async () => {
+    let judgeCalls = 0;
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async generateStructuredResponse() {
+        judgeCalls += 1;
+        throw new TutorProviderError("provider-timeout");
+      },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: { facts: ["fact"], criteria: [{ id: "correct", text: "Correct." }] } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(judgeCalls).toBe(1);
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({
+      status: "judge-error",
+      reason: "provider-timeout",
+      promptRevision: expect.any(String),
+      promptDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      durationMs: expect.any(Number),
+    });
+  });
+
+  it("treats a provider's invalid structured JSON as a fail-closed Judge result", async () => {
+    const provider = {
+      ...providerFor({
+        responseStyle: "normal",
+        answerRating: 5,
+        feedback: "Correct, counter starts at three.",
+        question: "What changes counter?",
+      }),
+      async generateStructuredResponse() { throw new TutorProviderError("invalid-response"); },
+    };
+    const result = await runTutorQualityEvaluation(options(provider, {
+      scenarios: [scenario({ judge: { facts: ["fact"], criteria: [{ id: "correct", text: "Correct." }] } })],
+      judgeModel: "judge-model",
+      judgeCredential: "judge-secret",
+    }));
+
+    expect(result.semanticEvaluations[0]?.evaluation).toMatchObject({ status: "judge-invalid", reason: "provider-invalid-response" });
+  });
+
   it("counts structured provider calls in the same maximum-call budget", async () => {
     let structuredCallCount = 0;
     const provider = {
@@ -231,7 +380,7 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(result.report.runStatus).toBe("not-run");
     expect(result.report.reason).toBe("missing-credential");
     expect(result.report.providerCalls.total).toBe(0);
-    expect(files).toEqual(["report.json"]);
+    expect(files).toEqual(["report.json", "report.md"]);
     expect(reportText).not.toContain("super-secret-value");
   });
 
