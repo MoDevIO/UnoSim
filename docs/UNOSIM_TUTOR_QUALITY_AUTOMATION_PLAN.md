@@ -451,7 +451,7 @@ Evaluation-SSOT:
 - `docs/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`
 - `docs/plan-tutor-quality-stage-2a.md`
 - `docs/superpowers/plans/2026-09-27-tutor-quality-stage-1.md`
-- `ssot/ssot_function_definition_TutorQualityStage2A.md` (abgelöst; Entfernen in PR D)
-- `docs/tutor-quality-stage-2a.md` (abgelöst; Umleitung in PR D)
+- `ssot/ssot_function_definition_TutorQualityStage2A.md` (abgelöst; in PR D entfernt)
+- `docs/tutor-quality-stage-2a.md` (abgelöst; in PR D entfernt, Bedienteil in Appendix B der Evaluation-SSOT)
 - `ssot/ssot_function_definition_TutorQualityStage2B.md`, `docs/plan-tutor-quality-stage-2b.md`
   (waren bereits historisch; Verweis ergänzt)

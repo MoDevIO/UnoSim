@@ -1,9 +1,9 @@
 # Tutor Quality Evaluation – Corpus, Execution, Checks, Judge, Report
 
 Status: normative target model for Tutor quality evaluation.
-Supersedes: `ssot_function_definition_TutorQualityStage2A.md` (execution
-runner) and the historical Stage-2B design. Implementation plan:
-`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
+Supersedes: the earlier execution-runner specification and the earlier
+semantic-layer design (see the historical glossary entries in §2). Implementation
+plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
 
 > **Target state, not current runtime.** This document partly describes the
 > NORMATIVE TARGET STATE of an ongoing migration. The current `main` can
@@ -62,7 +62,7 @@ key under §6.4.
 | `qualityVerdict` | The future quality statement per run (§12). |
 | L1 / L2 / L3 | Test-pyramid levels (§4). |
 | *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQuality.md`. |
-| *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
+| *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Its former SSOT and runbook were removed; the runbook moved to Appendix B. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
 | *Historical:* Stage 2B, Protocol A | Removed semantic layer and its non-reproducible judge protocol. Not normative. |
 | *Historical:* Protocol B, G1 | The minimal-Judge protocol and its one-time acceptance measurement (schema ≥ 95 %, evidence ≥ 90 %, repeatability ≥ 80 %), documented in `docs/tutor-quality-judge-smoke-2026-10-01.md`. G1 is bound to the Judge prompt revision it measured; it is not a runtime gate. |
 
@@ -393,6 +393,41 @@ temperatures, timeout, budget.
 as values on the command line, and are redacted from every artifact. Tutor
 and Judge use separately named credential variables.
 
+### 7.4 Run identity and model identity
+
+**R-ID-1** Every run has a unique `runId` and a stable `evaluationIdentity`,
+stored in every transcript and in the report. `evaluationIdentity` is the
+SHA-256 of canonical JSON over: Git SHA, Course Content revisions, corpus ID
+and version, provider ID, requested Tutor model, Tutor prompt revision (ID and
+template digest), and the run parameters (timeout, temperature, sample count,
+call budget, per-turn difficulties). The `runId` contains the UTC start time
+and a collision-resistant suffix. Its prefix `tq2a-` is a historical artifact
+contract (§11.4).
+
+**R-ID-2** The Tutor prompt revision is a versioned application-owned
+identifier plus a SHA-256 digest of the effective system and user templates
+before scenario values are inserted. A change to an application-owned prompt
+template MUST change this revision. Per-turn prompt digests are stored in the
+transcripts.
+
+**R-ID-3** A real run requires a clean relevant Git state. Any tracked or
+indexed change makes the preflight `invalid` (`dirty-relevant-worktree`) and no
+provider call is issued. Untracked files invalidate only under versioned input
+roots (`evals/tutor-quality/`, `server/`, `shared/`, `scripts/`, `package.json`,
+`package-lock.json`, `.nvmrc`); the output directory, editor files, and
+protected local SSOT files are ignored. A diff is never uploaded as a
+substitute for the Git SHA.
+
+**R-ID-4** The requested model is fixed, explicit, and never `auto`; the
+preflight verifies that exact ID. The provider response MUST carry a
+non-empty returned model ID. A provider may resolve a public alias to a
+concrete snapshot, so the returned ID need not equal the requested one, and a
+difference alone does not invalidate a sample or a Judge result. A missing
+returned ID makes the result `invalid`. Both IDs are recorded separately; the
+set of returned IDs of a run is inspectable in the report. There is no alias
+map and no string-normalization heuristic. The same rules apply to the Judge
+model (R-RSP-2).
+
 ## 8. Deterministic checks
 
 ### 8.1 Checks
@@ -591,6 +626,17 @@ disposable run data: written to a caller-chosen output directory or uploaded
 as CI artifacts with bounded retention; never committed by the runner. No
 database and no dashboard.
 
+**R-ART-1** A transcript contains: schema version, run ID, evaluation
+identity, metadata (R-RUN-3), the scenario with its synthetic turns, state
+before and after, the ordered turns, deterministic check records, violations,
+and a terminal `executionStatus`. Each turn contains the Tutor request artifact
+(prompts and their digests, no credentials or transport headers), the parsed
+provider result as received by `TutorService` before repair, the normalized
+final result, the follow-up provenance (R-FUP-1), the returned model, the
+checks, and a technical error if any. Serialization uses an allow-list of
+fields. It never includes `process.env`, authorization headers, or arbitrary
+provider response envelopes (R-RUN-4).
+
 ### 11.4 Stable identifiers
 
 The schema identifiers `tutor-quality-report-v1` and
@@ -632,22 +678,60 @@ dashboard, workflow engine, or statistics platform.
 
 ## Appendix A – Conformance status (non-normative)
 
-Verified against branch `refactor/tutor-quality-phase2-1-strategy-cases` @
-`79032a3f` (not yet merged; `main` @ `c2c2940a`). The plan
-`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` closes these gaps.
+Verified against `main` @ `b75dd326` (after PRs #128–#131 of
+`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since the first
+version of this document: the EXPAND continuation (R-EXP-1..4, PR A), the
+corpus, rating-band, and binding contract (R-TURN-4, R-RAT-1..6, R-AUT-1..3,
+R-EXPD-1, R-BLK-1/2, PR B), and the Judge quote, provenance, and report
+diagnostics contract (R-EVD-3/4, R-RSP-4, R-FUP-1..4, R-REP-2/3, §11.2, PR C).
+Remaining known deviations:
 
-| Rule | Current code | Gap |
+| Rule | Current code | Owner |
 | --- | --- | --- |
-| R-EXP-1/2 | `findQuestion` in `curriculum-tutor-adapter.ts` searches only `topic.questions`; answering a generated `expand-*` question ends in `content-exhausted` (reproduced with a fake provider, ratings 2 and 5) | product defect (PR A) |
-| R-EXP-4 | `anchor-course-content.ts` adds `expand-serial-output` (`includeExpansionPlanQuestion`) to imitate the generated question | remove after PR A (PR B) |
-| R-TURN-4 | `bindsToQuestion` must equal `question`; checked in the parser, in the preflight, and in the turn executor | remove the field (PR B) |
-| R-RAT-1..6 | no `answerRating` expectation; L1 fakes derive the rating from `userPrompt.includes("99")`; `strategy-deepen-correction` (a wrong answer) expects `phaseAfter: EXPAND` | PR B |
-| R-AUT-2 | DEEPEN cases use `serial-output.ino`, where `counter` never changes, but the served transfer question asks how `counter` changes | PR B |
-| R-AUT-3 | strategy cases contain ID facts (`variable-value-recall`, `expand-serial-output`, …) | PR B |
-| R-AUT-1 | `anchor-corpus.test.ts` hard-codes the full list of case IDs | PR B |
-| R-EXPD-1, R-BLK-1/2, R-PH-1 | implemented in `79032a3f` (allowlist, strict `learningPhase`, `phaseAfter`, blocked check) | none; phase/blocked literals are duplicated instead of importing the application types (PR B) |
-| R-EVD-3/4 | prompt names the allowlist; the parser checks quotes against the concatenation of all three sources | single-source match (PR C) |
-| R-RSP-4 | Judge prompt text changed in `79032a3f`, but the revision is still `tutor-quality-minimal-criteria-v1` | bump the revision (PR C) |
-| R-FUP-1..4 | not exposed; `TutorService.generateDialogResponse/generateQuestion` return `{ result, model }` | PR C |
-| R-REP-2/3, §11.2 | `report.md` shows only Judge results; no deterministic failures, ratings, blocked reasons, durations | PR C |
-| R-VER-1..3 | not implemented (correct for now) | PR F after baseline PR E |
+| R-VER-1..3 | not implemented (correct for now) | PR F, after the baseline of PR E |
+| §11.2 per run | the run-level report shows Git SHA, models, prompt revisions, temperatures, timeout, budget, calls, duration, and corpus file digests; corpus ID and version appear in the evaluation identity and in every transcript's metadata, not as run-level report fields | none assigned; candidate for PR E preparation |
+| R-TURN-3 | enforced by the corpus structural test, not by the corpus parser | none; accepted unless a case slips through |
+| R-ATT-2 | only `expected-phase-after` can be reported as not applicable (rating out of band) | none; no other check has a not-applicable state |
+
+Intentional historical identifiers that stay in code and artifacts (§11.4):
+the report field `stageAStatus`, internal type names `TutorQualityStageA…`, and
+the run-ID prefix `tq2a-`.
+
+## Appendix B – Running an evaluation (non-normative runbook)
+
+Local run, from a clean relevant Git state (R-ID-3), with a fixed model (R-ID-4)
+and a disposable output directory:
+
+```sh
+npm run eval:tutor-quality:real -- \
+  --model <fixed-tutor-model-id> \
+  --judge-model <fixed-judge-model-id> \
+  --credential-env UNOSIM_TUTOR_EVAL_CREDENTIAL \
+  --judge-credential-env UNOSIM_TUTOR_JUDGE_CREDENTIAL \
+  --samples <n> \
+  --max-calls <budget computed per R-BUD-2> \
+  --output-dir <disposable-directory> \
+  [--case <case-id> ...] [--corpus <corpus-file>]
+```
+
+- Credentials are read only from the named environment variables, never passed
+  as values (R-RUN-4). Tutor and Judge use different variable names. Without
+  `--judge-model` only the Tutor execution and the deterministic checks run.
+- `--case` is repeatable and selects cases by ID. The default corpus is
+  `evals/tutor-quality/anchor-corpus.yaml`.
+- Compute `--max-calls` before every run (R-BUD-2). The current implementation
+  guard (R-BUD-1) allows at most 20 samples per case and 500 calls per run;
+  these constants are not part of the contract.
+- Without the Tutor credential the command writes a run-level `report.json`
+  with `runStatus: "not-run"`, `reason: "missing-credential"`, zero provider
+  calls, and no transcripts.
+- Output: `report.json`, `report.md`, and `transcripts/` (§11.3). Do not commit
+  them.
+
+Manual workflow: `.github/workflows/tutor-quality-real-provider.yml` has only a
+`workflow_dispatch` trigger (R-PYR-2). Inputs: `model`, `samples`, `max_calls`,
+`judge_model` (leave empty for execution only), and `case`. It reads the
+repository secrets `UNOSIM_TUTOR_EVAL_CREDENTIAL` and
+`UNOSIM_TUTOR_JUDGE_CREDENTIAL` and uploads the artifact
+`tutor-quality-run-<run id>` with 14 days of retention. The `max_calls` default is
+a placeholder; set it from the R-BUD-2 calculation.
