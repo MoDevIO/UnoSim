@@ -219,16 +219,24 @@ function parseCriterion(
   seen.add(id);
   if (item.verdict !== "pass" && item.verdict !== "fail" && item.verdict !== "unclear") return invalid("criterion-verdict-invalid");
   if (!validReason(item.reason)) return invalid("criterion-reason-invalid");
-  let quote = item.quote === undefined ? undefined : getString(item.quote);
-  if (item.verdict === "fail") {
-    if (!quote) return invalid(item.quote === undefined ? "criterion-failure-quote-required" : "criterion-quote-invalid");
-  } else if (item.quote === null || (typeof item.quote === "string" && !item.quote.trim())) {
-    quote = undefined;
-  } else if (item.quote !== undefined && !quote) {
-    return invalid("criterion-quote-invalid");
-  }
-  if (quote && !evidence.includes(normalized(quote))) return invalid("criterion-quote-not-in-evidence");
+  const quote = parseCriterionQuote(item.verdict, item.quote, evidence);
+  if (typeof quote !== "string" && quote !== undefined) return quote;
   return { id, verdict: item.verdict, reason: item.reason, ...(quote ? { quote } : {}) };
+}
+
+function parseCriterionQuote(
+  verdict: "pass" | "fail" | "unclear",
+  value: unknown,
+  evidence: string,
+): string | undefined | TutorQualitySemanticEvaluation {
+  const quote = value === undefined ? undefined : getString(value);
+  if (verdict === "fail" && !quote) {
+    return invalid(value === undefined ? "criterion-failure-quote-required" : "criterion-quote-invalid");
+  }
+  if (verdict !== "fail" && (value === null || (typeof value === "string" && !value.trim()))) return undefined;
+  if (value !== undefined && !quote) return invalid("criterion-quote-invalid");
+  if (quote && !evidence.includes(normalized(quote))) return invalid("criterion-quote-not-in-evidence");
+  return quote;
 }
 
 function parseCriticalIssues(
