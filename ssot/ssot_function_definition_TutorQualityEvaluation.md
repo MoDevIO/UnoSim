@@ -1,0 +1,653 @@
+# Tutor Quality Evaluation – Corpus, Execution, Checks, Judge, Report
+
+Status: normative target model for Tutor quality evaluation.
+Supersedes: `ssot_function_definition_TutorQualityStage2A.md` (execution
+runner) and the historical Stage-2B design. Implementation plan:
+`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
+
+> **Target state, not current runtime.** This document partly describes the
+> NORMATIVE TARGET STATE of an ongoing migration. The current `main` can
+> therefore contain known, temporary deviations. Appendix A lists these known
+> deviations and assigns each to a planned PR. No statement in this document
+> may be read as claiming that a known, not yet implemented item is already a
+> current runtime invariant.
+
+Rules carry stable IDs (for example `R-EXP-1`) so that code, tests, and
+reviews can cite them.
+
+## 0. Normative sources and precedence
+
+| Subject | Normative source |
+| --- | --- |
+| Didactic phases, mastery, deepening, extensions | `ssot_function_definition_LearningQuestions.md` |
+| Course Content schemas and loader | `ssot_function_definition_CourseContent.md` |
+| Runtime Tutor invariants (Stage 1 PR gate) | `ssot_function_definition_TutorQuality.md` |
+| Model registration | `ssot_function_tutor_model_registration.md` (protected; never edited by Tutor-Quality work) |
+| Corpus, execution runs, deterministic evaluation checks, Judge, report, verdict | this document |
+
+This document operationalizes the didactic model for tests. If it
+contradicts one of the sources above on didactics or runtime behavior, the
+other source wins and this document must be corrected.
+
+## 1. Purpose
+
+The goal is to make Tutor quality testable automatically over the long term.
+The system MUST:
+
+1. detect real Tutor regressions;
+2. test the central learning strategies (LEARN, DEEPEN, EXPAND) semantically;
+3. evaluate real Tutor output;
+4. separate deterministic product defects from LLM quality problems;
+5. accept new quality cases mostly as corpus data (YAML plus fixtures);
+6. produce reproducible, comparable reports;
+7. be runnable manually and periodically without new infrastructure.
+
+Constraint: KISS/YAGNI. The corpus may grow; the runner, Judge, and report
+infrastructure should stay stable. A new case MUST NOT require a new runner,
+a new check type, or new report code, unless it introduces a new expectation
+key under §6.4.
+
+## 2. Glossary
+
+| Term | Meaning |
+| --- | --- |
+| Case / scenario | One corpus entry: sketch, Course Content fixture, turns, expectations, optional Judge block. |
+| Sample | One isolated execution of a case. `samples = n` runs every case n times. |
+| Turn | One Tutor request inside a sample: `initial` (new question) or `dialog` (answer to a question). |
+| Execution run | One invocation of the evaluation CLI over a set of cases and samples. |
+| Deterministic check | A rule evaluated by code on the transcript; no LLM involved. |
+| Violation | A failed deterministic check, attributed to a source (§8.2). |
+| Judge | The optional minimal LLM evaluator for case-specific criteria and critical issues (§9). |
+| `executionStatus` | Whether a sample or run executed; never a quality statement (§11.1). |
+| `qualityVerdict` | The future quality statement per run (§12). |
+| L1 / L2 / L3 | Test-pyramid levels (§4). |
+| *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQuality.md`. |
+| *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
+| *Historical:* Stage 2B, Protocol A | Removed semantic layer and its non-reproducible judge protocol. Not normative. |
+| *Historical:* Protocol B, G1 | The minimal-Judge protocol and its one-time acceptance measurement (schema ≥ 95 %, evidence ≥ 90 %, repeatability ≥ 80 %), documented in `docs/tutor-quality-judge-smoke-2026-10-01.md`. G1 is bound to the Judge prompt revision it measured; it is not a runtime gate. |
+
+## 3. Architecture
+
+### 3.1 Single evaluation path
+
+There is exactly one evaluation path:
+
+```
+Corpus case (evals/tutor-quality/anchor-corpus.yaml)
+  → parse + validate (fail fast)
+  → per sample: fresh clone of the Course Content fixture and progression state
+  → per turn: real TutorService
+        → CurriculumTutorAdapter / Planner (when Course Content is present)
+        → LLM provider (real in L3, fake in L1)
+        → validate/repair → apply planning outcome → commit state
+  → transcript (secret-free)
+  → deterministic checks
+  → optional minimal Judge on the final dialog turn
+  → evaluation records
+  → report.json + report.md + transcripts
+```
+
+No parallel runner, adapter layer, or alternative corpus format exists for
+the same purpose. The Stage-1 TypeScript scenarios
+(`tests/server/services/tutor/support/tutor-quality-scenario-runner.ts`) have
+a different job: they script exact provider outputs to pin runtime
+invariants. They are not part of this path and are not merged into it.
+
+### 3.2 Responsibilities
+
+| Component | Owns | MUST NOT |
+| --- | --- | --- |
+| `TutorService` | validating and repairing provider output, applying the planning outcome, committing progression state only after full success | decide didactics |
+| `CurriculumTutorAdapter` / Planner | Topic, Concept, Question, phase, Strategy, progression and blocked state | evaluate natural-language quality |
+| LLM provider | feedback text, `answerRating`, proposed question text | own planning metadata (TutorService strips it) |
+| Evaluation harness | executing, observing, checking, recording | influence planning, state, prompts, or provider requests |
+| Judge | verdicts on observable, quotable, case-specific criteria and critical issues | replace deterministic checks, or judge metadata that only code can see |
+
+**R-ARCH-1** The harness may wrap the provider to count, budget, and capture
+calls. It MUST NOT alter requests or responses, and MUST NOT mutate the
+Course Content or progression state it passes to `TutorService`, except
+cloning per sample.
+
+**R-ARCH-2** Everything the harness reports about a turn comes either from
+`TutorService`'s return value, from the captured provider exchange, or from
+the progression state after the turn. Nothing is reconstructed from incidental
+properties (see §10).
+
+## 4. Test pyramid
+
+| Level | Content | Provider | When |
+| --- | --- | --- | --- |
+| L1 | Stage-1 runtime invariants; the full corpus executed through the real `TutorService` and `CurriculumTutorAdapter` with a fake provider whose ratings come from the case expectations | fake | every PR (`npm run test:tutor-quality`, part of CI) |
+| L2 | contract and parser tests: corpus parser, Judge prompt/parser, call budget, preflight, provenance, redaction, report shape | fake | every PR (same gate) |
+| L3 | real Tutor model plus real Judge model over the corpus | real | manually before relevant Tutor/prompt/strategy/planner/Course-Content changes, and periodically on `main` |
+
+**R-PYR-1** Every corpus case MUST pass L1 with zero violations before it may
+run in L3. A case that fails L1 is a corpus or product defect, not an LLM
+finding.
+
+**R-PYR-2** L3 is never a required PR check and never runs on a
+`pull_request` trigger. A missing credential yields `not-run`, not a CI
+failure.
+
+## 5. Phase model operationalized for tests
+
+Normative didactics: `ssot_function_definition_LearningQuestions.md`.
+
+### 5.1 Two distinct phase observations
+
+| Field | Definition | Source |
+| --- | --- | --- |
+| `learningPhase` | The phase under which the served Tutor turn was planned and executed. | `TutorService` result (`learningPhase`) |
+| `phaseAfter` | The progression-state phase after the learner answer has been processed. | progression state after the turn (`phase`) |
+
+**R-PH-1** The two may legitimately differ. The answer is evaluated by the
+strategy that produced the current turn. A phase transition is committed to
+state immediately, but its first plan is exposed only at the next request.
+
+**R-PH-2** Allowed `(learningPhase, phaseAfter)` pairs for the same active
+Topic: equal; `LEARN → DEEPEN`; `DEEPEN → EXPAND`. Any other pair for the
+same Topic is a `state` violation. A Topic change is governed by the normal
+Topic-selection rules and checked through `activeTopicId` consistency.
+
+**R-PH-3** A free Tutor (no active Topic) has no phase. A case expecting a
+phase MUST use Course Content in which a Topic is active.
+
+### 5.2 EXPAND continuation
+
+**R-EXP-1** An EXPAND extension question generated by the planner MUST be
+recognized as a valid EXPAND question when the learner answers it in the
+next dialog request.
+
+**R-EXP-2** An answer to such a question MUST NOT end in
+`content-exhausted` merely because the generated extension question is not
+an entry of `topic.questions`. As long as a sensible transfer question, an
+unused extension, or a justified return to a demonstrated gap exists, the
+Tutor continues in EXPAND. `content-exhausted` is allowed only when none of
+these exists.
+
+**R-EXP-3** This document does not prescribe how the recognition is
+implemented. Implementations SHOULD use stable application-owned identity or
+progression state where it exists, and MAY fall back to text matching only
+where the code demonstrably has no stable identity. The choice is justified
+in the implementing PR.
+
+**R-EXP-4** Test fixtures MUST NOT add Course Content questions whose only
+purpose is to imitate a runtime-generated question so that a case passes.
+
+## 6. Corpus contract
+
+### 6.1 Location, identity, versioning
+
+- Corpus file: `evals/tutor-quality/anchor-corpus.yaml`, with a stable
+  `corpusId` and an integer `corpusVersion ≥ 1`.
+- Sketch fixtures live under `evals/tutor-quality/` (or existing
+  `tests/fixtures/tutor-quality/` references). Course Content fixtures are
+  typed builders in `server/services/tutor/evaluation/anchor-course-content.ts`,
+  referenced by a fixture ID, or `free` for the free Tutor.
+
+**R-COR-1** Every change that alters the parsed corpus digest MUST increase
+`corpusVersion`. Formatting-only edits that keep the digest MAY keep the
+version.
+
+**R-COR-2** Corpus files contain only synthetic learner data. No credentials,
+personal data, or live learner data.
+
+### 6.2 Case fields
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `id` | yes | `/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/`, unique |
+| `sketch` | yes | path of an existing fixture file |
+| `courseContent` | yes | `free` or a registered fixture ID |
+| `model` | no | fixed model ID; never `auto` |
+| `turns` | yes | ≥ 1 turn (§6.3) |
+| `expected` | no | expectation object (§6.4) |
+| `judge` | no | Judge block (§9.6) |
+
+### 6.3 Turns and question binding
+
+```ts
+type TurnSource =
+  | { kind: "initial"; difficulty?: number }                 // 1..100, default 30
+  | {
+      kind: "dialog";
+      question: string;        // the question the learner answers
+      answer: string;          // synthetic learner answer
+      continuationOf?: number; // index of an earlier turn in the same case
+      difficulty?: number;     // 1..100, default 30
+      history?: HistoryEntry[]; // bounded scripted prior dialog
+    };
+```
+
+**R-TURN-1** A dialog turn with `continuationOf: i` is valid only if `i`
+refers to an earlier turn and the final Tutor question actually produced by
+turn `i` in this sample equals the dialog turn's `question` exactly.
+Otherwise the sample is `invalid` (`preceding-question-mismatch`), and the
+runner MUST NOT apply the answer to a different question.
+
+**R-TURN-2** A dialog turn without `continuationOf` answers a scripted
+question. It is allowed only where the case does not depend on the planner
+having served that question.
+
+**R-TURN-3** Strategy cases (cases with `expected.learningPhase`) MUST bind
+their evaluated dialog turn to a preceding turn via `continuationOf`, so that
+the planner, not the corpus author, chose the question.
+
+**R-TURN-4** The binding is expressed only by `question` and
+`continuationOf`. There is no separate binding field and no second or third
+check of the same binding.
+
+### 6.4 Expectations (`expected`)
+
+Allowed keys only. **R-EXPD-1** Any other key in `expected` is a parse
+error: no silently ignored typos.
+
+| Key | Type | Scope | Meaning |
+| --- | --- | --- | --- |
+| `topicId` | Topic ID | every turn | result `topicId` equals it |
+| `topicIdAbsent` | Topic ID | every turn | neither result `topicId` nor `activeTopicId` equals it |
+| `learningPhase` | `LEARN \| DEEPEN \| EXPAND` | every turn | result `learningPhase` equals it exactly |
+| `phaseAfter` | `LEARN \| DEEPEN \| EXPAND` | final turn | progression-state phase after the final turn equals it |
+| `answerRating` | `[min, max]`, `1 ≤ min ≤ max ≤ 5` | final turn, must be `dialog` | final `answerRating` lies within the band |
+| `progressionBlockedReason` | a `ProgressionBlockedReason` value | every turn | see §6.6 |
+| `stateUnchanged` | boolean | every turn | progression state equals the sample's initial state |
+| `questionNotRepeat` | `exact-or-heuristic` | every dialog turn | final question is not an exact or heuristic repeat of the answered question or history |
+
+Allowed values for phases and blocked reasons come from the application
+types (`DidacticPhase`, `ProgressionBlockedReason`); the corpus parser does
+not maintain its own copies.
+
+A case declares one `learningPhase` for all its turns. Cases whose turns need
+different phases are out of scope until a concrete case requires them; then
+per-turn expectations are the extension point.
+
+### 6.5 Answer rating
+
+**R-RAT-1** `answerRating` is required when:
+
+1. the rating itself is the subject of the case (for example "a wrong
+   answer must not be rated as correct"), or
+2. `phaseAfter` is checked and the transition depends on the rating.
+
+**R-RAT-2** Enforced by the parser: when `phaseAfter` is declared,
+`learningPhase` MUST also be declared, and if `learningPhase` is `LEARN` or
+`DEEPEN`, `answerRating` MUST be declared, because progression out of those
+phases always depends on ratings.
+
+**R-RAT-3** Pure semantic Judge cases without a progression claim MAY omit
+`answerRating`.
+
+**R-RAT-4** A final rating outside the band is a deterministic quality
+failure in its own right (cause: rating, §8.2).
+
+**R-RAT-5** If the rating is outside the band, a `phaseAfter` expectation
+cannot be interpreted and MUST be reported as *not applicable*, never as
+pass and never as a progression failure. Only when the rating is inside the
+band (or no band applies) does a `phaseAfter` mismatch count as a
+progression failure. The report MUST keep "rating wrong" and "progression
+wrong" apart.
+
+**R-RAT-6** L1 fake providers derive their rating from the case's
+`answerRating` band (for example its lower or upper bound, fixed per test),
+never from incidental prompt content.
+
+### 6.6 Blocked states
+
+**R-BLK-1** On every turn, the observed blocked reason is the result's
+`progressionBlockedReason`, or else the progression state's
+`progressionBlockedReason`.
+
+**R-BLK-2** If `expected.progressionBlockedReason` is absent, the observed
+reason MUST be absent. An unexpected blocked reason is a deterministic
+failure (cause: progression).
+
+**R-BLK-3** A case that tests a blocked state MUST declare the expected
+reason explicitly. `content-exhausted` must never pass silently in a
+strategy case.
+
+### 6.7 Authoring rules
+
+**R-AUT-1** A new quality case is YAML plus, where needed, a sketch fixture.
+A new typed Course Content fixture is acceptable when a new progression state
+is needed. Tests MUST NOT hard-code the full list of case IDs or the case
+count. They assert structural invariants (every case parses; every case runs
+L1 without violations; strategy cases reach their declared phase).
+
+**R-AUT-2** Fixtures must be didactically sound. A planned question MUST NOT
+rest on a premise the sketch does not satisfy (for example asking how a
+variable changes in a sketch where it never changes), unless the case
+explicitly tests false-premise handling and says so.
+
+**R-AUT-3** Judge facts describe sketch behavior or didactic context in plain
+language. They never contain internal IDs (question, concept, topic IDs).
+The Judge cannot see those.
+
+## 7. Execution run
+
+### 7.1 Preflight (fail fast, zero provider calls)
+
+The run is rejected before any provider call, in this order, with these
+reasons:
+
+| Status | Reason |
+| --- | --- |
+| `invalid` | `fixed-model-required`, `fixed-judge-model-required` (empty or `auto`) |
+| `invalid` | `git-sha-missing`, `dirty-relevant-worktree` |
+| `invalid` | `invalid-sample-count`, `sample-count-exceeds-limit` |
+| `invalid` | `invalid-call-budget`, `call-budget-exceeds-limit` |
+| `invalid` | `empty-corpus`, `mixed-corpus-versions` |
+| `not-run` | `missing-credential`, `call-budget-zero` |
+
+Then one model-list call: a failure yields `technical-failure`; a missing
+Tutor or Judge model yields `invalid` (`model-unavailable`,
+`judge-model-unavailable`). Corpus parse errors throw before the run and end
+the CLI with a non-zero exit.
+
+### 7.2 Call budget
+
+**R-BUD-1** The runner enforces a hard technical maximum for samples and
+calls as a safety guard against misconfiguration. Its value is an
+implementation constant, not part of this contract.
+
+**R-BUD-2** Every real (L3) run sets an explicit budget that is much smaller
+than the safety guard and is computed before the run starts:
+
+```
+budget = 1                                   # preflight model list
+       + samples × Σ_cases Σ_turns (tutorCallsPerTurn)
+       + samples × (number of cases with a judge block, when a Judge model is set)
+```
+
+`tutorCallsPerTurn` is taken from the current code at the time of the run,
+not assumed. At the time of writing a fixed-model turn costs up to 2 calls
+(model resolution plus generation), and a locally handled off-topic fallback
+costs 0.
+
+**R-BUD-3** Every provider call, including model listing and Judge calls,
+counts against the same budget. The runner stops before a call that would
+exceed it. Model-list, generation, and Judge calls are reported separately.
+Judge calls never appear in the per-turn Tutor call counts of a transcript.
+
+**R-BUD-4** Provider and account limits (quotas, rate limits, prices) are
+external operating constraints, not part of the Tutor quality contract.
+Monetary cost is reported only when the provider supplies it; otherwise the
+report states that it is unavailable.
+
+### 7.3 Sample isolation and turn execution
+
+**R-RUN-1** Every sample starts from a fresh clone of the case's Course
+Content and progression state. Samples never share state.
+
+**R-RUN-2** Turns of a sample run in order. Per turn:
+- `preceding-question-mismatch` yields `invalid` and stops the sample;
+- a missing returned model identity yields `invalid`;
+- a provider or technical error yields `technical-failure` and stops the
+  sample, and the progression state MUST be unchanged by the failed turn.
+
+**R-RUN-3** Provenance per run: Git SHA (clean relevant worktree), corpus ID,
+version and file digest, sketch digests, Tutor prompt revision and digests,
+requested and returned Tutor model, requested and returned Judge model,
+temperatures, timeout, budget.
+
+**R-RUN-4** Credentials are passed only by environment-variable name, never
+as values on the command line, and are redacted from every artifact. Tutor
+and Judge use separately named credential variables.
+
+## 8. Deterministic checks
+
+### 8.1 Checks
+
+Per turn with a provider response (raw provider output, before repair):
+schema valid; exactly one primary question; no complete solution; no exact or
+heuristic question repeat.
+
+Per turn with a final result: the expectations of §6.4 in their scope;
+content revision consistent; phase/state consistency (R-PH-2); active Topic
+consistent with state; no reuse of an already used Question ID; blocked state
+(§6.6); after a technical failure, state unchanged.
+
+### 8.2 Attribution
+
+Every failed check yields a violation with a `source` and a cause:
+
+| Source | Meaning | Typical cause |
+| --- | --- | --- |
+| `raw-provider` | LLM raw output before repair | LLM quality, reported as a rate |
+| `final-tutor` | final Tutor result after repair and planning | product defect, or LLM rating (`answer-rating-out-of-band`) |
+| `state` | progression state | progression defect |
+| `scenario` | corpus/case problem | corpus defect |
+
+**R-ATT-1** Rating failures and progression failures are distinct violation
+codes and remain distinct in the report (R-RAT-5).
+
+**R-ATT-2** A check that is not applicable (for example `phaseAfter` with an
+out-of-band rating) is reported as not applicable. It counts neither as pass
+nor as fail.
+
+## 9. Minimal Judge
+
+### 9.1 Scope
+
+The Judge evaluates only:
+- the case-specific criteria of the case's `judge` block, and
+- a small fixed set of case-independent critical issues.
+
+It is not a rubric system, ranking, calibration, or pairwise comparison.
+
+### 9.2 Eligibility
+
+**R-JDG-1** The Judge runs for a sample only if: a Judge model is
+configured; the case has a `judge` block; `executionStatus` is `completed`;
+the final turn is a `dialog` turn; its final feedback and follow-up question
+are non-empty. Otherwise the record is `not-evaluated` with a reason.
+
+### 9.3 Input
+
+```ts
+interface JudgeInput {
+  sketch: string;
+  facts: string[];
+  question: string;        // the answered question
+  learnerAnswer: string;
+  tutor: {
+    feedback: string;
+    followUpQuestion: string;
+    answerRating?: number;
+    learningPhase?: string;
+  };
+  criteria: { id: string; text: string }[];
+}
+```
+
+The input contains no internal IDs, provider prompts, credentials, or
+runtime identities. Temperature is 0.
+
+### 9.4 Evidence and quotes
+
+**R-EVD-1** Quote allowlist, exactly: `sketch`, `tutor.feedback`,
+`tutor.followUpQuestion`.
+
+**R-EVD-2** Not quotable: `facts`, `question`, `learnerAnswer`,
+`answerRating`, `learningPhase`, any internal ID, the criterion texts.
+
+**R-EVD-3** The Judge prompt and the parser use one and the same allowlist,
+defined once in code.
+
+**R-EVD-4** A quote is valid only if, after NFKC normalization and
+whitespace collapsing, it is fully contained in **one** normalized allowed
+source. Matches across the boundary of concatenated sources are invalid.
+
+**R-EVD-5** Quote semantics:
+- `fail`: a quote is mandatory: a non-empty string from an allowed source.
+- `pass` / `unclear`: the quote may be missing, `null`, empty, or
+  whitespace-only; all mean "no quote". A non-empty quote is still validated
+  against the allowlist. Any other JSON type is invalid.
+- Critical issue: a quote is mandatory and validated like a `fail` quote.
+
+### 9.5 Response contract (fail closed)
+
+**R-RSP-1** The response is one JSON object with exactly the keys
+`criteria` and `criticalIssues`. Every requested criterion appears exactly
+once with `id`, `verdict` (`pass` | `fail` | `unclear`), `reason` (1–600
+characters), and `quote` per §9.4. Critical issues use only the codes
+`factually-wrong-feedback`, `correct-answer-rejected`,
+`invented-sketch-property`, `complete-solution`, `false-premise-question`,
+each with `code`, `reason`, and `quote`.
+
+**R-RSP-2** Any violation yields `judge-invalid` with a reason. No retry, no
+repair, no partial acceptance. A missing returned Judge model identity is
+`judge-invalid`. The requested alias and the returned ID are recorded
+separately.
+
+**R-RSP-3** Judge statuses: `evaluated`, `judge-invalid`, `judge-error`,
+`not-evaluated`, `budget-exhausted`. Everything except `evaluated` is
+inconclusive and never a Tutor failure.
+
+**R-RSP-4** Every change to the Judge system prompt text MUST bump the Judge
+prompt revision identifier. Acceptance measurements (G1) are bound to the
+revision they measured.
+
+### 9.6 Criteria authoring
+
+A `judge` block has `facts` (≥ 1) and `criteria` (1–6; `id` matches
+`/^[a-z][a-z0-9-]{0,63}$/`, unique; non-empty `text`).
+
+**R-CRT-1** A criterion may only evaluate behavior that the quotable
+evidence can decide.
+
+**R-CRT-2** No criterion whose failure could only be justified by
+`answerRating`, Question ID, Topic ID, `learningPhase`, or other non-quotable
+metadata. Such requirements belong in deterministic expectations (§6.4).
+
+**R-CRT-3** Criteria are specific and observable ("the feedback corrects the
+assumption that `delay` increments `counter`"), not general ("the feedback
+is good").
+
+**R-CRT-4** When the follow-up question in a case is planner-owned (§10), a
+criterion about the follow-up question evaluates planner and Course Content
+behavior, not the LLM. Authors keep this in mind, and the report shows the
+provenance.
+
+## 10. Follow-up provenance
+
+**R-FUP-1** For every turn with a final result, the report states where the
+final follow-up question came from:
+
+| Value | Meaning |
+| --- | --- |
+| `planner` | taken from an application-owned `TutorPlan` |
+| `provider` | the provider's question, validated and accepted |
+| `application-fallback` | the application replaced the provider question (repeat repair, philosophical/off-topic fallback) |
+
+**R-FUP-2** The provenance is recorded where the application decides which
+follow-up question is used (inside `TutorService`) and handed to callers
+through `TutorService`'s internal return value. It MUST NOT be inferred from
+incidental properties such as "a `questionId` is present".
+
+**R-FUP-3** The provenance is not part of the public HTTP response unless a
+separate API specification adds it.
+
+**R-FUP-4** Until the decision site exposes the provenance, the report shows
+it as unavailable. A heuristic substitute is not allowed.
+
+## 11. Reporting
+
+### 11.1 Execution status vs quality
+
+**R-REP-1** `executionStatus` (`completed`, `invalid`,
+`technical-failure`, `not-run`) describes only whether a sample or run
+executed. It is never a quality statement.
+
+**R-REP-2** Quality is expressed by deterministic check results, violations,
+Judge records, and later by `qualityVerdict` (§12).
+
+### 11.2 Required diagnostics
+
+Per sample (and, where marked, per turn), the report MUST let a developer
+see:
+
+- case ID, sample index;
+- per turn: `learningPhase`, `answerRating`, blocked reason, follow-up
+  provenance (or "unavailable"), deterministic checks with outcome
+  pass/fail/not applicable, violations with source and code;
+- final `phaseAfter`;
+- Judge status, per-criterion verdict, reason and quote, critical issues;
+- technical errors and invalid reasons;
+- provider calls (model list, generation, Judge) and durations.
+
+Per run: requested and returned Tutor and Judge models, corpus
+ID/version/digest, Git SHA, Tutor and Judge prompt revisions, temperatures,
+timeout, budget and calls used, total duration.
+
+**R-REP-3** `report.md` is ordered deterministically (case ID, sample index,
+turn index, check name), so that two runs can be compared with a plain text
+diff.
+
+### 11.3 Artifacts
+
+`report.json` (complete, machine-readable), `report.md` (human-readable
+diagnosis), and `transcripts/transcript-<case>-<sample>.json`. Artifacts are
+disposable run data: written to a caller-chosen output directory or uploaded
+as CI artifacts with bounded retention; never committed by the runner. No
+database and no dashboard.
+
+### 11.4 Stable identifiers
+
+The schema identifiers `tutor-quality-report-v1` and
+`tutor-quality-transcript-v1` and the run-ID prefix are artifact contracts.
+Additive fields are allowed without a schema bump. Removing or redefining
+fields requires a new schema identifier.
+
+## 12. Quality verdict
+
+**R-VER-1** A future `qualityVerdict` per run takes exactly one of: `pass`,
+`warn`, `fail`, `inconclusive`.
+
+**R-VER-2** `inconclusive` covers runs whose result cannot be attributed to
+Tutor quality: technical failures, `invalid` samples, and Judge statuses
+other than `evaluated`. Such outcomes are never reported as Tutor
+regressions.
+
+**R-VER-3** The aggregation rule (how many samples, which failure classes,
+which thresholds) is deliberately not specified yet. It becomes normative
+only after the first validated real-provider baseline run of the repaired
+strategy cases, and is then added here. Until then, no code may emit `fail`
+from a majority rule.
+
+## 13. Change control
+
+| Change | Required |
+| --- | --- |
+| corpus digest changes | bump `corpusVersion` (R-COR-1) |
+| Judge system prompt text | bump Judge prompt revision (R-RSP-4) |
+| Tutor prompt templates | existing Tutor prompt revision/digest mechanism; L3 run before merge |
+| planner, adapter, strategy, Course Content semantics | L1 green; L3 run before merge |
+| new expectation key | update §6.4, parser allowlist, L2 parser tests |
+
+## 14. Non-goals
+
+No benchmark framework, new runner, model ranking, pairwise evaluation,
+calibration platform, exposure tracking, general rubric engine, run database,
+dashboard, workflow engine, or statistics platform.
+
+## Appendix A – Conformance status (non-normative)
+
+Verified against branch `refactor/tutor-quality-phase2-1-strategy-cases` @
+`79032a3f` (not yet merged; `main` @ `c2c2940a`). The plan
+`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` closes these gaps.
+
+| Rule | Current code | Gap |
+| --- | --- | --- |
+| R-EXP-1/2 | `findQuestion` in `curriculum-tutor-adapter.ts` searches only `topic.questions`; answering a generated `expand-*` question ends in `content-exhausted` (reproduced with a fake provider, ratings 2 and 5) | product defect (PR A) |
+| R-EXP-4 | `anchor-course-content.ts` adds `expand-serial-output` (`includeExpansionPlanQuestion`) to imitate the generated question | remove after PR A (PR B) |
+| R-TURN-4 | `bindsToQuestion` must equal `question`; checked in the parser, in the preflight, and in the turn executor | remove the field (PR B) |
+| R-RAT-1..6 | no `answerRating` expectation; L1 fakes derive the rating from `userPrompt.includes("99")`; `strategy-deepen-correction` (a wrong answer) expects `phaseAfter: EXPAND` | PR B |
+| R-AUT-2 | DEEPEN cases use `serial-output.ino`, where `counter` never changes, but the served transfer question asks how `counter` changes | PR B |
+| R-AUT-3 | strategy cases contain ID facts (`variable-value-recall`, `expand-serial-output`, …) | PR B |
+| R-AUT-1 | `anchor-corpus.test.ts` hard-codes the full list of case IDs | PR B |
+| R-EXPD-1, R-BLK-1/2, R-PH-1 | implemented in `79032a3f` (allowlist, strict `learningPhase`, `phaseAfter`, blocked check) | none; phase/blocked literals are duplicated instead of importing the application types (PR B) |
+| R-EVD-3/4 | prompt names the allowlist; the parser checks quotes against the concatenation of all three sources | single-source match (PR C) |
+| R-RSP-4 | Judge prompt text changed in `79032a3f`, but the revision is still `tutor-quality-minimal-criteria-v1` | bump the revision (PR C) |
+| R-FUP-1..4 | not exposed; `TutorService.generateDialogResponse/generateQuestion` return `{ result, model }` | PR C |
+| R-REP-2/3, §11.2 | `report.md` shows only Judge results; no deterministic failures, ratings, blocked reasons, durations | PR C |
+| R-VER-1..3 | not implemented (correct for now) | PR F after baseline PR E |

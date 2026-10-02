@@ -14,6 +14,7 @@ Ziel-SSOT für projektspezifische Agentenarbeit; übergeordnete System-, Tool- u
 - Jede Arbeit im Working-Branch (feature/*, refactor/*, fix/*).
 - Pfad: Working-Branch -> dev -> main.
 - Vor Merge in dev: dev in Working-Branch ziehen und Konflikte lokal lösen.
+- Repo-Klarstellung: Dieses Repository hat derzeit keinen `dev`-Branch. Für die Tutor-Quality-Arbeitsserie ist `main` die Base.
 
 2.2 Test-Integrität:
 

@@ -1,5 +1,7 @@
 # Tutor Quality Stage 1 Implementation Plan
 
+> **HISTORICAL — completed plan (2026-10-02).** Not current worker guidance. The Stage-1 runtime gate stays normative in `ssot/ssot_function_definition_TutorQuality.md`; current plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Establish deterministic Tutor quality hard gates, a reusable scenario runner, the PWM regression case, and compatible Course Content validation in UnoSim and UnoSim-Examples.

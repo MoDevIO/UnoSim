@@ -1,5 +1,7 @@
 # Tutor Quality – Stage 2A Implementation Plan
 
+> **HISTORICAL / SUPERSEDED — completed plan (2026-10-02).** Not current worker guidance. Current plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a small, reviewable real-provider evaluation foundation that runs the normal `TutorService` path, records secret-free transcripts, reapplies deterministic Stage-1 checks, and reports technical outcomes separately from Tutor invariant violations.
