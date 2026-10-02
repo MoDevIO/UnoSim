@@ -711,27 +711,55 @@ export class TutorService {
     if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
     }
-    let followUpSource: TutorFollowUpSource = "provider";
-    let distinctResult = validatedResult;
-    if (validatedResult.responseStyle === "normal") {
-      const distinct = ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy);
-      distinctResult = distinct.result;
-      if (distinct.replaced) followUpSource = "application-fallback";
-    }
-    if (validatedResult.responseStyle === "normal" && this.planningExtension) {
-      const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent: transaction.courseContent });
-      if (nextPlan) {
-        distinctResult = applyPlanningOutcome(distinctResult, nextPlan);
-        if (isTutorPlan(nextPlan)) followUpSource = "planner";
-      }
-    }
-    if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
+    const followUp = await this.applyDialogFollowUp(validatedResult, {
+      code,
+      history: parsedHistory,
+      question,
+      difficulty,
+      strategy,
+      courseContent: transaction.courseContent,
+    });
+    const finalResult = followUp.result.strategyId ? followUp.result : applyStrategyMetadata(followUp.result, strategy);
     transaction.commit();
     return {
       model: providerResult.model,
-      result: distinctResult,
-      followUpSource,
+      result: finalResult,
+      followUpSource: followUp.followUpSource,
     };
+  }
+
+  // Decision site of the dialog follow-up question (R-FUP-2): the provider's question is kept,
+  // replaced by an application fallback, or replaced by an application-owned TutorPlan.
+  private async applyDialogFollowUp(
+    validatedResult: TutorContentResult,
+    context: {
+      readonly code: string;
+      readonly history: readonly TutorDialogTurn[];
+      readonly question: string;
+      readonly difficulty: TutorDifficulty;
+      readonly strategy: StrategyResolution;
+      readonly courseContent?: TutorPlanningContentContext;
+    },
+  ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
+    if (validatedResult.responseStyle !== "normal") return { result: validatedResult, followUpSource: "provider" };
+    const distinct = ensureDistinctDialogQuestion(validatedResult, context.code, context.history, context.question, context.strategy.strategy);
+    let result = distinct.result;
+    let followUpSource: TutorFollowUpSource = distinct.replaced ? "application-fallback" : "provider";
+    if (this.planningExtension) {
+      const nextPlan = await this.planningExtension.planFollowup({
+        code: context.code,
+        history: context.history,
+        currentQuestion: context.question,
+        rating: validatedResult.answerRating!,
+        difficulty: context.difficulty,
+        courseContent: context.courseContent,
+      });
+      if (nextPlan) {
+        result = applyPlanningOutcome(result, nextPlan);
+        if (isTutorPlan(nextPlan)) followUpSource = "planner";
+      }
+    }
+    return { result, followUpSource };
   }
 
   async getAvailableModels(credential: string | undefined): Promise<readonly string[]> {

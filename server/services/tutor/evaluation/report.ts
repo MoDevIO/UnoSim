@@ -5,10 +5,13 @@ import { TUTOR_QUALITY_JUDGE_PROMPT_REVISION } from "./judge";
 import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";
 import type {
+  TutorQualityDeterministicCheck,
   TutorQualityEvaluationOptions,
   TutorQualityEvaluationReport,
+  TutorQualityInvariantViolation,
   TutorQualitySemanticEvaluationRecord,
   TutorQualityTranscript,
+  TutorQualityTranscriptTurn,
 } from "./real-provider-evaluation";
 
 export interface TutorQualityRunManifest {
@@ -96,6 +99,88 @@ export function createTutorQualityRunManifest(
   };
 }
 
+type CheckOutcome = "pass" | "fail" | "not-applicable";
+
+interface CheckDiagnostics {
+  readonly name: string;
+  readonly outcome: CheckOutcome;
+  readonly passed: boolean;
+  readonly details?: string;
+  readonly reason?: string;
+}
+
+interface TurnDiagnostics {
+  readonly index: number;
+  readonly learningPhase?: string;
+  readonly answerRating?: number;
+  readonly progressionBlockedReason?: string;
+  readonly followUpSource?: string;
+  readonly durationMs: number;
+  readonly providerCalls: TutorQualityTranscriptTurn["providerCalls"];
+  readonly checks: readonly CheckDiagnostics[];
+  readonly violations: readonly TutorQualityInvariantViolation[];
+}
+
+// Locale-independent, so that two runs on different machines order identically (R-REP-3).
+function compareText(left: string, right: string): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
+function checkDiagnostics(check: TutorQualityDeterministicCheck): CheckDiagnostics {
+  const outcome: CheckOutcome = check.outcome ?? (check.passed ? "pass" : "fail");
+  return {
+    name: check.name,
+    outcome,
+    passed: check.passed,
+    ...(check.details ? { details: check.details } : {}),
+    ...(check.reason ? { reason: check.reason } : {}),
+  };
+}
+
+function sortedViolations(violations: readonly TutorQualityInvariantViolation[]): TutorQualityInvariantViolation[] {
+  return [...violations].sort((left, right) => (
+    (left.turnIndex ?? -1) - (right.turnIndex ?? -1)
+    || compareText(left.source, right.source)
+    || compareText(left.code, right.code)
+  ));
+}
+
+function turnDiagnostics(
+  turn: TutorQualityTranscriptTurn,
+  isLast: boolean,
+  transcript: TutorQualityTranscript,
+): TurnDiagnostics {
+  const result = turn.finalTutorResult;
+  const blocked = result?.progressionBlockedReason ?? (isLast ? transcript.stateAfter?.progressionBlockedReason : undefined);
+  return {
+    index: turn.index,
+    ...(typeof result?.learningPhase === "string" ? { learningPhase: result.learningPhase } : {}),
+    ...(typeof result?.answerRating === "number" ? { answerRating: result.answerRating } : {}),
+    ...(typeof blocked === "string" ? { progressionBlockedReason: blocked } : {}),
+    // R-FUP-4: never guess; a final result without a recorded source is reported as unavailable.
+    ...(result ? { followUpSource: turn.followUpSource ?? "unavailable" } : {}),
+    durationMs: turn.durationMs,
+    providerCalls: turn.providerCalls,
+    checks: turn.deterministicChecks.map(checkDiagnostics).sort((left, right) => compareText(left.name, right.name)),
+    violations: sortedViolations(transcript.invariantViolations.filter(({ turnIndex }) => turnIndex === turn.index)),
+  };
+}
+
+function sortedTranscripts(transcripts: readonly TutorQualityTranscript[]): TutorQualityTranscript[] {
+  return [...transcripts].sort((left, right) => (
+    compareText(left.scenario.id, right.scenario.id) || left.metadata.sampleIndex - right.metadata.sampleIndex
+  ));
+}
+
+function sortedSemanticEvaluations(
+  evaluations: readonly TutorQualitySemanticEvaluationRecord[],
+): TutorQualitySemanticEvaluationRecord[] {
+  return [...evaluations].sort((left, right) => (
+    compareText(left.scenarioId, right.scenarioId) || left.sampleIndex - right.sampleIndex
+  ));
+}
+
 function createCriterionTotals(semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[]) {
   const criterionTotals = new Map<string, { readonly scenarioId: string; readonly criterionId: string; pass: number; fail: number; unclear: number }>();
   for (const { scenarioId, evaluation } of semanticEvaluations) {
@@ -106,7 +191,9 @@ function createCriterionTotals(semanticEvaluations: readonly TutorQualitySemanti
       criterionTotals.set(key, current);
     }
   }
-  return [...criterionTotals.values()];
+  return [...criterionTotals.values()].sort((left, right) => (
+    compareText(left.scenarioId, right.scenarioId) || compareText(left.criterionId, right.criterionId)
+  ));
 }
 
 function createPhaseSummaries(semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[]): string[] {
@@ -143,8 +230,56 @@ function createSampleDetails(semanticEvaluations: readonly TutorQualitySemanticE
   return lines;
 }
 
-function markdown(report: TutorQualityEvaluationReport, manifest: TutorQualityRunManifest): string {
-  const semanticEvaluations = report.semanticEvaluations ?? [];
+function formatCheckLine(check: CheckDiagnostics): string {
+  if (check.outcome === "not-applicable") return "  - [n/a] " + check.name + (check.reason ? " (" + check.reason + ")" : "");
+  return "  - [" + check.outcome + "] " + check.name + (check.details ? " (" + check.details + ")" : "");
+}
+
+function formatTurnLines(turn: TurnDiagnostics): string[] {
+  const rating = turn.answerRating === undefined ? "none" : String(turn.answerRating);
+  return [
+    "- turn " + turn.index + ": phase " + (turn.learningPhase ?? "none") + ", rating " + rating
+      + ", blocked " + (turn.progressionBlockedReason ?? "none") + ", follow-up " + (turn.followUpSource ?? "none")
+      + ", " + turn.durationMs + " ms",
+    ...turn.checks.map(formatCheckLine),
+    ...turn.violations.map((violation) => "  - violation " + violation.source + " / " + violation.code
+      + (violation.details ? " (" + violation.details + ")" : "")),
+  ];
+}
+
+function createDeterministicDiagnostics(
+  transcripts: readonly TutorQualityTranscript[],
+  semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[],
+): string[] {
+  const lines: string[] = [];
+  for (const transcript of sortedTranscripts(transcripts)) {
+    const semantic = semanticEvaluations.find(({ scenarioId, sampleIndex }) => (
+      scenarioId === transcript.scenario.id && sampleIndex === transcript.metadata.sampleIndex
+    ));
+    const calls = transcript.metadata.providerCalls;
+    lines.push(
+      "#### " + transcript.scenario.id + " / sample " + transcript.metadata.sampleIndex,
+      "",
+      "- status: " + transcript.executionStatus + (transcript.invalidReason ? " (" + transcript.invalidReason + ")" : "")
+        + "; phase after: " + (transcript.stateAfter?.phase ?? "none")
+        + "; duration: " + transcript.metadata.sampleDurationMs + " ms"
+        + "; calls: list " + calls.modelListCalls + ", tutor " + calls.generationCalls,
+      "- judge: " + (semantic?.evaluation.status ?? "not requested"),
+      ...(transcript.technicalError ? ["- technical error: " + transcript.technicalError.kind] : []),
+      ...transcript.turns.flatMap((turn, index) => formatTurnLines(turnDiagnostics(turn, index === transcript.turns.length - 1, transcript))),
+      ...transcript.invariantViolations.filter(({ turnIndex }) => turnIndex === undefined).map((violation) => "- violation " + violation.source + " / " + violation.code),
+      "",
+    );
+  }
+  return lines;
+}
+
+function markdown(
+  report: TutorQualityEvaluationReport,
+  manifest: TutorQualityRunManifest,
+  transcripts: readonly TutorQualityTranscript[],
+): string {
+  const semanticEvaluations = sortedSemanticEvaluations(report.semanticEvaluations ?? []);
   const criterionTotals = createCriterionTotals(semanticEvaluations);
   const phaseSummaries = createPhaseSummaries(semanticEvaluations);
   const lines = [
@@ -159,8 +294,12 @@ function markdown(report: TutorQualityEvaluationReport, manifest: TutorQualityRu
     "Timeout: " + (manifest.timeoutMs ?? "provider default") + " ms",
     "Call budget: " + manifest.maxCalls,
     "Provider calls: " + report.providerCalls.total + " (list " + report.providerCalls.modelListCalls + ", tutor " + report.providerCalls.generationCalls + ", judge " + report.providerCalls.judgeCalls + ")",
+    "Duration: " + report.totalDurationMs + " ms",
     "Corpus file digests: " + (manifest.corpusFileDigests.join(", ") || "unavailable"),
     "",
+    "## Deterministic diagnostics",
+    "",
+    ...createDeterministicDiagnostics(transcripts, semanticEvaluations),
     "## Semantic evaluations",
     "",
     "### Phase summary",
@@ -187,7 +326,7 @@ export async function writeRunArtifacts(
 ): Promise<void> {
   if (!outputDir) return;
   await mkdir(outputDir, { recursive: true });
-  const samples = transcripts.map((transcript) => {
+  const samples = sortedTranscripts(transcripts).map((transcript) => {
     const semantic = report.semanticEvaluations?.find(({ scenarioId, sampleIndex }) => (
       scenarioId === transcript.scenario.id && sampleIndex === transcript.metadata.sampleIndex
     ));
@@ -197,7 +336,13 @@ export async function writeRunArtifacts(
       scenarioId: transcript.scenario.id,
       sampleIndex: transcript.metadata.sampleIndex,
       stageAStatus: transcript.executionStatus,
+      ...(transcript.invalidReason ? { invalidReason: transcript.invalidReason } : {}),
+      ...(transcript.technicalError ? { technicalError: transcript.technicalError } : {}),
+      ...(transcript.stateAfter?.phase ? { phaseAfter: transcript.stateAfter.phase } : {}),
+      durationMs: transcript.metadata.sampleDurationMs,
       deterministicChecks: transcript.deterministicChecks,
+      turns: transcript.turns.map((turn, index) => turnDiagnostics(turn, index === transcript.turns.length - 1, transcript)),
+      violations: sortedViolations(transcript.invariantViolations),
       ...(semantic ? { semanticEvaluation: semantic.evaluation } : {}),
       providerCalls: {
         ...stageACalls,
@@ -207,7 +352,7 @@ export async function writeRunArtifacts(
     };
   });
   await writeFile(`${outputDir}/report.json`, `${JSON.stringify({ ...report, manifest, samples }, null, 2)}\n`, "utf8");
-  await writeFile(`${outputDir}/report.md`, markdown(report, manifest), "utf8");
+  await writeFile(`${outputDir}/report.md`, markdown(report, manifest, transcripts), "utf8");
   const transcriptDirectory = path.join(outputDir, "transcripts");
   if (transcripts.length) await mkdir(transcriptDirectory, { recursive: true });
   await Promise.all(transcripts.map((transcript) => {

@@ -5,6 +5,7 @@ import {
   isSemanticallyRepeatedQuestion,
   TUTOR_PROMPT_REVISION,
   TutorService,
+  type TutorFollowUpSource,
 } from "../tutor-service";
 import {
   TutorProviderError,
@@ -142,6 +143,8 @@ export interface TutorQualityTranscriptTurn {
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
   readonly rawProviderResult?: Record<string, unknown>;
   readonly finalTutorResult?: Record<string, unknown>;
+  /** Where the final follow-up question came from (R-FUP-1); recorded by TutorService at the decision site. */
+  readonly followUpSource?: TutorFollowUpSource;
   readonly returnedModel?: string;
   readonly deterministicChecks: readonly TutorQualityDeterministicCheck[];
   readonly technicalError?: TutorQualityTechnicalError;
@@ -248,6 +251,7 @@ export interface TutorQualityEvaluationReport {
   readonly byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>;
   readonly rates: TutorQualityRates;
   readonly monetaryCost: "unavailable";
+  readonly totalDurationMs: number;
   readonly semanticEvaluations?: readonly TutorQualitySemanticEvaluationRecord[];
 }
 
@@ -725,6 +729,7 @@ interface SampleTurnContext {
 
 interface InvokedTutorTurn {
   readonly finalResult?: TutorContentResult;
+  readonly followUpSource?: TutorFollowUpSource;
   readonly error?: TutorQualityTechnicalError;
   readonly invalidReason?: string;
 }
@@ -763,7 +768,7 @@ async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutor
   try {
     if (turn.kind === "initial") {
       const response = await service.generateQuestion(scenario.sketch, options.credential, options.requestedModel, turn.difficulty ?? 30, content);
-      return { finalResult: response.result };
+      return { finalResult: response.result, followUpSource: response.followUpSource };
     }
     const response = await service.generateDialogResponse(
       scenario.sketch,
@@ -775,7 +780,7 @@ async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutor
       turn.difficulty ?? 30,
       content,
     );
-    return { finalResult: response.result };
+    return { finalResult: response.result, followUpSource: response.followUpSource };
   } catch (error_) {
     return { error: technicalError(error_) };
   }
@@ -862,6 +867,7 @@ function buildTranscriptTurn(
       ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
     } : {}),
     ...(invocation.finalResult ? { finalTutorResult: safeResult(invocation.finalResult, options.credential) } : {}),
+    ...(invocation.finalResult && invocation.followUpSource ? { followUpSource: invocation.followUpSource } : {}),
     deterministicChecks: checks,
     ...(invocation.error ? { technicalError: invocation.error } : {}),
   };
@@ -1111,10 +1117,11 @@ interface BaseReportContext {
   readonly calls: TutorQualityProviderCallCounts;
   readonly byScenario: Readonly<Record<string, TutorQualityScenarioAggregate>>;
   readonly samplesObserved?: number;
+  readonly startedAt: Date;
 }
 
 function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
-  const { options, runId, evaluationIdentity, runStatus, reason, calls, byScenario, samplesObserved = 0 } = context;
+  const { options, runId, evaluationIdentity, runStatus, reason, calls, byScenario, samplesObserved = 0, startedAt } = context;
   const aggregates = Object.values(byScenario);
   const completed = aggregates.reduce((sum, item) => sum + item.completed, 0);
   const invalid = aggregates.reduce((sum, item) => sum + item.invalid, 0);
@@ -1155,6 +1162,7 @@ function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
     byScenario,
     rates: ratesFor(completed, invalid, technicalFailures + preflightTechnicalFailure, notRun, invariantViolationSamples, samplesObserved),
     monetaryCost: "unavailable",
+    totalDurationMs: Math.max(0, (options.now ?? (() => new Date()))().getTime() - startedAt.getTime()),
   };
 }
 
@@ -1197,10 +1205,11 @@ function invalidPreflightReason(options: TutorQualityEvaluationOptions): string 
 }
 
 export async function runTutorQualityEvaluation(options: TutorQualityEvaluationOptions): Promise<TutorQualityEvaluationResult> {
+  const startedAt = (options.now ?? (() => new Date()))();
   const runId = makeRunId(options);
   const evaluationIdentity = makeEvaluationIdentity(options);
   const emptyByScenario = Object.fromEntries(options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]));
-  const earlyResult = await createEarlyResult(options, runId, evaluationIdentity, emptyByScenario);
+  const earlyResult = await createEarlyResult(options, runId, evaluationIdentity, emptyByScenario, startedAt);
   if (earlyResult) return earlyResult;
   if (!options.credential) throw new Error("Tutor credential preflight did not reject missing credentials");
 
@@ -1209,24 +1218,24 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   try {
     availableModels = await provider.listModels(options.credential);
   } catch (error) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario });
+    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
   if (!availableModels.includes(options.requestedModel)) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
+    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
   if (options.judgeModel && !availableModels.includes(options.judgeModel)) {
-    const report = baseReport({ options, runId, evaluationIdentity, runStatus: "invalid", reason: "judge-model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
+    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "judge-model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
 
   const { transcripts, semanticEvaluations, byScenario } = await evaluateSamples(options, provider, runId, evaluationIdentity);
   const report: TutorQualityEvaluationReport = {
-    ...baseReport({ options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length }),
+    ...baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length }),
     ...(semanticEvaluations.length ? { semanticEvaluations } : {}),
   };
   await writeArtifacts(options, report, transcripts);
@@ -1238,10 +1247,11 @@ async function createEarlyResult(
   runId: string,
   evaluationIdentity: string,
   byScenario: Record<string, TutorQualityScenarioAggregate>,
-  status?: TutorQualityEvaluationReport["runStatus"],
-  reason?: string,
-  calls: TutorQualityProviderCallCounts = EMPTY_PROVIDER_CALLS,
+  startedAt: Date,
 ): Promise<TutorQualityEvaluationResult | undefined> {
+  let status: TutorQualityEvaluationReport["runStatus"] | undefined;
+  let reason: string | undefined;
+  let calls: TutorQualityProviderCallCounts = EMPTY_PROVIDER_CALLS;
   const invalidReason = invalidPreflightReason(options);
   if (invalidReason) {
     status = "invalid";
@@ -1257,7 +1267,7 @@ async function createEarlyResult(
     calls = EMPTY_PROVIDER_CALLS;
   }
   if (!status || !reason) return undefined;
-  const report = baseReport({ options, runId, evaluationIdentity, runStatus: status, reason, calls, byScenario });
+  const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: status, reason, calls, byScenario });
   await writeArtifacts(options, report, []);
   return { report, transcripts: [], semanticEvaluations: [] };
 }
