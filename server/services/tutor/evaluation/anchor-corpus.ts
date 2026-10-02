@@ -277,6 +277,21 @@ function parseTurns(value: unknown, label: string): readonly TutorQualityTurnSou
   return turns;
 }
 
+// R-TURN-3: in a Strategy case (one that declares expected.learningPhase) the planner, not the
+// corpus author, must choose the answered question, so every dialog turn is bound via continuationOf.
+function requireBoundStrategyTurns(
+  turns: readonly TutorQualityTurnSource[],
+  expected: TutorQualityExpectation | undefined,
+  label: string,
+): void {
+  if (expected?.learningPhase === undefined) return;
+  turns.forEach((turn, turnIndex) => {
+    if (turn.kind === "dialog" && turn.continuationOf === undefined) {
+      fail(`${label}.turns[${turnIndex}] must declare continuationOf because the case declares expected.learningPhase (R-TURN-3)`);
+    }
+  });
+}
+
 function parseScenario(
   rawScenario: unknown,
   index: number,
@@ -301,6 +316,7 @@ function parseScenario(
   }
   const turns = parseTurns(rawScenario.turns, label);
   const expected = parseExpected(rawScenario.expected, label, turns);
+  requireBoundStrategyTurns(turns, expected, label);
   const judge = parseJudge(rawScenario.judge, label);
   return {
     id: rawScenario.id,

@@ -112,6 +112,31 @@ describe("evaluation report diagnostics (§11.2, R-REP-3)", () => {
     expect(json.samples[0].turns[0].followUpSource).toBe("provider");
   });
 
+  it("shows the corpus ID and version at run level in report.json and report.md (§11.2)", async () => {
+    const { json, markdown } = await runWith([plannerScenario("planner-case")]);
+
+    expect(json.manifest).toMatchObject({ corpusId: "test-corpus", corpusVersion: 1 });
+    expect(markdown).toContain("Corpus: test-corpus v1");
+  });
+
+  it("shows the corpus ID and version even when the run stops before any sample", async () => {
+    const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-diagnostics-"));
+    directories.push(outputDir);
+    await runTutorQualityEvaluation({
+      scenarios: [freeScenario("a-case")],
+      provider,
+      providerId: "fake-provider",
+      requestedModel: "fake-model",
+      samples: 1,
+      maxCalls: 5,
+      outputDir,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+    });
+    const json = JSON.parse(await readFile(path.join(outputDir, "report.json"), "utf8")) as Record<string, any>;
+
+    expect(json).toMatchObject({ runStatus: "not-run", reason: "missing-credential", manifest: { corpusId: "test-corpus", corpusVersion: 1 } });
+  });
+
   it("renders the same diagnostics in report.md", async () => {
     const { markdown } = await runWith([plannerScenario("planner-case")]);
 

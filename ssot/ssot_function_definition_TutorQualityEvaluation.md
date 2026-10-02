@@ -678,19 +678,21 @@ dashboard, workflow engine, or statistics platform.
 
 ## Appendix A – Conformance status (non-normative)
 
-Verified against `main` @ `b75dd326` (after PRs #128–#131 of
-`docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since the first
-version of this document: the EXPAND continuation (R-EXP-1..4, PR A), the
-corpus, rating-band, and binding contract (R-TURN-4, R-RAT-1..6, R-AUT-1..3,
-R-EXPD-1, R-BLK-1/2, PR B), and the Judge quote, provenance, and report
-diagnostics contract (R-EVD-3/4, R-RSP-4, R-FUP-1..4, R-REP-2/3, §11.2, PR C).
-Remaining known deviations:
+Verified against `main` @ `425bf362` plus the conformance fix that follows it
+(PRs #128–#132 of `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since
+the first version of this document: the EXPAND continuation (R-EXP-1..4, PR A),
+the corpus, rating-band, and binding contract (R-TURN-4, R-RAT-1..6, R-AUT-1..3,
+R-EXPD-1, R-BLK-1/2, PR B), the Judge quote, provenance, and report diagnostics
+contract (R-EVD-3/4, R-RSP-4, R-FUP-1..4, R-REP-2/3, §11.2, PR C), and the two
+remaining gaps found by the consolidation: the run-level corpus ID and version
+in `report.json` (`manifest.corpusId`, `manifest.corpusVersion`) and `report.md`
+(§11.2), and the fail-fast corpus-parser enforcement of R-TURN-3 for every dialog
+turn of a case that declares `expected.learningPhase`. Remaining known
+deviations:
 
 | Rule | Current code | Owner |
 | --- | --- | --- |
 | R-VER-1..3 | not implemented (correct for now) | PR F, after the baseline of PR E |
-| §11.2 per run | the run-level report shows Git SHA, models, prompt revisions, temperatures, timeout, budget, calls, duration, and corpus file digests; corpus ID and version appear in the evaluation identity and in every transcript's metadata, not as run-level report fields | none assigned; candidate for PR E preparation |
-| R-TURN-3 | enforced by the corpus structural test, not by the corpus parser | none; accepted unless a case slips through |
 | R-ATT-2 | only `expected-phase-after` can be reported as not applicable (rating out of band) | none; no other check has a not-applicable state |
 
 Intentional historical identifiers that stay in code and artifacts (§11.4):
