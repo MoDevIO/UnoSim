@@ -1,8 +1,10 @@
 import type { CurriculumTopic, TopicDeepening } from "./curriculum-schema";
 import type { Observation } from "./learning-planner";
 
-export type DidacticPhase = "LEARN" | "DEEPEN" | "EXPAND";
-export type ProgressionBlockedReason = "content-exhausted";
+export const DIDACTIC_PHASES = ["LEARN", "DEEPEN", "EXPAND"] as const;
+export type DidacticPhase = typeof DIDACTIC_PHASES[number];
+export const PROGRESSION_BLOCKED_REASONS = ["content-exhausted"] as const;
+export type ProgressionBlockedReason = typeof PROGRESSION_BLOCKED_REASONS[number];
 
 export interface TutorProgressionState {
   revision: string;

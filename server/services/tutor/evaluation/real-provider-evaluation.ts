@@ -18,6 +18,7 @@ import {
 import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
+import type { TutorQualityExpectation } from "./anchor-corpus";
 import { canonicalDigest, canonicalJson, sha256 } from "./canonical";
 import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
 import {
@@ -53,7 +54,6 @@ export type TutorQualityTurn =
     readonly kind: "dialog";
     readonly question: string;
     readonly answer: string;
-    readonly bindsToQuestion: string;
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorDialogTurn[];
@@ -73,13 +73,7 @@ export interface TutorQualityEvaluationScenario {
   };
   readonly courseContent?: TutorPlanningContentContext;
   readonly turns: readonly TutorQualityTurn[];
-  readonly expected?: {
-    readonly topicId?: string;
-    readonly topicIdAbsent?: string;
-    readonly learningPhase?: "LEARN" | "DEEPEN" | "EXPAND";
-    readonly stateUnchanged?: boolean;
-    readonly questionNotRepeat?: "exact-or-heuristic";
-  };
+  readonly expected?: TutorQualityExpectation;
 }
 
 export interface TutorQualityGitState {
@@ -114,6 +108,9 @@ export interface TutorQualityDeterministicCheck {
   readonly name: string;
   readonly passed: boolean;
   readonly details?: string;
+  /** Set only when the check could not be interpreted; such a check is neither a pass nor a fail. */
+  readonly outcome?: "not-applicable";
+  readonly reason?: string;
 }
 
 export interface TutorQualityInvariantViolation {
@@ -467,7 +464,6 @@ function safeTurn(turn: TutorQualityTurn, credential?: string): TutorQualityTurn
     ...turn,
     question: redact(turn.question, credential),
     answer: redact(turn.answer, credential),
-    bindsToQuestion: redact(turn.bindsToQuestion, credential),
     ...(turn.history === undefined ? {} : {
       history: turn.history.map((entry) => ({
         ...entry,
@@ -561,9 +557,62 @@ function expectedTopicAbsentCheck(context: ExpectedCheckContext): void {
 function expectedPhaseCheck(context: ExpectedCheckContext): void {
   const expectedPhase = context.scenario.expected?.learningPhase;
   if (expectedPhase === undefined) return;
-  const passed = context.result.learningPhase === expectedPhase || context.stateAfter?.phase === expectedPhase;
+  const passed = context.result.learningPhase === expectedPhase;
   addCheck(context.checks, "expected-learning-phase", passed, expectedPhase);
   if (!passed) addViolation(context.violations, "phase-mismatch", "final-tutor", context.turnIndex, expectedPhase);
+}
+
+function ratingOutOfBand(context: ExpectedCheckContext): boolean {
+  const band = context.scenario.expected?.answerRating;
+  const isFinalTurn = context.turnIndex === context.scenario.turns.length - 1;
+  if (band === undefined || !isFinalTurn) return false;
+  const rating = context.result.answerRating;
+  return rating === undefined || rating < band[0] || rating > band[1];
+}
+
+function expectedAnswerRatingCheck(context: ExpectedCheckContext): void {
+  const band = context.scenario.expected?.answerRating;
+  if (band === undefined || context.turnIndex !== context.scenario.turns.length - 1) return;
+  const passed = !ratingOutOfBand(context);
+  addCheck(context.checks, "expected-answer-rating", passed, `${band[0]}-${band[1]}`);
+  if (!passed) {
+    addViolation(context.violations, "answer-rating-out-of-band", "final-tutor", context.turnIndex, `${context.result.answerRating ?? "none"} not in ${band[0]}-${band[1]}`);
+  }
+}
+
+function expectedPhaseAfterCheck(context: ExpectedCheckContext): void {
+  if (context.turnIndex !== context.scenario.turns.length - 1) return;
+  const expectedPhaseAfter = context.scenario.expected?.phaseAfter;
+  if (expectedPhaseAfter === undefined) return;
+  if (ratingOutOfBand(context)) {
+    context.checks.push({
+      name: "expected-phase-after",
+      passed: false,
+      details: expectedPhaseAfter,
+      outcome: "not-applicable",
+      reason: "rating-out-of-band",
+    });
+    return;
+  }
+  const passed = context.stateAfter?.phase === expectedPhaseAfter;
+  addCheck(context.checks, "expected-phase-after", passed, expectedPhaseAfter);
+  if (!passed) addViolation(context.violations, "phase-after-mismatch", "state", context.turnIndex, expectedPhaseAfter);
+}
+
+function unexpectedBlockedStateCheck(context: ExpectedCheckContext): void {
+  const actualReason = context.result.progressionBlockedReason ?? context.stateAfter?.progressionBlockedReason;
+  const expectedReason = context.scenario.expected?.progressionBlockedReason;
+  const passed = actualReason === expectedReason;
+  addCheck(context.checks, "expected-progression-blocked-reason", passed, expectedReason ?? "none");
+  if (!passed) {
+    addViolation(
+      context.violations,
+      "progression-blocked-reason-mismatch",
+      "state",
+      context.turnIndex,
+      actualReason ?? "none",
+    );
+  }
 }
 
 function expectedStateCheck(context: ExpectedCheckContext): void {
@@ -586,6 +635,8 @@ function expectedChecks(context: ExpectedCheckContext): void {
   expectedTopicCheck(context);
   expectedTopicAbsentCheck(context);
   expectedPhaseCheck(context);
+  expectedAnswerRatingCheck(context);
+  expectedPhaseAfterCheck(context);
   expectedStateCheck(context);
   expectedQuestionCheck(context);
 }
@@ -606,7 +657,8 @@ function applicationMetadataChecks(
   const phasePassed = result.learningPhase === undefined
     || stateAfter.phase === undefined
     || result.learningPhase === stateAfter.phase
-    || (result.learningPhase === "LEARN" && stateAfter.phase === "DEEPEN");
+    || (result.learningPhase === "LEARN" && stateAfter.phase === "DEEPEN")
+    || (result.learningPhase === "DEEPEN" && stateAfter.phase === "EXPAND");
   addCheck(checks, "phase-state-consistent", phasePassed);
   if (!phasePassed) addViolation(violations, "state-phase-mismatch", "state", turnIndex);
   const topicPassed = result.activeTopicId === undefined || result.activeTopicId === stateAfter.activeTopicId;
@@ -694,13 +746,9 @@ interface SampleTurnOutcome {
 function invalidTurnContext(context: SampleTurnContext): string | undefined {
   const { turn, turnIndex, finalQuestions, violations } = context;
   if (turn.kind === "initial") return undefined;
-  if (turn.bindsToQuestion !== turn.question) {
-    addViolation(violations, "unbound-question-context", "scenario", turnIndex);
-    return "unbound-question-context";
-  }
   if (turn.continuationOf !== undefined) {
     const precedingQuestion = finalQuestions.get(turn.continuationOf);
-    if (precedingQuestion === undefined || precedingQuestion !== turn.bindsToQuestion) {
+    if (precedingQuestion === undefined || precedingQuestion !== turn.question) {
       addViolation(violations, "preceding-question-mismatch", "scenario", turnIndex);
       return "preceding-question-mismatch";
     }
@@ -769,6 +817,16 @@ function processFinalResult(
   context.finalQuestions.set(context.turnIndex, finalResult.question);
   addCheck(checks, "final-tutor-response-present", true);
   expectedChecks({
+    scenario: context.scenario,
+    result: finalResult,
+    turn: context.turn,
+    stateBefore: context.stateBefore,
+    stateAfter: context.content?.progressionState,
+    checks,
+    violations: context.violations,
+    turnIndex: context.turnIndex,
+  });
+  unexpectedBlockedStateCheck({
     scenario: context.scenario,
     result: finalResult,
     turn: context.turn,
@@ -1130,11 +1188,6 @@ function invalidCorpusPreflightReason(options: TutorQualityEvaluationOptions): s
   const first = options.scenarios[0];
   if (options.scenarios.some((scenario) => scenario.corpusId !== first?.corpusId || scenario.corpusVersion !== first?.corpusVersion)) {
     return "mixed-corpus-versions";
-  }
-  for (const scenario of options.scenarios) {
-    for (const turn of scenario.turns) {
-      if (turn.kind === "dialog" && turn.bindsToQuestion !== turn.question) return "unbound-question-context";
-    }
   }
   return undefined;
 }

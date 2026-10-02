@@ -31,7 +31,6 @@ function scenario(overrides: Partial<TutorQualityEvaluationScenario> = {}): Tuto
       kind: "dialog",
       question: "Welche Rolle spielt counter im Sketch?",
       answer: "counter speichert einen ganzzahligen Wert.",
-      bindsToQuestion: "Welche Rolle spielt counter im Sketch?",
       difficulty: 30,
     }],
     ...overrides,
@@ -549,7 +548,6 @@ describe("real-provider Tutor Quality evaluation runner", () => {
           kind: "dialog",
           question: "Welche Beobachtung ist belegt?",
           answer: "super-secret-value",
-          bindsToQuestion: "Welche Beobachtung ist belegt?",
         }],
       })],
     }));
@@ -625,7 +623,6 @@ describe("real-provider Tutor Quality evaluation runner", () => {
           kind: "dialog",
           question: "Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?",
           answer: "int speichert den ganzzahligen Wert von counter.",
-          bindsToQuestion: "Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?",
           difficulty: 30,
         }],
       })],
@@ -680,7 +677,6 @@ describe("real-provider Tutor Quality evaluation runner", () => {
             kind: "dialog",
             question: "Welche deklarierte Frage soll gelten?",
             answer: "Eine Antwort auf die deklarierte Frage.",
-            bindsToQuestion: "Welche deklarierte Frage soll gelten?",
             continuationOf: 0,
             difficulty: 20,
           },
@@ -692,5 +688,63 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.executionStatus).toBe("invalid");
     expect(transcript.invalidReason).toBe("preceding-question-mismatch");
     expect(transcript.turns).toHaveLength(1);
+  });
+  describe("expected answer rating and phaseAfter", () => {
+    const roleQuestion = "Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?";
+    function ratingScenario(expected: NonNullable<TutorQualityEvaluationScenario["expected"]>) {
+      return scenario({
+        id: "rating-band",
+        sketch: "int counter = 3; void setup() { Serial.println(counter); } void loop() {}",
+        courseContent: createAnchorCourseContent("progression-learn"),
+        turns: [{ kind: "dialog", question: roleQuestion, answer: "int speichert den Wert von counter.", difficulty: 30 }],
+        expected,
+      });
+    }
+    function ratedProvider(rating: number) {
+      return providerFor({ responseStyle: "normal", answerRating: rating, question: "Welche Beobachtung ist belegt?" });
+    }
+
+    it("passes the band check and phaseAfter when the rating is inside the band", async () => {
+      const result = await runTutorQualityEvaluation(options(ratedProvider(4), {
+        scenarios: [ratingScenario({ learningPhase: "LEARN", phaseAfter: "DEEPEN", answerRating: [3, 5] })],
+      }));
+      const transcript = result.transcripts[0]!;
+
+      expect(transcript.invariantViolations).toEqual([]);
+      expect(transcript.deterministicChecks).toContainEqual(expect.objectContaining({ name: "expected-answer-rating", passed: true }));
+      expect(transcript.deterministicChecks).toContainEqual(expect.objectContaining({ name: "expected-phase-after", passed: true }));
+    });
+
+    it("reports a rating outside the band as a rating failure and phaseAfter as not applicable", async () => {
+      const result = await runTutorQualityEvaluation(options(ratedProvider(1), {
+        scenarios: [ratingScenario({ learningPhase: "LEARN", phaseAfter: "DEEPEN", answerRating: [3, 5] })],
+      }));
+      const transcript = result.transcripts[0]!;
+
+      expect(transcript.invariantViolations).toEqual([
+        expect.objectContaining({ code: "answer-rating-out-of-band", source: "final-tutor", turnIndex: 0 }),
+      ]);
+      const phaseAfter = transcript.deterministicChecks.find(({ name }) => name === "expected-phase-after");
+      expect(phaseAfter).toMatchObject({ outcome: "not-applicable", reason: "rating-out-of-band" });
+      expect(phaseAfter?.passed).not.toBe(true);
+    });
+
+    it("reports a phaseAfter mismatch as a progression failure only when the rating is inside the band", async () => {
+      const result = await runTutorQualityEvaluation(options(ratedProvider(4), {
+        scenarios: [ratingScenario({ learningPhase: "LEARN", phaseAfter: "EXPAND", answerRating: [3, 5] })],
+      }));
+
+      expect(result.transcripts[0]!.invariantViolations).toEqual([
+        expect.objectContaining({ code: "phase-after-mismatch", source: "state" }),
+      ]);
+    });
+
+    it("keeps checking phaseAfter when no rating band is declared", async () => {
+      const result = await runTutorQualityEvaluation(options(ratedProvider(4), {
+        scenarios: [ratingScenario({ learningPhase: "LEARN", phaseAfter: "EXPAND" })],
+      }));
+
+      expect(result.transcripts[0]!.invariantViolations.map(({ code }) => code)).toEqual(["phase-after-mismatch"]);
+    });
   });
 });
