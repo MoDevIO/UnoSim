@@ -1,5 +1,7 @@
 # Tutor Quality Judge Smoke — 2026-10-01
 
+> **Historischer Messbericht.** Die Begriffe Stage 2A/2B, Protocol A/B und G1 sind im Glossar von `ssot/ssot_function_definition_TutorQualityEvaluation.md` (§2) definiert. G1 ist an die damals gemessene Judge-Prompt-Revision `tutor-quality-minimal-criteria-v1` gebunden; die aktuelle Revision `-v2` (PR #131) wurde nicht neu gemessen und G1 ist kein Laufzeit-Gate.
+
 ## Aktueller Status
 
 Maßgeblich für PR 1.4 sind die Offline-Korrektur in Abschnitt J und die anschließende formale Protocol-B-Revalidierung in Abschnitt K: **G1 PASS**. Die früheren FAIL-Ergebnisse in den Abschnitten E, H und I dokumentieren unverändert ihre jeweiligen damaligen Batches und werden nicht rückwirkend umgedeutet. PR 1.4 enthält keinen Stage-2B-Removal.
@@ -142,7 +144,7 @@ Dieser Abschnitt dokumentiert den damaligen Follow-up-Stand nach der Model-Ident
 - Angefordert wurde der öffentliche Alias `openai-gpt5.5`; KI:connect lieferte in den Completions `gpt-5.5-2026-04-24` zurück.
 - Stage A und der Judge verglichen diese Strings zuvor exakt und verwarfen die Auswertung, obwohl der Provider den Alias zuvor als verfügbar meldete und eine konkrete Antwortmodell-ID lieferte. Ein OpenAI-kompatibler Provider garantiert nicht, dass ein Alias als identischer String im Completion-Response wiederholt wird.
 - Prüfbar sind stattdessen: ein fixes, explizites und im Preflight verfügbares Request-Modell (kein `auto`), eine nichtleere returned model identity als Provenance sowie deren Batch-Konsistenz. Request-Alias und returned/resolved ID bleiben getrennt sichtbar. Ein fehlendes returned model bleibt fail-closed.
-- Minimal geändert wurden `real-provider-evaluation.ts`, `kiconnect-provider.ts`, fokussierte Evaluation-/Provider-Regressionstests und die relevante Modellidentitätsaussage in `ssot_function_definition_TutorQualityStage2A.md`. `report.ts` kann requested und returned IDs bereits getrennt ausweisen. Die geschützte `ssot_function_tutor_model_registration.md` blieb unverändert.
+- Minimal geändert wurden `real-provider-evaluation.ts`, `kiconnect-provider.ts`, fokussierte Evaluation-/Provider-Regressionstests und die relevante Modellidentitätsaussage in `ssot_function_definition_TutorQualityStage2A.md` (inzwischen in PR D entfernt; abgelöst durch die Evaluation-SSOT). `report.ts` kann requested und returned IDs bereits getrennt ausweisen. Die geschützte `ssot_function_tutor_model_registration.md` blieb unverändert.
 - RED wurde für Alias-Auflösung, fehlende returned ID und Judge-Preflight beobachtet; anschließend liefen die fokussierten Tests sowie die im Arbeitsstand dokumentierten lokalen Gates erfolgreich: `npm run check`, Tutor-TS-Compile, Tutor-Quality-Tests, Unit-Tests, Docs-Check und `git diff --check`.
 
 ### Freeze und Calls

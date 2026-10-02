@@ -18,7 +18,7 @@ on:
         default: "30"
         type: string
       judge_model:
-        description: Fixed Judge model ID (leave empty for Stage 2A only)
+        description: Fixed Judge model ID (leave empty for execution only)
         required: false
         type: string
       case:
@@ -68,11 +68,11 @@ jobs:
           fi
           npm run eval:tutor-quality:real -- "${args[@]}"
 
-      - name: Upload Stage 2A artifacts
+      - name: Upload evaluation artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tutor-quality-stage-2a-${{ github.run_id }}
+          name: tutor-quality-run-${{ github.run_id }}
           path: .tutor-quality-output/
           if-no-files-found: error
           retention-days: 14

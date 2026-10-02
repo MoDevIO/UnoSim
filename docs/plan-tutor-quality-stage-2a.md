@@ -10,7 +10,7 @@
 
 **Tech Stack:** TypeScript/ESM, existing `TutorService`/`LLMProvider`/`KiconnectProvider`, `yaml`, Node `crypto`/`fs`, Vitest, `tsx`, GitHub Actions `workflow_dispatch`.
 
-**Spec:** `ssot/ssot_function_definition_TutorQualityStage2A.md`
+**Spec:** `ssot/ssot_function_definition_TutorQualityStage2A.md` (removed in PR D; superseded by `ssot/ssot_function_definition_TutorQualityEvaluation.md`)
 
 ## Global Constraints
 
