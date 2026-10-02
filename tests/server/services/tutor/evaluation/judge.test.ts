@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildJudgeInput,
   buildJudgePrompt,
+  JUDGE_QUOTE_SOURCES,
   parseJudgeResult,
+  TUTOR_QUALITY_JUDGE_PROMPT_REVISION,
   type TutorQualityJudgeInput,
 } from "../../../../../server/services/tutor/evaluation/judge";
 
@@ -138,5 +140,76 @@ describe("minimal Tutor Quality Judge", () => {
     expect(prompt.systemPrompt).toMatch(/only the sketch, tutor\.feedback, and tutor\.followUpQuestion.*quote sources/i);
     expect(prompt.systemPrompt).toMatch(/fail verdict.*non-empty exact quote from the allowed evidence/i);
     expect(prompt.systemPrompt).toMatch(/pass and unclear.*quote may be omitted, null, empty, or whitespace-only.*absent/i);
+  });
+  describe("quote allowlist and quote source boundary (R-EVD-1..4)", () => {
+    const sourceText: Record<(typeof JUDGE_QUOTE_SOURCES)[number], string> = {
+      sketch: judgeInput.sketch,
+      "tutor.feedback": judgeInput.tutor.feedback,
+      "tutor.followUpQuestion": judgeInput.tutor.followUpQuestion,
+    };
+    const quoteWith = (quote: string) => ({
+      criteria: [{ ...validResult.criteria[0], verdict: "fail", quote }],
+      criticalIssues: [],
+    });
+
+    it("defines the quote allowlist once, with exactly the three normative sources", () => {
+      expect([...JUDGE_QUOTE_SOURCES]).toEqual(["sketch", "tutor.feedback", "tutor.followUpQuestion"]);
+    });
+
+    it("names exactly the allowlist constant in the prompt", () => {
+      const sources = [...JUDGE_QUOTE_SOURCES];
+      const list = `${sources.slice(0, -1).join(", ")}, and ${sources.at(-1)}`;
+
+      expect(buildJudgePrompt(judgeInput).systemPrompt).toContain(`Only the ${list} fields are quote sources`);
+    });
+
+    it.each([...JUDGE_QUOTE_SOURCES])("accepts a quote taken from the allowed source %s", (source) => {
+      expect(parseJudgeResult(quoteWith(sourceText[source]), judgeInput).status).toBe("evaluated");
+    });
+
+    it.each(["facts", "question", "learnerAnswer", "criterion text"] as const)("rejects a quote taken from the non-quotable %s", (field) => {
+      // Distinct texts, so the quote cannot also occur inside an allowed source.
+      const input: TutorQualityJudgeInput = {
+        ...judgeInput,
+        facts: ["Fakt nur in den Fakten."],
+        question: "Frage nur in der Frage?",
+        learnerAnswer: "Antwort nur von der lernenden Person.",
+        criteria: [{ id: "correct-answer", text: "Kriterium nur im Kriterientext." }],
+      };
+      const quote = { facts: input.facts[0]!, question: input.question, learnerAnswer: input.learnerAnswer, "criterion text": input.criteria[0]!.text }[field];
+
+      expect(parseJudgeResult(quoteWith(quote), input)).toMatchObject({ status: "judge-invalid", reason: "criterion-quote-not-in-evidence" });
+    });
+
+    it.each([
+      ["feedback and follow-up question", "starts at three. What changes"],
+      ["sketch and feedback", "counter = 3; Correct, counter"],
+    ])("rejects a criterion quote spanning the boundary of %s", (_label, quote) => {
+      expect(parseJudgeResult(quoteWith(quote), judgeInput)).toMatchObject({ status: "judge-invalid", reason: "criterion-quote-not-in-evidence" });
+    });
+
+    it("rejects a critical-issue quote spanning two sources and accepts one inside a single source", () => {
+      const issue = (quote: string) => ({
+        criteria: validResult.criteria,
+        criticalIssues: [{ code: "factually-wrong-feedback", reason: "Incorrect.", quote }],
+      });
+
+      expect(parseJudgeResult(issue("starts at three. What changes"), judgeInput))
+        .toMatchObject({ status: "judge-invalid", reason: "critical-issue-quote-not-in-evidence" });
+      expect(parseJudgeResult(issue("counter starts at three"), judgeInput).status).toBe("evaluated");
+    });
+
+    it("still matches a single-source quote after NFKC normalization and whitespace collapsing", () => {
+      expect(parseJudgeResult(quoteWith("Correct,   counter\nstarts at three."), judgeInput).status).toBe("evaluated");
+    });
+  });
+
+  it("bumps the Judge prompt revision when the system prompt text changed (R-RSP-4)", () => {
+    const prompt = buildJudgePrompt(judgeInput);
+
+    expect(TUTOR_QUALITY_JUDGE_PROMPT_REVISION).toBe("tutor-quality-minimal-criteria-v2");
+    // Pins the prompt text to its revision: changing the text requires a new revision and a new digest here.
+    expect(prompt.revision).toBe("tutor-quality-minimal-criteria-v2");
+    expect(prompt.systemDigest).toBe("71ac0c843a76de32142943ae1e6f98097b7e5324a1723b8b3935701e70da7e86");
   });
 });
