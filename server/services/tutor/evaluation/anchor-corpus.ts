@@ -1,3 +1,9 @@
+import {
+  DIDACTIC_PHASES,
+  PROGRESSION_BLOCKED_REASONS,
+  type DidacticPhase,
+  type ProgressionBlockedReason,
+} from "../curriculum/progression-state";
 import { canonicalDigest } from "./canonical";
 
 export interface TutorQualityHistoryEntrySource {
@@ -17,7 +23,6 @@ export type TutorQualityTurnSource =
     readonly kind: "dialog";
     readonly question: string;
     readonly answer: string;
-    readonly bindsToQuestion: string;
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorQualityHistoryEntrySource[];
@@ -30,15 +35,20 @@ export interface TutorQualityScenarioSource {
   readonly model?: string;
   readonly judge?: TutorQualityJudgeSource;
   readonly turns: readonly TutorQualityTurnSource[];
-  readonly expected?: {
-    readonly topicId?: string;
-    readonly topicIdAbsent?: string;
-    readonly learningPhase?: "LEARN" | "DEEPEN" | "EXPAND";
-    readonly phaseAfter?: "LEARN" | "DEEPEN" | "EXPAND";
-    readonly progressionBlockedReason?: "content-exhausted";
-    readonly stateUnchanged?: boolean;
-    readonly questionNotRepeat?: "exact-or-heuristic";
-  };
+  readonly expected?: TutorQualityExpectation;
+}
+
+export type TutorQualityAnswerRatingBand = readonly [min: number, max: number];
+
+export interface TutorQualityExpectation {
+  readonly topicId?: string;
+  readonly topicIdAbsent?: string;
+  readonly learningPhase?: DidacticPhase;
+  readonly phaseAfter?: DidacticPhase;
+  readonly answerRating?: TutorQualityAnswerRatingBand;
+  readonly progressionBlockedReason?: ProgressionBlockedReason;
+  readonly stateUnchanged?: boolean;
+  readonly questionNotRepeat?: "exact-or-heuristic";
 }
 
 export interface TutorQualityJudgeSource {
@@ -127,8 +137,6 @@ function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQu
   if (value.kind !== "dialog") fail(`${label}.kind must be initial or dialog`);
   assertNonEmptyString(value.question, `${label}.question`);
   assertNonEmptyString(value.answer, `${label}.answer`);
-  assertNonEmptyString(value.bindsToQuestion, `${label}.bindsToQuestion`);
-  if (value.question !== value.bindsToQuestion) fail(`${label} bindsToQuestion must equal question`);
   const continuationOf = value.continuationOf;
   if (continuationOf !== undefined && (typeof continuationOf !== "number" || !Number.isInteger(continuationOf) || continuationOf < 0)) {
     fail(`${label}.continuationOf must reference a preceding turn`);
@@ -139,7 +147,6 @@ function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQu
     kind: "dialog",
     question: value.question,
     answer: value.answer,
-    bindsToQuestion: value.bindsToQuestion,
     ...(continuationOf === undefined ? {} : { continuationOf }),
     ...(difficulty === undefined ? {} : { difficulty }),
     ...(history === undefined ? {} : { history }),
@@ -166,21 +173,46 @@ export function tutorQualityCorpusDigest(source: TutorQualityCorpusSource): stri
   return canonicalDigest(normalizedCorpusSource(source));
 }
 
-function parseExpected(value: unknown, label: string): TutorQualityScenarioSource["expected"] | undefined {
+function parseAnswerRatingBand(value: unknown, label: string): TutorQualityAnswerRatingBand {
+  const valid = Array.isArray(value)
+    && value.length === 2
+    && value.every((rating) => typeof rating === "number" && Number.isInteger(rating) && rating >= 1 && rating <= 5)
+    && (value[0] as number) <= (value[1] as number);
+  if (!valid) fail(`${label}.expected.answerRating must be [min, max] with 1 <= min <= max <= 5`);
+  return [value[0] as number, value[1] as number];
+}
+
+function parseExpected(
+  value: unknown,
+  label: string,
+  turns: readonly TutorQualityTurnSource[],
+): TutorQualityExpectation | undefined {
   if (value === undefined) return undefined;
   assertObject(value, `${label}.expected`);
-  const allowedKeys = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
+  const allowedKeys = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label}.expected.${key} is unknown`);
   }
   if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
   if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
   for (const key of ["learningPhase", "phaseAfter"] as const) {
-    if (value[key] !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(value[key] as string)) {
+    if (value[key] !== undefined && !(DIDACTIC_PHASES as readonly string[]).includes(value[key] as string)) {
       fail(`${label}.expected.${key} is invalid`);
     }
   }
-  if (value.progressionBlockedReason !== undefined && value.progressionBlockedReason !== "content-exhausted") {
+  const answerRating = value.answerRating === undefined ? undefined : parseAnswerRatingBand(value.answerRating, label);
+  if (answerRating !== undefined && turns.at(-1)?.kind !== "dialog") {
+    fail(`${label}.expected.answerRating requires the final turn to be a dialog turn`);
+  }
+  if (value.phaseAfter !== undefined) {
+    if (value.learningPhase === undefined) fail(`${label}.expected.phaseAfter requires expected.learningPhase`);
+    // Progression out of LEARN and DEEPEN always depends on ratings.
+    if (value.learningPhase !== "EXPAND" && answerRating === undefined) {
+      fail(`${label}.expected.phaseAfter after a ${String(value.learningPhase)} turn requires expected.answerRating`);
+    }
+  }
+  if (value.progressionBlockedReason !== undefined
+    && !(PROGRESSION_BLOCKED_REASONS as readonly string[]).includes(value.progressionBlockedReason as string)) {
     fail(`${label}.expected.progressionBlockedReason is invalid`);
   }
   if (value.stateUnchanged !== undefined && typeof value.stateUnchanged !== "boolean") fail(`${label}.expected.stateUnchanged is invalid`);
@@ -190,9 +222,10 @@ function parseExpected(value: unknown, label: string): TutorQualityScenarioSourc
   return {
     ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
     ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
-    ...(typeof value.learningPhase === "string" ? { learningPhase: value.learningPhase as "LEARN" | "DEEPEN" | "EXPAND" } : {}),
-    ...(typeof value.phaseAfter === "string" ? { phaseAfter: value.phaseAfter as "LEARN" | "DEEPEN" | "EXPAND" } : {}),
-    ...(value.progressionBlockedReason === "content-exhausted" ? { progressionBlockedReason: value.progressionBlockedReason } : {}),
+    ...(typeof value.learningPhase === "string" ? { learningPhase: value.learningPhase as DidacticPhase } : {}),
+    ...(typeof value.phaseAfter === "string" ? { phaseAfter: value.phaseAfter as DidacticPhase } : {}),
+    ...(answerRating === undefined ? {} : { answerRating }),
+    ...(typeof value.progressionBlockedReason === "string" ? { progressionBlockedReason: value.progressionBlockedReason as ProgressionBlockedReason } : {}),
     ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
     ...(value.questionNotRepeat === "exact-or-heuristic" ? { questionNotRepeat: value.questionNotRepeat } : {}),
   };
@@ -256,7 +289,7 @@ function parseScenario(
     if (rawScenario.model === "auto") fail(`${label}.model must be a fixed model id`);
   }
   const turns = parseTurns(rawScenario.turns, label);
-  const expected = parseExpected(rawScenario.expected, label);
+  const expected = parseExpected(rawScenario.expected, label, turns);
   const judge = parseJudge(rawScenario.judge, label);
   return {
     id: rawScenario.id,

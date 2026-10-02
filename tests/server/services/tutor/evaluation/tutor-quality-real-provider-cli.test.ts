@@ -17,6 +17,13 @@ import {
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import type { LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
+// The fake provider rates every answer with the lower bound of the case's
+// expected.answerRating band (5 when the case declares none); it never inspects
+// prompt content.
+function fakeRatingFor(scenario: { readonly expected?: { readonly answerRating?: readonly [number, number] } }): 1 | 2 | 3 | 4 | 5 {
+  return (scenario.expected?.answerRating?.[0] ?? 5) as 1 | 2 | 3 | 4 | 5;
+}
+
 describe("Tutor Quality real-provider CLI contract", () => {
   it("requires a fixed model and accepts only a credential environment-variable name", () => {
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "auto"])).toThrow();
@@ -85,51 +92,60 @@ describe("Tutor Quality real-provider CLI contract", () => {
   it("materializes and runs the complete versioned anchor corpus with a fake provider", async () => {
     const scenarios = await loadTutorQualityEvaluationScenarios(process.cwd(), "evals/tutor-quality/anchor-corpus.yaml");
     const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-cli-test-"));
-    const provider: LLMProvider = {
-      async listModels() {
-        return ["pilot-model"];
-      },
-      async generateLearningQuestion(request) {
-        return {
-          model: "pilot-model",
-          result: {
-            responseStyle: "normal" as const,
-            answerRating: request.userPrompt.includes("99") ? 2 as const : 5 as const,
-            question: "Welche konkrete Beobachtung ist im aktuellen Sketch belegt?",
+    try {
+      const transcripts = [];
+      let generationCalls = 0;
+      for (const scenario of scenarios) {
+        const rating = fakeRatingFor(scenario);
+        const provider: LLMProvider = {
+          async listModels() {
+            return ["pilot-model"];
+          },
+          async generateLearningQuestion() {
+            return {
+              model: "pilot-model",
+              result: {
+                responseStyle: "normal" as const,
+                answerRating: rating,
+                question: "Welche konkrete Beobachtung ist im aktuellen Sketch belegt?",
+              },
+            };
           },
         };
-      },
-    };
-    try {
-      const result = await runTutorQualityCli([
-        "--model", "pilot-model",
-        "--samples", "1",
-        "--max-calls", "100",
-        "--credential-env", "TEST_TUTOR_CREDENTIAL",
-        "--output-dir", outputDir,
-      ], {
-        cwd: process.cwd(),
-        environment: { TEST_TUTOR_CREDENTIAL: "secret-value" },
-        provider,
-        git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
-      });
-      expect(result.transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateAfter)
-        .toEqual(result.transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateBefore);
-      const strategyTranscripts = result.transcripts.filter(({ scenario }) => scenario.id.startsWith("strategy-"));
+        const result = await runTutorQualityCli([
+          "--model", "pilot-model",
+          "--samples", "1",
+          "--max-calls", "20",
+          "--credential-env", "TEST_TUTOR_CREDENTIAL",
+          "--case", scenario.id,
+          "--output-dir", outputDir,
+        ], {
+          cwd: process.cwd(),
+          environment: { TEST_TUTOR_CREDENTIAL: "secret-value" },
+          provider,
+          git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+        });
+        expect(result.report).toMatchObject({
+          runStatus: "completed",
+          samplesRequested: 1,
+          samplesObserved: 1,
+          invalid: 0,
+          technicalFailures: 0,
+          invariantViolationSamples: 0,
+        });
+        generationCalls += result.report.providerCalls.generationCalls;
+        transcripts.push(...result.transcripts);
+      }
+      expect(generationCalls).toBeGreaterThan(0);
+      expect(transcripts.map(({ scenario }) => scenario.id)).toEqual(scenarios.map(({ id }) => id));
+      expect(transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateAfter)
+        .toEqual(transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateBefore);
+      const strategyTranscripts = transcripts.filter(({ scenario }) => scenario.id.startsWith("strategy-"));
       expect(strategyTranscripts.length).toBe(scenarios.filter(({ id }) => id.startsWith("strategy-")).length);
       expect(strategyTranscripts.every(({ turns }) => turns.every(({ deterministicChecks }) => deterministicChecks.some(
         ({ name, passed }) => name === "expected-learning-phase" && passed,
       )))).toBe(true);
-      expect(result.transcripts.filter(({ invariantViolations }) => invariantViolations.length > 0).map(({ scenario, invariantViolations }) => ({ id: scenario.id, invariantViolations }))).toEqual([]);
-      expect(result.report).toMatchObject({
-        runStatus: "completed",
-        samplesRequested: scenarios.length,
-        samplesObserved: scenarios.length,
-        invalid: 0,
-        technicalFailures: 0,
-        invariantViolationSamples: 0,
-      });
-      expect(result.report.providerCalls.generationCalls).toBeGreaterThan(0);
+      expect(transcripts.filter(({ invariantViolations }) => invariantViolations.length > 0).map(({ scenario, invariantViolations }) => ({ id: scenario.id, invariantViolations }))).toEqual([]);
       expect(await readdir(outputDir)).toContain("report.json");
     } finally {
       await rm(outputDir, { recursive: true, force: true });
@@ -139,90 +155,93 @@ describe("Tutor Quality real-provider CLI contract", () => {
   it("runs every strategy case through TutorService, the curriculum planner, and the fake Judge", async () => {
     const scenarios = (await loadTutorQualityEvaluationScenarios(process.cwd(), "evals/tutor-quality/anchor-corpus.yaml"))
       .filter(({ id }) => id.startsWith("strategy-"));
-    const provider: LLMProvider & {
-      generateStructuredResponse(request: { readonly userPrompt: string }): Promise<{
-        readonly model: string;
-        readonly result: unknown;
-      }>;
-    } = {
-      async listModels() {
-        return ["fake-model", "fake-judge"];
-      },
-      async generateLearningQuestion(request) {
-        const rating = request.userPrompt.includes("99") ? 2 : 5;
-        return {
-          model: "fake-model",
-          result: {
-            responseStyle: "normal" as const,
-            answerRating: rating as 2 | 5,
-            feedback: "Deine Antwort lässt sich an der Initialisierung und der seriellen Ausgabe prüfen.",
-            question: "Welche konkrete Beobachtung kannst du als Nächstes am Sketch prüfen?",
-          },
-        };
-      },
-      async generateStructuredResponse(request) {
-        const evidenceJson = request.userPrompt.split("Evaluate this evidence object:\n")[1];
-        const evidence = JSON.parse(evidenceJson ?? "{}") as {
-          readonly criteria: readonly { readonly id: string }[];
-          readonly tutor: { readonly followUpQuestion: string };
-        };
-        return {
-          model: "fake-judge",
-          result: {
-            criteria: evidence.criteria.map(({ id }) => ({
-              id,
-              verdict: "pass",
-              reason: "The fake Judge inspected the actual Tutor response.",
-              quote: evidence.tutor.followUpQuestion,
-            })),
-            criticalIssues: [],
-          },
-        };
-      },
-    };
-    const result = await runTutorQualityEvaluation({
-      scenarios,
-      provider,
-      providerId: "local-fake-contract-provider",
-      requestedModel: "fake-model",
-      judgeModel: "fake-judge",
-      credential: "fake-tutor-credential",
-      judgeCredential: "fake-judge-credential",
-      samples: 1,
-      maxCalls: 100,
-      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
-    });
-
-    const outcomes = result.transcripts.map((transcript) => {
-      const expected = scenarios.find(({ id }) => id === transcript.scenario.id)?.expected as {
-        readonly learningPhase?: string;
-        readonly phaseAfter?: string;
-      } | undefined;
-      const turn = transcript.turns.at(-1);
-      return {
-        id: transcript.scenario.id,
-        expected: expected?.learningPhase,
-        actual: turn?.finalTutorResult?.learningPhase,
-        stateAfter: transcript.stateAfter?.phase,
-        blocked: turn?.finalTutorResult?.progressionBlockedReason ?? transcript.stateAfter?.progressionBlockedReason,
-        followUpSource: turn?.finalTutorResult?.questionId ? "planner" : "llm",
-        judge: result.semanticEvaluations.find(({ scenarioId }) => scenarioId === transcript.scenario.id)?.evaluation.status,
+    expect(scenarios.length).toBeGreaterThan(0);
+    const outcomes = [];
+    let judgeCalls = 0;
+    for (const scenario of scenarios) {
+      const rating = fakeRatingFor(scenario);
+      const provider: LLMProvider & {
+        generateStructuredResponse(request: { readonly userPrompt: string }): Promise<{
+          readonly model: string;
+          readonly result: unknown;
+        }>;
+      } = {
+        async listModels() {
+          return ["fake-model", "fake-judge"];
+        },
+        async generateLearningQuestion() {
+          return {
+            model: "fake-model",
+            result: {
+              responseStyle: "normal" as const,
+              answerRating: rating,
+              feedback: "Deine Antwort lässt sich an der Initialisierung und der seriellen Ausgabe prüfen.",
+              question: "Welche konkrete Beobachtung kannst du als Nächstes am Sketch prüfen?",
+            },
+          };
+        },
+        async generateStructuredResponse(request) {
+          const evidenceJson = request.userPrompt.split("Evaluate this evidence object:\n")[1];
+          const evidence = JSON.parse(evidenceJson ?? "{}") as {
+            readonly criteria: readonly { readonly id: string }[];
+            readonly tutor: { readonly followUpQuestion: string };
+          };
+          return {
+            model: "fake-judge",
+            result: {
+              criteria: evidence.criteria.map(({ id }) => ({
+                id,
+                verdict: "pass",
+                reason: "The fake Judge inspected the actual Tutor response.",
+                quote: evidence.tutor.followUpQuestion,
+              })),
+              criticalIssues: [],
+            },
+          };
+        },
       };
-    });
+      const result = await runTutorQualityEvaluation({
+        scenarios: [scenario],
+        provider,
+        providerId: "local-fake-contract-provider",
+        requestedModel: "fake-model",
+        judgeModel: "fake-judge",
+        credential: "fake-tutor-credential",
+        judgeCredential: "fake-judge-credential",
+        samples: 1,
+        maxCalls: 20,
+        git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      });
+      judgeCalls += result.report.providerCalls.judgeCalls;
+      const transcript = result.transcripts[0]!;
+      const turn = transcript.turns.at(-1);
+      outcomes.push({
+        id: scenario.id,
+        phases: transcript.turns.map(({ finalTutorResult }) => finalTutorResult?.learningPhase),
+        answerRating: turn?.finalTutorResult?.answerRating,
+        phaseAfter: transcript.stateAfter?.phase,
+        blocked: turn?.finalTutorResult?.progressionBlockedReason ?? transcript.stateAfter?.progressionBlockedReason,
+        // The served follow-up carries a planner-owned question ID (a test statement, not report provenance).
+        plannerOwnedQuestion: typeof turn?.finalTutorResult?.questionId === "string",
+        violations: transcript.invariantViolations,
+        judge: result.semanticEvaluations[0]?.evaluation.status,
+      });
+    }
 
     expect(outcomes).toEqual(scenarios.map((scenario) => {
-      const expected = scenario.expected as { readonly learningPhase?: string; readonly phaseAfter?: string } | undefined;
+      const expected = scenario.expected!;
       return {
         id: scenario.id,
-        expected: expected?.learningPhase,
-        actual: expected?.learningPhase,
-        stateAfter: expected?.phaseAfter ?? expected?.learningPhase,
+        phases: scenario.turns.map(() => expected.learningPhase),
+        answerRating: fakeRatingFor(scenario),
+        phaseAfter: expected.phaseAfter,
         blocked: undefined,
-        followUpSource: "planner",
+        plannerOwnedQuestion: true,
+        violations: [],
         judge: "evaluated",
       };
     }));
-    expect(result.report.providerCalls.judgeCalls).toBe(scenarios.length);
+    expect(judgeCalls).toBe(scenarios.length);
   });
 
   it("uses the centrally validated Tutor timeout instead of an injected environment value", async () => {

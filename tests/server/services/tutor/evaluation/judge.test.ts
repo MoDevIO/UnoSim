@@ -37,7 +37,7 @@ describe("minimal Tutor Quality Judge", () => {
       executionStatus: "completed",
       metadata: { requestedModel: "secret-model-id" },
       turns: [{
-        input: { kind: "dialog", question: judgeInput.question, answer: judgeInput.learnerAnswer, bindsToQuestion: judgeInput.question },
+        input: { kind: "dialog", question: judgeInput.question, answer: judgeInput.learnerAnswer },
         providerRequest: { model: "secret-model-id", systemPrompt: "Tutor prompt secret", userPrompt: "Tutor user secret" },
         rawProviderResult: { raw: "not allowed" },
         finalTutorResult: {
