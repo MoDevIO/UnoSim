@@ -75,7 +75,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
   });
 
-  it("binds every Strategy-case dialog turn to a planner-served question and keeps Judge facts free of internal IDs", () => {
+  it("binds every dialog turn of a Strategy case (expected.learningPhase) to a planner-served question and keeps Judge facts free of internal IDs", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const internalIds = new Set<string>();
     for (const fixtureId of ANCHOR_COURSE_CONTENT_FIXTURE_IDS) {
@@ -87,8 +87,8 @@ describe("Tutor Quality anchor corpus contract", () => {
         topic.questions.forEach(({ id }) => internalIds.add(id));
       }
     }
-    const strategyCases = source.scenarios.filter(({ expected }) => expected?.learningPhase !== undefined && expected.learningPhase !== undefined);
-    const planned = strategyCases.filter(({ id }) => id.startsWith("strategy-"));
+    // R-TURN-3: a Strategy case is any case that declares expected.learningPhase.
+    const planned = source.scenarios.filter(({ expected }) => expected?.learningPhase !== undefined);
 
     expect(planned.length).toBeGreaterThan(0);
     for (const { id, turns } of planned) {

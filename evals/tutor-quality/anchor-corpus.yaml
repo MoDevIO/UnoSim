@@ -93,10 +93,13 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/simple-variable.ino
     courseContent: progression-learn
     turns:
+      - kind: initial
+        difficulty: 10
       - kind: dialog
         question: Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?
         answer: int speichert den ganzzahligen Wert von counter, der anschließend im Sketch verwendet wird.
-        difficulty: 30
+        difficulty: 10
+        continuationOf: 0
     expected:
       learningPhase: LEARN
       phaseAfter: DEEPEN
