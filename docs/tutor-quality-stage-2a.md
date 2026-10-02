@@ -1,5 +1,7 @@
 # Tutor Quality Stage 2A – Real-Provider Evaluation
 
+> **SUPERSEDED (2026-10-02).** Normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md` (the minimal Judge is part of the current path, not a Stage-2B feature). This page will be folded into it in PR D of `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`.
+
 Stage 2A is an explicitly invoked observation run. It uses the versioned
 anchor corpus and the normal `TutorService`/`KiconnectProvider` path. It does
 not run in unit tests or pull-request gates and does not measure learning

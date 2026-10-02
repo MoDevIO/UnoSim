@@ -1,5 +1,7 @@
 # Tutor Quality – Stage 2A: Real-Provider Evaluation Foundation
 
+> **SUPERSEDED (2026-10-02)** by `ssot_function_definition_TutorQualityEvaluation.md`, which is normative for the corpus, execution runs, deterministic evaluation checks, Judge, and reports. Where this document conflicts with it (for example on semantic evaluation, the anchor set, or `bindsToQuestion`), the Evaluation SSOT wins. Scheduled for removal: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`, PR D.
+
 Status: normative for the Stage-2A evaluation runner and its artifacts. This
 SSOT does not change the Stage-1 PR hard gate and does not claim to measure
 learning effect.

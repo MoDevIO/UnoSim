@@ -125,6 +125,8 @@ cases. No provider credential is present.
 
 ## 7. Deferred quality layers
 
+> Update (2026-10-02): real-provider execution runs and the minimal LLM Judge are no longer deferred; they are specified normatively in `ssot_function_definition_TutorQualityEvaluation.md`. The remaining items below stay out of scope.
+
 Stage 1 deliberately excludes semantic learning-support evaluation, real-LLM
 sampling, LLM-as-Judge, human review studies, empirical learning-progress
 measurement, adaptive Strategy selection, and a broad fact-extractor expansion.

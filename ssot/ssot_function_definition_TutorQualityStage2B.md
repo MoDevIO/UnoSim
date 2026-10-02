@@ -1,5 +1,7 @@
 # Tutor Quality Stage 2B – Automated Semantic Evaluation & Model Benchmarking
 
+> Current normative model: `ssot_function_definition_TutorQualityEvaluation.md`.
+
 Status: historical design specification; not normative for the current runtime.
 The Stage-2B semantic implementation described here was removed in commit
 `ae8e2f53f27a5c8f9dce09649b668e44081fec6b`. This document is retained for
