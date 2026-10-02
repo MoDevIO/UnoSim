@@ -182,6 +182,39 @@ function parseAnswerRatingBand(value: unknown, label: string): TutorQualityAnswe
   return [value[0] as number, value[1] as number];
 }
 
+const EXPECTED_KEYS = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
+
+function optionalEnumValue<T extends string>(value: unknown, allowed: readonly T[], label: string): T | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !(allowed as readonly string[]).includes(value)) fail(`${label} is invalid`);
+  return value as T;
+}
+
+function parseProgressionExpectation(
+  value: Record<string, unknown>,
+  label: string,
+  turns: readonly TutorQualityTurnSource[],
+): Pick<TutorQualityExpectation, "learningPhase" | "phaseAfter" | "answerRating"> {
+  const learningPhase = optionalEnumValue(value.learningPhase, DIDACTIC_PHASES, `${label}.expected.learningPhase`);
+  const phaseAfter = optionalEnumValue(value.phaseAfter, DIDACTIC_PHASES, `${label}.expected.phaseAfter`);
+  const answerRating = value.answerRating === undefined ? undefined : parseAnswerRatingBand(value.answerRating, label);
+  if (answerRating !== undefined && turns.at(-1)?.kind !== "dialog") {
+    fail(`${label}.expected.answerRating requires the final turn to be a dialog turn`);
+  }
+  if (phaseAfter !== undefined) {
+    if (learningPhase === undefined) fail(`${label}.expected.phaseAfter requires expected.learningPhase`);
+    // Progression out of LEARN and DEEPEN always depends on ratings.
+    if (learningPhase !== "EXPAND" && answerRating === undefined) {
+      fail(`${label}.expected.phaseAfter after a ${learningPhase} turn requires expected.answerRating`);
+    }
+  }
+  return {
+    ...(learningPhase === undefined ? {} : { learningPhase }),
+    ...(phaseAfter === undefined ? {} : { phaseAfter }),
+    ...(answerRating === undefined ? {} : { answerRating }),
+  };
+}
+
 function parseExpected(
   value: unknown,
   label: string,
@@ -189,32 +222,12 @@ function parseExpected(
 ): TutorQualityExpectation | undefined {
   if (value === undefined) return undefined;
   assertObject(value, `${label}.expected`);
-  const allowedKeys = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
   for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) fail(`${label}.expected.${key} is unknown`);
+    if (!EXPECTED_KEYS.has(key)) fail(`${label}.expected.${key} is unknown`);
   }
   if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
   if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
-  for (const key of ["learningPhase", "phaseAfter"] as const) {
-    if (value[key] !== undefined && !(DIDACTIC_PHASES as readonly string[]).includes(value[key] as string)) {
-      fail(`${label}.expected.${key} is invalid`);
-    }
-  }
-  const answerRating = value.answerRating === undefined ? undefined : parseAnswerRatingBand(value.answerRating, label);
-  if (answerRating !== undefined && turns.at(-1)?.kind !== "dialog") {
-    fail(`${label}.expected.answerRating requires the final turn to be a dialog turn`);
-  }
-  if (value.phaseAfter !== undefined) {
-    if (value.learningPhase === undefined) fail(`${label}.expected.phaseAfter requires expected.learningPhase`);
-    // Progression out of LEARN and DEEPEN always depends on ratings.
-    if (value.learningPhase !== "EXPAND" && answerRating === undefined) {
-      fail(`${label}.expected.phaseAfter after a ${String(value.learningPhase)} turn requires expected.answerRating`);
-    }
-  }
-  if (value.progressionBlockedReason !== undefined
-    && !(PROGRESSION_BLOCKED_REASONS as readonly string[]).includes(value.progressionBlockedReason as string)) {
-    fail(`${label}.expected.progressionBlockedReason is invalid`);
-  }
+  const progressionBlockedReason = optionalEnumValue(value.progressionBlockedReason, PROGRESSION_BLOCKED_REASONS, `${label}.expected.progressionBlockedReason`);
   if (value.stateUnchanged !== undefined && typeof value.stateUnchanged !== "boolean") fail(`${label}.expected.stateUnchanged is invalid`);
   if (value.questionNotRepeat !== undefined && value.questionNotRepeat !== "exact-or-heuristic") {
     fail(`${label}.expected.questionNotRepeat is invalid`);
@@ -222,10 +235,8 @@ function parseExpected(
   return {
     ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
     ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
-    ...(typeof value.learningPhase === "string" ? { learningPhase: value.learningPhase as DidacticPhase } : {}),
-    ...(typeof value.phaseAfter === "string" ? { phaseAfter: value.phaseAfter as DidacticPhase } : {}),
-    ...(answerRating === undefined ? {} : { answerRating }),
-    ...(typeof value.progressionBlockedReason === "string" ? { progressionBlockedReason: value.progressionBlockedReason as ProgressionBlockedReason } : {}),
+    ...parseProgressionExpectation(value, label, turns),
+    ...(progressionBlockedReason === undefined ? {} : { progressionBlockedReason }),
     ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
     ...(value.questionNotRepeat === "exact-or-heuristic" ? { questionNotRepeat: value.questionNotRepeat } : {}),
   };
