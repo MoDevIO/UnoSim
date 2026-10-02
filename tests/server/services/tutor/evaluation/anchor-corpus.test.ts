@@ -185,6 +185,34 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(() => parseTutorQualityCorpus(mutate(validSource()), references)).toThrow();
   });
 
+  describe("R-TURN-3: Strategy cases bind their dialog turns to a planner-served question", () => {
+    function strategySource(turns: unknown[], expected: Record<string, unknown> = { learningPhase: "LEARN" }) {
+      return {
+        ...validSource(),
+        scenarios: [{ ...validSource().scenarios[0]!, turns, expected }],
+      } as unknown as TutorQualityCorpusSource;
+    }
+    const dialog = validSource().scenarios[0]!.turns[0]!;
+
+    it("rejects a dialog turn without continuationOf in a case that declares expected.learningPhase", () => {
+      expect(() => parseTutorQualityCorpus(strategySource([dialog]), references)).toThrow(/turns\[0\].*continuationOf.*R-TURN-3/);
+    });
+
+    it("rejects an unbound dialog turn even when another dialog turn of the case is bound", () => {
+      const source = strategySource([{ kind: "initial", difficulty: 20 }, { ...dialog, continuationOf: 0 }, dialog]);
+      expect(() => parseTutorQualityCorpus(source, references)).toThrow(/turns\[2\].*continuationOf/);
+    });
+
+    it("accepts a bound dialog turn and an initial-only case", () => {
+      expect(() => parseTutorQualityCorpus(strategySource([{ kind: "initial", difficulty: 20 }, { ...dialog, continuationOf: 0 }]), references)).not.toThrow();
+      expect(() => parseTutorQualityCorpus(strategySource([{ kind: "initial", difficulty: 20 }], { learningPhase: "EXPAND" }), references)).not.toThrow();
+    });
+
+    it("keeps scripted dialog turns valid in cases without expected.learningPhase (R-TURN-2)", () => {
+      expect(() => parseTutorQualityCorpus(strategySource([dialog], { topicId: "variables-and-serial" }), references)).not.toThrow();
+    });
+  });
+
   describe("expected.answerRating and phaseAfter contract", () => {
     function withExpected(expected: Record<string, unknown>, turnKind: "dialog" | "initial" = "dialog") {
       const base = validSource().scenarios[0]!;
@@ -192,7 +220,9 @@ describe("Tutor Quality anchor corpus contract", () => {
         ...validSource(),
         scenarios: [{
           ...base,
-          turns: turnKind === "dialog" ? base.turns : [{ kind: "initial" as const, difficulty: 20 }],
+          turns: turnKind === "dialog"
+            ? [{ kind: "initial" as const, difficulty: 20 }, { ...base.turns[0]!, continuationOf: 0 }]
+            : [{ kind: "initial" as const, difficulty: 20 }],
           expected,
         }],
       } as unknown as TutorQualityCorpusSource;

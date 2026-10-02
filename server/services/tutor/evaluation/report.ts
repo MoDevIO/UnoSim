@@ -16,6 +16,9 @@ import type {
 
 export interface TutorQualityRunManifest {
   readonly gitSha: string;
+  /** Run-level corpus identity (§11.2); a run never mixes corpus versions. Absent only for an empty corpus. */
+  readonly corpusId?: string;
+  readonly corpusVersion?: number;
   readonly corpusFileDigests: readonly string[];
   readonly sketches: readonly { readonly scenarioId: string; readonly digest: string }[];
   readonly tutorPromptRevision: { readonly id: string; readonly textDigest: string };
@@ -70,8 +73,10 @@ export function createTutorQualityRunManifest(
   ));
   const returnedJudgeModels = [...new Set(semanticEvaluations.flatMap(({ evaluation }) => evaluation.model ? [evaluation.model] : []))];
   const corpusFileDigests = [...new Set(options.scenarios.flatMap(({ corpusFileDigest }) => corpusFileDigest ? [corpusFileDigest] : []))];
+  const corpus = options.scenarios[0];
   return {
     gitSha: options.git.sha,
+    ...(corpus ? { corpusId: corpus.corpusId, corpusVersion: corpus.corpusVersion } : {}),
     corpusFileDigests,
     sketches: options.scenarios.map((scenario) => ({
       scenarioId: scenario.id,
@@ -295,6 +300,7 @@ function markdown(
     "Call budget: " + manifest.maxCalls,
     "Provider calls: " + report.providerCalls.total + " (list " + report.providerCalls.modelListCalls + ", tutor " + report.providerCalls.generationCalls + ", judge " + report.providerCalls.judgeCalls + ")",
     "Duration: " + report.totalDurationMs + " ms",
+    "Corpus: " + (manifest.corpusId === undefined ? "unavailable" : manifest.corpusId + " v" + manifest.corpusVersion),
     "Corpus file digests: " + (manifest.corpusFileDigests.join(", ") || "unavailable"),
     "",
     "## Deterministic diagnostics",
