@@ -2,7 +2,7 @@
 
 Status: historical design specification; not normative for the current runtime.
 The Stage-2B semantic implementation described here was removed in commit
-`3fc2cf5c073f403eaef647d2619b75899e763607`. This document is retained for
+`ae8e2f53f27a5c8f9dce09649b668e44081fec6b`. This document is retained for
 design history and possible future review. The active evaluation path uses the
 Stage-A anchor corpus and runner with an optional Minimal Judge. Do not apply
 the requirements below to current implementation work unless a later approved

@@ -1,6 +1,6 @@
 # Tutor Quality Stage 2B – Implementation Plan
 
-> **Historical plan — inactive.** The Stage-2B semantic implementation described here was removed in commit `3fc2cf5c073f403eaef647d2619b75899e763607`. This plan is retained as design history, not as current worker guidance. The active path uses `evals/tutor-quality/anchor-corpus.yaml` with the existing Stage-A runner and its optional Minimal Judge. Do not recreate this plan's semantic corpus, adapter, exposure, or transcript-reference architecture unless a later approved plan explicitly reactivates it.
+> **Historical plan — inactive.** The Stage-2B semantic implementation described here was removed in commit `ae8e2f53f27a5c8f9dce09649b668e44081fec6b`. This plan is retained as design history, not as current worker guidance. The active path uses `evals/tutor-quality/anchor-corpus.yaml` with the existing Stage-A runner and its optional Minimal Judge. Do not recreate this plan's semantic corpus, adapter, exposure, or transcript-reference architecture unless a later approved plan explicitly reactivates it.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
