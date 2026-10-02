@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">89.65% </span>
+                <span class="strong">89.91% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>104/116</span>
+                <span class='fraction'>107/119</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.61% </span>
+                <span class="strong">85.24% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>99/117</span>
+                <span class='fraction'>104/122</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>19/19</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.55% </span>
+                <span class="strong">95.6% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>86/90</span>
+                <span class='fraction'>87/91</span>
             </div>
         
             
@@ -341,7 +341,15 @@
 <a name='L276'></a><a href='#L276'>276</a>
 <a name='L277'></a><a href='#L277'>277</a>
 <a name='L278'></a><a href='#L278'>278</a>
-<a name='L279'></a><a href='#L279'>279</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -563,15 +571,23 @@
 <span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">26x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -840,16 +856,24 @@ function parseCriterion(
   seen.add(id);
   if (item.verdict !== "pass" &amp;&amp; item.verdict !== "fail" &amp;&amp; item.verdict !== "unclear") return invalid("criterion-verdict-invalid");
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!validReason(item.reason)) return invalid("criterion-reason-invalid");
-  let quote = item.quote === undefined ? undefined : getString(item.quote);
-  if (item.verdict === "fail") {
-    if (!quote) return invalid(item.quote === undefined ? "criterion-failure-quote-required" : "criterion-quote-invalid");
-  } else if (item.quote === null || (typeof item.quote === "string" &amp;&amp; !item.quote.trim())) {
-    quote = undefined;
-  } else if (item.quote !== undefined &amp;&amp; !quote) {
-    return invalid("criterion-quote-invalid");
-  }
-  if (quote &amp;&amp; !evidence.includes(normalized(quote))) return invalid("criterion-quote-not-in-evidence");
+  const quote = parseCriterionQuote(item.verdict, item.quote, evidence);
+  if (typeof quote !== "string" &amp;&amp; quote !== undefined) return quote;
   return { id, verdict: item.verdict, reason: item.reason, ...(quote ? { quote } : {}) };
+}
+&nbsp;
+function parseCriterionQuote(
+  verdict: "pass" | "fail" | "unclear",
+  value: unknown,
+  evidence: string,
+): string | undefined | TutorQualitySemanticEvaluation {
+  const quote = value === undefined ? undefined : getString(value);
+  if (verdict === "fail" &amp;&amp; !quote) {
+    return invalid(value === undefined ? "criterion-failure-quote-required" : "criterion-quote-invalid");
+  }
+  if (verdict !== "fail" &amp;&amp; (value === null || (typeof value === "string" &amp;&amp; !value.trim()))) return undefined;
+  if (value !== undefined &amp;&amp; !quote) return invalid("criterion-quote-invalid");
+  if (quote &amp;&amp; !evidence.includes(normalized(quote))) return invalid("criterion-quote-not-in-evidence");
+  return quote;
 }
 &nbsp;
 function parseCriticalIssues(
@@ -904,7 +928,7 @@ export async function callJudge(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-01T20:58:09.295Z
+                at 2026-10-02T05:31:03.325Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
