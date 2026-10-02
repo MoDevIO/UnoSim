@@ -88,6 +88,7 @@ describe("minimal Tutor Quality Judge", () => {
     ["duplicate criterion", { criteria: [validResult.criteria[0], validResult.criteria[0]], criticalIssues: [] }],
     ["unsupported verdict", { criteria: [{ ...validResult.criteria[0], verdict: "maybe" }], criticalIssues: [] }],
     ["quote absent from evidence", { criteria: [{ ...validResult.criteria[0], quote: "fabricated quote" }], criticalIssues: [] }],
+    ["learner answer quote outside allowlist", { criteria: [{ ...validResult.criteria[0], quote: judgeInput.learnerAnswer }], criticalIssues: [] }],
     ["failure without quote", { criteria: [{ id: "correct-answer", verdict: "fail", reason: "Rejected.", quote: undefined }], criticalIssues: [] }],
     ["critical issue without quote", { criteria: validResult.criteria, criticalIssues: [{ code: "factually-wrong-feedback", reason: "Incorrect." }] }],
     ["unknown critical code", { criteria: validResult.criteria, criticalIssues: [{ code: "made-up", quote: "int counter = 3;", reason: "Incorrect." }] }],
@@ -134,6 +135,7 @@ describe("minimal Tutor Quality Judge", () => {
   it("states the quote omission and null/empty normalization contract in the prompt", () => {
     const prompt = buildJudgePrompt(judgeInput);
 
+    expect(prompt.systemPrompt).toMatch(/only the sketch, tutor\.feedback, and tutor\.followUpQuestion.*quote sources/i);
     expect(prompt.systemPrompt).toMatch(/fail verdict.*non-empty exact quote from the allowed evidence/i);
     expect(prompt.systemPrompt).toMatch(/pass and unclear.*quote may be omitted, null, empty, or whitespace-only.*absent/i);
   });

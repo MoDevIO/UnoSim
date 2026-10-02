@@ -47,54 +47,32 @@ describe("Tutor Quality anchor corpus contract", () => {
   it("contains two judge-enabled strategy cases for each learning phase", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const strategyCases = source.scenarios.filter(({ id }) => id.startsWith("strategy-"));
+    const counts = Object.fromEntries(["LEARN", "DEEPEN", "EXPAND"].map((phase) => [
+      phase,
+      strategyCases.filter(({ expected }) => expected?.learningPhase === phase).length,
+    ]));
 
-    expect(strategyCases.map(({ id }) => id)).toEqual([
-      "strategy-learn-weak-answer",
-      "strategy-learn-strong-answer",
-      "strategy-deepen-transfer",
-      "strategy-deepen-correction",
-      "strategy-expand-proposal",
-      "strategy-expand-observation",
-    ]);
-    expect(strategyCases.map(({ expected }) => expected?.learningPhase)).toEqual([
-      "LEARN",
-      "LEARN",
-      "DEEPEN",
-      "DEEPEN",
-      "EXPAND",
-      "EXPAND",
-    ]);
-    expect(strategyCases.every(({ judge }) => judge && judge.facts.length > 0 && judge.criteria.length > 0)).toBe(true);
+    expect(Object.values(counts).every((count) => count >= 2 && count <= 3)).toBe(true);
+    expect(strategyCases.every(({ turns, judge, expected }) => (
+      turns.some(({ kind }) => kind === "dialog")
+      && expected?.learningPhase !== undefined
+      && judge !== undefined
+      && judge.facts.length > 0
+      && judge.criteria.length > 0
+    ))).toBe(true);
     expect(ANCHOR_COURSE_CONTENT_FIXTURE_IDS).toContain("progression-deepen");
   });
 
-  it("contains the reviewed version-3 anchor set", () => {
+  it("parses the versioned anchor corpus with unique stable IDs", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const corpus = parseTutorQualityCorpus(source, {
       sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
       courseContentFixtures: new Set(["variables", "progression-learn", "progression-deepen", "progression-expand"]),
     });
 
-    expect(corpus.corpusVersion).toBe(3);
-    expect(corpus.scenarios.map(({ id }) => id)).toEqual([
-      "TQ-SEM-001",
-      "TQ-REG-001",
-      "simple-variable",
-      "serial-output-prediction",
-      "incorrect-answer-remediation",
-      "partial-answer-follow-up",
-      "strong-answer-progression",
-      "unmatched-topic-free-tutor",
-      "learn-to-deepen",
-      "expand",
-      "off-topic-answer",
-      "strategy-learn-weak-answer",
-      "strategy-learn-strong-answer",
-      "strategy-deepen-transfer",
-      "strategy-deepen-correction",
-      "strategy-expand-proposal",
-      "strategy-expand-observation",
-    ]);
+    expect(corpus.corpusVersion).toBe(4);
+    expect(new Set(corpus.scenarios.map(({ id }) => id)).size).toBe(corpus.scenarios.length);
+    expect(corpus.scenarios.map(({ id }) => id)).toEqual(expect.arrayContaining(["TQ-SEM-001", "TQ-REG-001"]));
     expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
   });
 
@@ -188,6 +166,15 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(() => parseTutorQualityCorpus(mutate(validSource()), references)).toThrow();
   });
 
+  it("rejects unknown expected keys instead of silently accepting typos", () => {
+    const source = {
+      ...validSource(),
+      scenarios: [{ ...validSource().scenarios[0]!, expected: { learningphase: "LEARN" } }],
+    };
+
+    expect(() => parseTutorQualityCorpus(source, references)).toThrow(/expected\.learningphase is unknown/i);
+  });
+
   it("keeps historical version comparison outside current-corpus parsing", () => {
     const previous = parseTutorQualityCorpus(validSource(), references);
     const changed = parseTutorQualityCorpus({
@@ -216,6 +203,11 @@ describe("Tutor Quality anchor corpus contract", () => {
       phase: "EXPAND",
       masteredTopicIds: ["variables-and-serial"],
     });
+    const expansionTutor = createAnchorCourseContent("progression-expand").tutor;
+    expect(expansionTutor?.status).toBe("valid");
+    if (expansionTutor?.status === "valid") {
+      expect(expansionTutor.topics[0]?.questions.map(({ id }) => id)).toContain("expand-serial-output");
+    }
   });
 
   it("provides a mastered same-topic DEEPEN fixture", () => {

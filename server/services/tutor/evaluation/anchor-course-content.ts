@@ -14,7 +14,7 @@ export type AnchorCourseContentFixtureId = typeof ANCHOR_COURSE_CONTENT_FIXTURE_
 
 const REVISION = "2".repeat(40);
 
-function variableTopic(schemaVersion: 1 | 2 = 1): CurriculumTopic {
+function variableTopic(schemaVersion: 1 | 2 = 1, includeExpansionPlanQuestion = false): CurriculumTopic {
   const raw = {
     schemaVersion,
     id: "variables-and-serial",
@@ -65,6 +65,15 @@ function variableTopic(schemaVersion: 1 | 2 = 1): CurriculumTopic {
         requires: [{ fact: "type-used", values: ["int"] }, { fact: "serial-call", values: ["print"] }],
         text: "Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?",
       },
+      ...(includeExpansionPlanQuestion ? [{
+        id: "expand-serial-output",
+        concept: "variable-values",
+        indicator: "relates-value-to-use",
+        kind: "transfer",
+        difficulty: [30, 90],
+        requires: [{ fact: "type-used", values: ["int"] }, { fact: "serial-call", values: ["print"] }],
+        text: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?",
+      }] : []),
     ],
     scaffolds: [],
     progression: {
@@ -186,7 +195,7 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
       state.retainedPhases = { "variables-and-serial": "EXPAND" };
       return {
         revision: REVISION,
-        tutor: tutorCapability([variableTopic(2), serialOutputTopic()]),
+        tutor: tutorCapability([variableTopic(2, true), serialOutputTopic()]),
         progressionState: state,
       };
     }

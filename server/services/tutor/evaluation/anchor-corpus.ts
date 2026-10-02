@@ -34,6 +34,8 @@ export interface TutorQualityScenarioSource {
     readonly topicId?: string;
     readonly topicIdAbsent?: string;
     readonly learningPhase?: "LEARN" | "DEEPEN" | "EXPAND";
+    readonly phaseAfter?: "LEARN" | "DEEPEN" | "EXPAND";
+    readonly progressionBlockedReason?: "content-exhausted";
     readonly stateUnchanged?: boolean;
     readonly questionNotRepeat?: "exact-or-heuristic";
   };
@@ -167,13 +169,33 @@ export function tutorQualityCorpusDigest(source: TutorQualityCorpusSource): stri
 function parseExpected(value: unknown, label: string): TutorQualityScenarioSource["expected"] | undefined {
   if (value === undefined) return undefined;
   assertObject(value, `${label}.expected`);
-  if (value.learningPhase !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(value.learningPhase as string)) {
-    fail(`${label}.expected.learningPhase is invalid`);
+  const allowedKeys = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label}.expected.${key} is unknown`);
   }
+  if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
+  if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
+  for (const key of ["learningPhase", "phaseAfter"] as const) {
+    if (value[key] !== undefined && !["LEARN", "DEEPEN", "EXPAND"].includes(value[key] as string)) {
+      fail(`${label}.expected.${key} is invalid`);
+    }
+  }
+  if (value.progressionBlockedReason !== undefined && value.progressionBlockedReason !== "content-exhausted") {
+    fail(`${label}.expected.progressionBlockedReason is invalid`);
+  }
+  if (value.stateUnchanged !== undefined && typeof value.stateUnchanged !== "boolean") fail(`${label}.expected.stateUnchanged is invalid`);
   if (value.questionNotRepeat !== undefined && value.questionNotRepeat !== "exact-or-heuristic") {
     fail(`${label}.expected.questionNotRepeat is invalid`);
   }
-  return value as TutorQualityScenarioSource["expected"];
+  return {
+    ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
+    ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
+    ...(typeof value.learningPhase === "string" ? { learningPhase: value.learningPhase as "LEARN" | "DEEPEN" | "EXPAND" } : {}),
+    ...(typeof value.phaseAfter === "string" ? { phaseAfter: value.phaseAfter as "LEARN" | "DEEPEN" | "EXPAND" } : {}),
+    ...(value.progressionBlockedReason === "content-exhausted" ? { progressionBlockedReason: value.progressionBlockedReason } : {}),
+    ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
+    ...(value.questionNotRepeat === "exact-or-heuristic" ? { questionNotRepeat: value.questionNotRepeat } : {}),
+  };
 }
 
 function parseJudge(value: unknown, label: string): TutorQualityJudgeSource | undefined {

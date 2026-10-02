@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 3
+corpusVersion: 4
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -104,7 +104,8 @@ scenarios:
         bindsToQuestion: Welche Rolle spielt der Integer-Datentyp im aktuellen Sketch?
         difficulty: 30
     expected:
-      learningPhase: DEEPEN
+      learningPhase: LEARN
+      phaseAfter: DEEPEN
 
   - id: expand
     sketch: evals/tutor-quality/fixtures/serial-output.ino
@@ -129,18 +130,24 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/simple-variable.ino
     courseContent: progression-learn
     turns:
-      - kind: dialog
-        question: Welchen Wert gibt der Sketch über Serial aus?
-        answer: Der Sketch gibt immer 99 aus.
-        bindsToQuestion: Welchen Wert gibt der Sketch über Serial aus?
+      - kind: initial
         difficulty: 20
+      - kind: dialog
+        question: Welche Ausgabe erzeugt Serial.println im aktuellen Sketch?
+        answer: Der Sketch gibt immer 99 aus.
+        bindsToQuestion: Welche Ausgabe erzeugt Serial.println im aktuellen Sketch?
+        difficulty: 20
+        continuationOf: 0
     expected:
       learningPhase: LEARN
+      phaseAfter: LEARN
     judge:
       facts:
         - counter wird mit dem Wert 3 initialisiert.
         - setup ruft Serial.println(counter) auf und gibt damit zunächst 3 aus.
         - loop erhöht counter nach jedem Durchlauf und wartet danach eine Sekunde.
+        - Der vorhandene LEARN-Plan stellt die Frage zur Ausgabe von Serial.println im aktuellen Sketch.
+        - Das aktive Curriculum-Topic heißt variables-and-serial; der LEARN-Folgeplan bleibt in diesem Topic.
       criteria:
         - id: learn-detects-weak-answer
           text: Das Feedback erkennt, dass die Antwort 99 durch den Sketch nicht gestützt wird.
@@ -153,23 +160,29 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/simple-variable.ino
     courseContent: progression-learn
     turns:
-      - kind: dialog
-        question: Warum erscheint im Setup die Zahl 3?
-        answer: counter wird mit 3 initialisiert und setup gibt diesen Wert mit Serial.println(counter) aus.
-        bindsToQuestion: Warum erscheint im Setup die Zahl 3?
+      - kind: initial
         difficulty: 30
+      - kind: dialog
+        question: Welche Ausgabe erzeugt Serial.println im aktuellen Sketch?
+        answer: setup gibt zuerst 3 aus; loop erhöht counter danach in jedem Durchlauf um eins.
+        bindsToQuestion: Welche Ausgabe erzeugt Serial.println im aktuellen Sketch?
+        difficulty: 30
+        continuationOf: 0
     expected:
       learningPhase: LEARN
+      phaseAfter: DEEPEN
     judge:
       facts:
         - counter wird vor setup mit dem Wert 3 initialisiert.
         - setup gibt counter mit Serial.println(counter) aus.
         - loop erhöht counter in jedem Durchlauf um eins.
+        - Der vorhandene LEARN-Plan stellt die Frage zur Ausgabe von Serial.println im aktuellen Sketch.
+        - Das aktive Curriculum-Topic heißt variables-and-serial; der LEARN-Folgeplan bleibt in diesem Topic.
       criteria:
         - id: learn-accepts-correct-answer
           text: Das Feedback erkennt die Erklärung der Initialisierung und Ausgabe als fachlich korrekt an.
-        - id: learn-rating-fits-answer
-          text: Das Antwort-Rating passt zu einer korrekten, am Sketch belegten Erklärung.
+        - id: learn-feedback-grounds-sketch
+          text: Das Feedback nennt die anfängliche Ausgabe 3 und die spätere Erhöhung von counter im Sketch korrekt.
         - id: learn-next-step
           text: Die Folgefrage baut auf dem Zusammenhang auf, ohne vorzeitig einen neuen Topic-Transfer zu verlangen.
 
@@ -177,18 +190,25 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/serial-output.ino
     courseContent: progression-deepen
     turns:
-      - kind: dialog
-        question: Wie kann ich im seriellen Monitor prüfen, ob counter in jedem Durchlauf gleich bleibt?
-        answer: Ich vergleiche mehrere Ausgaben; der Sketch verändert counter in loop nicht, daher bleibt der ausgegebene Wert gleich.
-        bindsToQuestion: Wie kann ich im seriellen Monitor prüfen, ob counter in jedem Durchlauf gleich bleibt?
+      - kind: initial
         difficulty: 45
+      - kind: dialog
+        question: Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?
+        answer: Ich vergleiche mehrere Ausgaben; der Sketch verändert counter in loop nicht, daher bleibt der ausgegebene Wert gleich.
+        bindsToQuestion: Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?
+        difficulty: 45
+        continuationOf: 0
     expected:
       learningPhase: DEEPEN
+      phaseAfter: EXPAND
     judge:
       facts:
         - counter wird mit dem Wert 3 initialisiert.
         - setup und loop geben counter mit Serial.println(counter) aus.
         - loop verändert counter nicht und wartet zwischen den Ausgaben eine Sekunde.
+        - Das aktive Curriculum-Topic heißt variables-and-serial.
+        - Die bereits beherrschte Basisfrage im Topic variables-and-serial hat die ID variable-value-recall.
+        - Die bediente Transferfrage im selben Topic hat die ID variable-output-transfer.
       criteria:
         - id: deepen-uses-transfer
           text: Das Feedback bewertet die Anwendung der bekannten Variablenidee auf wiederholte serielle Beobachtungen.
@@ -201,18 +221,25 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/serial-output.ino
     courseContent: progression-deepen
     turns:
-      - kind: dialog
-        question: Was müsste ich ändern, damit die serielle Ausgabe nach jeder Sekunde steigt?
-        answer: delay(1000) erhöht counter automatisch, deshalb wird der Wert jede Sekunde größer.
-        bindsToQuestion: Was müsste ich ändern, damit die serielle Ausgabe nach jeder Sekunde steigt?
+      - kind: initial
         difficulty: 50
+      - kind: dialog
+        question: Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?
+        answer: delay(1000) erhöht counter automatisch, deshalb wird der Wert jede Sekunde größer.
+        bindsToQuestion: Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?
+        difficulty: 50
+        continuationOf: 0
     expected:
       learningPhase: DEEPEN
+      phaseAfter: EXPAND
     judge:
       facts:
         - delay(1000) wartet eine Sekunde, verändert aber keine Variable.
         - counter wird in der aktuellen loop nicht erhöht.
         - eine Änderung an counter müsste explizit im Sketch erfolgen, damit spätere Ausgaben steigen.
+        - Das aktive Curriculum-Topic heißt variables-and-serial.
+        - Die bereits beherrschte Basisfrage im Topic variables-and-serial hat die ID variable-value-recall.
+        - Die bediente Transferfrage im selben Topic hat die ID variable-output-transfer.
       criteria:
         - id: deepen-corrects-misconception
           text: Das Feedback korrigiert klar die Annahme, dass delay counter erhöht.
@@ -225,11 +252,14 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/serial-output.ino
     courseContent: progression-expand
     turns:
-      - kind: dialog
-        question: Welche eigene Erweiterung könnte ich an der seriellen Ausgabe ausprobieren?
-        answer: Ich könnte counter nach einer Ausgabe erhöhen und die Werte im seriellen Monitor vergleichen.
-        bindsToQuestion: Welche eigene Erweiterung könnte ich an der seriellen Ausgabe ausprobieren?
+      - kind: initial
         difficulty: 60
+      - kind: dialog
+        question: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?"
+        answer: Ich könnte counter nach einer Ausgabe erhöhen und die Werte im seriellen Monitor vergleichen.
+        bindsToQuestion: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?"
+        difficulty: 60
+        continuationOf: 0
     expected:
       learningPhase: EXPAND
     judge:
@@ -237,6 +267,7 @@ scenarios:
         - counter startet bei 3 und wird in setup sowie loop seriell ausgegeben.
         - loop erhöht counter im aktuellen Sketch noch nicht.
         - das Erweiterungsziel ist eine weitere serielle Beobachtung am Sketch abzuleiten.
+        - Die gültige EXPAND-Planfrage hat im Curriculum die ID expand-serial-output.
       criteria:
         - id: expand-targets-observation
           text: Das Feedback bindet den Vorschlag an eine eigene, am Sketch prüfbare serielle Beobachtung.
@@ -249,11 +280,14 @@ scenarios:
     sketch: evals/tutor-quality/fixtures/serial-output.ino
     courseContent: progression-expand
     turns:
-      - kind: dialog
-        question: Woran könnte ich erkennen, dass meine Erweiterung funktioniert?
-        answer: Wenn ich counter in loop erhöhe, sollten im seriellen Monitor nach und nach steigende Werte erscheinen.
-        bindsToQuestion: Woran könnte ich erkennen, dass meine Erweiterung funktioniert?
+      - kind: initial
         difficulty: 65
+      - kind: dialog
+        question: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?"
+        answer: Wenn ich counter in loop erhöhe, sollten im seriellen Monitor nach und nach steigende Werte erscheinen.
+        bindsToQuestion: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?"
+        difficulty: 65
+        continuationOf: 0
     expected:
       learningPhase: EXPAND
     judge:
@@ -261,6 +295,7 @@ scenarios:
         - counter startet bei 3 und wird in loop wiederholt ausgegeben.
         - counter wird im aktuellen Sketch innerhalb von loop nicht erhöht.
         - eine Erweiterung soll eine zusätzliche serielle Beobachtung am Sketch ermöglichen.
+        - Die gültige EXPAND-Planfrage hat im Curriculum die ID expand-serial-output.
       criteria:
         - id: expand-observable-result
           text: Das Feedback beschreibt ein konkretes serielles Ergebnis, an dem die vorgeschlagene Erweiterung geprüft werden kann.
