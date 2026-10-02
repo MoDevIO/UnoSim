@@ -58,6 +58,32 @@ describe("Tutor HTTP route", () => {
     return listen(app);
   }
 
+  it("keeps the internal follow-up provenance out of the public HTTP response (R-FUP-3)", async () => {
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        followUpSource: "planner",
+        result: { question: "Welche Zustandsänderung erwartest du?" },
+      }),
+      generateDialogResponse: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        followUpSource: "application-fallback",
+        result: { question: "Was ändert sich?", responseStyle: "normal", answerRating: 3 },
+      }),
+    };
+    const listening = await start(service);
+    server = listening.server;
+
+    const question = await post(listening.url, "/api/tutor/question", { code: "void setup(){} void loop(){}", credential: "secret" });
+    const dialog = await post(listening.url, "/api/tutor/dialog", {
+      code: "void setup(){} void loop(){}", credential: "secret", history: [], question: "Frage?", answer: "Antwort",
+    });
+
+    expect(JSON.stringify(question.body)).not.toContain("followUpSource");
+    expect(JSON.stringify(dialog.body)).not.toContain("followUpSource");
+    expect(dialog.status).toBe(200);
+  });
+
   it("returns the validated question and never echoes the request credential", async () => {
     const service = {
       generateQuestion: vi.fn().mockResolvedValue({

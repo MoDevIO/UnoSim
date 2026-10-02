@@ -355,17 +355,20 @@ function ensureDistinctDialogQuestion(
   history: readonly TutorDialogTurn[],
   currentQuestion: string,
   strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
-): TutorContentResult {
+): { readonly result: TutorContentResult; readonly replaced: boolean } {
   const previousQuestions = [currentQuestion, ...history.map((turn) => turn.question)];
-  if (result.answerRating === undefined) return result;
+  if (result.answerRating === undefined) return { result, replaced: false };
   const repeatsQuestion = isSemanticallyRepeatedQuestion(result.question, previousQuestions);
   const staysOnMasteredConcept = result.answerRating >= 4 && questionSimilarity(result.question, currentQuestion) >= 0.55;
-  if (!repeatsQuestion && !staysOnMasteredConcept) return result;
+  if (!repeatsQuestion && !staysOnMasteredConcept) return { result, replaced: false };
   return {
-    ...result,
-    question: result.answerRating >= 4
-      ? buildConceptTransitionQuestion(code, history, currentQuestion, strategy)
-      : buildRemediationQuestion(code, history, currentQuestion, result.answerRating, strategy),
+    replaced: true,
+    result: {
+      ...result,
+      question: result.answerRating >= 4
+        ? buildConceptTransitionQuestion(code, history, currentQuestion, strategy)
+        : buildRemediationQuestion(code, history, currentQuestion, result.answerRating, strategy),
+    },
   };
 }
 
@@ -614,6 +617,18 @@ function strategyFromPlanningResult(planningResult: PlanningResult | null): Stra
   };
 }
 
+/**
+ * Where the final follow-up question came from (R-FUP-1). Recorded at the decision site and
+ * returned to in-process callers only; the HTTP routes do not forward it (R-FUP-3).
+ */
+export type TutorFollowUpSource = "planner" | "provider" | "application-fallback";
+
+export interface TutorServiceResponse {
+  readonly result: TutorContentResult;
+  readonly model: string;
+  readonly followUpSource: TutorFollowUpSource;
+}
+
 export class TutorService {
   constructor(
     private readonly provider: LLMProvider,
@@ -626,7 +641,7 @@ export class TutorService {
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
     courseContent?: TutorPlanningContentContext,
-  ): Promise<{ result: TutorContentResult; model: string }> {
+  ): Promise<TutorServiceResponse> {
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
     const transaction = beginTutorPlanningTransaction(courseContent);
@@ -658,10 +673,11 @@ export class TutorService {
     return {
       model: providerResult.model,
       result: initialResult,
+      followUpSource: planningResult && isTutorPlan(planningResult) ? "planner" : "provider",
     };
   }
 
-  async generateDialogResponse(...args: TutorDialogArguments): Promise<{ result: TutorContentResult; model: string }> {
+  async generateDialogResponse(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
     const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
@@ -671,6 +687,7 @@ export class TutorService {
       return {
         model: requestedModel ?? "fallback",
         result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
+        followUpSource: "application-fallback",
       };
     }
     const context = buildTutorContext(code);
@@ -694,18 +711,26 @@ export class TutorService {
     if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
     }
-    let distinctResult = validatedResult.responseStyle === "normal"
-      ? ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy)
-      : validatedResult;
+    let followUpSource: TutorFollowUpSource = "provider";
+    let distinctResult = validatedResult;
+    if (validatedResult.responseStyle === "normal") {
+      const distinct = ensureDistinctDialogQuestion(validatedResult, code, parsedHistory, question, strategy.strategy);
+      distinctResult = distinct.result;
+      if (distinct.replaced) followUpSource = "application-fallback";
+    }
     if (validatedResult.responseStyle === "normal" && this.planningExtension) {
       const nextPlan = await this.planningExtension.planFollowup({ code, history: parsedHistory, currentQuestion: question, rating: validatedResult.answerRating!, difficulty, courseContent: transaction.courseContent });
-      if (nextPlan) distinctResult = applyPlanningOutcome(distinctResult, nextPlan);
+      if (nextPlan) {
+        distinctResult = applyPlanningOutcome(distinctResult, nextPlan);
+        if (isTutorPlan(nextPlan)) followUpSource = "planner";
+      }
     }
     if (!distinctResult.strategyId) distinctResult = applyStrategyMetadata(distinctResult, strategy);
     transaction.commit();
     return {
       model: providerResult.model,
       result: distinctResult,
+      followUpSource,
     };
   }
 
