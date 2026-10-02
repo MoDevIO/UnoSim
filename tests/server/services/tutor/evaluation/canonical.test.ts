@@ -8,4 +8,12 @@ describe("Tutor Quality canonical values", () => {
     expect(canonicalJson(value)).toBe('{"a":3,"z":1,"ä":2}');
     expect(canonicalDigest(value)).toMatch(/^[a-f0-9]{64}$/);
   });
+
+  it("preserves array order without mutating the value", () => {
+    const value = { turns: ["first", "second"] };
+    const before = JSON.stringify(value);
+
+    expect(canonicalDigest(value)).not.toBe(canonicalDigest({ turns: [...value.turns].reverse() }));
+    expect(JSON.stringify(value)).toBe(before);
+  });
 });
