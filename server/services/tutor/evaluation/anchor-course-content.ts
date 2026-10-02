@@ -6,6 +6,7 @@ import type { TutorPlanningContentContext } from "../tutor-planning";
 export const ANCHOR_COURSE_CONTENT_FIXTURE_IDS = [
   "variables",
   "progression-learn",
+  "progression-deepen",
   "progression-expand",
 ] as const;
 
@@ -165,6 +166,18 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
     case "variables":
     case "progression-learn":
       return variablesCourseContent();
+    case "progression-deepen": {
+      const state = baseState();
+      state.activeTopicId = "variables-and-serial";
+      state.phase = "DEEPEN";
+      state.masteredTopicIds = ["variables-and-serial"];
+      state.retainedPhases = { "variables-and-serial": "DEEPEN" };
+      return {
+        revision: REVISION,
+        tutor: tutorCapability([variableTopic(2)]),
+        progressionState: state,
+      };
+    }
     case "progression-expand": {
       const state = baseState();
       state.activeTopicId = "variables-and-serial";

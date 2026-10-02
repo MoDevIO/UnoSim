@@ -44,14 +44,38 @@ function validSource(): TutorQualityCorpusSource {
 }
 
 describe("Tutor Quality anchor corpus contract", () => {
-  it("contains the reviewed version-1 anchor set", () => {
+  it("contains two judge-enabled strategy cases for each learning phase", () => {
+    const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
+    const strategyCases = source.scenarios.filter(({ id }) => id.startsWith("strategy-"));
+
+    expect(strategyCases.map(({ id }) => id)).toEqual([
+      "strategy-learn-weak-answer",
+      "strategy-learn-strong-answer",
+      "strategy-deepen-transfer",
+      "strategy-deepen-correction",
+      "strategy-expand-proposal",
+      "strategy-expand-observation",
+    ]);
+    expect(strategyCases.map(({ expected }) => expected?.learningPhase)).toEqual([
+      "LEARN",
+      "LEARN",
+      "DEEPEN",
+      "DEEPEN",
+      "EXPAND",
+      "EXPAND",
+    ]);
+    expect(strategyCases.every(({ judge }) => judge && judge.facts.length > 0 && judge.criteria.length > 0)).toBe(true);
+    expect(ANCHOR_COURSE_CONTENT_FIXTURE_IDS).toContain("progression-deepen");
+  });
+
+  it("contains the reviewed version-3 anchor set", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const corpus = parseTutorQualityCorpus(source, {
       sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
-      courseContentFixtures: new Set(["variables", "progression-learn", "progression-expand"]),
+      courseContentFixtures: new Set(["variables", "progression-learn", "progression-deepen", "progression-expand"]),
     });
 
-    expect(corpus.corpusVersion).toBe(2);
+    expect(corpus.corpusVersion).toBe(3);
     expect(corpus.scenarios.map(({ id }) => id)).toEqual([
       "TQ-SEM-001",
       "TQ-REG-001",
@@ -64,6 +88,12 @@ describe("Tutor Quality anchor corpus contract", () => {
       "learn-to-deepen",
       "expand",
       "off-topic-answer",
+      "strategy-learn-weak-answer",
+      "strategy-learn-strong-answer",
+      "strategy-deepen-transfer",
+      "strategy-deepen-correction",
+      "strategy-expand-proposal",
+      "strategy-expand-observation",
     ]);
     expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
   });
@@ -186,5 +216,18 @@ describe("Tutor Quality anchor corpus contract", () => {
       phase: "EXPAND",
       masteredTopicIds: ["variables-and-serial"],
     });
+  });
+
+  it("provides a mastered same-topic DEEPEN fixture", () => {
+    expect(ANCHOR_COURSE_CONTENT_FIXTURE_IDS).toContain("progression-deepen");
+    const content = createAnchorCourseContent("progression-deepen");
+
+    expect(content.progressionState).toMatchObject({
+      activeTopicId: "variables-and-serial",
+      phase: "DEEPEN",
+      masteredTopicIds: ["variables-and-serial"],
+      retainedPhases: { "variables-and-serial": "DEEPEN" },
+    });
+    expect(content.tutor).toMatchObject({ status: "valid", topics: [{ schemaVersion: 2 }] });
   });
 });

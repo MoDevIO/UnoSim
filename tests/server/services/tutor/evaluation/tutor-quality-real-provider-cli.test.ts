@@ -100,7 +100,7 @@ describe("Tutor Quality real-provider CLI contract", () => {
       },
     };
     try {
-      expect(scenarios).toHaveLength(11);
+      expect(scenarios).toHaveLength(17);
       const result = await runTutorQualityCli([
         "--model", "pilot-model",
         "--samples", "1",
@@ -115,11 +115,16 @@ describe("Tutor Quality real-provider CLI contract", () => {
       });
       expect(result.transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateAfter)
         .toEqual(result.transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateBefore);
+      const strategyTranscripts = result.transcripts.filter(({ scenario }) => scenario.id.startsWith("strategy-"));
+      expect(strategyTranscripts).toHaveLength(6);
+      expect(strategyTranscripts.every(({ turns }) => turns.at(-1)?.deterministicChecks.some(
+        ({ name, passed }) => name === "expected-learning-phase" && passed,
+      ))).toBe(true);
       expect(result.transcripts.filter(({ invariantViolations }) => invariantViolations.length > 0).map(({ scenario, invariantViolations }) => ({ id: scenario.id, invariantViolations }))).toEqual([]);
       expect(result.report).toMatchObject({
         runStatus: "completed",
-        samplesRequested: 11,
-        samplesObserved: 11,
+        samplesRequested: 17,
+        samplesObserved: 17,
         invalid: 0,
         technicalFailures: 0,
         invariantViolationSamples: 0,
