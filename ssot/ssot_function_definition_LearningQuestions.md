@@ -449,6 +449,10 @@ transfer questions, offer another finite extension direction, or revisit a
 demonstrated gap. It must not repeat the same extension indefinitely or invent
 a new Topic.
 
+An answer to a generated extension question is an EXPAND answer and counts as
+transfer evidence. It must not end in `content-exhausted` merely because the
+generated question is not an entry of the Topic's question list.
+
 #### Post-mastery strategy resolution
 
 The existing LEARN strategy precedence remains unchanged:

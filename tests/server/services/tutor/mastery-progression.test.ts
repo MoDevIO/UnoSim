@@ -342,6 +342,83 @@ describe("mastery progression domain classification", () => {
     expect(state.phase).toBe("EXPAND");
   });
 
+  describe("answering a generated EXPAND extension question", () => {
+    const code = "int values[] = {1, 2};";
+    const extensionObjective = "Eine weitere Beobachtung am Sketch ableiten.";
+
+    async function expandAdapter(history: TutorDialogTurn[] = []) {
+      const source = await topic();
+      const targetId = "extension-target";
+      const expandTopic = {
+        ...source,
+        schemaVersion: 2 as const,
+        id: "expand-source",
+        deepening: { minimumSuccessfulProbes: 2, successRatingAtLeast: 4, requiredQuestionKinds: ["transfer" as const], recentWeakAnswersAllowed: 0 },
+        extensions: [{ topic: targetId, objective: extensionObjective }],
+      };
+      const targetTopic = singleProbeTopic(source, targetId, { any: [{ fact: "serial-call", values: ["print"] }] });
+      const state = createTutorProgressionState(revision);
+      state.activeTopicId = expandTopic.id;
+      state.phase = "EXPAND";
+      state.retainedPhases[expandTopic.id] = "EXPAND";
+      markTopicMastered(state, expandTopic.id);
+      const adapter = new CurriculumTutorAdapter({
+        courseContent: {
+          getSnapshot: async () => ({
+            revision,
+            progressionState: state,
+            tutor: { status: "valid" as const, manifest: { schemaVersion: 2 as const, topics: [], strategies: [] }, topics: [expandTopic, targetTopic], strategies: [] },
+          }),
+        },
+      });
+      const extension = await adapter.planInitial({ code, history, difficulty: 30 });
+      return { adapter, extension, state, expandTopic };
+    }
+
+    it.each([2, 5] as const)("stays in EXPAND and is not exhausted for rating %i", async (rating) => {
+      const { adapter, extension, state, expandTopic } = await expandAdapter();
+      expect(extension).toMatchObject({ learningPhase: "EXPAND", questionId: "expand-extension-target" });
+      if (!extension || "kind" in extension) throw new Error("expected an EXPAND extension plan");
+      expect(expandTopic.questions.some(({ id }) => id === extension.questionId)).toBe(false);
+
+      const next = await adapter.planFollowup({ code, history: [], currentQuestion: extension.question, rating, difficulty: 30 });
+
+      expect(next).toMatchObject({ learningPhase: "EXPAND", activeTopicId: expandTopic.id });
+      expect(next).not.toHaveProperty("kind", "blocked");
+      expect(next).not.toHaveProperty("progressionBlockedReason");
+      expect(state.progressionBlockedReason).toBeUndefined();
+      expect(state.phase).toBe("EXPAND");
+      expect(state.postMasteryEvidence[expandTopic.id]).toEqual([
+        expect.objectContaining({ questionId: "expand-extension-target", kind: "transfer", rating }),
+      ]);
+      if (!next || "kind" in next) throw new Error("expected a follow-up plan");
+      expect(next.question).not.toBe(extension.question);
+    });
+
+    it("does not offer the same extension again after it was answered", async () => {
+      const { adapter, extension } = await expandAdapter();
+      if (!extension || "kind" in extension) throw new Error("expected an EXPAND extension plan");
+      const first = await adapter.planFollowup({ code, history: [], currentQuestion: extension.question, rating: 5, difficulty: 30 });
+      if (!first || "kind" in first) throw new Error("expected a follow-up plan");
+      expect(first.questionId).not.toBe(extension.questionId);
+    });
+
+    it("still reports content-exhausted when no further planner action exists", async () => {
+      const source = await topic();
+      const history: TutorDialogTurn[] = source.questions.map((question) => ({
+        question: question.text ?? question.id,
+        questionId: question.id,
+        answer: "Antwort",
+        responseStyle: "normal",
+        answerRating: 4,
+      }));
+      const { adapter, extension } = await expandAdapter(history);
+      if (!extension || "kind" in extension) throw new Error("expected an EXPAND extension plan");
+      const next = await adapter.planFollowup({ code, history, currentQuestion: extension.question, rating: 5, difficulty: 30 });
+      expect(next).toMatchObject({ kind: "blocked", learningPhase: "EXPAND", progressionBlockedReason: "content-exhausted" });
+    });
+  });
+
   it("does not reuse progression state for another Course revision", async () => {
     const source = await topic();
     const state = createTutorProgressionState(revision);

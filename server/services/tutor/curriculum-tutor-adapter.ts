@@ -148,6 +148,13 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   private advancePlan(context: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
+    const answeredPhase = context.state.phase ?? context.phase;
+    if (answeredPhase === "EXPAND" && answeredExpansionTarget(context.topic, context.state, input.currentQuestion)) {
+      // A generated extension question is not a Topic question, so the planner
+      // cannot advance from it; the next EXPAND step is planned as at phase start.
+      const history = progressionHistory(context.topic, input.history, context.state, input.currentQuestion);
+      return this.startPlan(context, history, input.difficulty, answeredPhase);
+    }
     const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, {
       difficulty: input.difficulty,
       strategy: context.strategy.strategy,
@@ -317,6 +324,18 @@ function resolveExpansionBrief(
 }
 
 function recordFollowupObservation(context: AdapterContext, input: TutorFollowupInput): void {
+  const expansionTargetId = answeredExpansionTarget(context.topic, context.state, input.currentQuestion);
+  if (expansionTargetId) {
+    const id = expansionQuestionId(expansionTargetId);
+    appendEvidence(context.state, "postMasteryEvidence", context.topic.id, {
+      questionId: id,
+      conceptId: id,
+      indicatorId: EXPANSION_INDICATOR_ID,
+      kind: "transfer",
+      rating: input.rating,
+    });
+    return;
+  }
   const current = findQuestion(context.topic, input.currentQuestion, input.history);
   if (!current) return;
   const evidenceKey = context.phase === "DEEPEN" || context.phase === "EXPAND"
@@ -443,19 +462,41 @@ function classifyWithState(
   return classification;
 }
 
+const EXPANSION_INDICATOR_ID = "expansion";
+
+function expansionQuestionId(targetTopicId: string): string {
+  return `expand-${targetTopicId.slice(0, 56)}`;
+}
+
+function expansionQuestionText(objective: string): string {
+  return `Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „${objective}“, und woran würdest du ihre Wirkung erkennen?`;
+}
+
+// The dialog request carries only the text of the answered question, not its ID.
+// A generated extension question is therefore recognized by the extension targets
+// the application already recorded as delivered for this Topic; the text is built
+// by the same function that generated it.
+function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgressionState, currentQuestion: string): string | undefined {
+  if (topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  const delivered = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
+  return topic.extensions.find(({ topic: targetTopicId, objective }) =>
+    delivered.has(targetTopicId) && expansionQuestionText(objective) === currentQuestion,
+  )?.topic;
+}
+
 function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expansionBrief: TutorExpansionBrief): TutorPlan {
-  const targetKey = expansionBrief.targetTopicId.slice(0, 56);
+  const questionId = expansionQuestionId(expansionBrief.targetTopicId);
   return {
     topicId: context.topic.id,
     topicTitle: context.topic.title,
-    conceptId: `expand-${targetKey}`,
+    conceptId: questionId,
     conceptTitle: "Eigene Erweiterung",
     objective: expansionBrief.objective,
-    questionId: `expand-${targetKey}`,
+    questionId,
     questionKind: "transfer",
-    indicatorId: "expansion",
+    indicatorId: EXPANSION_INDICATOR_ID,
     indicator: expansionBrief.objective,
-    question: `Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „${expansionBrief.objective}“, und woran würdest du ihre Wirkung erkennen?`,
+    question: expansionQuestionText(expansionBrief.objective),
     misconceptions: [],
     contentRevision: context.revision,
     strategyId: context.strategy.strategy.id,
