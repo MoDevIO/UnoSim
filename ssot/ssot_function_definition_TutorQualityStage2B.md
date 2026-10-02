@@ -1,9 +1,12 @@
 # Tutor Quality Stage 2B – Automated Semantic Evaluation & Model Benchmarking
 
-Status: normative for Stage-2B semantic evaluation, calibration, comparison,
-and reporting. This SSOT extends the observation capability of Stage 2A. It
-does not change Stage-1 hard gates, Stage-2A execution contracts, Tutor runtime
-behavior, or the production model selection.
+Status: historical design specification; not normative for the current runtime.
+The Stage-2B semantic implementation described here was removed in commit
+`ae8e2f53f27a5c8f9dce09649b668e44081fec6b`. This document is retained for
+design history and possible future review. The active evaluation path uses the
+Stage-A anchor corpus and runner with an optional Minimal Judge. Do not apply
+the requirements below to current implementation work unless a later approved
+plan explicitly reactivates Stage 2B.
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in
 this document express normative requirements. Descriptive examples do not add
