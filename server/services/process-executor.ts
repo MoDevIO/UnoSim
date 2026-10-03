@@ -54,6 +54,7 @@ const ALLOWED_COMMANDS: Record<string, { allowedArgs?: RegExp[] }> = {
       /^pause$/,
       /^unpause$/,
       /^[a-z0-9:./-]+$/i, // Image names, paths, config values
+      /^label=unosim\.owner=[A-Za-z0-9._-]+:\d+$/, // Orphaned sandbox sweep filter
     ],
   },
   "arduino-cli": {

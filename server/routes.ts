@@ -35,6 +35,8 @@ import { ExamplesRepository } from "./services/examples/examples-repository";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
+import { ProcessExecutor } from "./services/process-executor";
+import { removeOrphanedSandboxContainers, sandboxOwner } from "./services/sandbox/orphan-sweep";
 
 const WEBSOCKET_CLOSE_GRACE_MS = 250;
 
@@ -114,6 +116,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const logger = new Logger("Routes");
   const httpServer = createServer(app);
 
+  if (config.serverMode === "docker") {
+    // Before any sandbox of this process exists: remove those a crashed predecessor left running.
+    await removeOrphanedSandboxContainers(new ProcessExecutor(), sandboxOwner(), logger);
+  }
   await initializeSandboxRunnerPool();
 
   // All REST endpoints advertise and negotiate the same additive API contract.

@@ -4,6 +4,7 @@ import type { ExecutionState } from "../execution-manager";
 import type { SimulationState } from "../../simulation-state-machine";
 import { DockerCommandBuilder } from "../../docker-command-builder";
 import { SANDBOX_CONFIG } from "../execution-manager";
+import { SANDBOX_OWNER_LABEL, sandboxOwner } from "../orphan-sweep";
 
 /**
  * Typ für die State-Transition-Funktion
@@ -104,7 +105,7 @@ export async function runDockerStart(
     imageName: SANDBOX_CONFIG.dockerImage,
     command: DockerCommandBuilder.buildCompileAndRunCommand(),
     containerName: params.containerName,
-    labels: params.labels,
+    labels: [`${SANDBOX_OWNER_LABEL}=${sandboxOwner()}`, ...(params.labels ?? [])],
   });
 
   // Process-Spawn
