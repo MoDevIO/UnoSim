@@ -1,10 +1,5 @@
 import { SandboxRunner } from "./sandbox-runner";
 import { Logger } from "@shared/logger";
-import type { IOPinRecord } from "@shared/schema";
-import type {
-  ExecutionState,
-  TelemetryMetrics,
-} from "./sandbox/execution-manager";
 import { config } from "../config";
 
 interface PooledRunner {
@@ -20,47 +15,6 @@ interface QueueEntry {
   reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
 }
-
-// Useful internal type for accessing private runner fields safely
-type SandboxRunnerInternal = {
-  state: string;
-  processKilled: boolean;
-  executionState: ExecutionState;
-  processController?: {
-    proc?: {
-      stdout?: unknown;
-      stderr?: unknown;
-    };
-    stdoutListeners?: unknown[];
-    stderrListeners?: unknown[];
-    closeListeners?: unknown[];
-    errorListeners?: unknown[];
-    removeAllListeners?: () => void;
-  } | null;
-  pinStateBatcher?: { pause: () => void; resume: () => void } | null;
-  serialOutputBatcher?: { pause: () => void; resume: () => void } | null;
-  registryManager?: { destroy: () => void; reset: () => void } | null;
-  flushMessageQueue?: () => void;
-  onOutputCallback?: ((line: string, isComplete?: boolean) => void) | null;
-  outputCallback?: ((line: string, isComplete?: boolean) => void) | null;
-  errorCallback?: ((line: string) => void) | null;
-  telemetryCallback?: ((metrics: TelemetryMetrics) => void) | null;
-  pinStateCallback?:
-    | ((pin: number, type: string, value: number) => void)
-    | null;
-  ioRegistryCallback?:
-    | ((
-        registry: IOPinRecord[],
-        baudrate: number | undefined,
-        reason?: string,
-      ) => void)
-    | null;
-  timeoutManager?: { clear: () => void };
-  fileBuilder?: { reset: () => void };
-  flushTimer?: NodeJS.Timeout | null;
-  // keep object extensible as we access other internal fields in reset logic
-  [key: string]: unknown;
-};
 
 export interface SandboxRunnerPoolOptions {
   minRunners?: number;
@@ -241,7 +195,7 @@ export class SandboxRunnerPool {
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        this.resetRunnerState(runner),
+        runner.resetForReuse(),
         new Promise<void>((_, reject) => {
           resetTimer = setTimeout(
             () => reject(new Error("Runner reset timed out")),
@@ -330,125 +284,6 @@ export class SandboxRunnerPool {
         );
       }
     }, this.idleTimeoutMs);
-  }
-
-  private clearRunnerListeners(runner: SandboxRunnerInternal): void {
-    const safeRemoveAll = (target: unknown, label: string) => {
-      if (!target || typeof target !== "object" || target === null) {
-        return;
-      }
-
-      const maybe = target as { removeAllListeners?: unknown };
-      if (typeof maybe.removeAllListeners !== "function") {
-        return;
-      }
-
-      try {
-        (maybe.removeAllListeners as () => void)();
-      } catch (error) {
-        this.logger.debug(
-          `[SandboxRunnerPool] Failed removeAllListeners on ${label}: ${error}`,
-        );
-      }
-    };
-
-    safeRemoveAll(runner, "runner");
-
-    const processController = runner.processController;
-    safeRemoveAll(processController, "processController");
-    safeRemoveAll(processController?.proc, "processController.proc");
-    safeRemoveAll(
-      processController?.proc?.stdout,
-      "processController.proc.stdout",
-    );
-    safeRemoveAll(
-      processController?.proc?.stderr,
-      "processController.proc.stderr",
-    );
-
-    safeRemoveAll(runner.registryManager, "registryManager");
-    safeRemoveAll(runner.serialOutputBatcher, "serialOutputBatcher");
-    safeRemoveAll(runner.pinStateBatcher, "pinStateBatcher");
-
-    if (processController) {
-      processController.stdoutListeners = [];
-      processController.stderrListeners = [];
-      processController.closeListeners = [];
-      processController.errorListeners = [];
-    }
-  }
-
-  private async resetRunnerState(runner: SandboxRunner): Promise<void> {
-    try {
-      if (runner.isRunning) {
-        await runner.stop();
-      }
-
-      const r = runner as unknown as SandboxRunnerInternal;
-
-      this.clearRunnerListeners(r);
-
-      // Use the state setter (delegates to executionState.state)
-      r.state = "stopped";
-
-      // Reset executionState fields directly to avoid creating ad-hoc properties
-      // on the runner instance that shadow the real executionState fields.
-      const es = r.executionState;
-      es.processKilled = false;
-      es.pauseStartTime = null;
-      es.totalPausedTime = 0;
-      es.pinStateBatcher = null;
-      es.serialOutputBatcher = null;
-      es.onOutputCallback = null;
-      es.errorCallback = null;
-      es.telemetryCallback = null;
-      es.pinStateCallback = null;
-      es.ioRegistryCallback = undefined;
-      es.outputBuffer = "";
-      es.outputBufferIndex = 0;
-      es.totalOutputBytes = 0;
-      es.isSendingOutput = false;
-      es.pendingCleanup = false;
-      es.messageQueue = [];
-      es.stderrFallbackBuffer = "";
-      es.backpressurePaused = false;
-
-      if (es.flushTimer) {
-        clearTimeout(es.flushTimer);
-        es.flushTimer = null;
-      }
-
-      if (r.fileBuilder && typeof r.fileBuilder.reset === "function") {
-        r.fileBuilder.reset();
-      }
-
-      // Reset the existing RegistryManager rather than destroying and recreating it.
-      // Destroying makes the object permanently unusable (destroyed=true), which breaks
-      // the ExecutionManager that holds a reference to the same instance.
-      // The original onUpdate callback uses executionState.ioRegistryCallback dynamically,
-      // so it picks up the correct callback for each new run automatically.
-      if (r.registryManager) {
-        try {
-          r.registryManager.reset();
-        } catch (error) {
-          this.logger.debug(
-            `[SandboxRunnerPool] RegistryManager reset failed: ${error}`,
-          );
-        }
-      }
-
-      if (r.timeoutManager) {
-        r.timeoutManager.clear();
-      }
-
-      this.logger.debug(
-        "[SandboxRunnerPool] Runner state reset complete (isolation verified)",
-      );
-    } catch (error) {
-      this.logger.error(
-        `[SandboxRunnerPool] Error during runner reset: ${error}`,
-      );
-    }
   }
 
   getStats() {
