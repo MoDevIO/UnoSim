@@ -133,6 +133,20 @@ export interface ExecutionState {
   dockerAvailable?: boolean;
   dockerImageBuilt?: boolean;
   outputCollector?: OutputCollector;
+  /** Increments with every run on this state; a run whose number is no longer current is stale. */
+  runGeneration?: number;
+  /** Aborted when the current run is stopped or superseded. */
+  runAbort?: AbortController | null;
+}
+
+/**
+ * Identity of one runSketch call. The execution state is reused across runs
+ * (pooled runners), so every step after an await must check that its run is
+ * still the current one before it touches shared state.
+ */
+interface RunToken {
+  readonly signal: AbortSignal;
+  isStale(): boolean;
 }
 
 export class ExecutionManager {
@@ -170,7 +184,7 @@ export class ExecutionManager {
    * Main execution entry point: orchestrates prepare → start → stream → timeout → cleanup
    */
   async runSketch(options: RunSketchOptions, state: ExecutionState): Promise<boolean> {
-    const { code, onOutput, onError, onExit, onCompileError, onPinState, timeoutSec, onIORegistry, onTelemetry, onPinStateBatch } = options;
+    const { code, onOutput, onError, onPinState, timeoutSec, onIORegistry, onTelemetry, onPinStateBatch } = options;
 
     // Transition to STARTING state
     const canStart = this.transitionTo(state, SimulationState.STARTING);
@@ -178,6 +192,8 @@ export class ExecutionManager {
       this.logger.warn(`runSketch ignored - invalid state: ${state.state}`);
       return false;
     }
+
+    const run = this.beginRun(state);
 
     // Clear pending cleanup for a fresh run
     state.pendingCleanup = false;
@@ -252,10 +268,16 @@ export class ExecutionManager {
     state.serialOutputBatcher.start();
     this.registryManager.setSerialOutputBatcher(state.serialOutputBatcher);
 
+    let files: { sketchDir: string; sketchFile: string; exeFile: string } | undefined;
     try {
       // Prepare environment
-      const files = await this.prepareEnvironment(code, state, options.headers, options.entryFile);
-    state.processKilled = false;
+      files = await this.prepareEnvironment(code, options.headers, options.entryFile);
+      if (run.isStale()) {
+        this.cleanupAbandonedSketchDir(files.sketchDir);
+        return false;
+      }
+      state.currentSketchDir = files.sketchDir;
+      state.processKilled = false;
 
       if (state.pendingCleanup || state.processKilled || state.state === SimulationState.STOPPED) {
         this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
@@ -269,25 +291,61 @@ export class ExecutionManager {
       });
 
       // Setup and run simulation
-      await this.setupSimulationProcess(files, wrapped, options, state);
+      await this.setupSimulationProcess(files, wrapped, options, state, run);
+      if (run.isStale()) return false;
       return (
         state.processController.hasProcess() &&
         (state.state === SimulationState.RUNNING || state.state === SimulationState.PAUSED) &&
         !state.processKilled
       );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
-      if (onCompileError) {
-        onCompileError(errorMessage);
-      }
-      if (onExit) {
-        onExit(-1);
-      }
-      state.processController.destroySockets();
-      this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
+      this.handleRunFailure(err, files, options, state, run);
       return false;
     }
+  }
+
+  private handleRunFailure(
+    err: unknown,
+    files: { sketchDir: string } | undefined,
+    options: RunSketchOptions,
+    state: ExecutionState,
+    run: RunToken,
+  ): void {
+    if (run.isStale()) {
+      // A stopped or superseded run reports nothing and leaves the shared state alone.
+      if (files) this.cleanupAbandonedSketchDir(files.sketchDir);
+      return;
+    }
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
+    options.onCompileError?.(errorMessage);
+    options.onExit?.(-1);
+    state.processController.destroySockets();
+    this.filesystemHelper.markTempDirForCleanup(this.extractFilesystemState(state));
+  }
+
+  /** Starts a new run on the state and supersedes any run still in flight. */
+  private beginRun(state: ExecutionState): RunToken {
+    state.runAbort?.abort();
+    const abort = new AbortController();
+    const generation = (state.runGeneration ?? 0) + 1;
+    state.runAbort = abort;
+    state.runGeneration = generation;
+    return {
+      signal: abort.signal,
+      isStale: () => abort.signal.aborted || state.runGeneration !== generation,
+    };
+  }
+
+  /** Removes the sketch directory of a stale run without touching the shared state. */
+  private cleanupAbandonedSketchDir(sketchDir: string): void {
+    this.filesystemHelper.markTempDirForCleanup({
+      currentSketchDir: sketchDir,
+      isCompiling: false,
+      pendingCleanup: false,
+      cleanupRetries: new Map(),
+      currentRegistryFile: null,
+    });
   }
 
   /**
@@ -332,14 +390,11 @@ export class ExecutionManager {
    */
   private async prepareEnvironment(
     code: string,
-    state: ExecutionState,
     headers: Array<{ name: string; content: string }> = [],
     entryFile?: string,
   ): Promise<{ sketchDir: string; sketchFile: string; exeFile: string }> {
     const sketchId = randomUUID();
-    const files = await this.fileBuilder.build(code, sketchId, headers, entryFile);
-    state.currentSketchDir = files.sketchDir;
-    return files;
+    return this.fileBuilder.build(code, sketchId, headers, entryFile);
   }
 
   /**
@@ -368,9 +423,10 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
+    run: RunToken,
   ): Promise<void> {
     if (config.serverMode === "local") {
-      await this.runLocal(files, callbacks, opts, state);
+      await this.runLocal(files, callbacks, opts, state, run);
       return;
     }
 
@@ -378,7 +434,7 @@ export class ExecutionManager {
       throw new Error("Docker sandbox is unavailable");
     }
 
-    await this.runDocker(files, callbacks, opts, state);
+    await this.runDocker(files, callbacks, opts, state, run);
   }
 
   /**
@@ -389,10 +445,10 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
+    run: RunToken,
   ): Promise<void> {
     const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const containerName = `unosim-sandbox-${randomUUID()}`;
-    state.currentContainerName = containerName;
 
     const { onCompileError, onCompileSuccess, onExit } = opts;
 
@@ -404,14 +460,15 @@ export class ExecutionManager {
     const queueStartTime = Date.now();
     const releaseSemaphore = await getSandboxStartSemaphore().acquire(() => {
       opts.onCompileQueued?.();
-    }, config.capacity.sandboxStartSlotTimeoutMs);
+    }, config.capacity.sandboxStartSlotTimeoutMs, run.signal);
     const queueWaitTimeMs = Date.now() - queueStartTime;
     
-    // Guard: abort if the simulation was stopped while we were waiting
-    if (state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) {
+    // Guard: abort if the simulation was stopped or the runner reused while we were waiting
+    if (run.isStale() || state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) {
       releaseSemaphore();
       return;
     }
+    state.currentContainerName = containerName;
 
     // Release wrapper – idempotent, called from startup callbacks or onClose
     let semaphoreReleased = false;
@@ -451,7 +508,7 @@ export class ExecutionManager {
       resolveRuntimeStart = resolve;
     });
     const onRuntimeStart = () => {
-      if (runtimeStarted || state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) return;
+      if (runtimeStarted || run.isStale() || state.processKilled || state.pendingCleanup || state.state === SimulationState.STOPPED) return;
       runtimeStarted = true;
       this.registryManager.enableWaitMode(config.timeouts.registryWaitModeAfterStartMs);
       this.transitionTo(state, SimulationState.RUNNING);
@@ -506,6 +563,8 @@ export class ExecutionManager {
       state.processController.onClose((_code) => {
         if (!runtimeStarted) resolveRuntimeStart(false);
         releaseOnce();
+        // stop() already removed this run's container; the state may belong to the next run.
+        if (run.isStale()) return;
         this.transitionTo(state, SimulationState.STOPPED);
         if (state.flushTimer) {
           clearTimeout(state.flushTimer);
@@ -536,9 +595,10 @@ export class ExecutionManager {
       );
       await runtimeStartPromise;
     } catch (err) {
+      releaseOnce();
+      if (run.isStale()) throw err;
       const isTimeout = err instanceof Error && err.message.includes("timeout");
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, isTimeout);
-      releaseOnce();
       this.logger.error(`Docker process spawn failed: ${err instanceof Error ? err.message : String(err)}`);
       this.transitionTo(state, SimulationState.STOPPED);
       state.processController.destroySockets();
@@ -555,6 +615,7 @@ export class ExecutionManager {
     callbacks: ExecutionCallbacks,
     opts: RunSketchOptions,
     state: ExecutionState,
+    run: RunToken,
   ): Promise<void> {
     const executionTimeout = normalizeSimulationTimeout(opts.timeoutSec);
     const { onCompileError, onExit } = opts;
@@ -568,6 +629,10 @@ export class ExecutionManager {
       state.isCompiling = true;
       await this.performCompilation(files.sketchFile, files.exeFile, opts, state);
       state.isCompiling = false;
+      if (run.isStale()) {
+        this.cleanupAbandonedSketchDir(files.sketchDir);
+        return;
+      }
       
       // Compile success
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, true, compileTimedOut);
@@ -590,6 +655,7 @@ export class ExecutionManager {
       // Stream-Phase: Event-Handler registrieren
       this.setupLocalHandlers(callbacks, onExit, executionTimeout, state);
     } catch (err) {
+      if (run.isStale()) throw err;
       state.isCompiling = false;
       const isTimeout = err instanceof Error && err.message.includes("timeout");
       compileMetricsTracker.recordCompileComplete(compileStartTime, queueWaitTimeMs, false, isTimeout);

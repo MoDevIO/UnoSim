@@ -96,8 +96,12 @@ export class ProcessController implements IProcessController {
       /* ignore */
     }
 
-    // attach existing listeners (guard for nullability)
+    // attach existing listeners (guard for nullability). Every forwarder checks
+    // that its child is still the current one: a later spawn belongs to another
+    // run, and the previous child's late output or close must not reach it.
+    const child = this.proc;
     this.proc?.stdout?.on("data", (d: Buffer) => {
+      if (this.proc !== child) return;
       this.stdoutListeners.forEach((cb) => cb(d));
     });
 
@@ -110,8 +114,10 @@ export class ProcessController implements IProcessController {
 
   private _setupStderrHandling(createInterface: (options: any) => import("node:readline").Interface): void {
     if (!this.proc?.stderr) return;
+    const child = this.proc;
 
     this.proc.stderr.on("data", (d: Buffer) => {
+      if (this.proc !== child) return;
       if (process.env.NODE_ENV === "test") {
         // convert low-level wrapper events into buffered debug logs
         try {
@@ -135,6 +141,7 @@ export class ProcessController implements IProcessController {
         crlfDelay: Infinity,
       });
       this.stderrReadline.on("line", (line: string) => {
+        if (this.proc !== child) return;
         this.stderrLineListeners.forEach((cb) => cb(line));
       });
     }
@@ -142,11 +149,16 @@ export class ProcessController implements IProcessController {
 
   private _setupProcessEventListeners(): void {
     if (!this.proc) return;
+    const child = this.proc;
 
     this.proc.on("close", (code: number | null) => {
+      if (this.proc !== child) return;
       this.closeListeners.forEach((cb) => cb(code));
     });
-    this.proc.on("error", (err: Error) => this.errorListeners.forEach((cb) => cb(err)));
+    this.proc.on("error", (err: Error) => {
+      if (this.proc !== child) return;
+      this.errorListeners.forEach((cb) => cb(err));
+    });
   }
 
   onStdout(cb: StdDataCb) {
