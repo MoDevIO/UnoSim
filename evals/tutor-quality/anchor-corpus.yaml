@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 7
+corpusVersion: 8
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -322,3 +322,28 @@ scenarios:
           text: Die Korrektur bindet sich an die tatsächliche Rolle von delay oder daran, dass counter im Sketch nicht verändert wird.
         - id: expand-no-replacement-code
           text: Die Antwort liefert keinen vollständigen Ersatzcode.
+
+  # R-EXP-2 for an answered question the planner did not serve (for example a free or provider
+  # fallback question): with an unused extension left, EXPAND continues with that extension instead
+  # of ending in content-exhausted. The question is scripted on purpose (R-TURN-2), so the case
+  # declares no learningPhase (R-TURN-3); an unexpected blocked reason fails it (R-BLK-2). The
+  # follow-up is planned after the provider wrote its feedback, so the Judge checks that both fit.
+  - id: expand-unplanned-answer
+    sketch: evals/tutor-quality/fixtures/serial-output.ino
+    courseContent: progression-expand
+    turns:
+      - kind: dialog
+        question: Was bewirkt delay im Sketch?
+        answer: Es wartet eine Sekunde, bevor counter erneut ausgegeben wird.
+        difficulty: 60
+    expected:
+      topicId: variables-and-serial
+    judge:
+      facts:
+        - counter startet bei 3 und wird in setup sowie in loop seriell ausgegeben.
+        - delay(1000) in loop wartet eine Sekunde zwischen zwei Ausgaben.
+        - Die Antwort der lernenden Person beschreibt die Wirkung von delay zutreffend.
+        - Die Folgefrage lädt zu einer eigenen, am Sketch prüfbaren Erweiterung ein, die eine weitere serielle Beobachtung ableitet.
+      criteria:
+        - id: expand-followup-fits-feedback
+          text: Feedback und Folgefrage passen zusammen; das Feedback kündigt keinen anderen nächsten Schritt an, als die Folgefrage stellt, und widerspricht ihr nicht.
