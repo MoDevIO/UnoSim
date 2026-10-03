@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/services/compiler/cache-manager.ts</title>
+    <title>Code coverage report for server/services/tutor/evaluation/quality-verdict.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">server/services/compiler</a> cache-manager.ts</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/services/tutor/evaluation</a> quality-verdict.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.22% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>70/72</span>
+                <span class='fraction'>55/55</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.23% </span>
+                <span class="strong">93.54% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/17</span>
+                <span class='fraction'>58/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.81% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/11</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>65/65</span>
+                <span class='fraction'>44/44</span>
             </div>
         
             
@@ -251,381 +251,405 @@
 <a name='L186'></a><a href='#L186'>186</a>
 <a name='L187'></a><a href='#L187'>187</a>
 <a name='L188'></a><a href='#L188'>188</a>
-<a name='L189'></a><a href='#L189'>189</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">48x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-yes">31x</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">181x</span>
+<span class="cline-any cline-yes">181x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">181x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">181x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">96x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">85x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-yes">92x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">52x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { readFile, writeFile, rename, mkdir, readdir, stat, rm, utimes } from "node:fs/promises";
-import { join } from "node:path";
-import { Logger } from "@shared/logger";
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">85x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-yes">106x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">256x</span>
+<span class="cline-any cline-yes">109x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { TutorQualitySemanticEvaluation } from "./judge";
 &nbsp;
-const logger = new Logger("CacheManager");
+/** Normative rule: Evaluation SSOT §12 (R-VER-1..9). Bump on every rule change (R-VER-9). */
+export const TUTOR_QUALITY_VERDICT_RULE_REVISION = "tutor-quality-verdict-v1";
 &nbsp;
-export interface CacheHitResult {
-  cached: boolean;
-  binary: Buffer | null;
-  cacheType: "instant" | "hex" | "none";
-  cachedOutput: string | null;
+export type TutorQualityVerdictValue = "pass" | "warn" | "fail" | "inconclusive";
+type FindingEffect = Exclude&lt;TutorQualityVerdictValue, "pass"&gt;;
+&nbsp;
+// Declaration order is the SSOT §12 table order and the report sort order.
+const FINDING_CLASSES = [
+  "run-not-completed",
+  "product-violation",
+  "rating-out-of-band",
+  "raw-provider-violation",
+  "judge-criterion",
+  "critical-issue",
+  "unclear-criterion",
+  "scenario-violation",
+  "sample-not-completed",
+  "judge-not-evaluated",
+] as const;
+&nbsp;
+export type TutorQualityFindingClass = typeof FINDING_CLASSES[number];
+&nbsp;
+export interface TutorQualityVerdictFinding {
+  /** Absent only for a run-level finding. */
+  readonly scenarioId?: string;
+  readonly class: TutorQualityFindingClass;
+  readonly key: string;
+  /** Sorted sample indexes of the case that carry the finding; each sample at most once (R-VER-3). */
+  readonly samples: readonly number[];
+  readonly effect: FindingEffect;
 }
 &nbsp;
-export interface CachePaths {
-  binaryStorageDir: string;
-  hexCacheDir: string;
+export interface TutorQualityVerdict {
+  readonly verdict: TutorQualityVerdictValue;
+  readonly ruleRevision: typeof TUTOR_QUALITY_VERDICT_RULE_REVISION;
+  readonly samplesPerCase: number;
+  readonly repeatThreshold: number;
+  readonly judgeConfigured: boolean;
+  readonly findings: readonly TutorQualityVerdictFinding[];
 }
 &nbsp;
-/**
- * Reads binary from storage (tries .hex and .elf extensions).
- * Updates access time on hit.
- */
-export async function readBinaryFromStorage(
-  sketchHash: string,
-  storageDir: string,
-): Promise&lt;Buffer | null&gt; {
-  const hexPath = join(storageDir, `${sketchHash}.hex`);
-  const elfPath = join(storageDir, `${sketchHash}.elf`);
-  for (const path of [hexPath, elfPath]) {
-    try {
-      const binary = await readFile(path);
-      const now = new Date();
-      await utimes(path, now, now).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
-      return binary;
-    } catch {
-      // continue probing next extension
-    }
+export interface TutorQualityVerdictSample {
+  readonly scenarioId: string;
+  readonly sampleIndex: number;
+  readonly executionStatus: "completed" | "invalid" | "technical-failure" | "not-run";
+  readonly invalidReason?: string;
+  readonly technicalErrorKind?: string;
+  readonly violations: readonly {
+    readonly source: "raw-provider" | "final-tutor" | "state" | "scenario";
+    readonly code: string;
+    readonly turnIndex?: number;
+  }[];
+}
+&nbsp;
+export interface TutorQualityVerdictSemanticRecord {
+  readonly scenarioId: string;
+  readonly sampleIndex: number;
+  readonly evaluation: Pick&lt;TutorQualitySemanticEvaluation, "status" | "reason" | "criteria" | "criticalIssues"&gt;;
+}
+&nbsp;
+export interface TutorQualityVerdictInput {
+  readonly runStatus: TutorQualityVerdictSample["executionStatus"];
+  readonly runReason?: string;
+  readonly samplesPerCase: number;
+  readonly judgeConfigured: boolean;
+  readonly samples: readonly TutorQualityVerdictSample[];
+  readonly semanticEvaluations: readonly TutorQualityVerdictSemanticRecord[];
+}
+&nbsp;
+const EFFECT_PRIORITY: readonly FindingEffect[] = ["fail", "inconclusive", "warn"];
+const RATING_VIOLATION_CODE = "answer-rating-out-of-band";
+&nbsp;
+/** k(n) = max(2, ⌊n/2⌋ + 1): a strict majority of the case's samples, never a single sample (R-VER-4). */
+export function repeatThreshold(samplesPerCase: number): number {
+  return Math.max(2, Math.floor(samplesPerCase / 2) + 1);
+}
+&nbsp;
+interface Occurrence {
+  readonly scenarioId?: string;
+  readonly class: TutorQualityFindingClass;
+  readonly key: string;
+  readonly sampleIndex?: number;
+}
+&nbsp;
+function violationClass(source: TutorQualityVerdictSample["violations"][number]["source"], code: string): TutorQualityFindingClass {
+  if (source === "raw-provider") return "raw-provider-violation";
+  if (source === "scenario") return "scenario-violation";
+  if (source === "final-tutor" &amp;&amp; code === RATING_VIOLATION_CODE) return "rating-out-of-band";
+  return "product-violation";
+}
+&nbsp;
+function sampleOccurrences(sample: TutorQualityVerdictSample): Occurrence[] {
+  const { scenarioId, sampleIndex } = sample;
+  const occurrences: Occurrence[] = sample.violations.map(({ source, code }) =&gt; ({
+    scenarioId,
+    sampleIndex,
+    class: violationClass(source, code),
+    key: `${source}/${code}`,
+  }));
+  if (sample.executionStatus !== "completed") {
+    const reason = sample.invalidReason ?? sample.technicalErrorKind ?? <span class="branch-2 cbranch-no" title="branch not covered" >"unknown";</span>
+    occurrences.push({ scenarioId, sampleIndex, class: "sample-not-completed", key: `execution/${sample.executionStatus}/${reason}` });
   }
-  return null;
+  return occurrences;
 }
 &nbsp;
-/**
- * Writes binary to storage using atomic rename pattern.
- */
-export async function writeBinaryToStorage(
-  sketchHash: string,
-  binary: Buffer,
-  storageDir: string,
-): Promise&lt;void&gt; {
-  const targetPath = join(storageDir, `${sketchHash}.hex`);
-  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
-  await mkdir(storageDir, { recursive: true });
-  await writeFile(tmpPath, binary);
-  await rename(tmpPath, targetPath);
+function semanticOccurrences({ scenarioId, sampleIndex, evaluation }: TutorQualityVerdictSemanticRecord): Occurrence[] {
+  if (evaluation.status !== "evaluated") {
+    return [{ scenarioId, sampleIndex, class: "judge-not-evaluated", key: `judge/${evaluation.status}/${evaluation.reason ?? <span class="branch-1 cbranch-no" title="branch not covered" >"unknown"}</span>` }];
+  }
+  return [
+    ...(evaluation.criteria ?? <span class="branch-1 cbranch-no" title="branch not covered" >[]).f</span>latMap(({ id, verdict }): Occurrence[] =&gt; {
+      if (verdict === "fail") return [{ scenarioId, sampleIndex, class: "judge-criterion", key: `criterion/${id}` }];
+      if (verdict === "unclear") return [{ scenarioId, sampleIndex, class: "unclear-criterion", key: `criterion-unclear/${id}` }];
+      return [];
+    }),
+    ...(evaluation.criticalIssues ?? <span class="branch-1 cbranch-no" title="branch not covered" >[]).m</span>ap(({ code }): Occurrence =&gt; ({ scenarioId, sampleIndex, class: "critical-issue", key: `critical-issue/${code}` })),
+  ];
 }
 &nbsp;
-/**
- * Writes output text to cache.
- */
-export async function writeOutputToCache(
-  storageDir: string,
-  sketchHash: string,
-  output: string,
-): Promise&lt;void&gt; {
-  const outputPath = join(storageDir, `${sketchHash}.output.txt`);
-  await writeFile(outputPath, output, "utf8");
-}
-&nbsp;
-/**
- * Reads output text from cache.
- */
-export async function readOutputFromCache(
-  storageDir: string,
-  sketchHash: string,
-): Promise&lt;string | null&gt; {
-  const outputPath = join(storageDir, `${sketchHash}.output.txt`);
-  try {
-    return await readFile(outputPath, "utf8");
-  } catch {
-    return null;
+function effectFor(findingClass: TutorQualityFindingClass, sampleCount: number, threshold: number): FindingEffect {
+  const repeated = sampleCount &gt;= threshold;
+  switch (findingClass) {
+    case "product-violation":
+      return "fail";
+    case "rating-out-of-band":
+    case "raw-provider-violation":
+    case "judge-criterion":
+    case "critical-issue":
+      return repeated ? "fail" : "warn";
+    case "unclear-criterion":
+      return repeated ? "inconclusive" : "warn";
+    case "run-not-completed":
+    case "scenario-violation":
+    case "sample-not-completed":
+    case "judge-not-evaluated":
+      return "inconclusive";
   }
 }
 &nbsp;
-/**
- * Reads HEX binary from cache.
- * Updates access time on hit.
- */
-export async function readHexFromCache(
-  sketchHash: string,
-  hexCacheDir: string,
-): Promise&lt;Buffer | null&gt; {
-  const cachePath = join(hexCacheDir, `${sketchHash}.hex`);
-  try {
-    const binary = await readFile(cachePath);
-    const now = new Date();
-    await utimes(cachePath, now, now).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
-    return binary;
-  } catch {
-    return null;
-  }
+function compareText(left: string, right: string): number {
+  if (left &lt; right) return -1;
+  return left &gt; right ? 1 : 0;
 }
 &nbsp;
-/**
- * Writes HEX binary to cache using atomic rename pattern.
- */
-export async function writeHexToCache(
-  sketchHash: string,
-  hexCacheDir: string,
-  binary: Buffer,
-): Promise&lt;void&gt; {
-  const cachePath = join(hexCacheDir, `${sketchHash}.hex`);
-  const tmpPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`;
-  await mkdir(hexCacheDir, { recursive: true });
-  await writeFile(tmpPath, binary);
-  await rename(tmpPath, cachePath);
+function compareFindings(left: TutorQualityVerdictFinding, right: TutorQualityVerdictFinding): number {
+  return compareText(left.scenarioId ?? "", right.scenarioId ?? "")
+    || FINDING_CLASSES.indexOf(left.class) - FINDING_CLASSES.indexOf(right.class)
+    || compareText(left.key, right.key);
 }
 &nbsp;
-/**
- * LRU-style cleanup of hex cache to stay under maxBytes.
- */
-export async function runHexCacheCleanup(
-  hexCacheDir: string,
-  maxBytes: number = 512 * 1024 * 1024,
-): Promise&lt;void&gt; {
-  try {
-    const entries = await readdir(hexCacheDir);
-    const files: Array&lt;{ path: string; size: number; atimeMs: number }&gt; = [];
-    let totalSize = 0;
-&nbsp;
-    for (const entry of entries) {
-      if (!entry.endsWith(".hex")) continue;
-      const fullPath = join(hexCacheDir, entry);
-      try {
-        const fileStat = await stat(fullPath);
-        if (!fileStat.isFile()) continue;
-        totalSize += fileStat.size;
-        files.push({
-          path: fullPath,
-          size: fileStat.size,
-          atimeMs: fileStat.atimeMs || <span class="branch-1 cbranch-no" title="branch not covered" >fileStat.mtimeMs,</span>
-        });
-      } catch {
-        // ignore disappearing files
-      }
-    }
-&nbsp;
-    if (totalSize &lt;= maxBytes) return;
-&nbsp;
-    files.sort((a, b) =&gt; a.atimeMs - b.atimeMs);
-    for (const file of files) {
-      if (totalSize &lt;= maxBytes) break;
-      await rm(file.path, { force: true });
-      totalSize -= file.size;
-    }
-  } catch (error) {
-    logger.debug(`[CacheCleanup] skipped: ${error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)}</span>`);
+/** The single aggregation of Evaluation SSOT §12; no other code derives a quality verdict. */
+export function computeTutorQualityVerdict(input: TutorQualityVerdictInput): TutorQualityVerdict {
+  const threshold = repeatThreshold(input.samplesPerCase);
+  const occurrences: Occurrence[] = [
+    ...(input.runStatus === "completed"
+      ? []
+      : [{ class: "run-not-completed" as const, key: `run/${input.runStatus}/${input.runReason ?? "unknown"}` }]),
+    ...input.samples.flatMap(sampleOccurrences),
+    ...input.semanticEvaluations.flatMap(semanticOccurrences),
+  ];
+  // Group per (case, class, key); a sample counts at most once per group (R-VER-3).
+  const groups = new Map&lt;string, { readonly scenarioId?: string; readonly class: TutorQualityFindingClass; readonly key: string; readonly samples: Set&lt;number&gt; }&gt;();
+  for (const occurrence of occurrences) {
+    const groupKey = [occurrence.scenarioId ?? "", occurrence.class, occurrence.key].join("\0");
+    const group = groups.get(groupKey) ?? {
+      ...(occurrence.scenarioId === undefined ? {} : { scenarioId: occurrence.scenarioId }),
+      class: occurrence.class,
+      key: occurrence.key,
+      samples: new Set&lt;number&gt;(),
+    };
+    if (occurrence.sampleIndex !== undefined) group.samples.add(occurrence.sampleIndex);
+    groups.set(groupKey, group);
   }
-}
-&nbsp;
-/**
- * Checks both instant binary cache and hex cache for a compiled sketch.
- * Returns cache hit info including output sidecar.
- */
-export async function checkCacheHits(
-  sketchHash: string,
-  paths: CachePaths,
-  compileStartedAt: bigint,
-): Promise&lt;CacheHitResult&gt; {
-  // Check instant binary cache first (most recent)
-  const instantBinary = await readBinaryFromStorage(sketchHash, paths.binaryStorageDir);
-  if (instantBinary) {
-    const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
-    logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
-    const cachedOutput = await readOutputFromCache(paths.binaryStorageDir, sketchHash);
-    return { cached: true, binary: instantBinary, cacheType: "instant", cachedOutput };
-  }
-&nbsp;
-  // Check hex cache (persistent, shared across sessions)
-  const cachedBinary = await readHexFromCache(sketchHash, paths.hexCacheDir);
-  if (cachedBinary) {
-    const elapsedMs = Number((process.hrtime.bigint() - compileStartedAt) / BigInt(1_000_000));
-    logger.info(`[Cache] Hit for hash ${sketchHash} (${elapsedMs}ms)`);
-    const cachedOutput = await readOutputFromCache(paths.hexCacheDir, sketchHash);
-    return { cached: true, binary: cachedBinary, cacheType: "hex", cachedOutput };
-  }
-&nbsp;
-  return { cached: false, binary: null, cacheType: "none", cachedOutput: null };
+  const findings = [...groups.values()].map((group): TutorQualityVerdictFinding =&gt; {
+    const samples = [...group.samples].sort((left, right) =&gt; left - right);
+    return {
+      ...(group.scenarioId === undefined ? {} : { scenarioId: group.scenarioId }),
+      class: group.class,
+      key: group.key,
+      samples,
+      effect: effectFor(group.class, samples.length, threshold),
+    };
+  }).sort(compareFindings);
+  const verdict = EFFECT_PRIORITY.find((effect) =&gt; findings.some((finding) =&gt; finding.effect === effect)) ?? "pass";
+  return {
+    verdict,
+    ruleRevision: TUTOR_QUALITY_VERDICT_RULE_REVISION,
+    samplesPerCase: input.samplesPerCase,
+    repeatThreshold: threshold,
+    judgeConfigured: input.judgeConfigured,
+    findings,
+  };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -636,14 +660,14 @@ export async function checkCacheHits(
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-10-03T11:54:34.687Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
     </body>
 </html>
     
