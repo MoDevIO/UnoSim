@@ -73,11 +73,22 @@ Befunde:
   benutzt“ plus eine Rating-Beobachtung. Es gibt keinen Zustand, der eine
   offene Teilfrage des Vorschlags trägt. Die Folgefrage kommt aus einem Pool,
   der für den aktuellen Sketch geschrieben ist.
-- **Fixture (Konfidenz hoch).** Die DEEPEN/EXPAND-Fixtures markieren das Topic
-  als gemeistert, enthalten aber keine LEARN-Evidenz. Die LEARN-Fragen gelten
-  deshalb als ungenutzt und kehren als Folgefrage zurück („Welche Ausgabe
-  erzeugt Serial.println im aktuellen Sketch?“, 25/25 im v3-Lauf). Ein solcher
-  Zustand kann im Betrieb nicht entstehen.
+- **Fixture und Planner (Konfidenz hoch).** Die DEEPEN/EXPAND-Fixtures
+  markieren das Topic als gemeistert, ohne LEARN-Evidenz und ohne LEARN-Verlauf.
+  Die LEARN-Frage kehrt deshalb als Folgefrage zurück („Welche Ausgabe erzeugt
+  Serial.println im aktuellen Sketch?“, 25/25 im v3-Lauf). Fehlende Evidenz
+  allein ist aber nicht die Ursache: Der Planner schließt genutzte Fragen nur
+  über den Dialogverlauf aus. `progressionHistory` ergänzt `postMasteryEvidence`,
+  nicht `masteryEvidence`, und der Start einer DEEPEN/EXPAND-Frage nutzt den
+  rohen Verlauf. Nachgestellt (Fake-Provider): Mit ergänzter LEARN-Evidenz
+  bleibt die Folgefrage unverändert. Mit realistischem LEARN-Verlauf endet DEEPEN
+  sofort in `content-exhausted` (zu wenig Post-Mastery-Fragen), und EXPAND
+  serviert die Transferfrage „Wie würdest du die Veränderung von counter … “ auf
+  einem Sketch, in dem sich `counter` nie ändert (falsche Prämisse, R-AUT-2).
+  Latenter Produktbefund daraus: Ist eine LEARN-Frage aus dem begrenzten
+  Dialogfenster gefallen, kann der Planner sie in DEEPEN/EXPAND erneut stellen;
+  das widerspricht der Regel, dass strikte Wiederholung keine genutzte
+  Question-ID erneut verwendet (TutorQuality-SSOT §3).
 - **Produktrelevanz (Konfidenz hoch): gering.** Ohne `extensions` im echten
   Content gibt es dort keine generierten Erweiterungsfragen; EXPAND endet sofort
   in `content-exhausted`. Produktrelevant sind Transferfragen in LEARN/DEEPEN
@@ -119,30 +130,41 @@ Frage mit derselben Erkennung wie heute und die Transfer-Evidenz erst nach
 Schritt 2. Dazu kommen SSOT-Änderungen in LearningQuestions (EXPAND) und
 Evaluation (R-EXP) sowie ein dritter Turn in den EXPAND-Cases.
 
-## 4. Vorschlag für den nächsten Schritt (Variante 0)
+## 4. Entscheidung und Umsetzung (Variante 0)
 
-1. **Content (UnoSim-Examples, Autorenentscheidung).** `activation` kennt nur
-   `any` (ODER); eine Bedingung „`int` und `Serial`“ ist nicht ausdrückbar.
-   Optionen:
-   - Voraussetzung `serial-output → variable-values` entfernen. Dann ist das
-     Topic auf jedem Sketch mit `Serial.print` über `serial-output` abschließbar.
-   - oder Aktivierung auf `type-used: int` umstellen. Dann aktiviert das Topic
-     nur auf Sketches mit `int`, und die 16 Beispiele laufen als freier Tutor.
+Entschieden (User, 2026-10-03): Voraussetzung entfernen, Authoring-Gate
+ausbauen, Modellvergleich erst danach.
 
-   Fachlich naheliegender ist das Entfernen der Voraussetzung, weil serielle
-   Ausgabe ohne `int` lehrbar ist.
-2. **Gate (UnoSim, kleine Präzisierung von TutorQuality-SSOT §4).** Der
-   Validator prüft Voraussetzungen und den ausführbaren Pfad für **jedes in
-   einem Quality-Case aktivierte** Topic, nicht nur für erwartete. Optional
-   zusätzlich: Kein Beispiel des Manifests darf ein Topic aktivieren, das vom
-   ersten Turn an unresolved ist (katalogweit, ohne neue Quality-Cases).
-3. **Messung.** DEEPEN/EXPAND-Fixtures mit konsistenter LEARN-Evidenz; danach
-   braucht die Fixture mehr Fragen, sonst endet DEEPEN in `content-exhausted`.
-   Eigener Corpus-PR mit Versionssprung.
+1. **Content:** `serial-output.prerequisites: [variable-values]` → `[]` und der
+   Topic-Hash im Tutor-Manifest. Ziel, Indikator, Fehlvorstellung, Scaffold und
+   beide Fragen von `serial-output` verlangen nur `serial-call: print`; die
+   Reihenfolge `variable-values` vor `serial-output` bleibt für Sketches mit
+   `int` erhalten. PR ttbombadil/UnoSim-Examples#4.
+2. **Gate:** Neue katalogweite Invariante im Validator, unabhängig von
+   Quality-Cases: Für jedes Example und jedes Topic, das der Matcher darauf
+   aktiviert, muss eine lernende Person, die jede geplante Frage erfolgreich
+   beantwortet, Topic-Mastery erreichen. Erschöpfung nach schwachen Antworten
+   und DEEPEN-Kapazität bleiben ausgenommen. Auf `2ac716f` meldet das Gate genau
+   die 16 Beispiele, mit dem Content-Fix keines. TutorQuality-SSOT §4 ergänzt.
+   PR MoDevIO/UnoSim#149.
+3. **Katalog danach:** Kein Topic mehr ab Start unlösbar (0/36 statt 16/36),
+   kein weiteres Topic derselben Klasse. `content-exhausted` tritt nur noch
+   **nach** Mastery auf, weil der echte Content kaum Post-Mastery-Fragen und
+   keine Erweiterungen hat; das ist ein eigener Authoring-Befund.
+4. **Fixtures:** Kein kleiner Corpus-PR. Eine konsistente Progression braucht
+   (a) eine Entscheidung zur Wiederholungsregel im Planner (gespeicherte
+   Evidenz als „genutzt“ werten; Produktänderung mit L3 vor Merge) und
+   (b) mehr Post-Mastery-Fragen sowie eine Transferfrage mit passender
+   Applicability in der Anchor-Fixture.
 
 ## 5. Modellvergleich (Variante D, vorbereitet, nicht ausgeführt)
 
 Zweck: entscheiden, ob die Relativierung korrekter Antworten modellbedingt ist.
+
+Neubewertung nach Content- und Gate-Fix: weiterhin sinnvoll, aber nachrangig
+gegenüber Post-Mastery-Content und der Wiederholungsregel (§4). Die
+gewählten Cases sind synthetisch und vom Content-Fix unberührt; Budget und
+Schwellen bleiben gültig. Die feste Modell-ID muss der User vorgeben.
 
 - Basis: `main` (Prompt v2-Digest, Prompttext v1), Corpus v7.
 - Cases (7): `TQ-SEM-001`, `strategy-learn-strong-answer` (positiv);
