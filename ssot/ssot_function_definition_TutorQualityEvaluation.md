@@ -1,16 +1,14 @@
 # Tutor Quality Evaluation – Corpus, Execution, Checks, Judge, Report
 
-Status: normative target model for Tutor quality evaluation.
+Status: normative model for Tutor quality evaluation.
 Supersedes: the earlier execution-runner specification and the earlier
 semantic-layer design (see the historical glossary entries in §2). Implementation
 plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
 
-> **Target state, not current runtime.** This document partly describes the
-> NORMATIVE TARGET STATE of an ongoing migration. The current `main` can
-> therefore contain known, temporary deviations. Appendix A lists these known
-> deviations and assigns each to a planned PR. No statement in this document
-> may be read as claiming that a known, not yet implemented item is already a
-> current runtime invariant.
+> **Conformance.** `main` implements this document; Appendix A records the
+> conformance status and lists no known deviation. A deviation found later is
+> listed there with its owner until it is fixed. While it is listed, the
+> affected statement must not be read as a current runtime invariant.
 
 Rules carry stable IDs (for example `R-EXP-1`) so that code, tests, and
 reviews can cite them.
@@ -773,7 +771,18 @@ the Judge-credential preflight (`missing-judge-credential`) in PR G; the weekly
 schedule was later deactivated (Appendix B). R-ATT-2 followed last: every
 deterministic check record carries `outcome` (`pass`, `fail`, or
 `not-applicable` with a `reason`), and every check that cannot be interpreted
-uses it, not only `expected-phase-after`. Remaining known deviations: none.
+uses it, not only `expected-phase-after` (#155).
+
+A full audit on 2026-10-03 checked every MUST/SHALL and `R-*` rule of this
+document, `ssot_function_definition_TutorQuality.md`,
+`ssot_function_definition_CourseContent.md`, and
+`ssot_function_definition_LearningQuestions.md` against code and tests; the UI
+rules of LearningQuestions §10 and §16.1 were taken from their existing test
+suites rather than re-verified one by one. It closed R-ATT-2 and found two further deviations, both closed: the corpus
+contract test capped the Strategy cases per phase at three (R-AUT-1, #156),
+and the Stage-1 scenario runner let scenarios fake the planner
+(`ssot_function_definition_TutorQuality.md` §5, #157). Remaining known deviations:
+none.
 
 Intentional historical identifiers that stay in code and artifacts (§11.4):
 the report field `stageAStatus`, internal type names `TutorQualityStageA…`, and
