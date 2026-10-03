@@ -1,0 +1,172 @@
+# Tutor Quality – Neubewertung nach der Promptserie und nächster Architekturschritt
+
+Status: Analyse und Vorschlag, **nicht normativ**. Schließt die Promptserie
+v1 / v3 / v4 ab (`docs/tutor-quality-answer-frame-rerun-2026-10-03.md`,
+`docs/tutor-quality-guidance-only-rerun-2026-10-03.md`) und bewertet die
+verbleibenden Probleme neu. Alle Aussagen über den echten Course Content
+beziehen sich auf `MoDevIO/UnoSim-Examples` @ `2ac716f` (= `origin/main`) und
+wurden deterministisch mit dem echten `TutorService`, `CurriculumTutorAdapter`,
+Matcher und Planner und einem Fake-Provider nachgestellt. Keine Provider-Calls.
+
+## 1. Kernbefund: Der gemessene Corpus und der Produktbetrieb fallen auseinander
+
+Die Anchor-Fixtures nutzen Topic-Schema v2 mit `extensions` und `deepening`.
+Der echte Course Content nutzt **keines davon**:
+
+| Merkmal | Anchor-Fixtures | UnoSim-Examples |
+| --- | --- | --- |
+| Topic-Schema | v2 (DEEPEN/EXPAND-Fixtures) | v1 (`long-values`, `variables-and-serial`) |
+| `extensions` | 1–2 | 0 |
+| `deepening` | konfiguriert | Default |
+| Fragen pro Topic | 3 | 4 (je 1 Transfer) |
+| Tutor-Manifest | v2 | v1, keine Phasenstrategien |
+
+Folgen im echten Betrieb (starke lernende Person, Rating 4 oder 5):
+
+| Beispiel | Verlauf |
+| --- | --- |
+| `it01-01-variable-speichern` | LEARN 3 Fragen → DEEPEN 1 Frage → danach **für den Rest der Sitzung `content-exhausted`** (auch in EXPAND) |
+| `it03-05-millis` | `long-values` nach 2 Fragen gemeistert → `variables-and-serial` wird aktiv und ist unlösbar → **LEARN blockiert für den Rest der Sitzung** |
+| `it06-03-for` | `variables-and-serial` von Anfang an unlösbar → **keine einzige geplante Frage** |
+
+Über den ganzen Katalog: In **16 von 35 Beispielen** aktiviert
+`variables-and-serial` (Aktivierung `serial-call: print`), ist aber vom ersten
+Turn an unlösbar. Ursache: Das Konzept `serial-output` hat die Voraussetzung
+`variable-values`, deren Fragen `type-used: int` verlangen. Ohne `int` ist
+`variable-values` nicht abfragbar, `serial-output` damit nie auswählbar, und
+das Topic bleibt „unresolved“. Das Runtime-Verhalten ist SSOT-konform
+(LearningQuestions 2.3: ein unresolved Topic blockiert in LEARN); der Fehler
+liegt im Content.
+
+Warum das Authoring-Gate ihn nicht findet: `tutor-quality-validator.ts` prüft
+Voraussetzungen, Mastery-Kapazität und den ausführbaren Pfad nur für Topics,
+die ein Quality-Case **erwartet**. `variables-and-serial` ist im Case
+`long-values-positive` nur mitaktiviert und wird nie geprüft; die übrigen
+betroffenen Beispiele sind keine Quality-Cases.
+
+Bewertung: Das ist das schwerste aktuell belegte Tutor-Qualitätsproblem. Es ist
+deterministisch, betrifft fast die Hälfte des Katalogs und schaltet dort den
+Topic-geführten Tutor ab. Die bisherigen L3-Läufe konnten es nicht sehen, weil
+sie nur synthetische Fixtures verwenden.
+
+## 2. Neu formulierte Probleme
+
+### A. EXPAND / Transfer
+
+Sequenz für eine generierte Erweiterungsfrage (Fixture-Pfad):
+
+1. Der Planner stellt die Erweiterungsfrage (`expand-<target>`).
+2. Die lernende Person schlägt Änderung und Beobachtung vor.
+3. Das Modell bewertet in einem Turn.
+4. Der Adapter verbucht genau eine `transfer`-Beobachtung und markiert die
+   Erweiterung als benutzt.
+5. Der Planner plant wie zu Phasenbeginn: Gibt es keine unbenutzte
+   Erweiterung, wählt `selectDeepeningQuestion` eine Topic-Frage. Bevorzugt
+   werden nur Fragearten, die das DEEPEN-Kriterium noch braucht; in EXPAND
+   ist es erfüllt. Danach entscheiden Gewichte (application 35 > concept 25 >
+   prediction = transfer 15) und am Ende die alphabetische ID.
+
+Befunde:
+
+- **Architektur (Konfidenz hoch).** Eine Erweiterung ist nach SSOT und Code
+  eine einzelne Frage-Antwort-Einheit. Nach der Antwort bleibt nur „Ziel
+  benutzt“ plus eine Rating-Beobachtung. Es gibt keinen Zustand, der eine
+  offene Teilfrage des Vorschlags trägt. Die Folgefrage kommt aus einem Pool,
+  der für den aktuellen Sketch geschrieben ist.
+- **Fixture (Konfidenz hoch).** Die DEEPEN/EXPAND-Fixtures markieren das Topic
+  als gemeistert, enthalten aber keine LEARN-Evidenz. Die LEARN-Fragen gelten
+  deshalb als ungenutzt und kehren als Folgefrage zurück („Welche Ausgabe
+  erzeugt Serial.println im aktuellen Sketch?“, 25/25 im v3-Lauf). Ein solcher
+  Zustand kann im Betrieb nicht entstehen.
+- **Produktrelevanz (Konfidenz hoch): gering.** Ohne `extensions` im echten
+  Content gibt es dort keine generierten Erweiterungsfragen; EXPAND endet sofort
+  in `content-exhausted`. Produktrelevant sind Transferfragen in LEARN/DEEPEN
+  (z. B. „Welche gezielte Wertänderung … würdest du … prüfen, und welche
+  Beobachtung erwartest du?“). Dort zeigt `strategy-deepen-transfer` dasselbe
+  Muster: Ist-Zustand als Korrektur, Ratings aber im Band.
+- **Messung (Konfidenz mittel).** `expand-observable-result` 16/16 fasst zwei
+  verschiedene Verhaltensweisen zusammen: in v1 echte Fehllesung (Rating 2), in
+  v3/v4 teils Annahme mit Rating 4 ohne konkrete Wiederholung der erwarteten
+  Werte. Das Kriterium bleibt unverändert, ist aber nicht als ein einziger
+  stabiler Fehler zu lesen.
+
+### B. Bewertung korrekter Antworten
+
+| Mögliche Ursache | Befund | Konfidenz |
+| --- | --- | --- |
+| Modell | Relativierung in rund zwei Dritteln unter v1, v3 und v4, trotz ausdrücklichen Verbots in v3 | hoch |
+| `answerRating` | Ratings meist im Band; 4 bedeutet laut SSOT-Rubrik „fachlich korrekt, aber mit kleiner Lücke oder Ungenauigkeit“; das Modell verbalisiert 4 als „Fast richtig“ | hoch |
+| fehlende strukturierte Referenz | Die Planner-Daten enthalten keine erwartete Antwort; der Fall ist trotzdem eindeutig genug | mittel |
+| Corpus-Semantik | `strategy-learn-strong-answer` („zuerst 3“) und `TQ-SEM-001` (Signalebene statt Codeausdruck) lassen eine „kleine Ungenauigkeit“ zu | mittel |
+
+Produktwirkung: vor allem Wortlaut; Progression unverändert (Erfolg ab Rating 3),
+Difficulty-Schritt +2 statt +4. Schwere geringer als in §1.
+
+## 3. Architekturvarianten
+
+| Variante | Nutzen für belegte Probleme | Kosten / Risiko | Entscheidung |
+| --- | --- | --- | --- |
+| **0. Content- und Gate-Korrektur** (§4) | behebt die schwerste Störung im Betrieb (16/35 Beispiele); deterministisch testbar | Authoring-Entscheidung in UnoSim-Examples; Gate-Erweiterung macht den heutigen Content zunächst rot | **bevorzugt, zuerst** |
+| A. Mehrturnige EXPAND-Sequenz (Vorschlag → erwartete Beobachtung → Abschluss) | didaktisch stimmig; macht die lernende Person zur Konkretisierung, statt dass der Tutor sie liefert | neue Produktsemantik (LearningQuestions EXPAND, R-EXP-1..3); Zustand je Erweiterungsziel; im echten Content heute ohne Wirkung (keine `extensions`) | zurückstellen, bis Content Erweiterungen nutzt |
+| B. Strukturierter Experiment-Zustand (Änderung / Erwartung / Evidenz) | Obermenge von A; die Evidenz-Stufe bräuchte Laufzeitdaten (LearningQuestions 4.3, „später“) | mehr Zustand, Runtime-Anbindung | YAGNI |
+| C. Strukturierte Provider-Einschätzung (beantwortet Frage? korrekt? falsche Zusatzbehauptung?) | verschiebt dasselbe LLM-Urteil in Felder; ändert nicht den Wortlaut | koppelt Planung an LLM-Klassifikation | verworfen |
+| D. Anderes Tutor-Modell | einzige noch nicht getestete Stellgröße für Problem B; das Produkt bevorzugt bei `Automatic` Qwen-Modelle, gemessen wurde `openai-gpt5.4-mini` | Calls; keine Produktänderung | als kleiner Versuch nach Variante 0 (§5) |
+
+Variante A, falls später gewählt: Identität ist vorhanden (`expand-<target>`,
+`usedExpansionTargetTopicIds`); nötig wären ein Schrittzustand je
+Erweiterungsziel (`proposal` → `expectation`), eine zweite anwendungseigene
+Frage mit derselben Erkennung wie heute und die Transfer-Evidenz erst nach
+Schritt 2. Dazu kommen SSOT-Änderungen in LearningQuestions (EXPAND) und
+Evaluation (R-EXP) sowie ein dritter Turn in den EXPAND-Cases.
+
+## 4. Vorschlag für den nächsten Schritt (Variante 0)
+
+1. **Content (UnoSim-Examples, Autorenentscheidung).** `activation` kennt nur
+   `any` (ODER); eine Bedingung „`int` und `Serial`“ ist nicht ausdrückbar.
+   Optionen:
+   - Voraussetzung `serial-output → variable-values` entfernen. Dann ist das
+     Topic auf jedem Sketch mit `Serial.print` über `serial-output` abschließbar.
+   - oder Aktivierung auf `type-used: int` umstellen. Dann aktiviert das Topic
+     nur auf Sketches mit `int`, und die 16 Beispiele laufen als freier Tutor.
+
+   Fachlich naheliegender ist das Entfernen der Voraussetzung, weil serielle
+   Ausgabe ohne `int` lehrbar ist.
+2. **Gate (UnoSim, kleine Präzisierung von TutorQuality-SSOT §4).** Der
+   Validator prüft Voraussetzungen und den ausführbaren Pfad für **jedes in
+   einem Quality-Case aktivierte** Topic, nicht nur für erwartete. Optional
+   zusätzlich: Kein Beispiel des Manifests darf ein Topic aktivieren, das vom
+   ersten Turn an unresolved ist (katalogweit, ohne neue Quality-Cases).
+3. **Messung.** DEEPEN/EXPAND-Fixtures mit konsistenter LEARN-Evidenz; danach
+   braucht die Fixture mehr Fragen, sonst endet DEEPEN in `content-exhausted`.
+   Eigener Corpus-PR mit Versionssprung.
+
+## 5. Modellvergleich (Variante D, vorbereitet, nicht ausgeführt)
+
+Zweck: entscheiden, ob die Relativierung korrekter Antworten modellbedingt ist.
+
+- Basis: `main` (Prompt v2-Digest, Prompttext v1), Corpus v7.
+- Cases (7): `TQ-SEM-001`, `strategy-learn-strong-answer` (positiv);
+  `strategy-learn-weak-answer`, `strategy-deepen-correction`,
+  `strategy-expand-wrong-effect` (negativ); `strategy-deepen-transfer`,
+  `strategy-expand-observation` (Vorschlag).
+- Samples 5; Judge `openai-gpt5.5`.
+- Tutor-Modell: eine feste Qwen-Deployment-ID aus der Provider-Modellliste (die
+  Familie, die `Automatic` bevorzugt), vom User vor dem Lauf festzulegen.
+- Budget pro Modell: 13 Turns × 2 + 7 Judge → `1 + 5 × (26 + 7) = 166`.
+  Die bestehenden gpt-5.4-mini-Daten dienen als Vergleich; ein zweites Modell
+  kostet weitere 166.
+
+Entscheidungsschwellen:
+
+| Ergebnis | Folgerung |
+| --- | --- |
+| `correct-answer-rejected` ≤ 1/5 in beiden Positiv-Cases **und** jede Negativkontrolle ≥ 4/5 im Band | modellbedingt; Modellwahl über die Registry/`Automatic`-Politik behandeln, keine Produktänderung |
+| ≥ 3/5 in einem Positiv-Case | nicht modellbedingt; Rubrik-4-Semantik und die zwei Corpus-Antworten fachlich prüfen |
+| eine Negativkontrolle < 4/5 im Band | Modell nicht geeignet, unabhängig vom Relativierungsbefund |
+
+## 6. Was nicht weiterverfolgt wird
+
+Weitere Promptvarianten (v3/v4 widerlegt bzw. ohne Nutzen, #142 und #146
+geschlossen), eine strukturierte Provider-Einschätzung (Variante C),
+Keyword-Erkennung von Vorschlägen, Änderungen an Verdict-Regel, Judge oder
+Kriterien.
