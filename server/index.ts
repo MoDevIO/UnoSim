@@ -15,7 +15,7 @@ import {
   formatStartupLine,
   getStartupConfigurationEntries,
 } from "./startup-access";
-import { shouldSkipApiRateLimit } from "./rate-limit-policy";
+import { apiRateLimitKey, shouldSkipApiRateLimit } from "./rate-limit-policy";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -118,6 +118,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => shouldSkipApiRateLimit(req.originalUrl, isTestMode),
+  keyGenerator: (req) => apiRateLimitKey(req, config.trust),
 });
 
 // Apply rate limiting to API routes
