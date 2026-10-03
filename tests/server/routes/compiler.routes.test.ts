@@ -213,7 +213,7 @@ describe("compiler.routes - /api/compile", () => {
       undefined,
       { fqbn: undefined, libraries: undefined },
     );
-    expect(deps.setLastCompiledCode).toHaveBeenCalledWith("void setup(){}");
+    expect(deps.setLastCompiledCode).toHaveBeenCalledWith("student-a", "void setup(){}");
   });
 
   it("forwards an explicit logical entryFile and nested header paths", async () => {

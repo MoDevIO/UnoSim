@@ -158,7 +158,7 @@ type SimulationDeps = {
   };
   getSimulationAdmissionController?: () => SimulationAdmissionController;
   shouldSendSimulationEndMessage: (compileFailed: boolean) => boolean;
-  getLastCompiledCode: () => string | null;
+  getLastCompiledCode: (subject: string) => string | null;
   logger: Logger;
   runnerPool?: ReturnType<typeof getSandboxRunnerPool>;
   trust: TrustConfig;
@@ -524,7 +524,7 @@ export function registerSimulationWebSocket(
       typeof data.code === "string" &&
       data.code.trim().length > 0
         ? data.code
-        : getLastCompiledCode();
+        : getLastCompiledCode(clientState.subject);
     if (!code) {
       if (clientState.runner) {
         await safeReleaseRunner(clientState, "missing-compiled-code");

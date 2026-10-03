@@ -72,8 +72,13 @@ function listen(app: express.Express): Promise<{ baseUrl: string; server: http.S
   });
 }
 
-async function request(baseUrl: string, method: string, route: string, body?: unknown) {
-  return new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+async function request(baseUrl: string, method: string, route: string, body?: unknown, cookie?: string) {
+  const { setCookie: _setCookie, ...response } = await sessionRequest(baseUrl, method, route, body, cookie);
+  return response;
+}
+
+async function sessionRequest(baseUrl: string, method: string, route: string, body?: unknown, cookie?: string) {
+  return new Promise<{ status: number; body: unknown; setCookie?: string[] }>((resolve, reject) => {
     const url = new URL(route, baseUrl);
     const payload = body === undefined ? undefined : JSON.stringify(body);
     const req = http.request({
@@ -81,13 +86,17 @@ async function request(baseUrl: string, method: string, route: string, body?: un
       port: url.port,
       path: `${url.pathname}${url.search}`,
       method,
-      headers: payload ? { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } : undefined,
+      headers: {
+        ...(payload ? { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } : {}),
+        ...(cookie ? { cookie } : {}),
+      },
     }, (res) => {
       let data = "";
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
-        try { resolve({ status: res.statusCode ?? 0, body: JSON.parse(data) }); }
-        catch { resolve({ status: res.statusCode ?? 0, body: data }); }
+        const setCookie = res.headers["set-cookie"];
+        try { resolve({ status: res.statusCode ?? 0, body: JSON.parse(data), ...(setCookie ? { setCookie } : {}) }); }
+        catch { resolve({ status: res.statusCode ?? 0, body: data, ...(setCookie ? { setCookie } : {}) }); }
       });
     });
     req.on("error", reject);
@@ -140,21 +149,24 @@ describe("registerRoutes core HTTP behavior", () => {
   it("creates, reads, updates, lists, and deletes sketches through the public API", async () => {
     await startServer();
 
-    const created = await request(baseUrl, "POST", "/api/sketches", {
+    // Sketches belong to the creating identity; reuse its session cookie like a browser does.
+    const created = await sessionRequest(baseUrl, "POST", "/api/sketches", {
       name: "routes-test.ino",
       content: "void setup(){} void loop(){}",
     });
     expect(created.status).toBe(201);
     const id = (created.body as { id: string }).id;
+    const session = created.setCookie?.[0]?.split(";")[0];
+    expect(session).toMatch(/^unosim_local_session=/);
 
-    await expect(request(baseUrl, "GET", `/api/sketches/${id}`)).resolves.toMatchObject({ status: 200, body: { id } });
-    await expect(request(baseUrl, "PUT", `/api/sketches/${id}`, { name: "updated.ino" })).resolves.toMatchObject({
+    await expect(request(baseUrl, "GET", `/api/sketches/${id}`, undefined, session)).resolves.toMatchObject({ status: 200, body: { id } });
+    await expect(request(baseUrl, "PUT", `/api/sketches/${id}`, { name: "updated.ino" }, session)).resolves.toMatchObject({
       status: 200,
       body: { id, name: "updated.ino" },
     });
-    expect((await request(baseUrl, "GET", "/api/sketches")).status).toBe(200);
-    await expect(request(baseUrl, "DELETE", `/api/sketches/${id}`)).resolves.toMatchObject({ status: 204 });
-    await expect(request(baseUrl, "GET", `/api/sketches/${id}`)).resolves.toEqual({
+    expect((await request(baseUrl, "GET", "/api/sketches", undefined, session)).status).toBe(200);
+    await expect(request(baseUrl, "DELETE", `/api/sketches/${id}`, undefined, session)).resolves.toMatchObject({ status: 204 });
+    await expect(request(baseUrl, "GET", `/api/sketches/${id}`, undefined, session)).resolves.toEqual({
       status: 404,
       body: { error: "Sketch not found" },
     });
