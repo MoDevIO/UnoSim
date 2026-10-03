@@ -65,6 +65,17 @@ function variableTopic(schemaVersion: 1 | 2 = 1): CurriculumTopic {
         requires: [{ fact: "type-used", values: ["int"] }, { fact: "serial-call", values: ["print"] }],
         text: "Wie würdest du die Veränderung von counter an der seriellen Ausgabe überprüfen?",
       },
+      // Post-mastery content of the DEEPEN/EXPAND fixtures. Its premise (a stored int value that is
+      // printed via Serial) holds on both anchor sketches.
+      ...(schemaVersion === 2 ? [{
+        id: "variable-output-application",
+        concept: "variable-values",
+        indicator: "relates-value-to-use",
+        kind: "application",
+        difficulty: [20, 90],
+        requires: [{ fact: "type-used", values: ["int"] }, { fact: "serial-call", values: ["print"] }],
+        text: "Wie hängt der gespeicherte Wert von counter mit der seriellen Ausgabe im aktuellen Sketch zusammen?",
+      }] : []),
     ],
     scaffolds: [],
     progression: {
@@ -153,6 +164,25 @@ function baseState(): TutorProgressionState {
   return createTutorProgressionState(REVISION);
 }
 
+// A state the product can reach: the Topic is mastered through the LEARN answer that
+// strategy-learn-strong-answer gives (one successful prediction probe), and EXPAND is reached
+// through the DEEPEN transfer probe that the schema-v2 deepening criterion requires.
+const LEARN_MASTERY_EVIDENCE = {
+  questionId: "serial-output-prediction",
+  conceptId: "variable-values",
+  indicatorId: "relates-value-to-use",
+  kind: "prediction",
+  rating: 4,
+} as const;
+
+const DEEPEN_TRANSFER_EVIDENCE = {
+  questionId: "variable-output-transfer",
+  conceptId: "variable-values",
+  indicatorId: "relates-value-to-use",
+  kind: "transfer",
+  rating: 4,
+} as const;
+
 function variablesCourseContent(): TutorPlanningContentContext {
   return {
     revision: REVISION,
@@ -171,6 +201,7 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
       state.activeTopicId = "variables-and-serial";
       state.phase = "DEEPEN";
       state.masteredTopicIds = ["variables-and-serial"];
+      state.masteryEvidence = { "variables-and-serial": [{ ...LEARN_MASTERY_EVIDENCE }] };
       state.retainedPhases = { "variables-and-serial": "DEEPEN" };
       return {
         revision: REVISION,
@@ -183,6 +214,8 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
       state.activeTopicId = "variables-and-serial";
       state.phase = "EXPAND";
       state.masteredTopicIds = ["variables-and-serial"];
+      state.masteryEvidence = { "variables-and-serial": [{ ...LEARN_MASTERY_EVIDENCE }] };
+      state.postMasteryEvidence = { "variables-and-serial": [{ ...DEEPEN_TRANSFER_EVIDENCE }] };
       state.retainedPhases = { "variables-and-serial": "EXPAND" };
       return {
         revision: REVISION,
