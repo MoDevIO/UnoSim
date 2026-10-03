@@ -162,6 +162,32 @@ describe("useTutor", () => {
     expect(questionBodies.at(-1)).not.toHaveProperty("courseContentSession");
   });
 
+  it("starts a fresh Course Content session for a new learning question in a running dialog", async () => {
+    // LearningQuestions SSOT 2.3: a new learning question begins a fresh didactic session, so the
+    // request must not reuse the pinned session handle (and with it the old progression state).
+    setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "a".repeat(40), exampleId: "arrays" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
+      return new Response(JSON.stringify({
+        question: "Frage",
+        provider: "kiconnect",
+        model: "pilot-model",
+        courseContentSession: "11111111-1111-4111-8111-111111111111",
+      }), { status: 200 });
+    });
+    const { result } = renderHook(() => useTutor());
+    act(() => result.current.setCredential("volatile-key"));
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+
+    const questionBodies = fetchMock.mock.calls
+      .filter(([input]) => String(input) === "/api/tutor/question")
+      .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
+    expect(questionBodies).toHaveLength(2);
+    expect(questionBodies[1]).not.toHaveProperty("courseContentSession");
+    expect(questionBodies[1]).toMatchObject({ courseContent: { revision: "a".repeat(40), exampleId: "arrays" } });
+  });
+
   it("does not call the backend without a personal key", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       tutor: { provider: "kiconnect" },
