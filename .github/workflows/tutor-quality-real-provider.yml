@@ -1,5 +1,10 @@
 name: Tutor Quality Real-Provider Evaluation
 
+# L3 of the Tutor Quality evaluation (ssot/ssot_function_definition_TutorQualityEvaluation.md, Appendix B).
+# Manual runs choose their own parameters; the weekly run uses the fixed configuration in `env` below.
+# The job result follows the CLI exit code (R-VER-8): pass/warn and not-run succeed, fail and
+# inconclusive fail the job. No pull_request trigger (R-PYR-2).
+
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +18,7 @@ on:
         default: "1"
         type: string
       max_calls:
-        description: Maximum provider calls, including model-list calls
+        description: Maximum provider calls, including model-list calls (compute per R-BUD-2)
         required: true
         default: "30"
         type: string
@@ -25,16 +30,39 @@ on:
         description: Optional anchor case ID
         required: false
         type: string
+  schedule:
+    # Weekly on the default branch (main), Monday 04:17 UTC. Not nightly.
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
 
+# One real-provider evaluation at a time; a queued run waits instead of cancelling a running one.
+concurrency:
+  group: tutor-quality-real-provider
+  cancel-in-progress: false
+
+env:
+  # Weekly L3 configuration: full corpus, fixed models, budget per R-BUD-2.
+  # SCHEDULED_MAX_CALLS = 1 + SCHEDULED_SAMPLES × (Tutor calls of all corpus turns + judged cases)
+  # = 1 + 5 × (46 + 7) = 266 for corpus v6 (23 turns × 2 calls, one local off-topic fallback with 0);
+  # tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts recomputes it from the call graph.
+  SCHEDULED_TUTOR_MODEL: openai-gpt5.4-mini
+  SCHEDULED_JUDGE_MODEL: openai-gpt5.5
+  SCHEDULED_SAMPLES: "5"
+  SCHEDULED_MAX_CALLS: "266"
+
 jobs:
   evaluate:
-    name: Tutor and Judge observation run
+    name: Tutor and Judge evaluation run
+    # Scheduled runs evaluate main only; manual runs evaluate the dispatched ref.
+    if: github.event_name != 'schedule' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -43,16 +71,24 @@ jobs:
 
       - run: npm ci
 
-      - name: Run optional real-provider evaluation
+      - name: Run real-provider evaluation
         env:
           UNOSIM_TUTOR_EVAL_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_EVAL_CREDENTIAL }}
           UNOSIM_TUTOR_JUDGE_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_JUDGE_CREDENTIAL }}
+          EVENT_NAME: ${{ github.event_name }}
           TUTOR_MODEL: ${{ inputs.model }}
           JUDGE_MODEL: ${{ inputs.judge_model }}
           CASE_ID: ${{ inputs.case }}
           SAMPLES: ${{ inputs.samples }}
           MAX_CALLS: ${{ inputs.max_calls }}
         run: |
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            TUTOR_MODEL="$SCHEDULED_TUTOR_MODEL"
+            JUDGE_MODEL="$SCHEDULED_JUDGE_MODEL"
+            SAMPLES="$SCHEDULED_SAMPLES"
+            MAX_CALLS="$SCHEDULED_MAX_CALLS"
+            CASE_ID=""
+          fi
           args=(
             --model "$TUTOR_MODEL"
             --samples "$SAMPLES"
@@ -72,7 +108,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tutor-quality-run-${{ github.run_id }}
+          name: tutor-quality-run-${{ github.run_id }}-${{ github.run_attempt }}
           path: .tutor-quality-output/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 28

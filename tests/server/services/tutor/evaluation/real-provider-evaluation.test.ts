@@ -506,6 +506,24 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(reportText).not.toContain("super-secret-value");
   });
 
+  it("does not run without the Judge credential when a Judge model is configured (R-PYR-2)", async () => {
+    let calls = 0;
+    const provider = providerFor({ question: "Welche Beobachtung ist belegt?" });
+    const counted: LLMProvider = {
+      async listModels(credential) { calls += 1; return provider.listModels(credential); },
+      async generateLearningQuestion(request, credential) { calls += 1; return provider.generateLearningQuestion(request, credential); },
+    };
+    const result = await runTutorQualityEvaluation(options(counted, {
+      scenarios: [scenario({ judge: { facts: ["counter ist eine Variable."], criteria: [{ id: "names-counter", text: "Das Feedback nennt counter." }] } })],
+      judgeModel: "judge-model",
+      judgeCredential: undefined,
+    }));
+
+    expect(result.report).toMatchObject({ runStatus: "not-run", reason: "missing-judge-credential", providerCalls: { total: 0 } });
+    expect(result.transcripts).toEqual([]);
+    expect(calls).toBe(0);
+  });
+
   it("supports an injected artifact writer without touching the repository", async () => {
     let writtenReport: string | undefined;
     let writtenTranscriptCount = -1;

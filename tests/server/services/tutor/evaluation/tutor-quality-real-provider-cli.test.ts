@@ -473,6 +473,21 @@ describe("Tutor Quality CLI exit codes (R-VER-8)", () => {
     expect(summary).toMatchObject({ runStatus: "not-run", reason: "missing-credential", qualityVerdict: "inconclusive" });
   });
 
+  it("exits 0 without provider calls for a not-run caused by a missing Judge credential (R-PYR-2)", async () => {
+    const { exitCode, summary } = await main([
+      "--samples", "1", "--max-calls", "20",
+      "--judge-model", "judge-model", "--judge-credential-env", "TEST_JUDGE_CREDENTIAL",
+    ], 4);
+
+    expect(exitCode).toBe(0);
+    expect(summary).toMatchObject({
+      runStatus: "not-run",
+      reason: "missing-judge-credential",
+      qualityVerdict: "inconclusive",
+      providerCalls: { total: 0 },
+    });
+  });
+
   it("exits 1 for a CLI error without a verdict", async () => {
     const { exitCode, lines, errors } = await main(["--unknown-flag", "x"], 4);
 

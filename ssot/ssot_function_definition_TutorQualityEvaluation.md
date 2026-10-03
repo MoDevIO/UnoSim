@@ -336,7 +336,7 @@ reasons:
 | `invalid` | `invalid-sample-count`, `sample-count-exceeds-limit` |
 | `invalid` | `invalid-call-budget`, `call-budget-exceeds-limit` |
 | `invalid` | `empty-corpus`, `mixed-corpus-versions` |
-| `not-run` | `missing-credential`, `call-budget-zero` |
+| `not-run` | `missing-credential`, `missing-judge-credential` (a Judge model is set), `call-budget-zero` |
 
 Then one model-list call: a failure yields `technical-failure`; a missing
 Tutor or Judge model yields `invalid` (`model-unavailable`,
@@ -768,7 +768,8 @@ remaining gaps found by the consolidation: the run-level corpus ID and version
 in `report.json` (`manifest.corpusId`, `manifest.corpusVersion`) and `report.md`
 (§11.2), and the fail-fast corpus-parser enforcement of R-TURN-3 for every dialog
 turn of a case that declares `expected.learningPhase`. The quality verdict
-and the CLI exit codes (R-VER-1..9) followed in PR F. Remaining known
+and the CLI exit codes (R-VER-1..9) followed in PR F, the weekly L3 run and
+the Judge-credential preflight (`missing-judge-credential`) in PR G. Remaining known
 deviations:
 
 | Rule | Current code | Owner |
@@ -806,7 +807,8 @@ npm run eval:tutor-quality:real -- \
   these constants are not part of the contract.
 - Without the Tutor credential the command writes a run-level `report.json`
   with `runStatus: "not-run"`, `reason: "missing-credential"`, zero provider
-  calls, and no transcripts.
+  calls, and no transcripts. With `--judge-model` but without the Judge
+  credential the reason is `missing-judge-credential`, also before any call.
 - Output: `report.json`, `report.md`, and `transcripts/` (§11.3). Do not commit
   them.
 - `report.json` carries `qualityVerdict` with its findings; `report.md` shows it
@@ -814,10 +816,34 @@ npm run eval:tutor-quality:real -- \
   summary and exits with 0 (`pass`, `warn`, or `not-run`), 1 (CLI error),
   2 (`fail`), or 3 (`inconclusive`) (R-VER-8).
 
-Manual workflow: `.github/workflows/tutor-quality-real-provider.yml` has only a
-`workflow_dispatch` trigger (R-PYR-2). Inputs: `model`, `samples`, `max_calls`,
-`judge_model` (leave empty for execution only), and `case`. It reads the
-repository secrets `UNOSIM_TUTOR_EVAL_CREDENTIAL` and
-`UNOSIM_TUTOR_JUDGE_CREDENTIAL` and uploads the artifact
-`tutor-quality-run-<run id>` with 14 days of retention. The `max_calls` default is
-a placeholder; set it from the R-BUD-2 calculation.
+Workflow: `.github/workflows/tutor-quality-real-provider.yml` is the only L3
+workflow. It has no `pull_request` or `push` trigger (R-PYR-2).
+
+- **Manual** (`workflow_dispatch`, any ref): inputs `model`, `samples`,
+  `max_calls`, `judge_model` (leave empty for execution only), and `case`. The
+  `max_calls` default is a placeholder; set it from the R-BUD-2 calculation.
+- **Weekly** (`schedule`, Monday 04:17 UTC, default branch `main` only, on the
+  commit that `main` points to at that time): the full corpus, with the fixed
+  configuration in the workflow's `env`: Tutor `openai-gpt5.4-mini`, Judge
+  `openai-gpt5.5`, 5 samples per case, and the R-BUD-2 budget
+  `1 + 5 × (Tutor calls of all turns + judged cases)`, for corpus v6
+  `1 + 5 × (46 + 7) = 266`. The full corpus needs no case list, so new corpus
+  cases are evaluated without a workflow change. A corpus change that alters the
+  call count fails
+  `tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts`
+  until `SCHEDULED_MAX_CALLS` is updated; the test prints the new value.
+- **Result**: the job result is the CLI exit code (R-VER-8). `pass` and `warn`
+  are green; `fail` (exit 2) and `inconclusive` (exit 3) are red; a run without
+  the Tutor or Judge secret ends `not-run` and stays green (R-PYR-2). A red
+  weekly run is a quality signal to read in `report.md`, not a workflow defect;
+  do not re-run it to obtain green. There is no automatic retry.
+- **Artifacts**: `report.json`, `report.md`, and `transcripts/` are uploaded as
+  `tutor-quality-run-<run id>-<attempt>`, also when the evaluation step fails,
+  with 28 days of retention (four weekly runs). Compare two runs with a plain
+  text diff of their `report.md` (R-REP-3); timings stand on their own lines.
+- **Concurrency**: one evaluation at a time (group
+  `tutor-quality-real-provider`); a new run waits and never cancels a running
+  one.
+- **Secrets**: the repository secrets `UNOSIM_TUTOR_EVAL_CREDENTIAL` and
+  `UNOSIM_TUTOR_JUDGE_CREDENTIAL` are passed only to the evaluation step, by
+  variable name (R-RUN-4).
