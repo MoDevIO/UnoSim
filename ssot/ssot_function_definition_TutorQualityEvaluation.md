@@ -59,7 +59,7 @@ key under §6.4.
 | Violation | A failed deterministic check, attributed to a source (§8.2). |
 | Judge | The optional minimal LLM evaluator for case-specific criteria and critical issues (§9). |
 | `executionStatus` | Whether a sample or run executed; never a quality statement (§11.1). |
-| `qualityVerdict` | The future quality statement per run (§12). |
+| `qualityVerdict` | The quality statement per run: `pass`, `warn`, `fail`, or `inconclusive` (§12). |
 | L1 / L2 / L3 | Test-pyramid levels (§4). |
 | *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQuality.md`. |
 | *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Its former SSOT and runbook were removed; the runbook moved to Appendix B. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
@@ -594,7 +594,7 @@ it as unavailable. A heuristic substitute is not allowed.
 executed. It is never a quality statement.
 
 **R-REP-2** Quality is expressed by deterministic check results, violations,
-Judge records, and later by `qualityVerdict` (§12).
+Judge records, and the run's `qualityVerdict` (§12).
 
 ### 11.2 Required diagnostics
 
@@ -646,19 +646,98 @@ fields requires a new schema identifier.
 
 ## 12. Quality verdict
 
-**R-VER-1** A future `qualityVerdict` per run takes exactly one of: `pass`,
-`warn`, `fail`, `inconclusive`.
+Evidence for this rule: the real-provider baseline
+(`docs/tutor-quality-baseline-2026-10-03.md`) and the remediation rerun of the
+repaired strategy cases (`docs/tutor-quality-remediation-rerun-2026-10-03.md`).
+In those runs, deterministic application violations never occurred; stable
+LLM-dependent findings recurred in 3 of 3 samples across runs; and the same
+case with byte-identical prompts showed a finding once in 1 of 3 and once in
+2 of 3 samples. Independent single-sample findings were spread over different
+cases. The rule therefore counts per case and finding key, never pooled across
+cases.
 
-**R-VER-2** `inconclusive` covers runs whose result cannot be attributed to
-Tutor quality: technical failures, `invalid` samples, and Judge statuses
-other than `evaluated`. Such outcomes are never reported as Tutor
-regressions.
+**R-VER-1** Every run report carries exactly one `qualityVerdict`: `pass`,
+`warn`, `fail`, or `inconclusive`. It is computed by one central, deterministic
+function from the run status, the samples' execution status and violations,
+and the Judge records. The verdict carries the rule revision
+(`tutor-quality-verdict-v1`), the samples per case `n`, the repeat threshold
+`k(n)`, whether a Judge model was configured, and the complete sorted list of
+findings that determined it.
 
-**R-VER-3** The aggregation rule (how many samples, which failure classes,
-which thresholds) is deliberately not specified yet. It becomes normative
-only after the first validated real-provider baseline run of the repaired
-strategy cases, and is then added here. Until then, no code may emit `fail`
-from a majority rule.
+**R-VER-2** `inconclusive` covers results that cannot be attributed to Tutor
+quality: a run that did not complete, samples that are `invalid` or
+`technical-failure`, corpus/case violations (`scenario`), Judge statuses other
+than `evaluated`, and Judge verdicts `unclear` that repeat (R-VER-5). Such
+outcomes are never reported as Tutor regressions.
+
+**R-VER-3** Findings are counted per **(case, finding key)** over the samples of
+that case. A sample counts at most once per key, however many turns or Judge
+entries carry it. Findings of different cases or different keys are never
+added together.
+
+| Finding class | Finding key | Source | Effect |
+| --- | --- | --- | --- |
+| product violation | `<source>/<code>` | violation with source `state`, or `final-tutor` with any code except `answer-rating-out-of-band` | `fail` from 1 sample |
+| rating out of band | `final-tutor/answer-rating-out-of-band` | R-RAT-4 | LLM-dependent (R-VER-4) |
+| raw provider violation | `raw-provider/<code>` | violation with source `raw-provider` | LLM-dependent (R-VER-4) |
+| Judge criterion | `criterion/<criterion id>` | verdict `fail` in an `evaluated` Judge record | LLM-dependent (R-VER-4) |
+| critical issue | `critical-issue/<code>` | critical issue in an `evaluated` Judge record | LLM-dependent (R-VER-4) |
+| unclear criterion | `criterion-unclear/<criterion id>` | verdict `unclear` in an `evaluated` Judge record | R-VER-5 |
+| scenario violation | `scenario/<code>` | violation with source `scenario` | `inconclusive` |
+| sample not completed | `execution/<status>/<reason>` | sample `executionStatus` `invalid` or `technical-failure` | `inconclusive` |
+| Judge not evaluated | `judge/<status>/<reason>` | Judge record status other than `evaluated` | `inconclusive` |
+| run not completed | `run/<status>/<reason>` (no case) | run status other than `completed` | `inconclusive` |
+
+A product violation is a deterministic application defect (§8.2). One sample
+is enough, because the application must hold these invariants for every LLM
+output.
+
+**R-VER-4** With `n` samples per case, an LLM-dependent finding is
+**repeated** when it occurs in at least `k(n) = max(2, ⌊n / 2⌋ + 1)` samples
+of the case (a strict majority, and never a single sample); its effect is
+`fail`. Otherwise it is **isolated** and its effect is `warn`. For `n = 3`,
+`k = 2`. With `n = 1`, an LLM-dependent finding can only be isolated: a single
+sample cannot separate a regression from model variance. A finding whose true
+rate is near one half may land on either side of `k` from run to run; that is
+the measurement limit of `n`, and the remedy is more samples, not a different
+count.
+
+**R-VER-5** An `unclear` Judge verdict is not a Tutor failure. Isolated, its
+effect is `warn`; repeated (≥ `k(n)` samples of the case), its effect is
+`inconclusive`, because the criterion is then not decidable for this case
+(R-CRT-1).
+
+**R-VER-6** The run verdict is the effect with the highest priority among all
+findings: `fail` > `inconclusive` > `warn`; with no finding it is `pass`.
+`fail` ranks above `inconclusive` because a product violation or a repeated
+finding is positive evidence that missing samples cannot remove. `inconclusive`
+ranks above `warn` because incomplete evidence cannot confirm that a run is
+only `warn` or `pass`.
+
+**R-VER-7** Judge records exist only when a Judge model is configured and the
+case has a `judge` block (R-JDG-1). A run without a Judge model is judged on
+its deterministic findings alone; its verdict records that no Judge was
+configured, so that it is never mistaken for a run with semantic evaluation.
+
+**R-VER-8** The evaluation CLI ends with these exit codes:
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | `pass` or `warn`; also `inconclusive` whose only finding is run status `not-run` (R-PYR-2) |
+| 1 | runtime or usage error of the CLI; no verdict (for example a corpus parse error) |
+| 2 | `fail` |
+| 3 | `inconclusive` |
+
+`warn` exits 0 because isolated findings are expected model variance; they are
+visible in the report but do not stop an automated run. `inconclusive` has its
+own non-zero code so that an automated gate never treats it as a confirmed
+`pass`. The single exception is `not-run` (missing credential or zero budget),
+which R-PYR-2 requires not to fail CI; the report still records
+`inconclusive`.
+
+**R-VER-9** Every change to this rule (classes, keys, threshold, priority, or
+exit codes) MUST bump the rule revision identifier and cite the evidence that
+justifies it.
 
 ## 13. Change control
 
@@ -669,6 +748,7 @@ from a majority rule.
 | Tutor prompt templates | existing Tutor prompt revision/digest mechanism; L3 run before merge |
 | planner, adapter, strategy, Course Content semantics | L1 green; L3 run before merge |
 | new expectation key | update §6.4, parser allowlist, L2 parser tests |
+| verdict rule (§12) | bump the verdict rule revision (R-VER-9); L2 verdict tests |
 
 ## 14. Non-goals
 
@@ -687,12 +767,12 @@ contract (R-EVD-3/4, R-RSP-4, R-FUP-1..4, R-REP-2/3, §11.2, PR C), and the two
 remaining gaps found by the consolidation: the run-level corpus ID and version
 in `report.json` (`manifest.corpusId`, `manifest.corpusVersion`) and `report.md`
 (§11.2), and the fail-fast corpus-parser enforcement of R-TURN-3 for every dialog
-turn of a case that declares `expected.learningPhase`. Remaining known
+turn of a case that declares `expected.learningPhase`. The quality verdict
+and the CLI exit codes (R-VER-1..9) followed in PR F. Remaining known
 deviations:
 
 | Rule | Current code | Owner |
 | --- | --- | --- |
-| R-VER-1..3 | not implemented (correct for now) | PR F, after the baseline of PR E |
 | R-ATT-2 | only `expected-phase-after` can be reported as not applicable (rating out of band) | none; no other check has a not-applicable state |
 
 Intentional historical identifiers that stay in code and artifacts (§11.4):
@@ -729,6 +809,10 @@ npm run eval:tutor-quality:real -- \
   calls, and no transcripts.
 - Output: `report.json`, `report.md`, and `transcripts/` (§11.3). Do not commit
   them.
+- `report.json` carries `qualityVerdict` with its findings; `report.md` shows it
+  under "Quality verdict". The CLI also prints the verdict in its one-line JSON
+  summary and exits with 0 (`pass`, `warn`, or `not-run`), 1 (CLI error),
+  2 (`fail`), or 3 (`inconclusive`) (R-VER-8).
 
 Manual workflow: `.github/workflows/tutor-quality-real-provider.yml` has only a
 `workflow_dispatch` trigger (R-PYR-2). Inputs: `model`, `samples`, `max_calls`,
