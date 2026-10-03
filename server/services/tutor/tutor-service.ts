@@ -691,9 +691,9 @@ export class TutorService {
       };
     }
     const context = buildTutorContext(code);
-    const currentPlanningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: parsedHistory, difficulty, courseContent: transaction.courseContent })
-      : null;
+    // The provider rates the answer to `question`, so its didactic context must describe that
+    // answered question, not a question planned afterwards.
+    const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent);
     const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
     const providerResult = await this.provider.generateLearningQuestion(
       {
@@ -760,6 +760,19 @@ export class TutorService {
       }
     }
     return { result, followUpSource };
+  }
+
+  private async planAnsweredQuestion(
+    code: string,
+    history: readonly TutorDialogTurn[],
+    currentQuestion: string,
+    difficulty: TutorDifficulty,
+    courseContent?: TutorPlanningContentContext,
+  ): Promise<PlanningResult | null> {
+    // Never planInitial here: planning a new question while only evaluating an answer could
+    // reserve content. Without planAnswered the prompt simply carries no didactic context.
+    if (!this.planningExtension?.planAnswered) return null;
+    return this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
   }
 
   async getAvailableModels(credential: string | undefined): Promise<readonly string[]> {

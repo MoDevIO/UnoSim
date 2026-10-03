@@ -82,6 +82,20 @@ export function isTutorPlanningBlocked(result: TutorPlanningResult | null): resu
 export interface TutorPlanningExtension {
   resolveStrategy?(input: { readonly code?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
   planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null>;
+  /**
+   * Resolves the didactic context of the question the learner is currently answering, for the
+   * dialog prompt. It never plans or reserves a new question and leaves the progression state
+   * unchanged; an unresolvable question yields null. Without this method the dialog prompt
+   * carries no didactic context.
+   */
+  planAnswered?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<TutorPlanningResult | null>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];

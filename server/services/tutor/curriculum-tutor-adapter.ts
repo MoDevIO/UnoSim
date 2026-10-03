@@ -11,6 +11,7 @@ import {
 } from "./strategy/effective-tutor-strategy";
 import {
   DefaultLearningPlanner,
+  buildPlan,
   classifyTopic,
   collectObservations,
   type LearningPlanner,
@@ -29,6 +30,7 @@ import type {
 } from "./tutor-planning";
 import {
   appendEvidence,
+  cloneTutorProgressionState,
   createTutorProgressionState,
   deepeningCriteria,
   hasMetDeepeningCriteria,
@@ -98,6 +100,19 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!context) return null;
     if (context.blocked) return context.blocked;
     return this.startPlan(context, input.history, input.difficulty, context.phase);
+  }
+
+  async planAnswered(input: Omit<TutorFollowupInput, "rating">): Promise<TutorPlanningResult | null> {
+    const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+    // Read-only: match against a copy so that resolving the context cannot change the session
+    // state; a question that cannot be resolved yields no context instead of a new plan.
+    const readOnly = snapshot?.progressionState
+      ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
+      : snapshot ?? undefined;
+    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId);
+    if (!context) return null;
+    if (context.blocked) return context.blocked;
+    return answeredQuestionPlan(context, input.currentQuestion, input.history);
   }
 
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
@@ -482,6 +497,22 @@ function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgression
   return topic.extensions.find(({ topic: targetTopicId, objective }) =>
     delivered.has(targetTopicId) && expansionQuestionText(objective) === currentQuestion,
   )?.topic;
+}
+
+// The plan of the question being answered, resolved by identity: a generated extension the
+// application delivered for this Topic, or a Topic question. Reserves nothing in the state.
+function answeredQuestionPlan(context: AdapterContext, currentQuestion: string, history: readonly TutorDialogTurn[]): TutorPlan | null {
+  const expansionTargetId = answeredExpansionTarget(context.topic, context.state, currentQuestion);
+  const extension = expansionTargetId && context.topic.schemaVersion === 2
+    ? context.topic.extensions?.find(({ topic }) => topic === expansionTargetId)
+    : undefined;
+  if (extension) {
+    return buildExpansionPlan(context, context.phase, { sourceTopicId: context.topic.id, targetTopicId: extension.topic, objective: extension.objective });
+  }
+  const question = findQuestion(context.topic, currentQuestion, history);
+  const concept = question ? context.topic.concepts.find(({ id }) => id === question.concept) : undefined;
+  if (!question || !concept) return null;
+  return normalizePlan(buildPlan(context.topic, context.revision, concept, question), context.strategy, context.state, context.phase, context.extensionTargetTopicId);
 }
 
 function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expansionBrief: TutorExpansionBrief): TutorPlan {
