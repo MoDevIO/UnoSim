@@ -99,16 +99,37 @@ describe("dialog prompt context of the answered question", () => {
     expect(answer).toMatchObject({ followUpSource: "planner", result: { learningPhase: "EXPAND", questionId: "expand-serial-second" } });
     expect(content.progressionState?.usedExpansionTargetTopicIds["variables-and-serial"]).toEqual(["serial-output", "serial-second"]);
   });
-  it("plans and reserves nothing when the answered question cannot be resolved", async () => {
-    const provider = recordingProvider();
-    const service = new TutorService(provider, new CurriculumTutorAdapter());
+  it("resolves no context and reserves nothing for an answered question that cannot be resolved", async () => {
     const content = createAnchorCourseContent("progression-expand");
+    let reservedWhenPrompted: unknown;
+    const provider = recordingProvider();
+    const recording = provider.generateLearningQuestion.bind(provider);
+    provider.generateLearningQuestion = async (request, credential) => {
+      reservedWhenPrompted = structuredClone(content.progressionState?.usedExpansionTargetTopicIds);
+      return recording(request, credential);
+    };
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
 
     // The extension is still unused; the learner answers a question that is neither a Topic question nor a delivered extension.
     await service.generateDialogResponse(serialSketch, [], "Was bewirkt delay im Sketch?", "Es wartet eine Sekunde.", "key", "pilot-model", 60, content);
 
+    // LearningQuestions SSOT 11.2 step 5: building the dialog context plans and reserves nothing.
     expect(hasDidacticContext(provider.requests[0])).toBe(false);
-    expect(content.progressionState?.usedExpansionTargetTopicIds).toEqual({});
+    expect(reservedWhenPrompted).toEqual({});
+  });
+
+  it("continues EXPAND with the unused extension after an answered question that cannot be resolved (R-EXP-2)", async () => {
+    // Before, this answer ended in content-exhausted although an unused extension existed; the
+    // earlier version of the test above pinned that by checking the state after the whole request.
+    const provider = recordingProvider();
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
+    const content = createAnchorCourseContent("progression-expand");
+
+    const answer = await service.generateDialogResponse(serialSketch, [], "Was bewirkt delay im Sketch?", "Es wartet eine Sekunde.", "key", "pilot-model", 60, content);
+
+    expect(answer).toMatchObject({ followUpSource: "planner", result: { learningPhase: "EXPAND", questionId: "expand-serial-output" } });
+    expect(answer.result.progressionBlockedReason).toBeUndefined();
+    expect(content.progressionState?.usedExpansionTargetTopicIds).toEqual({ "variables-and-serial": ["serial-output"] });
   });
 
   it("does not fall back to planInitial for the dialog context of an extension without planAnswered", async () => {

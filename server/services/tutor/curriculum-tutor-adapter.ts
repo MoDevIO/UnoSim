@@ -171,13 +171,12 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   private advancePlan(context: AdapterContext, input: TutorFollowupInput, answeredHistory: readonly TutorDialogTurn[]): TutorPlanningResult | null {
     const answeredPhase = context.state.phase ?? context.phase;
-    const answeredPlannedQuestion = answeredExpansionTarget(context.topic, context.state, input.currentQuestion) !== undefined
-      || findQuestion(context.topic, input.currentQuestion, input.history) !== null;
-    if (answeredPhase === "EXPAND" && answeredPlannedQuestion) {
-      // After an answered extension or Topic question, the next EXPAND step is planned as at phase
-      // start: an unused extension first, then an unused post-mastery Topic question, and
-      // content-exhausted only when neither exists (R-EXP-2). The planner cannot advance from a
-      // generated extension, and advancing from a Topic question would never offer an extension.
+    if (answeredPhase === "EXPAND") {
+      // Every EXPAND step is planned as at phase start: an unused extension first, then an unused
+      // post-mastery Topic question, and content-exhausted only when neither exists (R-EXP-2). This
+      // holds whatever was answered: the planner cannot advance from a generated extension or from
+      // a question it cannot resolve, and advancing from a Topic question would never offer an
+      // extension.
       return this.startPlan(context, [...answeredHistory, answeredTurn(input.currentQuestion)], input.difficulty, answeredPhase);
     }
     const plan = this.planner.advance(context.topic, context.revision, context.facts, answeredHistory, input.currentQuestion, input.rating, {
