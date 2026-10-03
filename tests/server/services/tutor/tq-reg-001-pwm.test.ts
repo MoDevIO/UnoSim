@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { curriculumTopicSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { createTutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
-import type { TutorPlanningExtension } from "../../../../server/services/tutor/tutor-planning";
 import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner";
 
 const revision = "1".repeat(40);
@@ -17,13 +16,62 @@ function fixture(name: string): string {
   return readFileSync(fileURLToPath(new URL(`../../../fixtures/tutor-quality/${name}`, import.meta.url)), "utf8");
 }
 
-function courseContent() {
+const repeatedQuestion = "Welchen Wert verwendet der Sketch an der betrachteten Integer-Variablen?";
+
+// Minimal test Topic for the PWM sketch. The fact extractor yields only `type-used: int` for it, so
+// the Topic activates on that fact. Its single question is mastered by one strong answer, so the
+// real planner ends the turn in a LEARN -> DEEPEN transition (TutorQuality SSOT §5).
+const pwmTopic = validateCurriculumTopic(curriculumTopicSchema.parse({
+  schemaVersion: 1,
+  id: "pwm-output",
+  title: "PWM-Ausgabe",
+  locale: "de-DE",
+  activation: { any: [{ fact: "type-used", values: ["int"] }] },
+  concepts: [{
+    id: "pwm-duty-value",
+    title: "Tastgrad-Wert",
+    objective: "Den Integerwert erklären, der den PWM-Tastgrad bestimmt.",
+    prerequisites: [],
+    difficulty: { entry: [1, 60], transfer: [20, 80] },
+    misconceptions: [],
+    indicators: [{ id: "relates-value-to-duty", description: "Ordnet den Integerwert dem Tastgrad zu." }],
+    mastery: {
+      minimumSuccessfulProbes: 1,
+      successRatingAtLeast: 3,
+      requiredIndicators: ["relates-value-to-duty"],
+      minimumDistinctQuestionKinds: 1,
+      recentWeakAnswersAllowed: 0,
+    },
+  }],
+  questions: [{
+    id: "pwm-duty-value-question",
+    concept: "pwm-duty-value",
+    indicator: "relates-value-to-duty",
+    kind: "concept",
+    difficulty: [1, 60],
+    requires: [{ fact: "type-used", values: ["int"] }],
+    text: repeatedQuestion,
+  }],
+  scaffolds: [],
+  progression: {
+    entryConcepts: ["pwm-duty-value"],
+    preferredOrder: ["pwm-duty-value"],
+    onRating: {
+      "1-2": "remediate",
+      "3": "clarify-same-indicator",
+      "4": "probe-missing-indicator",
+      "5": "evaluate-mastery-and-advance",
+    },
+  },
+}));
+
+function courseContent(topics = [variablesTopic]) {
   return {
     revision,
     tutor: {
       status: "valid" as const,
       manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
-      topics: [variablesTopic],
+      topics,
       strategies: [],
     },
     progressionState: createTutorProgressionState(revision),
@@ -48,29 +96,7 @@ describe("TQ-REG-001 PWM question quality regression", () => {
   });
 
   it("repairs repetition after a strong answer and commits coherent transition metadata", async () => {
-    const content = courseContent();
-    const repeatedQuestion = "Welchen Wert verwendet der Sketch an der betrachteten Integer-Variablen?";
-    const planning: TutorPlanningExtension = {
-      planInitial: vi.fn().mockResolvedValue(null),
-      planFollowup: vi.fn(async ({ courseContent: workingContent }) => {
-        const state = workingContent?.progressionState;
-        if (state) {
-          state.activeTopicId = "pwm-output";
-          state.phase = "DEEPEN";
-          state.masteredTopicIds.push("pwm-output");
-          state.retainedPhases["pwm-output"] = "DEEPEN";
-        }
-        return {
-          kind: "transition" as const,
-          contentRevision: revision,
-          learningPhase: "DEEPEN" as const,
-          activeTopicId: "pwm-output",
-          masteredTopicIds: ["pwm-output"],
-          strategyId: "built-in-default",
-          strategySource: "built-in" as const,
-        };
-      }),
-    };
+    const content = courseContent([variablesTopic, pwmTopic]);
     const trace = await runTutorQualityScenario({
       id: "TQ-REG-001/progression",
       code: pwmSketch,
@@ -89,18 +115,19 @@ describe("TQ-REG-001 PWM question quality regression", () => {
         },
       },
       courseContent: content,
-      planning,
     });
 
     expect(trace.error).toBeUndefined();
     expect(trace.result?.question).not.toContain("betrachtete Integer-Variable");
+    // R-PH-1/R-PH-2: the answer is served under LEARN; the transition is committed to state.
     expect(trace.result).toMatchObject({
       answerRating: 5,
       contentRevision: revision,
-      learningPhase: "DEEPEN",
+      learningPhase: "LEARN",
       activeTopicId: "pwm-output",
       masteredTopicIds: ["pwm-output"],
     });
+    expect(trace.result).not.toHaveProperty("topicId", "variables-and-serial");
     expect(trace.stateAfter).toMatchObject({
       revision,
       phase: "DEEPEN",
