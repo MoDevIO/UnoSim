@@ -296,7 +296,7 @@ export function useTutor(
     }
   }, [capabilities, credential]);
 
-  const requestQuestion = useCallback(async (code: string, requestDifficulty: TutorDifficulty) => {
+  const requestQuestion = useCallback(async (code: string, requestDifficulty: TutorDifficulty, freshSession = false) => {
     if (!capabilities.canUseTutor) return;
     setError(null);
     if (!code.trim()) {
@@ -321,7 +321,9 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
-          ...getCourseContentRequest(courseContentSession, courseContent),
+          // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3); the
+          // reset state of resetDialog is not visible to this callback yet.
+          ...getCourseContentRequest(freshSession ? undefined : courseContentSession, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
@@ -352,7 +354,7 @@ export function useTutor(
     if (!capabilities.canUseTutor) return;
     if (question !== null || history.length > 0) {
       resetDialog();
-      await requestQuestion(code, configuredDifficulty);
+      await requestQuestion(code, configuredDifficulty, true);
       return;
     }
     await requestQuestion(code, effectiveDifficulty);
