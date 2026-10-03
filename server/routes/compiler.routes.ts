@@ -55,6 +55,12 @@ function parseCompileRequest(body: unknown): ParsedCompileRequest {
   return { success: true, data: parsedRequest.data };
 }
 
+/** The HEX stays on the server: the client never uses it and it inflates every response. */
+function withoutBinary(result: CompilationResult): CompilationResult {
+  const { binary: _binary, ...clientResult } = result;
+  return clientResult;
+}
+
 function isTimedOutCompileResult(result: CompilationResult): boolean {
   return !result.success && `${result.stderr ?? ""} ${result.errors.map((err) => err.message).join(" ")}`.toLowerCase().includes("timeout");
 }
@@ -183,15 +189,16 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
       recordCompileMetricIfNeeded(compiler, compileStartTime, result);
 
+      const clientResult = withoutBinary(result);
       if (result.success) {
         if (!cacheDisabled) {
-          compilationCache.set(codeHash, { result, timestamp: Date.now() });
+          compilationCache.set(codeHash, { result: clientResult, timestamp: Date.now() });
           logger.info(`✅ Cached compilation result for code`);
         }
         rememberCompiledCode(res, code);
       }
 
-      res.json(result);
+      res.json(clientResult);
     } catch (error) {
       recordCompileErrorIfNeeded(compiler, compileStartTime, error);
       logger.error(`[Compiler Route] Error during /api/compile: ${error instanceof Error ? error.message : String(error)}`);
