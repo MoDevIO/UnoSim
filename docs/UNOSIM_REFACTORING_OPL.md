@@ -20,7 +20,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R7 | Globaler API-Limiter im Gateway-Modus nach authentifiziertem `subject` statt IP | Skalierung | P1 [Code] | mittel (topologieabhängig) | keine kursweiten 429 hinter Campus-NAT | klein | – | fix/api-rate-limit-identity | DONE | RED→GREEN: `api-rate-limit-key.test.ts` (zwei Subjects hinter einer IP mit getrenntem Budget; ungültiges Gateway-Secret und Local-Modus bleiben pro IP) | PR-Merge siehe Verlauf |
 | R3a | Lauf-Generation + Abbruch im Runner-Lifecycle; `ProcessController` leitet nur Events des aktuellen Kindprozesses weiter | Isolation/Lifecycle | S4, S4-CHILD [Code, deterministisch reproduziert] | hoch | keine fremde Ausgabe, kein Start mit fremdem/aufgeräumtem Verzeichnis, kein Eingriff in den Container des Nachfolgers | mittel | – | fix/runner-run-generation | DONE | RED→GREEN: `runner-reuse-race.test.ts` (echter Pool/Runner/ExecutionManager/Semaphore; vorher startete A mit eigenem, bereits gelöschtem Verzeichnis für B), `docker-compile-semaphore-abort.test.ts`, `process-controller-stale-child.test.ts`; Unit 2714, Docker-Integration 26/26 | PR-Merge siehe Verlauf |
 | R3b | Reset-Ownership in `SandboxRunner.resetForReuse()`; Pool greift nicht mehr in private Runner-Felder | Kapselung | A6 [Code] | mittel | Reset an einer Stelle; neue Felder können nicht mehr am Pool vorbei vergessen werden | mittel | R3a | refactor/runner-reset-ownership | DONE | `sandbox-runner-reset.test.ts` (echter Runner: Felder, Listener, Registry-Reset, Stop-Fehler); Pool-Tests prüfen nur noch die Delegation (Feldaussagen verschoben, keine entfernt) | PR-Merge siehe Verlauf |
-| R4a | Orphan-Sweep für Sandbox-Container | Lifecycle | A7 [Code] | mittel | Ressourcen nach Crash frei | klein–mittel | R3a | fix/sandbox-orphan-sweep | OPEN | Sweep-Test (Fake-Executor), Docker-Gate | – |
+| R4a | Owner-Label `unosim.owner=<host>:<pid>` an jedem Sandbox-Container; Sweep der Container einer früheren Inkarnation beim Start (Docker-Modus) | Lifecycle | A7 [Code] | mittel | nach Crash-Restart (gleicher Host, PID 1) laufen keine verwaisten Sketch-Container mehr weiter; fremde UnoSim-Instanzen bleiben unberührt | klein–mittel | R3a | fix/sandbox-orphan-sweep | DONE | RED→GREEN: `orphan-sweep.test.ts` (Label, Sweep, Fehlertoleranz); `sandbox-orphan-sweep.test.ts` in der Docker-Suite (echter Container des eigenen Owners entfernt, fremder bleibt) | PR-Merge siehe Verlauf |
 | R4b | WS-Heartbeat, Serialisierung pro Verbindung, Nachrichtenlimit | Lifecycle | A7 [Code] | mittel | halb offene Verbindungen und Floods begrenzt | mittel | – | fix/ws-connection-lifecycle | OPEN | Lifecycle-Tests mit Fake-Timern | – |
 | R5a | Gatekeeper: Queue-Fortsetzung nach TTL, tote Cache-Lock-API | Concurrency | A2 [Code] | mittel | keine hängende Compile-Queue | klein | – | fix/gatekeeper-ttl-handoff | OPEN | echter TTL-Test | – |
 | R5b | Worker-Pool: Recovery, begrenzte Queue/Timeouts, begrenzter Fallback, Statusmetriken | Concurrency | A1, A3 [Code] | mittel | Backpressure auch im Fehlerfall | mittel | R5a | fix/compile-pool-backpressure | OPEN | Pool-Crash-/Queue-Tests, Status-Tests | – |
@@ -67,6 +67,11 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 
 ## Reihenfolge-Änderungen
 
+- R4a begrenzt den Sweep bewusst auf den eigenen Owner (`<host>:<pid>`) statt
+  auf ein Alterskriterium: Pausierte Simulationen haben keine Maximaldauer, und
+  mehrere UnoSim-Instanzen können sich einen Docker-Host teilen. Ein Redeploy
+  mit neuem Container-Hostnamen wird dadurch nicht abgedeckt; dort beendet der
+  geordnete Shutdown die Runner.
 - R2 sichert statt zu entfernen: Der Code deklariert den Code-losen Start als
   Kompatibilität bis zum nächsten Protokoll-Major, und ARCHITECTURE verlangt für
   inkompatible REST-Änderungen eine neue Major-Version. Die Isolation pro
@@ -84,4 +89,5 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #162 | R6: Einheitlicher Compile-Hash, kein Binary in der REST-Antwort | `9716910d` | PR-CI 5/5 grün; Post-Merge-CI von #161 grün |
 | #163 | R7: Globaler API-Limiter nach Gateway-Subject | `7a39d554` | PR-CI 5/5 grün; Post-Merge-CI von #162 grün |
 | #164 | R3a: Lauf-Generation, abbrechbares Start-Slot-Warten, Kindprozess-Guard | `0042bc08` | PR-CI 5/5 grün; Post-Merge-CI von #163 grün |
-| R3b | Reset-Ownership im Runner | – | – |
+| #165 | R3b: Reset-Ownership im Runner | `206d2033` | PR-CI 5/5 grün; Post-Merge-CI von #164 grün |
+| R4a | Orphan-Sweep für Sandbox-Container | – | – |
