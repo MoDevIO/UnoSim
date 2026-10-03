@@ -770,12 +770,10 @@ in `report.json` (`manifest.corpusId`, `manifest.corpusVersion`) and `report.md`
 turn of a case that declares `expected.learningPhase`. The quality verdict
 and the CLI exit codes (R-VER-1..9) followed in PR F, the weekly L3 run and
 the Judge-credential preflight (`missing-judge-credential`) in PR G; the weekly
-schedule was later deactivated (Appendix B). Remaining known
-deviations:
-
-| Rule | Current code | Owner |
-| --- | --- | --- |
-| R-ATT-2 | only `expected-phase-after` can be reported as not applicable (rating out of band) | none; no other check has a not-applicable state |
+schedule was later deactivated (Appendix B). R-ATT-2 followed last: every
+deterministic check record carries `outcome` (`pass`, `fail`, or
+`not-applicable` with a `reason`), and every check that cannot be interpreted
+uses it, not only `expected-phase-after`. Remaining known deviations: none.
 
 Intentional historical identifiers that stay in code and artifacts (§11.4):
 the report field `stageAStatus`, internal type names `TutorQualityStageA…`, and
