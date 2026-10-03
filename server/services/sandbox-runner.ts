@@ -450,6 +450,56 @@ export class SandboxRunner {
     await this.cleanupDockerContainer(containerName);
   }
 
+  /**
+   * Returns the runner to a clean state before the pool hands it to the next
+   * user: stops a run still in progress and clears everything the previous run
+   * left in the execution state, the process listeners and the I/O registry.
+   */
+  async resetForReuse(): Promise<void> {
+    if (this.isRunning) {
+      try {
+        await this.stop();
+      } catch (error) {
+        this.logger.warn(`stop() failed during reset: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    this.processController.clearListeners();
+    const s = this.executionState;
+    s.state = SimulationState.STOPPED;
+    s.processKilled = false;
+    s.pauseStartTime = null;
+    s.totalPausedTime = 0;
+    s.pinStateBatcher = null;
+    s.serialOutputBatcher = null;
+    s.onOutputCallback = null;
+    s.errorCallback = null;
+    s.telemetryCallback = null;
+    s.pinStateCallback = null;
+    s.ioRegistryCallback = undefined;
+    s.outputBuffer = "";
+    s.outputBufferIndex = 0;
+    s.totalOutputBytes = 0;
+    s.isSendingOutput = false;
+    s.pendingCleanup = false;
+    s.messageQueue = [];
+    s.stderrFallbackBuffer = "";
+    s.backpressurePaused = false;
+    if (s.flushTimer) {
+      clearTimeout(s.flushTimer);
+      s.flushTimer = null;
+    }
+
+    // Reset rather than destroy: the ExecutionManager keeps this instance and its
+    // onUpdate callback reads the next run's ioRegistryCallback from the state.
+    try {
+      this.registryManager.reset();
+    } catch (error) {
+      this.logger.debug(`RegistryManager reset failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    this.timeoutManager.clear();
+  }
+
   getSandboxStatus(): { dockerAvailable: boolean; dockerImageBuilt: boolean } {
     return {
       dockerAvailable: this.dockerAvailable,

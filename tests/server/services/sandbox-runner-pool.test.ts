@@ -16,6 +16,7 @@ vi.mock("../../../server/services/sandbox-runner", () => {
     isRunning = false;
     initialize = runnerInitializeMock;
     stop = vi.fn().mockResolvedValue(undefined);
+    resetForReuse = vi.fn().mockResolvedValue(undefined);
     // The real SandboxRunner uses a getter/setter that delegates to executionState.state
     _state = "stopped";
     get state() {
@@ -308,52 +309,9 @@ describe("SandboxRunnerPool", () => {
     expect(runners[0].stop).toHaveBeenCalled();
   });
 
-  it("resets runner state on release", async () => {
-    const pool = getSandboxRunnerPool();
-    await pool.initialize();
-
-    const runner = await pool.acquireRunner();
-
-    // Simulate runner had been used — set executionState fields
-    runner.executionState.outputBuffer = "some output";
-    runner.executionState.totalOutputBytes = 1000;
-    runner.executionState.processKilled = true;
-    runner.executionState.pendingCleanup = true;
-
-    await pool.releaseRunner(runner);
-
-    // After release, executionState fields should be cleaned
-    expect(runner.state).toBe("stopped");
-    expect(runner.executionState.outputBuffer).toBe("");
-    expect(runner.executionState.totalOutputBytes).toBe(0);
-    expect(runner.executionState.processKilled).toBe(false);
-    expect(runner.executionState.pendingCleanup).toBe(false);
-  });
-
-  it("resets executionState.processKilled on release (regression: pool used ad-hoc property)", async () => {
-    const pool = getSandboxRunnerPool();
-    await pool.initialize();
-
-    const runner = await pool.acquireRunner();
-
-    // Simulate a simulation that was stopped (processKilled = true)
-    runner.executionState.processKilled = true;
-    runner.executionState.pendingCleanup = true;
-    runner.executionState.isSendingOutput = true;
-    runner.executionState.totalOutputBytes = 5000;
-    runner.executionState.messageQueue = [{ type: "stale" }];
-
-    await pool.releaseRunner(runner);
-
-    // Critical: processKilled must be reset on executionState, not as ad-hoc property
-    expect(runner.executionState.processKilled).toBe(false);
-    expect(runner.executionState.pendingCleanup).toBe(false);
-    expect(runner.executionState.isSendingOutput).toBe(false);
-    expect(runner.executionState.totalOutputBytes).toBe(0);
-    expect(runner.executionState.messageQueue).toEqual([]);
-  });
-
-  it("handles runner with running state during release", async () => {
+  // The field-level reset assertions that used to live here moved to
+  // sandbox-runner-reset.test.ts: the runner owns its reset (resetForReuse).
+  it("delegates the reset of a released runner to the runner itself", async () => {
     const pool = getSandboxRunnerPool();
     await pool.initialize();
 
@@ -361,7 +319,8 @@ describe("SandboxRunnerPool", () => {
     runner.isRunning = true;
 
     await pool.releaseRunner(runner);
-    expect(runner.stop).toHaveBeenCalled();
+    expect(runner.resetForReuse).toHaveBeenCalledOnce();
+    expect(runner.stop).not.toHaveBeenCalled();
   });
 
   it("rejects requests beyond the configured queue limit", async () => {
@@ -431,50 +390,14 @@ describe("SandboxRunnerPool", () => {
     await pool.initialize();
 
     const runner = await pool.acquireRunner();
-    // Make stop throw
-    runner.stop = vi.fn().mockRejectedValue(new Error("stop failed"));
-    runner.isRunning = true;
+    // Make the runner's reset throw
+    runner.resetForReuse = vi.fn().mockRejectedValue(new Error("reset failed"));
 
     // Should not throw
     await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
   });
 
-  it("calls registryManager.reset() during runner release", async () => {
-    const pool = getSandboxRunnerPool();
-    await pool.initialize();
-
-    const runner = await pool.acquireRunner();
-    const mockRegistryManager = {
-      destroy: vi.fn(),
-      reset: vi.fn(),
-      removeAllListeners: vi.fn(),
-    };
-    runner.registryManager = mockRegistryManager;
-
-    await pool.releaseRunner(runner);
-
-    expect(mockRegistryManager.reset).toHaveBeenCalledOnce();
-  });
-
-  it("handles registryManager.reset() failure gracefully during release", async () => {
-    const pool = getSandboxRunnerPool();
-    await pool.initialize();
-
-    const runner = await pool.acquireRunner();
-    const mockRegistryManager = {
-      destroy: vi.fn(),
-      reset: vi.fn().mockImplementation(() => {
-        throw new Error("reset failed");
-      }),
-      removeAllListeners: vi.fn(),
-    };
-    runner.registryManager = mockRegistryManager;
-
-    // Should not throw even when reset() fails
-    await expect(pool.releaseRunner(runner)).resolves.toBeUndefined();
-  });
-
-  it("replaces stuck runner when stop() hangs beyond reset timeout", async () => {
+  it("replaces stuck runner when its reset hangs beyond reset timeout", async () => {
     const pool = new SandboxRunnerPool({
       minRunners: 5,
       maxRunners: 5,
@@ -483,9 +406,8 @@ describe("SandboxRunnerPool", () => {
     await pool.initialize();
 
     const runner = await pool.acquireRunner();
-    runner.isRunning = true;
-    // Make stop() hang forever
-    runner.stop = vi.fn().mockReturnValue(new Promise(() => {}));
+    // Make the runner's reset hang forever
+    runner.resetForReuse = vi.fn().mockReturnValue(new Promise(() => {}));
 
     const statsBefore = pool.getStats();
     expect(statsBefore.inUseRunners).toBe(1);
@@ -513,9 +435,8 @@ describe("SandboxRunnerPool", () => {
       runners.push(await pool.acquireRunner());
     }
 
-    // Make runner[0].stop() hang
-    runners[0].isRunning = true;
-    runners[0].stop = vi.fn().mockReturnValue(new Promise(() => {}));
+    // Make runner[0]'s reset hang
+    runners[0].resetForReuse = vi.fn().mockReturnValue(new Promise(() => {}));
 
     // Queue a new request
     const pendingAcquire = pool.acquireRunner();
