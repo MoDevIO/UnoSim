@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { CurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
+import { BUILT_IN_TUTOR_STRATEGY } from "../../../../server/services/tutor/strategy/effective-tutor-strategy";
 import {
+  validateExampleTopicActivations,
   validateTutorContentQuality,
   type ResolvedTutorQualityCase,
 } from "../../../../server/services/course-content/tutor-quality-validator";
@@ -168,5 +170,75 @@ describe("deterministic Tutor Course Content quality", () => {
       "missing-deepening-question-kind",
       "deepen-content-exhausted",
     ]));
+  });
+});
+
+// Authoring invariant over the whole Example catalog, independent of quality cases: every Topic
+// that the production matcher activates on an Example must let a learner who answers every
+// planned question successfully reach Topic mastery. A Topic that is unresolved from the first
+// turn blocks the Topic-driven Tutor for the whole session (LearningQuestions SSOT 2.3).
+describe("Example catalog Topic activations", () => {
+  const serialOnlySketch = 'void setup() { Serial.begin(9600); Serial.println("Hallo"); } void loop() {}';
+
+  // Concept "output" needs only Serial; its prerequisite "values" is probeable only with an int.
+  function prerequisiteTopic(withPrerequisite: boolean): CurriculumTopic {
+    const topic = validTopic();
+    const values = topic.concepts[0]!;
+    topic.concepts = [
+      { ...values, id: "values", prerequisites: [] },
+      {
+        ...values,
+        id: "output",
+        title: "Ausgabe",
+        indicators: [{ id: "output-use", description: "Ausgabe erklären" }],
+        mastery: { ...values.mastery, requiredIndicators: ["output-use"] },
+        prerequisites: withPrerequisite ? ["values"] : [],
+      },
+    ];
+    topic.questions = [
+      { ...question("values-recall", "recall"), requires: [{ fact: "type-used" as const, values: ["int"] }] },
+      { ...question("output-concept", "concept"), concept: "output", indicator: "output-use" },
+      { ...question("output-transfer", "transfer"), concept: "output", indicator: "output-use" },
+    ];
+    topic.progression.entryConcepts = ["values"];
+    topic.progression.preferredOrder = ["values", "output"];
+    return topic;
+  }
+
+  it("reports an Example that activates a Topic no learner can master, without any quality case", () => {
+    const issues = validateExampleTopicActivations([prerequisiteTopic(true)], [{ id: "serial-only", code: serialOnlySketch }]);
+
+    expect(issues).toEqual([expect.objectContaining({
+      code: "unmasterable-example-activation",
+      exampleId: "serial-only",
+      topicId: "variables-and-serial",
+    })]);
+  });
+
+  it("accepts the same Topic once the Concept no longer requires an unprobeable prerequisite", () => {
+    expect(validateExampleTopicActivations([prerequisiteTopic(false)], [{ id: "serial-only", code: serialOnlySketch }])).toEqual([]);
+  });
+
+  it("accepts the prerequisite where the sketch makes it probeable", () => {
+    expect(validateExampleTopicActivations([prerequisiteTopic(true)], [{ id: "int-serial", code: serialSketch }])).toEqual([]);
+  });
+
+  it("ignores Examples on which the Topic is not activated", () => {
+    expect(validateExampleTopicActivations([prerequisiteTopic(true)], [{ id: "pwm", code: pwmSketch }])).toEqual([]);
+  });
+
+  it("does not forbid later, learner-dependent exhaustion when a successful learner reaches mastery", () => {
+    // One question per Concept: weak answers would exhaust the Topic later, but mastery is reachable.
+    const topic = prerequisiteTopic(false);
+    topic.questions = topic.questions.filter(({ id }) => id !== "output-transfer");
+
+    expect(validateExampleTopicActivations([topic], [{ id: "serial-only", code: serialOnlySketch }])).toEqual([]);
+  });
+
+  it("uses the Example's effective LEARN strategy for the path", () => {
+    const relaxed = { ...BUILT_IN_TUTOR_STRATEGY, id: "relaxed-policy", repetition: "relaxed" as const };
+    const issues = validateExampleTopicActivations([prerequisiteTopic(true)], [{ id: "serial-only", code: serialOnlySketch, learnStrategy: relaxed }]);
+
+    expect(codes(issues)).toEqual(["unmasterable-example-activation"]);
   });
 });

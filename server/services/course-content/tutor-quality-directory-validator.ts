@@ -5,7 +5,9 @@ import { CourseContentLoader, type LoadedCourseContentSnapshot } from "./course-
 import { tutorQualityCasesSchema } from "./tutor-quality-schema";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 import {
+  validateExampleTopicActivations,
   validateTutorContentQuality,
+  type CatalogExample,
   type ResolvedTutorQualityCase,
   type TutorContentQualityIssue,
 } from "./tutor-quality-validator";
@@ -35,7 +37,10 @@ export async function validateTutorCourseContentDirectory(directory: string): Pr
     }
     const resolution = resolveCases(parsed.data.cases, loaded);
     if (resolution.issues.length > 0) return resolution.issues;
-    return validateTutorContentQuality(loaded.tutor.topics, resolution.cases);
+    return [
+      ...validateTutorContentQuality(loaded.tutor.topics, resolution.cases),
+      ...validateExampleTopicActivations(loaded.tutor.topics, catalogExamples(loaded)),
+    ];
   } catch {
     return [directoryIssue("invalid-quality-cases", "Tutor quality case manifest could not be loaded")];
   }
@@ -81,6 +86,16 @@ function resolveCases(
     });
   }
   return { cases: resolved, issues };
+}
+
+// Every Example's main sketch, as the Tutor receives it, with its effective LEARN strategy.
+function catalogExamples(loaded: LoadedCourseContentSnapshot): CatalogExample[] {
+  return loaded.examples.flatMap((example) => {
+    const main = example.files.find(({ name }) => name === example.main);
+    return main
+      ? [{ id: example.id, code: main.content, learnStrategy: resolveCaseStrategy(loaded, example.tutorAnnotation?.strategy, "LEARN") }]
+      : [];
+  });
 }
 
 function resolveCaseStrategy(

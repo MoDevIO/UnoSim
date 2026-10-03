@@ -87,6 +87,17 @@ It fails on:
 - loader failures, invalid references, inconsistent hashes, or an invalid
   Course Content bundle.
 
+Independent of the quality cases, the validator also checks the whole Example
+catalog: for every Example in the manifest and every Topic that the production
+fact extractor and matcher activate on its main sketch, a learner who answers
+every planned question successfully (production planner, the Example's
+effective LEARN strategy) MUST reach Topic mastery. This fails on Topics that
+are unresolved from the first turn, for example through a prerequisite Concept
+that the sketch cannot probe. It does not cover exhaustion that depends on weak
+answers, or post-mastery (DEEPEN) capacity outside the quality cases. The
+check keeps the gate aligned with every real Example, not only with the cases
+an author chose.
+
 Question–Indicator–Objective semantic coherence is outside this gate. Authors
 and later evaluation stages remain responsible for meaning, clarity, difficulty,
 feedback quality, and actual learning effect.
