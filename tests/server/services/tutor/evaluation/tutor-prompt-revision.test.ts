@@ -42,6 +42,7 @@ const PLAN: TutorPlan = {
   indicatorId: "relates-value-to-use", indicator: "Ordnet einen Wert seiner Verwendung zu.", question: QUESTION,
   misconceptions: [], contentRevision: "2".repeat(40),
 };
+const PROPOSED_CHANGE_PLAN: TutorPlan = { ...PLAN, questionKind: "transfer", answerFrame: "proposed-change" };
 
 function turn(answerRating: TutorAnswerRating): TutorDialogTurn {
   return { question: `Frühere Frage ${answerRating}`, answer: "Frühere Antwort", responseStyle: "normal", answerRating };
@@ -53,8 +54,8 @@ const HISTORIES: readonly (readonly TutorDialogTurn[])[] = [
 ];
 
 function templateFragments(): readonly string[] {
-  const { strategyGuidance, learningObjectivesGuidance, dialogGuidance, ...templates } = TUTOR_PROMPT_REVISION.sources;
-  const guidance = [strategyGuidance, learningObjectivesGuidance, dialogGuidance]
+  const { strategyGuidance, learningObjectivesGuidance, dialogGuidance, answerEvaluationGuidance, ...templates } = TUTOR_PROMPT_REVISION.sources;
+  const guidance = [strategyGuidance, learningObjectivesGuidance, dialogGuidance, answerEvaluationGuidance]
     .flatMap((source) => Object.values(JSON.parse(source) as Record<string, string>));
   return [...Object.values(templates).flatMap((template) => template.split("\n")), ...guidance]
     .flatMap((fragment) => fragment.split("<difficulty>"))
@@ -79,8 +80,8 @@ function renderedPrompts(): readonly { readonly prompt: string; readonly data: r
   const prompts: { prompt: string; data: string[] }[] = [];
   for (const strategy of [BUILT_IN_TUTOR_STRATEGY, ALTERNATIVE_STRATEGY]) {
     for (const learningObjectives of [undefined, OBJECTIVES]) {
-      for (const didacticBrief of [undefined, PLAN]) {
-        const data = [SKETCH, JSON.stringify(context), JSON.stringify(OBJECTIVES), JSON.stringify(PLAN), weights(strategy)];
+      for (const didacticBrief of [undefined, PLAN, PROPOSED_CHANGE_PLAN]) {
+        const data = [SKETCH, JSON.stringify(context), JSON.stringify(OBJECTIVES), weights(strategy), ...(didacticBrief ? [JSON.stringify(didacticBrief)] : [])];
         prompts.push({ prompt: buildUserPrompt(SKETCH, context, 42, didacticBrief, strategy, learningObjectives), data });
         for (const history of HISTORIES) {
           const previousQuestions = [QUESTION, ...history.map(({ question }) => question)];

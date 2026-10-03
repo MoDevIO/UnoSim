@@ -537,6 +537,8 @@ function buildExpansionPlan(context: AdapterContext, phase: DidacticPhase, expan
     activeTopicId: context.state.activeTopicId,
     masteredTopicIds: [...context.state.masteredTopicIds],
     expansionBrief,
+    // The generated question asks for the learner's own extension and how to observe its effect.
+    answerFrame: "proposed-change",
   };
 }
 

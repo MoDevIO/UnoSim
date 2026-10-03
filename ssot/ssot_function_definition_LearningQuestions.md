@@ -453,7 +453,9 @@ An answer to a generated extension question is an EXPAND answer and counts as
 transfer evidence. It must not end in `content-exhausted` merely because the
 generated question is not an entry of the Topic's question list. While such an
 answer is evaluated, the prompt's didactic context is that extension, and no
-further unused extension is reserved.
+further unused extension is reserved. The prompt also states that the answer
+describes the learner's own change to the sketch and its expected effect, so
+that it is evaluated against the changed sketch (section 3.6).
 
 #### Post-mastery strategy resolution
 
@@ -707,6 +709,24 @@ Die Bewertung bezieht sich nur auf die aktuelle Antwort und darf nicht als Prüf
 Eine kurze Antwort darf mit `5` bewertet werden, wenn die Frage bewusst nur eine eindeutige
 kurze Antwort verlangt; beispielsweise ist `2` auf die Frage nach der Byte-Größe eines `int` auf
 dem Arduino Uno vollständig korrekt.
+
+Maßstab der Bewertung ist, was die beantwortete Frage verlangt:
+
+- Eine Antwort, die die Frage fachlich richtig beantwortet, wird als richtig eingeordnet, auch wenn
+  sie knapp ist, zusätzliche zutreffende Aussagen enthält oder den Sachverhalt gleichwertig auf einer
+  anderen Ebene beschreibt (Code, Signalpegel, beobachtbares Verhalten). Zutreffende Aussagen, die
+  die Frage nicht beantworten, machen eine Antwort nicht richtig.
+- Als Fehler gelten nur fachlich falsche Aussagen. Eine mehrdeutige Nebenbemerkung darf präzisiert
+  werden, macht eine richtige Kernaussage aber nicht falsch.
+- Jede Aussage wird an dem Sketch geprüft, auf den sie sich bezieht. Fragt die Frage nach einer
+  Änderung, Erweiterung, einem Experiment oder einer Überprüfung (Abschnitt 3.1, Änderungsfrage;
+  EXPAND), beschreibt die Antwort einen gedachten, veränderten Sketch. Bewertet werden dann die
+  technische Plausibilität der Änderung und ob die erwartete Wirkung im veränderten Sketch
+  zutrifft. Dass der aktuelle Sketch die vorgeschlagene Änderung noch nicht enthält, ist kein Fehler
+  der Antwort.
+- Die Bindung an den aktuellen Sketch als Faktenquelle (Abschnitte 3.2 und 3.3) gilt für die
+  Aussagen und Fragen des Tutors, nicht als Maßstab, der Vorschläge der lernenden Person zu
+  Fehlern macht.
 Die initiale Lernfrage erhält keine Bewertung.
 Bei einer ganz offensichtlichen Quatschantwort, absurden oder vollständig themenfremden Antwort darf der Tutor stattdessen einen begrenzten philosophischen Fallback verwenden. Dieser Ausnahmefall MUSS mit `responseStyle: "philosophical"` gekennzeichnet sein; `answerRating` MUSS fehlen und es wird keine Bewertung angezeigt.
 

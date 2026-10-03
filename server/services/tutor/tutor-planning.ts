@@ -37,6 +37,11 @@ export interface TutorPlan {
   readonly progressionBlockedReason?: ProgressionBlockedReason;
   readonly extensionTargetTopicId?: string;
   readonly expansionBrief?: TutorExpansionBrief;
+  /**
+   * What the question asks the learner to describe, where the application knows it structurally:
+   * `proposed-change` means a change to the sketch and its expected effect, not the current sketch.
+   */
+  readonly answerFrame?: "proposed-change";
 }
 
 /** Application-owned, normalized guidance for one EXPAND transition. */
