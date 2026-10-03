@@ -27,6 +27,7 @@ import {
   checkCacheHits,
 } from "./compiler/cache-manager";
 import { processHeaderIncludes } from "./compiler/header-processor";
+import { findUnsafeIncludes } from "./compiler/include-guard";
 import { compileWithArduinoCli, type CLICompileConfig } from "./compiler/cli-runner";
 
 // Re-export for backwards compatibility
@@ -198,6 +199,21 @@ export class ArduinoCompiler {
     const compileStartedAt = process.hrtime.bigint();
 
     try {
+      // 0. arduino-cli runs inside the backend, not a sandbox: an include must
+      // not make the preprocessor read and echo a file outside the project.
+      const unsafeIncludes = findUnsafeIncludes(sourceProject);
+      if (unsafeIncludes.length > 0) {
+        return {
+          success: false,
+          output: "",
+          stderr: unsafeIncludes.map(({ file, line, message }) => `${file}:${line}: error: ${message}`).join("\n"),
+          errors: unsafeIncludes.map(({ file, line, message }) => ({ file, line, column: 1, type: "error" as const, message })),
+          arduinoCliStatus: "error",
+          parserMessages: allParserMessages,
+          ioRegistry,
+        };
+      }
+
       // 1. Validate sketch has required entry points
       const validation = this.validateSketchEntrypoints(code);
       if (!validation.valid) {
