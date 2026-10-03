@@ -245,8 +245,9 @@ function formatTurnLines(turn: TurnDiagnostics): string[] {
   const rating = turn.answerRating === undefined ? "none" : String(turn.answerRating);
   return [
     "- turn " + turn.index + ": phase " + (turn.learningPhase ?? "none") + ", rating " + rating
-      + ", blocked " + (turn.progressionBlockedReason ?? "none") + ", follow-up " + (turn.followUpSource ?? "none")
-      + ", " + turn.durationMs + " ms",
+      + ", blocked " + (turn.progressionBlockedReason ?? "none") + ", follow-up " + (turn.followUpSource ?? "none"),
+    // Timings vary from run to run; their own lines keep the diagnostic lines comparable by text diff.
+    "  - duration: " + turn.durationMs + " ms",
     ...turn.checks.map(formatCheckLine),
     ...turn.violations.map((violation) => "  - violation " + violation.source + " / " + violation.code
       + (violation.details ? " (" + violation.details + ")" : "")),
@@ -268,8 +269,8 @@ function createDeterministicDiagnostics(
       "",
       "- status: " + transcript.executionStatus + (transcript.invalidReason ? " (" + transcript.invalidReason + ")" : "")
         + "; phase after: " + (transcript.stateAfter?.phase ?? "none")
-        + "; duration: " + transcript.metadata.sampleDurationMs + " ms"
         + "; calls: list " + calls.modelListCalls + ", tutor " + calls.generationCalls,
+      "- duration: " + transcript.metadata.sampleDurationMs + " ms",
       "- judge: " + (semantic?.evaluation.status ?? "not requested"),
       ...(transcript.technicalError ? ["- technical error: " + transcript.technicalError.kind] : []),
       ...transcript.turns.flatMap((turn, index) => formatTurnLines(turnDiagnostics(turn, index === transcript.turns.length - 1, transcript))),

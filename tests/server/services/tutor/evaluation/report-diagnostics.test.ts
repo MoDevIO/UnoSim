@@ -212,6 +212,18 @@ describe("evaluation report diagnostics (§11.2, R-REP-3)", () => {
     expect(markdown).toContain("Verdict: pass\nRule: tutor-quality-verdict-v1; samples per case 2; repeat threshold 2; Judge configured\n- no findings\n");
   });
 
+  it("keeps run-to-run timings on their own lines so that diagnostic lines compare with a text diff", async () => {
+    const { markdown } = await runWith([plannerScenario("planner-case")]);
+    const lines = markdown.split("\n");
+
+    expect(markdown).toContain("- turn 0: phase LEARN, rating 1, blocked none, follow-up planner\n  - duration: ");
+    expect(markdown).toContain("- status: completed; phase after: LEARN; calls: list 1, tutor 1\n- duration: ");
+    // Every line that carries a measured time is a pure timing line.
+    for (const line of lines.filter((candidate) => /\d+ ms$/.test(candidate))) {
+      expect(line).toMatch(/^(\s*- duration: |Duration: |Timeout: )\d+ ms$/);
+    }
+  });
+
   it("orders report.md by case, sample, turn and check so that two runs compare with a text diff", async () => {
     const forward = await runWith([freeScenario("b-case"), plannerScenario("a-case")]);
     const reversed = await runWith([plannerScenario("a-case"), freeScenario("b-case")]);

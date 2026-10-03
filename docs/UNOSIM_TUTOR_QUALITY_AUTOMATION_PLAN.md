@@ -413,6 +413,43 @@ erweitern. Kein neuer Runner, kein neuer Workflow.
 - Der Vergleich mit der Baseline erfolgt per Text-Diff von `report.md`
   (R-REP-3). Keine Datenbank, kein Dashboard.
 
+**Umsetzung (PR G, Stand 2026-10-03, Betrieb in Anhang B der Evaluation-SSOT):**
+
+- **Scope: vollständiger Corpus** (v6: 17 Cases, 24 Turns, 7 mit Judge). Die
+  SSOT definiert L3 „over the corpus“; jeder Case besteht L1 (R-PYR-1). Die
+  zehn Cases ohne Judge-Block prüfen real, was L1 mit Fake-Provider nicht
+  prüfen kann: Rohausgabe (Schema, eine Frage, keine Komplettlösung,
+  Wiederholung), Rating-Bänder mit echtem Modell und provider-eigene
+  Folgefragen. Ohne Case-Liste braucht ein neuer Case keine Workflow-Änderung.
+  Diese zehn Cases liefen bisher nie real; der erste Wochenlauf ist auch ihre
+  erste L3-Beobachtung.
+- **Samples: 5** statt 3. Die Mehrheitsschwelle wird k(5) = 3. Bei einem
+  Befund mit echter Rate um 50 % bleibt das Ergebnis ein Münzwurf, unabhängig
+  von n. Für seltene Befunde sinkt aber die Wahrscheinlichkeit eines
+  Zufalls-`fail` deutlich: bei Rate 0,15 pro (Case, Schlüssel) von 6,1 %
+  (n = 3) auf 2,7 % (n = 5). Über acht bis zehn solche Paare pro Lauf (die Baseline
+  hatte acht vereinzelte Befunde), sinkt die Wahrscheinlichkeit eines unbegründet roten
+  Wochenlaufs damit von etwa 47 % auf etwa 24 %. Echte Befunde (Rate 0,8)
+  werden öfter erkannt (90 % → 94 %). n = 7 würde nur noch wenig gewinnen
+  (rund 11 %) bei 40 % mehr Calls.
+- **Budget**: `1 + 5 × (46 + 7) = 266` Calls pro Woche (rund 7 bis 8 Minuten
+  nach den Laufzeiten von Baseline und Nachlauf). Der Workflow-Vertragstest
+  rechnet den Wert aus dem aktuellen Callgraph nach.
+- **Modelle**: Tutor `openai-gpt5.4-mini`, Judge `openai-gpt5.5`, wie in
+  Baseline und Nachlauf (beide mit je einer einheitlichen zurückgegebenen ID);
+  damit bleiben die Wochenläufe mit diesen Daten vergleichbar.
+- **Bekannter Zustand bei Aktivierung:** Baseline und Nachlauf ergeben nach
+  §12 `fail`, getragen von echten Tutor-Befunden
+  (`docs/tutor-quality-remediation-rerun-2026-10-03.md`):
+  `strategy-expand-observation` / `expand-observable-result` (6 / 6 Samples
+  über beide Läufe) und `strategy-learn-strong-answer` mit
+  `learn-feedback-grounds-sketch` (3 / 3) sowie
+  `learn-accepts-correct-answer` und `correct-answer-rejected` (je 2 / 3 im
+  Nachlauf, 1 / 3 in der Baseline). Der Wochenlauf ist daher voraussichtlich
+  rot, bis diese Tutor-Befunde behoben sind. Das ist beabsichtigt: Das Gate
+  rechnet bekannte Probleme nicht grün; Kriterien und Schwellen bleiben
+  unverändert.
+
 ---
 
 ## 2. Not-to-build

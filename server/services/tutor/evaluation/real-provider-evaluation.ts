@@ -1295,6 +1295,11 @@ async function createEarlyResult(
     status = "not-run";
     reason = "missing-credential";
     calls = EMPTY_PROVIDER_CALLS;
+  } else if (options.judgeModel && !options.judgeCredential) {
+    // R-PYR-2: without the Judge credential the run would spend Tutor calls and end inconclusive.
+    status = "not-run";
+    reason = "missing-judge-credential";
+    calls = EMPTY_PROVIDER_CALLS;
   } else if (options.maxCalls === 0) {
     status = "not-run";
     reason = "call-budget-zero";
