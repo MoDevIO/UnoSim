@@ -217,15 +217,15 @@ Der Lauf misst beide Änderungen zusammen; eine kausale Trennung gibt er nicht h
   seinem Wirkungsbereich. Ein v2-only-Lauf wäre nötig, um ihn mit Daten zu
   mergen.
 
-## 9. Ausstehende Kontrolle
+## 9. Fehlende v1-Kontrolle
 
-Der geplante Wochenlauf auf `main` (Corpus v7, n = 5, 291 Calls, Prompt v1)
-wäre die zeitgleiche Kontrolle für diesen Lauf. Er hat bei Abschluss dieses
-Berichts noch nicht stattgefunden. Die Repository-Secrets
-`UNOSIM_TUTOR_EVAL_CREDENTIAL` und `UNOSIM_TUTOR_JUDGE_CREDENTIAL` waren zuletzt
-nicht als Actions-Secrets hinterlegt; ohne sie endet der Wochenlauf `not-run`.
+Eine zeitgleiche Kontrolle mit Prompt v1 (Corpus v7, n = 5, gleiche Modelle)
+liegt nicht vor. Der dafür vorgesehene Wochenlauf auf `main` findet nicht statt:
+Das Repository hat keine Provider-Secrets, und der `schedule` wird deshalb
+deaktiviert (#144); L3 läuft lokal vor relevanten Tutor-Änderungen. Eine
+v1-Kontrolle wäre ein eigener, freizugebender lokaler Lauf.
 
-Mit dieser Kontrolle ließe sich zusätzlich sagen:
+Sie würde zusätzlich zeigen:
 
 - ob die v3-Unterschiede bei gleichem n = 5 bestehen bleiben (insbesondere
   Ratings für Vorschläge, `learn-hint-first`, „Fast richtig“ bei
