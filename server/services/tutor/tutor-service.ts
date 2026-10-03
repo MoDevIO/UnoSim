@@ -888,6 +888,7 @@ const TUTOR_PROMPT_TEMPLATE_SOURCES: TutorPromptTemplateSources = {
 export const TUTOR_PROMPT_REVISION = {
   // v2: the digest also covers the history- and strategy-selected dialog instructions and the
   // code fences (R-ID-2); v1 left them out, so changing them did not change the revision.
+  // Remediation and clarification guidance name their SSOT trigger (weak / partial answer).
   id: "tutor-prompts-v2",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),

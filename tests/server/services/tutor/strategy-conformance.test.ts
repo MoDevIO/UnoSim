@@ -12,6 +12,7 @@ import {
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
 import { DefaultLearningPlanner } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
+import { buildTutorStrategyGuidance } from "../../../../server/services/tutor/strategy/tutor-strategy-guidance";
 import type { CurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
 
@@ -315,4 +316,25 @@ describe("Tutor strategy behavioral conformance", () => {
 
     expect(plan?.brief.conceptId).toBe("integer-width");
   });
+});
+
+// LearningQuestions SSOT 2.2 and the built-in policy table: remediation applies after a weak
+// answer and clarification after a partial answer. Rendered without that trigger, the guidance
+// asks for a hint or a re-probe after every answer, including a correct one.
+describe("Tutor strategy guidance triggers", () => {
+  function guidanceLine(strategy: EffectiveTutorStrategy, label: string): string {
+    return buildTutorStrategyGuidance(strategy).split("\n").find((line) => line.startsWith(label)) ?? "";
+  }
+
+  for (const remediation of ["scaffold-first", "question-first"] as const) {
+    it(`renders ${remediation} remediation only for weak answers`, () => {
+      expect(guidanceLine(makeStrategy({ remediation }), "Remediation: ")).toContain("nach einer schwachen Antwort");
+    });
+  }
+
+  for (const clarification of ["same-indicator", "new-indicator"] as const) {
+    it(`renders ${clarification} clarification only for partially correct answers`, () => {
+      expect(guidanceLine(makeStrategy({ clarification }), "Klärung: ")).toContain("nach einer teilweise richtigen Antwort");
+    });
+  }
 });
