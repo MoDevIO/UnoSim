@@ -12,7 +12,7 @@ if (directory === undefined || directory.length === 0) {
     console.log(`Tutor Course Content quality passed: ${resolved}`);
   } else {
     for (const issue of issues) {
-      const scope = [issue.caseId, issue.topicId, issue.conceptId, issue.indicatorId].filter(Boolean).join("/");
+      const scope = [issue.caseId, issue.exampleId, issue.topicId, issue.conceptId, issue.indicatorId].filter(Boolean).join("/");
       const scopeSuffix = scope ? ` [${scope}]` : "";
       console.error(`${issue.code}${scopeSuffix}: ${issue.message}`);
     }

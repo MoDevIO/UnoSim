@@ -36,6 +36,7 @@ export type TutorContentQualityIssueCode =
   | "missing-deepening-question-kind"
   | "learn-content-exhausted"
   | "deepen-content-exhausted"
+  | "unmasterable-example-activation"
   | "invalid-course-content-bundle"
   | "invalid-quality-cases"
   | "quality-case-example-not-found";
@@ -44,6 +45,7 @@ export interface TutorContentQualityIssue {
   readonly code: TutorContentQualityIssueCode;
   readonly message: string;
   readonly caseId?: string;
+  readonly exampleId?: string;
   readonly topicId?: string;
   readonly conceptId?: string;
   readonly indicatorId?: string;
@@ -228,33 +230,7 @@ function validateExecutablePath(
   issues: TutorContentQualityIssue[],
 ): void {
   const planner = new DefaultLearningPlanner();
-  const history: TutorDialogTurn[] = [];
-  let masteryReached = false;
-  for (let step = 0; step <= topic.questions.length; step += 1) {
-    const observations = collectObservations(topic, history);
-    const classification = classifyTopic(
-      topic,
-      context.facts,
-      observations,
-      new Set(history.flatMap(({ questionId }) => questionId ? [questionId] : [])),
-      30,
-      context.qualityCase.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY,
-    );
-    if (classification.status === "mastered") {
-      masteryReached = true;
-      break;
-    }
-    const plan = planner.start(
-      topic,
-      "0".repeat(40),
-      context.facts,
-      history,
-      30,
-      context.qualityCase.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY,
-    );
-    if (!plan) break;
-    history.push(successfulTurn(plan.brief));
-  }
+  const { history, masteryReached } = strictLearnPath(topic, context.facts, context.qualityCase.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY);
   if (!masteryReached) {
     issues.push(issue("learn-content-exhausted", "Default strict progression cannot reach Topic mastery", context.qualityCase.id, topic.id));
     return;
@@ -286,6 +262,71 @@ function validateExecutablePath(
     });
   }
   issues.push(issue("deepen-content-exhausted", "Default strict progression cannot satisfy DEEPEN", context.qualityCase.id, topic.id));
+}
+
+/**
+ * The deterministic LEARN path of a learner who answers every planned question successfully,
+ * using the production planner and Topic classification. It needs no provider: if even this
+ * path cannot reach Topic mastery, no learner can.
+ */
+function strictLearnPath(
+  topic: CurriculumTopic,
+  facts: SketchFacts,
+  strategy: EffectiveTutorStrategy,
+): { readonly history: TutorDialogTurn[]; readonly masteryReached: boolean } {
+  const planner = new DefaultLearningPlanner();
+  const history: TutorDialogTurn[] = [];
+  for (let step = 0; step <= topic.questions.length; step += 1) {
+    const classification = classifyTopic(
+      topic,
+      facts,
+      collectObservations(topic, history),
+      new Set(history.flatMap(({ questionId }) => questionId ? [questionId] : [])),
+      30,
+      strategy,
+    );
+    if (classification.status === "mastered") return { history, masteryReached: true };
+    const plan = planner.start(topic, "0".repeat(40), facts, history, 30, strategy);
+    if (!plan) break;
+    history.push(successfulTurn(plan.brief));
+  }
+  return { history, masteryReached: false };
+}
+
+export interface CatalogExample {
+  readonly id: string;
+  readonly code: string;
+  readonly learnStrategy?: EffectiveTutorStrategy;
+}
+
+/**
+ * Catalog-wide authoring invariant, independent of quality cases: every Topic that the
+ * production matcher activates on an Example must be masterable on that Example's sketch by a
+ * learner who answers every planned question successfully. This finds Topics that are
+ * unresolved from the first turn (LearningQuestions SSOT 2.3), for example through a
+ * prerequisite Concept that the sketch cannot probe. Later exhaustion after weak answers and
+ * post-mastery (DEEPEN) capacity stay out of scope here.
+ */
+export function validateExampleTopicActivations(
+  topics: readonly CurriculumTopic[],
+  examples: readonly CatalogExample[],
+): TutorContentQualityIssue[] {
+  const extractor = new DefaultSketchFactExtractor();
+  const matcher = new DefaultTopicMatcher();
+  const issues: TutorContentQualityIssue[] = [];
+  for (const example of examples) {
+    const facts = extractor.extract(example.code);
+    for (const { topic } of matcher.match(topics, facts)) {
+      if (strictLearnPath(topic, facts, example.learnStrategy ?? BUILT_IN_TUTOR_STRATEGY).masteryReached) continue;
+      issues.push({
+        code: "unmasterable-example-activation",
+        message: `Example ${example.id} activates Topic ${topic.id}, but a learner who answers every planned question successfully cannot reach its mastery`,
+        exampleId: example.id,
+        topicId: topic.id,
+      });
+    }
+  }
+  return issues;
 }
 
 function successfulTurn(brief: {
