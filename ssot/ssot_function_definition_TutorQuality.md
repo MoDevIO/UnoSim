@@ -53,7 +53,13 @@ The Stage 1 hard gate covers at least these invariants:
    planning outcome have succeeded.
 3. A content revision change starts with revision-scoped progression state;
    session state never leaks between Course Content sessions.
-4. Strict repetition never reuses a previously used Question ID.
+4. Strict repetition never reuses a previously used Question ID. A Question ID
+   is used once the learner has answered it in the current Tutor session. The
+   application derives this from the session's progression evidence together
+   with the bounded dialog history, so a question that has left the dialog
+   window stays used, and the planner evaluates Concept mastery against all
+   session evidence. Relaxed repetition may still revisit a used question when
+   no unused applicable question remains.
 5. Exact and heuristically near question repetition is repaired where the
    existing bounded similarity heuristic detects it.
 6. Transition and blocked metadata do not overwrite the repaired question.

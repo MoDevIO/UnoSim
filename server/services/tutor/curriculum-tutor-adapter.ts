@@ -99,7 +99,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
-    return this.startPlan(context, input.history, input.difficulty, context.phase);
+    return this.startPlan(context, sessionHistory(context.topic, input.history, context.state), input.difficulty, context.phase);
   }
 
   async planAnswered(input: Omit<TutorFollowupInput, "rating">): Promise<TutorPlanningResult | null> {
@@ -119,22 +119,29 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
+    // The session view of the answered turn's past, taken before the answer is recorded: the
+    // planner adds the current answer itself and must not count it twice.
+    const answeredHistory = sessionHistory(context.topic, input.history, context.state);
     recordFollowupObservation(context, input);
     const stateUpdate = updateStateAfterFollowup(context, input);
     const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
-    return this.continueFollowup(context, refreshed, input, stateUpdate);
+    return this.continueFollowup(context, refreshed, input, stateUpdate, answeredHistory);
   }
 
-  private continueFollowup(context: AdapterContext, refreshed: AdapterContext, input: TutorFollowupInput, stateUpdate: FollowupStateUpdate): TutorPlanningResult | null {
+  private continueFollowup(
+    context: AdapterContext,
+    refreshed: AdapterContext,
+    input: TutorFollowupInput,
+    stateUpdate: FollowupStateUpdate,
+    answeredHistory: readonly TutorDialogTurn[],
+  ): TutorPlanningResult | null {
     const activeChanged = refreshed.topic.id !== context.topic.id;
     if (!activeChanged && stateUpdate.status === "unresolved") return blockedResult(refreshed, context.state);
     const nextPhase = refreshed.phase;
-    const planningHistory = activeChanged
-      ? input.history
-      : progressionHistory(refreshed.topic, input.history, context.state, input.currentQuestion);
-    if (activeChanged) return this.startPlan(refreshed, planningHistory, input.difficulty, nextPhase);
+    if (activeChanged) return this.startPlan(refreshed, sessionHistory(refreshed.topic, input.history, context.state), input.difficulty, nextPhase);
+    const planningHistory = [...answeredHistory, answeredTurn(input.currentQuestion)];
     // The answer is evaluated by the strategy that produced the current turn.
     // A phase transition is committed to session state now, but its first plan
     // and strategy are exposed at the next request boundary.
@@ -144,7 +151,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       context.state.retainedPhases[refreshed.topic.id] = "EXPAND";
       return this.currentTurnPlan(context, planningHistory, input.difficulty);
     }
-    return this.advancePlan(refreshed, input);
+    return this.advancePlan(refreshed, input, answeredHistory);
   }
 
   private startPlan(context: AdapterContext, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, phase: DidacticPhase): TutorPlanningResult | null {
@@ -162,15 +169,18 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       ?? transitionResult(context);
   }
 
-  private advancePlan(context: AdapterContext, input: TutorFollowupInput): TutorPlanningResult | null {
+  private advancePlan(context: AdapterContext, input: TutorFollowupInput, answeredHistory: readonly TutorDialogTurn[]): TutorPlanningResult | null {
     const answeredPhase = context.state.phase ?? context.phase;
-    if (answeredPhase === "EXPAND" && answeredExpansionTarget(context.topic, context.state, input.currentQuestion)) {
-      // A generated extension question is not a Topic question, so the planner
-      // cannot advance from it; the next EXPAND step is planned as at phase start.
-      const history = progressionHistory(context.topic, input.history, context.state, input.currentQuestion);
-      return this.startPlan(context, history, input.difficulty, answeredPhase);
+    const answeredPlannedQuestion = answeredExpansionTarget(context.topic, context.state, input.currentQuestion) !== undefined
+      || findQuestion(context.topic, input.currentQuestion, input.history) !== null;
+    if (answeredPhase === "EXPAND" && answeredPlannedQuestion) {
+      // After an answered extension or Topic question, the next EXPAND step is planned as at phase
+      // start: an unused extension first, then an unused post-mastery Topic question, and
+      // content-exhausted only when neither exists (R-EXP-2). The planner cannot advance from a
+      // generated extension, and advancing from a Topic question would never offer an extension.
+      return this.startPlan(context, [...answeredHistory, answeredTurn(input.currentQuestion)], input.difficulty, answeredPhase);
     }
-    const plan = this.planner.advance(context.topic, context.revision, context.facts, input.history, input.currentQuestion, input.rating, {
+    const plan = this.planner.advance(context.topic, context.revision, context.facts, answeredHistory, input.currentQuestion, input.rating, {
       difficulty: input.difficulty,
       strategy: context.strategy.strategy,
       ...progressionOptions(context.topic, context.state.phase ?? context.phase, context.state),
@@ -437,26 +447,46 @@ function progressionOptions(topic: CurriculumTopic, phase: DidacticPhase, state:
   } as const;
 }
 
-function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorDialogTurn[], state: TutorProgressionState): Set<string> {
-  const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
-  const historyIds = history.map((turn) => turn.questionId ?? byText.get(turn.question)).filter((id): id is string => id !== undefined);
-  return new Set([...historyIds, ...(state.masteryEvidence[topic.id] ?? []).map(({ questionId }) => questionId)]);
-}
-
-function progressionHistory(
+/**
+ * The Topic's turns of the whole Tutor session, as the planner and the Topic classification see
+ * them. The browser sends only the last INPUT_LIMITS.tutor.maxHistoryEntries dialog turns, while
+ * the progression state keeps every answered planned question of the session as evidence. A
+ * question that has left the dialog window is therefore restored from the evidence: it stays used
+ * (strict repetition never reuses a Question ID, TutorQuality SSOT §3), and its LEARN rating keeps
+ * counting for Concept mastery. Stored evidence wins over a dialog turn for the same question;
+ * post-mastery evidence marks questions as used without counting toward LEARN mastery.
+ */
+function sessionHistory(
   topic: CurriculumTopic,
   history: readonly TutorDialogTurn[],
   state: TutorProgressionState,
-  currentQuestion: string,
-): readonly TutorDialogTurn[] {
-  const byId = new Map(topic.questions.map((question) => [question.id, question.text ?? question.template ?? question.id]));
-  const postMasteryTurns = (state.postMasteryEvidence[topic.id] ?? []).map(({ questionId }) => ({
-    question: byId.get(questionId) ?? questionId,
-    questionId,
+): TutorDialogTurn[] {
+  const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
+  const textById = new Map(topic.questions.map((question) => [question.id, question.text ?? question.template ?? question.id]));
+  const mastery = state.masteryEvidence[topic.id] ?? [];
+  const storedRatingIds = new Set(mastery.map(({ questionId }) => questionId));
+  const evidenceTurns = [
+    ...mastery.map((observation) => ({ observation, rated: true })),
+    ...(state.postMasteryEvidence[topic.id] ?? []).map((observation) => ({ observation, rated: false })),
+  ].map(({ observation, rated }): TutorDialogTurn => ({
+    question: textById.get(observation.questionId) ?? observation.questionId,
+    questionId: observation.questionId,
     answer: "",
-    responseStyle: "normal" as const,
+    responseStyle: "normal",
+    ...(rated ? { answerRating: observation.rating } : {}),
   }));
-  return [...history, ...postMasteryTurns, { question: currentQuestion, answer: "", responseStyle: "normal" as const }];
+  const dialogTurns = history.map((turn) => {
+    const questionId = turn.questionId ?? byText.get(turn.question);
+    if (questionId === undefined || !storedRatingIds.has(questionId)) return turn;
+    const { answerRating: _storedInstead, ...unrated } = turn;
+    return { ...unrated, questionId };
+  });
+  return [...evidenceTurns, ...dialogTurns];
+}
+
+/** The question being answered, as a used turn without a rating of its own. */
+function answeredTurn(currentQuestion: string): TutorDialogTurn {
+  return { question: currentQuestion, answer: "", responseStyle: "normal" };
 }
 
 function classifyWithState(
@@ -467,10 +497,9 @@ function classifyWithState(
   difficulty: TutorDifficulty,
   strategy: EffectiveTutorStrategy,
 ) {
-  const stored = state.masteryEvidence[topic.id] ?? [];
-  const storedQuestionIds = new Set(stored.map(({ questionId }) => questionId));
-  const observations = [...stored, ...collectObservations(topic, history).filter(({ questionId }) => !storedQuestionIds.has(questionId))];
-  const classification = classifyTopic(topic, facts, observations, collectUsedQuestionIds(topic, history, state), difficulty, strategy);
+  const session = sessionHistory(topic, history, state);
+  const usedQuestionIds = new Set(session.flatMap(({ questionId }) => questionId ? [questionId] : []));
+  const classification = classifyTopic(topic, facts, collectObservations(topic, session), usedQuestionIds, difficulty, strategy);
   if (state.masteredTopicIds.includes(topic.id) && classification.status !== "inapplicable") {
     return { status: "mastered", masteryDomain: classification.masteryDomain } satisfies TopicClassification;
   }
