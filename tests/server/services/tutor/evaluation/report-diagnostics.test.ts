@@ -151,6 +151,67 @@ describe("evaluation report diagnostics (§11.2, R-REP-3)", () => {
     expect(markdown).not.toMatch(/tutor-secret|judge-secret/);
   });
 
+  it("carries the quality verdict and the findings behind it in report.json (§12)", async () => {
+    // Rating 1 lies outside the band in both samples: a repeated rating finding (k(2) = 2).
+    const { json, result } = await runWith([plannerScenario("planner-case"), freeScenario("free-case")]);
+
+    expect(json.qualityVerdict).toEqual({
+      verdict: "fail",
+      ruleRevision: "tutor-quality-verdict-v1",
+      samplesPerCase: 2,
+      repeatThreshold: 2,
+      judgeConfigured: true,
+      findings: [
+        { scenarioId: "planner-case", class: "rating-out-of-band", key: "final-tutor/answer-rating-out-of-band", samples: [0, 1], effect: "fail" },
+      ],
+    });
+    expect(result.report.qualityVerdict).toEqual(json.qualityVerdict);
+  });
+
+  it("reports a run that stops before any sample as inconclusive", async () => {
+    const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-diagnostics-"));
+    directories.push(outputDir);
+    const { report } = await runTutorQualityEvaluation({
+      scenarios: [freeScenario("a-case")],
+      provider,
+      providerId: "fake-provider",
+      requestedModel: "fake-model",
+      samples: 3,
+      maxCalls: 5,
+      outputDir,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+    });
+    const markdown = await readFile(path.join(outputDir, "report.md"), "utf8");
+
+    expect(report.qualityVerdict).toMatchObject({
+      verdict: "inconclusive",
+      judgeConfigured: false,
+      findings: [{ class: "run-not-completed", key: "run/not-run/missing-credential", samples: [], effect: "inconclusive" }],
+    });
+    expect(markdown).toContain("- [inconclusive] run: run-not-completed run/not-run/missing-credential");
+  });
+
+  it("renders the quality verdict before the diagnostics in report.md", async () => {
+    const { markdown } = await runWith([plannerScenario("planner-case"), freeScenario("free-case")]);
+
+    expect(markdown).toContain([
+      "## Quality verdict",
+      "",
+      "Verdict: fail",
+      "Rule: tutor-quality-verdict-v1; samples per case 2; repeat threshold 2; Judge configured",
+      "- [fail] planner-case: rating-out-of-band final-tutor/answer-rating-out-of-band (samples 0, 1)",
+      "",
+      "## Deterministic diagnostics",
+    ].join("\n"));
+  });
+
+  it("states a pass verdict without findings in report.md", async () => {
+    const { markdown, json } = await runWith([freeScenario("free-case")]);
+
+    expect(json.qualityVerdict).toMatchObject({ verdict: "pass", findings: [] });
+    expect(markdown).toContain("Verdict: pass\nRule: tutor-quality-verdict-v1; samples per case 2; repeat threshold 2; Judge configured\n- no findings\n");
+  });
+
   it("orders report.md by case, sample, turn and check so that two runs compare with a text diff", async () => {
     const forward = await runWith([freeScenario("b-case"), plannerScenario("a-case")]);
     const reversed = await runWith([plannerScenario("a-case"), freeScenario("b-case")]);

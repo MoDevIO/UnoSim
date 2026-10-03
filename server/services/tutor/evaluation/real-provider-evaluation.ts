@@ -31,6 +31,7 @@ import {
   type TutorQualitySemanticEvaluation,
 } from "./judge";
 import { createTutorQualityRunManifest, writeRunArtifacts } from "./report";
+import { computeTutorQualityVerdict, type TutorQualityVerdict, type TutorQualityVerdictSample } from "./quality-verdict";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
 
@@ -253,7 +254,11 @@ export interface TutorQualityEvaluationReport {
   readonly monetaryCost: "unavailable";
   readonly totalDurationMs: number;
   readonly semanticEvaluations?: readonly TutorQualitySemanticEvaluationRecord[];
+  /** Run-level quality statement (Evaluation SSOT §12). */
+  readonly qualityVerdict: TutorQualityVerdict;
 }
+
+type TutorQualityReportWithoutVerdict = Omit<TutorQualityEvaluationReport, "qualityVerdict">;
 
 export interface TutorQualitySemanticEvaluationRecord {
   readonly scenarioId: string;
@@ -1120,7 +1125,7 @@ interface BaseReportContext {
   readonly startedAt: Date;
 }
 
-function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
+function baseReport(context: BaseReportContext): TutorQualityReportWithoutVerdict {
   const { options, runId, evaluationIdentity, runStatus, reason, calls, byScenario, samplesObserved = 0, startedAt } = context;
   const aggregates = Object.values(byScenario);
   const completed = aggregates.reduce((sum, item) => sum + item.completed, 0);
@@ -1163,6 +1168,35 @@ function baseReport(context: BaseReportContext): TutorQualityEvaluationReport {
     rates: ratesFor(completed, invalid, technicalFailures + preflightTechnicalFailure, notRun, invariantViolationSamples, samplesObserved),
     monetaryCost: "unavailable",
     totalDurationMs: Math.max(0, (options.now ?? (() => new Date()))().getTime() - startedAt.getTime()),
+  };
+}
+
+function verdictSample(transcript: TutorQualityTranscript): TutorQualityVerdictSample {
+  return {
+    scenarioId: transcript.scenario.id,
+    sampleIndex: transcript.metadata.sampleIndex,
+    executionStatus: transcript.executionStatus,
+    ...(transcript.invalidReason ? { invalidReason: transcript.invalidReason } : {}),
+    ...(transcript.technicalError ? { technicalErrorKind: transcript.technicalError.kind } : {}),
+    violations: transcript.invariantViolations,
+  };
+}
+
+function withQualityVerdict(
+  options: TutorQualityEvaluationOptions,
+  report: TutorQualityReportWithoutVerdict,
+  transcripts: readonly TutorQualityTranscript[],
+): TutorQualityEvaluationReport {
+  return {
+    ...report,
+    qualityVerdict: computeTutorQualityVerdict({
+      runStatus: report.runStatus,
+      ...(report.reason ? { runReason: report.reason } : {}),
+      samplesPerCase: options.samples,
+      judgeConfigured: Boolean(options.judgeModel),
+      samples: transcripts.map(verdictSample),
+      semanticEvaluations: report.semanticEvaluations ?? [],
+    }),
   };
 }
 
@@ -1218,26 +1252,26 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   try {
     availableModels = await provider.listModels(options.credential);
   } catch (error) {
-    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario });
+    const report = withQualityVerdict(options, baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "technical-failure", reason: technicalError(error).kind, calls: provider.counts, byScenario: emptyByScenario }), []);
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
   if (!availableModels.includes(options.requestedModel)) {
-    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
+    const report = withQualityVerdict(options, baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "model-unavailable", calls: provider.counts, byScenario: emptyByScenario }), []);
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
   if (options.judgeModel && !availableModels.includes(options.judgeModel)) {
-    const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "judge-model-unavailable", calls: provider.counts, byScenario: emptyByScenario });
+    const report = withQualityVerdict(options, baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "invalid", reason: "judge-model-unavailable", calls: provider.counts, byScenario: emptyByScenario }), []);
     await writeArtifacts(options, report, []);
     return { report, transcripts: [], semanticEvaluations: [] };
   }
 
   const { transcripts, semanticEvaluations, byScenario } = await evaluateSamples(options, provider, runId, evaluationIdentity);
-  const report: TutorQualityEvaluationReport = {
+  const report = withQualityVerdict(options, {
     ...baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: "completed", calls: provider.counts, byScenario, samplesObserved: transcripts.length }),
     ...(semanticEvaluations.length ? { semanticEvaluations } : {}),
-  };
+  }, transcripts);
   await writeArtifacts(options, report, transcripts);
   return { report, transcripts, semanticEvaluations };
 }
@@ -1267,7 +1301,7 @@ async function createEarlyResult(
     calls = EMPTY_PROVIDER_CALLS;
   }
   if (!status || !reason) return undefined;
-  const report = baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: status, reason, calls, byScenario });
+  const report = withQualityVerdict(options, baseReport({ startedAt, options, runId, evaluationIdentity, runStatus: status, reason, calls, byScenario }), []);
   await writeArtifacts(options, report, []);
   return { report, transcripts: [], semanticEvaluations: [] };
 }
