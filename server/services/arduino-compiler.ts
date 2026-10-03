@@ -2,7 +2,7 @@
 
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Logger } from "@shared/logger";
 import { ParserMessage, IOPinRecord } from "@shared/schema";
 import { CodeParser } from "@shared/code-parser";
@@ -29,6 +29,7 @@ import {
 import { processHeaderIncludes } from "./compiler/header-processor";
 import { findUnsafeIncludes } from "./compiler/include-guard";
 import { compileWithArduinoCli, type CLICompileConfig } from "./compiler/cli-runner";
+import { buildSketchHash } from "./workers/compile-worker-utils";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -91,20 +92,14 @@ export class ArduinoCompiler {
     return instance;
   }
 
+  /** Same identity as the compile worker, so both paths share cache entries and headers count. */
   private buildSketchHash(
     code: string,
+    headers: Array<{ name: string; content: string }> | undefined,
     options?: CompileRequestOptions,
   ): string {
-    if (options?.sketchHash) {
-      return options.sketchHash;
-    }
-
-    const payload = JSON.stringify({
-      code,
-      fqbn: options?.fqbn || this.defaultFqbn,
-      entryFile: options?.entryFile || "sketch.ino",
-    });
-    return createHash("sha256").update(payload).digest("hex");
+    return options?.sketchHash
+      ?? buildSketchHash({ code, headers, entryFile: options?.entryFile }, options?.fqbn || this.defaultFqbn);
   }
 
   /**
@@ -194,7 +189,7 @@ export class ArduinoCompiler {
     const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);
     const allParserMessages = [...parserMessages, ...reservedNameMessages];
     const ioRegistry: IOPinRecord[] = [];
-    const sketchHash = this.buildSketchHash(code, options);
+    const sketchHash = this.buildSketchHash(code, headers, options);
     const hexCacheDir = options?.hexCacheDir || this.defaultHexCacheDir;
     const compileStartedAt = process.hrtime.bigint();
 
