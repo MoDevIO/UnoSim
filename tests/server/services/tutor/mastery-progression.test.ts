@@ -403,6 +403,21 @@ describe("mastery progression domain classification", () => {
       expect(first.questionId).not.toBe(extension.questionId);
     });
 
+    it("reports content-exhausted after an unresolvable answer when no further planner action exists", async () => {
+      const source = await topic();
+      const history: TutorDialogTurn[] = source.questions.map((question) => ({
+        question: question.text ?? question.id,
+        questionId: question.id,
+        answer: "Antwort",
+        responseStyle: "normal",
+        answerRating: 4,
+      }));
+      const { adapter, extension } = await expandAdapter(history);
+      if (!extension || "kind" in extension) throw new Error("expected an EXPAND extension plan");
+      const next = await adapter.planFollowup({ code, history, currentQuestion: "Was bewirkt delay im Sketch?", rating: 4, difficulty: 30 });
+      expect(next).toMatchObject({ kind: "blocked", learningPhase: "EXPAND", progressionBlockedReason: "content-exhausted" });
+    });
+
     it("still reports content-exhausted when no further planner action exists", async () => {
       const source = await topic();
       const history: TutorDialogTurn[] = source.questions.map((question) => ({

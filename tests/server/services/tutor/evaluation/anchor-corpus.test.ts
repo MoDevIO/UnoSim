@@ -112,7 +112,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 7, digest: "303e0fcad8db3b6f6bd72abdac14fd0c3ddd822ce439fd577e7d9c8eef88bd6d" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 8, digest: "2a37b16ad9b9d49b1673df50e9cb968e22993edd2a217255d962adad89159811" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
