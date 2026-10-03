@@ -765,4 +765,52 @@ describe("real-provider Tutor Quality evaluation runner", () => {
       expect(result.transcripts[0]!.invariantViolations.map(({ code }) => code)).toEqual(["phase-after-mismatch"]);
     });
   });
+
+  // R-ATT-2: a check that cannot be interpreted is reported as not applicable; it is neither a pass
+  // nor a fail, and it never yields a violation.
+  describe("check outcomes (R-ATT-2)", () => {
+    function outcomeOf(checks: readonly { readonly name: string; readonly outcome?: string }[], name: string) {
+      return checks.find((check) => check.name === name);
+    }
+
+    it("records an explicit outcome on every check, consistent with passed", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", answerRating: 4, question: "Welche Beobachtung ist belegt?" })));
+      const checks = result.transcripts[0]!.turns.flatMap(({ deterministicChecks }) => deterministicChecks);
+
+      expect(checks.length).toBeGreaterThan(0);
+      for (const check of checks) {
+        expect(["pass", "fail", "not-applicable"]).toContain(check.outcome);
+        expect(check.passed).toBe(check.outcome === "pass");
+      }
+    });
+
+    it("reports the raw checks that depend on a valid schema as not applicable when the schema is invalid", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", answerRating: "not-a-rating" })));
+      const transcript = result.transcripts[0]!;
+      const checks = transcript.turns[0]!.deterministicChecks;
+
+      expect(outcomeOf(checks, "raw-provider-schema-valid")).toMatchObject({ outcome: "fail" });
+      for (const name of ["raw-provider-one-primary-question", "raw-provider-no-complete-solution", "raw-provider-question-not-repeated"]) {
+        expect(outcomeOf(checks, name)).toMatchObject({ outcome: "not-applicable", reason: "raw-provider-schema-invalid" });
+      }
+      expect(transcript.invariantViolations.filter(({ source }) => source === "raw-provider").map(({ code }) => code)).toEqual(["schema-invalid"]);
+    });
+
+    it("still checks a repeated raw question whose text is readable although the schema is invalid", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", answerRating: "not-a-rating", question: "Welche Rolle spielt counter im Sketch?" })));
+      const checks = result.transcripts[0]!.turns[0]!.deterministicChecks;
+
+      expect(outcomeOf(checks, "raw-provider-question-not-repeated")).toMatchObject({ outcome: "fail" });
+    });
+
+    it("reports a declared stateUnchanged expectation as not applicable when the turn has no progression state", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", answerRating: 4, question: "Welche Beobachtung ist belegt?" }), {
+        scenarios: [scenario({ expected: { stateUnchanged: true } })],
+      }));
+      const transcript = result.transcripts[0]!;
+
+      expect(outcomeOf(transcript.turns[0]!.deterministicChecks, "expected-state-unchanged")).toMatchObject({ outcome: "not-applicable", reason: "no-progression-state" });
+      expect(transcript.invariantViolations).toEqual([]);
+    });
+  });
 });

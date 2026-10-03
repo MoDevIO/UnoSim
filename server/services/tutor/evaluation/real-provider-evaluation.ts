@@ -106,12 +106,16 @@ export interface TutorQualityEvaluationOptions {
   ) => Promise<void>;
 }
 
+export type TutorQualityCheckOutcome = "pass" | "fail" | "not-applicable";
+
 export interface TutorQualityDeterministicCheck {
   readonly name: string;
+  /** R-ATT-2: a check that cannot be interpreted is `not-applicable`, neither a pass nor a fail. */
+  readonly outcome: TutorQualityCheckOutcome;
+  /** True only for `pass`. Kept for the transcript-v1 contract (§11.4); count by `outcome`. */
   readonly passed: boolean;
   readonly details?: string;
-  /** Set only when the check could not be interpreted; such a check is neither a pass nor a fail. */
-  readonly outcome?: "not-applicable";
+  /** Why the check is not applicable. */
   readonly reason?: string;
 }
 
@@ -494,7 +498,16 @@ function addCheck(
   passed: boolean,
   details?: string,
 ): void {
-  checks.push({ name, passed, ...(details ? { details } : {}) });
+  checks.push({ name, outcome: passed ? "pass" : "fail", passed, ...(details ? { details } : {}) });
+}
+
+function addNotApplicableCheck(
+  checks: TutorQualityDeterministicCheck[],
+  name: string,
+  reason: string,
+  details?: string,
+): void {
+  checks.push({ name, outcome: "not-applicable", passed: false, reason, ...(details ? { details } : {}) });
 }
 
 function addViolation(
@@ -518,21 +531,31 @@ function deterministicRawChecks(
   const issueCodes = new Set(inspection.violations.map(({ code }) => code));
   const schemaValid = !issueCodes.has("schema-invalid");
   addCheck(checks, "raw-provider-schema-valid", schemaValid);
-  addCheck(checks, "raw-provider-one-primary-question", schemaValid && !issueCodes.has("multiple-primary-questions"));
-  addCheck(checks, "raw-provider-no-complete-solution", schemaValid && !issueCodes.has("complete-solution"));
+  // The question and solution guards inspect only schema-valid output.
+  if (schemaValid) {
+    addCheck(checks, "raw-provider-one-primary-question", !issueCodes.has("multiple-primary-questions"));
+    addCheck(checks, "raw-provider-no-complete-solution", !issueCodes.has("complete-solution"));
+  } else {
+    addNotApplicableCheck(checks, "raw-provider-one-primary-question", "raw-provider-schema-invalid");
+    addNotApplicableCheck(checks, "raw-provider-no-complete-solution", "raw-provider-schema-invalid");
+  }
   for (const issue of inspection.violations) {
     addViolation(violations, issue.code, "raw-provider", turnIndex);
   }
-  if (typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)) {
-    const question = (rawResult as { question?: unknown }).question;
-    if (typeof question === "string" && turn.kind === "dialog") {
-      const previous = [turn.question, ...(turn.history ?? []).map(({ question: historyQuestion }) => historyQuestion)];
-      const repeated = isSemanticallyRepeatedQuestion(question, previous);
-      addCheck(checks, "raw-provider-question-not-repeated", !repeated);
-      if (repeated) {
-        addViolation(violations, "question-repeat", "raw-provider", turnIndex, question === turn.question ? "exact" : "stage1-heuristic");
-      }
-    }
+  if (turn.kind !== "dialog") return;
+  const question = typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)
+    ? (rawResult as { question?: unknown }).question
+    : undefined;
+  // A schema-valid result always has a question; without readable text there is nothing to compare.
+  if (typeof question !== "string") {
+    addNotApplicableCheck(checks, "raw-provider-question-not-repeated", "raw-provider-schema-invalid");
+    return;
+  }
+  const previous = [turn.question, ...(turn.history ?? []).map(({ question: historyQuestion }) => historyQuestion)];
+  const repeated = isSemanticallyRepeatedQuestion(question, previous);
+  addCheck(checks, "raw-provider-question-not-repeated", !repeated);
+  if (repeated) {
+    addViolation(violations, "question-repeat", "raw-provider", turnIndex, question === turn.question ? "exact" : "stage1-heuristic");
   }
 }
 
@@ -594,13 +617,7 @@ function expectedPhaseAfterCheck(context: ExpectedCheckContext): void {
   const expectedPhaseAfter = context.scenario.expected?.phaseAfter;
   if (expectedPhaseAfter === undefined) return;
   if (ratingOutOfBand(context)) {
-    context.checks.push({
-      name: "expected-phase-after",
-      passed: false,
-      details: expectedPhaseAfter,
-      outcome: "not-applicable",
-      reason: "rating-out-of-band",
-    });
+    addNotApplicableCheck(context.checks, "expected-phase-after", "rating-out-of-band", expectedPhaseAfter);
     return;
   }
   const passed = context.stateAfter?.phase === expectedPhaseAfter;
@@ -625,7 +642,11 @@ function unexpectedBlockedStateCheck(context: ExpectedCheckContext): void {
 }
 
 function expectedStateCheck(context: ExpectedCheckContext): void {
-  if (!context.scenario.expected?.stateUnchanged || !context.stateBefore || !context.stateAfter) return;
+  if (!context.scenario.expected?.stateUnchanged) return;
+  if (!context.stateBefore || !context.stateAfter) {
+    addNotApplicableCheck(context.checks, "expected-state-unchanged", "no-progression-state");
+    return;
+  }
   const passed = canonicalJson(context.stateBefore) === canonicalJson(context.stateAfter);
   addCheck(context.checks, "expected-state-unchanged", passed);
   if (!passed) addViolation(context.violations, "state-changed-unexpectedly", "state", context.turnIndex);
@@ -958,7 +979,7 @@ function recordFailureStateCheck(
   const unchanged = canonicalJson(stateBefore) === canonicalJson(stateAfter);
   const stateChecks = turns.at(-1)?.deterministicChecks;
   if (stateChecks) {
-    (stateChecks as TutorQualityDeterministicCheck[]).push({ name: "state-unchanged-after-failure", passed: unchanged });
+    addCheck(stateChecks as TutorQualityDeterministicCheck[], "state-unchanged-after-failure", unchanged);
   }
   if (!unchanged) addViolation(violations, "state-mutated-after-failure", "state", undefined);
 }

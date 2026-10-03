@@ -6,6 +6,7 @@ import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";
 import type { TutorQualityVerdict } from "./quality-verdict";
 import type {
+  TutorQualityCheckOutcome,
   TutorQualityDeterministicCheck,
   TutorQualityEvaluationOptions,
   TutorQualityEvaluationReport,
@@ -105,11 +106,9 @@ export function createTutorQualityRunManifest(
   };
 }
 
-type CheckOutcome = "pass" | "fail" | "not-applicable";
-
 interface CheckDiagnostics {
   readonly name: string;
-  readonly outcome: CheckOutcome;
+  readonly outcome: TutorQualityCheckOutcome;
   readonly passed: boolean;
   readonly details?: string;
   readonly reason?: string;
@@ -134,10 +133,9 @@ function compareText(left: string, right: string): number {
 }
 
 function checkDiagnostics(check: TutorQualityDeterministicCheck): CheckDiagnostics {
-  const outcome: CheckOutcome = check.outcome ?? (check.passed ? "pass" : "fail");
   return {
     name: check.name,
-    outcome,
+    outcome: check.outcome,
     passed: check.passed,
     ...(check.details ? { details: check.details } : {}),
     ...(check.reason ? { reason: check.reason } : {}),
