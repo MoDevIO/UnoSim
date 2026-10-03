@@ -43,7 +43,7 @@ function validSource(): TutorQualityCorpusSource {
 }
 
 describe("Tutor Quality anchor corpus contract", () => {
-  it("contains two judge-enabled strategy cases for each learning phase", () => {
+  it("contains at least two judge-enabled strategy cases for each learning phase", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const strategyCases = source.scenarios.filter(({ id }) => id.startsWith("strategy-"));
     const counts = Object.fromEntries(["LEARN", "DEEPEN", "EXPAND"].map((phase) => [
@@ -51,7 +51,8 @@ describe("Tutor Quality anchor corpus contract", () => {
       strategyCases.filter(({ expected }) => expected?.learningPhase === phase).length,
     ]));
 
-    expect(Object.values(counts).every((count) => count >= 2 && count <= 3)).toBe(true);
+    // R-AUT-1: a lower bound for coverage, never a case count; new cases are corpus data only.
+    expect(Object.values(counts).every((count) => count >= 2)).toBe(true);
     expect(strategyCases.every(({ turns, judge, expected }) => (
       turns.some(({ kind }) => kind === "dialog")
       && expected?.learningPhase !== undefined
