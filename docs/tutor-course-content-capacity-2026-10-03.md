@@ -21,8 +21,8 @@ wenig Post-Mastery-Content hat:
 Der Übergangsturn nach LEARN stellt noch eine Frage im LEARN-Plan (R-PH-1),
 die damit ebenfalls Post-Mastery-Kapazität verbraucht. Im durchgespielten
 Dialog erreichen die 17 `int`-Beispiele nach vier Turns EXPAND und sind dann
-erschöpft. Die 16 Serial-only-Beispiele bleiben ab dem dritten Turn in DEEPEN
-blockiert.
+erschöpft. Von den 16 Serial-only-Beispielen bleiben 14 nach dem zweiten Turn
+in DEEPEN blockiert, die zwei mit vorangehendem `long-values` nach dem vierten.
 
 Beide Topics sind Schema v1: keine `extensions`, keine `deepening`-Konfiguration.
 EXPAND bietet daher keine Erweiterung an und endet sofort in
