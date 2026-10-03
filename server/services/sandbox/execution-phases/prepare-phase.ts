@@ -36,6 +36,7 @@ export async function performCompilation(
   const WAIT_TIMEOUT_MS = config.timeouts.compileGatekeeperAcquireMs;
   const gatekeeper = getUnifiedGatekeeper();
   let release: () => void;
+  let waitTimer: NodeJS.Timeout | undefined;
 
   try {
     release = await Promise.race([
@@ -43,14 +44,16 @@ export async function performCompilation(
         "simulation-start",
         opts.onCompileQueued,
       ),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS),
-      ),
+      new Promise<never>((_, reject) => {
+        waitTimer = setTimeout(() => reject(new Error("compile-gatekeeper timeout")), WAIT_TIMEOUT_MS);
+      }),
     ]);
   } catch (err) {
     context.logger.error(`Gatekeeper wait failed: ${err instanceof Error ? err.message : String(err)}`);
     context.transitionTo(state, SimulationState.ERROR);
     throw err;
+  } finally {
+    clearTimeout(waitTimer);
   }
 
   try {
