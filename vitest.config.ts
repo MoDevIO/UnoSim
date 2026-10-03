@@ -20,6 +20,7 @@ const serializedHttpUnitTests = [
   "tests/server/dev-entrypoint.test.ts",
   "tests/server/routes/compiler.routes.test.ts",
   "tests/server/routes/compiler-binary-payload.test.ts",
+  "tests/server/routes/api-rate-limit-key.test.ts",
   "tests/server/routes/examples.routes.test.ts",
   "tests/server/routes/routes-core.test.ts",
   "tests/server/routes/server-status-observability.test.ts",
