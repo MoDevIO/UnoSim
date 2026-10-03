@@ -5,7 +5,7 @@ import type { WebSocketServer } from "ws";
 
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
-import { storage } from "./storage";
+import { ownedSketches } from "./storage";
 import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
 import {
@@ -18,7 +18,6 @@ import {
   getSandboxRunnerPool,
   initializeSandboxRunnerPool,
 } from "./services/sandbox-runner-pool";
-import { insertSketchSchema } from "@shared/schema";
 
 import { Logger } from "@shared/logger"; // Pfad ggf. anpassen
 
@@ -30,6 +29,8 @@ import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { registerExamplesRoutes } from "./routes/examples.routes";
 import { registerTutorRoutes } from "./routes/tutor.routes";
+import { registerSketchRoutes } from "./routes/sketches.routes";
+import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
 import { ExamplesRepository } from "./services/examples/examples-repository";
 import { config } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
@@ -139,8 +140,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Legacy compatibility fallback for clients that omit code in
    * start_simulation. New clients must send the compiled code per session.
    * Planned for removal after the legacy protocol sunset (next major release).
+   * Kept per subject: a start never runs code that another user compiled.
    */
-  let lastCompiledCode: string | null = null;
+  const lastCompiledCode = new LastCompiledCodeStore(config.compilation.lastCompiledCodeMaxSubjects);
 
   // Compilation Cache: Map<codeHash, CompilationResult>
   const compilationCache = new CompilationCache(config.compilation.resultCacheMaxEntries);
@@ -173,56 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     disableRateLimit: config.server.disableRateLimit,
     courseContent: examplesRepository,
   });
-  // --- Sketch CRUD routes (leicht gekürzt) ---
-  app.get("/api/sketches", async (_req, res) => {
-    try {
-      const sketches = await storage.getAllSketches();
-      res.json(sketches);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch sketches" });
-    }
-  });
-
-  app.get("/api/sketches/:id", async (req, res) => {
-    try {
-      const sketch = await storage.getSketch(req.params.id);
-      if (!sketch) return res.status(404).json({ error: "Sketch not found" });
-      res.json(sketch);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch sketch" });
-    }
-  });
-
-  app.post("/api/sketches", async (req, res) => {
-    try {
-      const validatedData = insertSketchSchema.parse(req.body);
-      const sketch = await storage.createSketch(validatedData);
-      res.status(201).json(sketch);
-    } catch {
-      res.status(400).json({ error: "Invalid sketch data" });
-    }
-  });
-
-  app.put("/api/sketches/:id", async (req, res) => {
-    try {
-      const validatedData = insertSketchSchema.partial().parse(req.body);
-      const sketch = await storage.updateSketch(req.params.id, validatedData);
-      if (!sketch) return res.status(404).json({ error: "Sketch not found" });
-      res.json(sketch);
-    } catch {
-      res.status(400).json({ error: "Invalid sketch data" });
-    }
-  });
-
-  app.delete("/api/sketches/:id", async (req, res) => {
-    try {
-      const deleted = await storage.deleteSketch(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Sketch not found" });
-      res.status(204).send();
-    } catch {
-      res.status(500).json({ error: "Failed to delete sketch" });
-    }
-  });
+  registerSketchRoutes(app, ownedSketches);
 
   // --- COMPILATION (moved to modular route) ---
   // Delegate the /api/compile handler to the compiler module and inject
@@ -236,8 +189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     compilationCache,
     hashCode,
     CACHE_TTL,
-    setLastCompiledCode: (code: string | null) => {
-      lastCompiledCode = code;
+    setLastCompiledCode: (subject: string, code: string) => {
+      lastCompiledCode.set(subject, code);
     },
     logger,
     compileRateLimiter: getCompileRateLimiter(),
@@ -253,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     getSimulationRateLimiter,
     getSimulationAdmissionController,
     shouldSendSimulationEndMessage,
-    getLastCompiledCode: () => lastCompiledCode,
+    getLastCompiledCode: (subject: string) => lastCompiledCode.get(subject),
     logger,
     runnerPool,
     trust: config.trust,

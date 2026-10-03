@@ -20,7 +20,7 @@ type CompilerDeps = {
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
   hashCode: (code: string, headers?: CompilerHeader[], options?: CompileRequestOptions) => string;
   CACHE_TTL: number;
-  setLastCompiledCode: (code: string | null) => void;
+  setLastCompiledCode: (subject: string, code: string) => void;
   logger: Logger;
   compileRateLimiter?: { checkLimit: (identity: string) => RateLimitResult };
   disableRateLimit?: boolean;
@@ -130,6 +130,10 @@ function getCachedCompilation(
 
 export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
   const { compiler, compilationCache, hashCode, CACHE_TTL, setLastCompiledCode, logger } = deps;
+  const rememberCompiledCode = (res: Response, code: string) => {
+    const identity = res.locals.unosimIdentity as RequestIdentity | undefined;
+    if (identity) setLastCompiledCode(identity.subject, code);
+  };
 
   app.post("/api/compile", async (req, res) => {
     let compileStartTime: number | null = null;
@@ -157,7 +161,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
       );
       if (cachedResult) {
         logger.info(`✅ Cache hit for code (age: ${cachedResult.ageMs}ms)`);
-        setLastCompiledCode(code);
+        rememberCompiledCode(res, code);
         return res.json({ ...cachedResult.result, cached: true });
       }
 
@@ -184,7 +188,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
           compilationCache.set(codeHash, { result, timestamp: Date.now() });
           logger.info(`✅ Cached compilation result for code`);
         }
-        setLastCompiledCode(code);
+        rememberCompiledCode(res, code);
       }
 
       res.json(result);
