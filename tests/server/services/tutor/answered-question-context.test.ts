@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { createAnchorCourseContent } from "../../../../server/services/tutor/evaluation/anchor-course-content";
 import type { LLMProvider, LLMProviderRequest } from "../../../../server/services/tutor/llm-provider";
-import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
+import type { TutorPlan, TutorPlanningContentContext, TutorPlanningExtension } from "../../../../server/services/tutor/tutor-planning";
 
 // The provider evaluates the answer to the question it is shown, so the didactic context in the
 // dialog prompt must describe that answered question, not a question planned afterwards.
@@ -25,6 +25,10 @@ function recordingProvider(): LLMProvider & { readonly requests: LLMProviderRequ
       };
     },
   };
+}
+
+function hasDidacticContext(request: LLMProviderRequest | undefined): boolean {
+  return (request?.userPrompt ?? "").includes("Validierter didaktischer Kontext");
 }
 
 function didacticContext(request: LLMProviderRequest | undefined): Record<string, unknown> {
@@ -94,5 +98,36 @@ describe("dialog prompt context of the answered question", () => {
 
     expect(answer).toMatchObject({ followUpSource: "planner", result: { learningPhase: "EXPAND", questionId: "expand-serial-second" } });
     expect(content.progressionState?.usedExpansionTargetTopicIds["variables-and-serial"]).toEqual(["serial-output", "serial-second"]);
+  });
+  it("plans and reserves nothing when the answered question cannot be resolved", async () => {
+    const provider = recordingProvider();
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
+    const content = createAnchorCourseContent("progression-expand");
+
+    // The extension is still unused; the learner answers a question that is neither a Topic question nor a delivered extension.
+    await service.generateDialogResponse(serialSketch, [], "Was bewirkt delay im Sketch?", "Es wartet eine Sekunde.", "key", "pilot-model", 60, content);
+
+    expect(hasDidacticContext(provider.requests[0])).toBe(false);
+    expect(content.progressionState?.usedExpansionTargetTopicIds).toEqual({});
+  });
+
+  it("does not fall back to planInitial for the dialog context of an extension without planAnswered", async () => {
+    const provider = recordingProvider();
+    const plan: TutorPlan = {
+      topicId: "pilot-topic", topicTitle: "Pilot", conceptId: "concept-one", conceptTitle: "Concept one",
+      objective: "Understand the concept", questionId: "question-one", questionKind: "concept",
+      indicatorId: "indicator-one", indicator: "Can explain it", question: "Welche Beobachtung machst du?",
+      misconceptions: [], contentRevision: "0123456789abcdef0123456789abcdef01234567",
+    };
+    const extension: TutorPlanningExtension = {
+      planInitial: vi.fn().mockResolvedValue(plan),
+      planFollowup: vi.fn().mockResolvedValue(null),
+    };
+
+    await new TutorService(provider, extension).generateDialogResponse(serialSketch, [], "Was bewirkt delay im Sketch?", "Es wartet.", "key", "pilot-model", 30);
+
+    expect(extension.planInitial).not.toHaveBeenCalled();
+    expect(extension.planFollowup).toHaveBeenCalledOnce();
+    expect(hasDidacticContext(provider.requests[0])).toBe(false);
   });
 });

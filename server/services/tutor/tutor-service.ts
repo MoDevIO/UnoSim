@@ -769,11 +769,10 @@ export class TutorService {
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
   ): Promise<PlanningResult | null> {
-    if (!this.planningExtension) return null;
-    if (this.planningExtension.planAnswered) {
-      return this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
-    }
-    return this.planningExtension.planInitial({ code, history, difficulty, courseContent });
+    // Never planInitial here: planning a new question while only evaluating an answer could
+    // reserve content. Without planAnswered the prompt simply carries no didactic context.
+    if (!this.planningExtension?.planAnswered) return null;
+    return this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
   }
 
   async getAvailableModels(credential: string | undefined): Promise<readonly string[]> {

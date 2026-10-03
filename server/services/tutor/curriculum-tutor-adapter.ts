@@ -30,6 +30,7 @@ import type {
 } from "./tutor-planning";
 import {
   appendEvidence,
+  cloneTutorProgressionState,
   createTutorProgressionState,
   deepeningCriteria,
   hasMetDeepeningCriteria,
@@ -102,13 +103,16 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async planAnswered(input: Omit<TutorFollowupInput, "rating">): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+    // Read-only: match against a copy so that resolving the context cannot change the session
+    // state; a question that cannot be resolved yields no context instead of a new plan.
+    const readOnly = snapshot?.progressionState
+      ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
+      : snapshot ?? undefined;
+    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
-    // A question that is not resolvable here keeps the previous behaviour: the context of the
-    // question the planner would serve now.
-    return answeredQuestionPlan(context, input.currentQuestion, input.history)
-      ?? this.startPlan(context, input.history, input.difficulty, context.phase);
+    return answeredQuestionPlan(context, input.currentQuestion, input.history);
   }
 
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
