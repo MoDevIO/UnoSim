@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 5
+corpusVersion: 6
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -176,7 +176,7 @@ scenarios:
         - id: learn-accepts-correct-answer
           text: Das Feedback erkennt die Erklärung der Initialisierung und Ausgabe als fachlich korrekt an.
         - id: learn-feedback-grounds-sketch
-          text: Das Feedback nennt die anfängliche Ausgabe 3 und die spätere Erhöhung von counter im Sketch korrekt.
+          text: Das Feedback benennt die tatsächliche Ausgabe konkret am Sketch, nämlich dass Serial.println(counter) in setup den Wert 3 ausgibt, und behauptet keine weitere serielle Ausgabe in loop.
         - id: learn-next-step
           text: Die Folgefrage baut auf dem Zusammenhang auf und verlangt einen neuen Denkschritt am selben Sketch.
 

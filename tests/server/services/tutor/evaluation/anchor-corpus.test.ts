@@ -102,6 +102,30 @@ describe("Tutor Quality anchor corpus contract", () => {
     }
   });
 
+  it("bumps corpusVersion whenever the parsed corpus digest changes (R-COR-1)", () => {
+    const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
+    const current = parseTutorQualityCorpus(source, {
+      sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
+      courseContentFixtures: new Set(ANCHOR_COURSE_CONTENT_FIXTURE_IDS),
+    });
+    // Last released corpus (v5, the PR E baseline). A content change must come with a higher version.
+    const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
+
+    expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 6, digest: "bd7ad3a8eb4afff73c9632af889739938823a2524032cf9a852ee5f1093f19a0" });
+  });
+
+  it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
+    const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
+    const criterion = source.scenarios.find(({ id }) => id === "strategy-learn-strong-answer")?.judge?.criteria
+      .find(({ id }) => id === "learn-feedback-grounds-sketch");
+
+    // F3 of the 2026-10-03 baseline: the question asks for the serial output (3 from setup); the increment in loop is never printed.
+    expect(criterion?.text).toMatch(/Serial\.println\(counter\)/);
+    expect(criterion?.text).toMatch(/\b3\b/);
+    expect(criterion?.text).not.toMatch(/Erhöhung|erhöht/);
+  });
+
   it("parses stable scenario references; the question binding is question plus continuationOf", () => {
     const corpus = parseTutorQualityCorpus(validSource(), references);
 
