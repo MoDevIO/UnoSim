@@ -398,6 +398,8 @@ export class SandboxRunner {
 
   async stop(): Promise<void> {
     const s = this.executionState;
+    // Cancels a run that is still preparing or waiting for a start slot.
+    s.runAbort?.abort();
     if (this.state === SimulationState.STOPPED || s.processKilled) return;
     this.state = SimulationState.STOPPED;
     s.processKilled = true;

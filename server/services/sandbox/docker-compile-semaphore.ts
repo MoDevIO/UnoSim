@@ -26,25 +26,40 @@ export class SandboxStartSemaphore {
    *
    * @param onQueued  Optional callback invoked exactly once when this caller is
    *                  placed in the queue (i.e. no slot is immediately available).
+   * @param signal    Optional cancellation: an aborted waiter leaves the queue
+   *                  and never takes a slot.
    * @returns         A release function.  Must be called exactly once.
    */
-  acquire(onQueued?: () => void, timeoutMs = 60_000): Promise<() => void> {
+  acquire(onQueued?: () => void, timeoutMs = 60_000, signal?: AbortSignal): Promise<() => void> {
     return new Promise<() => void>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error("Sandbox start slot acquire cancelled"));
+        return;
+      }
       let settled = false;
       let attempt: () => void;
-      const timer = setTimeout(() => {
+      const leaveQueue = (error: Error) => {
         if (settled) return;
         const index = this.queue.findIndex((entry) => entry.attempt === attempt);
         if (index !== -1) this.queue.splice(index, 1);
         settled = true;
-        reject(new Error(`Sandbox start slot timeout after ${timeoutMs}ms`));
-      }, timeoutMs);
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        reject(error);
+      };
+      const onAbort = () => leaveQueue(new Error("Sandbox start slot acquire cancelled"));
+      const timer = setTimeout(
+        () => leaveQueue(new Error(`Sandbox start slot timeout after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+      signal?.addEventListener("abort", onAbort, { once: true });
 
       attempt = () => {
         if (settled) return;
         if (this._active < this.max) {
           settled = true;
           clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
           this._active++;
           resolve(this._makeRelease());
         } else {
