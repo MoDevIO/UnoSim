@@ -40,7 +40,7 @@ The system MUST:
 4. separate deterministic product defects from LLM quality problems;
 5. accept new quality cases mostly as corpus data (YAML plus fixtures);
 6. produce reproducible, comparable reports;
-7. be runnable manually and periodically without new infrastructure.
+7. be runnable locally and by manual dispatch without new infrastructure.
 
 Constraint: KISS/YAGNI. The corpus may grow; the runner, Judge, and report
 infrastructure should stay stable. A new case MUST NOT require a new runner,
@@ -119,7 +119,7 @@ properties (see §10).
 | --- | --- | --- | --- |
 | L1 | Stage-1 runtime invariants; the full corpus executed through the real `TutorService` and `CurriculumTutorAdapter` with a fake provider whose ratings come from the case expectations | fake | every PR (`npm run test:tutor-quality`, part of CI) |
 | L2 | contract and parser tests: corpus parser, Judge prompt/parser, call budget, preflight, provenance, redaction, report shape | fake | every PR (same gate) |
-| L3 | real Tutor model plus real Judge model over the corpus | real | manually before relevant Tutor/prompt/strategy/planner/Course-Content changes, and periodically on `main` |
+| L3 | real Tutor model plus real Judge model over the corpus | real | before merging relevant Tutor/prompt/strategy/planner/adapter/Course-Content changes, locally or by deliberate manual dispatch; no periodic run (Appendix B) |
 
 **R-PYR-1** Every corpus case MUST pass L1 with zero violations before it may
 run in L3. A case that fails L1 is a corpus or product defect, not an LLM
@@ -769,7 +769,8 @@ in `report.json` (`manifest.corpusId`, `manifest.corpusVersion`) and `report.md`
 (§11.2), and the fail-fast corpus-parser enforcement of R-TURN-3 for every dialog
 turn of a case that declares `expected.learningPhase`. The quality verdict
 and the CLI exit codes (R-VER-1..9) followed in PR F, the weekly L3 run and
-the Judge-credential preflight (`missing-judge-credential`) in PR G. Remaining known
+the Judge-credential preflight (`missing-judge-credential`) in PR G; the weekly
+schedule was later deactivated (Appendix B). Remaining known
 deviations:
 
 | Rule | Current code | Owner |
@@ -822,28 +823,32 @@ workflow. It has no `pull_request` or `push` trigger (R-PYR-2).
 - **Manual** (`workflow_dispatch`, any ref): inputs `model`, `samples`,
   `max_calls`, `judge_model` (leave empty for execution only), and `case`. The
   `max_calls` default is a placeholder; set it from the R-BUD-2 calculation.
-- **Weekly** (`schedule`, Monday 04:17 UTC, default branch `main` only, on the
-  commit that `main` points to at that time): the full corpus, with the fixed
-  configuration in the workflow's `env`: Tutor `openai-gpt5.4-mini`, Judge
-  `openai-gpt5.5`, 5 samples per case, and the R-BUD-2 budget
-  `1 + 5 × (Tutor calls of all turns + judged cases)`, for corpus v7
-  `1 + 5 × (50 + 8) = 291`. The full corpus needs no case list, so new corpus
-  cases are evaluated without a workflow change. A corpus change that alters the
-  call count fails
-  `tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts`
-  until `SCHEDULED_MAX_CALLS` is updated; the test prints the new value.
+- **No periodic run.** The weekly `schedule` of PR G is deactivated. L3 is a
+  development and merge gate: run it before merging a change listed in §13,
+  normally locally. No provider secrets are stored in the repository, and a
+  scheduled run without them would only report a green `not-run` that looks
+  like a regular measurement. Re-enabling a schedule needs a dedicated service
+  credential in a protected environment restricted to `main`, and an update of
+  this runbook and of the workflow contract test.
+- **Full-corpus configuration** used for merge decisions (R-BUD-2, compute
+  before every run from the current call graph): Tutor `openai-gpt5.4-mini`,
+  Judge `openai-gpt5.5`, 5 samples per case, no `--case`; for corpus v7
+  `1 + 5 × (50 + 8) = 291` calls.
 - **Result**: the job result is the CLI exit code (R-VER-8). `pass` and `warn`
   are green; `fail` (exit 2) and `inconclusive` (exit 3) are red; a run without
-  the Tutor or Judge secret ends `not-run` and stays green (R-PYR-2). A red
-  weekly run is a quality signal to read in `report.md`, not a workflow defect;
-  do not re-run it to obtain green. There is no automatic retry.
+  the Tutor or Judge secret ends `not-run` and stays green (R-PYR-2); it is no
+  measurement. A red run is a quality signal to read in `report.md`, not a
+  workflow defect; do not re-run it to obtain green. There is no automatic retry.
 - **Artifacts**: `report.json`, `report.md`, and `transcripts/` are uploaded as
   `tutor-quality-run-<run id>-<attempt>`, also when the evaluation step fails,
-  with 28 days of retention (four weekly runs). Compare two runs with a plain
+  with 28 days of retention. Compare two runs with a plain
   text diff of their `report.md` (R-REP-3); timings stand on their own lines.
 - **Concurrency**: one evaluation at a time (group
   `tutor-quality-real-provider`); a new run waits and never cancels a running
   one.
-- **Secrets**: the repository secrets `UNOSIM_TUTOR_EVAL_CREDENTIAL` and
-  `UNOSIM_TUTOR_JUDGE_CREDENTIAL` are passed only to the evaluation step, by
-  variable name (R-RUN-4).
+- **Secrets**: a dispatch needs the repository secrets
+  `UNOSIM_TUTOR_EVAL_CREDENTIAL` and `UNOSIM_TUTOR_JUDGE_CREDENTIAL`; they are
+  passed only to the evaluation step, by variable name (R-RUN-4). They are not
+  configured at present, so the local run is the working L3 path: load the two
+  variables from an untracked, gitignored local env file into the shell that
+  starts the CLI, never into the repository or an artifact.

@@ -1,7 +1,8 @@
 name: Tutor Quality Real-Provider Evaluation
 
 # L3 of the Tutor Quality evaluation (ssot/ssot_function_definition_TutorQualityEvaluation.md, Appendix B).
-# Manual runs choose their own parameters; the weekly run uses the fixed configuration in `env` below.
+# Manual dispatch only: L3 runs before relevant Tutor changes, normally locally. There is no
+# schedule; without provider secrets a periodic run would only report a green not-run.
 # The job result follows the CLI exit code (R-VER-8): pass/warn and not-run succeed, fail and
 # inconclusive fail the job. No pull_request trigger (R-PYR-2).
 
@@ -30,9 +31,6 @@ on:
         description: Optional anchor case ID
         required: false
         type: string
-  schedule:
-    # Weekly on the default branch (main), Monday 04:17 UTC. Not nightly.
-    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -42,21 +40,9 @@ concurrency:
   group: tutor-quality-real-provider
   cancel-in-progress: false
 
-env:
-  # Weekly L3 configuration: full corpus, fixed models, budget per R-BUD-2.
-  # SCHEDULED_MAX_CALLS = 1 + SCHEDULED_SAMPLES × (Tutor calls of all corpus turns + judged cases)
-  # = 1 + 5 × (50 + 8) = 291 for corpus v7 (25 turns × 2 calls, one local off-topic fallback with 0);
-  # tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts recomputes it from the call graph.
-  SCHEDULED_TUTOR_MODEL: openai-gpt5.4-mini
-  SCHEDULED_JUDGE_MODEL: openai-gpt5.5
-  SCHEDULED_SAMPLES: "5"
-  SCHEDULED_MAX_CALLS: "291"
-
 jobs:
   evaluate:
     name: Tutor and Judge evaluation run
-    # Scheduled runs evaluate main only; manual runs evaluate the dispatched ref.
-    if: github.event_name != 'schedule' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -75,20 +61,12 @@ jobs:
         env:
           UNOSIM_TUTOR_EVAL_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_EVAL_CREDENTIAL }}
           UNOSIM_TUTOR_JUDGE_CREDENTIAL: ${{ secrets.UNOSIM_TUTOR_JUDGE_CREDENTIAL }}
-          EVENT_NAME: ${{ github.event_name }}
           TUTOR_MODEL: ${{ inputs.model }}
           JUDGE_MODEL: ${{ inputs.judge_model }}
           CASE_ID: ${{ inputs.case }}
           SAMPLES: ${{ inputs.samples }}
           MAX_CALLS: ${{ inputs.max_calls }}
         run: |
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            TUTOR_MODEL="$SCHEDULED_TUTOR_MODEL"
-            JUDGE_MODEL="$SCHEDULED_JUDGE_MODEL"
-            SAMPLES="$SCHEDULED_SAMPLES"
-            MAX_CALLS="$SCHEDULED_MAX_CALLS"
-            CASE_ID=""
-          fi
           args=(
             --model "$TUTOR_MODEL"
             --samples "$SAMPLES"

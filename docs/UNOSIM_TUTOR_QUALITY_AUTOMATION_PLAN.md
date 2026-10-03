@@ -413,6 +413,10 @@ erweitern. Kein neuer Runner, kein neuer Workflow.
 - Der Vergleich mit der Baseline erfolgt per Text-Diff von `report.md`
   (R-REP-3). Keine Datenbank, kein Dashboard.
 
+> Nachtrag: Der wöchentliche `schedule` ist wieder deaktiviert; L3 läuft vor
+> relevanten Tutor-Änderungen lokal oder per manuellem Dispatch (Anhang B der
+> Evaluation-SSOT). Der folgende Abschnitt beschreibt den damaligen Stand.
+
 **Umsetzung (PR G, Stand 2026-10-03, Betrieb in Anhang B der Evaluation-SSOT):**
 
 - **Scope: vollständiger Corpus** (v6: 17 Cases, 24 Turns, 7 mit Judge). Die
