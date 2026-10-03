@@ -82,6 +82,19 @@ export function isTutorPlanningBlocked(result: TutorPlanningResult | null): resu
 export interface TutorPlanningExtension {
   resolveStrategy?(input: { readonly code?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
   planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null>;
+  /**
+   * Plans the didactic context of the question the learner is currently answering, for the
+   * dialog prompt. Unlike planInitial it does not plan or reserve a new question. Extensions
+   * without it fall back to planInitial.
+   */
+  planAnswered?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<TutorPlanningResult | null>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];

@@ -451,7 +451,9 @@ a new Topic.
 
 An answer to a generated extension question is an EXPAND answer and counts as
 transfer evidence. It must not end in `content-exhausted` merely because the
-generated question is not an entry of the Topic's question list.
+generated question is not an entry of the Topic's question list. While such an
+answer is evaluated, the prompt's didactic context is that extension, and no
+further unused extension is reserved.
 
 #### Post-mastery strategy resolution
 
@@ -1305,7 +1307,7 @@ Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 2. Der Nutzer gibt eine Antwort ein und löst `Antwort senden` bewusst aus.
 3. Das Frontend sendet aktuellen Sketch, begrenzte Dialoghistorie, aktuelle Nutzerantwort, die optionale Modellwahl und effektive Difficulty `1..100` an UnoSim.
 4. Das Credential wird separat request-scoped übertragen und ist kein Bestandteil der Historie oder des Dialoginhalts.
-5. Der Server validiert Requestgröße und Historienfenster, ergänzt deterministischen UnoSim-Kontext und erzeugt den serverseitigen Tutor-Prompt.
+5. Der Server validiert Requestgröße und Historienfenster, ergänzt deterministischen UnoSim-Kontext und erzeugt den serverseitigen Tutor-Prompt. Ein didaktischer Kontext im Prompt beschreibt die beantwortete aktuelle Frage, nicht eine erst danach geplante Frage; das Bilden dieses Kontexts plant oder reserviert keine neue Frage oder Erweiterung.
 6. Der Provider liefert optional kurzes Feedback, bei einer normalen Antwort `responseStyle: "normal"`, `answerRating` `1..5` und genau eine Folgefrage. Für offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten darf der Server stattdessen begrenzt mit `responseStyle: "philosophical"` und ohne `answerRating` reagieren.
 7. Der Server validiert die Antwort, bevor sie an das Frontend zurückgegeben wird.
 8. Nur bei Erfolg übernimmt das Frontend den neuen Dialogschritt atomar in sein Sliding Window. Nur normale bewertete Antworten fließen in Sessionbewertung und adaptive Difficulty ein.
