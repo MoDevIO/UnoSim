@@ -28,6 +28,8 @@ import {
   SimulationReservation,
 } from "../services/simulation-admission-controller";
 import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
+import { config } from "../config";
+import { InboundMessageLimiter } from "./simulation/ws-inbound-limiter";
 
 function sendStartError(
   ws: WebSocket,
@@ -164,6 +166,8 @@ type SimulationDeps = {
   trust: TrustConfig;
   allowedWebSocketOrigins: readonly string[];
   disableRateLimit: boolean;
+  heartbeatIntervalMs?: number;
+  inboundMessageLimit?: { perSecond: number; burst: number };
 };
 
 // Return type exposes a small API used by other modules (test-reset)
@@ -196,6 +200,26 @@ export function registerSimulationWebSocket(
       deps.allowedWebSocketOrigins,
     ),
   });
+
+  // Half-open connections (closed laptop, dropped Wi-Fi) would otherwise keep
+  // their runner and admission until the simulation timeout.
+  const answeredPing = new WeakMap<WebSocket, boolean>();
+  const heartbeat = setInterval(() => {
+    for (const client of wss.clients) {
+      if (answeredPing.get(client) === false) {
+        client.terminate();
+        continue;
+      }
+      answeredPing.set(client, false);
+      client.ping();
+    }
+  }, deps.heartbeatIntervalMs ?? config.server.webSocketHeartbeatIntervalMs);
+  heartbeat.unref?.();
+  wss.on("close", () => clearInterval(heartbeat));
+  const inboundLimit = deps.inboundMessageLimit ?? {
+    perSecond: config.server.webSocketInboundMessagesPerSecond,
+    burst: config.server.webSocketInboundMessageBurst,
+  };
 
   const sessionManager = new WsSessionManager({
     pool,
@@ -767,7 +791,19 @@ export function registerSimulationWebSocket(
       });
     }
 
+    answeredPing.set(ws, true);
+    ws.on("pong", () => answeredPing.set(ws, true));
+
+    const inbound = new InboundMessageLimiter(inboundLimit.perSecond, inboundLimit.burst);
+    let droppedMessages = 0;
     ws.on("message", async (message) => {
+      if (!inbound.tryTake()) {
+        droppedMessages += 1;
+        if (droppedMessages === 1) {
+          logger.warn(`[WS] Inbound message rate exceeded for subject ${identity.subject}; dropping excess messages`);
+        }
+        return;
+      }
       await messageRouter.route(ws, message);
     });
 

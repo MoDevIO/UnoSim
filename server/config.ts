@@ -388,6 +388,11 @@ export const config = {
     /** Completely bypass rate limiting (for E2E tests) */
     disableRateLimit: envBool("DISABLE_RATE_LIMIT", false),
     /** API route rate limit window */
+    /** Ping interval; a WebSocket that misses one pong is terminated and its simulation freed */
+    webSocketHeartbeatIntervalMs: envInt("WS_HEARTBEAT_INTERVAL_MS", 30_000, { min: 1_000, max: 600_000 }),
+    /** Sustained and burst inbound messages per WebSocket connection; excess messages are dropped */
+    webSocketInboundMessagesPerSecond: 500,
+    webSocketInboundMessageBurst: 1_000,
     apiRateLimitWindowMs: 15 * 60 * 1000,
     /** API route rate limit in normal operation */
     apiRateLimitMax: 300,

@@ -17,6 +17,9 @@ const logger = new Logger("ProcessController");
  *   capture-and-check pattern prevents `TypeError: callback is not a function`.
  */
 
+/** Input that may wait in a child's stdin buffer before further writes are refused. */
+export const MAX_PENDING_STDIN_BYTES = 1024 * 1024;
+
 export type StdDataCb = (data: Buffer) => void;
 export type StdLineCb = (line: string) => void;
 export type CloseCb = (code: number | null) => void;
@@ -194,7 +197,10 @@ export class ProcessController implements IProcessController {
 
   writeStdin(data: string): boolean {
     try {
-      return this.proc?.stdin?.write(data) ?? false;
+      const stdin = this.proc?.stdin;
+      // A sketch that never reads Serial would otherwise buffer every input in the backend.
+      if (!stdin || stdin.writableLength > MAX_PENDING_STDIN_BYTES) return false;
+      return stdin.write(data);
     } catch {
       return false;
     }
