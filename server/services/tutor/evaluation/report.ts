@@ -4,6 +4,7 @@ import { canonicalDigest, sha256 } from "./canonical";
 import { TUTOR_QUALITY_JUDGE_PROMPT_REVISION } from "./judge";
 import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";
+import type { TutorQualityVerdict } from "./quality-verdict";
 import type {
   TutorQualityDeterministicCheck,
   TutorQualityEvaluationOptions,
@@ -279,6 +280,23 @@ function createDeterministicDiagnostics(
   return lines;
 }
 
+function formatFinding(finding: TutorQualityVerdict["findings"][number]): string {
+  const samples = finding.samples.length ? " (samples " + finding.samples.join(", ") + ")" : "";
+  return "- [" + finding.effect + "] " + (finding.scenarioId ?? "run") + ": " + finding.class + " " + finding.key + samples;
+}
+
+function createVerdictLines(verdict: TutorQualityVerdict): string[] {
+  return [
+    "## Quality verdict",
+    "",
+    "Verdict: " + verdict.verdict,
+    "Rule: " + verdict.ruleRevision + "; samples per case " + verdict.samplesPerCase + "; repeat threshold " + verdict.repeatThreshold
+      + "; Judge " + (verdict.judgeConfigured ? "configured" : "not configured"),
+    ...(verdict.findings.length ? verdict.findings.map(formatFinding) : ["- no findings"]),
+    "",
+  ];
+}
+
 function markdown(
   report: TutorQualityEvaluationReport,
   manifest: TutorQualityRunManifest,
@@ -303,6 +321,7 @@ function markdown(
     "Corpus: " + (manifest.corpusId === undefined ? "unavailable" : manifest.corpusId + " v" + manifest.corpusVersion),
     "Corpus file digests: " + (manifest.corpusFileDigests.join(", ") || "unavailable"),
     "",
+    ...createVerdictLines(report.qualityVerdict),
     "## Deterministic diagnostics",
     "",
     ...createDeterministicDiagnostics(transcripts, semanticEvaluations),

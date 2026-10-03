@@ -9,13 +9,17 @@ import {
   parseTutorQualityCliArgs,
   readTutorQualityGitState,
   runTutorQualityCli,
+  runTutorQualityCliMain,
+  TUTOR_QUALITY_EXIT_CODES,
+  tutorQualityExitCode,
 } from "../../../../../scripts/tutor-quality-real-provider-eval";
 import {
   MAX_TUTOR_QUALITY_CALLS,
   MAX_TUTOR_QUALITY_SAMPLES,
   runTutorQualityEvaluation,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
-import type { LLMProvider } from "../../../../../server/services/tutor/llm-provider";
+import { computeTutorQualityVerdict } from "../../../../../server/services/tutor/evaluation/quality-verdict";
+import { TutorProviderError, type LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
 // The fake provider rates every answer with the lower bound of the case's
 // expected.answerRating band (5 when the case declares none); it never inspects
@@ -133,6 +137,7 @@ describe("Tutor Quality real-provider CLI contract", () => {
           technicalFailures: 0,
           invariantViolationSamples: 0,
         });
+        expect(result.report.qualityVerdict).toMatchObject({ verdict: "pass", findings: [] });
         generationCalls += result.report.providerCalls.generationCalls;
         transcripts.push(...result.transcripts);
       }
@@ -372,5 +377,107 @@ describe("Tutor Quality real-provider CLI contract", () => {
     } finally {
       await rm(outputDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("Tutor Quality CLI exit codes (R-VER-8)", () => {
+  const cleanGit = { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true };
+
+  function verdictReport(
+    runStatus: "completed" | "not-run" | "invalid",
+    verdict: "pass" | "warn" | "fail" | "inconclusive",
+  ) {
+    return { runStatus, qualityVerdict: { ...computeTutorQualityVerdict({ runStatus, samplesPerCase: 3, judgeConfigured: true, samples: [], semanticEvaluations: [] }), verdict } };
+  }
+
+  it("maps the verdict to distinct exit codes and exempts only not-run from inconclusive", () => {
+    expect(TUTOR_QUALITY_EXIT_CODES).toEqual({ success: 0, cliError: 1, qualityFail: 2, inconclusive: 3 });
+    expect(tutorQualityExitCode(verdictReport("completed", "pass"))).toBe(0);
+    expect(tutorQualityExitCode(verdictReport("completed", "warn"))).toBe(0);
+    expect(tutorQualityExitCode(verdictReport("completed", "fail"))).toBe(2);
+    expect(tutorQualityExitCode(verdictReport("completed", "inconclusive"))).toBe(3);
+    expect(tutorQualityExitCode(verdictReport("invalid", "inconclusive"))).toBe(3);
+    expect(tutorQualityExitCode(verdictReport("not-run", "inconclusive"))).toBe(0);
+  });
+
+  async function main(
+    args: readonly string[],
+    rating: 1 | 2 | 3 | 4 | 5 | "throw",
+    options: { readonly environment?: NodeJS.ProcessEnv; readonly git?: typeof cleanGit } = {},
+  ) {
+    const outputDir = await mkdtemp(path.join(os.tmpdir(), "unosim-tq-cli-exit-"));
+    const lines: string[] = [];
+    const errors: string[] = [];
+    const provider: LLMProvider = {
+      async listModels() { return ["pilot-model"]; },
+      async generateLearningQuestion() {
+        if (rating === "throw") throw new TutorProviderError("provider-timeout");
+        return { model: "pilot-model", result: { responseStyle: "normal" as const, answerRating: rating, feedback: "Kurz eingeordnet.", question: "Welche Beobachtung ist im Sketch belegt?" } };
+      },
+    };
+    try {
+      const exitCode = await runTutorQualityCliMain([
+        "--model", "pilot-model",
+        "--credential-env", "TEST_TUTOR_CREDENTIAL",
+        "--case", "strategy-learn-strong-answer",
+        "--output-dir", outputDir,
+        ...args,
+      ], {
+        cwd: process.cwd(),
+        environment: options.environment ?? { TEST_TUTOR_CREDENTIAL: "secret-value" },
+        provider,
+        git: options.git ?? cleanGit,
+        log: (line) => lines.push(line),
+        error: (line) => errors.push(line),
+      });
+      return { exitCode, summary: lines.length ? JSON.parse(lines[0]!) as Record<string, unknown> : undefined, lines, errors };
+    } finally {
+      await rm(outputDir, { recursive: true, force: true });
+    }
+  }
+
+  // strategy-learn-strong-answer declares answerRating [3, 5].
+  it("exits 0 for pass and prints the verdict in the summary line", async () => {
+    const { exitCode, summary } = await main(["--samples", "2", "--max-calls", "20"], 4);
+
+    expect(exitCode).toBe(0);
+    expect(summary).toMatchObject({ runStatus: "completed", qualityVerdict: "pass" });
+  });
+
+  it("exits 0 for warn (one isolated rating outside the band)", async () => {
+    const { exitCode, summary } = await main(["--samples", "1", "--max-calls", "20"], 1);
+
+    expect(exitCode).toBe(0);
+    expect(summary).toMatchObject({ qualityVerdict: "warn" });
+  });
+
+  it("exits 2 for fail (the rating outside the band repeats)", async () => {
+    const { exitCode, summary } = await main(["--samples", "2", "--max-calls", "20"], 1);
+
+    expect(exitCode).toBe(2);
+    expect(summary).toMatchObject({ qualityVerdict: "fail" });
+  });
+
+  it("exits 3 for inconclusive technical failures and invalid runs", async () => {
+    const technical = await main(["--samples", "1", "--max-calls", "20"], "throw");
+    const dirty = await main(["--samples", "1", "--max-calls", "20"], 4, { git: { ...cleanGit, trackedClean: false } });
+
+    expect(technical).toMatchObject({ exitCode: 3, summary: { runStatus: "completed", qualityVerdict: "inconclusive" } });
+    expect(dirty).toMatchObject({ exitCode: 3, summary: { runStatus: "invalid", reason: "dirty-relevant-worktree", qualityVerdict: "inconclusive" } });
+  });
+
+  it("exits 0 for a not-run caused by a missing credential (R-PYR-2)", async () => {
+    const { exitCode, summary } = await main(["--samples", "1", "--max-calls", "20"], 4, { environment: {} });
+
+    expect(exitCode).toBe(0);
+    expect(summary).toMatchObject({ runStatus: "not-run", reason: "missing-credential", qualityVerdict: "inconclusive" });
+  });
+
+  it("exits 1 for a CLI error without a verdict", async () => {
+    const { exitCode, lines, errors } = await main(["--unknown-flag", "x"], 4);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toEqual([]);
+    expect(errors).toEqual(["Unknown Tutor Quality evaluation option: --unknown-flag"]);
   });
 });

@@ -16,6 +16,7 @@ import {
   MAX_TUTOR_QUALITY_CALLS,
   MAX_TUTOR_QUALITY_SAMPLES,
   runTutorQualityEvaluation,
+  type TutorQualityEvaluationReport,
   type TutorQualityEvaluationScenario,
   type TutorQualityGitState,
   type TutorQualityTurn,
@@ -40,7 +41,12 @@ export interface TutorQualityCliDependencies {
   readonly environment?: NodeJS.ProcessEnv;
   readonly provider?: LLMProvider;
   readonly git?: TutorQualityGitState;
+  readonly log?: (line: string) => void;
+  readonly error?: (line: string) => void;
 }
+
+/** Evaluation SSOT R-VER-8. */
+export const TUTOR_QUALITY_EXIT_CODES = { success: 0, cliError: 1, qualityFail: 2, inconclusive: 3 } as const;
 
 const DEFAULT_CORPUS_PATH = "evals/tutor-quality/anchor-corpus.yaml";
 const DEFAULT_CREDENTIAL_ENV = "UNOSIM_TUTOR_EVAL_CREDENTIAL";
@@ -287,15 +293,44 @@ export async function runTutorQualityCli(
   });
 }
 
+export function tutorQualityExitCode(report: Pick<TutorQualityEvaluationReport, "runStatus" | "qualityVerdict">): number {
+  switch (report.qualityVerdict.verdict) {
+    case "fail":
+      return TUTOR_QUALITY_EXIT_CODES.qualityFail;
+    case "inconclusive":
+      // R-PYR-2: a run skipped for a missing credential or a zero budget must not fail CI.
+      return report.runStatus === "not-run" ? TUTOR_QUALITY_EXIT_CODES.success : TUTOR_QUALITY_EXIT_CODES.inconclusive;
+    case "pass":
+    case "warn":
+      return TUTOR_QUALITY_EXIT_CODES.success;
+  }
+}
+
+export async function runTutorQualityCliMain(
+  argv: readonly string[],
+  dependencies: TutorQualityCliDependencies = {},
+): Promise<number> {
+  const log = dependencies.log ?? console.log;
+  const error = dependencies.error ?? console.error;
+  try {
+    const { report } = await runTutorQualityCli(argv, dependencies);
+    log(JSON.stringify({
+      runId: report.runId,
+      runStatus: report.runStatus,
+      reason: report.reason,
+      qualityVerdict: report.qualityVerdict.verdict,
+      providerCalls: report.providerCalls,
+    }));
+    return tutorQualityExitCode(report);
+  } catch (error_: unknown) {
+    error(error_ instanceof Error ? error_.message : "Tutor Quality evaluation failed");
+    return TUTOR_QUALITY_EXIT_CODES.cliError;
+  }
+}
+
 const invokedDirectly = process.argv[1] !== undefined
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (invokedDirectly) {
-  try {
-    const { report } = await runTutorQualityCli(process.argv.slice(2));
-    console.log(JSON.stringify({ runId: report.runId, runStatus: report.runStatus, reason: report.reason, providerCalls: report.providerCalls }));
-  } catch (error: unknown) {
-    console.error(error instanceof Error ? error.message : "Tutor Quality evaluation failed");
-    process.exitCode = 1;
-  }
+  process.exitCode = await runTutorQualityCliMain(process.argv.slice(2));
 }
