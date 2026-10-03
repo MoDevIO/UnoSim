@@ -826,8 +826,8 @@ workflow. It has no `pull_request` or `push` trigger (R-PYR-2).
   commit that `main` points to at that time): the full corpus, with the fixed
   configuration in the workflow's `env`: Tutor `openai-gpt5.4-mini`, Judge
   `openai-gpt5.5`, 5 samples per case, and the R-BUD-2 budget
-  `1 + 5 × (Tutor calls of all turns + judged cases)`, for corpus v6
-  `1 + 5 × (46 + 7) = 266`. The full corpus needs no case list, so new corpus
+  `1 + 5 × (Tutor calls of all turns + judged cases)`, for corpus v7
+  `1 + 5 × (50 + 8) = 291`. The full corpus needs no case list, so new corpus
   cases are evaluated without a workflow change. A corpus change that alters the
   call count fails
   `tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts`

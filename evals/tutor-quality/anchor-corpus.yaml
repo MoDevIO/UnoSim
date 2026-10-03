@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 6
+corpusVersion: 7
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -290,3 +290,35 @@ scenarios:
           text: Die Erklärung unterscheidet die vorgeschlagene Änderung korrekt vom bestehenden Sketch.
         - id: expand-scaffolding
           text: Die Folgefrage unterstützt weiteres eigenes Erproben, ohne den vollständigen Code vorzugeben.
+
+  # Negative control for proposal answers: the proposed change is plausible to make, but the
+  # expected observation is wrong for the changed sketch. A Tutor that accepts every proposal
+  # as correct fails this case; the two EXPAND cases above only contain correct proposals.
+  - id: strategy-expand-wrong-effect
+    sketch: evals/tutor-quality/fixtures/serial-output.ino
+    courseContent: progression-expand
+    turns:
+      - kind: initial
+        difficulty: 60
+      - kind: dialog
+        question: "Welche kleine, direkt am aktuellen Sketch prüfbare Erweiterung würdest du als Nächstes selbst umsetzen, um dieses Lernziel zu bearbeiten: „Eine weitere serielle Beobachtung am Sketch ableiten.“, und woran würdest du ihre Wirkung erkennen?"
+        answer: Wenn ich in loop delay(1000) durch delay(500) ersetze, sollten im seriellen Monitor nach und nach steigende Werte erscheinen.
+        difficulty: 60
+        continuationOf: 0
+    expected:
+      learningPhase: EXPAND
+      phaseAfter: EXPAND
+      answerRating: [1, 2]
+    judge:
+      facts:
+        - counter startet bei 3 und wird in setup sowie in loop seriell ausgegeben.
+        - Der Sketch verändert counter nirgends.
+        - delay bestimmt nur die Wartezeit zwischen zwei Ausgaben und verändert keine Variable.
+        - Mit delay(500) statt delay(1000) würde weiterhin der Wert 3 ausgegeben, nur doppelt so häufig.
+      criteria:
+        - id: expand-corrects-expected-effect
+          text: Das Feedback stellt klar, dass die vorgeschlagene Änderung von delay allein keine steigenden Werte von counter erzeugt.
+        - id: expand-explains-evidence
+          text: Die Korrektur bindet sich an die tatsächliche Rolle von delay oder daran, dass counter im Sketch nicht verändert wird.
+        - id: expand-no-replacement-code
+          text: Die Antwort liefert keinen vollständigen Ersatzcode.
