@@ -1,60 +1,35 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TutorProviderError } from "../../../../server/services/tutor/llm-provider";
-import type { TutorPlan, TutorPlanningExtension } from "../../../../server/services/tutor/tutor-planning";
 import { BUILT_IN_TUTOR_STRATEGY } from "../../../../server/services/tutor/strategy/effective-tutor-strategy";
 import { createTutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
-import type { CurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
+import type { CurriculumQuestion, CurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner";
 
 const revision = "a".repeat(40);
 const nextRevision = "b".repeat(40);
 const sketch = "int value = 3; void setup() { Serial.println(value); } void loop() {}";
 
-function metadataOutcome(kind: "transition" | "blocked"): Awaited<ReturnType<TutorPlanningExtension["planFollowup"]>> {
-  const metadata = {
-    contentRevision: revision,
-    learningPhase: "DEEPEN",
-    activeTopicId: "variables-and-serial",
-    masteredTopicIds: ["variables-and-serial"],
-    strategyId: "built-in-default",
-    strategySource: "built-in",
-  } as const;
-  return kind === "blocked"
-    ? { kind, progressionBlockedReason: "content-exhausted", ...metadata, masteredTopicIds: [...metadata.masteredTopicIds] }
-    : { kind, ...metadata, masteredTopicIds: [...metadata.masteredTopicIds] };
-}
+const FIRST_QUESTION: CurriculumQuestion = {
+  id: "first-question",
+  concept: "variable-values",
+  indicator: "value-use",
+  kind: "concept",
+  difficulty: [1, 50],
+  requires: [{ fact: "serial-call", values: ["print"] }],
+  text: "Welche Rolle hat value im Sketch?",
+};
 
-function planningWithFollowup(kind: "transition" | "blocked"): TutorPlanningExtension {
-  return {
-    planInitial: vi.fn().mockResolvedValue(null),
-    planFollowup: vi.fn().mockResolvedValue(metadataOutcome(kind)),
-  };
-}
+const SECOND_QUESTION: CurriculumQuestion = {
+  id: "second-question",
+  concept: "variable-values",
+  indicator: "value-use",
+  kind: "application",
+  difficulty: [1, 50],
+  requires: [{ fact: "serial-call", values: ["print"] }],
+  text: "Wie wird value bei der seriellen Ausgabe verwendet?",
+};
 
-function tutorPlan(): TutorPlan {
-  return {
-    topicId: "variables-and-serial",
-    topicTitle: "Variablen",
-    conceptId: "variable-values",
-    conceptTitle: "Variablenwerte",
-    objective: "Werte erklären",
-    questionId: "planned-question",
-    questionKind: "application",
-    indicatorId: "value-use",
-    indicator: "Ordnet Wert und Verwendung zu",
-    question: "Wie wird value im Serial.println-Aufruf des Sketches verwendet?",
-    misconceptions: [],
-    contentRevision: revision,
-    strategyId: BUILT_IN_TUTOR_STRATEGY.id,
-    strategySource: "built-in",
-    effectiveStrategy: BUILT_IN_TUTOR_STRATEGY,
-    learningPhase: "LEARN",
-    activeTopicId: "variables-and-serial",
-    masteredTopicIds: [],
-  };
-}
-
-function topic(): CurriculumTopic {
+function topic(questions: readonly CurriculumQuestion[] = [FIRST_QUESTION, SECOND_QUESTION]): CurriculumTopic {
   return {
     schemaVersion: 1,
     id: "variables-and-serial",
@@ -77,26 +52,7 @@ function topic(): CurriculumTopic {
         recentWeakAnswersAllowed: 0,
       },
     }],
-    questions: [
-      {
-        id: "first-question",
-        concept: "variable-values",
-        indicator: "value-use",
-        kind: "concept",
-        difficulty: [1, 50],
-        requires: [{ fact: "serial-call", values: ["print"] }],
-        text: "Welche Rolle hat value im Sketch?",
-      },
-      {
-        id: "second-question",
-        concept: "variable-values",
-        indicator: "value-use",
-        kind: "application",
-        difficulty: [1, 50],
-        requires: [{ fact: "serial-call", values: ["print"] }],
-        text: "Wie wird value bei der seriellen Ausgabe verwendet?",
-      },
-    ],
+    questions: questions.map((question) => ({ ...question })),
     scaffolds: [],
     progression: {
       entryConcepts: ["variable-values"],
@@ -111,56 +67,72 @@ function topic(): CurriculumTopic {
   };
 }
 
-function courseContent(contentRevision = revision) {
+function courseContent(contentRevision = revision, questions?: readonly CurriculumQuestion[]) {
   return {
     revision: contentRevision,
     tutor: {
       status: "valid" as const,
       manifest: { schemaVersion: 1 as const, topics: [], strategies: [] },
-      topics: [topic()],
+      topics: [topic(questions)],
       strategies: [],
     },
     progressionState: createTutorProgressionState(contentRevision),
   };
 }
 
+// The Topic is mastered through FIRST_QUESTION; SECOND_QUESTION is its only post-mastery question.
+function deepenContent() {
+  const content = courseContent();
+  content.progressionState = {
+    ...createTutorProgressionState(revision),
+    activeTopicId: "variables-and-serial",
+    phase: "DEEPEN",
+    masteredTopicIds: ["variables-and-serial"],
+    masteryEvidence: {
+      "variables-and-serial": [{ questionId: FIRST_QUESTION.id, conceptId: "variable-values", indicatorId: "value-use", kind: "concept", rating: 5 }],
+    },
+    retainedPhases: { "variables-and-serial": "DEEPEN" },
+  };
+  return content;
+}
+
 describe("Tutor Quality deterministic scenarios", () => {
+  // §3 items 5 and 6 with real planning outcomes (§5): a strong answer that completes LEARN mastery
+  // ends in a transition (the Topic has no further LEARN question), and a DEEPEN answer with no
+  // further post-mastery question ends blocked. Neither outcome carries a question, so the repaired
+  // provider question must survive.
   it.each([
-    ["transition", "exact", "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?"],
-    ["transition", "near", "Welche Rolle hat die Variable value und ihr Wert in diesem Sketch?"],
-    ["blocked", "exact", "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?"],
-    ["blocked", "near", "Welche Rolle hat die Variable value und ihr Wert in diesem Sketch?"],
+    ["transition", "exact", FIRST_QUESTION.text!],
+    ["transition", "near", "Welche Rolle spielt value in diesem Sketch?"],
+    ["blocked", "exact", SECOND_QUESTION.text!],
+    ["blocked", "near", "Wie wird value in der seriellen Ausgabe verwendet?"],
   ] as const)("retains a repaired %s/%s duplicate question", async (kind, _similarity, candidate) => {
-    const currentQuestion = "Welche Rolle spielt der Wert der Variable value im aktuellen Sketch?";
+    const content = kind === "transition" ? courseContent(revision, [FIRST_QUESTION]) : deepenContent();
+    const currentQuestion = kind === "transition" ? FIRST_QUESTION.text! : SECOND_QUESTION.text!;
     const trace = await runTutorQualityScenario({
       id: `TQ-ADV-repeat-${kind}`,
       code: sketch,
       action: { kind: "dialog", question: currentQuestion, answer: "value hat den Wert 3 und wird ausgegeben." },
-      provider: {
-        kind: "result",
-        result: {
-          answerRating: 5,
-          question: candidate,
-        },
-      },
-      planning: planningWithFollowup(kind),
+      provider: { kind: "result", result: { answerRating: 5, question: candidate } },
+      courseContent: content,
     });
 
     expect(trace.error).toBeUndefined();
+    expect(trace.result?.question).not.toBe(candidate);
+    expect(trace.result?.question).not.toBe(currentQuestion);
+    expect(trace.result).not.toHaveProperty("questionId");
     expect(trace.result).toMatchObject({
-      learningPhase: "DEEPEN",
       contentRevision: revision,
       activeTopicId: "variables-and-serial",
+      masteredTopicIds: ["variables-and-serial"],
+      ...(kind === "transition"
+        ? { learningPhase: "LEARN" }
+        : { learningPhase: "DEEPEN", progressionBlockedReason: "content-exhausted" }),
     });
-    expect(trace.result?.question).not.toBe(candidate);
+    expect(trace.stateAfter).toMatchObject({ activeTopicId: "variables-and-serial", phase: "DEEPEN" });
   });
 
   it("lets an application-owned TutorPlan replace provider question and metadata", async () => {
-    const plan = tutorPlan();
-    const planning: TutorPlanningExtension = {
-      planInitial: vi.fn().mockResolvedValue(plan),
-      planFollowup: vi.fn().mockResolvedValue(null),
-    };
     const trace = await runTutorQualityScenario({
       id: "TQ-ADV-plan-authority",
       code: sketch,
@@ -174,13 +146,14 @@ describe("Tutor Quality deterministic scenarios", () => {
           learningPhase: "EXPAND",
         },
       },
-      planning,
+      courseContent: courseContent(revision, [FIRST_QUESTION]),
     });
 
+    expect(trace.error).toBeUndefined();
     expect(trace.result).toMatchObject({
-      question: plan.question,
-      topicId: plan.topicId,
-      questionId: plan.questionId,
+      question: FIRST_QUESTION.text,
+      topicId: "variables-and-serial",
+      questionId: FIRST_QUESTION.id,
       learningPhase: "LEARN",
     });
   });

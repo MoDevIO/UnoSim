@@ -2,7 +2,7 @@ import type { TutorContentResult, TutorDialogTurn, TutorDifficulty } from "@shar
 import type { LLMProvider, LLMProviderRequest } from "../../../../../server/services/tutor/llm-provider";
 import { TutorService } from "../../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../../server/services/tutor/curriculum-tutor-adapter";
-import type { TutorPlanningContentContext, TutorPlanningExtension } from "../../../../../server/services/tutor/tutor-planning";
+import type { TutorPlanningContentContext } from "../../../../../server/services/tutor/tutor-planning";
 import type { TutorProgressionState } from "../../../../../server/services/tutor/curriculum/progression-state";
 
 type ProviderBehavior =
@@ -25,7 +25,6 @@ export interface TutorQualityScenario {
   readonly provider: ProviderBehavior;
   readonly difficulty?: TutorDifficulty;
   readonly courseContent?: TutorPlanningContentContext;
-  readonly planning?: TutorPlanningExtension;
 }
 
 export interface TutorQualityScenarioTrace {
@@ -53,7 +52,9 @@ export async function runTutorQualityScenario(scenario: TutorQualityScenario): P
     },
   };
   const stateBefore = cloneState(scenario.courseContent?.progressionState);
-  const planning = scenario.planning ?? (scenario.courseContent ? new CurriculumTutorAdapter() : undefined);
+  // TutorQuality SSOT §5: only the external provider is faked; Course Content is always planned by
+  // the real adapter, so a scenario cannot script a planning outcome.
+  const planning = scenario.courseContent ? new CurriculumTutorAdapter() : undefined;
   const service = new TutorService(provider, planning);
   try {
     const response = scenario.action.kind === "initial"
