@@ -45,12 +45,12 @@ concurrency:
 env:
   # Weekly L3 configuration: full corpus, fixed models, budget per R-BUD-2.
   # SCHEDULED_MAX_CALLS = 1 + SCHEDULED_SAMPLES × (Tutor calls of all corpus turns + judged cases)
-  # = 1 + 5 × (46 + 7) = 266 for corpus v6 (23 turns × 2 calls, one local off-topic fallback with 0);
+  # = 1 + 5 × (50 + 8) = 291 for corpus v7 (25 turns × 2 calls, one local off-topic fallback with 0);
   # tests/server/services/tutor/evaluation/tutor-quality-workflow.test.ts recomputes it from the call graph.
   SCHEDULED_TUTOR_MODEL: openai-gpt5.4-mini
   SCHEDULED_JUDGE_MODEL: openai-gpt5.5
   SCHEDULED_SAMPLES: "5"
-  SCHEDULED_MAX_CALLS: "266"
+  SCHEDULED_MAX_CALLS: "291"
 
 jobs:
   evaluate:
