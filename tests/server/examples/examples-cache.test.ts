@@ -58,7 +58,7 @@ describe("external examples cache", () => {
     const first = cache.withSourceSingleflight(key, load);
     const second = cache.withSourceSingleflight(key, load);
     const different = cache.withSourceSingleflight(toSourceCacheKey("owner/repo", "preview"), load);
-    expect(loads).toBe(2);
+    await vi.waitFor(() => expect(loads).toBe(2));
     release();
     await Promise.all([first, second, different]);
     expect(loads).toBe(2);

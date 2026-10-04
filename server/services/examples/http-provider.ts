@@ -51,11 +51,14 @@ export function validateSourceUrl(value: string): URL {
 }
 
 async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal): Promise<string> {
+  requestSignal?.throwIfAborted();
   const validated = validateSourceUrl(url.toString());
   await assertPublicHost(validated.hostname);
+  requestSignal?.throwIfAborted();
   const controller = new AbortController();
   const abort = () => controller.abort(requestSignal?.reason);
-  requestSignal?.addEventListener("abort", abort, { once: true });
+  if (requestSignal?.aborted) abort();
+  else requestSignal?.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.examples.timeoutMs);
   try {
     const response = await fetch(validated, { signal: controller.signal, redirect: "manual" });

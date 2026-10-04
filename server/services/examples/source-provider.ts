@@ -69,12 +69,15 @@ export class SourceProvider {
     }
 
     try {
-      return await this.cache.withSourceSingleflight(sourceKey, () =>
+      return await this.cache.withSourceSingleflight(sourceKey, (signal) =>
         this.loads.runLoad(async () => {
-          const revision = await this.resolver.resolve(repository, ref, context);
+          const loadContext = { ...context, signal };
+          const revision = await this.resolver.resolve(repository, ref, loadContext);
+          signal.throwIfAborted();
           const revisionKey = toRevisionCacheKey(repository, revision);
           const cachedSnapshot = this.cache.getRevision(revisionKey);
-          const loadedSnapshot = cachedSnapshot ?? await this.loadRevision(repository, revision, context);
+          const loadedSnapshot = cachedSnapshot ?? await this.loadRevision(repository, revision, loadContext);
+          signal.throwIfAborted();
           const checkedAt = this.now();
           const activated = this.cache.activateSource(sourceKey, {
             repository,
@@ -91,9 +94,11 @@ export class SourceProvider {
             status: cachedSnapshot ? "cache" as const : "remote" as const,
             stale: false,
           };
-        }, context.signal),
+        }, signal),
+        context.signal,
       );
     } catch (error) {
+      if (context.signal?.aborted) throw context.signal.reason ?? error;
       const lastGood = this.cache.markSourceFailure(
         sourceKey,
         this.now() + Math.min(
@@ -125,10 +130,10 @@ export class SourceProvider {
     context: RequestContext,
   ): Promise<Omit<RevisionCacheEntry, "lastAccessedAt">> {
     const key = toRevisionCacheKey(repository, revision);
-    return this.cache.withRevisionSingleflight(key, async () => {
-      const loaded = await this.revisionLoader.load(repository, revision, context.signal);
+    return this.cache.withRevisionSingleflight(key, async (signal) => {
+      const loaded = await this.revisionLoader.load(repository, revision, signal);
       return { repository, revision, ...loaded };
-    });
+    }, context.signal);
   }
 
   private fromEntry(entry: SourceCacheEntry): ResolvedSourceSnapshot {

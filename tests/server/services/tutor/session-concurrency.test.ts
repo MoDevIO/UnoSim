@@ -37,6 +37,63 @@ function delayedProvider(delayByQuestion: Record<string, number>): LLMProvider {
 }
 
 describe("Tutor session concurrency", () => {
+  it("does not commit progression when the request aborts before the provider result is consumed", async () => {
+    const { context } = await pinnedSession();
+    const before = structuredClone(context.progressionState);
+    const controller = new AbortController();
+    let notifyProviderStarted!: (signal: AbortSignal | undefined) => void;
+    let releaseProvider!: () => void;
+    const providerStarted = new Promise<AbortSignal | undefined>((resolve) => { notifyProviderStarted = resolve; });
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn(async (_request: LLMProviderRequest, _credential: string, signal?: AbortSignal) => {
+        notifyProviderStarted(signal);
+        await new Promise<void>((resolve) => { releaseProvider = resolve; });
+        return { model: "pilot-model", result: { question: "Welche Folge erwartest du?", responseStyle: "normal" as const } };
+      }),
+    };
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
+    const pending = service.generateQuestion(CODE, "key", undefined, 30, context, controller.signal);
+
+    const providerSignal = await providerStarted;
+    controller.abort();
+    releaseProvider();
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(providerSignal).toBe(controller.signal);
+    expect(context.progressionState).toEqual(before);
+  });
+
+  it("does not start a same-session queued request after it has been aborted", async () => {
+    const { context } = await pinnedSession();
+    let releaseFirst!: () => void;
+    let notifyFirstStarted!: () => void;
+    let providerCalls = 0;
+    const firstStarted = new Promise<void>((resolve) => { notifyFirstStarted = resolve; });
+    const provider: LLMProvider = {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn(async (_request: LLMProviderRequest, _credential: string, _signal?: AbortSignal) => {
+        providerCalls += 1;
+        if (providerCalls === 1) {
+          notifyFirstStarted();
+          await new Promise<void>((resolve) => { releaseFirst = resolve; });
+        }
+        return { model: "pilot-model", result: { question: "Welche Folge erwartest du?", responseStyle: "normal" as const } };
+      }),
+    };
+    const service = new TutorService(provider);
+    const first = service.generateQuestion(CODE, "key", undefined, 30, context);
+    await firstStarted;
+    const controller = new AbortController();
+    const queued = service.generateQuestion(CODE, "key", undefined, 30, context, controller.signal);
+    controller.abort();
+    releaseFirst();
+
+    await first;
+    await expect(queued).rejects.toMatchObject({ name: "AbortError" });
+    expect(providerCalls).toBe(1);
+  });
+
   it("keeps the evidence of two answers that overlap on the same session", async () => {
     const { context, questions } = await pinnedSession();
     const first = questions["int-width-direct"]!;

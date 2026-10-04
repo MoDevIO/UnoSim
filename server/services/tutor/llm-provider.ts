@@ -27,6 +27,7 @@ export interface StructuredLLMProvider {
   generateStructuredResponse(
     request: StructuredLLMProviderRequest,
     credential: string,
+    signal?: AbortSignal,
   ): Promise<ProviderStructuredResult>;
 }
 
@@ -49,9 +50,10 @@ export class TutorProviderError extends Error {
 }
 
 export interface LLMProvider {
-  listModels(credential: string): Promise<readonly string[]>;
+  listModels(credential: string, signal?: AbortSignal): Promise<readonly string[]>;
   generateLearningQuestion(
     request: LLMProviderRequest,
     credential: string,
+    signal?: AbortSignal,
   ): Promise<ProviderQuestionResult>;
 }

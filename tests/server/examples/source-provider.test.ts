@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { ExamplesCache } from "../../../server/services/examples/examples-cache";
+import { ExamplesCache, toSourceCacheKey } from "../../../server/services/examples/examples-cache";
 import { ExamplesLoadController } from "../../../server/services/examples/examples-load-controller";
-import { SourceProvider } from "../../../server/services/examples/source-provider";
+import { SourceProvider, type RequestContext } from "../../../server/services/examples/source-provider";
 
 const revisionA = "a".repeat(40);
 const revisionB = "b".repeat(40);
@@ -18,7 +18,7 @@ function snapshot(marker: string) {
 }
 
 function harness(
-  resolve: (repository: string, ref: string) => Promise<string>,
+  resolve: (repository: string, ref: string, context: RequestContext) => Promise<string>,
   load: (_repository: string, revision: string) => Promise<ReturnType<typeof snapshot>>,
 ) {
   let now = 0;
@@ -85,6 +85,99 @@ describe("repository/ref source provider", () => {
       revision: revisionB, stale: false,
     });
     expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not mark a source stale when a request aborts during refresh", async () => {
+    const controller = new AbortController();
+    const resolver = vi.fn()
+      .mockResolvedValueOnce(revisionA)
+      .mockImplementationOnce(async (_repository: string, _ref: string, request: RequestContext) => {
+        controller.abort();
+        throw request.signal?.reason;
+      })
+      .mockResolvedValue(revisionA);
+    const loader = vi.fn(async () => snapshot("a"));
+    const { provider, setNow } = harness(resolver, loader);
+    await provider.resolve("owner/repo", "main", context, false);
+    setNow(101);
+
+    await expect(provider.resolve("owner/repo", "main", { ...context, signal: controller.signal }, false))
+      .rejects.toMatchObject({ name: "AbortError" });
+    await expect(provider.resolve("owner/repo", "main", context, false)).resolves.toMatchObject({ stale: false });
+    expect(resolver).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps a shared refresh alive while another request still needs it", async () => {
+    let release!: () => void;
+    let loadSignal!: AbortSignal;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const resolver = vi.fn(async (_repository: string, _ref: string, request: RequestContext) => {
+      loadSignal = request.signal!;
+      await gate;
+      return revisionA;
+    });
+    const loader = vi.fn(async () => snapshot("a"));
+    const { provider } = harness(resolver, loader);
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = provider.resolve("owner/repo", "main", { ...context, signal: firstController.signal }, false);
+    const second = provider.resolve("owner/repo", "main", { ...context, requestId: "request-b", signal: secondController.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    firstController.abort(new DOMException("First client left", "AbortError"));
+    expect(loadSignal.aborted).toBe(false);
+    release();
+
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).resolves.toMatchObject({ revision: revisionA, stale: false });
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts a shared refresh after its final request leaves", async () => {
+    let loadSignal!: AbortSignal;
+    const resolver = vi.fn(async (_repository: string, _ref: string, request: RequestContext) => {
+      loadSignal = request.signal!;
+      return new Promise<string>((_resolve, reject) => {
+        loadSignal.addEventListener("abort", () => reject(loadSignal.reason), { once: true });
+      });
+    });
+    const { provider } = harness(resolver, vi.fn(async () => snapshot("a")));
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = provider.resolve("owner/repo", "main", { ...context, signal: firstController.signal }, false);
+    const second = provider.resolve("owner/repo", "main", { ...context, requestId: "request-b", signal: secondController.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    firstController.abort(new DOMException("First client left", "AbortError"));
+    secondController.abort(new DOMException("Second client left", "AbortError"));
+
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(loadSignal.aborted).toBe(true);
+  });
+
+  it("does not activate a source after every request cancels", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const resolver = vi.fn()
+      .mockResolvedValueOnce(revisionA)
+      .mockImplementationOnce(async () => {
+        await gate;
+        return revisionA;
+      });
+    const { provider, cache, setNow } = harness(resolver, vi.fn(async () => snapshot("a")));
+    await provider.resolve("owner/repo", "main", context, false);
+    setNow(101);
+    const controller = new AbortController();
+    const pending = provider.resolve("owner/repo", "main", { ...context, signal: controller.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    controller.abort(new DOMException("Client left", "AbortError"));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    release();
+    await vi.waitFor(() => expect(cache.getStats().sourceFlights).toBe(0));
+
+    expect(cache.getSource(toSourceCacheKey("owner/repo", "main"))?.checkedAt).toBe(0);
   });
 
   it("shares singleflight only for identical repository/ref sources", async () => {

@@ -15,6 +15,39 @@ import { rankTutorModels } from "./model-preference";
 
 export const TUTOR_TEMPERATURE = 0.2;
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+async function withProviderTimeout<T>(
+  requestSignal: AbortSignal | undefined,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  requestSignal?.throwIfAborted();
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromRequest = () => controller.abort(requestSignal?.reason);
+  requestSignal?.addEventListener("abort", abortFromRequest, { once: true });
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, config.tutor.timeoutMs);
+
+  try {
+    const result = await operation(controller.signal);
+    requestSignal?.throwIfAborted();
+    return result;
+  } catch (error) {
+    if (requestSignal?.aborted) throw requestSignal.reason ?? error;
+    if (error instanceof TutorProviderError) throw error;
+    if (timedOut || isAbortError(error)) throw new TutorProviderError("provider-timeout");
+    throw new TutorProviderError("provider-unavailable");
+  } finally {
+    globalThis.clearTimeout(timeout);
+    requestSignal?.removeEventListener("abort", abortFromRequest);
+  }
+}
+
 const completionChoicesSchema = z.array(z.object({
   message: z.object({
     content: z.unknown(),
@@ -190,13 +223,11 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
   private readonly baseUrl = config.tutor.baseUrl;
   private readonly logger = new Logger("KiconnectProvider");
 
-  async listModels(credential: string): Promise<readonly string[]> {
-    const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), config.tutor.timeoutMs);
-    try {
+  async listModels(credential: string, signal?: AbortSignal): Promise<readonly string[]> {
+    return withProviderTimeout(signal, async (providerSignal) => {
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: { Authorization: `Bearer ${credential}` },
-        signal: controller.signal,
+        signal: providerSignal,
       });
       if (!response.ok) {
         throw providerErrorForStatus(response.status, parseRetryAfter(response.headers.get("retry-after")));
@@ -206,25 +237,15 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
         throw new TutorProviderError("model-unavailable");
       }
       return [...new Set(parsed.data.data.map(({ id }) => id))];
-    } catch (error) {
-      if (error instanceof TutorProviderError) throw error;
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new TutorProviderError("provider-timeout");
-      }
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new TutorProviderError("provider-timeout");
-      }
-      throw new TutorProviderError("provider-unavailable");
-    } finally {
-      globalThis.clearTimeout(timeout);
-    }
+    });
   }
 
   async generateLearningQuestion(
     request: LLMProviderRequest,
     credential: string,
+    signal?: AbortSignal,
   ): Promise<ProviderQuestionResult> {
-    const model = await this.resolveModel(request.model, credential);
+    const model = await this.resolveModel(request.model, credential, signal);
     const body = await this.requestChatCompletion({
       model,
       temperature: TUTOR_TEMPERATURE,
@@ -232,13 +253,14 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
         { role: "system", content: request.systemPrompt },
         { role: "user", content: request.userPrompt },
       ],
-    }, credential);
+    }, credential, signal);
     return parseProviderQuestion(body, this.logger);
   }
 
   async generateStructuredResponse(
     request: StructuredLLMProviderRequest,
     credential: string,
+    signal?: AbortSignal,
   ): Promise<ProviderStructuredResult> {
     const body = await this.requestChatCompletion({
       model: request.model,
@@ -248,7 +270,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
         { role: "user", content: request.userPrompt },
       ],
       response_format: { type: "json_object" },
-    }, credential);
+    }, credential, signal);
 
     const parsed = structuredCompletionSchema.safeParse(body);
     if (!parsed.success) throw new TutorProviderError("invalid-response");
@@ -269,11 +291,9 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
   private async requestChatCompletion(
     requestBody: ChatCompletionRequestBody,
     credential: string,
+    signal?: AbortSignal,
   ): Promise<unknown> {
-    const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), config.tutor.timeoutMs);
-
-    try {
+    return withProviderTimeout(signal, async (providerSignal) => {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
@@ -281,29 +301,18 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
           Authorization: `Bearer ${credential}`,
         },
         body: JSON.stringify(requestBody),
-        signal: controller.signal,
+        signal: providerSignal,
       });
       if (!response.ok) {
         throw providerErrorForStatus(response.status, parseRetryAfter(response.headers.get("retry-after")));
       }
       return await response.json().catch(() => null);
-    } catch (error) {
-      if (error instanceof TutorProviderError) throw error;
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new TutorProviderError("provider-timeout");
-      }
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new TutorProviderError("provider-timeout");
-      }
-      throw new TutorProviderError("provider-unavailable");
-    } finally {
-      globalThis.clearTimeout(timeout);
-    }
+    });
   }
 
-  private async resolveModel(model: string, credential: string): Promise<string> {
+  private async resolveModel(model: string, credential: string, signal?: AbortSignal): Promise<string> {
     if (model !== "auto") return model;
-    const modelId = rankTutorModels(await this.listModels(credential))[0];
+    const modelId = rankTutorModels(await this.listModels(credential, signal))[0];
     if (!modelId) throw new TutorProviderError("model-unavailable");
     return modelId;
   }

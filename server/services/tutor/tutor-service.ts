@@ -63,7 +63,12 @@ type TutorDialogArguments = [
   requestedModel: string | undefined,
   difficulty?: TutorDifficulty,
   courseContent?: TutorPlanningContentContext,
+  signal?: AbortSignal,
 ];
+
+function throwIfTutorRequestAborted(signal: AbortSignal | undefined): void {
+  signal?.throwIfAborted();
+}
 
 type TutorPromptOptions = {
   readonly didacticBrief?: TutorPlan;
@@ -655,11 +660,19 @@ export class TutorService {
     private readonly planningExtension?: TutorPlanningExtension,
   ) {}
 
-  private inSessionOrder<T>(courseContent: TutorPlanningContentContext | undefined, request: () => Promise<T>): Promise<T> {
+  private inSessionOrder<T>(
+    courseContent: TutorPlanningContentContext | undefined,
+    request: () => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const state = courseContent?.progressionState;
-    if (!state) return request();
+    const run = () => {
+      throwIfTutorRequestAborted(signal);
+      return request();
+    };
+    if (!state) return run();
     const previous = this.sessionQueues.get(state) ?? Promise.resolve();
-    const current = previous.then(request, request);
+    const current = previous.then(run, run);
     this.sessionQueues.set(state, current.catch(() => undefined));
     return current;
   }
@@ -670,8 +683,13 @@ export class TutorService {
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
     courseContent?: TutorPlanningContentContext,
+    signal?: AbortSignal,
   ): Promise<TutorServiceResponse> {
-    return this.inSessionOrder(courseContent, () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent));
+    return this.inSessionOrder(
+      courseContent,
+      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal),
+      signal,
+    );
   }
 
   private async generateQuestionInSession(
@@ -680,17 +698,23 @@ export class TutorService {
     requestedModel: string | undefined,
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
+    signal?: AbortSignal,
   ): Promise<TutorServiceResponse> {
+    throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
     const context = buildTutorContext(code);
     const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
       ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
       : null;
-    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
+    throwIfTutorRequestAborted(signal);
+    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(code, transaction.courseContent, signal);
+    throwIfTutorRequestAborted(signal);
+    const model = await this.resolveModel(requestedModel, requestCredential, signal);
+    throwIfTutorRequestAborted(signal);
     const providerResult: ProviderQuestionResult = await this.provider.generateLearningQuestion(
       {
-        model: await this.resolveModel(requestedModel, requestCredential),
+        model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildUserPrompt(
           code,
@@ -702,11 +726,14 @@ export class TutorService {
         ),
       },
       requestCredential,
+      ...(signal ? [signal] : []),
     );
+    throwIfTutorRequestAborted(signal);
     const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     const plannedResult = planningResult
       ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
+    throwIfTutorRequestAborted(signal);
     transaction.commit();
     const { answerRating: _initialAnswerRating, ...initialResult } = plannedResult;
     return {
@@ -717,16 +744,18 @@ export class TutorService {
   }
 
   async generateDialogResponse(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
-    return this.inSessionOrder(args[7], () => this.generateDialogResponseInSession(...args));
+    return this.inSessionOrder(args[7], () => this.generateDialogResponseInSession(...args), args[8]);
   }
 
   private async generateDialogResponseInSession(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
-    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal] = args;
+    throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
     const transaction = beginTutorPlanningTransaction(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
-      const strategy = await this.resolveStrategy(code, transaction.courseContent);
+      const strategy = await this.resolveStrategy(code, transaction.courseContent, signal);
+      throwIfTutorRequestAborted(signal);
       return {
         model: requestedModel ?? "fallback",
         result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
@@ -736,11 +765,15 @@ export class TutorService {
     const context = buildTutorContext(code);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
-    const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent);
-    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent);
+    const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent, signal);
+    throwIfTutorRequestAborted(signal);
+    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent, signal);
+    throwIfTutorRequestAborted(signal);
+    const model = await this.resolveModel(requestedModel, requestCredential, signal);
+    throwIfTutorRequestAborted(signal);
     const providerResult = await this.provider.generateLearningQuestion(
       {
-        model: await this.resolveModel(requestedModel, requestCredential),
+        model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
@@ -749,7 +782,9 @@ export class TutorService {
         }),
       },
       requestCredential,
+      ...(signal ? [signal] : []),
     );
+    throwIfTutorRequestAborted(signal);
     const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
@@ -761,8 +796,11 @@ export class TutorService {
       difficulty,
       strategy,
       courseContent: transaction.courseContent,
+      signal,
     });
+    throwIfTutorRequestAborted(signal);
     const finalResult = followUp.result.strategyId ? followUp.result : applyStrategyMetadata(followUp.result, strategy);
+    throwIfTutorRequestAborted(signal);
     transaction.commit();
     return {
       model: providerResult.model,
@@ -782,6 +820,7 @@ export class TutorService {
       readonly difficulty: TutorDifficulty;
       readonly strategy: StrategyResolution;
       readonly courseContent?: TutorPlanningContentContext;
+      readonly signal?: AbortSignal;
     },
   ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
     if (validatedResult.responseStyle !== "normal") return { result: validatedResult, followUpSource: "provider" };
@@ -797,6 +836,7 @@ export class TutorService {
         difficulty: context.difficulty,
         courseContent: context.courseContent,
       });
+      throwIfTutorRequestAborted(context.signal);
       if (nextPlan) {
         result = applyPlanningOutcome(result, nextPlan);
         if (isTutorPlan(nextPlan)) followUpSource = "planner";
@@ -811,16 +851,22 @@ export class TutorService {
     currentQuestion: string,
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
+    signal?: AbortSignal,
   ): Promise<PlanningResult | null> {
     // Never planInitial here: planning a new question while only evaluating an answer could
     // reserve content. Without planAnswered the prompt simply carries no didactic context.
     if (!this.planningExtension?.planAnswered) return null;
-    return this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
+    const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
+    throwIfTutorRequestAborted(signal);
+    return result;
   }
 
-  async getAvailableModels(credential: string | undefined): Promise<readonly string[]> {
+  async getAvailableModels(credential: string | undefined, signal?: AbortSignal): Promise<readonly string[]> {
+    throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
-    return this.provider.listModels(requestCredential);
+    const models = await this.provider.listModels(requestCredential, ...(signal ? [signal] : []));
+    throwIfTutorRequestAborted(signal);
+    return models;
   }
 
   private resolveCredential(credential: string | undefined): string {
@@ -831,18 +877,22 @@ export class TutorService {
     return requestCredential;
   }
 
-  private async resolveModel(requestedModel: string | undefined, credential: string): Promise<string> {
+  private async resolveModel(requestedModel: string | undefined, credential: string, signal?: AbortSignal): Promise<string> {
     const model = requestedModel ?? "auto";
     if (model === "auto") return model;
-    const availableModels = await this.provider.listModels(credential);
+    const availableModels = await this.provider.listModels(credential, ...(signal ? [signal] : []));
+    throwIfTutorRequestAborted(signal);
     return availableModels.includes(model) ? model : "auto";
   }
 
-  private async resolveStrategy(code?: string, courseContent?: TutorPlanningContentContext): Promise<StrategyResolution> {
+  private async resolveStrategy(code?: string, courseContent?: TutorPlanningContentContext, signal?: AbortSignal): Promise<StrategyResolution> {
     if (this.planningExtension?.resolveStrategy) {
       try {
-        return await this.planningExtension.resolveStrategy({ code, courseContent });
+        const strategy = await this.planningExtension.resolveStrategy({ code, courseContent });
+        throwIfTutorRequestAborted(signal);
+        return strategy;
       } catch {
+        throwIfTutorRequestAborted(signal);
         // A strategy resolver is optional planning context; the built-in policy remains authoritative.
       }
     }
