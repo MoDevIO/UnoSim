@@ -135,18 +135,6 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     };
   }
 
-  async getTutorContent(request: ResolvedTutorCourseContent, context: RequestContext): Promise<ResolvedTutorCourseContent> {
-    const snapshot = await this.sourceProvider.getRevision(request.repository, request.revision, context);
-    this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
-    return {
-      ...request,
-      tutor: snapshot.tutor ?? { status: "absent" },
-      ...(request.exampleId !== undefined && snapshot.exampleTutorAnnotations?.has(request.exampleId)
-        ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
-        : {}),
-    };
-  }
-
   private assertExampleInSnapshot(examples: readonly ExampleRecord[], exampleId: string | undefined): void {
     if (exampleId !== undefined && !examples.some(({ id }) => id === exampleId)) {
       throw new ExamplesError("EXAMPLE_NOT_FOUND", "Course Content example is not in the selected revision");
