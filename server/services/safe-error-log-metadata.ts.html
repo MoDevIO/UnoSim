@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/services/registry-logic.ts</title>
+    <title>Code coverage report for server/services/safe-error-log-metadata.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/services</a> registry-logic.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/services</a> safe-error-log-metadata.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">54.54% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>16/16</span>
+                <span class='fraction'>6/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.71% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/14</span>
+                <span class='fraction'>5/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">60% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/11</span>
+                <span class='fraction'>6/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -83,42 +83,42 @@
 <a name='L18'></a><a href='#L18'>18</a>
 <a name='L19'></a><a href='#L19'>19</a>
 <a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">18x</span>
-<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">352x</span>
-<span class="cline-any cline-yes">352x</span>
-<span class="cline-any cline-yes">352x</span>
-<span class="cline-any cline-yes">350x</span>
-<span class="cline-any cline-yes">350x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">352x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { IOPinRecord } from "@shared/schema";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export function safeErrorLogMetadata(error: unknown): string {
+  const errorType = error instanceof Error ? error.name : <span class="branch-1 cbranch-no" title="branch not covered" >typeof error;</span>
+  let messageBytes = 0;
+  if (error instanceof Error) {
+    messageBytes = Buffer.byteLength(error.message);
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="else path not taken" >E</span>} else if (typeof error === "string") {</span>
+<span class="cstat-no" title="statement not covered" >    messageBytes = Buffer.byteLength(error);</span>
+  }
+  const errorCode = error instanceof Error &amp;&amp; "code" in error &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >typeof error.code === "string"</span>
+    ? <span class="branch-0 cbranch-no" title="branch not covered" >" code=" + error.code</span>
+    : "";
 &nbsp;
-export function mergeRegistryUsage(existing: IOPinRecord["usedAt"], incoming: IOPinRecord["usedAt"]): IOPinRecord["usedAt"] {
-  const merged = [...(existing ?? <span class="branch-1 cbranch-no" title="branch not covered" >[]), .</span>..(incoming ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])]</span>;
-  if (merged.length === 0) return undefined;
-  const unique = new Map&lt;string, (typeof merged)[number]&gt;();
-  for (const entry of merged) unique.set(`${entry.operation}@${entry.line}`, entry);
-  return [...unique.values()];
+  return errorType + errorCode + ", " + messageBytes + " diagnostic bytes";
 }
 &nbsp;
-export function cleanRegistryRecord(pin: IOPinRecord): IOPinRecord {
-  const cleaned = { ...pin };
-  if (cleaned.definedAt?.line === 0) delete cleaned.definedAt;
-  if (cleaned.usedAt) {
-    cleaned.usedAt = cleaned.usedAt.filter((entry) =&gt; entry.line !== 0 || !!entry.operation);
-    if (cleaned.usedAt.length === 0) delete cleaned.usedAt;
-  }
-  return cleaned;
+export function <span class="fstat-no" title="function not covered" >safeErrorStackFrames(e</span>rror: unknown): string {
+<span class="cstat-no" title="statement not covered" >  if (!(error instanceof Error) || !error.stack) <span class="cstat-no" title="statement not covered" >return "";</span></span>
+<span class="cstat-no" title="statement not covered" >  return error.stack.split("\n").slice(1, 6).join("\n");</span>
 }
 &nbsp;</pre></td></tr></table></pre>
 
