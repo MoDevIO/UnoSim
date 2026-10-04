@@ -238,7 +238,8 @@ jobs:
           cache-to: type=gha,scope=unosim-production,mode=max
 
       - name: Verify Arduino CLI in Production Image
-        run: docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
+        run: |
+          docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
 
       - name: Run Docker sandbox tests
         run: npm run test:docker
