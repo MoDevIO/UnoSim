@@ -73,9 +73,11 @@ export class SourceProvider {
         this.loads.runLoad(async () => {
           const loadContext = { ...context, signal };
           const revision = await this.resolver.resolve(repository, ref, loadContext);
+          signal.throwIfAborted();
           const revisionKey = toRevisionCacheKey(repository, revision);
           const cachedSnapshot = this.cache.getRevision(revisionKey);
           const loadedSnapshot = cachedSnapshot ?? await this.loadRevision(repository, revision, loadContext);
+          signal.throwIfAborted();
           const checkedAt = this.now();
           const activated = this.cache.activateSource(sourceKey, {
             repository,

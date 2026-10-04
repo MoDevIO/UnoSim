@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ExamplesCache } from "../../../server/services/examples/examples-cache";
+import { ExamplesCache, toSourceCacheKey } from "../../../server/services/examples/examples-cache";
 import { ExamplesLoadController } from "../../../server/services/examples/examples-load-controller";
 import { SourceProvider, type RequestContext } from "../../../server/services/examples/source-provider";
 
@@ -154,6 +154,30 @@ describe("repository/ref source provider", () => {
     await expect(first).rejects.toMatchObject({ name: "AbortError" });
     await expect(second).rejects.toMatchObject({ name: "AbortError" });
     expect(loadSignal.aborted).toBe(true);
+  });
+
+  it("does not activate a source after every request cancels", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const resolver = vi.fn()
+      .mockResolvedValueOnce(revisionA)
+      .mockImplementationOnce(async () => {
+        await gate;
+        return revisionA;
+      });
+    const { provider, cache, setNow } = harness(resolver, vi.fn(async () => snapshot("a")));
+    await provider.resolve("owner/repo", "main", context, false);
+    setNow(101);
+    const controller = new AbortController();
+    const pending = provider.resolve("owner/repo", "main", { ...context, signal: controller.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    controller.abort(new DOMException("Client left", "AbortError"));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    release();
+    await vi.waitFor(() => expect(cache.getStats().sourceFlights).toBe(0));
+
+    expect(cache.getSource(toSourceCacheKey("owner/repo", "main"))?.checkedAt).toBe(0);
   });
 
   it("shares singleflight only for identical repository/ref sources", async () => {
