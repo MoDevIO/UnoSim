@@ -8,7 +8,8 @@ import { compileMetricsTracker } from "../services/server-metrics";
 import path from "node:path";
 import type { RequestIdentity } from "../security/access-control";
 import type { RateLimitResult } from "../services/rate-limiter";
-import { operationError } from "@shared/operation-errors";
+import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
+import { CompileCapacityError } from "../services/compilation-worker-pool";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -200,6 +201,12 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
       res.json(clientResult);
     } catch (error) {
+      if (error instanceof CompileCapacityError) {
+        const retryAfter = 5;
+        logger.warn(`[Compiler Route] Compile capacity exhausted: ${error.message}`);
+        res.setHeader("Retry-After", String(retryAfter));
+        return res.status(503).json({ error: operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, retryAfter) });
+      }
       recordCompileErrorIfNeeded(compiler, compileStartTime, error);
       logger.error(`[Compiler Route] Error during /api/compile: ${error instanceof Error ? error.message : String(error)}`);
       res.status(500).json({ error: "Compilation failed" });

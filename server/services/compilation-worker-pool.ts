@@ -47,6 +47,27 @@ interface CompilationTask {
   resolve: (result: CompilationResult) => void;
   reject: (error: Error) => void;
   startTime: number;
+  queueTimer?: NodeJS.Timeout;
+}
+
+/**
+ * The pool is full or a compile waited too long for a worker. This is
+ * backpressure, not a pool failure: callers must not retry it on the main
+ * thread, they report the server as busy.
+ */
+export class CompileCapacityError extends Error {
+  readonly name = "CompileCapacityError";
+}
+
+/** Same bounds as the unified gatekeeper queue (500 waiting, 30 s wait). */
+const DEFAULT_MAX_QUEUE = 500;
+const DEFAULT_QUEUE_TIMEOUT_MS = 30_000;
+
+export interface CompilationWorkerPoolOptions {
+  /** Compiles allowed to wait for a worker; further compiles are rejected. */
+  maxQueue?: number;
+  /** Longest wait for a worker before a compile is rejected. */
+  queueTimeoutMs?: number;
 }
 
 interface ActiveCompilation {
@@ -68,6 +89,8 @@ export class CompilationWorkerPool {
   private readonly queue: CompilationTask[] = [];
   private readonly activeCompilations = new Map<number, ActiveCompilation>();
   private isInitialized: boolean = false;
+  private readonly maxQueue: number;
+  private readonly queueTimeoutMs: number;
 
   private readonly stats = {
     totalTasks: 0,
@@ -76,7 +99,9 @@ export class CompilationWorkerPool {
     compileTimes: [] as number[],
   };
 
-  constructor(numWorkers?: number) {
+  constructor(numWorkers?: number, options: CompilationWorkerPoolOptions = {}) {
+    this.maxQueue = options.maxQueue ?? DEFAULT_MAX_QUEUE;
+    this.queueTimeoutMs = options.queueTimeoutMs ?? DEFAULT_QUEUE_TIMEOUT_MS;
     // With per-worker temp dirs each worker has its own isolated directory,
     // so race conditions in arduino-cli no longer occur.
     // Safe upper bound raised to 8; WORKER_COUNT env var overrides.
@@ -203,15 +228,26 @@ export class CompilationWorkerPool {
       );
     }
 
+    if (this.availableWorkers.size === 0 && this.queue.length >= this.maxQueue) {
+      throw new CompileCapacityError(`Compile queue full (${this.maxQueue} waiting)`);
+    }
     this.stats.totalTasks++;
 
     return new Promise((resolve, reject) => {
-      this.queue.push({
+      const item: CompilationTask = {
         task,
         resolve,
         reject,
         startTime: Date.now(),
-      });
+      };
+      item.queueTimer = setTimeout(() => {
+        const index = this.queue.indexOf(item);
+        if (index < 0) return;
+        this.queue.splice(index, 1);
+        this.stats.failedTasks++;
+        reject(new CompileCapacityError(`No compile worker became free within ${this.queueTimeoutMs}ms`));
+      }, this.queueTimeoutMs);
+      this.queue.push(item);
 
       this.processQueue();
     });
@@ -226,6 +262,7 @@ export class CompilationWorkerPool {
       const queueItem = this.queue.shift();
 
       if (!queueItem) break;
+      clearTimeout(queueItem.queueTimer);
 
       const { task, resolve, reject, startTime } = queueItem;
       this.availableWorkers.delete(workerId);
@@ -325,6 +362,7 @@ export class CompilationWorkerPool {
       const queued = this.queue.splice(0);
       this.stats.failedTasks += queued.length;
       for (const item of queued) {
+        clearTimeout(item.queueTimer);
         item.reject(
           new Error("Compilation worker pool has no operational workers"),
         );
@@ -361,6 +399,7 @@ export class CompilationWorkerPool {
 
     const shutdownError = new Error("Compilation worker pool is shutting down");
     for (const item of this.queue.splice(0)) {
+      clearTimeout(item.queueTimer);
       item.reject(shutdownError);
     }
     for (const [workerId, active] of this.activeCompilations) {

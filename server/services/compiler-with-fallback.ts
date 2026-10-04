@@ -15,7 +15,7 @@
  * pool, which was misleading.
  */
 
-import { CompilationWorkerPool, getCompilationPool } from "./compilation-worker-pool";
+import { CompilationWorkerPool, CompileCapacityError, getCompilationPool } from "./compilation-worker-pool";
 import { ArduinoCompiler } from "./arduino-compiler";
 import type { CompilationResult, CompileRequestOptions } from "./arduino-compiler";
 import type { CompileRequestPayload } from "@shared/worker-protocol";
@@ -67,6 +67,9 @@ export class CompilerWithFallback {
         const task: CompileRequestPayload = { code, headers, tempRoot, ...options };
         return await this.pool.compile(task);
       } catch (error) {
+        // A full pool is backpressure: compiling on the main thread instead would
+        // add a second compile budget on top of the busy workers.
+        if (error instanceof CompileCapacityError) throw error;
         // Pool failed to compile (e.g., workers not operational) - fall back to direct compiler
         // This is an expected fallback path when workers are unavailable
         if (!this.directCompiler) {
