@@ -118,7 +118,7 @@ function bindRequestAbortSignal(req: Request, res: Response): AbortSignal {
   req.once("aborted", abort);
   res.once("close", onClose);
   res.once("finish", cleanup);
-  if (req.aborted || res.destroyed) abort();
+  if ((req.destroyed && !req.complete) || res.destroyed) abort();
   return controller.signal;
 }
 

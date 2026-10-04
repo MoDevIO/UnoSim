@@ -147,7 +147,7 @@ export class ExamplesCache {
     load: (signal: AbortSignal) => Promise<T>,
     requestSignal?: AbortSignal,
   ): Promise<T> {
-    if (requestSignal?.aborted) return Promise.reject(requestSignal.reason ?? new DOMException("Request aborted", "AbortError"));
+    if (requestSignal?.aborted) throw requestSignal.reason ?? new DOMException("Request aborted", "AbortError");
     const current = this.sourceFlights.get(key);
     if (!current || current.controller.signal.aborted) this.admitSource(key);
     return this.withSingleflight(this.sourceFlights, key, load, requestSignal);
@@ -210,8 +210,9 @@ export class ExamplesCache {
       created = { controller, promise, subscribers: 0, settled: false };
       flight = created;
       flights.set(key, created);
-      try {
-        void Promise.resolve(load(controller.signal)).then(
+      void Promise.resolve()
+        .then(() => load(controller.signal))
+        .then(
           (value) => {
             settle();
             resolveFlight(value);
@@ -221,10 +222,6 @@ export class ExamplesCache {
             rejectFlight(error);
           },
         );
-      } catch (error) {
-        settle();
-        rejectFlight(error);
-      }
     }
 
     return this.subscribeToFlight(flight, requestSignal);
