@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.27% </span>
+                <span class="strong">82.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>65/79</span>
+                <span class='fraction'>66/80</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60.86% </span>
+                <span class="strong">63.15% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>42/69</span>
+                <span class='fraction'>36/57</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">80.95% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>16/20</span>
+                <span class='fraction'>17/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.14% </span>
+                <span class="strong">87.32% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>61/70</span>
+                <span class='fraction'>62/71</span>
             </div>
         
             
@@ -296,7 +296,11 @@
 <a name='L231'></a><a href='#L231'>231</a>
 <a name='L232'></a><a href='#L232'>232</a>
 <a name='L233'></a><a href='#L233'>233</a>
-<a name='L234'></a><a href='#L234'>234</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -419,6 +423,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -448,7 +456,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -651,6 +659,10 @@ function parseLabels(value: unknown): Record&lt;string, string&gt; {
   }).filter(([key]) =&gt; key.length &gt; 0));
 }
 &nbsp;
+function stringField(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : <span class="branch-1 cbranch-no" title="branch not covered" >fallback;</span>
+}
+&nbsp;
 export async function collectDockerProbe(
   image: string,
   deps: Partial&lt;DockerProbeDependencies&gt; = {},
@@ -669,10 +681,10 @@ export async function collectDockerProbe(
     .filter(Boolean)
     .map((line) =&gt; parseJson&lt;Record&lt;string, unknown&gt;&gt;(line, "docker ps"))
     .map((row) =&gt; ({
-      id: String(row.ID ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>,
-      name: String(row.Names ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>,
-      image: String(row.Image ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>,
-      status: String(row.Status ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>,
+      id: stringField(row.ID, ""),
+      name: stringField(row.Names, ""),
+      image: stringField(row.Image, ""),
+      status: stringField(row.Status, ""),
       labels: parseLabels(row.Labels),
     }));
   const cpus = Number(info.NCPU);
@@ -680,16 +692,16 @@ export async function collectDockerProbe(
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!Number.isFinite(cpus) || cpus &lt; 1 || !Number.isFinite(memoryBytes) || memoryBytes &lt;= 0) {
 <span class="cstat-no" title="statement not covered" >    throw new Error("Docker info returned invalid CPU or memory values");</span>
   }
-  const id = String(inspectedImage.Id ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>;
+  const id = stringField(inspectedImage.Id, "");
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!id) <span class="cstat-no" title="statement not covered" >throw new Error(`Docker image ${image} has no image ID`);</span>
   const digests = Array.isArray(inspectedImage.RepoDigests) ? inspectedImage.RepoDigests : <span class="branch-1 cbranch-no" title="branch not covered" >[];</span>
   return {
     clientVersion: version[0] ?? <span class="branch-1 cbranch-no" title="branch not covered" >"unknown",</span>
     serverVersion: version[1] ?? <span class="branch-1 cbranch-no" title="branch not covered" >"unknown",</span>
-    architecture: String(info.Architecture ?? <span class="branch-1 cbranch-no" title="branch not covered" >"unknown")</span>,
+    architecture: stringField(info.Architecture, "unknown"),
     cpus,
     memoryBytes,
-    storageDriver: String(info.Driver ?? <span class="branch-1 cbranch-no" title="branch not covered" >"unknown")</span>,
+    storageDriver: stringField(info.Driver, "unknown"),
     daemonHealthy: true,
     image: { reference: image, id, digest: digests.length &gt; 0 ? String(digests[0]) : <span class="branch-1 cbranch-no" title="branch not covered" >null }</span>,
     runningContainers: containers,
@@ -769,7 +781,7 @@ export async function measureDockerControlLatency(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-04T10:23:35.031Z
+                at 2026-10-04T14:14:54.142Z
             </div>
         <script src="../prettify.js"></script>
         <script>
