@@ -113,20 +113,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            /usr/local/bin/arduino-cli
             ~/.arduino15
             ~/.cache/ms-playwright
             server/arduino-cache
             storage/binaries
-          key: ${{ runner.os }}-e2e-turbo-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
+          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
           restore-keys: |
             ${{ runner.os }}-e2e-turbo-
 
-      - name: Install Arduino CLI & Core
+      - name: Install Arduino CLI 1.5.1 & Core
         run: |
-          if ! command -v arduino-cli &> /dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          fi
+          BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
+          arduino-cli version | grep -F "Version: 1.5.1 "
           arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
 
       - name: Install Playwright Browsers
@@ -177,15 +175,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            /usr/local/bin/arduino-cli
             ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Arduino CLI & Core
+      - name: Install Arduino CLI 1.5.1 & Core
         run: |
-          if ! command -v arduino-cli &> /dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          fi
+          BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
+          arduino-cli version | grep -F "Version: 1.5.1 "
           arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
 
       - name: Run toolchain integration tests
@@ -230,6 +226,20 @@ jobs:
           tags: unosim-sandbox:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build Production Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: unosim:ci
+          cache-from: type=gha,scope=unosim-production
+          cache-to: type=gha,scope=unosim-production,mode=max
+
+      - name: Verify Arduino CLI in Production Image
+        run: |
+          docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
 
       - name: Run Docker sandbox tests
         run: npm run test:docker

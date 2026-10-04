@@ -23,6 +23,7 @@ ENV ARDUINO_CACHE_DIR=/app/server/arduino-cache
 
 # 1. Copy Docker CLI binary from official image (no apt repo setup needed)
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY scripts/install-arduino-cli.sh /usr/local/bin/install-arduino-cli.sh
 
 # 2. Install system tools and Arduino CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,7 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tar \
     xz-utils \
     g++ \
-    && curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh \
+    && sh /usr/local/bin/install-arduino-cli.sh \
+    && arduino-cli version | grep -F "Version: 1.5.1 " \
     && mkdir -p /home/node/.arduino15 \
     && chown -R node:node /home/node/.arduino15 \
     && su node -c 'HOME=/home/node arduino-cli config init' \
