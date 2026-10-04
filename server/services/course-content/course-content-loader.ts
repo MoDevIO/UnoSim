@@ -141,7 +141,10 @@ export class CourseContentLoader {
       const strategies = await this.loadStrategies(base, manifest, signal);
       validateTutorReferences(manifest, topicEntries, strategies, annotations);
       return { status: "valid", manifest, topics: topicEntries, strategies };
-    } catch {
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+        throw signal?.reason ?? error;
+      }
       return { status: "invalid", reason: "Tutor capability is invalid" };
     }
   }

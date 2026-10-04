@@ -94,6 +94,7 @@ export class SourceProvider {
         }, context.signal),
       );
     } catch (error) {
+      if (context.signal?.aborted) throw context.signal.reason ?? error;
       const lastGood = this.cache.markSourceFailure(
         sourceKey,
         this.now() + Math.min(

@@ -111,6 +111,7 @@ describe("Tutor HTTP route", () => {
       undefined,
       30,
       undefined,
+      expect.any(AbortSignal),
     );
   });
 
@@ -150,7 +151,7 @@ describe("Tutor HTTP route", () => {
     const response = await post(listening.url, "/api/tutor/models", { credential: "request-only-secret" });
 
     expect(response).toEqual({ status: 200, body: { models: ["current-model", "another-model"] } });
-    expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+    expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret", expect.any(AbortSignal));
   });
 
   it("requires a personal credential for model discovery", async () => {
@@ -191,7 +192,7 @@ describe("Tutor HTTP route", () => {
     });
 
     expect(response).toEqual({ status: 200, body: { models: ["pilot-model"] } });
-    expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+    expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret", expect.any(AbortSignal));
   });
 
   it("accepts a personal credential over HTTP in the Docker test gateway bypass profile", async () => {
@@ -206,7 +207,7 @@ describe("Tutor HTTP route", () => {
       });
 
       expect(response).toEqual({ status: 200, body: { models: ["pilot-model"] } });
-      expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret");
+      expect(service.getAvailableModels).toHaveBeenCalledWith("request-only-secret", expect.any(AbortSignal));
     } finally {
       config.dockerTestBypassGateway = originalBypass;
     }
@@ -250,6 +251,7 @@ describe("Tutor HTTP route", () => {
       undefined,
       30,
       undefined,
+      expect.any(AbortSignal),
     );
   });
 
@@ -299,7 +301,7 @@ describe("Tutor HTTP route", () => {
     const session = (first.body as { courseContentSession: string }).courseContentSession;
     expect(session).toMatch(/^[0-9a-f-]{36}$/);
     expect(service.generateQuestion).toHaveBeenCalledWith(
-      "void setup(){}", "request-only-secret", undefined, 30, contentA,
+      "void setup(){}", "request-only-secret", undefined, 30, contentA, expect.any(AbortSignal),
     );
 
     const second = await post(listening.url, "/api/tutor/dialog", {
@@ -313,7 +315,7 @@ describe("Tutor HTTP route", () => {
     expect(second.status).toBe(200);
     expect(service.generateDialogResponse).toHaveBeenCalledWith(
       "void setup(){}", [], "Frage A", "Antwort",
-      "request-only-secret", undefined, 30, expect.objectContaining(contentA),
+      "request-only-secret", undefined, 30, expect.objectContaining(contentA), expect.any(AbortSignal),
     );
     expect(resolver.resolveTutorContent).toHaveBeenCalledOnce();
   });
@@ -330,5 +332,54 @@ describe("Tutor HTTP route", () => {
     });
     expect(response.status).toBe(400);
     expect(service.generateQuestion).not.toHaveBeenCalled();
+  });
+
+  it("aborts the shared route and Course Content signal when the client disconnects", async () => {
+    const content = {
+      repository: "owner/repo" as const,
+      ref: "main" as const,
+      revision: "c".repeat(40),
+      tutor: { status: "absent" as const },
+    };
+    let resolveGeneration: ((value: unknown) => void) | undefined;
+    const service = {
+      generateQuestion: vi.fn((
+        _code: string,
+        _credential: string,
+        _model: string | undefined,
+        _difficulty: number,
+        _content: unknown,
+        _signal?: AbortSignal,
+      ) => new Promise((resolve) => { resolveGeneration = resolve; })),
+    };
+    const resolver = { resolveTutorContent: vi.fn().mockResolvedValue(content) };
+    const listening = await start(service, false, resolver);
+    server = listening.server;
+    const target = new URL("/api/tutor/question", listening.url);
+    const payload = JSON.stringify({
+      code: "void setup(){}",
+      credential: "request-only-secret",
+      courseContent: { repository: "owner/repo", ref: "main", revision: "c".repeat(40) },
+    });
+    const request = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: target.pathname,
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+    }, () => undefined);
+    request.on("error", () => undefined);
+    request.end(payload);
+
+    try {
+      await vi.waitFor(() => expect(service.generateQuestion).toHaveBeenCalledOnce());
+      const signal = service.generateQuestion.mock.calls[0]?.[5];
+      request.destroy();
+      await vi.waitFor(() => expect(signal?.aborted).toBe(true));
+      expect(resolver.resolveTutorContent.mock.calls[0]?.[1].signal).toBe(signal);
+    } finally {
+      request.destroy();
+      resolveGeneration?.({ model: "pilot-model", result: { question: "Frage" } });
+    }
   });
 });

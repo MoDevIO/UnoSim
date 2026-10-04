@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ExamplesCache } from "../../../server/services/examples/examples-cache";
 import { ExamplesLoadController } from "../../../server/services/examples/examples-load-controller";
-import { SourceProvider } from "../../../server/services/examples/source-provider";
+import { SourceProvider, type RequestContext } from "../../../server/services/examples/source-provider";
 
 const revisionA = "a".repeat(40);
 const revisionB = "b".repeat(40);
@@ -18,7 +18,7 @@ function snapshot(marker: string) {
 }
 
 function harness(
-  resolve: (repository: string, ref: string) => Promise<string>,
+  resolve: (repository: string, ref: string, context: RequestContext) => Promise<string>,
   load: (_repository: string, revision: string) => Promise<ReturnType<typeof snapshot>>,
 ) {
   let now = 0;
@@ -85,6 +85,26 @@ describe("repository/ref source provider", () => {
       revision: revisionB, stale: false,
     });
     expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not mark a source stale when a request aborts during refresh", async () => {
+    const controller = new AbortController();
+    const resolver = vi.fn()
+      .mockResolvedValueOnce(revisionA)
+      .mockImplementationOnce(async (_repository: string, _ref: string, request: RequestContext) => {
+        controller.abort();
+        throw request.signal?.reason;
+      })
+      .mockResolvedValue(revisionA);
+    const loader = vi.fn(async () => snapshot("a"));
+    const { provider, setNow } = harness(resolver, loader);
+    await provider.resolve("owner/repo", "main", context, false);
+    setNow(101);
+
+    await expect(provider.resolve("owner/repo", "main", { ...context, signal: controller.signal }, false))
+      .rejects.toMatchObject({ name: "AbortError" });
+    await expect(provider.resolve("owner/repo", "main", context, false)).resolves.toMatchObject({ stale: false });
+    expect(resolver).toHaveBeenCalledTimes(3);
   });
 
   it("shares singleflight only for identical repository/ref sources", async () => {

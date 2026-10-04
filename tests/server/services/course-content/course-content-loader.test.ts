@@ -32,6 +32,26 @@ function fetcherFor(files: Record<string, string>) {
 }
 
 describe("unified Course Content loader", () => {
+  it("rethrows an abort while loading optional Tutor content", async () => {
+    const controller = new AbortController();
+    const fetchText = vi.fn(async (url: URL, _maxBytes: number, signal?: AbortSignal) => {
+      if (url.pathname.endsWith("/manifest.json")) {
+        return JSON.stringify({
+          schemaVersion: 2,
+          examples: [example],
+          tutor: { manifest: "tutor/manifest.yaml" },
+        });
+      }
+      if (url.pathname.endsWith("/examples/main.ino")) return "void setup() {}";
+      expect(signal).toBe(controller.signal);
+      controller.abort();
+      throw controller.signal.reason;
+    });
+
+    await expect(new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision, controller.signal))
+      .rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("loads schema-v1 Examples and reports no Tutor capability", async () => {
     const { fetchText } = fetcherFor({
       [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 1, examples: [example] }),

@@ -69,6 +69,38 @@ describe("useTutor", () => {
     ]);
   });
 
+  it("aborts a pending dialog fetch when the hook unmounts", async () => {
+    let dialogSignal: AbortSignal | undefined;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
+      if (url === "/api/tutor/models") return new Response(JSON.stringify({ models: ["pilot-model"] }), { status: 200 });
+      if (url === "/api/tutor/question") return new Response(JSON.stringify({
+        question: "Welche Ausgabe erwartest du?",
+        provider: "kiconnect",
+        model: "pilot-model",
+      }), { status: 200 });
+      dialogSignal = init?.signal as AbortSignal | undefined;
+      return new Promise((_resolve, reject) => {
+        dialogSignal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+    });
+    const { result, unmount } = renderHook(() => useTutor());
+    act(() => result.current.setCredential("personal-key"));
+    await act(async () => {
+      await result.current.loadModels();
+      await result.current.generateQuestion("void setup(){} void loop(){}");
+    });
+    act(() => result.current.setAnswer("Antwort"));
+    act(() => { void result.current.submitAnswer("void setup(){} void loop(){}"); });
+    await waitFor(() => expect(dialogSignal).toBeInstanceOf(AbortSignal));
+
+    unmount();
+
+    expect(dialogSignal?.aborted).toBe(true);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith("/api/tutor/")).every(([, init]) => init?.signal instanceof AbortSignal)).toBe(true);
+  });
+
   it("loads a valid persisted configured difficulty before starting a tutor session", () => {
     localStorage.setItem(TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY, "72");
     const { result } = renderHook(() => useTutor());

@@ -103,6 +103,25 @@ function requireRequestCredential(req: Request, res: Response, credential: strin
   return true;
 }
 
+function bindRequestAbortSignal(req: Request, res: Response): AbortSignal {
+  const controller = new AbortController();
+  const abort = () => controller.abort(new DOMException("Request aborted", "AbortError"));
+  const cleanup = () => {
+    req.off("aborted", abort);
+    res.off("close", onClose);
+    res.off("finish", cleanup);
+  };
+  const onClose = () => {
+    if (!res.writableEnded) abort();
+    cleanup();
+  };
+  req.once("aborted", abort);
+  res.once("close", onClose);
+  res.once("finish", cleanup);
+  if (req.aborted || res.destroyed) abort();
+  return controller.signal;
+}
+
 export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): void {
   const logger = deps.logger ?? new Logger("TutorRoutes");
   const service = deps.service ?? createTutorService(new KiconnectProvider());
@@ -110,6 +129,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   const sessionStore = deps.sessionStore ?? new TutorCourseContentSessionStore();
 
   app.post("/api/tutor/question", async (req, res) => {
+    const signal = bindRequestAbortSignal(req, res);
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorQuestionRequestSchema.safeParse(req.body);
@@ -120,7 +140,8 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     if (!requireRequestCredential(req, res, parsed.data.credential)) return;
 
     try {
-      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore);
+      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore, signal);
+      if (signal.aborted) return;
       if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
       const generated = await service.generateQuestion(
         parsed.data.code,
@@ -128,7 +149,9 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.model,
         parsed.data.difficulty,
         content?.planning,
+        signal,
       );
+      if (signal.aborted) return;
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
@@ -136,6 +159,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         ...(content?.session ? { courseContentSession: content.session } : {}),
       });
     } catch (error) {
+      if (signal.aborted) return;
       if (error instanceof TutorProviderError) {
         mapProviderError(res, error);
         return;
@@ -146,6 +170,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   });
 
   app.post("/api/tutor/models", async (req, res) => {
+    const signal = bindRequestAbortSignal(req, res);
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorModelsRequestSchema.safeParse(req.body);
@@ -156,9 +181,11 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     if (!requireRequestCredential(req, res, parsed.data.credential)) return;
 
     try {
-      const models = await service.getAvailableModels(parsed.data.credential);
+      const models = await service.getAvailableModels(parsed.data.credential, signal);
+      if (signal.aborted) return;
       res.json({ models });
     } catch (error) {
+      if (signal.aborted) return;
       if (error instanceof TutorProviderError) {
         mapProviderError(res, error);
         return;
@@ -169,6 +196,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   });
 
   app.post("/api/tutor/dialog", async (req, res) => {
+    const signal = bindRequestAbortSignal(req, res);
     if (!enforceTutorRateLimit(res, { ...deps, rateLimiter })) return;
 
     const parsed = tutorDialogRequestSchema.safeParse(req.body);
@@ -179,7 +207,8 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     if (!requireRequestCredential(req, res, parsed.data.credential)) return;
 
     try {
-      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore);
+      const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore, signal);
+      if (signal.aborted) return;
       if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
       const generated = await service.generateDialogResponse(
         parsed.data.code,
@@ -190,7 +219,9 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.model,
         parsed.data.difficulty,
         content?.planning,
+        signal,
       );
+      if (signal.aborted) return;
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
@@ -198,6 +229,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         ...(content?.session ? { courseContentSession: content.session } : {}),
       });
     } catch (error) {
+      if (signal.aborted) return;
       if (error instanceof TutorProviderError) {
         mapProviderError(res, error);
         return;
@@ -215,7 +247,9 @@ async function resolveTutorContent(
   sessionHandle: string | undefined,
   resolver: TutorCourseContentResolver | undefined,
   sessions: TutorCourseContentSessionStore,
+  signal: AbortSignal,
 ): Promise<{ readonly planning: TutorPlanningContentContext; readonly session: string } | undefined> {
+  if (signal.aborted) return undefined;
   const identity = (res.locals.unosimIdentity as RequestIdentity | undefined)?.subject ?? "anonymous";
   if (sessionHandle !== undefined) {
     const pinned = sessions.get(identity, sessionHandle);
@@ -233,14 +267,17 @@ async function resolveTutorContent(
   const context: RequestContext = {
     identity,
     requestId: req.header("x-request-id") ?? randomUUID(),
+    signal,
   };
   let resolved: ResolvedTutorCourseContent;
   try {
     resolved = await resolver.resolveTutorContent(request, context);
   } catch {
+    if (signal.aborted) return undefined;
     responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist ungültig oder nicht mehr aktiv.");
     return undefined;
   }
+  if (signal.aborted) return undefined;
   const handle = sessions.create(identity, resolved);
   return { planning: resolved, session: handle };
 }

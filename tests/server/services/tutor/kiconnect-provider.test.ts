@@ -24,6 +24,54 @@ describe("KiconnectProvider", () => {
     );
   });
 
+  it("composes caller cancellation with the model-list timeout", async () => {
+    const caller = new AbortController();
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise<never>((_resolve, reject) => {
+      const signal = init.signal;
+      const timeout = setTimeout(() => reject(new Error("caller cancellation was not forwarded")), 250);
+      signal?.addEventListener("abort", () => {
+        clearTimeout(timeout);
+        reject(signal.reason);
+      }, { once: true });
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = new KiconnectProvider().listModels("request-key", caller.signal);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const providerSignal = (fetchMock.mock.calls[0] as [string, RequestInit])[1].signal;
+    caller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(providerSignal).not.toBe(caller.signal);
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
+  it("composes caller cancellation with the completion timeout", async () => {
+    const caller = new AbortController();
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise<never>((_resolve, reject) => {
+      const signal = init.signal;
+      const timeout = setTimeout(() => reject(new Error("caller cancellation was not forwarded")), 250);
+      signal?.addEventListener("abort", () => {
+        clearTimeout(timeout);
+        reject(signal.reason);
+      }, { once: true });
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = new KiconnectProvider().generateLearningQuestion({
+      model: "pilot-model",
+      systemPrompt: "system",
+      userPrompt: "user",
+    }, "request-key", caller.signal);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const providerSignal = (fetchMock.mock.calls[0] as [string, RequestInit])[1].signal;
+    caller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(providerSignal).not.toBe(caller.signal);
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
   it("uses the server-configured OpenAI-compatible endpoint and parses structured JSON", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ id: "pilot-model" }] }), { status: 200 }))

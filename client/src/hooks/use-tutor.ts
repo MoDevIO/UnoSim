@@ -111,6 +111,10 @@ function getCourseContentRequest(
   return {};
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 function buildDialogTurn(
   question: string,
   answer: string,
@@ -227,15 +231,23 @@ export function useTutor(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
+  const activeTutorRequests = useRef(new Set<AbortController>());
+  const abortPendingTutorRequests = useCallback(() => {
+    for (const controller of activeTutorRequests.current) controller.abort();
+    activeTutorRequests.current.clear();
+  }, []);
 
   useEffect(() => {
+    abortPendingTutorRequests();
     setCourseContentSession(undefined);
     setHistory([]);
     setQuestion(null);
     setAnswer("");
     setError(null);
     setEffectiveDifficulty(configuredDifficulty);
-  }, [courseContentKey]);
+  }, [abortPendingTutorRequests, courseContentKey]);
+
+  useEffect(() => () => abortPendingTutorRequests(), [abortPendingTutorRequests]);
 
   useEffect(() => {
     if (!canLoadConfigOnMount.current) return;
@@ -274,12 +286,15 @@ export function useTutor(
     }
 
     setModelsLoading(true);
+    const controller = new AbortController();
+    activeTutorRequests.current.add(controller);
     try {
       const response = await fetch("/api/tutor/models", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential }),
+        signal: controller.signal,
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(getErrorMessage(body));
@@ -288,10 +303,12 @@ export function useTutor(
       setAvailableModels(parsed.data.models);
       setSelectedModel((current) => current === "auto" || parsed.data.models.includes(current) ? current : "auto");
     } catch (requestError) {
+      if (controller.signal.aborted || isAbortError(requestError)) return;
       setAvailableModels([]);
       setSelectedModel("auto");
       setError(requestError instanceof Error ? requestError.message : "The Tutor models could not be loaded.");
     } finally {
+      activeTutorRequests.current.delete(controller);
       setModelsLoading(false);
     }
   }, [capabilities, credential]);
@@ -311,11 +328,14 @@ export function useTutor(
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
 
     setIsLoading(true);
+    const controller = new AbortController();
+    activeTutorRequests.current.add(controller);
     try {
       const response = await fetch("/api/tutor/question", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           code,
           credential,
@@ -335,8 +355,10 @@ export function useTutor(
       setLastUsedModel(parsed.data.model);
       setAnswer("");
     } catch (requestError) {
+      if (controller.signal.aborted || isAbortError(requestError)) return;
       setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
     } finally {
+      activeTutorRequests.current.delete(controller);
       setIsLoading(false);
     }
   }, [availableModels, capabilities, courseContent, courseContentSession, credential, selectedModel]);
@@ -381,11 +403,14 @@ export function useTutor(
     const currentHistory = history;
 
     setIsLoading(true);
+    const controller = new AbortController();
+    activeTutorRequests.current.add(controller);
     try {
       const response = await fetch("/api/tutor/dialog", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           code,
           history: currentHistory,
@@ -413,8 +438,10 @@ export function useTutor(
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
+      if (controller.signal.aborted || isAbortError(requestError)) return;
       setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
     } finally {
+      activeTutorRequests.current.delete(controller);
       setIsLoading(false);
     }
   }, [answer, availableModels, capabilities, courseContent, courseContentSession, credential, effectiveDifficulty, history, question, selectedModel]);

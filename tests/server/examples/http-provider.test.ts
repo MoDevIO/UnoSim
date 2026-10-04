@@ -52,4 +52,18 @@ describe("secure external examples fetcher", () => {
     await vi.advanceTimersByTimeAsync(5_001);
     await rejection;
   });
+
+  it("does not begin a Course Content fetch for an already-aborted request", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchMock = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new SecureExamplesFetcher().fetchText(
+      new URL("https://api.github.com/test"),
+      100,
+      controller.signal,
+    )).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
