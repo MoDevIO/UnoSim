@@ -29,6 +29,7 @@ interface ExecutionOptions {
   stdio?: "pipe" | "ignore" | "inherit";
   onData?: (data: Buffer) => void;  // for stdout/stderr capture
   onProcess?: (proc: ChildProcess) => void;  // for process lifecycle hooks (tests)
+  maxOutputBytes?: number;   // combined captured raw stdout/stderr bytes
 }
 
 interface ExecutionResult {
@@ -114,8 +115,8 @@ function validateCommand(command: string, args: string[]): void {
 
 export class ProcessExecutor {
   private readonly logger = new Logger("ProcessExecutor");
-  private activeProcess: ChildProcess | null = null;
-  private activeTimeout: NodeJS.Timeout | null = null;
+  private readonly activeExecutions = new Map<ChildProcess, boolean>();
+  private stopGeneration = 0;
 
   /**
    * Execute a process with strict validation and timeout management
@@ -128,15 +129,34 @@ export class ProcessExecutor {
     // Validate command and arguments
     validateCommand(command, args);
 
-    const { timeout = config.timeouts.processExecutionDefaultMs, detached = false, stdio = "pipe", onData, onProcess } = options;
+    const {
+      timeout = config.timeouts.processExecutionDefaultMs,
+      detached = false,
+      stdio = "pipe",
+      onData,
+      onProcess,
+      maxOutputBytes = config.sandbox.resources.maxOutputBytes,
+    } = options;
+    if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1) {
+      throw new RangeError("maxOutputBytes must be a positive safe integer");
+    }
 
+    // Stop also owns requests waiting for the import, before a child exists.
+    const generation = this.stopGeneration;
     // Dynamic import for test mockability
     const { spawn } = await import("node:child_process");
+    if (generation !== this.stopGeneration) {
+      return { code: -1, error: new Error("Process execution cancelled before spawn") };
+    }
 
     return new Promise((resolve) => {
       let stdout = "";
       let stderr = "";
       let timedOut = false;
+      let settled = false;
+      let activeTimeout: NodeJS.Timeout | null = null;
+      let capturedBytes = 0;
+      let outputError: Error | undefined;
 
       const proc = spawn(command, args, {
         stdio: [stdio === "pipe" ? "ignore" : stdio, stdio, stdio],
@@ -144,7 +164,32 @@ export class ProcessExecutor {
         shell: false, // Critical security: never use shell
       });
 
-      this.activeProcess = proc;
+      this.activeExecutions.set(proc, detached);
+
+      const capture = (data: Buffer, stream: "stdout" | "stderr") => {
+        if (settled || outputError || timedOut) return;
+        const remaining = maxOutputBytes - capturedBytes;
+        const chunk = data.subarray(0, remaining);
+        capturedBytes += chunk.byteLength;
+        if (stream === "stdout") stdout += chunk.toString();
+        else stderr += chunk.toString();
+        if (chunk.byteLength > 0 && onData) onData(chunk);
+        if (data.byteLength > remaining) {
+          outputError = new Error(`Process output limit exceeded (${maxOutputBytes} bytes)`);
+          this.signalProcess(proc, detached, "SIGKILL");
+        }
+      };
+      const onStdout = (data: Buffer) => capture(data, "stdout");
+      const onStderr = (data: Buffer) => capture(data, "stderr");
+
+      const cleanup = () => {
+        settled = true;
+        if (activeTimeout) clearTimeout(activeTimeout);
+        activeTimeout = null;
+        this.activeExecutions.delete(proc);
+        proc.stdout?.off?.("data", onStdout);
+        proc.stderr?.off?.("data", onStderr);
+      };
 
       // Track in global spawnInstances for test cleanup (Vitest pattern)
       const spawnInstances = (globalThis as any).spawnInstances as ChildProcess[] | undefined;
@@ -162,51 +207,36 @@ export class ProcessExecutor {
       // Capture output
       if (stdio === "pipe") {
         if (proc.stdout) {
-          proc.stdout.on("data", (data: Buffer) => {
-            stdout += data.toString();
-            if (onData) onData(data);
-          });
+          proc.stdout.on("data", onStdout);
         }
         if (proc.stderr) {
-          proc.stderr.on("data", (data: Buffer) => {
-            stderr += data.toString();
-            if (onData) onData(data);
-          });
+          proc.stderr.on("data", onStderr);
         }
       }
 
       // Set timeout if requested
       if (timeout > 0) {
-        this.activeTimeout = setTimeout(() => {
+        activeTimeout = setTimeout(() => {
           timedOut = true;
-          try {
-            // Kill process group if detached, otherwise just the process
-            if (detached && proc.pid) {
-              process.kill(-proc.pid, "SIGKILL");
-            } else {
-              proc.kill("SIGKILL");
-            }
-          } catch (err) {
-            this.logger.warn(`Failed to kill process: ${err}`);
-          }
+          this.signalProcess(proc, detached, "SIGKILL");
         }, timeout);
       }
 
       // Handle process completion
-      proc.on("close", (code: number) => {
-        if (this.activeTimeout) {
-          clearTimeout(this.activeTimeout);
-          this.activeTimeout = null;
-        }
-        this.activeProcess = null;
+      proc.on("close", (code: number | null) => {
+        if (settled) return;
+        cleanup();
 
         const result: ExecutionResult = {
-          code,
+          code: outputError && code === 0 ? 1 : (code ?? -1),
           stdout: stdio === "pipe" ? stdout : undefined,
           stderr: stdio === "pipe" ? stderr : undefined,
         };
 
-        if (timedOut) {
+        if (outputError) {
+          result.error = outputError;
+          this.logger.warn(`${command} exceeded its output limit (${maxOutputBytes} bytes)`);
+        } else if (timedOut) {
           result.error = new Error(`Process timeout after ${timeout}ms`);
           this.logger.warn(`${command} timed out: ${result.error.message}`);
         } else if (code !== 0) {
@@ -218,11 +248,8 @@ export class ProcessExecutor {
       });
 
       proc.on("error", (err: Error) => {
-        if (this.activeTimeout) {
-          clearTimeout(this.activeTimeout);
-          this.activeTimeout = null;
-        }
-        this.activeProcess = null;
+        if (settled) return;
+        cleanup();
         const errorCode = "code" in err && typeof err.code === "string" ? `, ${err.code}` : "";
         this.logger.error(`${command} process error (${err.name}${errorCode})`);
         resolve({
@@ -236,28 +263,22 @@ export class ProcessExecutor {
   }
 
   /**
-   * Kill any active process (for cleanup during stop())
+   * Signal every execution owned by this executor (for cleanup during stop()).
+   * Each deadline remains armed until its process finishes.
    */
   kill(signal: string | number = "SIGKILL"): void {
-    if (this.activeProcess?.pid) {
-      try {
-        // Check if this is a detached process (has own process group)
-        const isDetached = (this.activeProcess as any)._isDetached;
-        if (isDetached) {
-          // Kill process group
-          process.kill(-this.activeProcess.pid, signal as any);
-        } else {
-          this.activeProcess.kill(signal as any);
-        }
-        this.logger.info(`Killed process with signal ${signal}`);
-      } catch (err) {
-        this.logger.warn(`Failed to kill process: ${err}`);
-      }
+    this.stopGeneration += 1;
+    for (const [proc, detached] of this.activeExecutions) {
+      this.signalProcess(proc, detached, signal);
     }
+  }
 
-    if (this.activeTimeout) {
-      clearTimeout(this.activeTimeout);
-      this.activeTimeout = null;
+  private signalProcess(proc: ChildProcess, detached: boolean, signal: string | number): void {
+    try {
+      if (detached && proc.pid) process.kill(-proc.pid, signal as NodeJS.Signals);
+      else proc.kill(signal as NodeJS.Signals);
+    } catch (err) {
+      this.logger.warn(`Failed to kill process: ${err}`);
     }
   }
 
@@ -265,6 +286,6 @@ export class ProcessExecutor {
    * Check if a process is currently running
    */
   get isBusy(): boolean {
-    return this.activeProcess !== null;
+    return this.activeExecutions.size > 0;
   }
 }
