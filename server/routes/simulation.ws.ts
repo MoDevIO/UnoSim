@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { createHash } from "node:crypto";
 import type { Server } from "node:http";
 import type { SandboxRunner } from "../services/sandbox-runner";
 import {
@@ -485,28 +486,21 @@ export function registerSimulationWebSocket(
   }
 
   /**
-   * Log consolidated run payload for audit/evidence.
-   * Extracted to keep handleStartSimulation below cognitive complexity threshold.
+   * Log the run request for audit/evidence. Sketch source is never logged
+   * (SECURITY.md); its length and a short digest identify the run.
    */
   function logRunPayloadAudit(
     code: string,
     timeoutSec: number | undefined,
     sessionId: string | undefined,
   ): void {
-    try {
-      const payload = {
-        code,
-        timeoutSec,
-        context: { sessionId, label: "default-ws" },
-      };
-      logger.debug(
-        `[B1-Evidence] Payload: ${JSON.stringify(payload, null, 2)}`,
-      );
-    } catch (err) {
-      logger.warn(
-        `Could not stringify run payload for evidence: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    const payload = {
+      codeLength: code.length,
+      codeSha256: createHash("sha256").update(code).digest("hex").slice(0, 12),
+      timeoutSec,
+      context: { sessionId, label: "default-ws" },
+    };
+    logger.debug(`[B1-Evidence] Payload: ${JSON.stringify(payload)}`);
   }
 
   /**

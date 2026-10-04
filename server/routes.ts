@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * Legacy compatibility fallback for clients that omit code in
    * start_simulation. New clients must send the compiled code per session.
-   * Planned for removal after the legacy protocol sunset (next major release).
+   * Removal follows the deprecation policy in docs/ARCHITECTURE.md.
    * Kept per subject: a start never runs code that another user compiled.
    */
   const lastCompiledCode = new LastCompiledCodeStore(config.compilation.lastCompiledCodeMaxSubjects);

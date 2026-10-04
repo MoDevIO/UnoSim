@@ -38,8 +38,9 @@ export class WsMessageRouter {
   async route(ws: WebSocket, message: RawData): Promise<void> {
     try {
       const msgText = rawDataToString(message);
-      this.params.logger.debug(`[WS-IN] ${msgText}`);
       const data = decodeClientMessage(msgText);
+      // Type and size only: messages carry sketch source and serial input.
+      this.params.logger.debug(`[WS-IN] ${data?.type ?? "invalid"} (${msgText.length} chars)`);
       if (!data) {
         this.params.logger.warn("[WS] Rejected invalid client message");
         ws.close(1008, "Invalid message");

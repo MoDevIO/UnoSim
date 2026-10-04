@@ -24,6 +24,7 @@ const serializedHttpUnitTests = [
   "tests/server/routes/simulation-connection-lifecycle.test.ts",
   "tests/server/routes/compiler-capacity.test.ts",
   "tests/server/routes/status-compile-capacity.test.ts",
+  "tests/server/routes/simulation-source-logging.test.ts",
   "tests/server/routes/examples.routes.test.ts",
   "tests/server/routes/routes-core.test.ts",
   "tests/server/routes/server-status-observability.test.ts",

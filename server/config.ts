@@ -520,7 +520,7 @@ export const config = {
       defaultCompileMaxConcurrent,
       { min: 1, max: 256 },
     ),
-    /** Compilation timeout (ms) */
+    /** arduino-cli timeout for one REST compile (ms) */
     timeoutMs: 60_000,
     /** Arduino Fully Qualified Board Name */
     fqbn: envStr("ARDUINO_FQBN", "arduino:avr:uno"),
@@ -541,8 +541,6 @@ export const config = {
     lastCompiledCodeMaxSubjects: 1000,
     /** Max queued compile requests in the unified gatekeeper */
     gatekeeperMaxQueueSize: 500,
-    /** Bypass gatekeeper in E2E tests */
-    disableGatekeeper: envBool("DISABLE_COMPILE_GATEKEEPER", false),
   },
 
   // ── Examples ─────────────────────────────────────────────────────

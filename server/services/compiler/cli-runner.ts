@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { ProcessExecutor } from "../process-executor";
 import type { CompilationError } from "./compiler-output-parser";
 import { parseCompilerDiagnostics } from "../compiler-diagnostics";
+import { config as appConfig } from "../../config";
 
 const logger = new Logger("CLIRunner");
 
@@ -58,7 +59,7 @@ export async function compileWithArduinoCli(
 
   try {
     const result = await processExecutor.execute("arduino-cli", args, {
-      timeout: 60000, // 60s timeout for compilation
+      timeout: appConfig.compilation.timeoutMs,
       stdio: "pipe",
     });
 
