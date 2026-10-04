@@ -269,7 +269,7 @@ export type HostSample = {
 export function parseLinuxMemoryInfo(contents: string): { availableMemoryBytes: number | null; swapUsedBytes: number | null } {
   const values = new Map<string, number>();
   for (const line of contents.split("\n")) {
-    const match = /^([A-Za-z0-9_]+):\s*(\d+)\s+kB$/.exec(line.trim());
+    const match = /^(\w+):\s*(\d+)\s+kB$/.exec(line.trim());
     if (match) values.set(match[1], Number(match[2]) * 1024);
   }
   const availableMemoryBytes = values.get("MemAvailable");
@@ -546,6 +546,12 @@ function emptyClient(clientId: number, now: number): ClientResult {
   };
 }
 
+function websocketPayloadText(raw: WebSocket.RawData): string {
+  if (Array.isArray(raw)) return Buffer.concat(raw).toString("utf8");
+  if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString("utf8");
+  return raw.toString("utf8");
+}
+
 function scheduleSimulationStop(ws: WebSocket | null, holdDurationMs: number): NodeJS.Timeout {
   return setTimeout(() => {
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_simulation" }));
@@ -595,7 +601,7 @@ function runClient(
       });
       ws.on("message", (raw) => {
         try {
-          const message = JSON.parse(raw.toString()) as ClientCapacityTimingMessage & { code?: string };
+          const message = JSON.parse(websocketPayloadText(raw)) as ClientCapacityTimingMessage & { code?: string };
           const at = now();
           const wasStarted = result.started;
           applyClientCapacityTiming(result, message, at);
@@ -780,19 +786,7 @@ export async function runCapacityScenario(
   options: CapacityScenarioOptions,
   dependencies: ScenarioRunnerDependencies = {},
 ): Promise<CapacityScenarioMeasurement> {
-  if (!options.baseUrl || !options.runId) throw new Error("Owned backend URL and run ID are required");
-  if (!Number.isInteger(options.clientCount) || options.clientCount < 1) throw new Error("clientCount must be positive");
-  if (!Number.isInteger(options.holdDurationMs) || options.holdDurationMs < 1) throw new Error("holdDurationMs must be positive");
-  if (!Number.isInteger(options.simulationTimeoutSec) || options.simulationTimeoutSec < 1 || options.simulationTimeoutSec > 300) {
-    throw new Error("simulationTimeoutSec must be between 1 and 300 seconds");
-  }
-  if (options.restCompileCount !== undefined
-    && (!Number.isInteger(options.restCompileCount) || options.restCompileCount < 0 || options.restCompileCount > 128)) {
-    throw new Error("restCompileCount must be between 0 and 128");
-  }
-  if (options.scenario === "classroom" && (!Number.isInteger(options.arrivalWindowMs) || (options.arrivalWindowMs ?? 0) < 0)) {
-    throw new Error("classroom scenarios require a non-negative integer arrivalWindowMs");
-  }
+  validateCapacityScenarioOptions(options);
 
   const now = dependencies.now ?? Date.now;
   const sleep = dependencies.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
@@ -902,5 +896,21 @@ export async function runCapacityScenario(
     if (hostPoller) clearInterval(hostPoller);
     await eventTracker.stop();
     throw error;
+  }
+}
+
+function validateCapacityScenarioOptions(options: CapacityScenarioOptions): void {
+  if (!options.baseUrl || !options.runId) throw new Error("Owned backend URL and run ID are required");
+  if (!Number.isInteger(options.clientCount) || options.clientCount < 1) throw new Error("clientCount must be positive");
+  if (!Number.isInteger(options.holdDurationMs) || options.holdDurationMs < 1) throw new Error("holdDurationMs must be positive");
+  if (!Number.isInteger(options.simulationTimeoutSec) || options.simulationTimeoutSec < 1 || options.simulationTimeoutSec > 300) {
+    throw new Error("simulationTimeoutSec must be between 1 and 300 seconds");
+  }
+  if (options.restCompileCount !== undefined
+    && (!Number.isInteger(options.restCompileCount) || options.restCompileCount < 0 || options.restCompileCount > 128)) {
+    throw new Error("restCompileCount must be between 0 and 128");
+  }
+  if (options.scenario === "classroom" && (!Number.isInteger(options.arrivalWindowMs) || (options.arrivalWindowMs ?? 0) < 0)) {
+    throw new Error("classroom scenarios require a non-negative integer arrivalWindowMs");
   }
 }

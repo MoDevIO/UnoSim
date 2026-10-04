@@ -120,6 +120,10 @@ function parseLabels(value: unknown): Record<string, string> {
   }).filter(([key]) => key.length > 0));
 }
 
+function stringField(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 export async function collectDockerProbe(
   image: string,
   deps: Partial<DockerProbeDependencies> = {},
@@ -138,10 +142,10 @@ export async function collectDockerProbe(
     .filter(Boolean)
     .map((line) => parseJson<Record<string, unknown>>(line, "docker ps"))
     .map((row) => ({
-      id: String(row.ID ?? ""),
-      name: String(row.Names ?? ""),
-      image: String(row.Image ?? ""),
-      status: String(row.Status ?? ""),
+      id: stringField(row.ID, ""),
+      name: stringField(row.Names, ""),
+      image: stringField(row.Image, ""),
+      status: stringField(row.Status, ""),
       labels: parseLabels(row.Labels),
     }));
   const cpus = Number(info.NCPU);
@@ -149,16 +153,16 @@ export async function collectDockerProbe(
   if (!Number.isFinite(cpus) || cpus < 1 || !Number.isFinite(memoryBytes) || memoryBytes <= 0) {
     throw new Error("Docker info returned invalid CPU or memory values");
   }
-  const id = String(inspectedImage.Id ?? "");
+  const id = stringField(inspectedImage.Id, "");
   if (!id) throw new Error(`Docker image ${image} has no image ID`);
   const digests = Array.isArray(inspectedImage.RepoDigests) ? inspectedImage.RepoDigests : [];
   return {
     clientVersion: version[0] ?? "unknown",
     serverVersion: version[1] ?? "unknown",
-    architecture: String(info.Architecture ?? "unknown"),
+    architecture: stringField(info.Architecture, "unknown"),
     cpus,
     memoryBytes,
-    storageDriver: String(info.Driver ?? "unknown"),
+    storageDriver: stringField(info.Driver, "unknown"),
     daemonHealthy: true,
     image: { reference: image, id, digest: digests.length > 0 ? String(digests[0]) : null },
     runningContainers: containers,
