@@ -9,6 +9,7 @@
  *   • "local":  server and simulations run on the development host
  *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
+import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
@@ -166,10 +167,25 @@ function stripTrailingSlashes(value: string): string {
 export function parseListenHost(
   trustMode: "local" | "gateway",
   configuredHost: string | undefined,
+  allowUnsafeExternalLocalBind = false,
 ): string {
   const defaultHost = trustMode === "local" ? "127.0.0.1" : "0.0.0.0";
   const host = configuredHost?.trim();
-  return host || defaultHost;
+  const listenHost = host || defaultHost;
+
+  if (trustMode === "local" && !isLoopbackHost(listenHost) && !allowUnsafeExternalLocalBind) {
+    throw new Error(
+      "External binds in local mode are unsafe; use UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND=true only when intentional",
+    );
+  }
+
+  return listenHost;
+}
+
+function isLoopbackHost(host: string): boolean {
+  const version = isIP(host);
+  if (version === 6) return host === "::1";
+  return version === 4 && Number(host.split(".", 1)[0]) === 127;
 }
 
 function envBool(key: string, fallback: boolean): boolean {
@@ -361,8 +377,12 @@ export const config = {
   server: {
     /** HTTP and WebSocket listener port. */
     port: envInt("PORT", 3000, { min: 1, max: 65535 }),
-    /** Listener host; local mode defaults to loopback, gateway mode to all interfaces. */
-    listenHost: parseListenHost(trust.mode, process.env.UNOSIM_LISTEN_HOST),
+    /** Local mode is loopback-only unless the unsafe opt-in is enabled. */
+    listenHost: parseListenHost(
+      trust.mode,
+      process.env.UNOSIM_LISTEN_HOST,
+      envBool("UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND", false),
+    ),
     /**
      * Register destructive endpoints used for test isolation.
      * NODE_ENV=test is checked separately at the registration site so this

@@ -15,6 +15,11 @@ authentication gateway for every deployment.
 - intended for one trusted developer on one machine
 
 Local development is not approved for shared, LAN or public access.
+`UNOSIM_LISTEN_HOST` in local mode accepts only numeric loopback addresses
+(`127.0.0.0/8` or `::1`). Binding elsewhere requires the explicit dangerous
+opt-in `UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND=true`; it adds no authentication
+or sandboxing and exposes local process execution to clients that can reach the
+listener.
 
 ### Docker deployment
 

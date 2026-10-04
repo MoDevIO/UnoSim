@@ -109,8 +109,15 @@ describe("central configuration validation", () => {
     expect(parseListenHost("local", undefined)).toBe("127.0.0.1");
   });
 
-  it("allows an explicit LAN listener without changing local trust mode", () => {
-    expect(parseListenHost("local", "0.0.0.0")).toBe("0.0.0.0");
+  it.each(["127.0.0.1", "127.0.0.2", "::1"])("allows local loopback host %s", (host) => {
+    expect(parseListenHost("local", host)).toBe(host);
+  });
+
+  it("rejects an external local listener unless the unsafe opt-in is enabled", () => {
+    expect(() => parseListenHost("local", "0.0.0.0")).toThrow(/unsafe.*external.*bind/i);
+    expect(() => parseListenHost("local", "192.168.1.10")).toThrow(/unsafe.*external.*bind/i);
+    expect(() => parseListenHost("local", "localhost")).toThrow(/unsafe.*external.*bind/i);
+    expect(parseListenHost("local", "0.0.0.0", true)).toBe("0.0.0.0");
   });
 
   it("keeps gateway mode on all interfaces by default", () => {
