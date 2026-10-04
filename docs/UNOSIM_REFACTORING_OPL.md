@@ -28,7 +28,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R9a | Tutor-Tests auf den übergebenen `TutorPlanningContentContext` umstellen (ohne Produktionsänderung) | Tutor-Wartbarkeit | T1 [Code] | gering | Tests nutzen nur noch den produktiven Pfad | klein | – | refactor/tutor-tests-supplied-context | DONE | 17 Provider-Konstruktionen über Test-Helfer `plannerWithCourseContent`, 2 Legacy-Repository-Tests über `TutorService` mit Kontext; Tutor-Quality 38 Dateien / 407 Tests vorher = nachher | PR-Merge siehe Verlauf |
 | R9b | Legacy-Repository-Zweig, Snapshot-Provider und `getTutorContent` aus dem Produktionscode entfernen | Tutor-Wartbarkeit | T1 [Code] | gering | ein Snapshot-Pfad im Adapter (−77 Zeilen) | klein | R9a | refactor/tutor-adapter-legacy-sources | DONE | Tutor-Quality 38/407 unverändert; Unit 2736 | PR-Merge siehe Verlauf |
 | R8a | `match()` = reine Auflösung (`resolveMatch`) + explizite State-Änderung (`applyMatch`); ein `findCurriculumQuestion`; Planungs- und Strategiefehler werden geloggt | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | Session-Mutation an genau einer Stelle; Planner-Fehler sichtbar | mittel | R9 | refactor/tutor-adapter-pure-match | DONE | Tutor-Quality 407 Bestandstests unverändert grün + 2 neue (Diagnose RED→GREEN; Charakterisierung: Revisions-Reset auch ohne Topic-Treffer) | PR-Merge siehe Verlauf |
-| R8b | Session-Concurrency mit Versions-/Lock-Vertrag | Tutor-Konsistenz | T4 [Code] | mittel | keine verlorenen Updates | mittel | R8a | fix/tutor-session-concurrency | OPEN | Concurrency-Test | – |
+| R8b | Session-Concurrency-Vertrag: Anfragen auf demselben gepinnten Progressionszustand laufen in Ankunftsreihenfolge; andere Sessions bleiben parallel | Tutor-Konsistenz | T4 [Code, reproduziert] | mittel | keine verlorene Mastery-Evidenz bei Doppelklick/Retry | klein | R8a | fix/tutor-session-concurrency | DONE | RED→GREEN: `session-concurrency.test.ts` (echter TutorService/Adapter: vorher nur 1 von 2 überlappenden Antworten in der Evidenz); Tutor-Quality 411 | PR-Merge siehe Verlauf |
 | R10 | Doku an implementierten Stand angleichen | Doku | Abschnitt 6 | gering | konsistente Doku | klein | R1–R8 | docs/consistency-after-refactoring | OPEN | `check:docs` | – |
 
 ## Einzelbefunde
@@ -57,7 +57,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | T1 | Tutor-Adapter mit drei Snapshot-Quellen | Tutor | [Code] bestätigt | gering | – | – | – | R9a/R9b | DONE | – | `parseTopic`/`parseManifest` bleiben als Fixture-Parser; DI-Nähte für Extractor/Matcher/Planner bleiben |
 | T2 | `match()` mit Seiteneffekten, doppeltes `findQuestion`, verschluckte Fehler | Tutor | [Code] bestätigt | gering–mittel | – | – | – | R8a | DONE | – | `planAnswered` behält seinen Klon, weil sein Ergebnis die angewandte Sicht braucht |
 | T3 | Client-Ratings fließen in Mastery-Evidenz ein | Produkt/Trust | [Code] | gering | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
-| T4 | Lost Update bei parallelen Anfragen einer Session | Tutor | [Code] | mittel | – | – | – | R8b | OPEN | – | – |
+| T4 | Lost Update bei parallelen Anfragen einer Session | Tutor | [Code] reproduziert | mittel | – | – | – | R8b | DONE | – | Serialisierung statt 409: kein neuer Client-Vertrag nötig |
 | T5 | Neue Tutor-Fragen scheitern bei GitHub-Ausfall (`requireFresh`) | Produkt/Verfügbarkeit | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
 
 ## Produktentscheidungen (nicht implementieren)
@@ -106,4 +106,5 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #170 | R5c: Worker-Recovery und Statusmetriken | `4f1822d1` | PR-CI 5/5 grün; Post-Merge-CI von #169 grün |
 | #171 | R9a: Tutor-Tests auf übergebenen Kontext | `b8a7f902` | PR-CI 5/5 grün; Post-Merge-CI von #170 grün |
 | #172 | R9b: Tutor-Übergangsschichten entfernt | `b7768439` | PR-CI 5/5 grün; Post-Merge-CI von #171 grün |
-| R8a | Adapter: reine Auflösung + explizite Mutation, Diagnose | – | – |
+| #173 | R8a: Adapter: reine Auflösung + explizite Mutation, Diagnose | `4511be62` | PR-CI 5/5 grün; Post-Merge-CI von #172 grün |
+| R8b | Tutor-Session-Concurrency | – | – |
