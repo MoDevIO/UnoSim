@@ -107,6 +107,55 @@ describe("repository/ref source provider", () => {
     expect(resolver).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps a shared refresh alive while another request still needs it", async () => {
+    let release!: () => void;
+    let loadSignal!: AbortSignal;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const resolver = vi.fn(async (_repository: string, _ref: string, request: RequestContext) => {
+      loadSignal = request.signal!;
+      await gate;
+      return revisionA;
+    });
+    const loader = vi.fn(async () => snapshot("a"));
+    const { provider } = harness(resolver, loader);
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = provider.resolve("owner/repo", "main", { ...context, signal: firstController.signal }, false);
+    const second = provider.resolve("owner/repo", "main", { ...context, requestId: "request-b", signal: secondController.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    firstController.abort(new DOMException("First client left", "AbortError"));
+    expect(loadSignal.aborted).toBe(false);
+    release();
+
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).resolves.toMatchObject({ revision: revisionA, stale: false });
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts a shared refresh after its final request leaves", async () => {
+    let loadSignal!: AbortSignal;
+    const resolver = vi.fn(async (_repository: string, _ref: string, request: RequestContext) => {
+      loadSignal = request.signal!;
+      return new Promise<string>((_resolve, reject) => {
+        loadSignal.addEventListener("abort", () => reject(loadSignal.reason), { once: true });
+      });
+    });
+    const { provider } = harness(resolver, vi.fn(async () => snapshot("a")));
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = provider.resolve("owner/repo", "main", { ...context, signal: firstController.signal }, false);
+    const second = provider.resolve("owner/repo", "main", { ...context, requestId: "request-b", signal: secondController.signal }, false);
+    await vi.waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+
+    firstController.abort(new DOMException("First client left", "AbortError"));
+    secondController.abort(new DOMException("Second client left", "AbortError"));
+
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(loadSignal.aborted).toBe(true);
+  });
+
   it("shares singleflight only for identical repository/ref sources", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });

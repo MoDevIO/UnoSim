@@ -43,11 +43,18 @@ export interface ExamplesCacheOptions {
   now?: () => number;
 }
 
+interface SharedFlight {
+  controller: AbortController;
+  promise: Promise<unknown>;
+  subscribers: number;
+  settled: boolean;
+}
+
 export class ExamplesCache {
   private readonly sources = new Map<SourceCacheKey, SourceCacheEntry>();
   private readonly revisions = new Map<RevisionCacheKey, RevisionCacheEntry>();
-  private readonly sourceFlights = new Map<SourceCacheKey, Promise<unknown>>();
-  private readonly revisionFlights = new Map<RevisionCacheKey, Promise<unknown>>();
+  private readonly sourceFlights = new Map<SourceCacheKey, SharedFlight>();
+  private readonly revisionFlights = new Map<RevisionCacheKey, SharedFlight>();
   private totalSnapshotBytes = 0;
   private readonly now: () => number;
 
@@ -135,21 +142,23 @@ export class ExamplesCache {
     return stored;
   }
 
-  async withSourceSingleflight<T>(key: SourceCacheKey, load: () => Promise<T>): Promise<T> {
-    const current = this.sourceFlights.get(key) as Promise<T> | undefined;
-    if (current) return current;
-    this.admitSource(key);
-    const flight = load().finally(() => this.sourceFlights.delete(key));
-    this.sourceFlights.set(key, flight);
-    return flight;
+  async withSourceSingleflight<T>(
+    key: SourceCacheKey,
+    load: (signal: AbortSignal) => Promise<T>,
+    requestSignal?: AbortSignal,
+  ): Promise<T> {
+    if (requestSignal?.aborted) return Promise.reject(requestSignal.reason ?? new DOMException("Request aborted", "AbortError"));
+    const current = this.sourceFlights.get(key);
+    if (!current || current.controller.signal.aborted) this.admitSource(key);
+    return this.withSingleflight(this.sourceFlights, key, load, requestSignal);
   }
 
-  async withRevisionSingleflight<T>(key: RevisionCacheKey, load: () => Promise<T>): Promise<T> {
-    const current = this.revisionFlights.get(key) as Promise<T> | undefined;
-    if (current) return current;
-    const flight = load().finally(() => this.revisionFlights.delete(key));
-    this.revisionFlights.set(key, flight);
-    return flight;
+  async withRevisionSingleflight<T>(
+    key: RevisionCacheKey,
+    load: (signal: AbortSignal) => Promise<T>,
+    requestSignal?: AbortSignal,
+  ): Promise<T> {
+    return this.withSingleflight(this.revisionFlights, key, load, requestSignal);
   }
 
   getStats() {
@@ -170,6 +179,94 @@ export class ExamplesCache {
         throw new ExamplesError("LOAD_CAPACITY_EXCEEDED", "External examples source capacity is exhausted");
       }
     }
+  }
+
+  private withSingleflight<K extends string, T>(
+    flights: Map<K, SharedFlight>,
+    key: K,
+    load: (signal: AbortSignal) => Promise<T>,
+    requestSignal?: AbortSignal,
+  ): Promise<T> {
+    if (requestSignal?.aborted) return Promise.reject(requestSignal.reason ?? new DOMException("Request aborted", "AbortError"));
+
+    let flight = flights.get(key) as SharedFlight & { promise: Promise<T> } | undefined;
+    if (flight?.controller.signal.aborted) {
+      if (flights.get(key) === flight) flights.delete(key);
+      flight = undefined;
+    }
+    if (!flight) {
+      const controller = new AbortController();
+      let created!: SharedFlight & { promise: Promise<T> };
+      let resolveFlight!: (value: T) => void;
+      let rejectFlight!: (error: unknown) => void;
+      const promise = new Promise<T>((resolve, reject) => {
+        resolveFlight = resolve;
+        rejectFlight = reject;
+      });
+      const settle = () => {
+        created.settled = true;
+        if (flights.get(key) === created) flights.delete(key);
+      };
+      created = { controller, promise, subscribers: 0, settled: false };
+      flight = created;
+      flights.set(key, created);
+      try {
+        void Promise.resolve(load(controller.signal)).then(
+          (value) => {
+            settle();
+            resolveFlight(value);
+          },
+          (error: unknown) => {
+            settle();
+            rejectFlight(error);
+          },
+        );
+      } catch (error) {
+        settle();
+        rejectFlight(error);
+      }
+    }
+
+    return this.subscribeToFlight(flight, requestSignal);
+  }
+
+  private subscribeToFlight<T>(
+    flight: SharedFlight & { promise: Promise<T> },
+    requestSignal?: AbortSignal,
+  ): Promise<T> {
+    if (requestSignal?.aborted) return Promise.reject(requestSignal.reason ?? new DOMException("Request aborted", "AbortError"));
+    flight.subscribers += 1;
+
+    return new Promise<T>((resolve, reject) => {
+      let left = false;
+      const leave = () => {
+        if (left) return;
+        left = true;
+        requestSignal?.removeEventListener("abort", onAbort);
+        flight.subscribers -= 1;
+        if (flight.subscribers === 0 && !flight.settled) flight.controller.abort();
+      };
+      const onAbort = () => {
+        leave();
+        reject(requestSignal?.reason ?? new DOMException("Request aborted", "AbortError"));
+      };
+
+      requestSignal?.addEventListener("abort", onAbort, { once: true });
+      if (requestSignal?.aborted) {
+        onAbort();
+        return;
+      }
+      flight.promise.then(
+        (value) => {
+          leave();
+          resolve(value as T);
+        },
+        (error: unknown) => {
+          leave();
+          reject(error);
+        },
+      );
+    });
   }
 
   private enforceRevisionLimits(): void {
