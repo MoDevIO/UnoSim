@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>20/24</span>
+                <span class='fraction'>20/22</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/6</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.23% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/17</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -105,23 +105,7 @@
 <a name='L40'></a><a href='#L40'>40</a>
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
-<a name='L43'></a><a href='#L43'>43</a>
-<a name='L44'></a><a href='#L44'>44</a>
-<a name='L45'></a><a href='#L45'>45</a>
-<a name='L46'></a><a href='#L46'>46</a>
-<a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a>
-<a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a>
-<a name='L53'></a><a href='#L53'>53</a>
-<a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a>
-<a name='L56'></a><a href='#L56'>56</a>
-<a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L43'></a><a href='#L43'>43</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -133,22 +117,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -189,27 +157,11 @@ import {
   type CurriculumTopic,
 } from "./curriculum-schema";
 &nbsp;
-/** Test-only compatibility port for the pre-unified curriculum fixtures. */
-export interface DidacticContentSnapshot {
-  readonly revision: string;
-  readonly manifest: CurriculumManifest;
-  readonly topics: readonly CurriculumTopic[];
-  readonly stale: boolean;
-}
-&nbsp;
-export interface DidacticContentRepository {
-  getSnapshot(): Promise&lt;DidacticContentSnapshot | null&gt;;
-}
-&nbsp;
-/** Static data is retained for deterministic unit tests; production uses CourseContentLoader. */
-export class StaticDidacticContentRepository implements DidacticContentRepository {
-<span class="fstat-no" title="function not covered" >  constructor(private readonly <span class="cstat-no" title="statement not covered" >s</span>napshot: DidacticContentSnapshot | null) {</span>}
-&nbsp;
-  async <span class="fstat-no" title="function not covered" >getSnapshot(): Promise&lt;DidacticContentSnapshot | null&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    return this.snapshot;</span>
-  }
-}
-&nbsp;
+/**
+ * YAML parsing for curriculum manifests and topics with the same safety rules
+ * as Course Content (no YAML tags, unique keys). Production loads Course
+ * Content through CourseContentLoader; tests and fixtures use these helpers.
+ */
 export function parseManifest(source: string): CurriculumManifest {
   const parsed = curriculumManifestSchema.safeParse(parseSafeYaml(source));
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!parsed.success) <span class="cstat-no" title="statement not covered" >throw new Error("Invalid curriculum manifest");</span>
@@ -244,7 +196,7 @@ function containsYamlTag(source: string): boolean {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-04T07:02:33.124Z
+                at 2026-10-04T07:11:24.951Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
