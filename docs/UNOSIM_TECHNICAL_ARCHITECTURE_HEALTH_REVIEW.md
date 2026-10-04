@@ -6,6 +6,10 @@
 > [UNOSIM_REFACTORING_OPL.md](UNOSIM_REFACTORING_OPL.md). Normative Verträge
 > bleiben die ADRs unter [adr/](adr/) und die SSOTs unter [../ssot/](../ssot/).
 >
+> Status der Befunde nach der Refactoring-Serie (bestätigt, falsifiziert,
+> umgesetzt, offen): siehe OPL. Dieser Bericht bleibt unverändert der
+> Analyse-Stand.
+>
 > Ältere Planungsdokumente (z. B. `UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`)
 > verweisen unter demselben Dateinamen auf eine frühere, nie versionierte
 > Review vom 2026-09-29. Diese Datei ersetzt jene Referenz nicht inhaltlich;

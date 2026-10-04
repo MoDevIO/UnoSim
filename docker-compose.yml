@@ -38,7 +38,9 @@ services:
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
-      # Logical simulation capacity grows on-demand; idle logical runners shrink after IDLE_TIMEOUT_MS
+      # Logical simulation capacity grows on-demand; idle logical runners shrink after IDLE_TIMEOUT_MS.
+      # Admission still caps running plus waiting simulations at SIMULATION_ADMISSION_MAX
+      # (application default 25); see docs/CAPACITY_VALIDATION_PLAN.md before raising either.
       - SIMULATION_MAX_CONCURRENT=200
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
       # Per-sandbox Docker resource limits

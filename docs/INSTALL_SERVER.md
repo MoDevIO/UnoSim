@@ -60,6 +60,9 @@ Der vollständige Vertrag steht in
 - Der Docker-Socket ist nur für den UnoSim-Server verfügbar.
 - Temporäre Build-Pfade werden unter `UNOSIM_SHARED_TEMP_DIR` am identischen
   Host- und Containerpfad gemountet.
+- Jeder Sandbox-Container trägt das Label `unosim.owner=<host>:<pid>`. Nach
+  einem Neustart desselben Backend-Containers entfernt der Server beim Start
+  die Container seiner vorherigen Inkarnation.
 
 Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
 sein.
@@ -89,8 +92,8 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 
 | Variable | Zweck |
 |---|---|
-| `WORKER_COUNT` | Anzahl paralleler Compile-Worker |
-| `COMPILE_MAX_CONCURRENT` | globale Obergrenze gleichzeitig laufender Compile-Vorgänge |
+| `WORKER_COUNT` | Anzahl paralleler Compile-Worker für `/api/compile`; höchstens 8 werden gestartet (ein höherer Wert wird beim Start als Warnung gemeldet) |
+| `COMPILE_MAX_CONCURRENT` | Obergrenze gleichzeitiger Compiles im Hauptprozess (lokaler Modus und Fallback bei ausgefallenem Worker-Pool) |
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
 | `SANDBOX_START_SLOT_TIMEOUT_MS` | maximale Wartezeit eines zugelassenen Starts auf einen Sandbox-Startplatz; Standard `30000` ms |
@@ -99,12 +102,18 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
+| `WS_HEARTBEAT_INTERVAL_MS` | Ping-Intervall der WebSocket-Verbindungen; eine Verbindung ohne Antwort auf den vorherigen Ping wird getrennt und gibt ihre Simulation frei; Standard `30000` ms |
 
 Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
 `SIMULATION_MAX_CONCURRENT=5`). Die Produktions-Compose-Datei setzt aktuell
 `SIMULATION_MAX_CONCURRENT=200` ausdrücklich als Deployment-Override; das ist
 kein neuer Anwendungdefault. Dieser Wert muss vor einem produktiven Einsatz
-gegen die aktuelle Zielserver-Abnahme geprüft werden.
+gegen die aktuelle Zielserver-Abnahme geprüft werden. Wirksam wird er nur
+zusammen mit `SIMULATION_ADMISSION_MAX`: Ohne diesen Wert lässt die Admission
+höchstens 25 laufende und wartende Simulationen zu.
+
+Ist der Compile-Worker-Pool ausgelastet (500 wartende Compiles oder 30 s
+Wartezeit), antwortet `/api/compile` mit `503` und `SYSTEM_BUSY`.
 
 Für größere Installationen sollte vor einer manuellen Erhöhung der
 Kapazitätswerte die Host-Kalibrierung ausgeführt werden:

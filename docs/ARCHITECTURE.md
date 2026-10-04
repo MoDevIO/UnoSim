@@ -12,8 +12,10 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 - Die mastery-driven didaktische Phasenentscheidung ist in `adr/0007-mastery-driven-tutor-progression.md` normativ ergänzt.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
-- Git enthält die Historie früherer Planungs- und Risikoquellen; der aktuelle
-  Tree enthält nur normative Dokumentation.
+- Neben normativer Dokumentation enthält der Tree als historisch oder nicht
+  normativ gekennzeichnete Analysen, Pläne und Berichte (Kennzeichnung im
+  Dokumentkopf). Sie beschreiben einen Stand oder eine Entscheidungsgrundlage,
+  keinen Vertrag; maßgeblich bleiben dieses Dokument, die ADRs und die SSOTs.
 
 ## 📊 Datenfluss-Diagramm
 
@@ -33,12 +35,12 @@ graph TD
 - **Verantwortung:** UI-Interaktion, WebSocket-Kommunikation, State-Management
 - **Technologie:** React 18, TypeScript, Vite, TailwindCSS
 - **Hauptkomponenten:**
-  - `ArduinoSimulatorPage` – Haupt-Seite mit Simulator-UI (753 Zeilen, Composition Root)
+  - `ArduinoSimulatorPage` – schlanker Seiteneinstieg; die Komposition liegt in `useArduinoSimulatorPage`
   - `useCompileAndRun` – Orchestrator für Compile→Start und State-Komposition
   - `useSimulatorExternalControl` – Externe Steuerung, Reconnect-Queue und Status-Events
-  - `use-compile-controller.ts` – Compile-Mutation, Parser-/Registry-Updates und Compile-State (94% Coverage)
-  - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle (100% Coverage)
-  - `use-ui-feedback-adapter.ts` – Toasts, Debug-Meldungen, Glitch- und Pin-Konflikt-Feedback (310 Zeilen, 98.8% Coverage)
+  - `use-compile-controller.ts` – Compile-Mutation, Parser-/Registry-Updates und Compile-State
+  - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle
+  - `use-ui-feedback-adapter.ts` – Toasts, Debug-Meldungen, Glitch- und Pin-Konflikt-Feedback
   - `useArduinoSimulatorPage` – Composition Root für ViewModels
 
 ### 2. UnoSim Server (Backend)
@@ -60,13 +62,27 @@ graph TD
 - **Hauptkomponenten:**
   - `services/arduino-compiler.ts` – Haupt-Compiler-Logik
   - `services/compiler-with-fallback.ts` – Fallback-Mechanismus für Compilation
-  - Cache: In-Memory-Cache für schnelle Rekompilationen
+  - Cache: ein In-Memory-Ergebniscache der Route (ohne HEX) und ein
+    Festplatten-Cache für HEX und Compiler-Ausgabe. Beide sind über die
+    Sketch-Identität aus Code, Headern, Entry-File und FQBN adressiert;
+    Worker-Pool und direkter Compiler teilen dieselben Einträge.
+  - Der REST-Compile läuft mit `arduino-cli` im Backend, nicht in einer
+    Sandbox. Includes außerhalb des eingereichten Projekts (absolut, `..`,
+    berechnet) werden vor dem Compile abgewiesen; das HEX verlässt den Server
+    nicht.
+  - Kapazität: Im Docker-Betrieb begrenzt der Worker-Pool (höchstens 8 Worker,
+    höchstens 500 wartende Compiles, 30 s Wartezeit) und antwortet bei
+    Erschöpfung mit `503 SYSTEM_BUSY`; abgestürzte Worker werden mit Backoff neu
+    gestartet. Lokal und als Fallback bei ausgefallenem Pool begrenzt der
+    Gatekeeper (`COMPILE_MAX_CONCURRENT`).
 
 ### 4. Sandbox Runner Pool
 - **Verantwortung:** Verwaltung von Runner-Leases und Docker-Containern für Sketch-Ausführung
 - **Technologie:** Docker-API und pro Ausführung kurzlebige Sandbox-Container. Node.js Worker Threads gehören zum Compiler Worker Pool, nicht zum Runner-Pool.
 - **Hauptmerkmale:**
   - **Runner-Pool:** Vorgehaltene Runner-Objekte; Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
+  - **Wiederverwendung:** Jeder Lauf trägt eine Generation und ein Abbruchsignal. Ein gestoppter Lauf, der noch auf einen Start-Slot wartet, startet nicht mehr und berührt den Folgelauf auf demselben Runner nicht; Ereignisse eines ersetzten Kindprozesses werden verworfen. Den Reset vor der Wiederverwendung besitzt der Runner (`resetForReuse`).
+  - **Verwaiste Container:** Jeder Sandbox-Container trägt das Label `unosim.owner=<host>:<pid>`. Beim Start entfernt das Backend Container seiner eigenen früheren Inkarnation (z. B. nach einem Absturz); andere UnoSim-Instanzen auf demselben Docker-Host bleiben unberührt.
   - **Isolation:** Jeder Sketch läuft in eigenem Container
   - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
 
@@ -201,6 +217,8 @@ handle when repository context is active. Follow-up dialogs use that handle and
 remain pinned to the server-derived revision; browser repository/ref/revision
 metadata is request context only and never content authority. Changing the
 browser selection clears the client dialog and starts a new context.
+Requests of one Tutor session run one after another, so overlapping requests
+(double submit, retry) cannot overwrite each other's progression evidence.
 The current session store is process-local in-memory state with a one-hour TTL,
 so Tutor session pinning is supported by the current single-backend topology.
 Horizontal multi-instance deployment would require shared Tutor-session state
@@ -231,7 +249,7 @@ Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Ru
 1. Client fragt `/api/status` ab; einfache Health-Probes nutzen `/api/health`, Compose-Readiness nutzt `/api/readiness`
 2. Server aggregiert Metriken von:
    - Sandbox Runner Pool (verfügbare/genutzte Runner)
-   - Compile Semaphore (aktive/queued Compilations)
+   - Compile-Kapazität (Worker-Pool im Docker-Betrieb, sonst Gatekeeper) und Sandbox-Start-Slots
    - Server-Konfiguration (zentral in `server/config.ts`)
 3. Client zeigt Status in Header an
 
@@ -278,12 +296,14 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Isolation:** Jeder Sketch läuft in eigenem Docker-Container
 - **Ressourcenlimits:** CPU, Memory, PID-Limits pro Container
 - **Read-Only Filesystem:** Container haben nur lesenden Zugriff auf Dateisystem
-- **Timeouts:** Maximale Laufzeit pro Sketch (60 Sekunden)
+- **Timeouts:** Laufzeit pro Simulation standardmäßig 60 Sekunden, je Start 1–300 Sekunden
 
 ### WebSocket-Sicherheit
 - **Authentifizierung:** Gateway-Modus mit `X-UnoSim-*` Headern (ADR 0001)
-- **Origin-Check:** Nur erlaubte Origins können Nachrichten senden/empfangen
-- **Rate-Limiting:** Begrenzung der Nachrichtenfrequenz
+- **Origin-Check:** Im Gateway-Modus nur exakt erlaubte Origins; lokal zusätzlich derselbe Host
+- **Rate-Limiting:** Simulationsstarts pro Identität; alle Nachrichten einer Verbindung über einen Token-Bucket (500/s, Burst 1000, Überschuss wird verworfen); höchstens 1 MiB ausstehende Sketch-Eingabe
+- **Heartbeat:** Ping alle 30 Sekunden (`WS_HEARTBEAT_INTERVAL_MS`); eine Verbindung ohne Pong wird getrennt und gibt Runner und Reservierung frei
+- **Isolation:** Der Kompatibilitäts-Fallback für `start_simulation` ohne `code` nutzt nur den zuletzt kompilierten Code derselben Identität
 
 ### Runtime-Profile
 
@@ -340,5 +360,5 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 - [`adr/0006-unified-course-content-and-tutor-strategy.md`](adr/0006-unified-course-content-and-tutor-strategy.md) – aktueller einheitlicher Course-Content-/Tutor-Vertrag
 - [`../ssot/ssot_function_definition_CourseContent.md`](../ssot/ssot_function_definition_CourseContent.md) – Normativer Course-Content-Vertrag
 - [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md) – Fachlicher Examples-Vertrag
-- [`SCALABILITY.md`](SCALABILITY.md) – gemessene Kapazitätsgrenzen
+- [`SCALABILITY.md`](SCALABILITY.md) – historische Kapazitätsmessung; aktuelle Werte in [`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md)
 - [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen
