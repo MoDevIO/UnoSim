@@ -135,6 +135,59 @@ describe("CompilationWorkerPool", () => {
     });
   });
 
+  it("keeps lifetime average statistics without retaining a growing duration history", async () => {
+    const pool = createPool(1);
+    let now = 1_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const retainedSamples = () => Object.values(
+      (pool as unknown as { stats: Record<string, unknown> }).stats,
+    ).reduce<number>((count, value) => count + (Array.isArray(value) ? value.length : 0), 0);
+    try {
+      for (let index = 0; index < 2_000; index++) {
+        const pending = pool.compile({ code: "statistics-fixture" });
+        now += index % 2 === 0 ? 10 : 30;
+        succeed(0);
+        await pending;
+      }
+      expect(pool.getStats()).toMatchObject({ completedTasks: 2_000, avgCompileTimeMs: 20 });
+      // Storage invariant: lifetime counters need no individual duration samples.
+      expect(retainedSamples()).toBe(0);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("averages completed result durations including diagnostics but excludes structured worker errors", async () => {
+    const pool = createPool(1);
+    let now = 1_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      expect(pool.getStats().avgCompileTimeMs).toBe(0);
+      const success = pool.compile({ code: "success" });
+      now += 10;
+      succeed(0);
+      await success;
+      const diagnostic = pool.compile({ code: "diagnostic" });
+      now += 30;
+      worker(0).emit("message", {
+        type: "compile_result",
+        payload: { result: { ...successfulResult, success: false } },
+      });
+      await diagnostic;
+      const failure = pool.compile({ code: "worker-error" });
+      const rejected = expect(failure).rejects.toThrow("worker error");
+      now += 50;
+      worker(0).emit("message", {
+        type: "compile_result",
+        payload: { error: { message: "worker error" } },
+      });
+      await rejected;
+      expect(pool.getStats()).toMatchObject({ completedTasks: 2, failedTasks: 1, avgCompileTimeMs: 20 });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("uses all workers before applying backpressure", async () => {
     const pool = createPool(2);
 
