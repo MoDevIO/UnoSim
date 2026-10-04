@@ -79,6 +79,7 @@ docker image inspect unosim-sandbox:latest >/dev/null 2>&1 || { echo "Required i
 [[ -x ./node_modules/.bin/tsx ]] || { echo "Dependencies are missing; run npm install first" >&2; exit 1; }
 ARDUINO_CLI_VERSION="$(arduino-cli version 2>/dev/null || true)"
 printf '%s\n' "${ARDUINO_CLI_VERSION}" | grep -Fq "Version: 1.5.1 " || { echo "Arduino CLI 1.5.1 is required on the host" >&2; exit 1; }
+sh scripts/check-arduino-avr-core-version.sh
 ARDUINO_AVR_CORE_VERSION="$(arduino-cli core list | awk '$1 == "arduino:avr" {print $2}')"
 [[ -n "${ARDUINO_AVR_CORE_VERSION}" ]] || { echo "The arduino:avr core must be installed on the host" >&2; exit 1; }
 
