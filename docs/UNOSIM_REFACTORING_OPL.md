@@ -23,7 +23,8 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R4a | Owner-Label `unosim.owner=<host>:<pid>` an jedem Sandbox-Container; Sweep der Container einer früheren Inkarnation beim Start (Docker-Modus) | Lifecycle | A7 [Code] | mittel | nach Crash-Restart (gleicher Host, PID 1) laufen keine verwaisten Sketch-Container mehr weiter; fremde UnoSim-Instanzen bleiben unberührt | klein–mittel | R3a | fix/sandbox-orphan-sweep | DONE | RED→GREEN: `orphan-sweep.test.ts` (Label, Sweep, Fehlertoleranz); `sandbox-orphan-sweep.test.ts` in der Docker-Suite (echter Container des eigenen Owners entfernt, fremder bleibt) | PR-Merge siehe Verlauf |
 | R4b | WS-Ping/Pong-Heartbeat (30 s), Token-Bucket pro Verbindung (500/s, Burst 1000), stdin-Obergrenze 1 MiB | Lifecycle | A7 [Code] | mittel | halb offene Verbindungen geben Runner und Reservation nach ≤ 2 Intervallen frei; Floods erzeugen keine unbegrenzten stdin-Schreibvorgänge | mittel | – | fix/ws-connection-lifecycle | DONE | RED→GREEN: `simulation-connection-lifecycle.test.ts` (stummer Client getrennt + Simulation freigegeben; antwortender bleibt; Flood gedrosselt, Verbindung bleibt), `process-controller-stdin-bound.test.ts` | PR-Merge siehe Verlauf |
 | R5a | Gatekeeper: abgelaufener Slot geht an den nächsten Wartenden; Wait-Timer der Prepare-Phase wird gelöscht | Concurrency | A2 [Code] | mittel | keine hängende Compile-Queue nach TTL-Ablauf | klein | – | fix/gatekeeper-ttl-handoff | DONE | RED→GREEN: `unified-gatekeeper-ttl.test.ts` (Fake-Timer: Übergabe nach TTL, keine Doppelvergabe bei später Freigabe), `prepare-phase-timer.test.ts` | PR-Merge siehe Verlauf |
-| R5b | Worker-Pool: Recovery, begrenzte Queue/Timeouts, begrenzter Fallback, Statusmetriken | Concurrency | A1, A3 [Code] | mittel | Backpressure auch im Fehlerfall | mittel | R5a | fix/compile-pool-backpressure | OPEN | Pool-Crash-/Queue-Tests, Status-Tests | – |
+| R5b | Worker-Pool: Queue-Obergrenze (500) und Wartezeit-Grenze (30 s); Kapazitätsfehler fällt nicht in den Hauptthread zurück; Route antwortet 503 `SYSTEM_BUSY` | Concurrency | A3 [Code] | mittel | Backpressure statt unbegrenzter Warteschlange und doppeltem Compile-Budget | klein | R5a | fix/compile-pool-backpressure | DONE | RED→GREEN: `worker-pool-backpressure.test.ts`, `compiler-with-fallback-capacity.test.ts`, `compiler-capacity.test.ts` | PR-Merge siehe Verlauf |
+| R5c | Worker-Recovery nach Absturz; Statusmetriken 1:1 (Compile-Kapazität = tatsächliche Worker-Zahl, stille Begrenzung auf 8 sichtbar) | Concurrency/Observability | A1, A3 [Code] | mittel | Durchsatz nach Worker-Absturz; ehrliche Metriken | klein–mittel | R5b | fix/compile-pool-recovery-metrics | OPEN | – | – |
 | R9 | Tutor-Übergangsschichten (Legacy-Repository-Zweig, Snapshot-Provider, `getTutorContent`) entfernen | Tutor-Wartbarkeit | T1 [Code] | gering | weniger Pfade im Adapter | klein–mittel | – | refactor/tutor-adapter-legacy-sources | OPEN | Tests zuerst migriert; Tutor-Quality-Suite unverändert grün | – |
 | R8a | `match()` in reine Auflösung + explizite State-Änderung; ein `findQuestion`; Fehler diagnostizieren | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | sichere Planner-Änderungen | mittel | R9 | refactor/tutor-adapter-pure-match | OPEN | Tutor-Quality-Suite als Charakterisierungs-Gate | – |
 | R8b | Session-Concurrency mit Versions-/Lock-Vertrag | Tutor-Konsistenz | T4 [Code] | mittel | keine verlorenen Updates | mittel | R8a | fix/tutor-session-concurrency | OPEN | Concurrency-Test | – |
@@ -44,7 +45,8 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | A1 | Überlappende Concurrency-Mechanismen, vermischte Statusmetriken | Concurrency | [Code] | mittel | – | – | – | R5b | OPEN | – | – |
 | A2 | Gatekeeper-TTL ohne Queue-Fortsetzung | Concurrency | [Code] bestätigt (Fake-Timer-Test) | mittel | – | – | – | R5a | DONE | – | – |
 | A2-DEAD | Ungenutzte Cache-Lock-API und `drain()` im Gatekeeper | Wartbarkeit | [Code] | gering | – | – | – | – | DEFERRED | – | nicht im freigegebenen R5-Umfang, kein belegter Schaden; Entfernen beträfe 48 Testreferenzen auf toten Code |
-| A3 | Fallback umgeht Lastgrenze, keine Worker-Recovery, unbegrenzte Queue | Concurrency | [Code] | mittel | – | – | – | R5b | OPEN | – | – |
+| A3 | Keine Worker-Recovery, unbegrenzte Queue ohne Timeout | Concurrency | [Code] bestätigt | mittel | – | – | – | R5b/R5c | IN_PROGRESS | – | Queue/Timeout mit R5b erledigt |
+| A3-BYPASS | „Fallback umgeht die Lastgrenze“ | Concurrency | Verifikation: der Fallback läuft über `ArduinoCompiler.compile` und belegt einen Gatekeeper-Slot (`COMPILE_MAX_CONCURRENT`) | – | – | – | – | – | FALSIFIED | – | bestätigt bleibt nur das zweite, addierte Budget; ein Kapazitätsfehler läuft seit R5b nicht mehr in den Fallback |
 | A4 | Compile-Hash ohne Header im direkten Compiler | Korrektheit | [Code] bestätigt | mittel | – | – | – | R6 | DONE | Header-only-Test | `libraries` bleibt außerhalb des Hashes: arduino-cli erhält sie nicht |
 | A5 | HEX-Binary in REST-JSON und LRU | Performance | [Code] bestätigt, [gemessen] 59.653 statt 562 Byte | gering | – | – | – | R6 | DONE | Payload-Test | Simulation nutzt das REST-Binary nicht |
 | A6 | Pool setzt private Runner-Felder zurück | Kapselung | [Code] bestätigt | mittel | – | – | – | R3b | DONE | – | Pools `removeAllListeners`-Aufrufe waren wirkungslos (keine EventEmitter), `fileBuilder.reset` existierte nicht |
@@ -69,6 +71,8 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 
 ## Reihenfolge-Änderungen
 
+- R5b wurde in R5b (Backpressure) und R5c (Recovery, Metriken) geteilt, um
+  kleinere PRs zu erhalten.
 - R4a begrenzt den Sweep bewusst auf den eigenen Owner (`<host>:<pid>`) statt
   auf ein Alterskriterium: Pausierte Simulationen haben keine Maximaldauer, und
   mehrere UnoSim-Instanzen können sich einen Docker-Host teilen. Ein Redeploy
@@ -94,4 +98,5 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #165 | R3b: Reset-Ownership im Runner | `206d2033` | PR-CI 5/5 grün; Post-Merge-CI von #164 grün |
 | #166 | R4a: Orphan-Sweep für Sandbox-Container | `61ed9a64` | PR-CI 5/5 grün; Post-Merge-CI von #165 grün |
 | #167 | R4b: WS-Heartbeat, Nachrichtenlimit, stdin-Obergrenze | `df62bf8f` | PR-CI 5/5 grün; Post-Merge-CI von #166 grün |
-| R5a | Gatekeeper-TTL-Übergabe, Prepare-Timer | – | – |
+| #168 | R5a: Gatekeeper-TTL-Übergabe, Prepare-Timer | `053e7c80` | PR-CI 5/5 grün; Post-Merge-CI von #167 grün |
+| R5b | Worker-Pool-Backpressure | – | – |
