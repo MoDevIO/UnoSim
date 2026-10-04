@@ -7,6 +7,7 @@ import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curric
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import type { LLMProvider } from "../../../../server/services/tutor/llm-provider";
 import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
+import { plannerWithCourseContent } from "./support/course-content-planner";
 
 const revision = "a".repeat(40);
 
@@ -24,9 +25,7 @@ function strategyEntry({ id }: { readonly id: string }) {
 
 describe("Tutor strategy precedence", () => {
   it("chooses per-example strategy over repository default", async () => {
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           tutor: {
             status: "valid" as const,
@@ -35,9 +34,7 @@ describe("Tutor strategy precedence", () => {
             strategies: [strategy("repository-default"), strategy("example-policy")],
           },
           exampleTutorAnnotation: { schemaVersion: 1, strategy: "example-policy" },
-        }),
-      },
-    });
+        }));
 
     await expect(adapter.planInitial({
       code: "int values[] = {1, 2};",
@@ -50,9 +47,7 @@ describe("Tutor strategy precedence", () => {
   it("uses repository default for unbound sketches and built-in for no strategy", async () => {
     const tutor = await topic();
     const repositoryDefault = strategy("repository-default");
-    const makeAdapter = (strategies: typeof repositoryDefault[]) => new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const makeAdapter = (strategies: typeof repositoryDefault[]) => plannerWithCourseContent(async () => ({
           revision,
           tutor: {
             status: "valid" as const,
@@ -60,9 +55,7 @@ describe("Tutor strategy precedence", () => {
             topics: [tutor],
             strategies,
           },
-        }),
-      },
-    });
+        }));
 
     await expect(makeAdapter([repositoryDefault]).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
       .resolves.toMatchObject({ strategyId: "repository-default", strategySource: "repository" });
@@ -111,9 +104,7 @@ describe("Tutor strategy precedence", () => {
     markTopicMastered(state, tutor.id);
     const repositoryDefault = strategy("repository-default");
     const exploration = strategy("exploration-policy");
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -128,9 +119,7 @@ describe("Tutor strategy precedence", () => {
             topics: [tutor],
             strategies: [repositoryDefault, exploration],
           },
-        }),
-      },
-    });
+        }));
 
     await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
       .resolves.toMatchObject({ strategyId: exploration.id, learningPhase: "DEEPEN" });
@@ -214,7 +203,7 @@ describe("Tutor strategy precedence", () => {
         strategies: [precision, exploration],
       },
     };
-    const service = new TutorService(provider, new CurriculumTutorAdapter({ courseContent: { getSnapshot: async () => context } }));
+    const service = new TutorService(provider, plannerWithCourseContent(async () => context));
     const initial = await service.generateQuestion("int values[] = {1, 2};", "key", undefined, 30, context);
     const firstAfterMastery = await service.generateDialogResponse(
       "int values[] = {1, 2};", [], initial.result.question, "Antwort", "key", undefined, 30, context,
@@ -289,7 +278,7 @@ describe("Tutor strategy precedence", () => {
         strategies: [deepening, expansion],
       },
     };
-    const service = new TutorService(provider, new CurriculumTutorAdapter({ courseContent: { getSnapshot: async () => context } }));
+    const service = new TutorService(provider, plannerWithCourseContent(async () => context));
     const transitioned = await service.generateDialogResponse(
       "int values[] = {1, 2};", [], questions[1]!.text!, "Antwort", "key", undefined, 30, context,
     );

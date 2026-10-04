@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
-import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
 import { isTutorPlan, type TutorPlanningResult } from "../../../../server/services/tutor/tutor-planning";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
+import { plannerWithCourseContent } from "./support/course-content-planner";
 
 const revision = "a".repeat(40);
 
@@ -17,9 +17,7 @@ function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], annotation?: 
   readonly topics?: string[];
   readonly primaryTopic?: string;
 }) {
-  return new CurriculumTutorAdapter({
-    courseContent: {
-      getSnapshot: async () => ({
+  return plannerWithCourseContent(async () => ({
         revision,
         tutor: {
           status: "valid" as const,
@@ -28,9 +26,7 @@ function adapter(topics: Awaited<ReturnType<typeof pilotTopic>>[], annotation?: 
           strategies: [],
         },
         ...(annotation ? { exampleTutorAnnotation: { schemaVersion: 1 as const, ...annotation } } : {}),
-      }),
-    },
-  });
+      }));
 }
 
 function plannedTopicId(result: TutorPlanningResult | null): string | undefined {
@@ -73,9 +69,7 @@ describe("Tutor topic precedence", () => {
     const state = createTutorProgressionState(revision);
     state.activeTopicId = primary.id;
     markTopicMastered(state, primary.id);
-    const result = await new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const result = await plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -85,9 +79,7 @@ describe("Tutor topic precedence", () => {
             strategies: [],
           },
           exampleTutorAnnotation: { schemaVersion: 1 as const, topics: [primary.id, secondary.id], primaryTopic: primary.id },
-        }),
-      },
-    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+        })).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN" });
   });
 
@@ -113,9 +105,7 @@ describe("Tutor topic precedence", () => {
     state.phase = "EXPAND";
     state.retainedPhases[primary.id] = "EXPAND";
     markTopicMastered(state, primary.id);
-    const result = await new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const result = await plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -124,9 +114,7 @@ describe("Tutor topic precedence", () => {
             topics: [primary, target],
             strategies: [],
           },
-        }),
-      },
-    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+        })).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(result).toMatchObject({ topicId: "arrays", learningPhase: "LEARN", extensionTargetTopicId: "arrays" });
   });
 
@@ -149,9 +137,7 @@ describe("Tutor topic precedence", () => {
     state.phase = "EXPAND";
     state.retainedPhases[primary.id] = "EXPAND";
     markTopicMastered(state, primary.id);
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -160,9 +146,7 @@ describe("Tutor topic precedence", () => {
             topics: [primary, target],
             strategies: [],
           },
-        }),
-      },
-    });
+        }));
 
     const expansion = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(expansion).toMatchObject({ topicId: primary.id, learningPhase: "EXPAND", activeTopicId: primary.id });

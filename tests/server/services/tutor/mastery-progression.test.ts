@@ -8,8 +8,8 @@ import {
 } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import { createTutorProgressionState, hasMetDeepeningCriteria, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
-import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
+import { plannerWithCourseContent } from "./support/course-content-planner";
 
 async function topic() {
   return parseTopic(await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8"));
@@ -125,9 +125,7 @@ describe("mastery progression domain classification", () => {
       progression: { ...source.progression, entryConcepts: [concept.id], preferredOrder: [concept.id] },
     };
     const state = createTutorProgressionState(revision);
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -136,9 +134,7 @@ describe("mastery progression domain classification", () => {
             topics: [masteryTopic],
             strategies: [],
           },
-        }),
-      },
-    });
+        }));
     const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(first).toMatchObject({ learningPhase: "LEARN" });
     if (!first || "kind" in first) return;
@@ -161,9 +157,7 @@ describe("mastery progression domain classification", () => {
       any: [{ fact: "array-declared", elementTypes: ["int"] }],
     });
     const state = createTutorProgressionState(revision);
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: {
@@ -178,9 +172,7 @@ describe("mastery progression domain classification", () => {
             topics: [primary.id, secondary.id],
             primaryTopic: primary.id,
           },
-        }),
-      },
-    });
+        }));
 
     const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, exampleId: "example" });
     expect(first).toMatchObject({ topicId: primary.id, learningPhase: "LEARN" });
@@ -240,15 +232,11 @@ describe("mastery progression domain classification", () => {
       deepening: { minimumSuccessfulProbes: 2, successRatingAtLeast: 4, requiredQuestionKinds: ["transfer" as const], recentWeakAnswersAllowed: 0 },
     };
     const state = createTutorProgressionState(revision);
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [phaseTopic], strategies: [] },
-        }),
-      },
-    });
+        }));
     const first = await adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(first).toMatchObject({ learningPhase: "LEARN" });
     if (!first || "kind" in first) return;
@@ -273,15 +261,11 @@ describe("mastery progression domain classification", () => {
     state.phase = "DEEPEN";
     state.retainedPhases[source.id] = "DEEPEN";
     markTopicMastered(state, source.id);
-    const adapter = new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const adapter = plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
-        }),
-      },
-    });
+        }));
     await expect(adapter.planInitial({ code: "void setup() {} void loop() {}", history: [], difficulty: 30 })).resolves.toBeNull();
     await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
       .resolves.toMatchObject({ learningPhase: "DEEPEN", activeTopicId: source.id });
@@ -301,15 +285,11 @@ describe("mastery progression domain classification", () => {
       responseStyle: "normal",
       answerRating: 4,
     }));
-    const result = await new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const result = await plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
-        }),
-      },
-    }).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
+        })).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
     expect(result).toMatchObject({ kind: "blocked", learningPhase: "DEEPEN", activeTopicId: source.id, progressionBlockedReason: "content-exhausted" });
     expect(state.phase).toBe("DEEPEN");
   });
@@ -329,15 +309,11 @@ describe("mastery progression domain classification", () => {
       responseStyle: "normal",
       answerRating: 4,
     }));
-    const result = await new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const result = await plannerWithCourseContent(async () => ({
           revision,
           progressionState: state,
           tutor: { status: "valid" as const, manifest: { schemaVersion: 2 as const, topics: [], strategies: [] }, topics: [expandTopic], strategies: [] },
-        }),
-      },
-    }).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
+        })).planInitial({ code: "int values[] = {1, 2};", history, difficulty: 30 });
     expect(result).toMatchObject({ kind: "blocked", learningPhase: "EXPAND", activeTopicId: expandTopic.id, progressionBlockedReason: "content-exhausted" });
     expect(state.phase).toBe("EXPAND");
   });
@@ -362,15 +338,11 @@ describe("mastery progression domain classification", () => {
       state.phase = "EXPAND";
       state.retainedPhases[expandTopic.id] = "EXPAND";
       markTopicMastered(state, expandTopic.id);
-      const adapter = new CurriculumTutorAdapter({
-        courseContent: {
-          getSnapshot: async () => ({
+      const adapter = plannerWithCourseContent(async () => ({
             revision,
             progressionState: state,
             tutor: { status: "valid" as const, manifest: { schemaVersion: 2 as const, topics: [], strategies: [] }, topics: [expandTopic, targetTopic], strategies: [] },
-          }),
-        },
-      });
+          }));
       const extension = await adapter.planInitial({ code, history, difficulty: 30 });
       return { adapter, extension, state, expandTopic };
     }
@@ -441,15 +413,11 @@ describe("mastery progression domain classification", () => {
     state.phase = "DEEPEN";
     markTopicMastered(state, source.id);
     const nextRevision = "b".repeat(40);
-    const result = await new CurriculumTutorAdapter({
-      courseContent: {
-        getSnapshot: async () => ({
+    const result = await plannerWithCourseContent(async () => ({
           revision: nextRevision,
           progressionState: state,
           tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [source], strategies: [] },
-        }),
-      },
-    }).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
+        })).planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 });
     expect(result).toMatchObject({ learningPhase: "LEARN", masteredTopicIds: [] });
   });
 });

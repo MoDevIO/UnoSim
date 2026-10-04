@@ -25,7 +25,8 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R5a | Gatekeeper: abgelaufener Slot geht an den nächsten Wartenden; Wait-Timer der Prepare-Phase wird gelöscht | Concurrency | A2 [Code] | mittel | keine hängende Compile-Queue nach TTL-Ablauf | klein | – | fix/gatekeeper-ttl-handoff | DONE | RED→GREEN: `unified-gatekeeper-ttl.test.ts` (Fake-Timer: Übergabe nach TTL, keine Doppelvergabe bei später Freigabe), `prepare-phase-timer.test.ts` | PR-Merge siehe Verlauf |
 | R5b | Worker-Pool: Queue-Obergrenze (500) und Wartezeit-Grenze (30 s); Kapazitätsfehler fällt nicht in den Hauptthread zurück; Route antwortet 503 `SYSTEM_BUSY` | Concurrency | A3 [Code] | mittel | Backpressure statt unbegrenzter Warteschlange und doppeltem Compile-Budget | klein | R5a | fix/compile-pool-backpressure | DONE | RED→GREEN: `worker-pool-backpressure.test.ts`, `compiler-with-fallback-capacity.test.ts`, `compiler-capacity.test.ts` | PR-Merge siehe Verlauf |
 | R5c | Worker-Recovery nach Absturz (Backoff 1–30 s, idempotent, nicht im Shutdown, späte Events ersetzter Worker ignoriert); Statusmetriken 1:1; Begrenzung auf 8 Worker als Warnung sichtbar | Concurrency/Observability | A1, A3 [Code] | mittel | voller Durchsatz nach Worker-Absturz; `capacity.compile` meldete 9 statt 3 laufender Worker | klein–mittel | R5b | fix/compile-pool-recovery-metrics | DONE | RED→GREEN: `worker-pool-recovery.test.ts` (5), `status-compile-capacity.test.ts` (2) | PR-Merge siehe Verlauf |
-| R9 | Tutor-Übergangsschichten (Legacy-Repository-Zweig, Snapshot-Provider, `getTutorContent`) entfernen | Tutor-Wartbarkeit | T1 [Code] | gering | weniger Pfade im Adapter | klein–mittel | – | refactor/tutor-adapter-legacy-sources | OPEN | Tests zuerst migriert; Tutor-Quality-Suite unverändert grün | – |
+| R9a | Tutor-Tests auf den übergebenen `TutorPlanningContentContext` umstellen (ohne Produktionsänderung) | Tutor-Wartbarkeit | T1 [Code] | gering | Tests nutzen nur noch den produktiven Pfad | klein | – | refactor/tutor-tests-supplied-context | DONE | 17 Provider-Konstruktionen über Test-Helfer `plannerWithCourseContent`, 2 Legacy-Repository-Tests über `TutorService` mit Kontext; Tutor-Quality 38 Dateien / 407 Tests vorher = nachher | PR-Merge siehe Verlauf |
+| R9b | Legacy-Repository-Zweig, Snapshot-Provider und `getTutorContent` aus dem Produktionscode entfernen | Tutor-Wartbarkeit | T1 [Code] | gering | ein Snapshot-Pfad im Adapter | klein | R9a | refactor/tutor-adapter-legacy-sources | OPEN | – | – |
 | R8a | `match()` in reine Auflösung + explizite State-Änderung; ein `findQuestion`; Fehler diagnostizieren | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | sichere Planner-Änderungen | mittel | R9 | refactor/tutor-adapter-pure-match | OPEN | Tutor-Quality-Suite als Charakterisierungs-Gate | – |
 | R8b | Session-Concurrency mit Versions-/Lock-Vertrag | Tutor-Konsistenz | T4 [Code] | mittel | keine verlorenen Updates | mittel | R8a | fix/tutor-session-concurrency | OPEN | Concurrency-Test | – |
 | R10 | Doku an implementierten Stand angleichen | Doku | Abschnitt 6 | gering | konsistente Doku | klein | R1–R8 | docs/consistency-after-refactoring | OPEN | `check:docs` | – |
@@ -71,6 +72,8 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 
 ## Reihenfolge-Änderungen
 
+- R9 wurde in R9a (nur Tests) und R9b (Entfernen) geteilt, damit die
+  umgestellten Tests gegen den unveränderten Produktionscode belegt sind.
 - R5b wurde in R5b (Backpressure) und R5c (Recovery, Metriken) geteilt, um
   kleinere PRs zu erhalten.
 - R4a begrenzt den Sweep bewusst auf den eigenen Owner (`<host>:<pid>`) statt
@@ -100,4 +103,5 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #167 | R4b: WS-Heartbeat, Nachrichtenlimit, stdin-Obergrenze | `df62bf8f` | PR-CI 5/5 grün; Post-Merge-CI von #166 grün |
 | #168 | R5a: Gatekeeper-TTL-Übergabe, Prepare-Timer | `053e7c80` | PR-CI 5/5 grün; Post-Merge-CI von #167 grün |
 | #169 | R5b: Worker-Pool-Backpressure | `5a1576cf` | PR-CI 5/5 grün; Post-Merge-CI von #168 grün |
-| R5c | Worker-Recovery und Statusmetriken | – | – |
+| #170 | R5c: Worker-Recovery und Statusmetriken | `4f1822d1` | PR-CI 5/5 grün; Post-Merge-CI von #169 grün |
+| R9a | Tutor-Tests auf übergebenen Kontext | – | – |

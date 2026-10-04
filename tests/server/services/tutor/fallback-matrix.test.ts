@@ -19,7 +19,7 @@ async function validTutorCapability(): Promise<TutorCapability> {
 }
 
 function courseContent(tutor: TutorCapability) {
-  return { getSnapshot: vi.fn(async () => ({ revision, tutor })) };
+  return { revision, tutor };
 }
 
 describe("Course Content Tutor fallback matrix", () => {
@@ -29,15 +29,18 @@ describe("Course Content Tutor fallback matrix", () => {
     ["F invalid Tutor bundle", { status: "invalid", reason: "invalid-tutor-bundle" } satisfies TutorCapability],
     ["G unavailable Tutor capability", null],
   ])("does not activate a partial Tutor bundle for %s", async (_label, tutor) => {
-    const adapter = new CurriculumTutorAdapter({
+    const adapter = new CurriculumTutorAdapter();
+    await expect(adapter.planInitial({
+      code: "int values[] = {1, 2};",
+      history: [],
+      difficulty: 30,
       courseContent: tutor === null ? undefined : courseContent(tutor),
-    });
-    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 })).resolves.toBeNull();
+    })).resolves.toBeNull();
   });
 
   it("uses repository topics when the complete Tutor capability is valid", async () => {
-    const adapter = new CurriculumTutorAdapter({ courseContent: courseContent(await validTutorCapability()) });
-    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30 }))
+    const adapter = new CurriculumTutorAdapter();
+    await expect(adapter.planInitial({ code: "int values[] = {1, 2};", history: [], difficulty: 30, courseContent: courseContent(await validTutorCapability()) }))
       .resolves.toMatchObject({ contentRevision: revision, topicId: "memory-and-data-types" });
   });
 
@@ -46,10 +49,8 @@ describe("Course Content Tutor fallback matrix", () => {
       listModels: vi.fn().mockResolvedValue(["pilot-model"]),
       generateLearningQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Was passiert?" } }),
     };
-    const service = new TutorService(provider, new CurriculumTutorAdapter({
-      courseContent: courseContent({ status: "invalid", reason: "invalid-tutor-bundle" }),
-    }));
-    await expect(service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30))
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
+    await expect(service.generateQuestion("void setup(){} void loop(){}", "key", undefined, 30, courseContent({ status: "invalid", reason: "invalid-tutor-bundle" })))
       .resolves.toMatchObject({ result: { question: "Was passiert?" } });
   });
 
