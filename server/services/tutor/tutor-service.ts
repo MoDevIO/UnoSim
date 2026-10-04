@@ -38,6 +38,7 @@ import {
 import {
   cloneTutorProgressionState,
   commitTutorProgressionState,
+  type TutorProgressionState,
 } from "./curriculum/progression-state";
 import { canonicalDigest } from "./evaluation/canonical";
 
@@ -640,16 +641,44 @@ export interface TutorServiceResponse {
 }
 
 export class TutorService {
+  /**
+   * Session concurrency contract: requests that share a pinned progression state
+   * run one after another in arrival order. Each request clones the state, waits
+   * for the provider and commits, so overlapping requests (double submit, retry
+   * after a timeout) would otherwise overwrite each other's evidence. Requests of
+   * different sessions stay concurrent.
+   */
+  private readonly sessionQueues = new WeakMap<TutorProgressionState, Promise<unknown>>();
+
   constructor(
     private readonly provider: LLMProvider,
     private readonly planningExtension?: TutorPlanningExtension,
   ) {}
+
+  private inSessionOrder<T>(courseContent: TutorPlanningContentContext | undefined, request: () => Promise<T>): Promise<T> {
+    const state = courseContent?.progressionState;
+    if (!state) return request();
+    const previous = this.sessionQueues.get(state) ?? Promise.resolve();
+    const current = previous.then(request, request);
+    this.sessionQueues.set(state, current.catch(() => undefined));
+    return current;
+  }
 
   async generateQuestion(
     code: string,
     credential: string | undefined,
     requestedModel: string | undefined,
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
+    courseContent?: TutorPlanningContentContext,
+  ): Promise<TutorServiceResponse> {
+    return this.inSessionOrder(courseContent, () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent));
+  }
+
+  private async generateQuestionInSession(
+    code: string,
+    credential: string | undefined,
+    requestedModel: string | undefined,
+    difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
   ): Promise<TutorServiceResponse> {
     const requestCredential = this.resolveCredential(credential);
@@ -688,6 +717,10 @@ export class TutorService {
   }
 
   async generateDialogResponse(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
+    return this.inSessionOrder(args[7], () => this.generateDialogResponseInSession(...args));
+  }
+
+  private async generateDialogResponseInSession(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
     const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent] = args;
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
