@@ -6,6 +6,7 @@
     "shared",
     "tests",
     "scripts/deployment",
+    "scripts/capacity-mixed-load.ts",
     "e2e",
     "*.config.ts"
   ]

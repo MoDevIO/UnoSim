@@ -34,7 +34,8 @@
     "server",
     "shared",
     "vite.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "scripts/capacity-mixed-load.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

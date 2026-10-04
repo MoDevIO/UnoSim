@@ -9,12 +9,35 @@ import {
   recordClientWatchdogExpiry,
   isScenarioQuiescent,
   waitForScenarioQuiescence,
+  parseLinuxMemoryInfo,
   validateScenarioRuntimeConfiguration,
   type ClientResult,
   type EffectiveCapacityConfiguration,
   type HostSample,
   type StatusSnapshot,
 } from "../../scripts/capacity-scenario-runner";
+
+describe("Linux capacity host memory samples", () => {
+  it("uses MemAvailable and reports used swap from /proc/meminfo", () => {
+    expect(parseLinuxMemoryInfo([
+      "MemTotal:       16384000 kB",
+      "MemFree:         2000000 kB",
+      "MemAvailable:    9000000 kB",
+      "SwapTotal:       1000000 kB",
+      "SwapFree:         750000 kB",
+    ].join("\n"))).toEqual({
+      availableMemoryBytes: 9_000_000 * 1024,
+      swapUsedBytes: 250_000 * 1024,
+    });
+  });
+
+  it("returns null when the kernel does not expose the relevant counters", () => {
+    expect(parseLinuxMemoryInfo("MemFree: 20 kB")).toEqual({
+      availableMemoryBytes: null,
+      swapUsedBytes: null,
+    });
+  });
+});
 
 function client(overrides: Partial<ClientResult>): ClientResult {
   return {

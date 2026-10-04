@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import WebSocket from "ws";
+import { runRestCompileBatch, type RestCompileBatchMeasurement } from "./capacity-rest-compile";
 import { createDockerLifecycleTracker } from "./capacity-docker-events";
 
 const execFileAsync = promisify(execFile);
@@ -19,6 +20,10 @@ export type CapacityScenarioOptions = {
   holdDurationMs: number;
   simulationTimeoutSec: number;
   arrivalWindowMs?: number;
+  /** Optional cache-unique REST compile cohort run concurrently with simulations. */
+  restCompileCount?: number;
+  restCompileConcurrency?: number;
+  restCompileTimeoutMs?: number;
   outputDir?: string;
   expectedSimulationMaxConcurrent?: number;
   expectedSandboxStartMaxConcurrent?: number;
@@ -81,6 +86,8 @@ export function countClientOutcomes(
 }
 
 export type StatusSnapshot = {
+  /** Wall-clock sample time added by the harness for workload correlation. */
+  sampledAtMs?: number;
   status?: string;
   serverMode?: string;
   capacityTestRunId?: string;
@@ -94,6 +101,25 @@ export type StatusSnapshot = {
     admission?: { max: number; current: number };
     queue?: { waiting: number; timeoutMs: number };
     compile?: { maxConcurrent: number; active: number };
+  };
+  compileMetrics?: {
+    count: number;
+    timeoutCount: number;
+    errorCount: number;
+    avgDurationMs: number;
+    avgQueueWaitTimeMs: number;
+    maxDurationMs: number;
+    maxQueueWaitTimeMs: number;
+  };
+  compileWorkerPool?: {
+    active: number;
+    queued: number;
+    totalTasks: number;
+    completedTasks: number;
+    failedTasks: number;
+    avgCompileTimeMs: number;
+    maxWorkers: number;
+    liveWorkers: number;
   };
 };
 
@@ -240,6 +266,26 @@ export type HostSample = {
   capacityDockerContainers: number;
 };
 
+export function parseLinuxMemoryInfo(contents: string): { availableMemoryBytes: number | null; swapUsedBytes: number | null } {
+  const values = new Map<string, number>();
+  for (const line of contents.split("\n")) {
+    const match = /^([A-Za-z0-9_]+):\s*(\d+)\s+kB$/.exec(line.trim());
+    if (match) values.set(match[1], Number(match[2]) * 1024);
+  }
+  const availableMemoryBytes = values.get("MemAvailable");
+  const swapTotalBytes = values.get("SwapTotal");
+  const swapFreeBytes = values.get("SwapFree");
+  return {
+    availableMemoryBytes: availableMemoryBytes !== undefined && Number.isSafeInteger(availableMemoryBytes)
+      ? availableMemoryBytes
+      : null,
+    swapUsedBytes: swapTotalBytes !== undefined && swapFreeBytes !== undefined
+      && Number.isSafeInteger(swapTotalBytes) && Number.isSafeInteger(swapFreeBytes)
+      ? Math.max(0, swapTotalBytes - swapFreeBytes)
+      : null,
+  };
+}
+
 export type CleanupResult = {
   backendExited: boolean;
   remainingCapacityContainers: number;
@@ -286,6 +332,7 @@ export type CapacityScenarioMeasurement = {
   startupDurationMs: number[];
   queueWaitMs: number[];
   hostSamples: HostSample[];
+  restCompiles?: RestCompileBatchMeasurement;
   errors: string[];
   cleanup: CleanupResult;
 };
@@ -335,6 +382,7 @@ export function summarizeCapacityScenario(input: ScenarioSummaryInput): Capacity
     authoritativeSandboxStartWaitSamplesComplete: authoritativeSamples.length === expectedStartupSamples,
     startupDurationMs: input.clients.flatMap((client) => client.startupDurationMs === null ? [] : [client.startupDurationMs]),
     queueWaitMs: input.clients.flatMap((client) => client.queueWaitMs === null ? [] : [client.queueWaitMs]),
+    ...(input.restCompiles ? { restCompiles: input.restCompiles } : {}),
   };
 }
 
@@ -631,6 +679,8 @@ function createDefaultHostSampler(): () => Promise<HostSample> {
   return async () => {
     let cpuPercent: number | null = null;
     let iowaitPercent: number | null = null;
+    let availableMemoryBytes: number | null = os.freemem();
+    let swapUsedBytes: number | null = null;
     if (process.platform === "darwin") {
       try {
         const { stdout } = await execFileAsync("ps", ["-A", "-o", "%cpu="], { encoding: "utf8" });
@@ -659,13 +709,21 @@ function createDefaultHostSampler(): () => Promise<HostSample> {
       } catch {
         cpuPercent = null;
       }
+      try {
+        const memory = parseLinuxMemoryInfo(await fs.promises.readFile("/proc/meminfo", "utf8"));
+        if (memory.availableMemoryBytes !== null) availableMemoryBytes = memory.availableMemoryBytes;
+        swapUsedBytes = memory.swapUsedBytes;
+      } catch {
+        availableMemoryBytes = null;
+        swapUsedBytes = null;
+      }
     }
     return {
       atMs: Date.now(),
       cpuPercent,
       loadAverage: os.loadavg()[0] ?? null,
-      availableMemoryBytes: os.freemem(),
-      swapUsedBytes: null,
+      availableMemoryBytes,
+      swapUsedBytes,
       iowaitPercent,
       runningDockerContainers: 0,
       capacityDockerContainers: 0,
@@ -728,6 +786,10 @@ export async function runCapacityScenario(
   if (!Number.isInteger(options.simulationTimeoutSec) || options.simulationTimeoutSec < 1 || options.simulationTimeoutSec > 300) {
     throw new Error("simulationTimeoutSec must be between 1 and 300 seconds");
   }
+  if (options.restCompileCount !== undefined
+    && (!Number.isInteger(options.restCompileCount) || options.restCompileCount < 0 || options.restCompileCount > 128)) {
+    throw new Error("restCompileCount must be between 0 and 128");
+  }
   if (options.scenario === "classroom" && (!Number.isInteger(options.arrivalWindowMs) || (options.arrivalWindowMs ?? 0) < 0)) {
     throw new Error("classroom scenarios require a non-negative integer arrivalWindowMs");
   }
@@ -738,7 +800,7 @@ export async function runCapacityScenario(
   const createSessionCookie = dependencies.createSessionCookie ?? defaultSessionCookie;
   const countContainers = dependencies.dockerContainerCount ?? defaultDockerContainerCount;
   const sampleHost = dependencies.sampleHost ?? createDefaultHostSampler();
-  const initialStatus = await getStatus(options.baseUrl);
+  const initialStatus = { ...await getStatus(options.baseUrl), sampledAtMs: now() };
   const initialRuntimeConfiguration = runtimeConfiguration(initialStatus);
   validateScenarioRuntimeConfiguration(options, initialRuntimeConfiguration);
   const clientWatchdogMs = deriveClientWatchdogMs(
@@ -754,7 +816,7 @@ export async function runCapacityScenario(
   let pollingPeak = countContainers(options.runId);
   let pollInFlight = false;
   const statusPoller = setInterval(() => {
-    getStatus(options.baseUrl).then((status) => statusHistory.push(status)).catch((error: unknown) => {
+    getStatus(options.baseUrl).then((status) => statusHistory.push({ ...status, sampledAtMs: now() })).catch((error: unknown) => {
       errors.push(error instanceof Error ? error.message : String(error));
     });
   }, 250);
@@ -782,13 +844,24 @@ export async function runCapacityScenario(
 
   try {
     const arrivalWindowMs = options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;
-    const clients = await runScenarioClients(options, sleep, clientWatchdogMs, now, createSessionCookie);
+    const [clients, restCompiles] = await Promise.all([
+      runScenarioClients(options, sleep, clientWatchdogMs, now, createSessionCookie),
+      options.restCompileCount && options.restCompileCount > 0
+        ? runRestCompileBatch({
+          baseUrl: options.baseUrl,
+          runId: options.runId,
+          requestCount: options.restCompileCount,
+          concurrency: options.restCompileConcurrency ?? Math.min(options.restCompileCount, 8),
+          timeoutMs: options.restCompileTimeoutMs,
+        })
+        : Promise.resolve(undefined),
+    ]);
     await eventTracker.stop();
     clearInterval(statusPoller);
     clearInterval(dockerPoller);
     if (hostPoller) clearInterval(hostPoller);
     const { quiescence, finalStatus } = await resolveScenarioCleanup(options, initialStatus, getStatus, countContainers, sleep, now, errors);
-    statusHistory.push(finalStatus);
+    statusHistory.push({ ...finalStatus, sampledAtMs: now() });
     pollingPeak = Math.max(pollingPeak, countContainers(options.runId));
     const cleanup: CleanupResult = {
       backendExited: false,
@@ -814,6 +887,7 @@ export async function runCapacityScenario(
       lifecycleDockerPeak: eventTracker.peak,
       pollingDockerPeak: pollingPeak,
       hostSamples,
+      ...(restCompiles ? { restCompiles } : {}),
       errors,
       cleanup,
     });
