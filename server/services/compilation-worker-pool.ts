@@ -35,6 +35,10 @@ import { compileMetricsTracker } from "./server-metrics";
  */
 interface PoolStats {
   activeWorkers: number;
+  /** Workers this pool runs (after the safety cap), not the configured value. */
+  maxWorkers: number;
+  /** Workers currently alive; lower than maxWorkers while a crashed worker restarts. */
+  liveWorkers: number;
   totalTasks: number;
   completedTasks: number;
   failedTasks: number;
@@ -91,6 +95,10 @@ export class CompilationWorkerPool {
   private isInitialized: boolean = false;
   private readonly maxQueue: number;
   private readonly queueTimeoutMs: number;
+  private workerScript: string | null = null;
+  private shuttingDown = false;
+  private readonly restartAttempts = new Map<number, number>();
+  private readonly restartTimers = new Map<number, NodeJS.Timeout>();
 
   private readonly stats = {
     totalTasks: 0,
@@ -107,12 +115,13 @@ export class CompilationWorkerPool {
     // Safe upper bound raised to 8; WORKER_COUNT env var overrides.
     const maxSafeWorkers = 8;
     const recommendedWorkers = Math.max(2, Math.floor(os.cpus().length * 0.5));
-    this.numWorkers =
-      numWorkers ??
-      Math.min(
-        maxSafeWorkers,
-        config.compilation.workerCount ?? recommendedWorkers,
+    const configuredWorkers = config.compilation.workerCount ?? recommendedWorkers;
+    this.numWorkers = numWorkers ?? Math.min(maxSafeWorkers, configuredWorkers);
+    if (numWorkers === undefined && configuredWorkers > maxSafeWorkers) {
+      this.logger.warn(
+        `[CompilationWorkerPool] WORKER_COUNT=${configuredWorkers} exceeds the safe maximum; running ${maxSafeWorkers} workers`,
       );
+    }
 
     this.logger.info(
       `[CompilationWorkerPool] Initializing with ${this.numWorkers} workers (max: ${maxSafeWorkers})`,
@@ -149,66 +158,91 @@ export class CompilationWorkerPool {
       `[CompilationWorkerPool] Using worker script: ${workerScript}`,
     );
 
+    this.workerScript = workerScript;
     for (let i = 0; i < this.numWorkers; i++) {
-      try {
-        // Each worker gets its own temp directory to avoid arduino-cli race conditions
-        const workerTempRoot = join(os.tmpdir(), `unosim-worker-${i}`);
-        const worker = new Worker(workerScript, {
-          workerData: {
-            workerId: i + 1,
-            tempRoot: workerTempRoot,
-            compilation: {
-              buildCacheDir: config.compilation.buildCacheDir,
-              buildCacheMaxBytes: config.compilation.buildCacheMaxBytes,
-              fqbn: config.compilation.fqbn,
-            },
-          },
-        });
-        const workerId = i;
-
-        worker.on("message", (msg: AnyWorkerMessage) => {
-          if (isReadyMessage(msg)) {
-            if (
-              this.liveWorkers.has(workerId) &&
-              !this.activeCompilations.has(workerId)
-            ) {
-              this.availableWorkers.add(workerId);
-            }
-            this.logger.debug(`[Worker ${workerId}] Ready`);
-            this.processQueue();
-          }
-        });
-
-        worker.on("error", (err) => {
-          this.logger.error(`[Worker ${workerId}] Error: ${err.message}`);
-          this.handleWorkerFailure(workerId, err);
-        });
-
-        worker.on("exit", (code) => {
-          this.logger.warn(`[Worker ${workerId}] Exited with code ${code}`);
-          this.handleWorkerFailure(
-            workerId,
-            new Error(
-              `Compilation worker ${workerId} exited with code ${code}`,
-            ),
-          );
-          // Optionally restart worker for resilience (not implemented in MVP)
-        });
-
-        this.workers[workerId] = worker;
-        this.liveWorkers.add(workerId);
-        this.logger.debug(`[Worker ${workerId}] Started`);
-      } catch (err) {
-        this.logger.error(
-          `Failed to start worker ${i}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+      this.startWorker(i);
     }
 
     this.logger.info(
       `[CompilationWorkerPool] ${this.liveWorkers.size} workers started`,
     );
     this.isInitialized = true;
+  }
+
+  /** Starts (or restarts) the worker with the given slot id. */
+  private startWorker(workerId: number): void {
+    if (!this.workerScript) return;
+    try {
+      // Each worker gets its own temp directory to avoid arduino-cli race conditions
+      const workerTempRoot = join(os.tmpdir(), `unosim-worker-${workerId}`);
+      const worker = new Worker(this.workerScript, {
+        workerData: {
+          workerId: workerId + 1,
+          tempRoot: workerTempRoot,
+          compilation: {
+            buildCacheDir: config.compilation.buildCacheDir,
+            buildCacheMaxBytes: config.compilation.buildCacheMaxBytes,
+            fqbn: config.compilation.fqbn,
+          },
+        },
+      });
+      // A replaced worker's late events must not touch its successor in the same slot.
+      const isCurrent = () => this.workers[workerId] === worker;
+
+      worker.on("message", (msg: AnyWorkerMessage) => {
+        if (isCurrent() && isReadyMessage(msg)) {
+          if (
+            this.liveWorkers.has(workerId) &&
+            !this.activeCompilations.has(workerId)
+          ) {
+            this.availableWorkers.add(workerId);
+          }
+          this.logger.debug(`[Worker ${workerId}] Ready`);
+          this.processQueue();
+        }
+      });
+
+      worker.on("error", (err) => {
+        if (!isCurrent()) return;
+        this.logger.error(`[Worker ${workerId}] Error: ${err.message}`);
+        this.handleWorkerFailure(workerId, err);
+      });
+
+      worker.on("exit", (code) => {
+        if (!isCurrent()) return;
+        this.logger.warn(`[Worker ${workerId}] Exited with code ${code}`);
+        this.handleWorkerFailure(
+          workerId,
+          new Error(
+            `Compilation worker ${workerId} exited with code ${code}`,
+          ),
+        );
+      });
+
+      this.workers[workerId] = worker;
+      this.liveWorkers.add(workerId);
+      this.logger.debug(`[Worker ${workerId}] Started`);
+    } catch (err) {
+      this.logger.error(
+        `Failed to start worker ${workerId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /** Restarts a failed worker with exponential backoff (1 s … 30 s); never during shutdown. */
+  private scheduleRestart(workerId: number): void {
+    if (this.shuttingDown || this.restartTimers.has(workerId)) return;
+    const attempts = this.restartAttempts.get(workerId) ?? 0;
+    const delayMs = Math.min(1_000 * 2 ** attempts, 30_000);
+    this.restartAttempts.set(workerId, attempts + 1);
+    const timer = setTimeout(() => {
+      this.restartTimers.delete(workerId);
+      if (this.shuttingDown) return;
+      this.logger.warn(`[CompilationWorkerPool] Restarting worker ${workerId} (attempt ${attempts + 1})`);
+      this.startWorker(workerId);
+    }, delayMs);
+    timer.unref?.();
+    this.restartTimers.set(workerId, timer);
   }
 
   /**
@@ -291,6 +325,7 @@ export class CompilationWorkerPool {
             }
             reject(error);
           } else if (payload.result) {
+            this.restartAttempts.delete(workerId);
             const compileTimeMs = Date.now() - compileStartTime;
             compileMetricsTracker.recordCompileComplete(
               compileStartTime,
@@ -341,6 +376,7 @@ export class CompilationWorkerPool {
   }
 
   private handleWorkerFailure(workerId: number, error: Error): void {
+    const wasLive = this.liveWorkers.has(workerId);
     this.liveWorkers.delete(workerId);
     this.availableWorkers.delete(workerId);
 
@@ -368,6 +404,8 @@ export class CompilationWorkerPool {
         );
       }
     }
+
+    if (wasLive) this.scheduleRestart(workerId);
   }
 
   /**
@@ -382,6 +420,8 @@ export class CompilationWorkerPool {
 
     return {
       activeWorkers: this.activeCompilations.size,
+      maxWorkers: this.numWorkers,
+      liveWorkers: this.liveWorkers.size,
       totalTasks: this.stats.totalTasks,
       completedTasks: this.stats.completedTasks,
       failedTasks: this.stats.failedTasks,
@@ -396,6 +436,9 @@ export class CompilationWorkerPool {
   async shutdown(): Promise<void> {
     this.logger.info("[CompilationWorkerPool] Shutting down...");
     this.isInitialized = false;
+    this.shuttingDown = true;
+    for (const timer of this.restartTimers.values()) clearTimeout(timer);
+    this.restartTimers.clear();
 
     const shutdownError = new Error("Compilation worker pool is shutting down");
     for (const item of this.queue.splice(0)) {
