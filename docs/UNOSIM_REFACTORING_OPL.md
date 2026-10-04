@@ -30,7 +30,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R8a | `match()` = reine Auflösung (`resolveMatch`) + explizite State-Änderung (`applyMatch`); ein `findCurriculumQuestion`; Planungs- und Strategiefehler werden geloggt | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | Session-Mutation an genau einer Stelle; Planner-Fehler sichtbar | mittel | R9 | refactor/tutor-adapter-pure-match | DONE | Tutor-Quality 407 Bestandstests unverändert grün + 2 neue (Diagnose RED→GREEN; Charakterisierung: Revisions-Reset auch ohne Topic-Treffer) | PR-Merge siehe Verlauf |
 | R8b | Session-Concurrency-Vertrag: Anfragen auf demselben gepinnten Progressionszustand laufen in Ankunftsreihenfolge; andere Sessions bleiben parallel | Tutor-Konsistenz | T4 [Code, reproduziert] | mittel | keine verlorene Mastery-Evidenz bei Doppelklick/Retry | klein | R8a | fix/tutor-session-concurrency | DONE | RED→GREEN: `session-concurrency.test.ts` (echter TutorService/Adapter: vorher nur 1 von 2 überlappenden Antworten in der Evidenz); Tutor-Quality 411 | PR-Merge siehe Verlauf |
 | R10a | Code an dokumentierte Verträge angleichen: kein Sketch-Quelltext in Debug-Logs (SECURITY.md), CLI-Timeout aus `config.compilation.timeoutMs`, wirkungsloses `DISABLE_COMPILE_GATEKEEPER` entfernt, Deprecation-Kommentar verweist auf die Policy | Doku/Konsistenz | Abschnitt 6 [Code] | gering | Logs ohne Quelltext; eine Wahrheit pro Konfigurationswert | klein | R1–R8 | fix/align-code-with-documented-contracts | DONE | RED→GREEN: `simulation-source-logging.test.ts` (vorher 2 Log-Zeilen mit Quelltext) | PR-Merge siehe Verlauf |
-| R10b | Doku an den implementierten Stand angleichen (ARCHITECTURE, SECURITY, docs/README, INSTALL_SERVER, Compose-Kommentare) | Doku | Abschnitt 6 | gering | konsistente Doku | klein | R10a | docs/consistency-after-refactoring | OPEN | `check:docs` | – |
+| R10b | Doku an den implementierten Stand angleichen (ARCHITECTURE, SECURITY, docs/README, INSTALL_SERVER, README, Compose-Kommentar) | Doku | Abschnitt 6 | gering | Doku beschreibt Isolation, Compile-Grenze inkl. Restrisiko, Lifecycle, Backpressure und offene Entscheidungen | klein | R10a | docs/consistency-after-refactoring | DONE | `check:docs`; keine ADR/SSOT geändert | PR-Merge siehe Verlauf |
 | R10-PROXY | ADR 0001 §51 „Backend nur vom Trusted Proxy erreichbar“ wird im Code nicht erzwungen | Security/Vertrag | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | entweder Quell-IP-Prüfung im Code (Rollout-Risiko bei falsch gesetztem `UNOSIM_TRUSTED_PROXY`) oder ADR-Formulierung als Betreiberpflicht; ADR wird nicht passend geschrieben |
 | R10-HANDSHAKE | EXTERNAL_API: „initialer Handshake mit `protocolVersion`“; Schema und Server senden ihn nur mit `testRunId` | Vertrag | [Code] | gering | – | – | – | – | BLOCKED_DECISION | – | Handshake für alle erfordert Schemaänderung (`testRunId` optional), sonst Vertragstext anpassen |
 | R10-PIN | `arduino-cli` wird in Dockerfile und CI ungepinnt per `curl … master/install.sh` installiert (SECURITY: „reviewed immutable images“) | Supply Chain | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | Versionswahl und Update-Prozess sind eine Betriebsentscheidung |
@@ -113,4 +113,23 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #172 | R9b: Tutor-Übergangsschichten entfernt | `b7768439` | PR-CI 5/5 grün; Post-Merge-CI von #171 grün |
 | #173 | R8a: Adapter: reine Auflösung + explizite Mutation, Diagnose | `4511be62` | PR-CI 5/5 grün; Post-Merge-CI von #172 grün |
 | #174 | R8b: Tutor-Session-Concurrency | `dd3326a5` | PR-CI 5/5 grün; Post-Merge-CI von #173 grün |
-| R10a | Code an dokumentierte Verträge angeglichen | – | – |
+| #175 | R10a: Code an dokumentierte Verträge angeglichen | `2ba4f412` | PR-CI 5/5 grün; Post-Merge-CI von #174 grün |
+| R10b | Doku-Konsistenz nach der Serie | – | – |
+
+## Ergebnis der Serie
+
+- **Umgesetzt:** R1, R2, R3a, R3b, R4a, R4b, R5a, R5b, R5c, R6, R7, R8a,
+  R8b, R9a, R9b, R10a, R10b.
+- **Falsifiziert:** S1-ENV (kein Env-Leak über `/proc/*/environ`),
+  A3-BYPASS (Fallback ist durch den Gatekeeper begrenzt), A7-SERIAL
+  (Nebenläufigkeit pro Verbindung ist für Stop-während-Warten nötig).
+- **Offen als Entscheidung:** S1-ASM (sandboxed REST-Compile), R10-PROXY,
+  R10-HANDSHAKE, R10-PIN, T3/D2, T5/D3, D1, D4, D5.
+- **Zurückgestellt:** A2-DEAD (tote Cache-Lock-API), R10-SSOTREF.
+- **Gemessen:** REST-Compile-Antwort eines Blink-Sketches mit Serial
+  59.653 → 562 Byte (Worker-Pfad, HEX 6.019 Byte); vorher meldete
+  `/api/status` 9 statt 3 laufender Compile-Worker.
+- **Tutor:** Tutor-Quality-Suite 407 Bestandstests über die gesamte Serie
+  unverändert grün (Ende: 411 inkl. 4 neuer Tests); keine SSOT-, Prompt-,
+  Planner-, Phasen-, Judge- oder Verdict-Änderung.
+
