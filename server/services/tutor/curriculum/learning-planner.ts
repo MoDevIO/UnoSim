@@ -200,14 +200,27 @@ function collectObservations(topic: CurriculumTopic, history: readonly TutorDial
   });
 }
 
+/**
+ * The Topic question being answered: by the question ID the dialog recorded for
+ * this question text, otherwise by its exact text.
+ */
+export function findCurriculumQuestion(
+  topic: CurriculumTopic,
+  currentQuestion: string,
+  history: readonly TutorDialogTurn[],
+): CurriculumQuestion | null {
+  const questionId = history.find((turn) => turn.question === currentQuestion)?.questionId;
+  return (questionId ? topic.questions.find((candidate) => candidate.id === questionId) : undefined)
+    ?? topic.questions.find((candidate) => candidate.text === currentQuestion)
+    ?? null;
+}
+
 function findQuestion(
   topic: CurriculumTopic,
   currentQuestion: string,
   history: readonly TutorDialogTurn[],
 ): { question: CurriculumQuestion } | null {
-  const questionId = history.find((turn) => turn.question === currentQuestion)?.questionId;
-  const question = (questionId ? topic.questions.find((candidate) => candidate.id === questionId) : undefined)
-    ?? topic.questions.find((candidate) => candidate.text === currentQuestion);
+  const question = findCurriculumQuestion(topic, currentQuestion, history);
   return question ? { question } : null;
 }
 
