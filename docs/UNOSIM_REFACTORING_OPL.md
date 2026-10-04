@@ -27,7 +27,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R5c | Worker-Recovery nach Absturz (Backoff 1–30 s, idempotent, nicht im Shutdown, späte Events ersetzter Worker ignoriert); Statusmetriken 1:1; Begrenzung auf 8 Worker als Warnung sichtbar | Concurrency/Observability | A1, A3 [Code] | mittel | voller Durchsatz nach Worker-Absturz; `capacity.compile` meldete 9 statt 3 laufender Worker | klein–mittel | R5b | fix/compile-pool-recovery-metrics | DONE | RED→GREEN: `worker-pool-recovery.test.ts` (5), `status-compile-capacity.test.ts` (2) | PR-Merge siehe Verlauf |
 | R9a | Tutor-Tests auf den übergebenen `TutorPlanningContentContext` umstellen (ohne Produktionsänderung) | Tutor-Wartbarkeit | T1 [Code] | gering | Tests nutzen nur noch den produktiven Pfad | klein | – | refactor/tutor-tests-supplied-context | DONE | 17 Provider-Konstruktionen über Test-Helfer `plannerWithCourseContent`, 2 Legacy-Repository-Tests über `TutorService` mit Kontext; Tutor-Quality 38 Dateien / 407 Tests vorher = nachher | PR-Merge siehe Verlauf |
 | R9b | Legacy-Repository-Zweig, Snapshot-Provider und `getTutorContent` aus dem Produktionscode entfernen | Tutor-Wartbarkeit | T1 [Code] | gering | ein Snapshot-Pfad im Adapter (−77 Zeilen) | klein | R9a | refactor/tutor-adapter-legacy-sources | DONE | Tutor-Quality 38/407 unverändert; Unit 2736 | PR-Merge siehe Verlauf |
-| R8a | `match()` in reine Auflösung + explizite State-Änderung; ein `findQuestion`; Fehler diagnostizieren | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | sichere Planner-Änderungen | mittel | R9 | refactor/tutor-adapter-pure-match | OPEN | Tutor-Quality-Suite als Charakterisierungs-Gate | – |
+| R8a | `match()` = reine Auflösung (`resolveMatch`) + explizite State-Änderung (`applyMatch`); ein `findCurriculumQuestion`; Planungs- und Strategiefehler werden geloggt | Tutor-Wartbarkeit | T2 [Code] | gering–mittel | Session-Mutation an genau einer Stelle; Planner-Fehler sichtbar | mittel | R9 | refactor/tutor-adapter-pure-match | DONE | Tutor-Quality 407 Bestandstests unverändert grün + 2 neue (Diagnose RED→GREEN; Charakterisierung: Revisions-Reset auch ohne Topic-Treffer) | PR-Merge siehe Verlauf |
 | R8b | Session-Concurrency mit Versions-/Lock-Vertrag | Tutor-Konsistenz | T4 [Code] | mittel | keine verlorenen Updates | mittel | R8a | fix/tutor-session-concurrency | OPEN | Concurrency-Test | – |
 | R10 | Doku an implementierten Stand angleichen | Doku | Abschnitt 6 | gering | konsistente Doku | klein | R1–R8 | docs/consistency-after-refactoring | OPEN | `check:docs` | – |
 
@@ -55,7 +55,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | A7-SERIAL | „Keine Serialisierung pro Verbindung“ als Defekt | Lifecycle | Verifikation: Nebenläufigkeit ist nötig, damit `stop_simulation`/`code_changed` einen wartenden Start abbrechen (`abortQueuedAcquire`); Doppelstarts verhindert die Reservation; synchrone Handler behalten die Reihenfolge | – | – | – | – | – | FALSIFIED | – | volle Serialisierung würde Stop-während-Warten brechen |
 | P1 | Globaler API-Limiter pro IP (Campus-NAT) | Skalierung | [Code] bestätigt | mittel | – | – | – | R7 | DONE | Route-Test | Local-Modus bewusst pro IP: dort kann ein Client jederzeit eine neue Session erhalten |
 | T1 | Tutor-Adapter mit drei Snapshot-Quellen | Tutor | [Code] bestätigt | gering | – | – | – | R9a/R9b | DONE | – | `parseTopic`/`parseManifest` bleiben als Fixture-Parser; DI-Nähte für Extractor/Matcher/Planner bleiben |
-| T2 | `match()` mit Seiteneffekten, doppeltes `findQuestion`, verschluckte Fehler | Tutor | [Code] | gering–mittel | – | – | – | R8a | OPEN | – | – |
+| T2 | `match()` mit Seiteneffekten, doppeltes `findQuestion`, verschluckte Fehler | Tutor | [Code] bestätigt | gering–mittel | – | – | – | R8a | DONE | – | `planAnswered` behält seinen Klon, weil sein Ergebnis die angewandte Sicht braucht |
 | T3 | Client-Ratings fließen in Mastery-Evidenz ein | Produkt/Trust | [Code] | gering | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
 | T4 | Lost Update bei parallelen Anfragen einer Session | Tutor | [Code] | mittel | – | – | – | R8b | OPEN | – | – |
 | T5 | Neue Tutor-Fragen scheitern bei GitHub-Ausfall (`requireFresh`) | Produkt/Verfügbarkeit | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
@@ -105,4 +105,5 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | #169 | R5b: Worker-Pool-Backpressure | `5a1576cf` | PR-CI 5/5 grün; Post-Merge-CI von #168 grün |
 | #170 | R5c: Worker-Recovery und Statusmetriken | `4f1822d1` | PR-CI 5/5 grün; Post-Merge-CI von #169 grün |
 | #171 | R9a: Tutor-Tests auf übergebenen Kontext | `b8a7f902` | PR-CI 5/5 grün; Post-Merge-CI von #170 grün |
-| R9b | Tutor-Übergangsschichten entfernt | – | – |
+| #172 | R9b: Tutor-Übergangsschichten entfernt | `b7768439` | PR-CI 5/5 grün; Post-Merge-CI von #171 grün |
+| R8a | Adapter: reine Auflösung + explizite Mutation, Diagnose | – | – |
