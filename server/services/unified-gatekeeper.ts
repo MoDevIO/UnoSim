@@ -431,6 +431,8 @@ export class UnifiedGatekeeper extends EventEmitter {
           
           // Emit event to wake up queued tasks
           this.emit("slot_released");
+          // Nothing listens for slot_released; hand the freed slot to the next waiter directly.
+          this._grantNextQueuedSlot();
         }
       }
 
