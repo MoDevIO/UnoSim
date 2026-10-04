@@ -1,8 +1,4 @@
 import type { TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
-import {
-  type DidacticContentRepository,
-} from "./curriculum/content-repository";
-import type { TutorCapability } from "../course-content/course-content-loader";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import {
   resolveEffectiveTutorStrategy,
@@ -42,22 +38,14 @@ import {
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
 
+/**
+ * Course Content reaches the adapter only as the context passed into each
+ * planning call (the Tutor route supplies the session's pinned context).
+ */
 export interface CurriculumTutorAdapterDependencies {
-  readonly courseContent?: CourseContentSnapshotProvider;
-  readonly repository?: DidacticContentRepository;
   readonly factExtractor?: SketchFactExtractor;
   readonly topicMatcher?: TopicMatcher;
   readonly planner?: LearningPlanner;
-}
-
-export interface CourseContentSnapshotProvider {
-  getSnapshot(): Promise<{
-    readonly revision: string;
-    readonly tutor?: TutorCapability;
-    readonly exampleId?: string;
-    readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
-    readonly progressionState?: TutorProgressionState;
-  } | null>;
 }
 
 type TutorFollowupInput = {
@@ -71,15 +59,11 @@ type TutorFollowupInput = {
 };
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
-  private readonly courseContent?: CourseContentSnapshotProvider;
-  private readonly repository?: DidacticContentRepository;
   private readonly factExtractor: SketchFactExtractor;
   private readonly topicMatcher: TopicMatcher;
   private readonly planner: LearningPlanner;
 
   constructor(deps: CurriculumTutorAdapterDependencies = {}) {
-    this.courseContent = deps.courseContent;
-    this.repository = deps.repository;
     this.factExtractor = deps.factExtractor ?? new DefaultSketchFactExtractor();
     this.topicMatcher = deps.topicMatcher ?? new DefaultTopicMatcher();
     this.planner = deps.planner ?? new DefaultLearningPlanner();
@@ -87,7 +71,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   async resolveStrategy(input: { code?: string; courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution> {
     try {
-      const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+      const snapshot = input.courseContent ?? null;
       const phase = this.resolveActivePhase(snapshot, input.code);
       return this.resolveSnapshotStrategy(snapshot, undefined, phase);
     } catch {
@@ -103,12 +87,12 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async planAnswered(input: Omit<TutorFollowupInput, "rating">): Promise<TutorPlanningResult | null> {
-    const snapshot = input.courseContent ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
+    const snapshot = input.courseContent;
     // Read-only: match against a copy so that resolving the context cannot change the session
     // state; a question that cannot be resolved yields no context instead of a new plan.
     const readOnly = snapshot?.progressionState
       ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
-      : snapshot ?? undefined;
+      : snapshot;
     const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId);
     if (!context) return null;
     if (context.blocked) return context.blocked;
@@ -190,27 +174,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
+    if (!supplied) return null;
     try {
-      const snapshot = supplied ?? (this.courseContent ? await this.courseContent.getSnapshot() : null);
-      if (snapshot) {
-        return this.matchCourseContent(code, history, difficulty, snapshot, exampleId);
-      }
-      if (!this.courseContent) {
-        const legacy = this.repository ? await this.repository.getSnapshot() : null;
-        if (!legacy) return null;
-        const facts = this.factExtractor.extract(code);
-        const match = this.topicMatcher.match(legacy.topics, facts)[0];
-        if (!match) return null;
-        return {
-          revision: legacy.revision,
-          facts,
-          topic: match.topic,
-          strategy: resolveEffectiveTutorStrategy({}),
-          phase: "LEARN",
-          state: createTutorProgressionState(legacy.revision),
-        } satisfies AdapterContext;
-      }
-      return null;
+      return this.matchCourseContent(code, history, difficulty, supplied, exampleId);
     } catch {
       return null;
     }

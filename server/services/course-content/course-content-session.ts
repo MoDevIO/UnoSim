@@ -20,7 +20,6 @@ export interface ResolvedTutorCourseContent extends TutorCourseContentRequest {
 
 export interface TutorCourseContentResolver {
   resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise<ResolvedTutorCourseContent>;
-  getTutorContent(request: ResolvedTutorCourseContent, context: RequestContext): Promise<ResolvedTutorCourseContent>;
 }
 
 type SessionEntry = {

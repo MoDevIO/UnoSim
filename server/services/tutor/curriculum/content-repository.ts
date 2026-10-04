@@ -8,27 +8,11 @@ import {
   type CurriculumTopic,
 } from "./curriculum-schema";
 
-/** Test-only compatibility port for the pre-unified curriculum fixtures. */
-export interface DidacticContentSnapshot {
-  readonly revision: string;
-  readonly manifest: CurriculumManifest;
-  readonly topics: readonly CurriculumTopic[];
-  readonly stale: boolean;
-}
-
-export interface DidacticContentRepository {
-  getSnapshot(): Promise<DidacticContentSnapshot | null>;
-}
-
-/** Static data is retained for deterministic unit tests; production uses CourseContentLoader. */
-export class StaticDidacticContentRepository implements DidacticContentRepository {
-  constructor(private readonly snapshot: DidacticContentSnapshot | null) {}
-
-  async getSnapshot(): Promise<DidacticContentSnapshot | null> {
-    return this.snapshot;
-  }
-}
-
+/**
+ * YAML parsing for curriculum manifests and topics with the same safety rules
+ * as Course Content (no YAML tags, unique keys). Production loads Course
+ * Content through CourseContentLoader; tests and fixtures use these helpers.
+ */
 export function parseManifest(source: string): CurriculumManifest {
   const parsed = curriculumManifestSchema.safeParse(parseSafeYaml(source));
   if (!parsed.success) throw new Error("Invalid curriculum manifest");
