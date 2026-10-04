@@ -295,7 +295,7 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 ### Sandbox-Sicherheit
 - **Isolation:** Jeder Sketch läuft in eigenem Docker-Container
 - **Ressourcenlimits:** CPU, Memory, PID-Limits pro Container
-- **Read-Only Filesystem:** Container haben nur lesenden Zugriff auf Dateisystem
+- **Dateisystem:** Read-only Root-Dateisystem; beschreibbares, auf 64 MiB begrenztes `/tmp`-tmpfs und beschreibbarer `/sandbox`-Mount für Sketch und Build-Ausgabe
 - **Timeouts:** Laufzeit pro Simulation standardmäßig 60 Sekunden, je Start 1–300 Sekunden
 
 ### WebSocket-Sicherheit
