@@ -38,8 +38,8 @@ statusRouter.get("/api/status", (_req, res) => {
     ? { max: compilerStats.maxWorkers, live: compilerStats.liveWorkers }
     : { max: 0, live: 0 };
   let compileCapacity = { maxConcurrent: workers.max, active: compilerStats.activeWorkers };
+  const gatekeeper = getUnifiedGatekeeper().getStats();
   if (workers.live === 0) {
-    const gatekeeper = getUnifiedGatekeeper().getStats();
     compileCapacity = { maxConcurrent: gatekeeper.maxConcurrentCompiles, active: gatekeeper.activeCompiles };
   }
 
@@ -132,7 +132,8 @@ statusRouter.get("/api/status", (_req, res) => {
     },
     observabilityAlerts: evaluateObservabilityAlerts({
       compileMetrics,
-      compileQueueDepth: sandboxStart.queueLength,
+      // Both native sandbox starts and REST compiles can wait for compile capacity.
+      compileQueueDepth: sandboxStart.queueLength + compilerStats.queuedTasks + (gatekeeper.queuedCompiles ?? 0),
       runnerQueueDepth: poolStats.queuedRequests,
       runnerCapacity: poolStats.maxRunners,
       processMetrics,

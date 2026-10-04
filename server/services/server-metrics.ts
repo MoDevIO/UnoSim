@@ -24,6 +24,7 @@ interface CpuUsageSample {
 }
 
 let previousCpuSample: CpuUsageSample | null = null;
+let previousCpuPercent = 0;
 
 /**
  * Get current CPU and memory usage of the Node.js process
@@ -39,26 +40,30 @@ export function getProcessMetrics(): ProcessMetrics {
   
   // CPU usage (requires two samples)
   const cpuUsage = process.cpuUsage();
-  let cpuPercent = 0;
+  let cpuPercent = previousCpuPercent;
   
-  if (previousCpuSample !== null) {
+  if (previousCpuSample !== null && now > previousCpuSample.timestamp) {
     const elapsedMs = now - previousCpuSample.timestamp;
-    const elapsedNs = elapsedMs * 1_000_000; // Convert to nanoseconds
+    const elapsedUs = elapsedMs * 1_000; // cpuUsage() reports microseconds
     
     const userDiff = cpuUsage.user - previousCpuSample.user;
     const systemDiff = cpuUsage.system - previousCpuSample.system;
     const totalDiff = userDiff + systemDiff;
     
-    // CPU percentage across all cores
-    cpuPercent = (totalDiff / elapsedNs) * 100;
+    // Aggregate process CPU: 100% is one fully used core, not host utilization.
+    cpuPercent = (totalDiff / elapsedUs) * 100;
   }
   
   // Store sample for next calculation
-  previousCpuSample = {
-    user: cpuUsage.user,
-    system: cpuUsage.system,
-    timestamp: now,
-  };
+  // Equal/backward timestamps have no valid interval; keep the last baseline.
+  if (previousCpuSample === null || now > previousCpuSample.timestamp) {
+    previousCpuSample = {
+      user: cpuUsage.user,
+      system: cpuUsage.system,
+      timestamp: now,
+    };
+    previousCpuPercent = cpuPercent;
+  }
   
   return {
     cpuPercent,

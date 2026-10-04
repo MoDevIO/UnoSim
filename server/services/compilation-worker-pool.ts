@@ -104,7 +104,7 @@ export class CompilationWorkerPool {
     totalTasks: 0,
     completedTasks: 0,
     failedTasks: 0,
-    compileTimes: [] as number[],
+    totalCompileTimeMs: 0,
   };
 
   constructor(numWorkers?: number, options: CompilationWorkerPoolOptions = {}) {
@@ -334,7 +334,7 @@ export class CompilationWorkerPool {
               !payload.result.success && `${payload.result.stderr ?? ""} ${payload.result.errors.map((err) => err.message).join(" ")}`.toLowerCase().includes("timeout"),
             );
             this.stats.completedTasks++;
-            this.stats.compileTimes.push(compileTimeMs);
+            this.stats.totalCompileTimeMs += compileTimeMs;
             this.logger.info(
               `[Worker ${workerId}] Compiled in ${compileTimeMs}ms`,
             );
@@ -412,10 +412,9 @@ export class CompilationWorkerPool {
    * Get pool statistics
    */
   getStats(): PoolStats {
-    const compileTimes = this.stats.compileTimes;
     const avgCompileTimeMs =
-      compileTimes.length > 0
-        ? compileTimes.reduce((a, b) => a + b, 0) / compileTimes.length
+      this.stats.completedTasks > 0
+        ? this.stats.totalCompileTimeMs / this.stats.completedTasks
         : 0;
 
     return {
