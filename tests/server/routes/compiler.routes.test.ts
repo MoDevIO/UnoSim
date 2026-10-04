@@ -341,10 +341,12 @@ describe("compiler.routes - /api/compile", () => {
   });
 
   it("handles compiler exceptions", async () => {
-    deps.compiler.compile.mockRejectedValueOnce(new Error("Compiler crashed"));
+    const diagnostic = "F01_COMPILER_DIAGNOSTIC_SENTINEL";
+    deps.compiler.compile.mockRejectedValueOnce(new Error(diagnostic));
     const res = await post(baseUrl, "/api/compile", { code: "crash_code" });
     expect(res.status).toBe(500);
     expect(res.body.error).toBe("Compilation failed");
+    expect(deps.logger.error.mock.calls.flat().join(" ")).not.toContain(diagnostic);
   });
 
   it("passes headers in compilation request", async () => {

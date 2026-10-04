@@ -129,16 +129,19 @@ describe("LocalCompiler public compile behavior", () => {
 
   it("normalizes compiler stderr and rejects failed compilation", async () => {
     const workspace = await createSketchWorkspace();
+    const diagnostic = "F01_COMPILER_DIAGNOSTIC_SENTINEL";
     vi.spyOn(ProcessExecutor.prototype, "execute").mockResolvedValue({
       code: 1,
       stdout: "",
-      stderr: "/tmp/temp/abc123/sketch.cpp:4: error: invalid syntax",
+      stderr: `/tmp/temp/abc123/sketch.cpp:4: error: ${diagnostic}`,
       error: new Error("g++ failed"),
     });
+    const errorLog = vi.spyOn(Logger.prototype, "error");
 
     await expect(
       new LocalCompiler().compile(workspace.sketchFile, workspace.executableFile),
-    ).rejects.toThrow("sketch.ino:4: error: invalid syntax");
+    ).rejects.toThrow(`sketch.ino:4: error: ${diagnostic}`);
+    expect(errorLog.mock.calls.flat().join(" ")).not.toContain(diagnostic);
   });
 
   it("retries a transient compiler failure and succeeds on the second attempt", async () => {

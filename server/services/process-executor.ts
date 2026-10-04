@@ -210,8 +210,8 @@ export class ProcessExecutor {
           result.error = new Error(`Process timeout after ${timeout}ms`);
           this.logger.warn(`${command} timed out: ${result.error.message}`);
         } else if (code !== 0) {
-          result.error = new Error(`${command} exit code ${code}: ${stderr}`);
-          this.logger.warn(`${command} failed: ${result.error.message}`);
+          result.error = new Error(`${command} exit code ${code}`);
+          this.logger.warn(`${command} failed with exit code ${code} (${Buffer.byteLength(stderr)} stderr bytes)`);
         }
 
         resolve(result);
@@ -223,7 +223,8 @@ export class ProcessExecutor {
           this.activeTimeout = null;
         }
         this.activeProcess = null;
-        this.logger.error(`${command} error: ${err.message}`);
+        const errorCode = "code" in err && typeof err.code === "string" ? `, ${err.code}` : "";
+        this.logger.error(`${command} process error (${err.name}${errorCode})`);
         resolve({
           code: -1,
           error: err,

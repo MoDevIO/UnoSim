@@ -31,6 +31,7 @@ import {
 import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { config } from "../config";
 import { InboundMessageLimiter } from "./simulation/ws-inbound-limiter";
+import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
 
 function sendStartError(
   ws: WebSocket,
@@ -252,7 +253,7 @@ export function registerSimulationWebSocket(
     };
 
     const onError = (err: string) => {
-      logger.warn(`[Client WS][ERR]: ${err}`);
+      logger.warn(`[Client WS][ERR] diagnostic received (${Buffer.byteLength(err)} bytes)`);
       outputBuffer.flushSerialOutputBuffer(ws);
       sendMessageToClient(ws, {
         type: WSMessageType.SERIAL_OUTPUT,
@@ -323,7 +324,7 @@ export function registerSimulationWebSocket(
           );
         });
       }
-      logger.error(`[Client Compile Error]: ${compileErr}`);
+      logger.error(`[Client Compile Error] diagnostic received (${Buffer.byteLength(compileErr)} bytes)`);
     };
 
     const onCompileSuccess = () => {
@@ -644,7 +645,7 @@ export function registerSimulationWebSocket(
       });
       if (!processReady) return;
     } catch (error) {
-      logger.error(`[Simulation] runSketch failed: ${error}`);
+      logger.error(`[Simulation] runSketch failed (${safeErrorLogMetadata(error)})`);
       await sessionManager.safeReleaseRunner(
         clientState,
         "runSketch-error",

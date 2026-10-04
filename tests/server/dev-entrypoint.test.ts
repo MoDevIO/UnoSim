@@ -191,4 +191,31 @@ describe("local development entrypoint", () => {
     expect(output()).toContain("[Shutdown] Received SIGTERM");
     expect(child.exitCode).toBe(0);
   }, 20_000);
+
+  it("does not log sketch source included in a REST response", async () => {
+    const port = await reservePort();
+    const child = spawnLocalDevelopment(createLocalServerEnv(port));
+    const output = collectOutput(child);
+    const marker = "F01_REST_SOURCE_SENTINEL_2c0f6a";
+    const markerPrefix = "F01_REST_SOURCE";
+    try {
+      await waitForReadiness(child, port, output);
+      const response = await fetch(`http://127.0.0.1:${port}/api/sketches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "", content: marker }),
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ content: marker });
+      const deadline = Date.now() + 1_000;
+      while (!output().includes("POST /api/sketches 201") && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(output()).toContain("POST /api/sketches 201");
+      expect(output()).not.toContain(markerPrefix);
+    } finally {
+      await stopProcess(child);
+    }
+  }, 20_000);
 });

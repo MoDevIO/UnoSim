@@ -150,7 +150,7 @@ export class ArduinoOutputParser {
       /^[A-Za-z0-9+/=:]+\]\]$/.test(line) ||                // timestamp:base64 tail + ]]
       /^\d+:[A-Za-z0-9+/=]+/.test(line)                        // timestamp:base64 (no brackets)
     ) {
-      logger.debug(`Ignoring protocol fragment: ${line.slice(0, 80)}...`);
+      logger.debug("Ignoring partial simulator protocol fragment");
       return { type: "ignored" };
     }
 

@@ -16,6 +16,10 @@ import {
   getStartupConfigurationEntries,
 } from "./startup-access";
 import { apiRateLimitKey, shouldSkipApiRateLimit } from "./rate-limit-policy";
+import {
+  safeErrorLogMetadata,
+  safeErrorStackFrames,
+} from "./services/safe-error-log-metadata";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -152,27 +156,11 @@ app.use(
 app.use((req, res, next) => {
   const start = Date.now();
   const reqPath = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (reqPath.startsWith("/api") && reqPath !== "/api/health") {
-      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      log(`${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`);
     }
   });
 
@@ -180,12 +168,17 @@ app.use((req, res, next) => {
 });
 
 // Global error handlers to prevent server crashes
-process.on("unhandledRejection", (reason, promise) => {
-  console.error(`[ERROR] Unhandled Promise Rejection:`, promise, reason);
+function safeStackSuffix(error: unknown): string {
+  const stackFrames = safeErrorStackFrames(error);
+  return stackFrames ? "\n" + stackFrames : "";
+}
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[ERROR] Unhandled Promise Rejection (" + safeErrorLogMetadata(reason) + ")" + safeStackSuffix(reason));
 });
 
 process.on("uncaughtException", (error) => {
-  console.error(`[ERROR] Uncaught Exception:`, error);
+  console.error("[ERROR] Uncaught Exception (" + safeErrorLogMetadata(error) + ")" + safeStackSuffix(error));
   // In development, keep running; in production may want to restart
   if (config.serverMode === "docker") {
     console.error("Shutting down due to uncaught exception");
@@ -211,10 +204,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 
     // Logging für Debugging (Server-seitig)
     if (status >= 500) {
-      console.error(
-        `[ERROR] ${status}: ${err.message}`,
-        isProduction ? "" : err.stack,
-      );
+      console.error(`[ERROR] ${status} (` + safeErrorLogMetadata(err) + ")" + safeStackSuffix(err));
     }
 
     res.status(status).json({ message });

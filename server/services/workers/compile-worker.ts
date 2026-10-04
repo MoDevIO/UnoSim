@@ -14,6 +14,7 @@
 
 import { parentPort, workerData } from "node:worker_threads";
 import { Logger } from "../../../shared/logger.ts";
+import { safeErrorLogMetadata } from "../safe-error-log-metadata.ts";
 import { getFastTmpBaseDir } from "../../../shared/utils/temp-paths.ts";
 import {
   type CompileRequestPayload,
@@ -271,8 +272,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
     }
 
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    logger.error(`[Worker] Compilation failed: ${errorMsg}`);
+    logger.error(`[Worker] Compilation failed (${safeErrorLogMetadata(err)})`);
     throw err;
   }
 }

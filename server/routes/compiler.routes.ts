@@ -10,6 +10,7 @@ import type { RequestIdentity } from "../security/access-control";
 import type { RateLimitResult } from "../services/rate-limiter";
 import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { CompileCapacityError } from "../services/compilation-worker-pool";
+import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -208,7 +209,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         return res.status(503).json({ error: operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, retryAfter) });
       }
       recordCompileErrorIfNeeded(compiler, compileStartTime, error);
-      logger.error(`[Compiler Route] Error during /api/compile: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`[Compiler Route] Error during /api/compile (${safeErrorLogMetadata(error)})`);
       res.status(500).json({ error: "Compilation failed" });
     }
   });
