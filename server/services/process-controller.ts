@@ -124,7 +124,7 @@ export class ProcessController implements IProcessController {
       if (process.env.NODE_ENV === "test") {
         // convert low-level wrapper events into buffered debug logs
         try {
-          logger.debug(`wrapper stderr handler invoked with: ${d.toString()}`);
+          logger.debug(`wrapper stderr handler received ${d.length} bytes`);
         } catch {}
       }
       this.stderrListeners.forEach((cb) => cb(d));

@@ -240,5 +240,25 @@ describe("Logger", () => {
     it("should register process error handlers without throwing", () => {
       expect(() => initializeGlobalErrorHandlers()).not.toThrow();
     });
+
+    it("does not print an unhandled rejection's diagnostic text", () => {
+      const diagnostic = "F01_COMPILER_DIAGNOSTIC_SENTINEL";
+      logger.debug("safe buffered context");
+      initializeGlobalErrorHandlers();
+      const handler = process.listeners("unhandledRejection").at(-1) as (
+        reason: unknown,
+        promise: Promise<unknown>,
+      ) => void;
+      const uncaughtHandler = process.listeners("uncaughtException").at(-1) as (
+        error: Error,
+      ) => void;
+      try {
+        handler(new Error(diagnostic), Promise.resolve());
+        expect(errorSpy.mock.calls.flat().join(" ")).not.toContain(diagnostic);
+      } finally {
+        process.off("unhandledRejection", handler);
+        process.off("uncaughtException", uncaughtHandler);
+      }
+    });
   });
 });

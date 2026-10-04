@@ -144,7 +144,7 @@ export class LocalCompiler {
           break;
         }
         if (attempt < 2) {
-          this.logger.warn(`Compilation attempt ${attempt} failed, retrying... (${lastError.message})`);
+          this.logger.warn(`Compilation attempt ${attempt} failed (${lastError.name}); retrying`);
           await new Promise<void>(r => setTimeout(r, 500));
         }
       }
@@ -198,8 +198,7 @@ export class LocalCompiler {
 
     if (result.error || result.code !== 0) {
       const cleanedError = this.cleanCompilerErrors(result.stderr || "");
-      const errorMsg = `Compiler error (Code ${result.code}, attempt ${attempt}): ${cleanedError}`;
-      this.logger.error(errorMsg);
+      this.logger.error(`Compiler failed (code ${result.code}, attempt ${attempt}, ${Buffer.byteLength(cleanedError)} diagnostic bytes)`);
       throw new CompilerError(cleanedError);
     }
 

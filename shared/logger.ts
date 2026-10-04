@@ -237,11 +237,12 @@ export function initializeGlobalErrorHandlers(): void {
 
   process.on("uncaughtException", (error: Error) => {
     // note: processError variable removed – we no longer track it separately
-    flushDebugOnFailure(`Uncaught Exception: ${error.message}`);
+    flushDebugOnFailure(`Uncaught Exception (${error.name})`);
   });
 
   process.on("unhandledRejection", (reason: unknown) => {
-    flushDebugOnFailure(`Unhandled Rejection: ${String(reason)}`);
+    const reasonType = reason instanceof Error ? reason.name : typeof reason;
+    flushDebugOnFailure(`Unhandled Rejection (${reasonType})`);
   });
 }
 
@@ -256,5 +257,3 @@ export function markTestAsFailed(testName?: string): void {
 export function setLogLevel(level: LogLevel): void {
   globalLogLevel = level;
 }
-
-

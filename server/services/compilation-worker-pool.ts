@@ -204,7 +204,7 @@ export class CompilationWorkerPool {
 
       worker.on("error", (err) => {
         if (!isCurrent()) return;
-        this.logger.error(`[Worker ${workerId}] Error: ${err.message}`);
+        this.logger.error(`[Worker ${workerId}] Error (${err.name})`);
         this.handleWorkerFailure(workerId, err);
       });
 

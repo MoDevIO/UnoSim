@@ -120,7 +120,7 @@ export class StreamHandler {
 
       case "text":
         if (callbacks.onError) {
-          this.logger.warn(`[STDERR]: ${parsed.line}`);
+          this.logger.warn(`[STDERR] diagnostic received (${Buffer.byteLength(parsed.line)} bytes)`);
           callbacks.onError(parsed.line);
         }
         break;

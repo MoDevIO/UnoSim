@@ -208,7 +208,9 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         return res.status(503).json({ error: operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, retryAfter) });
       }
       recordCompileErrorIfNeeded(compiler, compileStartTime, error);
-      logger.error(`[Compiler Route] Error during /api/compile: ${error instanceof Error ? error.message : String(error)}`);
+      const errorType = error instanceof Error ? error.name : typeof error;
+      const errorBytes = Buffer.byteLength(error instanceof Error ? error.message : String(error));
+      logger.error(`[Compiler Route] Error during /api/compile (${errorType}, ${errorBytes} bytes)`);
       res.status(500).json({ error: "Compilation failed" });
     }
   });

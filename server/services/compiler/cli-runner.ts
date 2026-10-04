@@ -112,7 +112,11 @@ export async function compileWithArduinoCli(
   } catch (error) {
     const errorText = error instanceof Error ? error.message : String(error);
     const errorMessage = withPathHint(`Failed to execute arduino-cli: ${errorText}.`, error);
-    logger.error(errorMessage);
+    const errorType = error instanceof Error ? error.name : typeof error;
+    const errorCode = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+      ? `, ${error.code}`
+      : "";
+    logger.error(`Failed to execute arduino-cli (${errorType}${errorCode}, ${Buffer.byteLength(errorMessage)} diagnostic bytes)`);
     return {
       success: false,
       output: "",

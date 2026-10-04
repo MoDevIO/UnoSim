@@ -1,7 +1,28 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ProcessController } from "../../../server/services/process-controller";
+import { Logger } from "../../../shared/logger";
 
 describe("ProcessController — unit", () => {
+  it("forwards stderr without logging its diagnostic contents", async () => {
+    const pc = new ProcessController();
+    const diagnostic = "F01_COMPILER_DIAGNOSTIC_SENTINEL";
+    let stderr = "";
+    const debug = vi.spyOn(Logger.prototype, "debug");
+    pc.onStderr((chunk) => { stderr += chunk.toString(); });
+    const closed = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("timed out waiting for stderr close")), 2_000);
+      pc.onClose(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+    await pc.spawn("node", ["-e", "process.stderr.write('F01_COMPILER_' + 'DIAGNOSTIC_SENTINEL')"]);
+    await closed;
+
+    expect(stderr).toBe(diagnostic);
+    expect(debug.mock.calls.flat().join(" ")).not.toContain(diagnostic);
+  });
+
   it("forwards stdout data to registered listeners (pre/post-spawn)", async () => {
     const pc = new ProcessController();
 

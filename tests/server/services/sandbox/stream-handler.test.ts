@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StreamHandler } from "../../../../server/services/sandbox/stream-handler";
+import { Logger } from "../../../../shared/logger";
 
 // Minimal mock for IProcessController
 const createMockController = () => ({
@@ -235,6 +236,22 @@ describe("StreamHandler", () => {
       );
 
       expect(callbacks.onError).toHaveBeenCalledWith("some error");
+    });
+
+    it("does not log diagnostic text while forwarding it to the client", () => {
+      const state = createMockState();
+      const callbacks = createMockCallbacks();
+      const warn = vi.spyOn(Logger.prototype, "warn");
+      const diagnostic = "F01_COMPILER_DIAGNOSTIC_SENTINEL";
+
+      handler.handleParsedLine(
+        { type: "text", line: diagnostic },
+        state as any,
+        callbacks,
+      );
+
+      expect(callbacks.onError).toHaveBeenCalledWith(diagnostic);
+      expect(warn.mock.calls.flat().join(" ")).not.toContain(diagnostic);
     });
   });
 });

@@ -152,27 +152,11 @@ app.use(
 app.use((req, res, next) => {
   const start = Date.now();
   const reqPath = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (reqPath.startsWith("/api") && reqPath !== "/api/health") {
-      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      log(`${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`);
     }
   });
 
@@ -180,12 +164,20 @@ app.use((req, res, next) => {
 });
 
 // Global error handlers to prevent server crashes
-process.on("unhandledRejection", (reason, promise) => {
-  console.error(`[ERROR] Unhandled Promise Rejection:`, promise, reason);
+function safeStackFrames(error: unknown): string {
+  if (!(error instanceof Error) || !error.stack) return "";
+  return error.stack.split("\n").slice(1, 6).join("\n");
+}
+
+process.on("unhandledRejection", (reason) => {
+  const reasonType = reason instanceof Error ? reason.name : typeof reason;
+  const stackFrames = safeStackFrames(reason);
+  console.error(`[ERROR] Unhandled Promise Rejection (${reasonType})${stackFrames ? `\n${stackFrames}` : ""}`);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error(`[ERROR] Uncaught Exception:`, error);
+  const stackFrames = safeStackFrames(error);
+  console.error(`[ERROR] Uncaught Exception (${error.name})${stackFrames ? `\n${stackFrames}` : ""}`);
   // In development, keep running; in production may want to restart
   if (config.serverMode === "docker") {
     console.error("Shutting down due to uncaught exception");
@@ -211,10 +203,9 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 
     // Logging für Debugging (Server-seitig)
     if (status >= 500) {
-      console.error(
-        `[ERROR] ${status}: ${err.message}`,
-        isProduction ? "" : err.stack,
-      );
+      const errorType = err instanceof Error ? err.name : typeof err;
+      const stackFrames = safeStackFrames(err);
+      console.error(`[ERROR] ${status} (${errorType})${stackFrames ? `\n${stackFrames}` : ""}`);
     }
 
     res.status(status).json({ message });

@@ -272,7 +272,8 @@ async function processCompileRequest(task: CompileRequestPayload) {
 
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    logger.error(`[Worker] Compilation failed: ${errorMsg}`);
+    const errorType = err instanceof Error ? err.name : typeof err;
+    logger.error(`[Worker] Compilation failed (${errorType}, ${Buffer.byteLength(errorMsg)} diagnostic bytes)`);
     throw err;
   }
 }

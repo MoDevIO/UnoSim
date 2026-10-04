@@ -317,7 +317,8 @@ export class ExecutionManager {
       return;
     }
     const errorMessage = err instanceof Error ? err.message : String(err);
-    this.logger.error(`Kompilierfehler oder Timeout: ${errorMessage}`);
+    const errorType = err instanceof Error ? err.name : typeof err;
+    this.logger.error(`Kompilierfehler oder Timeout (${errorType}, ${Buffer.byteLength(errorMessage)} diagnostic bytes)`);
     options.onCompileError?.(errorMessage);
     options.onExit?.(-1);
     state.processController.destroySockets();
