@@ -142,7 +142,7 @@ export class CourseContentLoader {
       validateTutorReferences(manifest, topicEntries, strategies, annotations);
       return { status: "valid", manifest, topics: topicEntries, strategies };
     } catch (error) {
-      if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+      if (signal?.aborted) {
         throw signal?.reason ?? error;
       }
       return { status: "invalid", reason: "Tutor capability is invalid" };

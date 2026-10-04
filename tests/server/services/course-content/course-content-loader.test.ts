@@ -52,6 +52,30 @@ describe("unified Course Content loader", () => {
       .rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("keeps valid Examples when optional Tutor fetch times out with AbortError", async () => {
+    const controller = new AbortController();
+    const fetchText = vi.fn(async (url: URL) => {
+      if (url.pathname.endsWith("/manifest.json")) {
+        return JSON.stringify({
+          schemaVersion: 2,
+          examples: [example],
+          tutor: { manifest: "tutor/manifest.yaml" },
+        });
+      }
+      if (url.pathname.endsWith("/examples/main.ino")) return "void setup() {}";
+      const timeout = new Error("request timed out");
+      timeout.name = "AbortError";
+      throw timeout;
+    });
+
+    const loaded = await new CourseContentLoader({ fetchText }, 2)
+      .load("owner/repo", revision, controller.signal);
+
+    expect(controller.signal.aborted).toBe(false);
+    expect(loaded.examples).toHaveLength(1);
+    expect(loaded.tutor).toMatchObject({ status: "invalid" });
+  });
+
   it("loads schema-v1 Examples and reports no Tutor capability", async () => {
     const { fetchText } = fetcherFor({
       [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 1, examples: [example] }),
