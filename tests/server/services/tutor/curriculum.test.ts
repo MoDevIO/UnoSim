@@ -9,11 +9,10 @@ import { curriculumManifestSchema, validateCurriculumTopic } from "../../../../s
 import { DefaultLearningPlanner, isMastered } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import { DefaultTopicMatcher } from "../../../../server/services/tutor/curriculum/topic-matcher";
-import { StaticDidacticContentRepository } from "../../../../server/services/tutor/curriculum/content-repository";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
-import type { DidacticContentSnapshot } from "../../../../server/services/tutor/curriculum/content-repository";
+import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
 
 async function loadPilot() {
   const topicSource = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
@@ -36,18 +35,16 @@ function turn(question: string, answerRating: 1 | 2 | 3 | 4 | 5, metadata: Norma
   };
 }
 
-function snapshot(topic: Awaited<ReturnType<typeof loadPilot>>["topic"], revision = "0123456789abcdef0123456789abcdef01234567"): DidacticContentSnapshot {
+/** Course Content context as the Tutor route supplies it for the pilot topic. */
+function courseContent(topic: Awaited<ReturnType<typeof loadPilot>>["topic"], revision = "0123456789abcdef0123456789abcdef01234567"): TutorPlanningContentContext {
   return {
     revision,
-    manifest: {
-      schemaVersion: 1,
-      curriculumId: "unosim-core-de",
-      release: "2026.1",
-      locale: "de-DE",
-      topics: [{ id: "memory-and-data-types", path: "topics/memory-and-data-types.yaml", sha256: "a".repeat(64) }],
+    tutor: {
+      status: "valid",
+      manifest: { schemaVersion: 1, topics: [], strategies: [] },
+      topics: [topic],
+      strategies: [],
     },
-    topics: [topic],
-    stale: false,
   };
 }
 
@@ -180,10 +177,8 @@ describe("repository tutor curriculum", () => {
         result: { question: "Providerfrage" },
       }),
     };
-    const service = new TutorService(provider, new CurriculumTutorAdapter({
-      repository: new StaticDidacticContentRepository(snapshot(topic)),
-    }));
-    const result = await service.generateQuestion("int values[] = {1, 2};", "volatile-key", undefined, 30);
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
+    const result = await service.generateQuestion("int values[] = {1, 2};", "volatile-key", undefined, 30, courseContent(topic));
     expect(result.result.questionId).toBe("value-storage-contrast");
     expect(result.result.question).toBe("Wie kann derselbe gespeicherte Zahlenwert je nach Datentyp unterschiedlich interpretiert oder ausgegeben werden?");
     const request = provider.generateLearningQuestion.mock.calls[0]?.[0];
@@ -206,9 +201,7 @@ describe("repository tutor curriculum", () => {
         },
       }),
     };
-    const service = new TutorService(provider, new CurriculumTutorAdapter({
-      repository: new StaticDidacticContentRepository(snapshot(topic)),
-    }));
+    const service = new TutorService(provider, new CurriculumTutorAdapter());
     const currentQuestion = "Wie kann derselbe gespeicherte Zahlenwert je nach Datentyp unterschiedlich interpretiert oder ausgegeben werden?";
     const result = await service.generateDialogResponse(
       "int values[] = {1, 2};",
@@ -218,6 +211,7 @@ describe("repository tutor curriculum", () => {
       "volatile-key",
       undefined,
       30,
+      courseContent(topic),
     );
     expect(result.result.questionId).toBe("value-storage-observation");
     expect(result.result.strategyId).toBe("built-in-default");
