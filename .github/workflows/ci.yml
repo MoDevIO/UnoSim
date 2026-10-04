@@ -128,6 +128,7 @@ jobs:
             curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
           fi
           arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+          arduino-cli version
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -187,6 +188,7 @@ jobs:
             curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
           fi
           arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+          arduino-cli version
 
       - name: Run toolchain integration tests
         env:
