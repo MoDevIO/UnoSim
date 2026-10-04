@@ -5,6 +5,8 @@ import { dirname, resolve } from "node:path";
 import { countClientOutcomes, runCapacityScenario } from "./capacity-scenario-runner";
 import { collectDockerProbe, collectHostProbe } from "./capacity-calibration-host";
 
+const ARDUINO_CLI_PATH = "/usr/local/bin/arduino-cli";
+
 function integerEnv(name: string, min: number, max: number): number {
   const value = Number(process.env[name]);
   if (!Number.isInteger(value) || value < min || value > max) {
@@ -121,8 +123,8 @@ async function main(): Promise<void> {
 
   const hostProbe = await collectHostProbe();
   const dockerProbe = await collectDockerProbe("unosim-sandbox:latest");
-  const arduinoCliVersion = execFileSync("arduino-cli", ["version"], { encoding: "utf8" }).trim();
-  const avrCoreRow = execFileSync("arduino-cli", ["core", "list"], { encoding: "utf8" })
+  const arduinoCliVersion = execFileSync(ARDUINO_CLI_PATH, ["version"], { encoding: "utf8" }).trim();
+  const avrCoreRow = execFileSync(ARDUINO_CLI_PATH, ["core", "list"], { encoding: "utf8" })
     .split(/\r?\n/)
     .find((line) => /^arduino:avr\s/.test(line.trim()));
   const avrCoreVersion = avrCoreRow?.trim().split(/\s+/)[1] ?? null;
@@ -204,7 +206,7 @@ async function main(): Promise<void> {
   if (!measurement.cleanup.quiescent) process.exitCode = 2;
 }
 
-main().catch((error: unknown) => {
+await main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

@@ -50,7 +50,7 @@ export function createDockerLifecycleTracker(runId: string): DockerLifecycleTrac
     },
     consume(line: string) {
       const parsed = parseEvent(line);
-      if (!parsed || parsed.runId !== runId) return;
+      if (parsed?.runId !== runId) return;
 
       if (parsed.action === "start") {
         active.add(parsed.id);
