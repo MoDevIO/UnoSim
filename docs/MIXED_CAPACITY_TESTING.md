@@ -17,10 +17,12 @@ limits or judge a run against assumed thresholds.
   npm run build:sandbox
   ```
 
-- The host must have Arduino CLI 1.5.1 and the `arduino:avr` core installed.
-  The runner checks the CLI version and includes both versions in its report.
-  Install the pinned CLI with `sh scripts/install-arduino-cli.sh`; install the
-  core with `arduino-cli core install arduino:avr` if it is missing.
+- The host must have Arduino CLI 1.5.1 and `arduino:avr` 1.8.8 installed.
+  The runner checks both versions and includes them in its report. Install the
+  CLI with `sh scripts/install-arduino-cli.sh` and the core with
+  `sh scripts/install-arduino-avr-core.sh`. The pinned core version has one
+  update point in `scripts/arduino-avr-core-version`; change it only after the
+  Docker image, CI toolchain, and integration-toolchain gates pass.
 
 - The harness starts and stops its own test-mode backend and only labels and
   cleans containers owned by its run ID. It disables rate limiting for the

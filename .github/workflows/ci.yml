@@ -117,15 +117,15 @@ jobs:
             ~/.cache/ms-playwright
             server/arduino-cache
             storage/binaries
-          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
+          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
           restore-keys: |
             ${{ runner.os }}-e2e-turbo-
 
-      - name: Install Arduino CLI 1.5.1 & Core
+      - name: Install pinned Arduino CLI and AVR core
         run: |
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
-          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+          sh scripts/install-arduino-avr-core.sh
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -176,13 +176,13 @@ jobs:
         with:
           path: |
             ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Arduino CLI 1.5.1 & Core
+      - name: Install pinned Arduino CLI and AVR core
         run: |
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
-          arduino-cli core list | grep "arduino:avr" || (arduino-cli core update-index && arduino-cli core install arduino:avr)
+          sh scripts/install-arduino-avr-core.sh
 
       - name: Run toolchain integration tests
         env:
@@ -240,6 +240,7 @@ jobs:
       - name: Verify Arduino CLI in Production Image
         run: |
           docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
+          docker run --rm --entrypoint sh unosim:ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
 
       - name: Run Docker sandbox tests
         run: npm run test:docker

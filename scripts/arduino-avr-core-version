@@ -1,0 +1,2 @@
+# Update this value only after the Docker, CI, and integration-toolchain gates pass.
+ARDUINO_AVR_CORE_VERSION=1.8.8
