@@ -5,6 +5,7 @@ import { getSandboxStartSemaphore } from "../services/sandbox/docker-compile-sem
 import { config } from "../config";
 import { getProcessMetrics, compileMetricsTracker, sandboxStartWaitSamplesTracker, webSocketMetricsTracker, evaluateObservabilityAlerts } from "../services/server-metrics";
 import { getCompilerWithFallback } from "../services/compiler-with-fallback";
+import { getUnifiedGatekeeper } from "../services/unified-gatekeeper";
 import { REST_API_VERSION } from "../services/protocol-version";
 import { getCompileRateLimiter, getSimulationRateLimiter } from "../services/rate-limiter";
 import { getSimulationAdmissionController } from "../services/simulation-admission-controller";
@@ -31,7 +32,16 @@ statusRouter.get("/api/status", (_req, res) => {
   const compileRateStats = getCompileRateLimiter().getStats();
   const simulationRateStats = getSimulationRateLimiter().getStats();
   const admissionStats = getSimulationAdmissionController().getStats();
-  const compileMaxConcurrent = config.compilation.maxConcurrent;
+  // REST compiles run in the worker pool while it has live workers, otherwise
+  // through the gatekeeper on the main thread (local mode, pool fallback).
+  const workers = "liveWorkers" in compilerStats
+    ? { max: compilerStats.maxWorkers, live: compilerStats.liveWorkers }
+    : { max: 0, live: 0 };
+  let compileCapacity = { maxConcurrent: workers.max, active: compilerStats.activeWorkers };
+  if (workers.live === 0) {
+    const gatekeeper = getUnifiedGatekeeper().getStats();
+    compileCapacity = { maxConcurrent: gatekeeper.maxConcurrentCompiles, active: gatekeeper.activeCompiles };
+  }
 
   res.json({
     status: "ok",
@@ -57,13 +67,10 @@ statusRouter.get("/api/status", (_req, res) => {
         waiting: poolStats.queuedRequests,
         timeoutMs: config.capacity.queueTimeoutMs,
       },
-      compile: {
-        maxConcurrent: compileMaxConcurrent,
-        active: compilerStats.activeWorkers,
-      },
+      compile: compileCapacity,
     },
     // Legacy fields remain for clients that have not migrated to capacity.*.
-    compileWorkers: config.compilation.workerCount,
+    compileWorkers: workers.max,
     compileSlots: {
       active: sandboxStart.activeCount,
       queued: sandboxStart.queueLength,
@@ -76,7 +83,8 @@ statusRouter.get("/api/status", (_req, res) => {
       completedTasks: compilerStats.completedTasks,
       failedTasks: compilerStats.failedTasks,
       avgCompileTimeMs: compilerStats.avgCompileTimeMs,
-      maxWorkers: config.compilation.workerCount,
+      maxWorkers: workers.max,
+      liveWorkers: workers.live,
     },
     ...(config.nodeEnv === "test" && config.capacityTestRunId
       ? {
