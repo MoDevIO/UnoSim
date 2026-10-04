@@ -83,11 +83,7 @@ if (config.trust.mode === "gateway") {
   app.set("trust proxy", config.trust.trustedProxy);
 }
 
-// Security: Helmet adds various HTTP headers for protection
-function getFrameAncestorsHeader(): string {
-  return `frame-ancestors ${parseAllowedFrameAncestors().join(" ")}`;
-}
-
+// Security: Helmet owns the complete CSP, including the embedding policy.
 app.use(
   helmet({
     frameguard: false, // Deactivate X-Frame-Options; we use CSP frame-ancestors instead
@@ -106,11 +102,6 @@ app.use(
     },
   }),
 );
-
-app.use((_, res, next) => {
-  res.setHeader("Content-Security-Policy", getFrameAncestorsHeader());
-  next();
-});
 
 // Security: Rate limiting to prevent DoS attacks
 // In test/development mode, use higher limits

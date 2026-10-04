@@ -148,6 +148,37 @@ async function waitForReadiness(child: ChildProcess, port: number, output: () =>
 }
 
 describe("local development entrypoint", () => {
+  it("preserves the complete CSP in final HTTP responses with configured frame ancestors", async () => {
+    const port = await reservePort();
+    const env = createLocalServerEnv(port);
+    env.SIMULATOR_ALLOWED_PARENT_ORIGINS = "'self',https://course.example,https://course.example";
+    env.UNOSIM_EXAMPLES_SOURCE = "";
+    const child = spawnLocalDevelopment(env);
+    const output = collectOutput(child);
+    try {
+      await waitForReadiness(child, port, output);
+      for (const route of ["/api/readiness", "/examples"]) {
+        const response = await fetch(`http://127.0.0.1:${port}${route}`);
+        const policy = response.headers.get("content-security-policy");
+        expect(policy).not.toBeNull();
+        const directives = new Map(policy!.split(";").map((directive) => {
+          const [name, ...values] = directive.trim().split(/\s+/);
+          return [name, values];
+        }));
+        expect(directives.get("default-src")).toEqual(["'self'"]);
+        expect(directives.get("script-src")).toContain("'self'");
+        expect(directives.get("connect-src")).toEqual([
+          "'self'", "ws:", "wss:", "https://fonts.googleapis.com", "https://fonts.gstatic.com",
+        ]);
+        expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
+        expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
+        expect(response.headers.get("x-frame-options")).toBeNull();
+      }
+    } finally {
+      await stopProcess(child);
+    }
+  }, 20_000);
+
   it("ignores inherited removed runtime selectors while preserving local startup and capacity overrides", async () => {
     const port = await reservePort();
     const env = createLocalServerEnv(port);
