@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
 import { ProcessExecutor } from "../../server/services/process-executor";
 import {
@@ -19,6 +21,15 @@ async function waitForContainerName(runner: SandboxRunner): Promise<string> {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error("Sandbox container was not created in time");
+}
+
+async function waitForOutput(output: string[], target: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (extractPlainText(output).includes(target)) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for sandbox output ${target}: ${extractPlainText(output)}`);
 }
 
 async function runSecurityProbe(sketch: string): Promise<string> {
@@ -67,8 +78,13 @@ maybeDescribe("Docker sandbox security contract", () => {
       expect(details.HostConfig.ReadonlyRootfs).toBe(true);
       expect(details.HostConfig.CapDrop).toContain("ALL");
       expect(details.HostConfig.Tmpfs["/tmp"]).toContain("noexec");
-      expect(details.Mounts.some((mount: { Destination: string }) => mount.Destination === "/sandbox")).toBe(true);
+      const sourceMount = details.Mounts.find((mount: { Destination: string }) => mount.Destination === "/sandbox");
+      expect(sourceMount?.Type).toBe("bind");
+      expect(sourceMount?.RW).toBe(false);
+      expect(details.HostConfig.Tmpfs["/sandbox-work"]).toMatch(/size=(67108864|64m)/);
+      expect(details.HostConfig.Tmpfs["/sandbox-work"]).toContain("nr_inodes=4096");
       expect(details.Mounts.some((mount: { Destination: string }) => mount.Destination.includes("arduino-cache"))).toBe(false);
+      expect(await runPromise).toBe(true);
     } finally {
       await runner.stop();
       await runPromise.catch(() => undefined);
@@ -92,35 +108,79 @@ maybeDescribe("Docker sandbox security contract", () => {
     expect(runner.isRunning).toBe(false);
   }, 30_000);
 
-  it("enforces read-only root filesystem while keeping /sandbox writable", async () => {
-    const output = await runSecurityProbe(String.raw`
-#include <cstdio>
+  it("keeps source read-only and caps sketch writes in per-run scratch", async () => {
+    const runner = new SandboxRunner();
+    const output: string[] = [];
+    let runPromise: Promise<boolean> | undefined;
+
+    try {
+      runPromise = runner.runSketch({
+        code: String.raw`
+#include <cerrno>
 #include <cstdlib>
+#include <fcntl.h>
+#include <unistd.h>
 
 void setup() {
-  FILE* rootFile = fopen("/etc/unosim-rootfs-write-test", "w");
-  Serial.print("ROOTFS_WRITE=");
-  Serial.println(rootFile == NULL ? "blocked" : "unexpectedly-open");
-  if (rootFile != NULL) {
-    fclose(rootFile);
-  }
+  int sourceFile = open("/sandbox/unosim-source-write-test", O_CREAT | O_WRONLY | O_EXCL, 0600);
+  Serial.print("SOURCE_WRITE=");
+  Serial.println(sourceFile < 0 ? "blocked" : "allowed");
+  if (sourceFile >= 0) close(sourceFile);
 
-  FILE* sandboxFile = fopen("/sandbox/unosim-sandbox-write-test", "w");
-  Serial.print("SANDBOX_WRITE=");
-  Serial.println(sandboxFile == NULL ? "blocked" : "allowed");
-  if (sandboxFile != NULL) {
-    fputs("ok", sandboxFile);
-    fclose(sandboxFile);
+  int scratchFile = open("scratch-limit-test.bin", O_CREAT | O_WRONLY | O_TRUNC, 0600);
+  char block[1024 * 1024] = {};
+  size_t written = 0;
+  const size_t attemptLimit = 65ULL * 1024 * 1024;
+  bool full = false;
+  while (scratchFile >= 0 && written < attemptLimit) {
+    size_t remaining = attemptLimit - written;
+    size_t requested = remaining < sizeof(block) ? remaining : sizeof(block);
+    ssize_t count = write(scratchFile, block, requested);
+    if (count < 0) {
+      full = errno == ENOSPC;
+      break;
+    }
+    if (count == 0) break;
+    written += static_cast<size_t>(count);
   }
-
-  exit(0);
+  if (scratchFile >= 0) close(scratchFile);
+  Serial.print("SCRATCH_LIMIT=");
+  Serial.println(full ? "ENOSPC" : "NOT_ENFORCED");
 }
 
-void loop() {}
-`);
+void loop() { delay(100); }
+`,
+        timeoutSec: 30,
+        onOutput: (chunk) => output.push(typeof chunk === "string" ? chunk : chunk.toString("utf8")),
+        onError: (error) => output.push(error),
+        onExit: () => {},
+      });
 
-    expect(output).toContain("ROOTFS_WRITE=blocked");
-    expect(output).toContain("SANDBOX_WRITE=allowed");
+      const containerName = await waitForContainerName(runner);
+      await waitForOutput(output, "SCRATCH_LIMIT=", 30_000);
+
+      const sketchDir = (runner as any).executionState?.currentSketchDir as string | null;
+      expect(sketchDir).toBeTruthy();
+      expect(existsSync(join(sketchDir!, "unosim-source-write-test"))).toBe(false);
+      expect(existsSync(join(sketchDir!, "scratch-limit-test.bin"))).toBe(false);
+
+      const inspect = await new ProcessExecutor().execute("docker", ["inspect", containerName], {
+        timeout: 5_000,
+        stdio: "pipe",
+      });
+      expect(inspect.code).toBe(0);
+      const details = JSON.parse(inspect.stdout ?? "[]")[0];
+      const sourceMount = details.Mounts.find((mount: { Destination: string }) => mount.Destination === "/sandbox");
+      expect(sourceMount?.RW).toBe(false);
+      expect(details.HostConfig.Tmpfs["/sandbox-work"]).toMatch(/size=(67108864|64m)/);
+    } finally {
+      await runner.stop();
+      await runPromise?.catch(() => undefined);
+    }
+
+    const text = extractPlainText(output);
+    expect(text).toContain("SOURCE_WRITE=blocked");
+    expect(text).toContain("SCRATCH_LIMIT=ENOSPC");
   }, 60_000);
 
   it("blocks network egress from untrusted sketch code", async () => {

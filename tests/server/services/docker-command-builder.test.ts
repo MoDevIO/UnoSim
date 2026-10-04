@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DockerCommandBuilder } from "../../../server/services/docker-command-builder";
 
 describe("DockerCommandBuilder", () => {
-  it("limits a sandbox to its writable sketch mount and bounded tmpfs", () => {
+  it("keeps source read-only and gives runtime writes a bounded scratch tmpfs", () => {
     const command = DockerCommandBuilder.buildSecureRunCommand({
       sketchDir: "/tmp/unosim-sketch",
       memoryMB: 256,
@@ -21,16 +21,19 @@ describe("DockerCommandBuilder", () => {
     expect(command[command.indexOf("--tmpfs") + 1]).toBe(
       "/tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m",
     );
-    expect(command).toContain("/tmp/unosim-sketch:/sandbox:rw");
+    expect(command).toContain("/tmp/unosim-sketch:/sandbox:ro");
+    expect(command).toContain(
+      "/sandbox-work:rw,nosuid,nodev,exec,mode=1777,size=64m,nr_inodes=4096",
+    );
     expect(command).not.toContain("ARDUINO_CACHE_DIR");
   });
 
-  it("keeps the executable out of the noexec temporary filesystem", () => {
+  it("compiles from the read-only source mount and runs the bounded scratch executable", () => {
     expect(DockerCommandBuilder.buildCompileAndRunCommand().at(-1)).toContain(
-      "-o /sandbox/sketch",
+      "-I/sandbox /sandbox/sketch.cpp -o /sandbox-work/sketch",
     );
     expect(DockerCommandBuilder.buildCompileAndRunCommand().at(-1)).toContain(
-      "&& /sandbox/sketch",
+      "cd /sandbox-work && ./sketch",
     );
   });
   it("passes the user ID and group ID into the Docker command", () => {

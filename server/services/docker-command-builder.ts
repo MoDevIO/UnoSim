@@ -1,5 +1,10 @@
 import { realpathSync } from "node:fs";
 
+// Match the existing 64 MiB transient /tmp ceiling while keeping runtime-relative
+// writes and the compiled executable off the host-backed source bind.
+const SANDBOX_WORK_SIZE_MB = 64;
+const SANDBOX_WORK_MAX_INODES = 4096;
+
 /**
  * Docker Command Builder
  * 
@@ -54,8 +59,10 @@ export class DockerCommandBuilder {
       "--read-only", // Keep the container root filesystem immutable
       "--tmpfs",
       "/tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m", // Only bounded transient runtime storage
+      "--tmpfs",
+      `/sandbox-work:rw,nosuid,nodev,exec,mode=1777,size=${SANDBOX_WORK_SIZE_MB}m,nr_inodes=${SANDBOX_WORK_MAX_INODES}`,
       "-v",
-      `${realSketchDir}:/sandbox:rw`, // Mount sketch directory (realpath resolves macOS /tmp symlink)
+      `${realSketchDir}:/sandbox:ro`, // Source and headers are visible to the compiler, never writable by sketch code
       options.imageName,
       ...options.command, // Execution command
     ];
@@ -71,7 +78,7 @@ export class DockerCommandBuilder {
       // The echo marker is the only signal that compilation succeeded. This
       // matters because g++ stderr is redirected to stdout above; compiler
       // diagnostics must not be mistaken for runtime output.
-      "g++ -I/sandbox /sandbox/sketch.cpp -o /sandbox/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && /sandbox/sketch",
+      "g++ -I/sandbox /sandbox/sketch.cpp -o /sandbox-work/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && cd /sandbox-work && ./sketch",
     ];
   }
 }
