@@ -31,6 +31,7 @@ import {
 import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { config } from "../config";
 import { InboundMessageLimiter } from "./simulation/ws-inbound-limiter";
+import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
 
 function sendStartError(
   ws: WebSocket,
@@ -644,8 +645,7 @@ export function registerSimulationWebSocket(
       });
       if (!processReady) return;
     } catch (error) {
-      const errorType = error instanceof Error ? error.name : typeof error;
-      logger.error(`[Simulation] runSketch failed (${errorType})`);
+      logger.error(`[Simulation] runSketch failed (${safeErrorLogMetadata(error)})`);
       await sessionManager.safeReleaseRunner(
         clientState,
         "runSketch-error",

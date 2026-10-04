@@ -16,6 +16,10 @@ import {
   getStartupConfigurationEntries,
 } from "./startup-access";
 import { apiRateLimitKey, shouldSkipApiRateLimit } from "./rate-limit-policy";
+import {
+  safeErrorLogMetadata,
+  safeErrorStackFrames,
+} from "./services/safe-error-log-metadata";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -164,20 +168,17 @@ app.use((req, res, next) => {
 });
 
 // Global error handlers to prevent server crashes
-function safeStackFrames(error: unknown): string {
-  if (!(error instanceof Error) || !error.stack) return "";
-  return error.stack.split("\n").slice(1, 6).join("\n");
+function safeStackSuffix(error: unknown): string {
+  const stackFrames = safeErrorStackFrames(error);
+  return stackFrames ? "\n" + stackFrames : "";
 }
 
 process.on("unhandledRejection", (reason) => {
-  const reasonType = reason instanceof Error ? reason.name : typeof reason;
-  const stackFrames = safeStackFrames(reason);
-  console.error(`[ERROR] Unhandled Promise Rejection (${reasonType})${stackFrames ? `\n${stackFrames}` : ""}`);
+  console.error("[ERROR] Unhandled Promise Rejection (" + safeErrorLogMetadata(reason) + ")" + safeStackSuffix(reason));
 });
 
 process.on("uncaughtException", (error) => {
-  const stackFrames = safeStackFrames(error);
-  console.error(`[ERROR] Uncaught Exception (${error.name})${stackFrames ? `\n${stackFrames}` : ""}`);
+  console.error("[ERROR] Uncaught Exception (" + safeErrorLogMetadata(error) + ")" + safeStackSuffix(error));
   // In development, keep running; in production may want to restart
   if (config.serverMode === "docker") {
     console.error("Shutting down due to uncaught exception");
@@ -203,9 +204,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 
     // Logging für Debugging (Server-seitig)
     if (status >= 500) {
-      const errorType = err instanceof Error ? err.name : typeof err;
-      const stackFrames = safeStackFrames(err);
-      console.error(`[ERROR] ${status} (${errorType})${stackFrames ? `\n${stackFrames}` : ""}`);
+      console.error(`[ERROR] ${status} (` + safeErrorLogMetadata(err) + ")" + safeStackSuffix(err));
     }
 
     res.status(status).json({ message });
