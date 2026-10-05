@@ -54,7 +54,7 @@ describe("Server Metrics (Phase 3.9 Observability)", () => {
 
     it("should calculate CPU percentage from two samples", () => {
       // First call initializes baseline
-      const metrics1 = getProcessMetrics();
+      getProcessMetrics();
       
       // Second call should have CPU data
       const metrics2 = getProcessMetrics();

@@ -9,11 +9,9 @@
  * - Error-Pfade und No-op-Pfade
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "../../../../server/services/sandbox/execution-phases/cleanup-phase";
 import type { ExecutionState } from "../../../../server/services/sandbox/execution-manager";
-import type { PinStateBatcher } from "../../pin-state-batcher";
-import type { SerialOutputBatcher } from "../../serial-output-batcher";
 
 // Mocks für Dependencies
 const createMockLogger = () => ({

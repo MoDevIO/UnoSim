@@ -456,7 +456,7 @@ describe("Scalability stress: SandboxStartSemaphore", () => {
     let peakActive = 0;
     const queuings: number[] = [];
 
-    const promises = Array.from({ length: 10 }, (_, i) =>
+    const promises = Array.from({ length: 10 }, () =>
       (async () => {
         const start = Date.now();
         const release = await semaphore.acquire(() => {
