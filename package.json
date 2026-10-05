@@ -60,7 +60,7 @@
     "test:load:50": "LOG_LEVEL=info vitest run --project=load --testNamePattern='Load Test: 50 Concurrent Clients'",
     "test:load:100": "LOG_LEVEL=info vitest run --project=load --testNamePattern='Load Test: 100 Concurrent Clients'",
     "test:load:200": "LOG_LEVEL=info vitest run --project=load --testNamePattern='Load Test: 200 Concurrent Clients'",
-    "lint": "eslint . --ext .ts,.tsx --fix",
+    "lint": "eslint . --ext .ts,.tsx",
     "prepare": "husky"
   },
   "dependencies": {
