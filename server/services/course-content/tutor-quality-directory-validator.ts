@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { CourseContentLoader, type LoadedCourseContentSnapshot } from "./course-content-loader";
+import { validateInlineFocus } from "./inline-focus-validator";
 import { tutorQualityCasesSchema } from "./tutor-quality-schema";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 import {
@@ -40,6 +41,10 @@ export async function validateTutorCourseContentDirectory(directory: string): Pr
     return [
       ...validateTutorContentQuality(loaded.tutor.topics, resolution.cases),
       ...validateExampleTopicActivations(loaded.tutor.topics, catalogExamples(loaded)),
+      ...validateInlineFocus(loaded.examples.flatMap((example) => {
+        const main = example.files.find(({ name }) => name === example.main);
+        return main ? [{ id: example.id, code: main.content, annotation: example.tutorAnnotation }] : [];
+      })),
     ];
   } catch {
     return [directoryIssue("invalid-quality-cases", "Tutor quality case manifest could not be loaded")];

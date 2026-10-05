@@ -37,6 +37,7 @@ export type TutorContentQualityIssueCode =
   | "learn-content-exhausted"
   | "deepen-content-exhausted"
   | "unmasterable-example-activation"
+  | "inline-focus-term-not-in-sketch"
   | "invalid-course-content-bundle"
   | "invalid-quality-cases"
   | "quality-case-example-not-found";
