@@ -8,7 +8,7 @@
 import type { Logger } from "@shared/logger";
 import type { ProcessExecution } from "../../process-execution-port";
 import type { ExecutionState } from "../execution-manager";
-import { cleanupDockerContainer } from "./cleanup-phase";
+import { cleanupExecutionContainer } from "./cleanup-phase";
 
 interface TimeoutScheduler {
   schedule(timeoutMs: number | null, callback: () => void): void;
@@ -42,7 +42,7 @@ export function handleExecutionTimeout(
   abortExecution(state);
   callbacks.onOutput(`--- Simulation timeout (${executionTimeout}s) ---`, true);
 
-  void cleanupDockerContainer(state.currentContainerName, deps);
+  void cleanupExecutionContainer(state, deps);
 }
 
 /**

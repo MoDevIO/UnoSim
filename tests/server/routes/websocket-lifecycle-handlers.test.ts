@@ -164,6 +164,41 @@ describe("WebSocket lifecycle through the production route", () => {
     });
   });
 
+  it("waits for confirmed Docker pause before publishing paused", async () => {
+    let complete!: (value: boolean) => void;
+    Object.assign(runner, { controlResult: new Promise<boolean>((resolve) => { complete = resolve; }) });
+    client.send(JSON.stringify({ type: "pause_simulation" }));
+    await waitFor(() => runner.pause.mock.calls.length === 1, "runner pause");
+    expect(messages.filter((m) => m.type === "simulation_status").map((m) => m.status)).not.toContain("paused");
+    complete(true);
+    await waitFor(() => messages.some((m) => m.type === "simulation_status" && m.status === "paused"), "confirmed pause");
+  });
+
+  it("releases a failed control through the existing stopped status", async () => {
+    Object.assign(runner, { controlResult: Promise.resolve(false) });
+    client.send(JSON.stringify({ type: "pause_simulation" }));
+    await waitFor(() => pool.releaseRunner.mock.calls.length === 1, "failed control release");
+    await waitFor(() => messages.some((m) => m.type === "simulation_status" && m.status === "stopped"), "stopped status");
+    expect(messages.some((m) => m.type === "operation_error")).toBe(false);
+    expect(messages.some((m) => m.type === "serial_output" && m.data.startsWith("[ERR]"))).toBe(true);
+  });
+
+  it("ignores delayed control acknowledgement after stop and reuse of the same runner", async () => {
+    let complete!: (value: boolean) => void;
+    Object.assign(runner, { controlResult: new Promise<boolean>((resolve) => { complete = resolve; }) });
+    client.send(JSON.stringify({ type: "pause_simulation" }));
+    await waitFor(() => runner.pause.mock.calls.length === 1, "runner pause");
+    client.send(JSON.stringify({ type: "stop_simulation" }));
+    await waitFor(() => pool.releaseRunner.mock.calls.length === 1, "stop release");
+    client.send(JSON.stringify({ type: "start_simulation", code: "void setup() {} void loop() {}" }));
+    await waitFor(() => runner.runSketch.mock.calls.length === 2, "successor run");
+    complete(true);
+    // Round trip through the same socket drains all earlier acknowledgements.
+    client.send(JSON.stringify({ type: "serial_input", data: "barrier" }));
+    await waitFor(() => runner.sendSerialInput.mock.calls.length === 1, "successor input");
+    expect(messages.filter((m) => m.type === "simulation_status").map((m) => m.status)).not.toContain("paused");
+  });
+
   it("forwards serial input to the active runner", async () => {
     client.send(JSON.stringify({ type: "serial_input", data: "hello Uno\n" }));
 

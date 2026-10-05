@@ -41,7 +41,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
 
       runner.runSketch({
         code,
-        onOutput: (line) => {
+        onOutput: async (line) => {
           const matchRe = /TIME:(\d+)/;
           const match = matchRe.exec(line);
           if (match) {
@@ -50,7 +50,8 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
 
             if (timeValues.length === 5) {
               runner.pause();
-              const valAtPause = t;
+              await runner.controlResult;
+              const valAtPause = timeValues.at(-1) ?? t;
               
               // Wir warten 500ms in der "echten" Welt
               setTimeout(() => {
@@ -171,6 +172,7 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
           clearInterval(check);
           try {
             runner.pause();
+            await runner.controlResult;
             expect(runner.isPaused).toBe(true);
             await runner.stop();
             expect(runner.isPaused).toBe(false);

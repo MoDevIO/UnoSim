@@ -24,7 +24,7 @@ const createMockLogger = () => ({
 });
 
 const createMockProcessExecutor = () => ({
-  execute: vi.fn(),
+  execute: vi.fn().mockResolvedValue({ code: 0, stdout: "", stderr: "", error: null }),
 });
 
 const createMockPinStateBatcher = () => ({

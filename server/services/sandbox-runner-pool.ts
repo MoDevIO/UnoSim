@@ -6,6 +6,7 @@ interface PooledRunner {
   runner: SandboxRunner;
   inUse: boolean;
   resetting: boolean;
+  quarantined?: boolean;
   lastReleasedTime: number;
   idleTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -36,6 +37,7 @@ export class SandboxRunnerPool {
   private readonly acquireTimeoutMs: number;
   private readonly resetTimeoutMs: number;
   private initialized = false;
+  private shuttingDown = false;
 
   constructor(options: SandboxRunnerPoolOptions = {}) {
     this.minRunners = options.minRunners ?? config.sandbox.pool.minRunners;
@@ -179,7 +181,7 @@ export class SandboxRunnerPool {
       return;
     }
 
-    if (!pooledRunner.inUse) {
+    if (!pooledRunner.inUse && !pooledRunner.quarantined) {
       this.logger.warn(
         "[SandboxRunnerPool] Attempt to release already-released runner (ignored)",
       );
@@ -187,7 +189,12 @@ export class SandboxRunnerPool {
     }
 
     // Always mark as free FIRST, even if reset hangs — prevents permanent pool deadlock
+    if (pooledRunner.idleTimer !== null) {
+      clearTimeout(pooledRunner.idleTimer);
+      pooledRunner.idleTimer = null;
+    }
     pooledRunner.inUse = false;
+    pooledRunner.quarantined = false;
     pooledRunner.resetting = true;
     pooledRunner.lastReleasedTime = Date.now();
 
@@ -206,23 +213,9 @@ export class SandboxRunnerPool {
       pooledRunner.resetting = false;
     } catch (error) {
       this.logger.error(
-        `[SandboxRunnerPool] Runner reset failed or timed out: ${error}. Force-replacing runner.`,
+        `[SandboxRunnerPool] Runner reset failed or timed out: ${error}.`,
       );
-      // Replace the stuck runner with a fresh one
-      const index = this.runners.indexOf(pooledRunner);
-      if (index !== -1) {
-        const freshRunner = new SandboxRunner();
-        this.runners[index] = {
-          runner: freshRunner,
-          inUse: false,
-          resetting: false,
-          lastReleasedTime: Date.now(),
-          idleTimer: null,
-        };
-        this.logger.info(
-          `[SandboxRunnerPool] Replaced stuck runner at index ${index} with fresh instance`,
-        );
-      }
+      if (this.recoverFailedReset(pooledRunner)) return;
     } finally {
       if (resetTimer !== undefined) {
         clearTimeout(resetTimer);
@@ -255,6 +248,41 @@ export class SandboxRunnerPool {
     } else if (freeRunner) {
       this.scheduleIdleCleanup(freeRunner);
     }
+  }
+
+  private recoverFailedReset(pooledRunner: PooledRunner): boolean {
+    if (pooledRunner.runner.hasPendingContainerCleanup) {
+      this.quarantineForCleanup(pooledRunner);
+      return true;
+    }
+    // Replace the stuck runner with a fresh one
+    const index = this.runners.indexOf(pooledRunner);
+    if (index !== -1) {
+      const freshRunner = new SandboxRunner();
+      this.runners[index] = {
+        runner: freshRunner,
+        inUse: false,
+        resetting: false,
+        lastReleasedTime: Date.now(),
+        idleTimer: null,
+      };
+      this.logger.info(
+        `[SandboxRunnerPool] Replaced stuck runner at index ${index} with fresh instance`,
+      );
+    }
+    return false;
+  }
+
+  private quarantineForCleanup(pooledRunner: PooledRunner): void {
+    // Retain ownership in this bounded slot and retry using the existing
+    // idle-maintenance interval. Never offer it until reset confirms cleanup.
+    pooledRunner.quarantined = true;
+    if (this.shuttingDown) return;
+    pooledRunner.idleTimer = setTimeout(() => {
+      pooledRunner.idleTimer = null;
+      void this.releaseRunner(pooledRunner.runner);
+    }, this.idleTimeoutMs);
+    pooledRunner.idleTimer.unref();
   }
 
   /**
@@ -317,6 +345,7 @@ export class SandboxRunnerPool {
   }
 
   async shutdown(): Promise<void> {
+    this.shuttingDown = true;
     this.logger.info("[SandboxRunnerPool] Shutting down...");
 
     for (const entry of this.queue) {
@@ -335,7 +364,7 @@ export class SandboxRunnerPool {
 
     for (const { runner } of this.runners) {
       try {
-        if (runner.isRunning) {
+        if (runner.isRunning || runner.hasPendingContainerCleanup) {
           await runner.stop();
         }
       } catch (error) {

@@ -20,7 +20,7 @@ import { DockerManager } from "./sandbox/docker-manager";
 import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
-import { flushMessageQueue } from "./sandbox/execution-phases/cleanup-phase";
+import { cleanupExecutionContainer, flushMessageQueue } from "./sandbox/execution-phases/cleanup-phase";
 import { config } from "../config";
 
 export class SandboxRunner {
@@ -39,6 +39,18 @@ export class SandboxRunner {
   private readonly executionManager: ExecutionManager;
   private readonly executionState: ExecutionState;
   private readonly processExecutor: ProcessExecutor;
+
+  private controlCompletion?: Promise<boolean>;
+  private controlPending = false;
+
+  /** Completion of the last accepted control; Stop never waits for it. */
+  get controlResult(): Promise<boolean> | undefined {
+    return this.controlCompletion;
+  }
+
+  get hasPendingContainerCleanup(): boolean {
+    return Boolean(this.executionState.currentContainerName);
+  }
 
   private dockerAvailable = false;
   private dockerImageBuilt = false;
@@ -92,6 +104,7 @@ export class SandboxRunner {
           this.executionState.backpressurePaused = streamState.backpressurePaused;
         }
       },
+      () => { this.executionState.terminationRequested = true; },
     );
     this.streamHandler = new StreamHandler(this.processController);
     this.filesystemHelper = new FilesystemHelper(this.fileBuilder, this.localCompiler);
@@ -283,21 +296,42 @@ export class SandboxRunner {
 
   private async cleanupDockerContainer(containerName?: string): Promise<void> {
     if (!containerName) return;
-
-    try {
-      const result = await this.processExecutor.execute("docker", ["rm", "-f", containerName], {
-        timeout: 5000,
-        stdio: "pipe",
-      });
-      this.logger.info(`Docker cleanup for ${containerName} finished (code ${result.code})`);
-    } catch (error) {
-      this.logger.debug(`Docker cleanup for ${containerName} failed: ${error}`);
-    }
+    const s = this.executionState;
+    await cleanupExecutionContainer(s, {
+      processExecutor: this.processExecutor, logger: this.logger,
+    });
   }
 
-  pause(): boolean {
+  private controlDocker(operation: "pause" | "unpause", commit: () => void): void {
     const s = this.executionState;
-    if (this.state !== SimulationState.RUNNING || !this.processController.hasProcess()) return false;
+    const containerName = s.currentContainerName!;
+    const generation = s.runGeneration;
+    const expectedState = this.state;
+    const abort = s.runAbort;
+    const isCurrent = () => s.runGeneration === generation && s.runAbort === abort &&
+      !abort?.signal.aborted && !s.processKilled && s.currentContainerName === containerName &&
+      !s.terminationRequested && this.state === expectedState && this.processController.hasProcess();
+    this.controlPending = true;
+    const finish = async (result: Awaited<ReturnType<ProcessExecutor["execute"]>>): Promise<boolean> => {
+      if (!isCurrent()) return false;
+      this.controlPending = false;
+      if (result.code !== 0 || result.error) {
+        this.logger.warn(`Docker ${operation} failed for ${containerName} (code ${result.code}): ${String(result.error ?? "nonzero exit")}`);
+        await this.stop();
+        return false;
+      }
+      commit();
+      return true;
+    };
+    this.controlCompletion = this.processExecutor.execute("docker", [operation, containerName], {
+      timeout: 5000, stdio: "pipe",
+    }).then(finish, (error: unknown) => finish({
+      code: -1, error: error instanceof Error ? error : new Error(String(error)),
+    }));
+  }
+
+  private commitPause(): void {
+    const s = this.executionState;
     this.state = SimulationState.PAUSED;
     this.timeoutManager.pause();
     s.pinStateBatcher?.pause();
@@ -306,47 +340,26 @@ export class SandboxRunner {
     if (!s.processKilled) this.processController.writeStdin("[[PAUSE_TIME]]\n");
     s.pauseStartTime = Date.now();
     this.registryManager.markPauseTime(s.pauseStartTime);
-    // SIGSTOP only suspends the local `docker run` client process; the
-    // container itself would continue producing output into the pipe. Pause
-    // the container when running in Docker so the sketch really stops at the
-    // exact instruction boundary and no ten-second backlog accumulates.
-    if (s.currentContainerName) {
-      const containerName = s.currentContainerName;
-      void this.processExecutor.execute("docker", ["pause", containerName], {
-        timeout: 5000,
-        stdio: "pipe",
-      }).catch((error) => {
-        this.logger.warn(`Docker pause failed for ${containerName}: ${error instanceof Error ? error.message : String(error)}`);
-      });
+    this.logger.info("Simulation paused");
+  }
+
+  pause(): boolean {
+    if (this.controlPending || this.executionState.terminationRequested || this.state !== SimulationState.RUNNING || !this.processController.hasProcess()) return false;
+    if (this.executionState.currentContainerName) {
+      this.controlDocker("pause", () => this.commitPause());
     } else {
       this.processController.kill("SIGSTOP");
+      this.commitPause();
+      this.controlCompletion = undefined;
     }
-    this.logger.info("Simulation paused (SIGSTOP)");
     return true;
   }
 
-  resume(): boolean {
+  private commitResume(): void {
     const s = this.executionState;
-    if (this.state !== SimulationState.PAUSED || !this.processController.hasProcess()) return false;
-    const containerName = s.currentContainerName;
-    if (!containerName) this.processController.kill("SIGCONT");
     const pauseDuration = Date.now() - (this.pauseStartTime ?? Date.now());
     s.totalPausedTime += pauseDuration;
-    const resumeContainer = containerName
-      ? this.processExecutor.execute("docker", ["unpause", containerName], {
-          timeout: 5000,
-          stdio: "pipe",
-        })
-      : Promise.resolve();
-    void resumeContainer
-      .catch((error) => {
-        this.logger.warn(`Docker resume failed for ${containerName}: ${error instanceof Error ? error.message : String(error)}`);
-      })
-      .finally(() => {
-        if (!s.processKilled) {
-          this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
-        }
-      });
+    if (!s.processKilled) this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
     s.pauseStartTime = null;
     this.registryManager.markPauseTime(null);
     this.state = SimulationState.RUNNING;
@@ -354,15 +367,24 @@ export class SandboxRunner {
     s.pinStateBatcher?.resume();
     s.serialOutputBatcher?.resume();
     this.registryManager.resumeTelemetry();
-    this.logger.info(`Simulation resumed after ${pauseDuration}ms (SIGCONT)`);
-    if (!containerName && !s.processKilled) this.processController.writeStdin("\n");
+    this.logger.info(`Simulation resumed after ${pauseDuration}ms`);
+    if (!s.currentContainerName && !s.processKilled) this.processController.writeStdin("\n");
     if (s.outputBuffer.length > 0 && s.onOutputCallback && !s.isSendingOutput) {
       this.sendOutputWithDelay(s.onOutputCallback);
     }
-    return true;
   }
 
-
+  resume(): boolean {
+    if (this.controlPending || this.executionState.terminationRequested || this.state !== SimulationState.PAUSED || !this.processController.hasProcess()) return false;
+    if (this.executionState.currentContainerName) {
+      this.controlDocker("unpause", () => this.commitResume());
+    } else {
+      this.processController.kill("SIGCONT");
+      this.commitResume();
+      this.controlCompletion = undefined;
+    }
+    return true;
+  }
 
   sendSerialInput(input: string): void {
     const s = this.executionState;
@@ -400,7 +422,11 @@ export class SandboxRunner {
     const s = this.executionState;
     // Cancels a run that is still preparing or waiting for a start slot.
     s.runAbort?.abort();
-    if (this.state === SimulationState.STOPPED || s.processKilled) return;
+    this.controlPending = false;
+    if (this.state === SimulationState.STOPPED || s.processKilled) {
+      await this.cleanupDockerContainer(s.currentContainerName);
+      return;
+    }
     this.state = SimulationState.STOPPED;
     s.processKilled = true;
     s.pendingCleanup = true;
@@ -444,7 +470,6 @@ export class SandboxRunner {
 
     s.outputBuffer = ""; s.outputBufferIndex = 0; s.isSendingOutput = false;
     const containerName = s.currentContainerName;
-    s.currentContainerName = undefined;
     if (s.flushTimer) { clearTimeout(s.flushTimer); s.flushTimer = null; }
 
     await this.cleanupDockerContainer(containerName);
@@ -464,10 +489,18 @@ export class SandboxRunner {
       }
     }
 
-    this.processController.clearListeners();
     const s = this.executionState;
+    s.runAbort?.abort();
+    this.controlPending = false;
+    this.controlCompletion = undefined;
+    if (s.currentContainerName) {
+      await this.cleanupDockerContainer(s.currentContainerName);
+      if (s.currentContainerName) throw new Error(`Docker cleanup unconfirmed for ${s.currentContainerName}`);
+    }
+    this.processController.clearListeners();
     s.state = SimulationState.STOPPED;
     s.processKilled = false;
+    s.terminationRequested = false;
     s.pauseStartTime = null;
     s.totalPausedTime = 0;
     s.pinStateBatcher = null;
