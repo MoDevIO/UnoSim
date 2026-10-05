@@ -43,7 +43,7 @@ const createBaseState = (): ExecutionState => ({
 
 const createDependencies = () => ({
   processExecutor: {
-    execute: vi.fn(),
+    execute: vi.fn().mockResolvedValue({ code: 0, stdout: "", stderr: "", error: null }),
   },
   logger: {
     info: vi.fn(),

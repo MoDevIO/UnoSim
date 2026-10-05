@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
+import { SandboxRunnerPool } from "../../server/services/sandbox-runner-pool";
 import { ProcessExecutor } from "../../server/services/process-executor";
 import {
   extractPlainText,
@@ -47,6 +48,47 @@ async function runSecurityProbe(sketch: string): Promise<string> {
 }
 
 maybeDescribe("Docker sandbox security contract", () => {
+  it("confirms pause/resume and reuses the same runner after natural auto-removal", async () => {
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 1 });
+    await pool.initialize();
+    const runner = await pool.acquireRunner();
+    const executor = new ProcessExecutor();
+    try {
+      expect(await runner.runSketch({
+        code: "void setup() {} void loop() { delay(100); }", timeoutSec: 10,
+        onOutput: () => {}, onError: () => {}, onExit: () => {},
+      })).toBe(true);
+      const name = await waitForContainerName(runner);
+      expect(runner.pause()).toBe(true);
+      expect(await runner.controlResult).toBe(true);
+      const paused = await executor.execute("docker", ["inspect", name], { timeout: 5000 });
+      expect(paused.code).toBe(0);
+      expect(JSON.parse(paused.stdout ?? "[]")[0].State.Paused).toBe(true);
+      expect(runner.resume()).toBe(true);
+      expect(await runner.controlResult).toBe(true);
+      const resumed = await executor.execute("docker", ["inspect", name], { timeout: 5000 });
+      expect(resumed.code).toBe(0);
+      expect(JSON.parse(resumed.stdout ?? "[]")[0].State.Paused).toBe(false);
+      await runner.stop();
+      await pool.releaseRunner(runner);
+      expect(await pool.acquireRunner()).toBe(runner);
+
+      let exit!: () => void;
+      const exited = new Promise<void>((resolve) => { exit = resolve; });
+      await runner.runSketch({
+        code: "#include <cstdlib>\nvoid setup() {} void loop() { exit(0); }", timeoutSec: 5,
+        onOutput: () => {}, onError: () => {}, onExit: () => exit(),
+      });
+      await exited;
+      await pool.releaseRunner(runner);
+      expect(runner.hasPendingContainerCleanup).toBe(false);
+      expect(await pool.acquireRunner()).toBe(runner);
+    } finally {
+      await runner.stop();
+      await pool.shutdown();
+    }
+  }, 45_000);
+
   it("applies isolation options to a real running container", async () => {
     const runner = new SandboxRunner();
     const runPromise = runner.runSketch({

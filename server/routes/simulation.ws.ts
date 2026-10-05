@@ -68,16 +68,40 @@ function rejectAdmission(
   }
 }
 
+/** Preserve the existing serial diagnostic and stopped-status protocol. */
+async function releaseFailedControl(
+  ws: WebSocket, clientState: ClientState, sessionManager: WsSessionManager,
+  operation: "pause" | "resume",
+): Promise<void> {
+  sendMessageToClient(ws, {
+    type: WSMessageType.SERIAL_OUTPUT,
+    data: `[ERR] Docker ${operation} failed; simulation stopped.\n`,
+  });
+  const reservation = clientState.reservation;
+  await sessionManager.safeReleaseRunner(clientState, `${operation}_failed`, reservation);
+  // A release can finish after a new run has already reserved this session.
+  if (clientState.reservation && clientState.reservation !== reservation) return;
+  sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status: "stopped" });
+}
+
 /**
  * Handle "pause_simulation" WebSocket message
  */
-function handlePauseSimulation(
+async function handlePauseSimulation(
   _ws: WebSocket,
   clientState: ClientState,
   sessionManager: WsSessionManager,
-): void {
+): Promise<void> {
   if (clientState?.runner && clientState.isRunning) {
-    const paused = clientState.runner.pause();
+    const runner = clientState.runner;
+    const reservation = clientState.reservation;
+    if (!runner.pause()) return;
+    const paused = runner.controlResult ? await runner.controlResult : true;
+    if (clientState.runner !== runner || clientState.reservation !== reservation) return;
+    if (!paused) {
+      await releaseFailedControl(_ws, clientState, sessionManager, "pause");
+      return;
+    }
     if (paused) {
       clientState.isPaused = true;
       sessionManager.markSessionPaused(clientState);
@@ -96,13 +120,21 @@ function handlePauseSimulation(
 /**
  * Handle "resume_simulation" WebSocket message
  */
-function handleResumeSimulation(
+async function handleResumeSimulation(
   _ws: WebSocket,
   clientState: ClientState,
   sessionManager: WsSessionManager,
-): void {
+): Promise<void> {
   if (clientState?.runner && clientState.isPaused) {
-    const resumed = clientState.runner.resume();
+    const runner = clientState.runner;
+    const reservation = clientState.reservation;
+    if (!runner.resume()) return;
+    const resumed = runner.controlResult ? await runner.controlResult : true;
+    if (clientState.runner !== runner || clientState.reservation !== reservation) return;
+    if (!resumed) {
+      await releaseFailedControl(_ws, clientState, sessionManager, "resume");
+      return;
+    }
     if (resumed) {
       clientState.isPaused = false;
       clientState.isRunning = true;

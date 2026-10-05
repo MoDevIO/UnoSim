@@ -24,7 +24,7 @@ import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-lim
 import { canTransition } from "../simulation-state-machine";
 import { createProcessExecutionPort, type ProcessExecution } from "../process-execution-port";
 import { OutputCollector } from "../output-collector";
-import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
+import { flushMessageQueue, flushBatchers, cleanupExecutionContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
@@ -130,6 +130,7 @@ export interface ExecutionState {
   pendingCleanup: boolean;
   processController: IProcessController;
   currentContainerName?: string;
+  terminationRequested?: boolean;
   dockerAvailable?: boolean;
   dockerImageBuilt?: boolean;
   outputCollector?: OutputCollector;
@@ -332,6 +333,7 @@ export class ExecutionManager {
     const generation = (state.runGeneration ?? 0) + 1;
     state.runAbort = abort;
     state.runGeneration = generation;
+    state.terminationRequested = false;
     return {
       signal: abort.signal,
       isStale: () => abort.signal.aborted || state.runGeneration !== generation,
@@ -571,7 +573,7 @@ export class ExecutionManager {
           clearTimeout(state.flushTimer);
           state.flushTimer = null;
         }
-        void cleanupDockerContainer(state.currentContainerName, {
+        void cleanupExecutionContainer(state, {
           processExecutor: this.processExecutor,
           logger: this.logger,
         });

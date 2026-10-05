@@ -702,3 +702,36 @@ describe("SandboxRunnerPool – scalability proof (20 concurrent)", () => {
     await pool.shutdown();
   });
 });
+
+
+describe("SandboxRunnerPool cleanup quarantine", () => {
+  it("retains unresolved cleanup and recovers the same slot after confirmed retry", async () => {
+    vi.useFakeTimers();
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 1, idleTimeoutMs: 5000 });
+    await pool.initialize();
+    const runner = await pool.acquireRunner();
+    runner.hasPendingContainerCleanup = true;
+    runner.resetForReuse.mockRejectedValue(new Error("Docker cleanup unconfirmed"));
+    await pool.releaseRunner(runner);
+    expect(pool.getRunnerIndex(runner)).toBe(0);
+    expect(pool.getStats().availableRunners).toBe(0);
+    expect(pool.getStats().resettingRunners).toBe(1);
+    runner.resetForReuse.mockImplementation(async () => { runner.hasPendingContainerCleanup = false; });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await pool.acquireRunner()).toBe(runner);
+    await pool.shutdown();
+  });
+
+  it("retries stopped cleanup owners during shutdown and cancels recovery timers", async () => {
+    vi.useFakeTimers();
+    const pool = new SandboxRunnerPool({ minRunners: 1, maxRunners: 1, idleTimeoutMs: 5000 });
+    await pool.initialize();
+    const runner = await pool.acquireRunner();
+    runner.hasPendingContainerCleanup = true;
+    runner.resetForReuse.mockRejectedValue(new Error("Docker cleanup unconfirmed"));
+    await pool.releaseRunner(runner);
+    await pool.shutdown();
+    expect(runner.stop).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

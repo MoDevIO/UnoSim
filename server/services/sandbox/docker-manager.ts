@@ -81,12 +81,14 @@ export class DockerManager {
     private readonly stderrParser: ArduinoOutputParser,
     private readonly timeoutManager: SimulationTimeoutManager,
     private readonly handleParsedLine: HandleParsedLineDelegate,
+    private readonly onTerminationRequested?: () => void,
   ) {}
 
   private consumeOutputBudget(state: OutputBudgetState, data: Buffer | string, callbacks: DockerManagerCallbacks): boolean {
     const counter = state.totalOutputBytes;
     counter.value += Buffer.byteLength(data);
     if (counter.value <= this.SANDBOX_CONFIG.maxOutputBytes) return true;
+    this.onTerminationRequested?.();
     this.processController.kill("SIGKILL");
     callbacks.onError("Output size limit exceeded");
     return false;
@@ -100,6 +102,7 @@ export class DockerManager {
     const timeoutSec = normalizeSimulationTimeout(executionTimeout);
 
     const handleTimeout = () => {
+      this.onTerminationRequested?.();
       this.processController.kill("SIGKILL");
       callbacks.onOutput(`--- Simulation timeout (${timeoutSec}s) ---`, true);
       this.logger.info(`Docker runtime timeout after ${timeoutSec}s`);
@@ -115,6 +118,7 @@ export class DockerManager {
   private setupDockerStartupTimeout(callbacks: DockerManagerCallbacks): void {
     const startupTimeoutSec = this.SANDBOX_CONFIG.maxExecutionTimeSec;
     this.timeoutManager.schedule(startupTimeoutSec * 1000, () => {
+      this.onTerminationRequested?.();
       this.processController.kill("SIGKILL");
       callbacks.onOutput(`--- Sandbox startup timeout (${startupTimeoutSec}s) ---`, true);
       this.logger.warn(`Docker sandbox startup timeout after ${startupTimeoutSec}s`);
