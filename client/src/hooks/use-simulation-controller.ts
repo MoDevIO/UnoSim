@@ -13,6 +13,8 @@ const logger = new Logger("useSimulationController");
 
 export type SimulationControllerParams = {
   readonly capabilities?: ServerCapabilities;
+  /** Synchronously relinquish pending REST compile-to-start ownership. */
+  onStartOrStop?: () => void;
   code: string;
   hasCompilationErrors: boolean;
   isModified?: boolean;
@@ -162,8 +164,9 @@ export function useSimulationController(
   });
 
   const startSimulation = useCallback(() => {
+    params.onStartOrStop?.();
     if (canSimulate) startMutation.mutate();
-  }, [canSimulate, startMutation]);
+  }, [canSimulate, startMutation, params.onStartOrStop]);
   const setCompiledCode = useCallback((code: string) => {
     compiledCodeRef.current = code;
   }, []);
@@ -174,15 +177,17 @@ export function useSimulationController(
     compiledEntryFileRef.current = entryFile;
   }, []);
   const handleStart = useCallback(() => {
+    params.onStartOrStop?.();
     if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation starten")) return;
     startSimulation();
-  }, [canSimulate, params.ensureBackendConnected, startSimulation]);
+  }, [canSimulate, params.ensureBackendConnected, startSimulation, params.onStartOrStop]);
   const handleStop = useCallback(() => {
+    params.onStartOrStop?.();
     if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation stoppen")) return;
     stopMutation.mutate();
-  }, [canSimulate, params.ensureBackendConnected, stopMutation]);
+  }, [canSimulate, params.ensureBackendConnected, stopMutation, params.onStartOrStop]);
   const handlePause = useCallback(() => {
     if (!canSimulate) return;
     if (!params.ensureBackendConnected("Simulation pausieren")) return;

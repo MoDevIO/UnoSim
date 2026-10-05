@@ -288,6 +288,7 @@ export function useArduinoSimulatorPage() {
     handleResume: controllerHandleResume,
     handleReset: controllerHandleReset,
     suppressAutoStopOnce,
+    invalidatePendingStart,
   } = useCompileAndRun({
     editorRef,
     tabs,
@@ -365,6 +366,7 @@ export function useArduinoSimulatorPage() {
   // Use centralized output panel hook for all output-related state and callbacks
 
   const onReplaceAllFiles = useCallback(() => {
+    invalidatePendingStart();
     if (simulationStatus === "running") {
       sendMessage({ type: "stop_simulation" });
     }
@@ -378,6 +380,7 @@ export function useArduinoSimulatorPage() {
     setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
+    invalidatePendingStart,
     simulationStatus,
     sendMessage,
     clearOutputs,
@@ -391,6 +394,7 @@ export function useArduinoSimulatorPage() {
   ]);
 
   const onLoadExample = useCallback(() => {
+    invalidatePendingStart();
     if (simulationStatus === "running") {
       sendMessage({ type: "stop_simulation" });
     }
@@ -409,6 +413,7 @@ export function useArduinoSimulatorPage() {
     setSimulationStatus("idle");
     setHasCompiledOnce(false);
   }, [
+    invalidatePendingStart,
     simulationStatus,
     sendMessage,
     clearOutputs,
@@ -734,6 +739,11 @@ export function useArduinoSimulatorPage() {
   const externalAllowedOrigin =
     globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
 
+  const loadExternalCode = useCallback((nextCode: string) => {
+    invalidatePendingStart();
+    setCode(nextCode);
+  }, [invalidatePendingStart, setCode]);
+
   const { pendingExternalStart } = useSimulatorExternalControl({
     allowedOrigin: externalAllowedOrigin,
     backendReachable,
@@ -742,7 +752,7 @@ export function useArduinoSimulatorPage() {
     handleStop,
     handlePause,
     handleResume,
-    setCode,
+    setCode: loadExternalCode,
     setSimulationStatus,
     sendMessage,
     pinStates,
