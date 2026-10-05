@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75.08% </span>
+                <span class="strong">75.16% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>223/297</span>
+                <span class='fraction'>224/298</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.7% </span>
+                <span class="strong">76.78% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>214/279</span>
+                <span class='fraction'>215/280</span>
             </div>
         
             
@@ -862,7 +862,9 @@
 <a name='L797'></a><a href='#L797'>797</a>
 <a name='L798'></a><a href='#L798'>798</a>
 <a name='L799'></a><a href='#L799'>799</a>
-<a name='L800'></a><a href='#L800'>800</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L800'></a><a href='#L800'>800</a>
+<a name='L801'></a><a href='#L801'>801</a>
+<a name='L802'></a><a href='#L802'>802</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -895,15 +897,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1014,9 +1016,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1034,14 +1036,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
-<span class="cline-any cline-yes">56x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1191,6 +1194,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">21x</span>
@@ -1687,7 +1691,7 @@ import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-lim
 import { canTransition } from "../simulation-state-machine";
 import { createProcessExecutionPort, type ProcessExecution } from "../process-execution-port";
 import { OutputCollector } from "../output-collector";
-import { flushMessageQueue, flushBatchers, cleanupDockerContainer } from "./execution-phases/cleanup-phase";
+import { flushMessageQueue, flushBatchers, cleanupExecutionContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
 import { runLocalStart, runDockerStart, type LocalStartContext, type DockerStartContext, type DockerStartParams, type TransitionToFn } from "./execution-phases/start-phase";
@@ -1793,6 +1797,7 @@ export interface ExecutionState {
   pendingCleanup: boolean;
   processController: IProcessController;
   currentContainerName?: string;
+  terminationRequested?: boolean;
   dockerAvailable?: boolean;
   dockerImageBuilt?: boolean;
   outputCollector?: OutputCollector;
@@ -1995,6 +2000,7 @@ export class ExecutionManager {
     const generation = (state.runGeneration ?? 0) + 1;
     state.runAbort = abort;
     state.runGeneration = generation;
+    state.terminationRequested = false;
     return {
       signal: abort.signal,
       isStale: () =&gt; abort.signal.aborted || state.runGeneration !== generation,
@@ -2234,7 +2240,7 @@ export class ExecutionManager {
 <span class="cstat-no" title="statement not covered" >          clearTimeout(state.flushTimer);</span>
 <span class="cstat-no" title="statement not covered" >          state.flushTimer = null;</span>
         }
-        void cleanupDockerContainer(state.currentContainerName, {
+        void cleanupExecutionContainer(state, {
           processExecutor: this.processExecutor,
           logger: this.logger,
         });
@@ -2467,7 +2473,7 @@ export class ExecutionManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-05T06:47:32.151Z
+                at 2026-10-05T08:17:55.157Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
