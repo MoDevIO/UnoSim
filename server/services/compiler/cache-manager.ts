@@ -124,7 +124,7 @@ export async function runHexCacheCleanup(
 ): Promise<void> {
   try {
     const entries = await readdir(hexCacheDir);
-    const files: Array<{ path: string; size: number; atimeMs: number }> = [];
+    const files: Array<{ path: string; sidecarPath: string; size: number; atimeMs: number }> = [];
     let totalSize = 0;
 
     for (const entry of entries) {
@@ -136,6 +136,7 @@ export async function runHexCacheCleanup(
         totalSize += fileStat.size;
         files.push({
           path: fullPath,
+          sidecarPath: join(hexCacheDir, `${entry.slice(0, -".hex".length)}.output.txt`),
           size: fileStat.size,
           atimeMs: fileStat.atimeMs || fileStat.mtimeMs,
         });
@@ -150,6 +151,8 @@ export async function runHexCacheCleanup(
     for (const file of files) {
       if (totalSize <= maxBytes) break;
       await rm(file.path, { force: true });
+      // The output sidecar is useless without its binary and must not outlive it.
+      await rm(file.sidecarPath, { force: true });
       totalSize -= file.size;
     }
   } catch (error) {

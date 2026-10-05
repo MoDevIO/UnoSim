@@ -242,6 +242,20 @@ describe("cache-manager cache cleanup", () => {
     await expect(readFile(paths[2])).resolves.toEqual(Buffer.alloc(3, 3));
   });
 
+  it("removes the output sidecar together with an evicted HEX entry", async () => {
+    const hexCacheDir = await createHexCacheDirectory();
+    const oldHex = join(hexCacheDir, "old.hex");
+    await writeFile(oldHex, Buffer.alloc(4, 1));
+    await writeFile(join(hexCacheDir, "old.output.txt"), "old output", "utf8");
+    await writeFile(join(hexCacheDir, "new.hex"), Buffer.alloc(4, 2));
+    await writeFile(join(hexCacheDir, "new.output.txt"), "new output", "utf8");
+    await utimes(oldHex, new Date("2020-01-01T00:00:00Z"), new Date("2020-01-01T00:00:00Z"));
+
+    await runHexCacheCleanup(hexCacheDir, 4);
+
+    await expect(readdir(hexCacheDir)).resolves.toEqual(["new.hex", "new.output.txt"]);
+  });
+
   it("does not remove HEX entries or sidecars when the cache is within the limit", async () => {
     const hexCacheDir = await createHexCacheDirectory();
     await writeFile(join(hexCacheDir, "sketch.hex"), Buffer.alloc(4, 1));
