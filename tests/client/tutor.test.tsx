@@ -163,9 +163,8 @@ describe("useTutor", () => {
 
   it("resets a pinned dialog when the active Course Content revision changes", async () => {
     setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "a".repeat(40), exampleId: "arrays" });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       if (String(input) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
-      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
       if (String(input) === "/api/tutor/question") {
         return new Response(JSON.stringify({
           question: "Frage",

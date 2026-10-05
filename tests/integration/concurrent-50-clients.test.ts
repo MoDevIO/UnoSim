@@ -194,7 +194,7 @@ vi.mock("../../server/services/registry-manager", () => ({
 
 vi.mock("../../server/services/compiler-with-fallback", () => {
   class MockCompilerWithFallback {
-    async compile(code: string) {
+    async compile() {
       return { success: true, firmware: "deadbeef", errors: [], parsed: [] };
     }
     async shutdown() {

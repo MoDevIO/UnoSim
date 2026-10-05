@@ -447,7 +447,6 @@ function createLoadTestSuite(
       const outputDir = process.env.LOAD_TEST_OUTPUT_DIR;
       if (outputDir) {
         try {
-          const { saveTestMetrics } = await import('./load-suite.test');
           // saveTestMetrics(testResults, outputDir, numClients);
           console.log(`[LoadTest] Would save metrics to ${outputDir} (disabled to avoid circular dependency)`);
         } catch (err) {
