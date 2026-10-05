@@ -154,6 +154,18 @@ export async function evictLruEntries(
 }
 
 /**
+ * Directories under the build cache that grow per sketch hash and need LRU eviction.
+ * The instant-binary store (written by ArduinoCompiler) is included so it cannot grow unbounded.
+ */
+export function buildCacheEvictionTargets(
+  buildCacheDir: string,
+  hexCacheDir: string,
+  coreCacheBuildPath: string,
+): string[] {
+  return [hexCacheDir, join(buildCacheDir, "binaries"), coreCacheBuildPath];
+}
+
+/**
  * LRU cleanup of build cache directories, debounced via marker file.
  */
 export async function cleanupCacheLru(

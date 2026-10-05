@@ -32,6 +32,7 @@ import {
   buildSketchHash,
   checkBinaryExists,
   checkFileExists,
+  buildCacheEvictionTargets,
   cleanupCacheLru,
   ensureDirectories,
   execArduinoCliJson,
@@ -170,7 +171,7 @@ async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): 
 }
 
 async function cleanupCacheLruLocal(): Promise<void> {
-  await cleanupCacheLru(BUILD_CACHE_DIR, [HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH], buildCacheMaxBytes);
+  await cleanupCacheLru(BUILD_CACHE_DIR, buildCacheEvictionTargets(BUILD_CACHE_DIR, HEX_CACHE_DIR, CORE_CACHE_BUILD_PATH), buildCacheMaxBytes);
 }
 
 async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, coreFingerprint: string): Promise<{ coreCacheWarm: boolean; acquiredCoreLock: boolean; activeBuildCachePath: string }> {

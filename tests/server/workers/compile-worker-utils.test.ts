@@ -10,6 +10,7 @@ import {
   acquireCoreCacheLock,
   collectDirectoryRecords,
   evictLruEntries,
+  buildCacheEvictionTargets,
   cleanupCacheLru,
   ensureDirectories,
   execArduinoCliJson,
@@ -388,5 +389,15 @@ describe("execArduinoCliJson", () => {
   it("resolves null for invalid subcommands", async () => {
     const result = await execArduinoCliJson(["nonexistent-command-xyz"]);
     expect(result).toBeNull();
+  });
+});
+
+describe("buildCacheEvictionTargets", () => {
+  it("covers the instant-binary store written by ArduinoCompiler", () => {
+    expect(buildCacheEvictionTargets("/cache", "/cache/hex-cache", "/core/build-cache")).toEqual([
+      "/cache/hex-cache",
+      "/cache/binaries",
+      "/core/build-cache",
+    ]);
   });
 });

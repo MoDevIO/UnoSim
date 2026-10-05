@@ -362,6 +362,7 @@ export class ArduinoCompiler {
         await writeOutputToCache(this.defaultBinaryStorageDir, sketchHash, cliOutput).catch(() => undefined);
       }
       await runHexCacheCleanup(hexCacheDir);
+      await runHexCacheCleanup(this.defaultBinaryStorageDir);
     }
 
     return { cliOutput, cliErrors, parsedErrors };
