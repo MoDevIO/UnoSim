@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type MutableRefObject, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
@@ -173,10 +173,41 @@ interface UseCompileAndRunResult {
   startSimulation: () => void;
   startSimulationRef: MutableRefObject<(() => void) | null>;
   suppressAutoStopOnce: () => void;
+  /** Call before replacing the workspace or externally loading code. */
+  invalidatePendingStart: () => void;
 }
 
 export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunResult {
   const controllerState = useSimulatorControllerState();
+  const startGeneration = useRef(0);
+  const compileOwners = useRef(new WeakMap<CompileConfig, number>());
+  const pendingCompileStart = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidatePendingStart = useCallback(() => {
+    startGeneration.current++;
+    if (pendingCompileStart.current) {
+      controllerState.setCompilationStatus("ready");
+      controllerState.setArduinoCliStatus("idle");
+      pendingCompileStart.current = false;
+    }
+    if (resetTimer.current !== null) clearTimeout(resetTimer.current);
+    resetTimer.current = null;
+  }, [controllerState.setCompilationStatus, controllerState.setArduinoCliStatus]);
+  const isCompileResultCurrent = useCallback((payload: CompileConfig) => {
+    const owner = compileOwners.current.get(payload);
+    return owner === undefined || owner === startGeneration.current;
+  }, []);
+
+  // Workspace identity excludes editor contents and the selected tab: ordinary
+  // navigation/edits keep the captured compile snapshot semantics.
+  const workspaceIdentity = JSON.stringify([
+    params.tabs.map((tab) => [tab.id, tab.path ?? tab.name]),
+    params.sourceProject?.entryFile,
+  ]);
+  useLayoutEffect(() => {
+    invalidatePendingStart();
+  }, [workspaceIdentity, invalidatePendingStart]);
+  useEffect(() => invalidatePendingStart, [invalidatePendingStart]);
 
   // ------------------------------------------------------------
   // UI Feedback Adapter (extrahiert für Schritt 1 von Phase 2.1)
@@ -212,6 +243,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   } = useCompileController({
     ...controllerState,
     capabilities: params.capabilities,
+    isCompileResultCurrent,
     // Callbacks
     setParserMessages: params.setParserMessages,
     setParserPanelDismissed: params.setParserPanelDismissed,
@@ -248,6 +280,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   });
 
   const simulation = useSimulationController({
+    onStartOrStop: invalidatePendingStart,
     code: params.code,
     hasCompilationErrors,
     isModified: params.isModified,
@@ -278,6 +311,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   }, [simulation.setCompiledCode]);
 
   const handleCompileAndStart = useCallback(() => {
+    invalidatePendingStart();
+    const generation = startGeneration.current;
     if (
       params.capabilities &&
       (!params.capabilities.canCompile || !params.capabilities.canSimulate)
@@ -315,8 +350,12 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
     // Compile with custom handlers for compile + start flow
     const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) };
+    compileOwners.current.set(compilePayload, generation);
+    pendingCompileStart.current = true;
     compileMutation.mutate(compilePayload, {
       onSuccess: (data) => {
+        if (generation !== startGeneration.current) return;
+        pendingCompileStart.current = false;
         logger.info(`[CLIENT] Compile response: ${JSON.stringify(data, null, 2)}`);
 
         if (data.success) {
@@ -334,15 +373,18 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         }
       },
       onError: () => {
+        if (generation !== startGeneration.current) return;
+        pendingCompileStart.current = false;
         setCompilationStatus("error");
         simulation.setSimulationStatus("idle");
         uiFeedback.showCompilationFailedWithErrorsToast();
         scheduleCliIdle(setArduinoCliStatus);
       },
     });
-  }, [params, clearOutputs, compileMutation, simulation, uiFeedback]);
+  }, [params, clearOutputs, compileMutation, simulation, uiFeedback, invalidatePendingStart]);
 
   const handleReset = useCallback(() => {
+    invalidatePendingStart();
     if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (simulation.simulationStatus === "running") simulation.handleStop();
@@ -351,8 +393,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
     uiFeedback.showResettingToast();
 
-    setTimeout(() => {
-      handleCompileAndStart();
+    const generation = startGeneration.current;
+    resetTimer.current = setTimeout(() => {
+      resetTimer.current = null;
+      if (generation === startGeneration.current) handleCompileAndStart();
     }, 100);
   }, [
     clearOutputs,
@@ -361,6 +405,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     params.resetPinUI,
     simulation,
     uiFeedback,
+    invalidatePendingStart,
   ]);
 
   return {
@@ -377,7 +422,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     cliOutput,
     setCliOutput,
     compileMutation,
-    handleCompile,
+    handleCompile: () => {
+      invalidatePendingStart();
+      handleCompile();
+    },
     handleCompileAndStart,
     handleClearCompilationOutput,
     clearOutputs,
@@ -390,8 +438,28 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setSimulationTimeout: simulation.setSimulationTimeout,
     dockerGccPhase: controllerState.dockerGccPhase,
     setDockerGccPhase: controllerState.setDockerGccPhase,
-    startMutation: simulation.startMutation,
-    stopMutation: simulation.stopMutation,
+    startMutation: {
+      ...simulation.startMutation,
+      mutate: (...args) => {
+        invalidatePendingStart();
+        simulation.startMutation.mutate(...args);
+      },
+      mutateAsync: (...args) => {
+        invalidatePendingStart();
+        return simulation.startMutation.mutateAsync(...args);
+      },
+    },
+    stopMutation: {
+      ...simulation.stopMutation,
+      mutate: (...args) => {
+        invalidatePendingStart();
+        simulation.stopMutation.mutate(...args);
+      },
+      mutateAsync: (...args) => {
+        invalidatePendingStart();
+        return simulation.stopMutation.mutateAsync(...args);
+      },
+    },
     pauseMutation: simulation.pauseMutation,
     resumeMutation: simulation.resumeMutation,
     handleStart: simulation.handleStart,
@@ -403,5 +471,6 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     startSimulation: simulation.startSimulation,
     startSimulationRef: simulation.startSimulationRef,
     suppressAutoStopOnce: simulation.suppressAutoStopOnce,
+    invalidatePendingStart,
   };
 }

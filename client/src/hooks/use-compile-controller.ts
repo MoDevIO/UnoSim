@@ -38,6 +38,8 @@ export type CompilationErrors = CompilerError[] | string | undefined;
 
 export interface UseCompileControllerParams {
   readonly capabilities?: ServerCapabilities;
+  /** Ignore completions whose compile-to-start owner was invalidated. */
+  isCompileResultCurrent?: (payload: CompileConfig) => boolean;
   // State
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;
@@ -105,8 +107,10 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
 
   const compileMutation = useMutation<CompileResult, unknown, CompileConfig, unknown>({
     mutationFn: async (payload: CompileConfig): Promise<CompileResult> => {
-      params.setArduinoCliStatus("compiling");
-      params.setLastCompilationResult(null);
+      if (params.isCompileResultCurrent?.(payload) !== false) {
+        params.setArduinoCliStatus("compiling");
+        params.setLastCompilationResult(null);
+      }
       params.uiFeedback.logCompileRequest(payload.code.length);
       const response = await apiRequest("POST", "/api/compile", payload);
       const ct = (response.headers.get("content-type") || "").toLowerCase();
@@ -126,14 +130,16 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
       const txt = await response.text();
       return { success: false, errors: txt, raw: txt };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, payload) => {
+      if (params.isCompileResultCurrent?.(payload) === false) return;
       if (data.success) {
         handleCompileSuccess(data);
       } else {
         handleCompileError(data);
       }
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, payload) => {
+      if (params.isCompileResultCurrent?.(payload) === false) return;
       params.setArduinoCliStatus("error");
       params.uiFeedback.triggerCompileErrorGlitch();
       if (params.isBackendUnreachableError(error)) {
