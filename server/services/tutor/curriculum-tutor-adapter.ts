@@ -16,6 +16,7 @@ import {
   type Observation,
   type TopicClassification,
 } from "./curriculum/learning-planner";
+import { buildInlineFocusTopic } from "./curriculum/inline-focus-topic";
 import { DefaultSketchFactExtractor, type SketchFactExtractor } from "./curriculum/sketch-facts";
 import { DefaultTopicMatcher, type TopicMatch, type TopicMatcher } from "./curriculum/topic-matcher";
 import type {
@@ -199,12 +200,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
    * revision) and changes nothing.
    */
   private resolveMatch(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): MatchResolution | null {
-    if (snapshot.tutor?.status !== "valid" || snapshot.tutor.topics.length === 0) return null;
-    const facts = this.factExtractor.extract(code);
-    const matches = this.topicMatcher.match(snapshot.tutor.topics, facts);
     const exampleContextId = snapshot.exampleId ?? requestedExampleId;
     const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
-    const orderedMatches = orderTopicMatches(matches, annotation);
+    if (snapshot.tutor?.status !== "valid" || (snapshot.tutor.topics.length === 0 && annotation?.focus === undefined)) return null;
+    const facts = this.factExtractor.extract(code);
+    const inline = inlineFocusMatch(exampleContextId, annotation);
+    const matches = annotation?.exclusive === true && inline
+      ? []
+      : this.topicMatcher.match(snapshot.tutor.topics, facts);
+    const orderedMatches = [...(inline ? [inline] : []), ...orderTopicMatches(matches, annotation)];
     const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
     const resetsRevision = state.revision !== snapshot.revision;
     const view = resetsRevision ? createTutorProgressionState(snapshot.revision) : state;
@@ -260,7 +264,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!snapshot || !code || !state?.activeTopicId || !state.phase || state.phase === "LEARN") return "LEARN";
     if (state.revision !== snapshot.revision || snapshot.tutor?.status !== "valid") return "LEARN";
     const facts = this.factExtractor.extract(code);
-    return this.topicMatcher.match(snapshot.tutor.topics, facts).some(({ topic }) => topic.id === state.activeTopicId)
+    const annotation = snapshot.exampleId === undefined ? undefined : snapshot.exampleTutorAnnotation;
+    const inline = inlineFocusMatch(snapshot.exampleId, annotation);
+    return [...(inline ? [inline] : []), ...this.topicMatcher.match(snapshot.tutor.topics, facts)].some(({ topic }) => topic.id === state.activeTopicId)
       ? state.phase
       : "LEARN";
   }
@@ -434,6 +440,12 @@ type AdapterContext = {
   readonly expansionBrief?: TutorExpansionBrief;
   readonly blocked?: TutorPlanningBlocked;
 };
+
+/** The teacher-authored focus of an Example always comes first and needs no sketch-fact activation. */
+function inlineFocusMatch(exampleId: string | undefined, annotation: ExampleTutorAnnotation | undefined): TopicMatch | undefined {
+  if (exampleId === undefined || annotation?.focus === undefined) return undefined;
+  return { topic: buildInlineFocusTopic(exampleId, annotation.focus), score: Number.MAX_SAFE_INTEGER };
+}
 
 function orderTopicMatches(matches: readonly TopicMatch[], annotation?: ExampleTutorAnnotation): readonly TopicMatch[] {
   const byId = new Map(matches.map((match) => [match.topic.id, match]));

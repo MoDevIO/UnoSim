@@ -19,13 +19,44 @@ const learningObjectiveSchema = z.preprocess(
   }),
 );
 
+const SAFE_TEXT = (max: number) => z.string().trim().min(1)
+  .refine((value) => [...value].length <= max, `Text is longer than ${max} characters`)
+  .refine((value) => !CONTROL_CHARACTER.test(value), "Text contains a control character")
+  .refine((value) => !/https?:\/\//i.test(value), "URLs are not allowed in Tutor annotations");
+
+const focusQuestionSchema = z.object({
+  kind: z.enum(["recall", "concept", "application", "prediction", "transfer"]),
+  text: SAFE_TEXT(500),
+}).strict();
+
+/** A teacher-authored focus area: a few questions the Tutor prefers to ask for this Example. */
+const focusAreaSchema = z.object({
+  id: z.string().regex(SAFE_TUTOR_ID),
+  title: SAFE_TEXT(160),
+  objective: SAFE_TEXT(500),
+  questions: z.array(focusQuestionSchema).min(1).max(6),
+}).strict();
+
+export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
+
 export const embeddedTutorAnnotationSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  focus: z.array(focusAreaSchema).min(1).max(8).optional(),
+  exclusive: z.boolean().optional(),
   topics: z.array(z.string().regex(SAFE_TUTOR_ID)).min(1).max(32).optional(),
   primaryTopic: z.string().regex(SAFE_TUTOR_ID).optional(),
   strategy: z.string().regex(SAFE_TUTOR_ID).optional(),
   learningObjectives: z.array(learningObjectiveSchema).min(1).max(10).optional(),
 }).strict().superRefine((value, context) => {
+  if (value.schemaVersion === 1 && (value.focus !== undefined || value.exclusive !== undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and exclusive require schemaVersion 2" });
+  }
+  if (value.exclusive === true && value.focus === undefined) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["exclusive"], message: "exclusive requires focus" });
+  }
+  if (value.focus !== undefined && new Set(value.focus.map(({ id }) => id)).size !== value.focus.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus ids must be unique" });
+  }
   if (value.primaryTopic !== undefined && value.topics === undefined) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryTopic"], message: "primaryTopic requires topics" });
   }

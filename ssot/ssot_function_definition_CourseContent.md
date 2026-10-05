@@ -209,8 +209,8 @@ sketch, and only whitespace may follow its closing marker. A duplicate block,
 a marker in the middle of executable source, or an unterminated block is
 invalid. An annotation is optional.
 
-The annotation payload is strict YAML core data with schema version 1 and no
-additional fields. The complete UTF-8 annotation block is limited to 16 KiB
+The annotation payload is strict YAML core data with schema version 1 or 2 and
+no additional fields. The complete UTF-8 annotation block is limited to 16 KiB
 before YAML parsing:
 
 ~~~yaml
@@ -231,6 +231,33 @@ plain bounded data: Markdown, HTML, executable/template semantics, and nested
 structures are not interpreted. YAML duplicate keys, custom tags, unknown
 fields, unsupported schema versions, invalid IDs, and invalid bounds make the
 annotation invalid.
+
+Schema version 2 additionally allows inline teacher focus (version 1 MUST NOT
+contain these fields):
+
+~~~yaml
+schemaVersion: 2
+focus:
+  - id: indizierung
+    title: Indizierung
+    objective: Elemente über den Index ansprechen.
+    questions:
+      - kind: concept
+        text: Welcher Index gehört zum dritten Element von `werte`?
+exclusive: true
+~~~
+
+`focus` is an ordered list of 1 to 8 focus areas with unique safe IDs. Each
+has a bounded `title` (160) and `objective` (500) and 1 to 6 `questions`, each
+with a `kind` (`recall`, `concept`, `application`, `prediction`, `transfer`)
+and a bounded `text` (500; no URLs, no control characters). The server builds
+one Topic `inline-<exampleId>` from it: one Concept per focus area, mastery by
+one successful probe with rating at least 3, the standard rating progression,
+and no fact requirements. This Topic is selected before every repository
+Topic and needs no sketch-fact activation. `exclusive: true` requires `focus`
+and excludes all repository Topics for this Example. Code terms in question
+texts MUST be written in backticks; the Course Content quality validator
+rejects a backticked term that does not occur in the sketch outside comments.
 
 The server extracts and validates the block at the Course Content loading
 boundary. The annotation travels separately in the immutable server snapshot.
