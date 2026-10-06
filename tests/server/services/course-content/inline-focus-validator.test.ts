@@ -19,6 +19,11 @@ describe("validateInlineFocus", () => {
     expect(issues).toMatchObject([{ code: "inline-focus-term-not-in-sketch", exampleId: "e", conceptId: "zeit" }]);
   });
 
+  it("matches identifier terms as whole words", () => {
+    const issues = validateInlineFocus([{ id: "e", code: "Serial.println(x);\n", annotation: annotation("Was wäre bei `int` anders?") }]);
+    expect(issues).toMatchObject([{ code: "inline-focus-term-not-in-sketch" }]);
+  });
+
   it("ignores examples without focus", () => {
     expect(validateInlineFocus([{ id: "e", code, annotation: { schemaVersion: 2 } }])).toEqual([]);
   });
