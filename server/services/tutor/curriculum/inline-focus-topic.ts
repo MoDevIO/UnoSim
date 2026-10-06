@@ -5,7 +5,8 @@ export const INLINE_FOCUS_TOPIC_PREFIX = "inline-";
 
 /**
  * Builds the Topic for the focus areas a teacher wrote into an Example's annotation. Every focus area
- * is one Concept with its questions; mastery and progression use fixed defaults. The questions carry
+ * is one Concept with its questions; a focus area is mastered once every one of its questions was
+ * answered successfully, and progression uses fixed defaults. The questions carry
  * no fact requirements: the teacher authored them for exactly this sketch.
  */
 export function buildInlineFocusTopic(exampleId: string, focus: readonly ExampleFocusArea[]): CurriculumTopic {
@@ -24,7 +25,7 @@ export function buildInlineFocusTopic(exampleId: string, focus: readonly Example
       misconceptions: [],
       indicators: [{ id: `understands-${area.id}`.slice(0, 64), description: area.objective }],
       mastery: {
-        minimumSuccessfulProbes: 1,
+        minimumSuccessfulProbes: area.questions.length,
         successRatingAtLeast: 3,
         requiredIndicators: [`understands-${area.id}`.slice(0, 64)],
         minimumDistinctQuestionKinds: 1,

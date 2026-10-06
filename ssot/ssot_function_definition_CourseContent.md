@@ -252,7 +252,8 @@ has a bounded `title` (160) and `objective` (500) and 1 to 6 `questions`, each
 with a `kind` (`recall`, `concept`, `application`, `prediction`, `transfer`)
 and a bounded `text` (500; no URLs, no control characters). The server builds
 one Topic `inline-<exampleId>` from it: one Concept per focus area, mastery by
-one successful probe with rating at least 3, the standard rating progression,
+one successful probe (rating at least 3) per question of that area, the standard
+rating progression,
 and no fact requirements. This Topic is selected before every repository
 Topic and needs no sketch-fact activation. `afterFocus` requires `focus` and
 defaults to `free`: once every focus area is mastered, or the focus has no
