@@ -82,7 +82,7 @@ async function readLocal(root: string, url: URL): Promise<string> {
   return readFile(file, "utf8");
 }
 
-const PERSONAS = ["strong", "partial", "strong", "partial"] as const;
+const PERSONAS = ["strong", "wrong", "strong", "wrong"] as const;
 
 async function studentAnswer(
   provider: CountingProvider,
@@ -92,7 +92,7 @@ async function studentAnswer(
 ): Promise<string> {
   const style = input.persona === "strong"
     ? "Du antwortest fachlich korrekt, knapp und in eigenen Worten."
-    : "Du antwortest teilweise richtig, aber unvollständig oder mit einer typischen Fehlvorstellung.";
+    : "Du antwortest selbstsicher, aber inhaltlich falsch, weil du einer typischen Fehlvorstellung folgst.";
   const { result } = await provider.student({
     model: options.model,
     temperature: 0.7,
@@ -176,7 +176,8 @@ async function main(): Promise<void> {
       reports.push({ id: example.id, turns, issues: [issue] });
       continue;
     }
-    const focusQuestions = annotation?.focus?.flatMap(({ questions }) => questions.map(({ text }) => text)) ?? [];
+    // Areas are asked in order; within an area the strategy picks the question by kind.
+    const focusQuestions = annotation?.focus?.[0]?.questions.map(({ text }) => text) ?? [];
     reports.push({
       id: example.id,
       turns,

@@ -69,6 +69,7 @@ export function questionSimilarity(left: string, right: string): number {
 export function analyzeCatalogSession(input: {
   readonly code: string;
   readonly turns: readonly CatalogTurn[];
+  /** Questions of the first focus area; any of them may open the session. */
   readonly focusQuestions: readonly string[];
 }): CatalogIssue[] {
   const issues: CatalogIssue[] = [];
@@ -90,9 +91,9 @@ export function analyzeCatalogSession(input: {
     else if (free && index > 0) issues.push({ code: "planner-after-free", turn: index, details: turn.question });
   });
   const first = input.turns[0];
-  const firstFocus = input.focusQuestions[0];
-  if (first && firstFocus && questionSimilarity(first.question, firstFocus) < 0.4) {
-    issues.push({ code: "focus-question-not-asked", turn: 0, details: `asked "${first.question}" instead of "${firstFocus}"` });
+  if (first && input.focusQuestions.length > 0
+    && input.focusQuestions.every((focus) => questionSimilarity(first.question, focus) < 0.4)) {
+    issues.push({ code: "focus-question-not-asked", turn: 0, details: `asked "${first.question}" instead of one of the first focus area's questions` });
   }
   return issues;
 }
