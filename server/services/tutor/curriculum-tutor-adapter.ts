@@ -16,7 +16,7 @@ import {
   type Observation,
   type TopicClassification,
 } from "./curriculum/learning-planner";
-import { buildInlineFocusTopic } from "./curriculum/inline-focus-topic";
+import { buildInlineFocusTopic, INLINE_FOCUS_TOPIC_PREFIX } from "./curriculum/inline-focus-topic";
 import { DefaultSketchFactExtractor, type SketchFactExtractor } from "./curriculum/sketch-facts";
 import { DefaultTopicMatcher, type TopicMatch, type TopicMatcher } from "./curriculum/topic-matcher";
 import type {
@@ -175,6 +175,11 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     });
     const phase = context.state.phase ?? context.phase;
     if (plan) return normalizePlan(plan, context.strategy, context.state, phase, context.extensionTargetTopicId, context.expansionBrief);
+    // A weak answer to the last question of a teacher's focus area must not drop the remaining areas.
+    const nextArea = phase === "LEARN" && context.topic.id.startsWith(INLINE_FOCUS_TOPIC_PREFIX)
+      ? this.planner.start(context.topic, context.revision, context.facts, [...answeredHistory, answeredTurn(input.currentQuestion)], input.difficulty, context.strategy.strategy, { phase })
+      : null;
+    if (nextArea) return normalizePlan(nextArea, context.strategy, context.state, phase, context.extensionTargetTopicId, context.expansionBrief);
     return phase === "LEARN" ? null : exhaustionResult(context, phase);
   }
 
