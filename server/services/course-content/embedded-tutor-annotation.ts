@@ -42,17 +42,17 @@ export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
 export const embeddedTutorAnnotationSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2)]),
   focus: z.array(focusAreaSchema).min(1).max(8).optional(),
-  exclusive: z.boolean().optional(),
+  afterFocus: z.enum(["free", "topics"]).optional(),
   topics: z.array(z.string().regex(SAFE_TUTOR_ID)).min(1).max(32).optional(),
   primaryTopic: z.string().regex(SAFE_TUTOR_ID).optional(),
   strategy: z.string().regex(SAFE_TUTOR_ID).optional(),
   learningObjectives: z.array(learningObjectiveSchema).min(1).max(10).optional(),
 }).strict().superRefine((value, context) => {
-  if (value.schemaVersion === 1 && (value.focus !== undefined || value.exclusive !== undefined)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and exclusive require schemaVersion 2" });
+  if (value.schemaVersion === 1 && (value.focus !== undefined || value.afterFocus !== undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
   }
-  if (value.exclusive === true && value.focus === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["exclusive"], message: "exclusive requires focus" });
+  if (value.afterFocus !== undefined && value.focus === undefined) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["afterFocus"], message: "afterFocus requires focus" });
   }
   if (value.focus !== undefined && new Set(value.focus.map(({ id }) => id)).size !== value.focus.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus ids must be unique" });

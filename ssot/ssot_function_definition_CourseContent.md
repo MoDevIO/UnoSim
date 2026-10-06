@@ -244,7 +244,7 @@ focus:
     questions:
       - kind: concept
         text: Welcher Index gehört zum dritten Element von `werte`?
-exclusive: true
+afterFocus: free
 ~~~
 
 `focus` is an ordered list of 1 to 8 focus areas with unique safe IDs. Each
@@ -254,8 +254,11 @@ and a bounded `text` (500; no URLs, no control characters). The server builds
 one Topic `inline-<exampleId>` from it: one Concept per focus area, mastery by
 one successful probe with rating at least 3, the standard rating progression,
 and no fact requirements. This Topic is selected before every repository
-Topic and needs no sketch-fact activation. `exclusive: true` requires `focus`
-and excludes all repository Topics for this Example. Code terms in question
+Topic and needs no sketch-fact activation. `afterFocus` requires `focus` and
+defaults to `free`: once every focus area is mastered, or the focus has no
+question left, the Tutor continues as the free Tutor and no repository Topic
+is used for this Example. With `afterFocus: topics` it continues with the
+fact-matched repository Topics instead. Code terms in question
 texts MUST be written in backticks; the Course Content quality validator
 rejects a backticked term that does not occur in the sketch outside comments.
 
