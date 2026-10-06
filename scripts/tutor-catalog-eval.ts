@@ -110,9 +110,90 @@ interface ExampleReport {
   readonly issues: readonly CatalogIssue[];
 }
 
+type ReportTurn = ExampleReport["turns"][number];
+type LoadedExample = Awaited<ReturnType<CourseContentLoader["load"]>>["examples"][number];
+
 function metadata(result: TutorContentResult) {
   const { topicId, conceptId, questionId, indicatorId, questionKind } = result;
   return { topicId, conceptId, questionId, indicatorId, questionKind };
+}
+
+function historyEntry(question: { question: string; meta: ReturnType<typeof metadata> }, answer: string, result: TutorContentResult): TutorDialogTurn {
+  const definedMetadata = Object.entries(question.meta).filter(([, value]) => value !== undefined);
+  return {
+    question: question.question,
+    answer,
+    ...(result.feedback ? { feedback: result.feedback } : {}),
+    ...(result.answerRating === undefined ? {} : { answerRating: result.answerRating }),
+    responseStyle: "normal",
+    ...Object.fromEntries(definedMetadata),
+  } as TutorDialogTurn;
+}
+
+interface Run {
+  readonly options: Options;
+  readonly provider: CountingProvider;
+  readonly credential: string;
+  readonly tutor: Extract<Awaited<ReturnType<CourseContentLoader["load"]>>["tutor"], { status: "valid" }>;
+}
+
+async function playExample(run: Run, example: LoadedExample, code: string): Promise<ReportTurn[]> {
+  const context = {
+    revision: REVISION,
+    tutor: run.tutor,
+    exampleId: example.id,
+    ...(example.tutorAnnotation ? { exampleTutorAnnotation: example.tutorAnnotation } : {}),
+    progressionState: createTutorProgressionState(REVISION),
+  };
+  const service = new TutorService(run.provider, new CurriculumTutorAdapter());
+  const first = await service.generateQuestion(code, run.credential, run.options.model, undefined, context);
+  const turns: ReportTurn[] = [{ question: first.result.question ?? "", followUpSource: first.followUpSource }];
+  const history: TutorDialogTurn[] = [];
+  let current = { question: first.result.question ?? "", meta: metadata(first.result) };
+  for (let turn = 0; turn < run.options.turns; turn += 1) {
+    const persona = PERSONAS[turn % PERSONAS.length] ?? "strong";
+    const answer = await studentAnswer(run.provider, run.options, run.credential, { code, question: current.question, persona });
+    const response = await service.generateDialogResponse(code, history, current.question, answer, run.credential, run.options.model, undefined, context);
+    const { result } = response;
+    history.push(historyEntry(current, answer, result));
+    turns.push({
+      question: result.question ?? "",
+      ...(result.feedback ? { feedback: result.feedback } : {}),
+      followUpSource: response.followUpSource,
+      answer,
+      ...(result.answerRating === undefined ? {} : { rating: result.answerRating }),
+    });
+    current = { question: result.question ?? "", meta: metadata(result) };
+  }
+  return turns;
+}
+
+/** Plays one Example; a provider failure is reported as a finding, a spent budget aborts the run. */
+async function evaluateExample(run: Run, example: LoadedExample): Promise<ExampleReport | undefined> {
+  const main = example.files.find(({ name }) => name === example.main);
+  if (!main) return undefined;
+  let turns: ReportTurn[];
+  try {
+    turns = await playExample(run, example, main.content);
+  } catch (error) {
+    if (error instanceof BudgetExceeded) throw error;
+    return { id: example.id, turns: [], issues: [{ code: "provider-error", turn: 0, details: error instanceof Error ? error.message : String(error) }] };
+  }
+  // Areas are asked in order; within an area the strategy picks the question by kind.
+  const focusQuestions = example.tutorAnnotation?.focus?.[0]?.questions.map(({ text }) => text) ?? [];
+  return { id: example.id, turns, issues: analyzeCatalogSession({ code: main.content, turns, focusQuestions }) };
+}
+
+async function writeReports(options: Options, provider: CountingProvider, reports: readonly ExampleReport[]): Promise<string> {
+  await mkdir(options.out, { recursive: true });
+  await writeFile(path.join(options.out, "report.json"), JSON.stringify({ model: options.model, calls: provider.calls, reports }, null, 2));
+  const lines = reports.map((report) => {
+    const findings = report.issues.map(({ code, turn }) => `${code}@${turn}`).join(", ");
+    return `${report.id}: ${report.issues.length === 0 ? "ok" : findings}`;
+  });
+  const summary = `${lines.join("\n")}\ncalls: ${provider.calls}\n`;
+  await writeFile(path.join(options.out, "summary.txt"), summary);
+  return summary;
 }
 
 async function main(): Promise<void> {
@@ -124,76 +205,25 @@ async function main(): Promise<void> {
   if (loaded.tutor.status !== "valid") throw new Error("Course Content Tutor bundle is not valid");
 
   const provider = new CountingProvider(new KiconnectProvider(), options.maxCalls);
+  const run: Run = { options, provider, credential, tutor: loaded.tutor };
   const reports: ExampleReport[] = [];
-  const examples = loaded.examples.filter(({ id }) => options.only.length === 0 || options.only.includes(id));
-
-  for (const example of examples) {
-    const main = example.files.find(({ name }) => name === example.main);
-    if (!main) continue;
-    const annotation = example.tutorAnnotation;
-    const context = {
-      revision: REVISION,
-      tutor: loaded.tutor,
-      exampleId: example.id,
-      ...(annotation ? { exampleTutorAnnotation: annotation } : {}),
-      progressionState: createTutorProgressionState(REVISION),
-    };
-    const service = new TutorService(provider, new CurriculumTutorAdapter());
-    const turns: ExampleReport["turns"][number][] = [];
-    const history: TutorDialogTurn[] = [];
-    try {
-      const first = await service.generateQuestion(main.content, credential, options.model, undefined, context);
-      turns.push({ question: first.result.question ?? "", followUpSource: first.followUpSource });
-      let current = { question: first.result.question ?? "", meta: metadata(first.result) };
-      for (let turn = 0; turn < options.turns; turn += 1) {
-        const persona = PERSONAS[turn % PERSONAS.length] ?? "strong";
-        const answer = await studentAnswer(provider, options, credential, { code: main.content, question: current.question, persona });
-        const response = await service.generateDialogResponse(main.content, history, current.question, answer, credential, options.model, undefined, context);
-        const result = response.result;
-        history.push({
-          question: current.question,
-          answer,
-          ...(result.feedback ? { feedback: result.feedback } : {}),
-          ...(result.answerRating !== undefined ? { answerRating: result.answerRating } : {}),
-          responseStyle: "normal",
-          ...Object.fromEntries(Object.entries(current.meta).filter(([, value]) => value !== undefined)),
-        } as TutorDialogTurn);
-        turns.push({
-          question: result.question ?? "",
-          ...(result.feedback ? { feedback: result.feedback } : {}),
-          followUpSource: response.followUpSource,
-          answer,
-          ...(result.answerRating !== undefined ? { rating: result.answerRating } : {}),
-        });
-        current = { question: result.question ?? "", meta: metadata(result) };
-      }
-    } catch (error) {
-      if (error instanceof BudgetExceeded) {
-        console.error(error.message);
-        break;
-      }
-      const issue: CatalogIssue = { code: "provider-error", turn: turns.length, details: error instanceof Error ? error.message : String(error) };
-      reports.push({ id: example.id, turns, issues: [issue] });
-      continue;
+  try {
+    for (const example of loaded.examples.filter(({ id }) => options.only.length === 0 || options.only.includes(id))) {
+      const report = await evaluateExample(run, example);
+      if (!report) continue;
+      reports.push(report);
+      console.error(`${example.id}: ${report.turns.length} turns, ${report.issues.length} issues (calls ${provider.calls})`);
     }
-    // Areas are asked in order; within an area the strategy picks the question by kind.
-    const focusQuestions = annotation?.focus?.[0]?.questions.map(({ text }) => text) ?? [];
-    reports.push({
-      id: example.id,
-      turns,
-      issues: analyzeCatalogSession({ code: main.content, turns, focusQuestions }),
-    });
-    console.error(`${example.id}: ${turns.length} turns, ${reports.at(-1)?.issues.length ?? 0} issues (calls ${provider.calls})`);
+  } catch (error) {
+    if (!(error instanceof BudgetExceeded)) throw error;
+    console.error(error.message);
   }
-
-  await mkdir(options.out, { recursive: true });
-  await writeFile(path.join(options.out, "report.json"), JSON.stringify({ model: options.model, calls: provider.calls, reports }, null, 2));
-  const lines = reports.map((report) => `${report.id}: ${report.issues.length === 0 ? "ok" : report.issues.map(({ code, turn }) => `${code}@${turn}`).join(", ")}`);
-  await writeFile(path.join(options.out, "summary.txt"), `${lines.join("\n")}\ncalls: ${provider.calls}\n`);
-  console.log(lines.join("\n"));
+  console.log(await writeReports(options, provider, reports));
 }
 
-main().catch((error: unknown) => {
+try {
+  await main();
+} catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
-});
+}

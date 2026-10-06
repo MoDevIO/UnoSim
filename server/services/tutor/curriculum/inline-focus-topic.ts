@@ -57,6 +57,17 @@ export function buildInlineFocusTopic(exampleId: string, focus: readonly Example
 }
 
 function toSafeId(value: string): string {
-  const cleaned = value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
-  return (cleaned || "example").slice(0, 64 - INLINE_FOCUS_TOPIC_PREFIX.length);
+  const parts: string[] = [];
+  let current = "";
+  for (const character of value.toLowerCase()) {
+    if ((character >= "a" && character <= "z") || (character >= "0" && character <= "9") || character === "-") {
+      current += character;
+    } else if (current !== "") {
+      parts.push(current);
+      current = "";
+    }
+  }
+  if (current !== "") parts.push(current);
+  const cleaned = parts.join("-").replaceAll("--", "-");
+  return (cleaned === "" ? "example" : cleaned).slice(0, 64 - INLINE_FOCUS_TOPIC_PREFIX.length);
 }

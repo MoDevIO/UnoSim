@@ -1,7 +1,7 @@
 import { stripComments } from "@shared/parser-patterns";
 
 /** Type names a Tutor text can wrongly attribute to a sketch. */
-const TYPE_TERMS = ["unsigned long", "unsigned int", "long", "int", "byte", "float", "double", "char", "bool", "struct", "String"] as const;
+const TYPE_WORDS = new Set(["long", "int", "byte", "float", "double", "char", "bool", "struct", "String"]);
 
 export type CatalogIssueCode =
   | "type-not-in-sketch"
@@ -23,37 +23,30 @@ export interface CatalogTurn {
   readonly followUpSource: "planner" | "provider" | "application-fallback";
 }
 
-function declaredTerms(code: string): Set<string> {
-  const clean = stripComments(code);
+function wordsOf(text: string): string[] {
+  return text.match(/[\p{L}\p{N}_]+/gu) ?? [];
+}
+
+/** Type names that occur as whole words; `unsigned long` counts as its own type, not as `long`. */
+function typesIn(text: string): Set<string> {
+  const words = wordsOf(text);
   const found = new Set<string>();
-  for (const term of TYPE_TERMS) {
-    const pattern = term === "long"
-      ? /(?<!unsigned\s)\blong\b/
-      : term === "int"
-        ? /(?<!unsigned\s)\bint\b/
-        : new RegExp(String.raw`\b${term.replace(" ", String.raw`\s+`)}\b`);
-    if (pattern.test(clean)) found.add(term);
+  for (const [index, word] of words.entries()) {
+    const unsigned = words[index - 1] === "unsigned" && (word === "long" || word === "int");
+    if (unsigned) found.add(`unsigned ${word}`);
+    else if (TYPE_WORDS.has(word)) found.add(word);
   }
   return found;
 }
 
-/** Type names the text mentions in backticks or code-like positions but the sketch does not use. */
+/** Type names the text mentions but the sketch (outside comments) does not use. */
 export function findUnsupportedTypeMentions(text: string, code: string): string[] {
-  const declared = declaredTerms(code);
-  const mentioned = new Set<string>();
-  for (const term of TYPE_TERMS) {
-    const pattern = term === "long"
-      ? /(?<!unsigned\s)(?<![A-Za-zÄÖÜäöü])long\b/
-      : term === "int"
-        ? /(?<!unsigned\s)(?<![A-Za-zÄÖÜäöü])int\b/
-        : new RegExp(`(?<![A-Za-zÄÖÜäöü])${term.replace(" ", String.raw`\s+`)}(?![A-Za-zÄÖÜäöü])`);
-    if (pattern.test(text)) mentioned.add(term);
-  }
-  return [...mentioned].filter((term) => !declared.has(term));
+  const declared = typesIn(stripComments(code));
+  return [...typesIn(text)].filter((term) => !declared.has(term));
 }
 
 export function normalizeQuestion(question: string): string {
-  return question.toLowerCase().replace(/[^a-zäöüß0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  return question.toLowerCase().replaceAll(/[^a-zäöüß0-9 ]+/g, " ").replaceAll(/\s+/g, " ").trim();
 }
 
 /** Word-set overlap in [0, 1]. */
