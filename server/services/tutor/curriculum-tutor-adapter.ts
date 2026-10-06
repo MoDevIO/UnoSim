@@ -205,16 +205,18 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (snapshot.tutor?.status !== "valid" || (snapshot.tutor.topics.length === 0 && annotation?.focus === undefined)) return null;
     const facts = this.factExtractor.extract(code);
     const inline = inlineFocusMatch(exampleContextId, annotation);
-    const matches = annotation?.exclusive === true && inline
-      ? []
-      : this.topicMatcher.match(snapshot.tutor.topics, facts);
+    // The teacher's focus runs first; by default the Tutor then continues freely, without repository Topics.
+    const focusThenFree = inline !== undefined && (annotation?.afterFocus ?? "free") === "free";
+    const matches = focusThenFree ? [] : this.topicMatcher.match(snapshot.tutor.topics, facts);
     const orderedMatches = [...(inline ? [inline] : []), ...orderTopicMatches(matches, annotation)];
     const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
     const resetsRevision = state.revision !== snapshot.revision;
     const view = resetsRevision ? createTutorProgressionState(snapshot.revision) : state;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, view, difficulty, learnStrategy.strategy);
-    const selected = selectProgressionMatch(classifications, view);
+    // A finished focus (mastered, or out of questions) hands over to the free Tutor.
+    const open = focusThenFree ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
+    const selected = selectProgressionMatch(open, view);
     if (!selected) return { state, revision: snapshot.revision, resetsRevision, selection: null };
     const topic = selected.match.topic;
     const phase = phaseForTopic(view, topic.id, selected.classification.status);
