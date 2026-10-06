@@ -2,11 +2,12 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignoreBinaries": ["sonar-scanner"],
   "ignoreExportsUsedInFile": true,
-  "ignore": ["tests/**/cleanup-phase.test.ts"],
   "entry": [
     "client/src/types/external-api.ts",
     "shared/worker-protocol.ts",
     "server/config.ts",
-    "playwright.scalability.config.ts"
+    "playwright.scalability.config.ts",
+    "scripts/capacity-mixed-load.ts",
+    "scripts/tutor-catalog-eval.ts"
   ]
 }
