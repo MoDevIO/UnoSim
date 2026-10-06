@@ -80,20 +80,21 @@ describe("inline focus annotation", () => {
     expect(plan).toMatchObject({ topicId: "inline-it07-05-array", question: "Welcher Index gehört zum dritten Element von `werte`?" });
   });
 
-  it("moves to the next focus area after the first one is mastered", async () => {
+  it("asks the next authored question of the area after a strong answer", async () => {
     const adapter = planner();
     const first = await adapter.planInitial({ code: arraySketch, history: [], difficulty: 30, exampleId: "it07-05-array" });
     if (!first || "kind" in first) throw new Error("no plan");
     const next = await adapter.planFollowup({
       code: arraySketch, history: [], currentQuestion: first.question, rating: 5, difficulty: 30, exampleId: "it07-05-array",
     });
-    expect(next).toMatchObject({ topicId: "inline-it07-05-array", question: "Warum genügt `byte` für die Elemente?" });
+    expect(next).toMatchObject({ topicId: "inline-it07-05-array", question: "Was passiert bei `werte[3]`?" });
   });
 
   it("hands over to the free Tutor once the whole focus is mastered", async () => {
     const { questions, last } = await runStrongSession(planner());
     expect(questions).toEqual([
       "Welcher Index gehört zum dritten Element von `werte`?",
+      "Was passiert bei `werte[3]`?",
       "Warum genügt `byte` für die Elemente?",
     ]);
     expect(last).toBeNull();

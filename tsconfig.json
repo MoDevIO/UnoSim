@@ -35,7 +35,8 @@
     "shared",
     "vite.config.ts",
     "playwright.config.ts",
-    "scripts/capacity-mixed-load.ts"
+    "scripts/capacity-mixed-load.ts",
+    "scripts/tutor-catalog-eval.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
