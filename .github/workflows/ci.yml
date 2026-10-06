@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - run: npm run check:node-version
       - run: npm run check
+      - name: Dead-code gate (knip, reviewed baseline)
+        run: ./run-tests.sh --knip-gate-only
       - name: Deterministic Tutor quality hard gate
         run: npm run test:tutor-quality
       - run: npm run test:unit
