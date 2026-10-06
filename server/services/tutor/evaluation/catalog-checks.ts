@@ -31,7 +31,7 @@ function declaredTerms(code: string): Set<string> {
       ? /(?<!unsigned\s)\blong\b/
       : term === "int"
         ? /(?<!unsigned\s)\bint\b/
-        : new RegExp(`\\b${term.replace(" ", "\\s+")}\\b`);
+        : new RegExp(String.raw`\b${term.replace(" ", String.raw`\s+`)}\b`);
     if (pattern.test(clean)) found.add(term);
   }
   return found;
@@ -46,7 +46,7 @@ export function findUnsupportedTypeMentions(text: string, code: string): string[
       ? /(?<!unsigned\s)(?<![A-Za-zÄÖÜäöü])long\b/
       : term === "int"
         ? /(?<!unsigned\s)(?<![A-Za-zÄÖÜäöü])int\b/
-        : new RegExp(`(?<![A-Za-zÄÖÜäöü])${term.replace(" ", "\\s+")}(?![A-Za-zÄÖÜäöü])`);
+        : new RegExp(`(?<![A-Za-zÄÖÜäöü])${term.replace(" ", String.raw`\s+`)}(?![A-Za-zÄÖÜäöü])`);
     if (pattern.test(text)) mentioned.add(term);
   }
   return [...mentioned].filter((term) => !declared.has(term));
