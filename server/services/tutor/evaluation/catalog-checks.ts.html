@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.83% </span>
+                <span class="strong">95.65% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>46/48</span>
+                <span class='fraction'>44/46</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.28% </span>
+                <span class="strong">90.62% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>33/35</span>
+                <span class='fraction'>29/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.43% </span>
+                <span class="strong">97.29% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>38/39</span>
+                <span class='fraction'>36/37</span>
             </div>
         
             
@@ -155,14 +155,7 @@
 <a name='L90'></a><a href='#L90'>90</a>
 <a name='L91'></a><a href='#L91'>91</a>
 <a name='L92'></a><a href='#L92'>92</a>
-<a name='L93'></a><a href='#L93'>93</a>
-<a name='L94'></a><a href='#L94'>94</a>
-<a name='L95'></a><a href='#L95'>95</a>
-<a name='L96'></a><a href='#L96'>96</a>
-<a name='L97'></a><a href='#L97'>97</a>
-<a name='L98'></a><a href='#L98'>98</a>
-<a name='L99'></a><a href='#L99'>99</a>
-<a name='L100'></a><a href='#L100'>100</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -188,31 +181,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">190x</span>
+<span class="cline-any cline-yes">190x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">165x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">165x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">165x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">165x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -264,7 +250,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { stripComments } from "@shared/parser-patterns";
 &nbsp;
 /** Type names a Tutor text can wrongly attribute to a sketch. */
-const TYPE_TERMS = ["unsigned long", "unsigned int", "long", "int", "byte", "float", "double", "char", "bool", "struct", "String"] as const;
+const TYPE_WORDS = new Set(["long", "int", "byte", "float", "double", "char", "bool", "struct", "String"]);
 &nbsp;
 export type CatalogIssueCode =
   | "type-not-in-sketch"
@@ -286,37 +272,30 @@ export interface CatalogTurn {
   readonly followUpSource: "planner" | "provider" | "application-fallback";
 }
 &nbsp;
-function declaredTerms(code: string): Set&lt;string&gt; {
-  const clean = stripComments(code);
+function wordsOf(text: string): string[] {
+  return text.match(/[\p{L}\p{N}_]+/gu) ?? [];
+}
+&nbsp;
+/** Type names that occur as whole words; `unsigned long` counts as its own type, not as `long`. */
+function typesIn(text: string): Set&lt;string&gt; {
+  const words = wordsOf(text);
   const found = new Set&lt;string&gt;();
-  for (const term of TYPE_TERMS) {
-    const pattern = term === "long"
-      ? /(?&lt;!unsigned\s)\blong\b/
-      : term === "int"
-        ? /(?&lt;!unsigned\s)\bint\b/
-        : new RegExp(String.raw`\b${term.replace(" ", String.raw`\s+`)}\b`);
-    if (pattern.test(clean)) found.add(term);
+  for (const [index, word] of words.entries()) {
+    const unsigned = words[index - 1] === "unsigned" &amp;&amp; (word === "long" || <span class="branch-2 cbranch-no" title="branch not covered" >word === "int");</span>
+    if (unsigned) found.add(`unsigned ${word}`);
+    else if (TYPE_WORDS.has(word)) found.add(word);
   }
   return found;
 }
 &nbsp;
-/** Type names the text mentions in backticks or code-like positions but the sketch does not use. */
+/** Type names the text mentions but the sketch (outside comments) does not use. */
 export function findUnsupportedTypeMentions(text: string, code: string): string[] {
-  const declared = declaredTerms(code);
-  const mentioned = new Set&lt;string&gt;();
-  for (const term of TYPE_TERMS) {
-    const pattern = term === "long"
-      ? /(?&lt;!unsigned\s)(?&lt;![A-Za-zÄÖÜäöü])long\b/
-      : term === "int"
-        ? /(?&lt;!unsigned\s)(?&lt;![A-Za-zÄÖÜäöü])int\b/
-        : new RegExp(`(?&lt;![A-Za-zÄÖÜäöü])${term.replace(" ", String.raw`\s+`)}(?![A-Za-zÄÖÜäöü])`);
-    if (pattern.test(text)) mentioned.add(term);
-  }
-  return [...mentioned].filter((term) =&gt; !declared.has(term));
+  const declared = typesIn(stripComments(code));
+  return [...typesIn(text)].filter((term) =&gt; !declared.has(term));
 }
 &nbsp;
 export function normalizeQuestion(question: string): string {
-  return question.toLowerCase().replace(/[^a-zäöüß0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  return question.toLowerCase().replaceAll(/[^a-zäöüß0-9 ]+/g, " ").replaceAll(/\s+/g, " ").trim();
 }
 &nbsp;
 /** Word-set overlap in [0, 1]. */
@@ -367,7 +346,7 @@ export function analyzeCatalogSession(input: {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-06T11:55:00.936Z
+                at 2026-10-06T12:17:02.426Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
