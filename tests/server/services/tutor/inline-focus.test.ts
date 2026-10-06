@@ -100,6 +100,28 @@ describe("inline focus annotation", () => {
     expect(last).toBeNull();
   });
 
+  it("moves on to the next focus area after a weak answer to the last question of an area", async () => {
+    const adapter = plannerWithCourseContent(async () => ({
+      revision,
+      progressionState: createTutorProgressionState(revision),
+      tutor: { status: "valid" as const, manifest: { schemaVersion: 1 as const, topics: [], strategies: [] }, topics: [], strategies: [] },
+      exampleId: "it07-05-array",
+      exampleTutorAnnotation: {
+        schemaVersion: 2 as const,
+        focus: [
+          { id: "erster", title: "Erster", objective: "o", questions: [{ kind: "concept" as const, text: "Erste Frage?" }] },
+          { id: "zweiter", title: "Zweiter", objective: "o", questions: [{ kind: "concept" as const, text: "Zweite Frage?" }] },
+        ],
+      },
+    }));
+    const first = await adapter.planInitial({ code: arraySketch, history: [], difficulty: 30, exampleId: "it07-05-array" });
+    if (!first || "kind" in first) throw new Error("no plan");
+    const next = await adapter.planFollowup({
+      code: arraySketch, history: [], currentQuestion: first.question, rating: 1, difficulty: 30, exampleId: "it07-05-array",
+    });
+    expect(next).toMatchObject({ topicId: "inline-it07-05-array", question: "Zweite Frage?" });
+  });
+
   it("also hands over to the free Tutor when weak answers use up the focus questions", async () => {
     const { questions, last } = await runStrongSession(planner(), 12, 1);
     expect(questions.length).toBeLessThan(12);
