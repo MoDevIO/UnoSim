@@ -36,6 +36,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
+    // Monaco (~2.54 MB) and recharts (~514 kB) are lazy-loaded vendor chunks and
+    // cannot shrink below 500 kB. Limit sits just above Monaco; the real size
+    // gate is scripts/check-bundle-budget.mjs (total/largest/initial).
+    chunkSizeWarningLimit: 2600,
     minify: "terser",
     terserOptions: {
       compress: {
