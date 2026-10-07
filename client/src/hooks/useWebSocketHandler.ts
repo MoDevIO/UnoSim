@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
 import { Logger } from "@shared/logger";
@@ -103,9 +103,11 @@ export type UseWebSocketHandlerParams = {
   setDockerGccPhase?: React.Dispatch<React.SetStateAction<DockerGccPhase>>;
   /** Called once when the first real output (serial or pin) arrives after simulation starts. Optional. */
   setHasFirstOutput?: (value: boolean) => void;
+  toast?: (args: { title: string; description?: string; variant?: "destructive" }) => void;
 };
 
 export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
+  const lastServerReportedStatusRef = useRef<SimulationStatusPayload["status"] | null>(null);
   const {
     simulationStatus,
     addDebugMessage,
@@ -278,12 +280,22 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     });
     if (message.operation === "start_simulation") {
       setSimulationStatus("idle");
+      const isRateLimited =
+        message.code === "RATE_LIMITED" ||
+        message.code === "SIMULATION_ALREADY_ACTIVE";
+      params.toast?.({
+        title: isRateLimited ? "Rate-Limit" : "Start Failed",
+        description: message.message || "Could not start simulation",
+        variant: "destructive",
+      });
     }
   };
 
   /** Handle simulation_status messages. */
   const handleSimulationStatus = (message: SimulationStatusPayload) => {
     const { status } = message;
+    const previousServerStatus = lastServerReportedStatusRef.current;
+    lastServerReportedStatusRef.current = status;
     // Map server wire protocol "stopped" → client "idle"
     const clientStatus = status === "stopped" ? "idle" : status;
     setSimulationStatus(clientStatus);
@@ -311,6 +323,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       params.setHasFirstOutput?.(false);
       resumeRendering();
       emitSimulationStateEvent("RUNNING");
+      if (previousServerStatus !== "running") {
+        params.toast?.({
+          title: "Simulation Started",
+          description: "Arduino simulation is now running",
+        });
+      }
     }
   };
 

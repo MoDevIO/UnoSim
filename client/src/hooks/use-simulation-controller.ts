@@ -152,7 +152,6 @@ export function useSimulationController(
     },
     onSuccess: () => {
       setSimulationStatus("running");
-      params.uiFeedback.showSimulationStartedToast();
       if (params.pendingPinConflicts.length > 0) {
         params.uiFeedback.showPinConflictWarning(params.pendingPinConflicts);
       }
