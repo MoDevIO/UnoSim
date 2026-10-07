@@ -421,8 +421,8 @@ function ExampleItem({
       tabIndex={0}
       className={
         compact
-          ? "ui-type-menu-item w-full h-7 min-h-7 px-4 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
-          : "ui-type-menu-item w-full px-8 py-1 text-left flex items-center justify-start gap-2 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+          ? "ui-type-menu-item w-full h-7 min-h-7 px-4 py-1 text-left flex items-center justify-start gap-2 focus:outline-hidden focus:ring-0 focus-visible:outline-hidden focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+          : "ui-type-menu-item w-full px-8 py-1 text-left flex items-center justify-start gap-2 focus:outline-hidden focus:ring-0 focus-visible:outline-hidden focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
       }
       title={getExampleDisplayName(example)}
     >
@@ -494,7 +494,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
                 data-role="example-source"
                 data-source={source}
                 tabIndex={0}
-                className="w-full px-2 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                className="w-full px-2 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-hidden focus:ring-0 focus-visible:outline-hidden focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
               >
                 <ChevronRight
                   className={`h-4 w-4 transition-transform ${isSourceExpanded ? "rotate-90" : ""}`}
@@ -505,7 +505,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
               </Button>
 
               {isSourceExpanded && (
-                <div className="bg-muted/10">
+                <div>
                   {source === "builtin"
                     ? groupedBySource[source]
                         .toSorted((a, b) =>
@@ -542,7 +542,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
                                 data-role="example-folder"
                                 data-folder={categoryKey}
                                 tabIndex={0}
-                                className="w-full px-4 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
+                                className="w-full px-4 py-1.5 ui-type-section-header text-left flex items-center justify-start gap-1 focus:outline-hidden focus:ring-0 focus-visible:outline-hidden focus-visible:ring-0 [*[data-keyboard-nav='true']_&]:hover:bg-transparent [*[data-keyboard-nav='true']_&]:hover:text-current"
                               >
                                 <ChevronRight
                                   className={`h-4 w-4 transition-transform ${isCategoryExpanded ? "rotate-90" : ""}`}
@@ -553,7 +553,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
                               </Button>
 
                               {isCategoryExpanded && (
-                                <div className="bg-muted/30">
+                                <div>
                                   {items
                                     .toSorted((a, b) =>
                                       a.title.localeCompare(b.title),

@@ -155,7 +155,7 @@ export function ExternalExamplesSettings({
 
   return (
     <section
-      className="rounded-md border border-border/70 bg-muted/20 p-3"
+      className="rounded-md border p-3"
       aria-label="External Examples settings"
     >
       <div className="text-ui-sm font-semibold text-foreground">External Examples</div>

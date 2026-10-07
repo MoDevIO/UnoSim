@@ -341,12 +341,12 @@ function ParserMessagesList({
             return (
               <div
                 key={message.id}
-                className="bg-muted/50 rounded border-l-2 transition-colors"
+                className="rounded border-l-2 transition-colors"
                 style={{ borderLeftColor: getSeverityColor(message.severity) }}
               >
                 <button
                   type="button"
-                  className="parser-message-btn w-full text-left p-2 cursor-pointer hover:bg-muted/70 block"
+                  className="parser-message-btn w-full text-left p-2 cursor-pointer block"
                   tabIndex={isNavigableSourceTarget(target) ? 0 : -1}
                   onClick={() => {
                     if (isNavigableSourceTarget(target)) onGoToLine?.(target);
@@ -378,7 +378,7 @@ function ParserMessagesList({
                   </div>
                 </button>
                 {message.suggestion && (
-                  <div className="ml-8 mr-2 mb-2 p-2 border border-muted-foreground/30 rounded bg-muted/30 flex items-start gap-2">
+                  <div className="ml-8 mr-2 mb-2 p-2 border rounded flex items-start gap-2">
                     <div className="flex-1 min-w-0 text-muted-foreground text-ui-xs">
                       <span className="font-semibold">Suggestion:</span>{" "}
                       {message.suggestion}
@@ -516,7 +516,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
 
   return (
     <tr
-      className={`border-b border-muted-foreground/10 h-7 ${index % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+      className={`border-b h-7 ${index % 2 === 0 ? "bg-background" : ""}`}
     >
       <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
         <div className="flex items-center justify-end gap-2">
@@ -598,7 +598,7 @@ function IoRegistryBody({
           <col className={detailView ? "w-[10rem]" : "w-[5.5rem]"} />
         </colgroup>
         <thead>
-          <tr className="sticky top-0 z-40 border-b border-muted-foreground/30 bg-muted">
+          <tr className="sticky top-0 z-40 border-b bg-muted">
             <th className="px-2 py-1 text-right font-semibold text-foreground">Pin</th>
             <th className="px-2 py-1 text-center font-semibold text-foreground">pinMode</th>
             <th className="px-2 py-1 text-center font-semibold text-foreground">digitalRead</th>
@@ -773,7 +773,7 @@ export function ParserOutput({
           className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         >
           {/* Toggle Button for Pin Visibility */}
-          <div className="panel-content-header sticky top-0 bg-muted/50 border-b border-muted-foreground/30 px-3 justify-between z-10">
+          <div className="panel-content-header sticky top-0 border-b px-3 justify-between z-10">
             <span className="text-ui-xs text-muted-foreground">
               {showAllPins
                 ? `All pins (${filteredRegistry.length})`

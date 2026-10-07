@@ -91,7 +91,7 @@ describe("experimental workspace layout", () => {
 
     const controls = screen.getByTestId("experimental-workspace-controls");
     expect(controls).toHaveClass("flex", "items-center", "gap-1");
-    expect(controls).not.toHaveClass("border", "bg-background/80", "shadow-sm");
+    expect(controls).not.toHaveClass("border", "bg-background/80", "shadow-xs");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("workspace-toggle-tutor")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("workspace-toggle-code")).toHaveClass("text-status-success");
@@ -147,12 +147,9 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("workspace-resizer-simulation-tutor")).toBeInTheDocument();
     expect(screen.getAllByTestId(/workspace-resizer-/)).toHaveLength(2);
     expect(screen.getByTestId("workspace-column-code")).toHaveClass("bg-background");
-    expect(screen.getByTestId("workspace-column-simulation")).toHaveClass("border-l", "border-border/40");
-    expect(screen.getByTestId("workspace-column-tutor")).toHaveClass("border-l", "border-border/40");
-    expect(screen.getByTestId("workspace-resizer-code-simulation")).toHaveClass(
-      "bg-border/45",
-      "hover:bg-primary/70",
-    );
+    expect(screen.getByTestId("workspace-column-simulation")).toHaveClass("border-l");
+    expect(screen.getByTestId("workspace-column-tutor")).toHaveClass("border-l");
+    expect(screen.getByTestId("workspace-resizer-code-simulation")).toHaveClass("workspace-experimental-horizontal-handle");
     expect(screen.getByTestId("tutor-panel")).toHaveTextContent("Learning questions panel");
     expect(screen.getByTestId("tutor-panel").querySelector("svg")).toBeInTheDocument();
   });

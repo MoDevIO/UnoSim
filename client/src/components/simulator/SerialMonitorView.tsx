@@ -244,7 +244,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             title="Serial Output"
             icon={<Monitor className="!h-5 !w-5" aria-hidden="true" strokeWidth={1.5} />}
             leadingContent={debugMode && (simulationStatus === "running" || simulationStatus === "paused") ? (
-              <div className="ml-2 flex items-center gap-3 border-l border-muted-foreground/20 pl-4">
+              <div className="ml-2 flex items-center gap-3 border-l pl-4">
                 <div className="flex flex-col leading-tight">
                   <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Baud</span>
                   <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>{baudRate}</span>

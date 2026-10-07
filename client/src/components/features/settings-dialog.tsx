@@ -48,7 +48,7 @@ function SettingsSection({
   readonly children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-border/70 bg-muted/20 p-3">
+    <section className="rounded-md border p-3">
       <div className="mb-3">
         <h3 className="text-ui-sm font-semibold text-foreground">{title}</h3>
         {description && <p className="mt-0.5 text-ui-xs text-muted-foreground">{description}</p>}
