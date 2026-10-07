@@ -425,6 +425,32 @@ void loop() {}`;
     expect(result.result.question).toContain("wirklich");
   });
 
+  it("answers an off-topic answer briefly and without philosophy, and asks the same question again the first time", async () => {
+    const provider: LLMProvider = { listModels: vi.fn(), generateLearningQuestion: vi.fn() };
+    const service = new TutorService(provider);
+    const question = "Welche konkrete Beobachtung zeigt der Sketch?";
+    const offTopic = "Ich möchte lieber über Fußball und das Wetter sprechen.";
+
+    const first = await service.generateDialogResponse(sketch, [], question, offTopic, "volatile-key", undefined, 20);
+    const repeated = await service.generateDialogResponse(
+      sketch,
+      [{ question, answer: offTopic, feedback: first.result.feedback, responseStyle: "philosophical" }],
+      question,
+      offTopic,
+      "volatile-key",
+      undefined,
+      20,
+    );
+
+    expect(first.result.question).toContain(question);
+    for (const response of [first, repeated]) {
+      expect(response.result.feedback).not.toMatch(/philosoph|absurd|roter Faden/i);
+      expect(response.result.feedback?.length).toBeLessThanOrEqual(120);
+    }
+    expect(repeated.result.feedback).not.toBe(first.result.feedback);
+    expect(provider.generateLearningQuestion).not.toHaveBeenCalled();
+  });
+
   it("does not classify short technical answers as philosophical fallback", () => {
     expect(isClearlyNonLearningAnswer("13")).toBe(false);
     expect(isClearlyNonLearningAnswer("HIGH")).toBe(false);

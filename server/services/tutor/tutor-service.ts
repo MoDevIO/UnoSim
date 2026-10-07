@@ -455,18 +455,20 @@ function isClearlyNonLearningAnswer(answer: string): boolean {
 function buildPhilosophicalFallback(
   history: readonly TutorDialogTurn[],
   difficulty: TutorDifficulty,
+  question?: string,
 ): TutorContentResult {
-  const recentFallbacks = history.slice(-3).filter((turn) => turn.responseStyle === "philosophical").length;
-  const feedback = recentFallbacks >= 1
-    ? "Noch ein Ausflug ins Absurde: Lernen wird leichter, wenn wir kurz klären, worauf du wirklich hinauswillst."
-    : "Ein philosophischer Seitenblick: Auch eine scheinbar zufällige Antwort kann zeigen, dass der rote Faden gerade abgebogen ist.";
-  const question = recentFallbacks >= 1
-    ? "Welche konkrete Stelle im aktuellen Sketch möchtest du jetzt wirklich verstehen?"
-    : "Welche konkrete Beobachtung im aktuellen Sketch kannst du als Nächstes mit der Tutorfrage verbinden?";
+  const repeated = history.slice(-3).some((turn) => turn.responseStyle === "philosophical");
+  const askedAgain = question?.trim();
+  const feedback = repeated
+    ? "Das führt noch nicht zum Sketch. Lass uns klären, was du wirklich verstehen möchtest."
+    : "Danke für deine Antwort, sie führt aber vom Sketch weg. Bleiben wir kurz bei ihm.";
+  let followUp = "Zurück zum Sketch: Welche konkrete Beobachtung kannst du dort machen?";
+  if (repeated) followUp = "Welche konkrete Stelle im Sketch möchtest du jetzt wirklich verstehen?";
+  else if (askedAgain) followUp = `Zurück zum Sketch: ${askedAgain}`;
   return {
     responseStyle: "philosophical",
     feedback,
-    question,
+    question: followUp,
     topic: "Lernfokus",
     difficulty,
   };
@@ -766,7 +768,7 @@ export class TutorService {
       throwIfTutorRequestAborted(signal);
       return {
         model: requestedModel ?? "fallback",
-        result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty), strategy),
+        result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty, question), strategy),
         followUpSource: "application-fallback",
       };
     }
