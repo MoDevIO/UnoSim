@@ -141,5 +141,9 @@
     "*.json": [
       "prettier --write"
     ]
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "bufferutil": false
   }
 }
