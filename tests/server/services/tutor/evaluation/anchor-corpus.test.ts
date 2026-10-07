@@ -290,6 +290,39 @@ describe("Tutor Quality anchor corpus contract", () => {
     });
   });
 
+  describe("expected.mustNotReveal contract (R-REV-1)", () => {
+    function withReveal(mustNotReveal: unknown) {
+      const base = validSource().scenarios[0]!;
+      return { ...validSource(), scenarios: [{ ...base, expected: { mustNotReveal } }] } as unknown as TutorQualityCorpusSource;
+    }
+
+    it("parses a list of specific literals", () => {
+      const corpus = parseTutorQualityCorpus(withReveal(["counter = 3", "startwert drei"]), references);
+      expect(corpus.scenarios[0]?.expected).toEqual({ mustNotReveal: ["counter = 3", "startwert drei"] });
+    });
+
+    it.each([
+      ["empty list", []],
+      ["more than five literals", ["aaa1", "aaa2", "aaa3", "aaa4", "aaa5", "aaa6"]],
+      ["not an array", "counter = 3"],
+      ["non-string entry", ["counter = 3", 3]],
+      ["bare value", ["3"]],
+      ["blank literal", ["   "]],
+      ["duplicate after normalization", ["counter = 3", "Counter=3"]],
+    ])("rejects an invalid list: %s", (_label, mustNotReveal) => {
+      expect(() => parseTutorQualityCorpus(withReveal(mustNotReveal), references)).toThrow(/mustNotReveal/);
+    });
+
+    it("requires a dialog turn", () => {
+      const base = validSource().scenarios[0]!;
+      const source = {
+        ...validSource(),
+        scenarios: [{ ...base, turns: [{ kind: "initial", difficulty: 20 }], expected: { mustNotReveal: ["counter = 3"] } }],
+      } as unknown as TutorQualityCorpusSource;
+      expect(() => parseTutorQualityCorpus(source, references)).toThrow(/mustNotReveal/);
+    });
+  });
+
   it("rejects unknown expected keys instead of silently accepting typos", () => {
     const source = {
       ...validSource(),

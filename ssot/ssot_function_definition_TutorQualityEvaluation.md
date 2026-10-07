@@ -454,8 +454,10 @@ consistent with state; no reuse of an already used Question ID; blocked state
 
 **R-REV-1** The case author lists case-specific literals that would reveal
 the sought answer, for example `counter = 3` for the question "Which value does
-the sketch print?". A literal is a short, specific expression. A bare value
-such as `3` is not a valid literal, because it matches unrelated text.
+the sketch print?". A literal is a short, specific expression: after the
+normalization of R-REV-2 it has at least three characters and contains a letter.
+A bare value such as `3` is not a valid literal, because it matches unrelated
+text. A list contains each normalized literal at most once.
 
 **R-REV-2** Matching is normalized, identically for the literal and for the
 raw provider `feedback` and `question`: NFKC; case-folding; removal of
