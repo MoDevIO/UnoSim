@@ -4,8 +4,9 @@
 - **Provenienz:** Referenzbewertung durch einen LLM-Evaluator (nach Angabe der Projektleitung GPT-5.6 Sol), von der Projektleitung als Referenz freigegeben. Keine unabhängige menschliche Bewertung (siehe `freetutor-baseline-A-2026-10-06.md`).
 - **Blindheit:** bewertet allein anhand des Bewertungsblatts, ohne Judge-Ergebnis, Schlüssel und Quelle. Regeln für Gesamturteil und Tags wie in Punkt A.
 - Kriterienfragen: `ja` = erfüllt, `nein` = verletzt.
+- **Post-hoc-Korrektur (2026-10-07):** Eintrag 16, `no-false-claim`, wurde von `ja` auf `nein` korrigiert, **nachdem** das Judge-Ergebnis bekannt war. Das Feedback „Der Zustandswechsel am Taster ist der entscheidende Punkt“ ist technisch irreführend (der Sketch reagiert auf den aktuellen LOW-Pegel). Für `no-false-claim` ist diese Referenz deshalb keine unabhängige Blindkalibrierung. Alle anderen Urteile sind unverändert blind.
 
-Verteilung Gesamturteil: {'gut': 12, 'schlecht': 7, 'akzeptabel': 1}. Kriterienfragen: 28 ja, 7 nein.
+Verteilung Gesamturteil: {'gut': 12, 'schlecht': 7, 'akzeptabel': 1}. Kriterienfragen: 27 ja, 8 nein (nach der Post-hoc-Korrektur; blind waren es 28 ja, 7 nein).
 
 | Eintrag | Case | Sample | Quelle | Urteil | Tags | Kriterien | Grund |
 |---:|---|---:|---|---|---|---|---|
@@ -24,7 +25,7 @@ Verteilung Gesamturteil: {'gut': 12, 'schlecht': 7, 'akzeptabel': 1}. Kriterienf
 | 13 | strong-answer-progression | 2 | provider | gut | – | no-unneeded-qualification=ja | Die korrekte Antwort wird klar bestätigt; die Folgefrage konkretisiert sinnvoll den Wert, ohne ihn vorzugeben. |
 | 14 | partial-answer-follow-up | 3 | provider | gut | – | no-solution-revealed=ja | Die Antwort wird als knapp und unvollständig eingeordnet; die Folgefrage führt gezielt zur Schleifenwirkung, ohne die Lösung zu nennen. |
 | 15 | TQ-SEM-001 | 4 | provider | schlecht | relativiert-korrekt, falsch-bewertet | accepts-correct-answer=ja, no-false-claim=ja, distinct-followup=ja, no-unneeded-qualification=nein | Die Antwort nennt die richtige physische Bedingung. Der Tutor erklärt den LOW-Zustand korrekt, relativiert aber unnötig mit „Fast richtig“; Rating 3 ist zu niedrig. |
-| 16 | TQ-SEM-001 | 3 | provider | schlecht | relativiert-korrekt, falsch-bewertet | accepts-correct-answer=ja, no-false-claim=ja, distinct-followup=ja, no-unneeded-qualification=nein | Die Lernendenantwort beschreibt die richtige Bedingung, wird aber nur als „Fast richtig“ behandelt und mit 3 zu niedrig bewertet. |
+| 16 | TQ-SEM-001 | 3 | provider | schlecht | relativiert-korrekt, falsch-bewertet | accepts-correct-answer=ja, no-false-claim=nein (post hoc), distinct-followup=ja, no-unneeded-qualification=nein | Die Lernendenantwort beschreibt die richtige Bedingung, wird aber nur als „Fast richtig“ behandelt und mit 3 zu niedrig bewertet. |
 | 17 | incorrect-answer-remediation | 4 | provider | gut | – | no-solution-revealed=ja | Die falsche Antwort wird angemessen korrigiert; der gesuchte Wert wird nicht verraten, sondern über die relevante Programmstelle erschlossen. |
 | 18 | TQ-SEM-001 | 2 | provider | akzeptabel | relativiert-korrekt | accepts-correct-answer=ja, no-false-claim=ja, distinct-followup=ja, no-unneeded-qualification=nein | Fachlich sind Feedback und Folgefrage passend und Rating 4 ist vertretbar; „Fast richtig“ relativiert die bereits richtige Kernaussage dennoch unnötig. |
 | 19 | partial-answer-follow-up | 1 | provider | gut | – | no-solution-revealed=ja | Die Unvollständigkeit wird knapp benannt; die Folgefrage fordert eine eigene Ableitung und nennt die Schleifenwirkung nicht. |

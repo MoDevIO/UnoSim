@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 9
+corpusVersion: 10
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -21,7 +21,7 @@ scenarios:
         - Der Sketch schaltet ledPin (LED_BUILTIN) HIGH, wenn digitalRead(buttonPin) == LOW.
       criteria:
         - id: accepts-correct-answer
-          text: Das Feedback erkennt die Kernaussage der Antwort als fachlich korrekt an.
+          text: Das Feedback erkennt die Kernaussage der Antwort als fachlich korrekt an, auch wenn es sie zusätzlich unnötig relativiert.
         - id: no-false-claim
           text: Feedback und Folgefrage enthalten keine fachlich falsche Aussage über den Sketch.
         - id: distinct-followup
@@ -106,11 +106,18 @@ scenarios:
         question: Welche Ausgabe erzeugt Serial.println im Sketch?
         answer: Die Funktion schreibt den aktuellen Wert von counter als Zeile in die serielle Ausgabe.
         difficulty: 40
+    expected:
+      # Eine Folgefrage darf die Antwort, die sie verlangt, nicht selbst enthalten (Punkt B, Eintrag 08).
+      mustNotReveal:
+        - counter = 3
     judge:
       facts:
         - Serial.println(counter) schreibt den aktuellen Wert von counter als eigene Zeile in die serielle Ausgabe.
-        - Die Antwort beschreibt diesen Zusammenhang korrekt.
+        - counter wird mit dem Wert 3 initialisiert.
+        - Die Antwort beschreibt den Zusammenhang zwischen Serial.println und counter korrekt.
       criteria:
+        - id: no-solution-revealed
+          text: Feedback und Folgefrage nennen die Antwort, die die Folgefrage von der lernenden Person verlangt, nicht selbst (zum Beispiel den Startwert von counter) und verweisen höchstens auf die relevante Stelle im Sketch.
         - id: no-unneeded-qualification
           text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie unnötig als nur teilweise richtig einzuschränken, etwa mit „fast“, „nicht ganz“, „teilweise“ oder einer sinngleichen Relativierung.
 

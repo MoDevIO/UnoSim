@@ -29,7 +29,7 @@ Referenzmodell–Judge-Übereinstimmung.
 | `no-unneeded-qualification` | 10 (5 `TQ-SEM-001`, 5 Kontrolle `strong-answer-progression`) | 5 | 5/5 | 5/5 | volle Übereinstimmung, Kontrolle blieb ruhig |
 | `no-solution-revealed` | 10 (5 `incorrect-…`, 5 Kontrolle `partial-…`) | 2 | 2/2 | 8/8 | volle Übereinstimmung, Kontrolle blieb ruhig |
 | `accepts-correct-answer` | 5 | 0 | – | 2/5 | 3 Judge-`fail` bei Referenz `ja` |
-| `no-false-claim` | 5 | 0 | – | 4/5 | 1 Judge-`fail` bei Referenz `ja` (siehe 3.2) |
+| `no-false-claim` | 5 | 1 (post hoc) | 1/1 | 4/4 | Referenz Eintrag 16 nach Sichtung des Judge-Ergebnisses korrigiert (3.3); keine Blindkalibrierung |
 | `distinct-followup` | 5 | 0 | – | 5/5 | keine Verletzung auf beiden Seiten |
 
 ## 3. Befunde
@@ -59,13 +59,14 @@ kritische Problem `correct-answer-rejected`. Das Kriterium doppelt damit
 `accepts-correct-answer` schärfen („auch wenn zusätzlich relativiert wird“), oder
 das Kriterium streichen, oder die Referenz anpassen.
 
-### 3.3 Mögliche Lücke der Referenz bei Eintrag 16
+### 3.3 Korrektur der Referenz bei Eintrag 16 (post hoc)
 
 Eintrag 16 (`TQ-SEM-001`, Sample 3): Feedback „Der Zustandswechsel am Taster ist der
 entscheidende Punkt“. Der Judge bewertet `no-false-claim = fail` (die LED hängt vom
-aktuellen LOW-Pegel ab, nicht von einem Wechsel); die Referenz sagte `ja`. Der
-Judge hat hier plausibel recht. Das ist eine Rückfrage an die Referenz, keine
-Änderung am Judge. Die Referenz wird erst nach Ihrer Entscheidung angepasst.
+aktuellen LOW-Pegel ab, nicht von einem Wechsel). Die Referenz hatte blind `ja`
+gesagt und wurde am 2026-10-07 **nach Kenntnis des Judge-Ergebnisses** auf `nein`
+korrigiert. Für `no-false-claim` ist die Referenz deshalb keine unabhängige
+Blindkalibrierung; sie steht mit diesem Vermerk in der Referenzdatei.
 
 ### 3.4 Kritisches Problem `complete-solution` ist zu grob
 
@@ -93,11 +94,17 @@ Lauf schon).
   Samples von `incorrect-answer-remediation` und 1 von 5 in
   `strong-answer-progression` auf.
 
-## 4. Offene Entscheidungen
+## 4. Entscheidungen vom 2026-10-07
 
-1. `accepts-correct-answer`: schärfen, streichen oder die Referenz anpassen?
-2. Referenz Eintrag 16, `no-false-claim`: bestätigen oder auf `nein` korrigieren?
-3. `no-solution-revealed` und `mustNotReveal` auch in `strong-answer-progression`?
-4. Tutor-Prompt gegen den Lösungsverrat in der Folgefrage (`int counter = 3;`)?
-   Erst nach Ihrer Entscheidung und mit einem Nachlauf.
-5. Modellvergleich für die Relativierung in `TQ-SEM-001` (feste Modell-ID nötig).
+1. `accepts-correct-answer` wird geschärft („…, auch wenn es sie zusätzlich unnötig
+   relativiert“) und bleibt orthogonal zu `no-unneeded-qualification`; die Referenz
+   bleibt unverändert. Wirkung erst nach einem neuen Lauf messbar.
+2. Eintrag 16 auf `nein` (post hoc, siehe 3.3).
+3. `mustNotReveal` (`counter = 3`) und `no-solution-revealed` auch in
+   `strong-answer-progression` (Corpus v10).
+4. Enger Prompt-Fix gegen den Lösungsverrat in der Folgefrage, als eigener PR, mit
+   gezieltem Nachlauf (`incorrect-answer-remediation`, `strong-answer-progression`,
+   Kontrolle `partial-answer-follow-up`).
+5. Modellvergleich `openai-gpt5.4-mini` gegen `openai-gpt5.5` nur für `TQ-SEM-001`,
+   getrennt vom Prompt-Fix. Mögliche Selbstbewertungs-Verzerrung ist zu dokumentieren,
+   weil `openai-gpt5.5` auch Judge ist. `complete-solution` bleibt unverändert.

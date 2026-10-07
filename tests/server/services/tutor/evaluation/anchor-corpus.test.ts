@@ -117,7 +117,8 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(byId.get("incorrect-answer-remediation")?.expected?.mustNotReveal).toEqual(["counter = 3"]);
     expect(criterionIds("incorrect-answer-remediation")).toEqual(["no-solution-revealed"]);
     expect(criterionIds("partial-answer-follow-up")).toEqual(["no-solution-revealed"]);
-    expect(criterionIds("strong-answer-progression")).toEqual(["no-unneeded-qualification"]);
+    expect(criterionIds("strong-answer-progression")).toEqual(["no-solution-revealed", "no-unneeded-qualification"]);
+    expect(byId.get("strong-answer-progression")?.expected?.mustNotReveal).toEqual(["counter = 3"]);
     expect(byId.get("off-topic-answer")?.judge).toBeUndefined();
   });
 
@@ -131,7 +132,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 9, digest: "bd79c1bfcae5fdcfdd349cd1bce69450903d364a8ff3c751c476598bc935a46b" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 10, digest: "d171eb3c7a63282178975c326fe1fbf40eff102c83ef3844f875fa8716b5085f" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
