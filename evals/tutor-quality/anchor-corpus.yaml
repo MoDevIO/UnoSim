@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 11
+corpusVersion: 12
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -69,6 +69,9 @@ scenarios:
         answer: Der Sketch gibt immer 99 aus.
         difficulty: 25
     expected:
+      # Klar falsche geskriptete Antwort (SSOT R-RAT-1): Rating 3 bis 5 ist ein deterministischer Befund.
+      # Beobachtet in Punkt B, C, D (15 Samples): 2, 2, 2, 2, 2, 2, 1, 2, 2, 1, 2, 1, 2, 2, 5.
+      answerRating: [1, 2]
       mustNotReveal:
         - counter = 3
     judge:

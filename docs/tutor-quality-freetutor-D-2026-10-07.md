@@ -94,11 +94,17 @@ Zufallstreffer des Judge sichtbar wurden, und der Leak in `partial-answer-follow
 Dass sie mit v4 zusammenhängen, ist nicht belegt; B und C haben dafür 0 von 10 bzw. 0 von
 10 Samples.
 
-## 6. Offene Entscheidungen
+## 6. Entscheidungen vom 2026-10-07 und Entscheidungsregel für den Klärungslauf
 
-1. Corpus v12 mit `answerRating: [1, 2]` für `incorrect-answer-remediation`, damit eine
-   Bewertung 3 bis 5 einer klar falschen Antwort deterministisch auffällt (R-RAT-1/R-RAT-4).
-2. Ein weiterer Lauf, um zu prüfen, ob Eintrag 11 Varianz oder ein v4-Effekt ist (zum
-   Beispiel nur `incorrect-answer-remediation` mit 10 Samples: 1 + 10 × (2 + 1) = 31 Calls).
-3. Prompt-PR (v3 + v4) erst nach Entscheidung zu 1 und 2 zur Prüfung freigeben.
-4. Modellvergleich für `TQ-SEM-001` bleibt offen (32 Calls).
+1. Corpus v12: `answerRating: [1, 2]` für `incorrect-answer-remediation` (schließt eine
+   Lücke nach R-RAT-1, kein Sonderfall für Eintrag 11).
+2. Klärungslauf nur für `incorrect-answer-remediation`, 10 Samples, 31 Calls, Prompt
+   unverändert (v4). Er zeigt, ob das Verhalten unter v4 wiederholt auftritt, **nicht** ob
+   v4 es verursacht (dafür bräuchte es einen kontrollierten v2–v4-Vergleich). Verdeckte
+   Referenzbewertung von 10 Einträgen; auch Textfehler wie „korrekt erkannt“ bei „99“ zählen.
+   **Vorab festgelegt:** 0 von 10 weitere klar falsch bewertete Fälle (Rating 3 bis 5 oder
+   Textfehler) = isolierter Ausreißer; 1 von 10 = selten, kein automatischer
+   Merge-Blocker, als Restrisiko dokumentieren; mindestens 2 von 10 = der Prompt-PR wird
+   vor dem Merge erneut untersucht.
+3. Prompt-PR (v3 + v4) erst nach dem Klärungslauf zum Merge freigeben.
+4. Modellvergleich `TQ-SEM-001` danach und getrennt, auf stabilem Stand.
