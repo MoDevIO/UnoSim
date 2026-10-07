@@ -47,15 +47,21 @@ export default defineConfig({
         drop_console: false,
       },
       mangle: true,
-      output: {
+      format: {
         comments: false,
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "monaco-editor": ["monaco-editor"],
-          "recharts": ["recharts"],
+        codeSplitting: {
+          groups: [
+            { name: "monaco-editor", test: /node_modules[\\/]monaco-editor[\\/]/ },
+            {
+              name: "recharts",
+              // recharts and its own dependency tree, so none of it lands in the initial chunk.
+              test: /node_modules[\\/](?:recharts|recharts-scale|victory-vendor|d3-[a-z-]+|internmap|decimal\.js-light|eventemitter3|fast-equals|react-smooth|react-transition-group|dom-helpers|lodash)[\\/]/,
+            },
+          ],
         },
       },
     },
