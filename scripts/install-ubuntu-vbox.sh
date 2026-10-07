@@ -9,7 +9,9 @@ usage() {
 Usage: ./scripts/install-ubuntu-vbox.sh --lan-ip IPv4
 
 Run from an UnoSim checkout as a regular user with sudo access. The address
-must already be assigned to this host's LAN-facing network interface.
+must already be assigned to this host's LAN-facing network interface. The
+script cannot tell whether a VirtualBox adapter uses NAT or a network bridge;
+the usual NAT address 10.0.2.15 is not reachable directly from the LAN.
 USAGE
 }
 
@@ -78,10 +80,13 @@ LAN_INTERFACE="$(ip -o -4 addr show scope global | awk -v target="$LAN_IP" '
 if [[ "$LAN_INTERFACE" =~ ^(docker0|docker_gwbridge|br-[[:xdigit:]]+|veth.*|virbr[0-9]*|cni[0-9]*|podman[0-9]*)$ ]]; then
   fail "$LAN_IP liegt auf der Container-/virtuellen Schnittstelle $LAN_INTERFACE, nicht auf der LAN-Schnittstelle."
 fi
+printf 'Verwende LAN-Adresse %s auf %s. Prüfe bei VirtualBox, dass der Adapter als Netzwerkbrücke eingerichtet ist; die NAT-Adresse 10.0.2.15 ist normalerweise nicht aus dem LAN erreichbar.\n' \
+  "$LAN_IP" "$LAN_INTERFACE"
 
 command -v sudo >/dev/null 2>&1 || fail 'sudo ist erforderlich.'
 sudo -v
 
+command -v git >/dev/null 2>&1 || fail 'Git fehlt. Installiere es mit „sudo apt update && sudo apt install -y git“ und starte das Skript aus dem UnoSim-Verzeichnis erneut.'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || fail 'Das Skript muss aus einer UnoSim-Git-Arbeitskopie ausgeführt werden.'
 [[ -f "$PROJECT_DIR/Dockerfile" ]] || fail 'Dockerfile fehlt in der UnoSim-Arbeitskopie.'
@@ -141,6 +146,16 @@ getent group docker >/dev/null || fail 'Die Docker-Gruppe wurde vom Paket docker
 sudo usermod -aG docker "$INSTALL_USER"
 
 sudo docker info >/dev/null || fail 'Der Docker-Daemon ist nicht erreichbar.'
+
+# These directories are bind-mounted into the backend container at runtime.
+mkdir -p "$PROJECT_DIR/server/arduino-cache" "$PROJECT_DIR/temp" "$PROJECT_DIR/storage"
+
+cd "$PROJECT_DIR"
+printf 'Baue das UnoSim-Sandbox-Image …\n'
+sudo docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
+
+# Generate the runtime environment only after the independent sandbox build
+# succeeds. That avoids leaving a partial .env behind if that build fails.
 DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
 GATEWAY_SECRET="$(openssl rand -hex 32)"
 ALLOWED_ORIGINS="https://unosim.vbox,https://unosim.vbox:8443,https://${LAN_IP},https://${LAN_IP}:8443,https://localhost,https://localhost:8443,https://127.0.0.1,https://127.0.0.1:8443"
@@ -155,15 +170,28 @@ ALLOWED_ORIGINS="https://unosim.vbox,https://unosim.vbox:8443,https://${LAN_IP},
 )
 chmod 600 "$ENV_FILE"
 
-# These directories are bind-mounted into the backend container at runtime.
-mkdir -p "$PROJECT_DIR/server/arduino-cache" "$PROJECT_DIR/temp" "$PROJECT_DIR/storage"
+printf 'Baue das UnoSim-Backend-Image …\n'
+if ! sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" build unosim-backend; then
+  printf 'Der Backend-Build mit Docker-Cache ist fehlgeschlagen. Wiederhole ihn einmal ohne Cache …\n' >&2
+  if ! sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" build --no-cache unosim-backend; then
+    printf '\nDer automatische Build-Versuch ohne Cache ist ebenfalls fehlgeschlagen.\n' >&2
+    printf 'Prüfe den Buildfehler. Ein erneuter manueller Versuch ist mit diesem Befehl möglich:\n' >&2
+    printf '  sudo docker compose --project-directory %q build --no-cache unosim-backend\n' "$PROJECT_DIR" >&2
+    printf 'Wenn er erfolgreich ist, verschiebe die vom fehlgeschlagenen Lauf angelegte .env root-geschützt und starte dieses Skript erneut.\n' >&2
+    fail 'UnoSim-Backend konnte auch ohne Docker-Cache nicht gebaut werden.'
+  fi
+fi
 
-cd "$PROJECT_DIR"
-printf 'Baue das UnoSim-Sandbox-Image …\n'
-sudo docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
+printf 'Starte den UnoSim-Backenddienst …\n'
+sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" up -d --no-build unosim-backend
 
-printf 'Baue und starte den UnoSim-Backenddienst …\n'
-sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" up -d --build unosim-backend
+printf 'Warte auf die Backend-Readiness …\n'
+BACKEND_READINESS="$(curl --retry 10 --retry-connrefused --retry-delay 2 --fail --silent --show-error \
+  http://127.0.0.1:3000/api/readiness)" || {
+  sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" logs --tail 80 unosim-backend >&2 || true
+  fail 'Der Backenddienst wurde gestartet, meldet aber keine Readiness. Prüfe die Compose-Logs.'
+}
+printf 'Backend-Readiness: %s\n' "$BACKEND_READINESS"
 
 # Keep the private key readable only by root and the public certificate
 # readable by Nginx's workers and client transfer tools.
@@ -240,6 +268,12 @@ else
     fail 'Nginx konnte nicht gestartet werden; der neue Site-Link wurde entfernt.'
   fi
 fi
+
+printf 'Prüfe HTTPS-Gateway und Proxy …\n'
+GATEWAY_READINESS="$(curl --retry 10 --retry-connrefused --retry-delay 2 --fail --silent --show-error \
+  --insecure --resolve 'unosim.vbox:443:127.0.0.1' \
+  https://unosim.vbox/api/readiness)" || fail 'Nginx ist aktiv, aber die Readiness-Prüfung über HTTPS ist fehlgeschlagen.'
+printf 'Gateway-Readiness: %s\n' "$GATEWAY_READINESS"
 
 printf '\nUnoSim ist eingerichtet.\n'
 printf 'URLs:             https://unosim.vbox/ und https://unosim.vbox:8443/\n'
