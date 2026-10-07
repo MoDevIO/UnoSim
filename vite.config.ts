@@ -36,6 +36,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
+    manifest: true,
     // Monaco (~2.54 MB) and recharts (~514 kB) are lazy-loaded vendor chunks and
     // cannot shrink below 500 kB. Limit sits just above Monaco; the real size
     // gate is scripts/check-bundle-budget.mjs (total/largest/initial).
@@ -55,8 +56,9 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
-            { name: "monaco-editor", test: /node_modules[\\/]monaco-editor[\\/]/ },
-            { name: "recharts", test: /node_modules[\\/]recharts[\\/]/ },
+            // Keep the `?worker` wrapper out of this group: main.tsx imports it statically and it
+            // would otherwise make the whole Monaco chunk a static dependency of the entry.
+            { name: "monaco-editor", test: /node_modules[\\/]monaco-editor[\\/](?!.*\?worker)/ },
           ],
         },
       },
