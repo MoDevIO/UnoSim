@@ -31,6 +31,7 @@ import {
   type TutorQualitySemanticEvaluation,
 } from "./judge";
 import { createTutorQualityRunManifest, writeRunArtifacts } from "./report";
+import { findRevealedLiteral } from "./reveal-check";
 import { computeTutorQualityVerdict, type TutorQualityVerdict, type TutorQualityVerdictSample } from "./quality-verdict";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
@@ -520,12 +521,35 @@ function addViolation(
   violations.push({ code, source, ...(turnIndex === undefined ? {} : { turnIndex }), ...(details ? { details } : {}) });
 }
 
+function declaredLeakCheck(
+  rawResult: unknown,
+  literals: readonly string[] | undefined,
+  turnIndex: number,
+  checks: TutorQualityDeterministicCheck[],
+  violations: TutorQualityInvariantViolation[],
+): void {
+  if (literals === undefined) return;
+  const raw = typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)
+    ? rawResult as { feedback?: unknown; question?: unknown }
+    : {};
+  const texts = [raw.feedback, raw.question].filter((text): text is string => typeof text === "string");
+  if (texts.length === 0) {
+    addNotApplicableCheck(checks, "raw-provider-no-declared-leak", "raw-provider-no-readable-text");
+    return;
+  }
+  // A miss only means that no declared literal occurred (R-REV-3).
+  const revealed = findRevealedLiteral(texts, literals);
+  addCheck(checks, "raw-provider-no-declared-leak", revealed === undefined, revealed);
+  if (revealed !== undefined) addViolation(violations, "solution-revealed", "raw-provider", turnIndex, revealed);
+}
+
 function deterministicRawChecks(
   rawResult: unknown,
   turn: TutorQualityTurn,
   turnIndex: number,
   checks: TutorQualityDeterministicCheck[],
   violations: TutorQualityInvariantViolation[],
+  expected?: TutorQualityExpectation,
 ): void {
   const inspection = inspectLearningQuestion(rawResult, turn.difficulty);
   const issueCodes = new Set(inspection.violations.map(({ code }) => code));
@@ -543,6 +567,7 @@ function deterministicRawChecks(
     addViolation(violations, issue.code, "raw-provider", turnIndex);
   }
   if (turn.kind !== "dialog") return;
+  declaredLeakCheck(rawResult, expected?.mustNotReveal, turnIndex, checks, violations);
   const question = typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)
     ? (rawResult as { question?: unknown }).question
     : undefined;
@@ -827,11 +852,11 @@ function processCapture(
   const returnedModel = capture.response.model;
   if (typeof returnedModel === "string" && returnedModel.trim().length > 0) {
     addCheck(checks, "returned-model-present", true);
-    deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
+    deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
     return { returnedModel };
   }
   addCheck(checks, "returned-model-present", false, "missing");
-  deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations);
+  deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
   return { invalidReason: "returned-model-missing" };
 }
 

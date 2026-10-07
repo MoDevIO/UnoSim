@@ -250,6 +250,7 @@ error: no silently ignored typos.
 | `progressionBlockedReason` | a `ProgressionBlockedReason` value | every turn | see §6.6 |
 | `stateUnchanged` | boolean | every turn | progression state equals the sample's initial state |
 | `questionNotRepeat` | `exact-or-heuristic` | every dialog turn | final question is not an exact or heuristic repeat of the answered question or history |
+| `mustNotReveal` | list of 1–5 non-empty strings | every dialog turn | none of the literals occurs in the raw provider `feedback` or `question` (R-REV-1..3) |
 
 Allowed values for phases and blocked reasons come from the application
 types (`DidacticPhase`, `ProgressionBlockedReason`); the corpus parser does
@@ -264,7 +265,8 @@ per-turn expectations are the extension point.
 **R-RAT-1** `answerRating` is required when:
 
 1. the rating itself is the subject of the case (for example "a wrong
-   answer must not be rated as correct"), or
+   answer must not be rated as correct", or "an answer that the case
+   scripts as correct must not be rated as insufficient"), or
 2. `phaseAfter` is checked and the transition depends on the rating.
 
 **R-RAT-2** Enforced by the parser: when `phaseAfter` is declared,
@@ -288,6 +290,14 @@ wrong" apart.
 **R-RAT-6** L1 fake providers derive their rating from the case's
 `answerRating` band (for example its lower or upper bound, fixed per test),
 never from incidental prompt content.
+
+**R-RAT-7** Whether a scripted learner answer is correct is decided by the
+case author, not inferred from the Tutor's text. For a case whose answer the
+author scripts as correct, the declared `answerRating` band excludes ratings
+that signal an insufficient answer. There is no general check that compares a
+rating with the wording of the feedback: where the corpus does not declare the
+correctness of the answer, no deterministic rating-versus-text check exists, and
+a criterion about the feedback wording MUST NOT rely on the rating (R-CRT-2).
 
 ### 6.6 Blocked states
 
@@ -432,12 +442,49 @@ model (R-RSP-2).
 
 Per turn with a provider response (raw provider output, before repair):
 schema valid; exactly one primary question; no complete solution; no exact or
-heuristic question repeat.
+heuristic question repeat; none of the case's `mustNotReveal` literals
+(R-REV-1..3).
 
 Per turn with a final result: the expectations of §6.4 in their scope;
 content revision consistent; phase/state consistency (R-PH-2); active Topic
 consistent with state; no reuse of an already used Question ID; blocked state
 (§6.6); after a technical failure, state unchanged.
+
+### 8.1.1 Declared literal leaks (`mustNotReveal`)
+
+**R-REV-1** The case author lists case-specific literals that would reveal
+the sought answer, for example `counter = 3` for the question "Which value does
+the sketch print?". A literal is a specific expression or phrase, for example
+`counter = 3`, `startwert drei`, or `digitalRead(buttonPin) == LOW`. After the
+normalization of R-REV-2 it has at least three characters, contains a letter,
+and either consists of more than one word or contains an operator or punctuation
+character. A bare value such as `3` and a single plain word such as `drei`,
+`low`, or `counter` are not valid literals, because they match unrelated text
+and would turn the check into a growing list of solution words. Semantic
+variants belong to the Judge criterion (R-REV-3, R-CRT-5). A list contains each
+normalized literal at most once.
+
+**R-REV-2** Matching is normalized, identically for the literal and for the
+raw provider `feedback` and `question`: NFKC; case-folding; removal of
+Markdown code and emphasis characters (`` ` ``, `*`); whitespace runs collapsed
+to one space; spaces next to a character that is not a letter, digit, or
+underscore removed. A literal matches when it occurs and is neither directly
+preceded nor directly followed by a letter, digit, or underscore. Thus
+`counter = 3` matches `` `int counter = 3;` `` and `counter=3`, but not
+`counter = 30` or `mycounter = 3`.
+
+**R-REV-3** A match is the violation `solution-revealed` with source
+`raw-provider` (an LLM behavior, counted per R-VER-4, not a product defect). A
+non-match means only "no declared literal leak". It does NOT mean that no
+solution was revealed: paraphrases ("the start value is three") are outside the
+check and belong to the Judge criterion for the same behavior (R-CRT-5). The
+check MUST NOT replace that criterion and MUST NOT grow into a list of
+heuristic phrasings.
+
+A solution is *revealed* when the feedback or the follow-up question states the
+sought professional answer explicitly, or so directly that the learner only has
+to read it off or repeat it. Pointing to the relevant place in the sketch
+without naming the sought value is not a reveal.
 
 ### 8.2 Attribution
 
@@ -560,6 +607,23 @@ is good").
 criterion about the follow-up question evaluates planner and Course Content
 behavior, not the LLM. Authors keep this in mind, and the report shows the
 provenance.
+
+**R-CRT-5** Two behaviors have a defined meaning for authors. They are
+documented here so that criteria for the same behavior stay comparable:
+
+- *Revealed solution* (see §8.1.1): the criterion states that feedback and
+  follow-up question do not name the sought value explicitly or so directly
+  that it only has to be repeated.
+- *Unneeded qualification*: the feedback restricts a correct learner answer
+  with wording such as "almost", "not quite", or "partly correct", or with an
+  equivalent qualification, although the answer states the core of the correct
+  solution. A criterion for it applies only to a case whose scripted answer the
+  author declares correct (R-RAT-7) and quotes `tutor.feedback`. It is distinct from "accepts the correct
+  answer": a feedback can accept the answer and still qualify it without need.
+
+A positive control (a case with a good answer that must pass) SHOULD accompany a
+criterion for these behaviors, to show that the Judge stays quiet on good
+answers. Not every criterion belongs in every case.
 
 ## 10. Follow-up provenance
 
@@ -746,6 +810,7 @@ justifies it.
 | Tutor prompt templates | existing Tutor prompt revision/digest mechanism; L3 run before merge |
 | planner, adapter, strategy, Course Content semantics | L1 green; L3 run before merge |
 | new expectation key | update §6.4, parser allowlist, L2 parser tests |
+| new check on the raw provider output | update §8.1; the finding key stays `raw-provider/<code>` (R-VER-3), no verdict revision |
 | verdict rule (§12) | bump the verdict rule revision (R-VER-9); L2 verdict tests |
 
 ## 14. Non-goals
@@ -839,8 +904,8 @@ workflow. It has no `pull_request` or `push` trigger (R-PYR-2).
   this runbook and of the workflow contract test.
 - **Full-corpus configuration** used for merge decisions (R-BUD-2, compute
   before every run from the current call graph): Tutor `openai-gpt5.4-mini`,
-  Judge `openai-gpt5.5`, 5 samples per case, no `--case`; for corpus v8
-  `1 + 5 × (52 + 9) = 306` calls.
+  Judge `openai-gpt5.5`, 5 samples per case, no `--case`; for corpus v9
+  `1 + 5 × (52 + 12) = 321` calls.
 - **Result**: the job result is the CLI exit code (R-VER-8). `pass` and `warn`
   are green; `fail` (exit 2) and `inconclusive` (exit 3) are red; a run without
   the Tutor or Judge secret ends `not-run` and stays green (R-PYR-2); it is no

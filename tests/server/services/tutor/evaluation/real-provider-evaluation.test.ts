@@ -415,6 +415,65 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     });
   });
 
+  describe("declared literal leaks (R-REV-1..3)", () => {
+    const revealScenario = () => scenario({ expected: { mustNotReveal: ["counter = 3"] } });
+    const outcomeOf = (checks: readonly { readonly name: string; readonly outcome?: string }[], name: string) => checks.find((check) => check.name === name);
+
+    it("reports a raw-provider violation when the raw follow-up question contains a declared literal", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({
+        responseStyle: "normal",
+        answerRating: 2,
+        feedback: "Nicht ganz.",
+        question: "Welcher Wert steht bei `int counter = 3;` im Sketch?",
+      }), { scenarios: [revealScenario()] }));
+      const transcript = result.transcripts[0]!;
+
+      expect(outcomeOf(transcript.turns[0]!.deterministicChecks, "raw-provider-no-declared-leak")).toMatchObject({ outcome: "fail", details: "counter = 3" });
+      expect(transcript.invariantViolations).toContainEqual(expect.objectContaining({ code: "solution-revealed", source: "raw-provider", turnIndex: 0 }));
+    });
+
+    it("also searches the raw feedback", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({
+        responseStyle: "normal",
+        answerRating: 2,
+        feedback: "Im Sketch steht counter=3.",
+        question: "Welche Rolle spielt die Variable beim Ausgeben?",
+      }), { scenarios: [revealScenario()] }));
+
+      expect(result.transcripts[0]!.invariantViolations.map(({ code }) => code)).toContain("solution-revealed");
+    });
+
+    it("passes when no declared literal occurs and does not claim more than that", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({
+        responseStyle: "normal",
+        answerRating: 2,
+        feedback: "Der Startwert ist drei.",
+        question: "Welchen Wert hat die Variable beim Aufruf von Serial.println?",
+      }), { scenarios: [revealScenario()] }));
+      const transcript = result.transcripts[0]!;
+
+      expect(outcomeOf(transcript.turns[0]!.deterministicChecks, "raw-provider-no-declared-leak")).toMatchObject({ outcome: "pass" });
+      expect(transcript.invariantViolations.map(({ code }) => code)).not.toContain("solution-revealed");
+    });
+
+    it("adds no check for a scenario without mustNotReveal", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({
+        responseStyle: "normal",
+        answerRating: 2,
+        feedback: "Nicht ganz.",
+        question: "Was steht bei `int counter = 3;`?",
+      })));
+
+      expect(result.transcripts[0]!.turns[0]!.deterministicChecks.map(({ name }) => name)).not.toContain("raw-provider-no-declared-leak");
+    });
+
+    it("reports the check as not applicable when the raw output has no readable texts", async () => {
+      const result = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", answerRating: "x" }), { scenarios: [revealScenario()] }));
+
+      expect(outcomeOf(result.transcripts[0]!.turns[0]!.deterministicChecks, "raw-provider-no-declared-leak")).toMatchObject({ outcome: "not-applicable" });
+    });
+  });
+
   it("records the existing bounded heuristic for a near-repeat", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({
       responseStyle: "normal",

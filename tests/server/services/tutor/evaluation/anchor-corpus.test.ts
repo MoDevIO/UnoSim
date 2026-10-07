@@ -73,7 +73,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(corpus.corpusVersion).toBeGreaterThanOrEqual(5);
     expect(new Set(corpus.scenarios.map(({ id }) => id)).size).toBe(corpus.scenarios.length);
     expect(corpus.scenarios.map(({ id }) => id)).toEqual(expect.arrayContaining(["TQ-SEM-001", "TQ-REG-001"]));
-    expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
+    expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(4);
   });
 
   it("binds every dialog turn of a Strategy case (expected.learningPhase) to a planner-served question and keeps Judge facts free of internal IDs", () => {
@@ -103,6 +103,27 @@ describe("Tutor Quality anchor corpus contract", () => {
     }
   });
 
+  it("encodes the Freetutor findings of the human baseline (R-RAT-7, R-REV-1, R-CRT-5)", () => {
+    const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
+    const corpus = parseTutorQualityCorpus(source, {
+      sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
+      courseContentFixtures: new Set(ANCHOR_COURSE_CONTENT_FIXTURE_IDS),
+    });
+    const byId = new Map(corpus.scenarios.map((scenario) => [scenario.id, scenario]));
+    const criterionIds = (id: string) => byId.get(id)?.judge?.criteria.map((criterion) => criterion.id);
+
+    expect(byId.get("TQ-SEM-001")?.expected?.answerRating).toEqual([4, 5]);
+    expect(criterionIds("TQ-SEM-001")).toContain("no-unneeded-qualification");
+    expect(byId.get("incorrect-answer-remediation")?.expected?.mustNotReveal).toEqual(["counter = 3"]);
+    expect(byId.get("incorrect-answer-remediation")?.expected?.answerRating).toEqual([1, 2]);
+    expect(criterionIds("incorrect-answer-remediation")).toEqual(["no-solution-revealed"]);
+    expect(criterionIds("partial-answer-follow-up")).toEqual(["no-solution-revealed"]);
+    expect(byId.get("partial-answer-follow-up")?.expected?.mustNotReveal).toEqual(["counter += 1"]);
+    expect(criterionIds("strong-answer-progression")).toEqual(["no-solution-revealed", "no-unneeded-qualification"]);
+    expect(byId.get("strong-answer-progression")?.expected?.mustNotReveal).toEqual(["counter = 3"]);
+    expect(byId.get("off-topic-answer")?.judge).toBeUndefined();
+  });
+
   it("bumps corpusVersion whenever the parsed corpus digest changes (R-COR-1)", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const current = parseTutorQualityCorpus(source, {
@@ -113,7 +134,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 8, digest: "2a37b16ad9b9d49b1673df50e9cb968e22993edd2a217255d962adad89159811" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 12, digest: "d2114cf7db70d736e1ae6c7702891b99b1dece84662b9935f0005887a4b9e51f" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
@@ -287,6 +308,40 @@ describe("Tutor Quality anchor corpus contract", () => {
 
     it("does not require a rating band for a pure Judge case without a progression claim", () => {
       expect(() => parseTutorQualityCorpus(withExpected({ learningPhase: "LEARN" }), references)).not.toThrow();
+    });
+  });
+
+  describe("expected.mustNotReveal contract (R-REV-1)", () => {
+    function withReveal(mustNotReveal: unknown) {
+      const base = validSource().scenarios[0]!;
+      return { ...validSource(), scenarios: [{ ...base, expected: { mustNotReveal } }] } as unknown as TutorQualityCorpusSource;
+    }
+
+    it("parses a list of specific literals", () => {
+      const corpus = parseTutorQualityCorpus(withReveal(["counter = 3", "startwert drei"]), references);
+      expect(corpus.scenarios[0]?.expected).toEqual({ mustNotReveal: ["counter = 3", "startwert drei"] });
+    });
+
+    it.each([
+      ["empty list", []],
+      ["more than five literals", ["aaa1", "aaa2", "aaa3", "aaa4", "aaa5", "aaa6"]],
+      ["not an array", "counter = 3"],
+      ["non-string entry", ["counter = 3", 3]],
+      ["bare value", ["3"]],
+      ["single plain word", ["drei"]],
+      ["blank literal", ["   "]],
+      ["duplicate after normalization", ["counter = 3", "Counter=3"]],
+    ])("rejects an invalid list: %s", (_label, mustNotReveal) => {
+      expect(() => parseTutorQualityCorpus(withReveal(mustNotReveal), references)).toThrow(/mustNotReveal/);
+    });
+
+    it("requires a dialog turn", () => {
+      const base = validSource().scenarios[0]!;
+      const source = {
+        ...validSource(),
+        scenarios: [{ ...base, turns: [{ kind: "initial", difficulty: 20 }], expected: { mustNotReveal: ["counter = 3"] } }],
+      } as unknown as TutorQualityCorpusSource;
+      expect(() => parseTutorQualityCorpus(source, references)).toThrow(/mustNotReveal/);
     });
   });
 

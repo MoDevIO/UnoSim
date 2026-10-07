@@ -5,6 +5,7 @@ import {
   type ProgressionBlockedReason,
 } from "../curriculum/progression-state";
 import { canonicalDigest } from "./canonical";
+import { isValidRevealLiteral, normalizeRevealLiteral } from "./reveal-check";
 
 export interface TutorQualityHistoryEntrySource {
   readonly question: string;
@@ -49,6 +50,7 @@ export interface TutorQualityExpectation {
   readonly progressionBlockedReason?: ProgressionBlockedReason;
   readonly stateUnchanged?: boolean;
   readonly questionNotRepeat?: "exact-or-heuristic";
+  readonly mustNotReveal?: readonly string[];
 }
 
 export interface TutorQualityJudgeSource {
@@ -182,7 +184,7 @@ function parseAnswerRatingBand(value: unknown, label: string): TutorQualityAnswe
   return [value[0] as number, value[1] as number];
 }
 
-const EXPECTED_KEYS = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat"]);
+const EXPECTED_KEYS = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat", "mustNotReveal"]);
 
 function optionalEnumValue<T extends string>(value: unknown, allowed: readonly T[], label: string): T | undefined {
   if (value === undefined) return undefined;
@@ -215,6 +217,31 @@ function parseProgressionExpectation(
   };
 }
 
+const MAX_REVEAL_LITERALS = 5;
+
+function parseMustNotReveal(
+  value: unknown,
+  label: string,
+  turns: readonly TutorQualityTurnSource[],
+): readonly string[] | undefined {
+  if (value === undefined) return undefined;
+  const field = `${label}.expected.mustNotReveal`;
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_REVEAL_LITERALS) {
+    fail(`${field} must be a list of 1 to ${MAX_REVEAL_LITERALS} literals`);
+  }
+  if (!turns.some((turn) => turn.kind === "dialog")) fail(`${field} requires a dialog turn`);
+  const seen = new Set<string>();
+  for (const literal of value) {
+    if (typeof literal !== "string" || !isValidRevealLiteral(literal)) {
+      fail(`${field} literals must be specific strings (at least 3 characters with a letter)`);
+    }
+    const normalized = normalizeRevealLiteral(literal);
+    if (seen.has(normalized)) fail(`${field} contains a duplicate literal`);
+    seen.add(normalized);
+  }
+  return value as readonly string[];
+}
+
 function parseExpected(
   value: unknown,
   label: string,
@@ -232,6 +259,7 @@ function parseExpected(
   if (value.questionNotRepeat !== undefined && value.questionNotRepeat !== "exact-or-heuristic") {
     fail(`${label}.expected.questionNotRepeat is invalid`);
   }
+  const mustNotReveal = parseMustNotReveal(value.mustNotReveal, label, turns);
   return {
     ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
     ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
@@ -239,6 +267,7 @@ function parseExpected(
     ...(progressionBlockedReason === undefined ? {} : { progressionBlockedReason }),
     ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
     ...(value.questionNotRepeat === "exact-or-heuristic" ? { questionNotRepeat: value.questionNotRepeat } : {}),
+    ...(mustNotReveal === undefined ? {} : { mustNotReveal }),
   };
 }
 
