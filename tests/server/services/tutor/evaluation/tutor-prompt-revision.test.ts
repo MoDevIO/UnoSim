@@ -156,4 +156,3 @@ describe("rating independent of the follow-up question (Freetutor point C, stron
     expect(prompt).toContain(RULE);
   });
 });
-
