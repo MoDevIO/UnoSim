@@ -27,8 +27,11 @@ export LOG_LEVEL=1
 export NODE_ENV=test
 # Keep the test pipeline on the supported local profile and prevent removed
 # shell-level mode selectors from leaking into Vitest or later pipeline steps.
+# Keep this list in sync with removedRuntimeVariables in server/config.ts (guarded by
+# tests/server/run-tests-environment-contract.test.ts): config.ts rejects these at startup.
 unset UNOSIM_SIMULATION_MODE UNOSIM_TRUST_MODE FORCE_DOCKER \
-    UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY
+    UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY \
+    SANDBOX_POOL_MIN_RUNNERS SANDBOX_POOL_MAX_RUNNERS DOCKER_COMPILE_CONCURRENT
 export UNOSIM_SERVER_MODE=local
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
@@ -70,7 +73,12 @@ cleanup() {
     fi
 }
 if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
-    trap cleanup EXIT
+    # Single instance per working directory (scripts/run-tests-lock.sh). The lock is taken before
+    # the trap exists, so a refused run never cleans up containers or files of the running one.
+    RUN_TESTS_LOCK_DIR="${RUN_TESTS_LOCK_DIR:-$(pwd)/.run-tests.lock}"
+    source "$(dirname "$0")/scripts/run-tests-lock.sh"
+    run_tests_lock_acquire "$RUN_TESTS_LOCK_DIR" || exit 3
+    trap 'run_tests_lock_release "$RUN_TESTS_LOCK_DIR"; cleanup' EXIT
 fi
 
 run_task() {
