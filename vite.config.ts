@@ -47,15 +47,17 @@ export default defineConfig({
         drop_console: false,
       },
       mangle: true,
-      output: {
+      format: {
         comments: false,
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "monaco-editor": ["monaco-editor"],
-          "recharts": ["recharts"],
+        codeSplitting: {
+          groups: [
+            { name: "monaco-editor", test: /node_modules[\\/]monaco-editor[\\/]/ },
+            { name: "recharts", test: /node_modules[\\/]recharts[\\/]/ },
+          ],
         },
       },
     },
