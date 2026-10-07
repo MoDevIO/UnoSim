@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.39% </span>
+                <span class="strong">88.52% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>160/181</span>
+                <span class='fraction'>162/183</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>31/31</span>
+                <span class='fraction'>32/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.15% </span>
+                <span class="strong">93.24% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>136/146</span>
+                <span class='fraction'>138/148</span>
             </div>
         
             
@@ -454,7 +454,17 @@
 <a name='L389'></a><a href='#L389'>389</a>
 <a name='L390'></a><a href='#L390'>390</a>
 <a name='L391'></a><a href='#L391'>391</a>
-<a name='L392'></a><a href='#L392'>392</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -702,6 +712,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">631x</span>
+<span class="cline-any cline-yes">631x</span>
+<span class="cline-any cline-yes">631x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">665x</span>
 <span class="cline-any cline-yes">632x</span>
@@ -712,12 +734,10 @@
 <span class="cline-any cline-yes">631x</span>
 <span class="cline-any cline-yes">631x</span>
 <span class="cline-any cline-yes">631x</span>
-<span class="cline-any cline-yes">631x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">631x</span>
 <span class="cline-any cline-yes">631x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1089,6 +1109,18 @@ function parseMustNotReveal(
   return value as readonly string[];
 }
 &nbsp;
+function parseTopicExpectations(
+  value: Record&lt;string, unknown&gt;,
+  label: string,
+): Pick&lt;TutorQualityExpectation, "topicId" | "topicIdAbsent"&gt; {
+  if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
+  if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
+  return {
+    ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
+    ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
+  };
+}
+&nbsp;
 function parseExpected(
   value: unknown,
   label: string,
@@ -1099,8 +1131,7 @@ function parseExpected(
   for (const key of Object.keys(value)) {
     if (!EXPECTED_KEYS.has(key)) fail(`${label}.expected.${key} is unknown`);
   }
-  if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
-  if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
+  const topicExpectations = parseTopicExpectations(value, label);
   const progressionBlockedReason = optionalEnumValue(value.progressionBlockedReason, PROGRESSION_BLOCKED_REASONS, `${label}.expected.progressionBlockedReason`);
   <span class="missing-if-branch" title="if path not taken" >I</span>if (value.stateUnchanged !== undefined &amp;&amp; typeof value.stateUnchanged !== "boolean") <span class="cstat-no" title="statement not covered" >fail(`${label}.expected.stateUnchanged is invalid`);</span>
   <span class="missing-if-branch" title="if path not taken" >I</span>if (value.questionNotRepeat !== undefined &amp;&amp; value.questionNotRepeat !== "exact-or-heuristic") {
@@ -1108,8 +1139,7 @@ function parseExpected(
   }
   const mustNotReveal = parseMustNotReveal(value.mustNotReveal, label, turns);
   return {
-    ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
-    ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
+    ...topicExpectations,
     ...parseProgressionExpectation(value, label, turns),
     ...(progressionBlockedReason === undefined ? {} : <span class="branch-1 cbranch-no" title="branch not covered" >{ progressionBlockedReason }),</span>
     ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
@@ -1243,7 +1273,7 @@ export function compareTutorQualityCorpusVersions(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T10:58:14.977Z
+                at 2026-10-07T13:18:33.143Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
