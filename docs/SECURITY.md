@@ -1,8 +1,9 @@
 # UnoSim Security
 
 UnoSim compiles and executes untrusted sketch code. The supported topology
-keeps the development trust boundary small and requires isolation plus an
-authentication gateway for every deployment.
+keeps the development trust boundary small and requires isolation plus a
+trusted gateway contract for Docker deployments. User authentication at that
+gateway is optional.
 
 ## Supported profiles
 
@@ -26,31 +27,46 @@ listener.
 - `NODE_ENV=production`, `UNOSIM_SERVER_MODE=docker`
 - server runs in Docker
 - every simulation runs in a separate Docker sandbox
-- gateway authentication is mandatory
+- a trusted gateway and valid gateway identity are mandatory; authenticating a
+  person before the gateway is optional
 - Docker availability and the sandbox image are startup/readiness requirements
 - there is no local execution fallback
 
 ## Gateway boundary
 
-The public gateway terminates TLS, authenticates the browser, strips inbound
-`X-UnoSim-*` headers and supplies trusted `X-UnoSim-Gateway-Secret`,
-`X-UnoSim-Subject` and `X-UnoSim-Roles` headers to both HTTP and WebSocket
-requests. The backend is reachable only from the configured proxy IP or CIDR.
+The gateway terminates TLS, strips inbound `X-UnoSim-*` headers and supplies
+trusted `X-UnoSim-Gateway-Secret`, `X-UnoSim-Subject` and `X-UnoSim-Roles`
+headers to both HTTP and WebSocket requests. It may authenticate a person and
+derive the subject from that account, or it may grant access to all clients
+that can reach it and derive the subject from the source IP it directly
+observes, such as Nginx's `$remote_addr`. Do not derive this identity from the
+client-supplied `X-Forwarded-For` header. The latter is IP-identified gateway
+mode, not user authentication.
 
-UnoSim itself does not check the source address of a request; it trusts any
-caller that presents the gateway secret. Restricting reachability to the
-gateway is therefore a deployment duty (bind address, firewall, network). The
-Compose default binds to `127.0.0.1`. Whether UnoSim should also enforce
-`UNOSIM_TRUSTED_PROXY` itself is an open decision
-([refactoring OPL](UNOSIM_REFACTORING_OPL.md), R10-PROXY).
+In IP-identified mode, clients behind the same observed IP share one UnoSim
+subject and its rate limits and simulation admission limits. NAT, VPNs and
+upstream proxies can make different people share that identity. Network
+reachability to the gateway is the access boundary: every client that can
+reach an unauthenticated gateway can use UnoSim. Use this mode only on a
+trusted private network.
+
+UnoSim's gateway authorization validates the secret, subject and role but does
+not compare the connection's source address with `UNOSIM_TRUSTED_PROXY`. That
+setting configures Express proxy trust behavior; it is not an authorization
+ACL. Restrict backend reachability at the deployment boundary. The Compose
+default binds the backend to `127.0.0.1`, so a host-local gateway can reach it
+without exposing the backend directly to LAN clients.
 
 `UNOSIM_GATEWAY_SECRET` must contain at least 32 characters.
 `UNOSIM_TRUSTED_PROXY` must be an explicit IP or CIDR.
 `UNOSIM_ALLOWED_WS_ORIGINS` is an exact origin allowlist. Origin validation is
-an additional browser boundary and does not replace authentication.
+an additional browser boundary and does not authenticate a person or replace
+the gateway contract.
 
-The complete contract is recorded in
-[`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md).
+ADR 0001 records the original gateway contract; [ADR
+0008](adr/0008-optional-gateway-authentication.md) supersedes its requirement
+for user authentication while retaining gateway identity, header and origin
+requirements.
 
 ## Sandbox boundary
 

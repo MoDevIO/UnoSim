@@ -10,16 +10,19 @@ describe("SimulationAdmissionController", () => {
     expect(controller.getStats().active).toBe(2);
   });
 
-  it("atomically rejects a second reservation for the same identity", () => {
-    const controller = new SimulationAdmissionController(2);
+  it("allows five reservations per identity and atomically rejects a sixth", () => {
+    const controller = new SimulationAdmissionController(10);
 
-    expect(controller.reserve("student-a").admitted).toBe(true);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      expect(controller.reserve("student-a").admitted).toBe(true);
+    }
     expect(controller.reserve("student-a")).toEqual({
       admitted: false,
       reason: "identity",
     });
     expect(controller.getStats()).toMatchObject({
-      active: 1,
+      active: 5,
+      maxPerSubject: 5,
       identityRejectedTotal: 1,
     });
   });

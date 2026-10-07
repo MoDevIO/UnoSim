@@ -21,7 +21,7 @@ export type AuthorizationResult =
   | { allowed: true; identity: RequestIdentity }
   | { allowed: false; status: 401 | 403 };
 
-const SUBJECT_PATTERN = /^[A-Za-z0-9._~-]{1,128}$/;
+const SUBJECT_PATTERN = /^[A-Za-z0-9._:~-]{1,128}$/;
 const ALLOWED_ROLES = new Set(["user"]);
 const LOCAL_SESSION_COOKIE = "unosim_local_session";
 const LOCAL_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;

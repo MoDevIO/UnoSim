@@ -9,8 +9,10 @@ und Messläufe, keinen Vertrag.
 
 - [INSTALL_LOCAL.md](INSTALL_LOCAL.md) – lokale Entwicklung mit lokaler
   Kompilierung und Simulation.
-- [INSTALL_SERVER.md](INSTALL_SERVER.md) – Docker-Deployment mit Gateway und
-  Docker-Sandboxen.
+- [INSTALL_SERVER.md](INSTALL_SERVER.md) – Docker-Deployment mit erforderlichem
+  Gateway, optionaler Benutzeranmeldung und Docker-Sandboxen.
+- [../README_UbuntuServer.md](../README_UbuntuServer.md) – Ubuntu-Desktop-Setup
+  mit Docker, Nginx, TLS und optionaler Benutzeranmeldung.
 - [SECURITY.md](SECURITY.md) – Sicherheits- und Isolationsvertrag.
 - [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Release-Gates und Betriebskontrollen.
 

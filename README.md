@@ -142,11 +142,11 @@ requirements as Compose. At minimum, production requires Gateway mode,
 `unosim-sandbox:latest` image available to the configured Docker daemon:
 
 ```bash
-docker run --rm -p 3000:3000 \
+docker run --rm -p 127.0.0.1:3000:3000 \
    -e NODE_ENV=production \
    -e UNOSIM_SERVER_MODE=docker \
    -e UNOSIM_GATEWAY_SECRET='<secret-from-secret-store>' \
-   -e UNOSIM_TRUSTED_PROXY='<gateway-ip-or-cidr>' \
+   -e UNOSIM_TRUSTED_PROXY='<express-trusted-proxy-ip-or-cidr>' \
    -e UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu' \
    -e DOCKER_HOST=unix:///var/run/docker.sock \
    -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
@@ -164,14 +164,23 @@ Or with Docker Compose (backend only):
 ```bash
 export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
 export UNOSIM_GATEWAY_SECRET="<at-least-32-random-characters>"
-export UNOSIM_TRUSTED_PROXY="<gateway-ip-or-cidr>"
+export UNOSIM_TRUSTED_PROXY="<express-trusted-proxy-ip-or-cidr>"
 export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
 docker compose up --build
 ```
 Compose starts the UnoSim backend only. Docker mode always requires an
-authentication gateway; the four variables above are mandatory and must be
-supplied by the deployment's secret/environment management. A reverse
-proxy/auth gateway must forward authenticated HTTP and WebSocket requests.
+trusted reverse proxy that supplies the gateway identity; authenticating a
+person is optional. The four variables above are mandatory and must be supplied
+by the deployment's secret/environment management. The proxy must replace
+client-supplied `X-UnoSim-*` headers with the gateway secret, subject and `user`
+role for both HTTP and WebSocket requests. A private deployment may derive the
+subject from the directly observed client IP, not a client-supplied
+`X-Forwarded-For` value; clients behind the same NAT, VPN or upstream proxy
+then share an UnoSim identity and its limits. This
+IP-identified mode grants access to every client that can reach the proxy and
+is not user authentication. See [the deployment security contract](docs/SECURITY.md)
+and the [Docker installation guide](docs/INSTALL_SERVER.md). For a tested
+Ubuntu Desktop setup, see [README_UbuntuServer.md](README_UbuntuServer.md).
 Sandbox execution remains dynamic and uses the Docker socket at runtime.
 
 If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.

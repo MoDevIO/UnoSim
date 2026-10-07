@@ -10,21 +10,27 @@ export type AdmissionResult =
   | { admitted: true; reservation: SimulationReservation }
   | { admitted: false; reason: "identity" | "capacity" };
 
+export const DEFAULT_MAX_SIMULATIONS_PER_SUBJECT = 5;
+
 /**
  * Process-local admission control. reserve() and release() mutate synchronously,
  * so each decision is atomic within Node's event loop. Reservation IDs make a
  * delayed release from an old run harmless.
  */
 export class SimulationAdmissionController {
-  private readonly reservationsBySubject = new Map<string, SimulationReservation>();
+  private readonly reservationsBySubject = new Map<string, Set<SimulationReservation>>();
   private readonly reservationsById = new Map<string, SimulationReservation>();
   private capacityRejectedTotal = 0;
   private identityRejectedTotal = 0;
 
-  constructor(private readonly maxReservations = config.capacity.admissionMax) {}
+  constructor(
+    private readonly maxReservations = config.capacity.admissionMax,
+    private readonly maxReservationsPerSubject = DEFAULT_MAX_SIMULATIONS_PER_SUBJECT,
+  ) {}
 
   reserve(subject: string): AdmissionResult {
-    if (this.reservationsBySubject.has(subject)) {
+    const subjectReservations = this.reservationsBySubject.get(subject);
+    if ((subjectReservations?.size ?? 0) >= this.maxReservationsPerSubject) {
       this.identityRejectedTotal++;
       return { admitted: false, reason: "identity" };
     }
@@ -34,7 +40,9 @@ export class SimulationAdmissionController {
     }
 
     const reservation = Object.freeze({ id: randomUUID(), subject });
-    this.reservationsBySubject.set(subject, reservation);
+    const reservations = subjectReservations ?? new Set<SimulationReservation>();
+    reservations.add(reservation);
+    this.reservationsBySubject.set(subject, reservations);
     this.reservationsById.set(reservation.id, reservation);
     return { admitted: true, reservation };
   }
@@ -42,11 +50,12 @@ export class SimulationAdmissionController {
   release(reservation: SimulationReservation): boolean {
     const current = this.reservationsById.get(reservation.id);
     if (current !== reservation) return false;
-    if (this.reservationsBySubject.get(reservation.subject) !== reservation) {
-      return false;
-    }
+    const subjectReservations = this.reservationsBySubject.get(reservation.subject);
+    if (!subjectReservations?.has(reservation)) return false;
+
     this.reservationsById.delete(reservation.id);
-    this.reservationsBySubject.delete(reservation.subject);
+    subjectReservations.delete(reservation);
+    if (subjectReservations.size === 0) this.reservationsBySubject.delete(reservation.subject);
     return true;
   }
 
@@ -54,6 +63,7 @@ export class SimulationAdmissionController {
     return {
       active: this.reservationsById.size,
       max: this.maxReservations,
+      maxPerSubject: this.maxReservationsPerSubject,
       capacityRejectedTotal: this.capacityRejectedTotal,
       identityRejectedTotal: this.identityRejectedTotal,
     };

@@ -230,7 +230,7 @@ describe("useSimulationControls", () => {
     expect(params.setPendingPinConflicts).toHaveBeenCalledWith([]);
   });
 
-  it("startMutation shows success toast on start", async () => {
+  it("waits for server confirmation before showing the success toast", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
     const { result } = renderHook(() => useSimulationControls(params), { wrapper });
@@ -240,13 +240,11 @@ describe("useSimulationControls", () => {
     });
 
     await waitFor(() => {
-      expect(params.toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Simulation Started",
-          description: expect.stringContaining("running"),
-        }),
+      expect(params.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "start_simulation" }),
       );
     });
+    expect(params.toast).not.toHaveBeenCalled();
   });
 
   it("startMutation error shows toast with error message", async () => {

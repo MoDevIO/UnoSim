@@ -570,6 +570,7 @@ export function useArduinoSimulatorPage() {
     pinToNumber,
     setParserMessages,
     setHasFirstOutput,
+    toast,
   });
 
   // Parse the current code to detect which analog pins are used by name or channel

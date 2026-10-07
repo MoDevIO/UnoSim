@@ -61,8 +61,8 @@ function rejectAdmission(
     sendStartError(
       ws,
       operationError(
-        "SIMULATION_ALREADY_ACTIVE",
-        "Für diesen Nutzer läuft bereits eine Simulation oder wartet auf einen Runner.",
+        "RATE_LIMITED",
+        "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.",
       ),
     );
   }
@@ -560,7 +560,7 @@ export function registerSimulationWebSocket(
         ws,
         operationError(
           "RATE_LIMITED",
-          `Simulation start rate limit exceeded. Please wait ${retryAfter} seconds before starting again.`,
+          `Rate-Limit: Bitte warte ${retryAfter} Sekunden, bevor du eine weitere Simulation startest.`,
           retryAfter,
         ),
       );
