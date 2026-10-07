@@ -4,6 +4,8 @@ FROM docker:27-cli AS docker-cli
 # Multi-stage build using the repository's pinned Node LTS.
 FROM node:24.20.0 AS builder
 WORKDIR /app
+# No .git in the build context; skip the husky `prepare` hook.
+ENV HUSKY=0
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
@@ -18,6 +20,8 @@ RUN npm run build
 # Production image
 FROM node:24.20.0-slim AS runner
 WORKDIR /app
+# Build-time only (ARG, not ENV) so it does not persist in the runtime image.
+ARG DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 ENV ARDUINO_CACHE_DIR=/app/server/arduino-cache
 
