@@ -124,3 +124,21 @@ describe("Tutor prompt revision metadata", () => {
     expect([...new Set(undigested)]).toEqual([]);
   });
 });
+
+describe("answer in the follow-up question (Freetutor point B, entry 08)", () => {
+  const RULE = "Die Folgefrage darf die gesuchte Antwort nicht selbst nennen";
+
+  it("tells the Tutor, in the system prompt and the dialog template, not to state the sought answer", () => {
+    expect(TUTOR_SYSTEM_PROMPT).toContain(RULE);
+    expect(TUTOR_PROMPT_REVISION.sources.dialogUser).toContain(RULE);
+  });
+
+  it("keeps the concrete-reference guidance from inviting a quoted declaration that holds the answer", () => {
+    expect(TUTOR_SYSTEM_PROMPT).toContain("zitiere keine Zeile, die den gesuchten Wert");
+  });
+
+  it("changes the prompt revision identifier together with the digest (R-ID-2)", () => {
+    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v3");
+  });
+});
+
