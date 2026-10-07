@@ -73,7 +73,12 @@ cleanup() {
     fi
 }
 if [ "$KNIP_GATE_ONLY" -eq 0 ]; then
-    trap cleanup EXIT
+    # Single instance per working directory (scripts/run-tests-lock.sh). The lock is taken before
+    # the trap exists, so a refused run never cleans up containers or files of the running one.
+    RUN_TESTS_LOCK_DIR="${RUN_TESTS_LOCK_DIR:-$(pwd)/.run-tests.lock}"
+    source "$(dirname "$0")/scripts/run-tests-lock.sh"
+    run_tests_lock_acquire "$RUN_TESTS_LOCK_DIR" || exit 3
+    trap 'run_tests_lock_release "$RUN_TESTS_LOCK_DIR"; cleanup' EXIT
 fi
 
 run_task() {

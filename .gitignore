@@ -97,3 +97,4 @@ font_size_report_*.md
 benchmark-*.json
 
 server/arduino-cache/
+.run-tests.lock/
