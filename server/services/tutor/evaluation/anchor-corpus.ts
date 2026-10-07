@@ -242,6 +242,18 @@ function parseMustNotReveal(
   return value as readonly string[];
 }
 
+function parseTopicExpectations(
+  value: Record<string, unknown>,
+  label: string,
+): Pick<TutorQualityExpectation, "topicId" | "topicIdAbsent"> {
+  if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
+  if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
+  return {
+    ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
+    ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
+  };
+}
+
 function parseExpected(
   value: unknown,
   label: string,
@@ -252,8 +264,7 @@ function parseExpected(
   for (const key of Object.keys(value)) {
     if (!EXPECTED_KEYS.has(key)) fail(`${label}.expected.${key} is unknown`);
   }
-  if (value.topicId !== undefined) assertNonEmptyString(value.topicId, `${label}.expected.topicId`);
-  if (value.topicIdAbsent !== undefined) assertNonEmptyString(value.topicIdAbsent, `${label}.expected.topicIdAbsent`);
+  const topicExpectations = parseTopicExpectations(value, label);
   const progressionBlockedReason = optionalEnumValue(value.progressionBlockedReason, PROGRESSION_BLOCKED_REASONS, `${label}.expected.progressionBlockedReason`);
   if (value.stateUnchanged !== undefined && typeof value.stateUnchanged !== "boolean") fail(`${label}.expected.stateUnchanged is invalid`);
   if (value.questionNotRepeat !== undefined && value.questionNotRepeat !== "exact-or-heuristic") {
@@ -261,8 +272,7 @@ function parseExpected(
   }
   const mustNotReveal = parseMustNotReveal(value.mustNotReveal, label, turns);
   return {
-    ...(typeof value.topicId === "string" ? { topicId: value.topicId } : {}),
-    ...(typeof value.topicIdAbsent === "string" ? { topicIdAbsent: value.topicIdAbsent } : {}),
+    ...topicExpectations,
     ...parseProgressionExpectation(value, label, turns),
     ...(progressionBlockedReason === undefined ? {} : { progressionBlockedReason }),
     ...(typeof value.stateUnchanged === "boolean" ? { stateUnchanged: value.stateUnchanged } : {}),
