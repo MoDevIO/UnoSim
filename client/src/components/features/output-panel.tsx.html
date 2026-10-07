@@ -791,10 +791,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       &lt;TabsContent value="debug" className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"&gt;
         {activeOutputTab === "debug" &amp;&amp; (
           &lt;div className="flex-1 overflow-hidden flex flex-col"&gt;
-            &lt;div className="panel-content-header bg-muted/50 border-b border-muted-foreground/30 px-3 justify-between gap-2"&gt;
+            &lt;div className="panel-content-header border-b px-3 justify-between gap-2"&gt;
               &lt;div className="flex items-center gap-2 flex-1 min-w-0"&gt;
                 &lt;span className="text-ui-xs text-muted-foreground whitespace-nowrap"&gt;Filter:&lt;/span&gt;
-                &lt;select value={debugMessageFilter} onChange={(e) =&gt; setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs"&gt;
+                &lt;select value={debugMessageFilter} onChange={(e) =&gt; setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border rounded text-foreground min-w-0 max-w-xs"&gt;
                   &lt;option value=""&gt;All Types&lt;/option&gt;
                   {Array.from(new Set(debugMessages.map((m) =&gt; m.type))).<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>.map((type) =&gt; (
                     &lt;option key={type} value={type.toLowerCase()}&gt;
@@ -827,21 +827,21 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
               &lt;UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}&gt;
                 &lt;table className="w-full text-ui-xs border-collapse"&gt;
                   &lt;thead&gt;
-                    &lt;tr className="sticky top-0 z-40 bg-muted border-b border-muted-foreground/20"&gt;
-                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-24"&gt;Time&lt;/th&gt;
-                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-16"&gt;Sender&lt;/th&gt;
-                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-20"&gt;Protocol&lt;/th&gt;
-                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r border-muted-foreground/10 w-32"&gt;Type&lt;/th&gt;
+                    &lt;tr className="sticky top-0 z-40 bg-muted border-b"&gt;
+                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-24"&gt;Time&lt;/th&gt;
+                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-16"&gt;Sender&lt;/th&gt;
+                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-20"&gt;Protocol&lt;/th&gt;
+                      &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-32"&gt;Type&lt;/th&gt;
                       &lt;th className="px-2 py-1 text-left font-semibold text-muted-foreground"&gt;Content&lt;/th&gt;
                     &lt;/tr&gt;
                   &lt;/thead&gt;
                   &lt;tbody&gt;
                     {debugMessages.filter((m) =&gt; !debugMessageFilter || <span class="branch-1 cbranch-no" title="branch not covered" >m.type.toLowerCase() === debugMessageFilter)</span>.slice(-100).map((msg, idx) =&gt; (
-                      &lt;tr key={msg.id} className={`border-b border-muted-foreground/10 ${idx % 2 === 0 ? "bg-background" : <span class="branch-1 cbranch-no" title="branch not covered" >"bg-muted/20"} </span>hover:bg-muted/40 transition-colors`}&gt;
-                        &lt;td className="px-2 py-1 text-cyan-400 border-r border-muted-foreground/10 font-mono whitespace-nowrap"&gt;{msg.timestamp.toLocaleTimeString()}&lt;/td&gt;
-                        &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className={msg.sender === "server" ? "text-blue-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-green-400"}&gt;{m</span>sg.sender.toUpperCase()}&lt;/span&gt;&lt;/td&gt;
-                        &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className={msg.protocol === "http" ? <span class="branch-0 cbranch-no" title="branch not covered" >"text-orange-400" : "</span>text-purple-400"}&gt;{msg.protocol?.toUpperCase() || <span class="branch-1 cbranch-no" title="branch not covered" >"?"}&lt;/span&gt;</span>&lt;/td&gt;
-                        &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className="text-yellow-400 font-mono"&gt;{msg.type}&lt;/span&gt;&lt;/td&gt;
+                      &lt;tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : <span class="branch-1 cbranch-no" title="branch not covered" >""} </span>transition-colors`}&gt;
+                        &lt;td className="px-2 py-1 text-cyan-400 border-r font-mono whitespace-nowrap"&gt;{msg.timestamp.toLocaleTimeString()}&lt;/td&gt;
+                        &lt;td className="px-2 py-1 border-r whitespace-nowrap"&gt;&lt;span className={msg.sender === "server" ? "text-blue-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-green-400"}&gt;{m</span>sg.sender.toUpperCase()}&lt;/span&gt;&lt;/td&gt;
+                        &lt;td className="px-2 py-1 border-r whitespace-nowrap"&gt;&lt;span className={msg.protocol === "http" ? <span class="branch-0 cbranch-no" title="branch not covered" >"text-orange-400" : "</span>text-purple-400"}&gt;{msg.protocol?.toUpperCase() || <span class="branch-1 cbranch-no" title="branch not covered" >"?"}&lt;/span&gt;</span>&lt;/td&gt;
+                        &lt;td className="px-2 py-1 border-r whitespace-nowrap"&gt;&lt;span className="text-yellow-400 font-mono"&gt;{msg.type}&lt;/span&gt;&lt;/td&gt;
                         &lt;td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}&gt;{msg.content}&lt;/td&gt;
                       &lt;/tr&gt;
                     ))}
@@ -860,15 +860,15 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 &lt;div className="p-3"&gt;
                   &lt;div className="space-y-3"&gt;
                     {debugMessages.<span class="fstat-no" title="function not covered" >filter((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.slice(-50).<span class="fstat-no" title="function not covered" >map((m</span>sg) =&gt; (
-<span class="cstat-no" title="statement not covered" >                      &lt;div key={msg.id} className="bg-muted/20 border border-muted-foreground/20 rounded p-3 hover:bg-muted/40 transition-colors"&gt;</span>
-                        &lt;div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-muted-foreground/20"&gt;
+<span class="cstat-no" title="statement not covered" >                      &lt;div key={msg.id} className="border rounded p-3 transition-colors"&gt;</span>
+                        &lt;div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b"&gt;
                           &lt;div className="flex items-center gap-3"&gt;
                             &lt;span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${msg.sender === "server" ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}&gt;{msg.sender.toUpperCase()}&lt;/span&gt;
                             &lt;span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded"&gt;{msg.type}&lt;/span&gt;
                           &lt;/div&gt;
                           &lt;span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap"&gt;{msg.timestamp.toLocaleTimeString()}&lt;/span&gt;
                         &lt;/div&gt;
-                        &lt;pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border border-muted-foreground/10"&gt;<span class="fstat-no" title="function not covered" >&lt;c</span>ode&gt;{(() =&gt; { <span class="cstat-no" title="statement not covered" >try { const parsed = <span class="cstat-no" title="statement not covered" >JSON.parse(msg.content); <span class="cstat-no" title="statement not covered" >r</span>eturn JSON.stringify(parsed, null, 2); }</span> catch { <span class="cstat-no" title="statement not covered" >return msg.content; }</span> }</span>)()}&lt;/code&gt;&lt;/pre&gt;
+                        &lt;pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border"&gt;<span class="fstat-no" title="function not covered" >&lt;c</span>ode&gt;{(() =&gt; { <span class="cstat-no" title="statement not covered" >try { const parsed = <span class="cstat-no" title="statement not covered" >JSON.parse(msg.content); <span class="cstat-no" title="statement not covered" >r</span>eturn JSON.stringify(parsed, null, 2); }</span> catch { <span class="cstat-no" title="statement not covered" >return msg.content; }</span> }</span>)()}&lt;/code&gt;&lt;/pre&gt;
                       &lt;/div&gt;
                     ))}
                     {debugMessages.<span class="fstat-no" title="function not covered" >filter((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.length === 0 &amp;&amp; (
@@ -892,7 +892,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T15:00:43.190Z
+                at 2026-10-07T15:02:51.900Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
