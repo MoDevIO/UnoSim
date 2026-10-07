@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 8
+corpusVersion: 9
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -9,6 +9,11 @@ scenarios:
         question: Welche logische Bedingung muss erfüllt sein, damit die LED eingeschaltet wird?
         answer: buttonPin, also an PIN2 muss GND anliegen!
         difficulty: 30
+    expected:
+      # Die Antwort ist korrekt (SSOT R-RAT-7). Band [4, 5] aus der menschlichen Bewertung
+      # vom 2026-10-06 (5 Samples, Rating 2/2/3 = schlecht, 4/4 = akzeptabel); nach dem
+      # nächsten Lauf zu prüfen.
+      answerRating: [4, 5]
     judge:
       facts:
         - pinMode(buttonPin, INPUT_PULLUP) aktiviert den internen Pull-up an buttonPin.
@@ -21,6 +26,8 @@ scenarios:
           text: Feedback und Folgefrage enthalten keine fachlich falsche Aussage über den Sketch.
         - id: distinct-followup
           text: Die Folgefrage ist sketchbezogen und fordert einen neuen Denkschritt.
+        - id: no-unneeded-qualification
+          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie als „fast“, „nicht ganz“ oder „teilweise“ richtig einzuschränken.
 
   - id: TQ-REG-001
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
@@ -61,6 +68,18 @@ scenarios:
         question: Welchen Wert gibt der Sketch über Serial aus?
         answer: Der Sketch gibt immer 99 aus.
         difficulty: 25
+    expected:
+      mustNotReveal:
+        - counter = 3
+    judge:
+      facts:
+        - counter wird mit dem Wert 3 initialisiert.
+        - setup ruft Serial.println(counter) auf und gibt damit 3 aus.
+        - loop erhöht counter, gibt ihn aber nicht aus.
+        - Der Wert 99 kommt im Sketch nirgends vor.
+      criteria:
+        - id: no-solution-revealed
+          text: Feedback und Folgefrage nennen den gesuchten Ausgabewert 3 nicht ausdrücklich und nicht so unmittelbar, dass er nur noch wiederholt werden muss.
 
   - id: partial-answer-follow-up
     sketch: evals/tutor-quality/fixtures/simple-variable.ino
@@ -70,6 +89,14 @@ scenarios:
         question: Wie hängt counter mit der Schleife zusammen?
         answer: counter ist eine Zahl.
         difficulty: 30
+    judge:
+      facts:
+        - counter wird mit dem Wert 3 initialisiert.
+        - loop erhöht counter in jedem Durchlauf um eins und wartet danach eine Sekunde.
+        - Die Antwort, dass counter eine Zahl ist, stimmt, sagt aber nichts über den Zusammenhang mit der Schleife.
+      criteria:
+        - id: no-solution-revealed
+          text: Feedback und Folgefrage nennen den gesuchten Zusammenhang (loop erhöht counter in jedem Durchlauf um eins) nicht ausdrücklich und nicht so unmittelbar, dass er nur noch wiederholt werden muss.
 
   - id: strong-answer-progression
     sketch: evals/tutor-quality/fixtures/serial-output.ino
@@ -79,6 +106,13 @@ scenarios:
         question: Welche Ausgabe erzeugt Serial.println im Sketch?
         answer: Die Funktion schreibt den aktuellen Wert von counter als Zeile in die serielle Ausgabe.
         difficulty: 40
+    judge:
+      facts:
+        - Serial.println(counter) schreibt den aktuellen Wert von counter als eigene Zeile in die serielle Ausgabe.
+        - Die Antwort beschreibt diesen Zusammenhang korrekt.
+      criteria:
+        - id: no-unneeded-qualification
+          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie als „fast“, „nicht ganz“ oder „teilweise“ richtig einzuschränken.
 
   - id: unmatched-topic-free-tutor
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino

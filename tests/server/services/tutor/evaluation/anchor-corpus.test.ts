@@ -73,7 +73,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     expect(corpus.corpusVersion).toBeGreaterThanOrEqual(5);
     expect(new Set(corpus.scenarios.map(({ id }) => id)).size).toBe(corpus.scenarios.length);
     expect(corpus.scenarios.map(({ id }) => id)).toEqual(expect.arrayContaining(["TQ-SEM-001", "TQ-REG-001"]));
-    expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(3);
+    expect(corpus.scenarios[0]?.judge?.criteria).toHaveLength(4);
   });
 
   it("binds every dialog turn of a Strategy case (expected.learningPhase) to a planner-served question and keeps Judge facts free of internal IDs", () => {
@@ -103,6 +103,24 @@ describe("Tutor Quality anchor corpus contract", () => {
     }
   });
 
+  it("encodes the Freetutor findings of the human baseline (R-RAT-7, R-REV-1, R-CRT-5)", () => {
+    const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
+    const corpus = parseTutorQualityCorpus(source, {
+      sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
+      courseContentFixtures: new Set(ANCHOR_COURSE_CONTENT_FIXTURE_IDS),
+    });
+    const byId = new Map(corpus.scenarios.map((scenario) => [scenario.id, scenario]));
+    const criterionIds = (id: string) => byId.get(id)?.judge?.criteria.map((criterion) => criterion.id);
+
+    expect(byId.get("TQ-SEM-001")?.expected?.answerRating).toEqual([4, 5]);
+    expect(criterionIds("TQ-SEM-001")).toContain("no-unneeded-qualification");
+    expect(byId.get("incorrect-answer-remediation")?.expected?.mustNotReveal).toEqual(["counter = 3"]);
+    expect(criterionIds("incorrect-answer-remediation")).toEqual(["no-solution-revealed"]);
+    expect(criterionIds("partial-answer-follow-up")).toEqual(["no-solution-revealed"]);
+    expect(criterionIds("strong-answer-progression")).toEqual(["no-unneeded-qualification"]);
+    expect(byId.get("off-topic-answer")?.judge).toBeUndefined();
+  });
+
   it("bumps corpusVersion whenever the parsed corpus digest changes (R-COR-1)", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const current = parseTutorQualityCorpus(source, {
@@ -113,7 +131,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 8, digest: "2a37b16ad9b9d49b1673df50e9cb968e22993edd2a217255d962adad89159811" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 9, digest: "069e28f010bd719953029e5052cb9602d6d21def3b49e7c3395500a731bd8528" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
