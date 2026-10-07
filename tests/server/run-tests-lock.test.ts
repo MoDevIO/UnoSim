@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -95,16 +95,25 @@ describe("run-tests.sh single-instance lock", () => {
   });
 
   it("makes run-tests.sh stop before it touches anything when another pipeline is running", () => {
+    // Run in an isolated working directory: run-tests.sh resolves its log, temp/build folders and
+    // lock helper relative to the cwd, so the repository's own run-tests_output.log (which an outer
+    // pipeline may be writing right now) is never read or touched.
     const directory = temporaryDirectory();
+    const workdir = path.join(directory, "work");
+    mkdirSync(path.join(workdir, "scripts"), { recursive: true });
+    copyFileSync(path.join(repository, "run-tests.sh"), path.join(workdir, "run-tests.sh"));
+    copyFileSync(helper, path.join(workdir, "scripts", "run-tests-lock.sh"));
+    const log = path.join(workdir, "run-tests_output.log");
+    writeFileSync(log, "previous pipeline output\n");
+    const entriesBefore = readdirSync(workdir).sort();
+
     const lock = path.join(directory, "lock");
     const owner = fakePipeline();
     mkdirSync(lock);
     writeFileSync(path.join(lock, "pid"), `${owner}\n`);
-    const log = path.join(repository, "run-tests_output.log");
-    const logBefore = existsSync(log) ? readFileSync(log, "utf8") : undefined;
 
     const result = spawnSync("bash", ["./run-tests.sh"], {
-      cwd: repository,
+      cwd: workdir,
       encoding: "utf8",
       timeout: 20_000,
       env: { ...process.env, RUN_TESTS_LOCK_DIR: lock },
@@ -112,7 +121,8 @@ describe("run-tests.sh single-instance lock", () => {
 
     expect(result.status).toBe(3);
     expect(result.stderr).toContain(`PID ${owner}`);
-    expect(existsSync(log) ? readFileSync(log, "utf8") : undefined).toBe(logBefore);
+    expect(readFileSync(log, "utf8")).toBe("previous pipeline output\n");
+    expect(readdirSync(workdir).sort()).toEqual(entriesBefore);
     expect(readFileSync(path.join(lock, "pid"), "utf8").trim()).toBe(String(owner));
   });
 });
