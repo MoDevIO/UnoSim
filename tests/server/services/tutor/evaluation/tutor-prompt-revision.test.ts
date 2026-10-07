@@ -138,7 +138,22 @@ describe("answer in the follow-up question (Freetutor point B, entry 08)", () =>
   });
 
   it("changes the prompt revision identifier together with the digest (R-ID-2)", () => {
-    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v3");
+    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v4");
+  });
+});
+
+describe("rating independent of the follow-up question (Freetutor point C, strong-answer-progression)", () => {
+  const RULE = "Bewerte die Antwort ausschließlich danach, ob sie die gestellte Frage fachlich korrekt beantwortet";
+
+  it("separates rating the given answer from deepening in the follow-up question", () => {
+    expect(TUTOR_SYSTEM_PROMPT).toContain(RULE);
+    expect(TUTOR_PROMPT_REVISION.sources.dialogUser).toContain(RULE);
+    expect(TUTOR_SYSTEM_PROMPT).toContain("rechtfertigen keine niedrigere Bewertung");
+  });
+
+  it("renders the rule into the dialog prompt", () => {
+    const prompt = buildDialogPrompt(SKETCH, buildTutorContext(SKETCH), [], QUESTION, ANSWER, 40);
+    expect(prompt).toContain(RULE);
   });
 });
 

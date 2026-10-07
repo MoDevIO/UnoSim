@@ -56,6 +56,8 @@ const TUTOR_CONCRETE_REFERENCE_GUIDANCE = "Wenn eine Frage auf ein konkretes Ske
 
 const TUTOR_NO_ANSWER_IN_FOLLOW_UP_GUIDANCE = "Die Folgefrage darf die gesuchte Antwort nicht selbst nennen: Verweise über Bezeichner und Ort (zum Beispiel ‚in setup‘) auf die relevante Stelle, aber zitiere keine Zeile, die den gesuchten Wert, Ausdruck oder das Ergebnis bereits enthält.";
 
+const TUTOR_RATE_ANSWER_ONLY_GUIDANCE = "Bewerte die Antwort ausschließlich danach, ob sie die gestellte Frage fachlich korrekt beantwortet. Details, die erst die Folgefrage vertiefen soll, und ein in der Folgefrage verlangter konkreter Wert rechtfertigen keine niedrigere Bewertung der gegebenen Antwort und kein ‚teilweise richtig‘.";
+
 type TutorDialogArguments = [
   code: string,
   history: readonly TutorDialogTurn[],
@@ -100,6 +102,7 @@ export const TUTOR_SYSTEM_PROMPT = [
   "Die Frage soll die eigene Analyse des Studierenden fördern und nicht die Denkarbeit ersetzen.",
   TUTOR_CONCRETE_REFERENCE_GUIDANCE,
   TUTOR_NO_ANSWER_IN_FOLLOW_UP_GUIDANCE,
+  TUTOR_RATE_ANSWER_ONLY_GUIDANCE,
   "Wenn eine Nutzerantwort vorliegt, gib bei normalen inhaltlichen Antworten kurzes Feedback, responseStyle normal, eine answerRating von 1 bis 5 und danach genau eine Folgefrage.",
   "Für offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten verwende ausschließlich den begrenzten philosophischen Fallback: responseStyle philosophical, keine answerRating, kurzer nicht-spöttischer Reflexionshinweis und genau eine Frage zurück zum aktuellen Sketch.",
   "Normale fachlich falsche Antworten bleiben responseStyle normal und werden bewertet.",
@@ -186,6 +189,7 @@ function buildDialogPrompt(
     TUTOR_DIFFICULTY_GUIDANCE,
     TUTOR_CONCRETE_REFERENCE_GUIDANCE,
     TUTOR_NO_ANSWER_IN_FOLLOW_UP_GUIDANCE,
+    TUTOR_RATE_ANSWER_ONLY_GUIDANCE,
     buildTutorStrategyGuidance(strategy),
     ...(objectivesGuidance ? [objectivesGuidance] : []),
     "Bewerte die Antwort mit answerRating 1 bis 5 gemäß Verständnisrubrik, höchstens kurz, und stelle danach genau eine neue, weiterführende Frage.",
@@ -950,6 +954,7 @@ const TUTOR_PROMPT_TEMPLATE_SOURCES: TutorPromptTemplateSources = {
     TUTOR_DIFFICULTY_GUIDANCE,
     TUTOR_CONCRETE_REFERENCE_GUIDANCE,
     TUTOR_NO_ANSWER_IN_FOLLOW_UP_GUIDANCE,
+    TUTOR_RATE_ANSWER_ONLY_GUIDANCE,
     "Bewerte die Antwort mit answerRating 1 bis 5 gemäß Verständnisrubrik, höchstens kurz, und stelle danach genau eine neue, weiterführende Frage.",
     "Bei offensichtlich unsinnigen, absurden oder vollständig themenfremden Antworten setze responseStyle philosophical, lasse answerRating weg und stelle nach kurzem, respektvollem Reflexionshinweis genau eine Frage zurück zum aktuellen Sketch.",
     "Normale fachlich falsche Antworten bleiben responseStyle normal und erhalten answerRating.",
@@ -977,7 +982,8 @@ export const TUTOR_PROMPT_REVISION = {
   // v2: the digest also covers the history- and strategy-selected dialog instructions and the
   // code fences (R-ID-2); v1 left them out, so changing them did not change the revision.
   // v3: the follow-up question must not state the answer it asks for.
-  id: "tutor-prompts-v3",
+  // v4: the given answer is rated only against the asked question, not against the follow-up's deepening.
+  id: "tutor-prompts-v4",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;
