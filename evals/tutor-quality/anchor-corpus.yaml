@@ -10,8 +10,8 @@ scenarios:
         answer: buttonPin, also an PIN2 muss GND anliegen!
         difficulty: 30
     expected:
-      # Die Antwort ist korrekt (SSOT R-RAT-7). Band [4, 5] aus der menschlichen Bewertung
-      # vom 2026-10-06 (5 Samples, Rating 2/2/3 = schlecht, 4/4 = akzeptabel); nach dem
+      # Die Antwort ist korrekt (SSOT R-RAT-7). Band [4, 5] aus der Referenzbewertung
+      # (LLM-Evaluator) vom 2026-10-06 (5 Samples, Rating 2/2/3 = schlecht, 4/4 = akzeptabel); nach dem
       # nächsten Lauf zu prüfen.
       answerRating: [4, 5]
     judge:
@@ -27,7 +27,7 @@ scenarios:
         - id: distinct-followup
           text: Die Folgefrage ist sketchbezogen und fordert einen neuen Denkschritt.
         - id: no-unneeded-qualification
-          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie als „fast“, „nicht ganz“ oder „teilweise“ richtig einzuschränken.
+          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie unnötig als nur teilweise richtig einzuschränken, etwa mit „fast“, „nicht ganz“, „teilweise“ oder einer sinngleichen Relativierung.
 
   - id: TQ-REG-001
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
@@ -112,7 +112,7 @@ scenarios:
         - Die Antwort beschreibt diesen Zusammenhang korrekt.
       criteria:
         - id: no-unneeded-qualification
-          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie als „fast“, „nicht ganz“ oder „teilweise“ richtig einzuschränken.
+          text: Das Feedback bestätigt die Kernaussage der Antwort, ohne sie unnötig als nur teilweise richtig einzuschränken, etwa mit „fast“, „nicht ganz“, „teilweise“ oder einer sinngleichen Relativierung.
 
   - id: unmatched-topic-free-tutor
     sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino

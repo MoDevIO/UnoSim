@@ -454,10 +454,15 @@ consistent with state; no reuse of an already used Question ID; blocked state
 
 **R-REV-1** The case author lists case-specific literals that would reveal
 the sought answer, for example `counter = 3` for the question "Which value does
-the sketch print?". A literal is a short, specific expression: after the
-normalization of R-REV-2 it has at least three characters and contains a letter.
-A bare value such as `3` is not a valid literal, because it matches unrelated
-text. A list contains each normalized literal at most once.
+the sketch print?". A literal is a specific expression or phrase, for example
+`counter = 3`, `startwert drei`, or `digitalRead(buttonPin) == LOW`. After the
+normalization of R-REV-2 it has at least three characters, contains a letter,
+and either consists of more than one word or contains an operator or punctuation
+character. A bare value such as `3` and a single plain word such as `drei`,
+`low`, or `counter` are not valid literals, because they match unrelated text
+and would turn the check into a growing list of solution words. Semantic
+variants belong to the Judge criterion (R-REV-3, R-CRT-5). A list contains each
+normalized literal at most once.
 
 **R-REV-2** Matching is normalized, identically for the literal and for the
 raw provider `feedback` and `question`: NFKC; case-folding; removal of
@@ -610,10 +615,10 @@ documented here so that criteria for the same behavior stay comparable:
   follow-up question do not name the sought value explicitly or so directly
   that it only has to be repeated.
 - *Unneeded qualification*: the feedback restricts a correct learner answer
-  with wording such as "almost", "not quite", or "partly correct", although the
-  answer states the core of the correct solution. A criterion for it applies
-  only to a case whose scripted answer the author declares correct (R-RAT-7)
-  and quotes `tutor.feedback`. It is distinct from "accepts the correct
+  with wording such as "almost", "not quite", or "partly correct", or with an
+  equivalent qualification, although the answer states the core of the correct
+  solution. A criterion for it applies only to a case whose scripted answer the
+  author declares correct (R-RAT-7) and quotes `tutor.feedback`. It is distinct from "accepts the correct
   answer": a feedback can accept the answer and still qualify it without need.
 
 A positive control (a case with a good answer that must pass) SHOULD accompany a

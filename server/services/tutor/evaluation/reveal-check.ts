@@ -16,10 +16,15 @@ function normalize(text: string): string {
     .replaceAll(/ ?([^\p{L}\p{N}_ ]) ?/gu, "$1");
 }
 
-/** A literal is specific enough when it has at least three characters and one letter after normalization. */
+/**
+ * A literal is a specific expression or phrase (R-REV-1): after normalization at least three characters with a
+ * letter, and either more than one word or an operator/punctuation character. A single plain word such as `drei`,
+ * `low`, or `counter`, and a bare value such as `3`, are not specific enough.
+ */
 export function isValidRevealLiteral(literal: string): boolean {
   const normalized = normalize(literal);
-  return normalized.length >= MIN_LITERAL_LENGTH && /\p{L}/u.test(normalized);
+  if (normalized.length < MIN_LITERAL_LENGTH || !/\p{L}/u.test(normalized)) return false;
+  return normalized.includes(" ") || /[^\p{L}\p{N}_]/u.test(normalized);
 }
 
 export function normalizeRevealLiteral(literal: string): string {

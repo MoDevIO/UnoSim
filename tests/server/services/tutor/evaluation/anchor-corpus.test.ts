@@ -131,7 +131,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 9, digest: "069e28f010bd719953029e5052cb9602d6d21def3b49e7c3395500a731bd8528" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 9, digest: "bd79c1bfcae5fdcfdd349cd1bce69450903d364a8ff3c751c476598bc935a46b" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
@@ -325,6 +325,7 @@ describe("Tutor Quality anchor corpus contract", () => {
       ["not an array", "counter = 3"],
       ["non-string entry", ["counter = 3", 3]],
       ["bare value", ["3"]],
+      ["single plain word", ["drei"]],
       ["blank literal", ["   "]],
       ["duplicate after normalization", ["counter = 3", "Counter=3"]],
     ])("rejects an invalid list: %s", (_label, mustNotReveal) => {

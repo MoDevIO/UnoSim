@@ -32,7 +32,12 @@ describe("mustNotReveal literal matching (R-REV-2)", () => {
 
   it.each([
     ["counter = 3", true],
-    ["drei", true],
+    ["startwert drei", true],
+    ["digitalRead(buttonPin) == LOW", true],
+    ["x=1", true],
+    ["drei", false],
+    ["low", false],
+    ["counter", false],
     ["3", false],
     ["= 3", false],
     ["  ", false],

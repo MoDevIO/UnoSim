@@ -1,8 +1,13 @@
-# Menschliche Bewertung Punkt A – Freetutor-Baseline
+# Referenzbewertung Punkt A – Freetutor-Baseline
 
 - Run: `tq2a-20261006T172936116Z-db0b848f-39f7-4a7b-b8ae-7ccc40532c20` (Corpus v8, `openai-gpt5.4-mini`, `tutor-prompts-v2`, 5 Samples, ohne Judge, 41 Calls)
-- Bewertungsregeln: `docs/UNOSIM_FREETUTOR_QUALITY_PLAN.md` §3.1 (eingefroren vor der Bewertung)
-- Bewertet am 2026-10-06 von der Projektleitung. Hinweis zur Blindheit: Der Schlüssel Eintrag → Case wurde vor Abschluss der Bewertung geöffnet; Eintrag 02 wurde nach einer Konsistenzprüfung von „gut“ auf „schlecht“ korrigiert.
+- **Provenienz:** Referenzbewertung durch einen LLM-Evaluator (nach Angabe der Projektleitung ChatGPT, GPT-5.6 Sol), am 2026-10-06 von der Projektleitung als Referenz für diese Kalibrierungsserie freigegeben. Sie ist **keine unabhängige menschliche Bewertung** und keine Nutzerstudie. Spätere Auswertungen messen deshalb Referenzmodell–Judge-Übereinstimmung, nicht Mensch–Judge-Übereinstimmung.
+- **Blindheit:** Der Schlüssel Eintrag → Case wurde vor Abschluss der Bewertung geöffnet; Eintrag 02 wurde nach einer Konsistenzprüfung von „gut“ auf „schlecht“ korrigiert.
+- **Bewertungsregeln** (eingefroren vor der Bewertung, hier wörtlich, damit die Datei ohne weitere Dokumente reproduzierbar ist):
+  - **gut:** fachlich korrekt, didaktisch hilfreich, passend zum Sketch und zur Lernendenantwort; Rating passt zum Text; keine unnötige Lösungsvorgabe.
+  - **akzeptabel:** grundsätzlich korrekt und hilfreich, aber mit einer kleineren didaktischen oder sprachlichen Schwäche, die den Lernprozess nicht wesentlich stört.
+  - **schlecht:** fachlich falsch, irreführend, wesentliche Lernerleistung falsch bewertet, Lösung unangemessen verraten, Antwort deutlich am Kontext vorbei oder Rating und Text in einem didaktisch relevanten Widerspruch.
+  - Tags: `relativiert-korrekt`, `lösung-verraten`, `falsch-bewertet`, `ablenkend`, `rating-widerspruch`.
 - Rohtranskripte liegen nur lokal (nicht im Repo). `Quelle` zeigt, ob die Antwort vom Modell (`provider`) oder von der Anwendung (`application-fallback`) stammt.
 
 Verteilung: 12 gut, 3 akzeptabel, 10 schlecht.
