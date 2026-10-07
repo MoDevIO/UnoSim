@@ -1296,7 +1296,7 @@ export function SerialMonitor({
 <span class="cstat-no" title="statement not covered" >    audioCtxRef.current = audioCtx;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (audioCtx.state === "suspended") {</span>
-<span class="cstat-no" title="statement not covered" >      audioCtx.resume().catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>});</span>
+<span class="cstat-no" title="statement not covered" >      audioCtx.resume().<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>});</span>
     }
 &nbsp;
     const oscillator = <span class="cstat-no" title="statement not covered" >audioCtx.createOscillator();</span>
@@ -1315,9 +1315,9 @@ export function SerialMonitor({
 <span class="cstat-no" title="statement not covered" >    gain.gain.setValueAtTime(0.08, now);</span>
 <span class="cstat-no" title="statement not covered" >    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    oscillator.onended = <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    oscillator.<span class="fstat-no" title="function not covered" >onended = () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >      if (audioCtxRef.current === audioCtx) {</span>
-<span class="cstat-no" title="statement not covered" >        audioCtx.close().catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>});</span>
+<span class="cstat-no" title="statement not covered" >        audioCtx.close().<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>});</span>
 <span class="cstat-no" title="statement not covered" >        audioCtxRef.current = null;</span>
       }
     };
@@ -1356,14 +1356,14 @@ export function SerialMonitor({
       return;
     }
     
-    const observer = <span class="cstat-no" title="statement not covered" >new ResizeObserver(<span class="fstat-no" title="function not covered" >(e</span>ntries) =&gt; {</span>
+    const observer = <span class="cstat-no" title="statement not covered" >new <span class="fstat-no" title="function not covered" >ResizeObserver((e</span>ntries) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      for (const entry of entries) {</span>
 <span class="cstat-no" title="statement not covered" >        setContainerHeight(entry.contentRect.height);</span>
       }
     });
     
 <span class="cstat-no" title="statement not covered" >    observer.observe(containerRef.current);</span>
-<span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>bserver.disconnect();</span></span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >    return () =&gt; <span class="cstat-no" title="statement not covered" >o</span>bserver.disconnect();</span></span>
   }, []);
 &nbsp;
   // Process output lines with rAF batching
@@ -1434,7 +1434,7 @@ export function SerialMonitor({
         placeholder.className = "text-muted-foreground italic";
         placeholder.textContent = "Serial output will appear here...";
         el.appendChild(placeholder);
-      <span class="missing-if-branch" title="if path not taken" >I</span>} else if (ENABLE_VIRTUAL_SCROLL &amp;&amp; processedLines.length &gt;= 100) {
+      } else <span class="missing-if-branch" title="if path not taken" >I</span>if (ENABLE_VIRTUAL_SCROLL &amp;&amp; processedLines.length &gt;= 100) {
         // Virtual scrolling mode (only for large outputs)
         const viewport = <span class="cstat-no" title="statement not covered" >document.createElement("div");</span>
 <span class="cstat-no" title="statement not covered" >        viewport.style.height = `${totalHeight}px`;</span>
@@ -1445,7 +1445,7 @@ export function SerialMonitor({
 <span class="cstat-no" title="statement not covered" >        content.style.willChange = "transform";</span>
 <span class="cstat-no" title="statement not covered" >        content.style.width = "max-content";</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        visibleLines.forEach(<span class="fstat-no" title="function not covered" >(l</span>n) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        visibleLines.<span class="fstat-no" title="function not covered" >forEach((l</span>n) =&gt; {</span>
           const div = <span class="cstat-no" title="statement not covered" >document.createElement("div");</span>
 <span class="cstat-no" title="statement not covered" >          div.className = "text-foreground whitespace-pre";</span>
 <span class="cstat-no" title="statement not covered" >          div.style.height = `${ROW_HEIGHT}px`;</span>
@@ -1484,7 +1484,7 @@ export function SerialMonitor({
 <span class="cstat-no" title="statement not covered" >        cancelAnimationFrame(rafIdRef.current);</span>
       }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      rafIdRef.current = requestAnimationFrame(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      rafIdRef.current = <span class="fstat-no" title="function not covered" >requestAnimationFrame(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >        renderContent();</span>
 <span class="cstat-no" title="statement not covered" >        rafIdRef.current = null;</span>
       });
@@ -1502,7 +1502,7 @@ export function SerialMonitor({
     };
   }, []);
 &nbsp;
-  const handleScroll = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const handleScroll = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
     const el = <span class="cstat-no" title="statement not covered" >outputRef.current;</span>
 <span class="cstat-no" title="statement not covered" >    if (!el) <span class="cstat-no" title="statement not covered" >return;</span></span>
 &nbsp;
@@ -1533,7 +1533,7 @@ export function SerialMonitor({
             &lt;Button
               variant="destructiveOutline"
               size="icon"
-              onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >_</span>onClear()}</span>
+<span class="fstat-no" title="function not covered" >              onClick={() =&gt; <span class="cstat-no" title="statement not covered" >_</span>onClear()}</span>
               title="Clear serial output"
             &gt;
               &lt;Trash2 size={16} /&gt;
@@ -1570,7 +1570,7 @@ export function SerialMonitor({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

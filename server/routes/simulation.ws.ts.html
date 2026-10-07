@@ -2049,7 +2049,7 @@ export function registerSimulationWebSocket(
     logger,
     runnerPool,
   } = deps;
-  const pool = <span class="branch-1 cbranch-no" title="branch not covered" >runnerPool ?? getSandboxRunnerPool();</span>
+  const pool = runnerPool ?? <span class="branch-1 cbranch-no" title="branch not covered" >getSandboxRunnerPool()</span>;
   const admissionController = deps.getSimulationAdmissionController?.() ??
     new SimulationAdmissionController();
 &nbsp;
@@ -2117,7 +2117,7 @@ export function registerSimulationWebSocket(
       outputBuffer.sendSerialOutputBatched(ws, line, isComplete);
     };
 &nbsp;
-    const onError = <span class="fstat-no" title="function not covered" >(e</span>rr: string) =&gt; {
+    const <span class="fstat-no" title="function not covered" >onError = (e</span>rr: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >      logger.warn(`[Client WS][ERR] diagnostic received (${Buffer.byteLength(err)} bytes)`);</span>
 <span class="cstat-no" title="statement not covered" >      outputBuffer.flushSerialOutputBuffer(ws);</span>
 <span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
@@ -2183,7 +2183,7 @@ export function registerSimulationWebSocket(
           cs,
           "onCompileError",
           reservation,
-        ).catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+        ).<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >          logger.warn(</span>
             `[SandboxRunnerPool] safeReleaseRunner failed in onCompileError: ${error}`,
           );
@@ -2199,12 +2199,12 @@ export function registerSimulationWebSocket(
       });
     };
 &nbsp;
-    const onCompileQueued = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+    const <span class="fstat-no" title="function not covered" >onCompileQueued = () =&gt; {</span>
       // gccStatus:queued removed in Phase 3.3.6 - queue state no longer emitted via WS
       // arduinoCliStatus does not have a "queued" state
     };
 &nbsp;
-    const onPinState = <span class="fstat-no" title="function not covered" >(p</span>in: number, type: PinStateChange, value: number) =&gt; {
+    const <span class="fstat-no" title="function not covered" >onPinState = (p</span>in: number, type: PinStateChange, value: number) =&gt; {
 <span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, {</span>
         type: WSMessageType.PIN_STATE,
         pin,
@@ -2213,7 +2213,7 @@ export function registerSimulationWebSocket(
       });
     };
 &nbsp;
-    const onIORegistry = <span class="fstat-no" title="function not covered" >(</span>
+    const <span class="fstat-no" title="function not covered" >onIORegistry = (</span>
       registry: IOPinRecord[],
       baudrate: number | undefined,
       reason?: string,
@@ -2256,7 +2256,7 @@ export function registerSimulationWebSocket(
       })();
     };
 &nbsp;
-    const onTelemetry = <span class="fstat-no" title="function not covered" >(m</span>etrics: {
+    const <span class="fstat-no" title="function not covered" >onTelemetry = (m</span>etrics: {
       timestamp: number;
       intendedPinChangesPerSecond: number;
       actualPinChangesPerSecond: number;
@@ -2272,7 +2272,7 @@ export function registerSimulationWebSocket(
 <span class="cstat-no" title="statement not covered" >      sendMessageToClient(ws, { type: WSMessageType.SIM_TELEMETRY, metrics });</span>
     };
 &nbsp;
-    const onPinStateBatch = <span class="fstat-no" title="function not covered" >(b</span>atch: {
+    const <span class="fstat-no" title="function not covered" >onPinStateBatch = (b</span>atch: {
       states: Array&lt;{ pin: number; stateType: PinStateChange; value: number }&gt;;
       timestamp: number;
     }) =&gt; {
@@ -2294,7 +2294,7 @@ export function registerSimulationWebSocket(
       onIORegistry,
       onTelemetry,
       onPinStateBatch,
-      compileFailed: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >c</span>ompileFailed,</span>
+<span class="fstat-no" title="function not covered" >      compileFailed: () =&gt; <span class="cstat-no" title="statement not covered" >c</span>ompileFailed,</span>
     };
   }
 &nbsp;
@@ -2633,7 +2633,7 @@ export function registerSimulationWebSocket(
     let simStatus: "paused" | "running" | "stopped";
     <span class="missing-if-branch" title="if path not taken" >I</span>if (clientState?.isPaused) {
 <span class="cstat-no" title="statement not covered" >      simStatus = "paused";</span>
-    <span class="missing-if-branch" title="if path not taken" >I</span>} else if (clientState?.isRunning) {
+    } else <span class="missing-if-branch" title="if path not taken" >I</span>if (clientState?.isRunning) {
 <span class="cstat-no" title="statement not covered" >      simStatus = "running";</span>
     } else {
       simStatus = "stopped";
@@ -2685,7 +2685,7 @@ export function registerSimulationWebSocket(
       outputBuffer.clearClient(ws);
 &nbsp;
       logger.error(
-        `WebSocket error: ${error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)}</span>`,
+        `WebSocket error: ${error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)}`,</span>
       );
     });
   });
@@ -2722,7 +2722,7 @@ export function registerSimulationWebSocket(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

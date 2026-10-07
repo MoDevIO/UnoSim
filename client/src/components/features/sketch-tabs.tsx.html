@@ -1327,7 +1327,7 @@ export function SketchTabs({
     }
   }, [renamingTabId]);
 &nbsp;
-  const handleRenameStart = <span class="fstat-no" title="function not covered" >(t</span>abId: string, currentName: string) =&gt; {
+  const <span class="fstat-no" title="function not covered" >handleRenameStart = (t</span>abId: string, currentName: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >    setRenamingTabId(tabId);</span>
     // Remove file extension for display
     const nameWithoutExtension = <span class="cstat-no" title="statement not covered" >currentName.slice(</span>
@@ -1337,8 +1337,8 @@ export function SketchTabs({
 <span class="cstat-no" title="statement not covered" >    setNewName(nameWithoutExtension);</span>
   };
 &nbsp;
-  const handleRenameStartDialog = useCallback(
-<span class="fstat-no" title="function not covered" >    (t</span>abId: string, currentName: string) =&gt; {
+  const handleRenameStartDialog = <span class="fstat-no" title="function not covered" >useCallback(</span>
+    (tabId: string, currentName: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >      setRenamingTabId(tabId);</span>
       // Remove file extension for display
       const nameWithoutExtension = <span class="cstat-no" title="statement not covered" >currentName.slice(</span>
@@ -1351,7 +1351,7 @@ export function SketchTabs({
     [],
   );
 &nbsp;
-  const openRenameDialog = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const openRenameDialog = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!activeTabId) {</span>
 <span class="cstat-no" title="statement not covered" >      toast({</span>
         title: "No file selected",
@@ -1359,7 +1359,7 @@ export function SketchTabs({
       });
 <span class="cstat-no" title="statement not covered" >      return;</span>
     }
-    const activeTab = <span class="cstat-no" title="statement not covered" >tabs.find(<span class="fstat-no" title="function not covered" >(t</span>ab) =&gt; <span class="cstat-no" title="statement not covered" >tab.id === activeTabId)</span>;</span>
+    const activeTab = <span class="cstat-no" title="statement not covered" >tabs.<span class="fstat-no" title="function not covered" >find((t</span>ab) =&gt; <span class="cstat-no" title="statement not covered" >tab.id === activeTabId)</span>;</span>
 <span class="cstat-no" title="statement not covered" >    if (activeTab) <span class="cstat-no" title="statement not covered" >handleRenameStartDialog(activeTabId, activeTab.name);</span></span>
   }, [activeTabId, handleRenameStartDialog, tabs, toast]);
 &nbsp;
@@ -1374,9 +1374,9 @@ export function SketchTabs({
     };
   }, [loadFilesTriggerRef, openRenameDialog, renameTriggerRef]);
 &nbsp;
-  const handleRenameSave = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >handleRenameSave = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (newName.trim() &amp;&amp; renamingTabId) {</span>
-      const currentTab = <span class="cstat-no" title="statement not covered" >tabs.find(<span class="fstat-no" title="function not covered" >(t</span>) =&gt; <span class="cstat-no" title="statement not covered" >t.id === renamingTabId)</span>;</span>
+      const currentTab = <span class="cstat-no" title="statement not covered" >tabs.<span class="fstat-no" title="function not covered" >find((t</span>) =&gt; <span class="cstat-no" title="statement not covered" >t.id === renamingTabId)</span>;</span>
 <span class="cstat-no" title="statement not covered" >      if (currentTab) {</span>
         // Extract the file extension
         const extension = <span class="cstat-no" title="statement not covered" >currentTab.name.slice(</span>
@@ -1397,13 +1397,13 @@ export function SketchTabs({
 <span class="cstat-no" title="statement not covered" >    setNewName("");</span>
   };
 &nbsp;
-  const handleRenameCancel = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >handleRenameCancel = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setIsRenameDialogOpen(false);</span>
 <span class="cstat-no" title="statement not covered" >    setRenamingTabId(null);</span>
 <span class="cstat-no" title="statement not covered" >    setNewName("");</span>
   };
 &nbsp;
-  const handleDeleteConfirm = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >handleDeleteConfirm = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (deleteConfirmTabId) {</span>
 <span class="cstat-no" title="statement not covered" >      onTabClose(deleteConfirmTabId);</span>
 <span class="cstat-no" title="statement not covered" >      setDeleteConfirmTabId(null);</span>
@@ -1499,10 +1499,10 @@ export function SketchTabs({
     setPendingFilesToLoad(null);
   };
 &nbsp;
-  const handleReplaceConfirmNo = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >handleReplaceConfirmNo = () =&gt; {</span>
     // Only add .h files, skip the .ino
 <span class="cstat-no" title="statement not covered" >    if (pendingFilesToLoad &amp;&amp; onFilesLoaded) {</span>
-      const hFiles = <span class="cstat-no" title="statement not covered" >pendingFilesToLoad.filter(<span class="fstat-no" title="function not covered" >(f</span>) =&gt; <span class="cstat-no" title="statement not covered" >f.name.endsWith(".h"))</span>;</span>
+      const hFiles = <span class="cstat-no" title="statement not covered" >pendingFilesToLoad.<span class="fstat-no" title="function not covered" >filter((f</span>) =&gt; <span class="cstat-no" title="statement not covered" >f.name.endsWith(".h"))</span>;</span>
 <span class="cstat-no" title="statement not covered" >      if (hFiles.length &gt; 0) {</span>
 <span class="cstat-no" title="statement not covered" >        onFilesLoaded(hFiles, false); // false = don't replace all</span>
 <span class="cstat-no" title="statement not covered" >        toast({</span>
@@ -1545,12 +1545,12 @@ export function SketchTabs({
                 &lt;Input
                   ref={inputRef}
                   value={newName}
-                  onChange={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNewName(e.target.value)}</span>
-                  onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; {
+<span class="fstat-no" title="function not covered" >                  onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNewName(e.target.value)}</span>
+<span class="fstat-no" title="function not covered" >                  onKeyDown={(e</span>) =&gt; {
 <span class="cstat-no" title="statement not covered" >                    e.stopPropagation();</span>
 <span class="cstat-no" title="statement not covered" >                    if (e.key === "Enter") {</span>
 <span class="cstat-no" title="statement not covered" >                      handleRenameSave();</span>
-<span class="cstat-no" title="statement not covered" >                    } else if (e.key === "Escape") {</span>
+                    } else <span class="cstat-no" title="statement not covered" >if (e.key === "Escape") {</span>
 <span class="cstat-no" title="statement not covered" >                      handleRenameCancel();</span>
                     }
                   }}
@@ -1573,18 +1573,18 @@ export function SketchTabs({
                     flex: "1",
                     minWidth: "0",
                   }}
-                  onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nTabClick(tab.id)}</span>
+<span class="fstat-no" title="function not covered" >                  onClick={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nTabClick(tab.id)}</span>
                   tabIndex={0}
                   onKeyDown={(e) =&gt; {
                     if (e.key === "Enter" || <span class="branch-1 cbranch-no" title="branch not covered" >e.key === " ") {</span>
                       e.preventDefault();
                       onTabClick(tab.id);
-<span class="cstat-no" title="statement not covered" >                    <span class="missing-if-branch" title="else path not taken" >E</span>} else if (e.key === "F2") {</span>
+                    } else <span class="cstat-no" title="statement not covered" ><span class="missing-if-branch" title="else path not taken" >E</span>if (e.key === "F2") {</span>
 <span class="cstat-no" title="statement not covered" >                      e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >                      handleRenameStart(tab.id, tab.name);</span>
                     }
                   }}
-                  onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >h</span>andleRenameStart(tab.id, tab.name)}</span>
+<span class="fstat-no" title="function not covered" >                  onDoubleClick={() =&gt; <span class="cstat-no" title="statement not covered" >h</span>andleRenameStart(tab.id, tab.name)}</span>
                   aria-label={`${getDisplayFileName(tab.name)}${modifiedTabId === tab.id ? ", modified" : ""}`}
                   title={`${getDisplayFileName(tab.name)}${modifiedTabId === tab.id ? ", modified" : ""}`}
                 &gt;
@@ -1666,7 +1666,7 @@ export function SketchTabs({
               )}
               {activeTabId &amp;&amp; tabs[0]?.id !== activeTabId &amp;&amp; (
 <span class="branch-2 cbranch-no" title="branch not covered" >                &lt;DropdownMenuItem</span>
-                  onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etDeleteConfirmTabId(activeTabId)}</span>
+<span class="fstat-no" title="function not covered" >                  onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etDeleteConfirmTabId(activeTabId)}</span>
                   className="text-destructive"
                 &gt;
                   &lt;Trash2 className="h-4 w-4 mr-2" /&gt;
@@ -1705,7 +1705,7 @@ export function SketchTabs({
       {/* Delete Confirmation Dialog */}
       &lt;AlertDialog
         open={deleteConfirmTabId !== null}
-        onOpenChange={<span class="fstat-no" title="function not covered" >(o</span>pen) =&gt; {
+<span class="fstat-no" title="function not covered" >        onOpenChange={(o</span>pen) =&gt; {
 <span class="cstat-no" title="statement not covered" >          if (!open) <span class="cstat-no" title="statement not covered" >setDeleteConfirmTabId(null);</span></span>
         }}
       &gt;
@@ -1739,11 +1739,11 @@ export function SketchTabs({
           &lt;Input
             autoFocus
             value={newName}
-            onChange={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNewName(e.target.value)}</span>
-            onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; {
+<span class="fstat-no" title="function not covered" >            onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setNewName(e.target.value)}</span>
+<span class="fstat-no" title="function not covered" >            onKeyDown={(e</span>) =&gt; {
 <span class="cstat-no" title="statement not covered" >              if (e.key === "Enter") {</span>
 <span class="cstat-no" title="statement not covered" >                handleRenameSave();</span>
-<span class="cstat-no" title="statement not covered" >              } else if (e.key === "Escape") {</span>
+              } else <span class="cstat-no" title="statement not covered" >if (e.key === "Escape") {</span>
 <span class="cstat-no" title="statement not covered" >                handleRenameCancel();</span>
               }
             }}
@@ -1798,7 +1798,7 @@ export function SketchTabs({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

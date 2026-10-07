@@ -1170,15 +1170,15 @@ function <span class="fstat-no" title="function not covered" >mergeParserWarning
   prev: ParserMessage[],
   usageWarnings: ParserMessage[],
 ): ParserMessage[] {
-  const cleanedPrev = <span class="cstat-no" title="statement not covered" >prev.filter(<span class="fstat-no" title="function not covered" >(e</span>xisting) =&gt; {</span>
+  const cleanedPrev = <span class="cstat-no" title="statement not covered" >prev.<span class="fstat-no" title="function not covered" >filter((e</span>xisting) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (existing.category !== "pins") <span class="cstat-no" title="statement not covered" >return true;</span></span>
 <span class="cstat-no" title="statement not covered" >    if (!existing.message.includes("pinMode() was never called")) <span class="cstat-no" title="statement not covered" >return true;</span></span>
     const pinKey = <span class="cstat-no" title="statement not covered" >extractPinKeyFromMessage(existing.message);</span>
 <span class="cstat-no" title="statement not covered" >    if (!pinKey) <span class="cstat-no" title="statement not covered" >return true;</span></span>
-<span class="cstat-no" title="statement not covered" >    return !usageWarnings.some(<span class="fstat-no" title="function not covered" >(m</span>) =&gt; <span class="cstat-no" title="statement not covered" >extractPinKeyFromMessage(m.message) === pinKey)</span>;</span>
+<span class="cstat-no" title="statement not covered" >    return !usageWarnings.<span class="fstat-no" title="function not covered" >some((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >extractPinKeyFromMessage(m.message) === pinKey)</span>;</span>
   });
-  const existingKeys = <span class="cstat-no" title="statement not covered" >new Set(cleanedPrev.map(<span class="fstat-no" title="function not covered" >(m</span>) =&gt; <span class="cstat-no" title="statement not covered" >`${m.category}:${m.message}`)</span>);</span>
-  const newMessages = <span class="cstat-no" title="statement not covered" >usageWarnings.filter(<span class="fstat-no" title="function not covered" >(m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!existingKeys.has(`${m.category}:${m.message}`))</span>;</span>
+  const existingKeys = <span class="cstat-no" title="statement not covered" >new Set(cleanedPrev.<span class="fstat-no" title="function not covered" >map((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >`${m.category}:${m.message}`)</span>);</span>
+  const newMessages = <span class="cstat-no" title="statement not covered" >usageWarnings.<span class="fstat-no" title="function not covered" >filter((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!existingKeys.has(`${m.category}:${m.message}`))</span>;</span>
 <span class="cstat-no" title="statement not covered" >  return newMessages.length &gt; 0 ? [...cleanedPrev, ...newMessages] : cleanedPrev;</span>
 }
 &nbsp;
@@ -1271,7 +1271,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     sendMessage: sendMessageRaw,
   } = useWebSocket();
 &nbsp;
-  const sendMessage = useCallback(<span class="fstat-no" title="function not covered" >(m</span>essage: WSMessage) =&gt; {
+  const sendMessage = <span class="fstat-no" title="function not covered" >useCallback((m</span>essage: WSMessage) =&gt; {
 <span class="cstat-no" title="statement not covered" >    sendMessageRaw(message);</span>
   }, [sendMessageRaw]);
 &nbsp;
@@ -1290,7 +1290,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 &nbsp;
   /** Handle serial_output messages. */
   const handleSerialOutput = (message: SerialPayload) =&gt; {
-    let text = (message.data ?? <span class="branch-1 cbranch-no" title="branch not covered" >"").t</span>oString();
+    let text = (message.data ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>.toString();
     const isComplete = message.isComplete ?? <span class="branch-1 cbranch-no" title="branch not covered" >true;</span>
 &nbsp;
     // Skip timing control messages
@@ -1301,7 +1301,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     // Signal that the first real output has arrived
     params.setHasFirstOutput?.(true);
 &nbsp;
-    setRxActivity(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; <span class="cstat-no" title="statement not covered" >prev + 1)</span>;
+<span class="fstat-no" title="function not covered" >    setRxActivity((p</span>rev) =&gt; <span class="cstat-no" title="statement not covered" >prev + 1)</span>;
 &nbsp;
     const isNewlineOnly = text === "\n" || text === "\r\n";
     if (isNewlineOnly) text = "";
@@ -1320,7 +1320,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       let textForRenderer: string;
       if (isNewlineOnly) {
         textForRenderer = "\n";
-      <span class="missing-if-branch" title="if path not taken" >I</span>} else if (isComplete &amp;&amp; !isNewlineOnly &amp;&amp; !text.endsWith('\n')) {
+      } else <span class="missing-if-branch" title="if path not taken" >I</span>if (isComplete &amp;&amp; !isNewlineOnly &amp;&amp; !text.endsWith('\n')) {
 <span class="cstat-no" title="statement not covered" >        textForRenderer = text + "\n";</span>
       } else {
         textForRenderer = text;
@@ -1328,7 +1328,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       appendSerialOutput(textForRenderer);
     }
 &nbsp;
-    setSerialOutput(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; {
+<span class="fstat-no" title="function not covered" >    setSerialOutput((p</span>rev) =&gt; {
       const newLines = <span class="cstat-no" title="statement not covered" >[...prev];</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      if (isComplete) {</span>
@@ -1337,10 +1337,10 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             text: newLines.at(-1)!.text + text,
             complete: true,
           };
-<span class="cstat-no" title="statement not covered" >        } else if (text.length &gt; 0) {</span>
+        } else <span class="cstat-no" title="statement not covered" >if (text.length &gt; 0) {</span>
 <span class="cstat-no" title="statement not covered" >          newLines.push({ text, complete: true });</span>
         }
-<span class="cstat-no" title="statement not covered" >      } else if (newLines.length === 0 || newLines.at(-1)!.complete) {</span>
+      } else <span class="cstat-no" title="statement not covered" >if (newLines.length === 0 || newLines.at(-1)!.complete) {</span>
 <span class="cstat-no" title="statement not covered" >        newLines.push({ text, complete: false });</span>
       } else {
 <span class="cstat-no" title="statement not covered" >        newLines[newLines.length - 1] = {</span>
@@ -1436,12 +1436,12 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       resetPinUI({ keepDetected: true });
       setCompilationStatus("ready");
       emitSimulationStateEvent("IDLE");
-    <span class="missing-if-branch" title="if path not taken" >I</span>} else if (status === "queued") {
+    } else <span class="missing-if-branch" title="if path not taken" >I</span>if (status === "queued") {
 <span class="cstat-no" title="statement not covered" >      emitSimulationStateEvent("QUEUED_FOR_SIMULATION");</span>
     } else if (status === "paused") {
       pauseRendering();
       emitSimulationStateEvent("PAUSED");
-    <span class="missing-if-branch" title="else path not taken" >E</span>} else if (status === "running") {
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>if (status === "running") {
       // Reset first-output flag: sketch just started, output may arrive shortly
       params.setHasFirstOutput?.(false);
       resumeRendering();
@@ -1497,19 +1497,19 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   /** Update analog pins used in the simulation. */
   const updateAnalogPinsUsed = (analogPinsFromRegistry: Set&lt;number&gt;) =&gt; {
     if (simulationStatus === "running") {
-      setAnalogPinsUsed(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; {
+<span class="fstat-no" title="function not covered" >      setAnalogPinsUsed((p</span>rev) =&gt; {
         const merged = <span class="cstat-no" title="statement not covered" >new Set([...prev, ...Array.from(analogPinsFromRegistry)]);</span>
-<span class="cstat-no" title="statement not covered" >        return Array.from(merged).sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a - b)</span>;</span>
+<span class="cstat-no" title="statement not covered" >        return Array.from(merged).<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a - b)</span>;</span>
       });
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="else path not taken" >E</span>} else if (analogPinsFromRegistry.size &gt; 0) {</span>
-      const arr = <span class="cstat-no" title="statement not covered" >Array.from(analogPinsFromRegistry).sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a - b)</span>;</span>
+    } else <span class="cstat-no" title="statement not covered" ><span class="missing-if-branch" title="else path not taken" >E</span>if (analogPinsFromRegistry.size &gt; 0) {</span>
+      const arr = <span class="cstat-no" title="statement not covered" >Array.from(analogPinsFromRegistry).<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a - b)</span>;</span>
 <span class="cstat-no" title="statement not covered" >      setAnalogPinsUsed(arr);</span>
     }
   };
 &nbsp;
   /** Update pin states from IO registry. */
   const updatePinStatesFromRegistry = (registry: IOPinRecord[]) =&gt; {
-    setPinStates(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; {
+<span class="fstat-no" title="function not covered" >    setPinStates((p</span>rev) =&gt; {
       const newStates = <span class="cstat-no" title="statement not covered" >[...prev];</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      for (const record of registry) {</span>
@@ -1518,7 +1518,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
         const pinNum = <span class="cstat-no" title="statement not covered" >pinToNumber(record.pin);</span>
 <span class="cstat-no" title="statement not covered" >        if (pinNum === null) <span class="cstat-no" title="statement not covered" >continue;</span></span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        if (!newStates.some(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.pin === pinNum)</span>) {</span>
+<span class="cstat-no" title="statement not covered" >        if (!newStates.<span class="fstat-no" title="function not covered" >some((p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.pin === pinNum)</span>) {</span>
 <span class="cstat-no" title="statement not covered" >          newStates.push({</span>
             pin: pinNum,
             mode: "INPUT",
@@ -1549,7 +1549,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     // Parser messages handling
     const usageWarnings: ParserMessage[] = [];
     <span class="missing-if-branch" title="if path not taken" >I</span>if (usageWarnings.length &gt; 0) {
-<span class="cstat-no" title="statement not covered" >      setParserMessages(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >      setParserMessages((p</span>rev) =&gt; {</span>
         const updated = <span class="cstat-no" title="statement not covered" >mergeParserWarnings(prev, usageWarnings);</span>
 <span class="cstat-no" title="statement not covered" >        if (updated !== prev) <span class="cstat-no" title="statement not covered" >setParserPanelDismissed(false);</span></span>
 <span class="cstat-no" title="statement not covered" >        return updated;</span>
@@ -1626,7 +1626,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     // explicit unsubscribe/cleanup (per refactor requirement). This is a
     // NO-OP handler and does not change runtime behaviour because
     // message processing remains driven by the shared messageQueue.
-    const unsub = manager.on("message", <span class="fstat-no" title="function not covered" >() =&gt; {</span>});
+    const unsub = manager.on(<span class="fstat-no" title="function not covered" >"message", () =&gt; {</span>});
     return () =&gt; {
       unsub();
     };
@@ -1657,7 +1657,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

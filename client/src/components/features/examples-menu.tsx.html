@@ -800,7 +800,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1390,7 +1390,7 @@ export function ExamplesMenu({
       const allItems = document.querySelectorAll&lt;HTMLElement&gt;(
         '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
       );
-      allItems.forEach(<span class="fstat-no" title="function not covered" >(i</span>t) =&gt; {
+      allItems.<span class="fstat-no" title="function not covered" >forEach((i</span>t) =&gt; {
 <span class="cstat-no" title="statement not covered" >        it.classList.remove(</span>
           "bg-accent",
           "text-accent-foreground",
@@ -1400,7 +1400,7 @@ export function ExamplesMenu({
       });
     };
 &nbsp;
-    const highlightItem = <span class="fstat-no" title="function not covered" >(i</span>tems: HTMLElement[], idx: number) =&gt; {
+    const <span class="fstat-no" title="function not covered" >highlightItem = (i</span>tems: HTMLElement[], idx: number) =&gt; {
 <span class="cstat-no" title="statement not covered" >      clearHighlight();</span>
 <span class="cstat-no" title="statement not covered" >      setKeyboardNavActive(true);</span>
 <span class="cstat-no" title="statement not covered" >      if (items[idx]) {</span>
@@ -1415,7 +1415,7 @@ export function ExamplesMenu({
     };
 &nbsp;
     // Handle mouse movement - clear keyboard highlight and re-enable hover
-    const onMouseMove = <span class="fstat-no" title="function not covered" >(e</span>: MouseEvent) =&gt; {
+    const <span class="fstat-no" title="function not covered" >onMouseMove = (e</span>: MouseEvent) =&gt; {
       const target = (<span class="cstat-no" title="statement not covered" >e.target as HTMLElement).closest&lt;HTMLElement&gt;(</span>
         '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
       );
@@ -1446,7 +1446,7 @@ export function ExamplesMenu({
       }
     });
 &nbsp;
-    const onKey = <span class="fstat-no" title="function not covered" >(e</span>: KeyboardEvent) =&gt; {
+    const <span class="fstat-no" title="function not covered" >onKey = (e</span>: KeyboardEvent) =&gt; {
       const items = <span class="cstat-no" title="statement not covered" >getVisibleItems();</span>
 <span class="cstat-no" title="statement not covered" >      if (items.length === 0) <span class="cstat-no" title="statement not covered" >return;</span></span>
 &nbsp;
@@ -1457,19 +1457,19 @@ export function ExamplesMenu({
         const next = <span class="cstat-no" title="statement not covered" >i + 1 &gt;= items.length ? 0 : i + 1;</span>
 <span class="cstat-no" title="statement not covered" >        focusedIndexRef.current = next;</span>
 <span class="cstat-no" title="statement not covered" >        highlightItem(items, next);</span>
-<span class="cstat-no" title="statement not covered" >      } else if (e.key === "ArrowUp") {</span>
+      } else <span class="cstat-no" title="statement not covered" >if (e.key === "ArrowUp") {</span>
 <span class="cstat-no" title="statement not covered" >        e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >        e.stopPropagation();</span>
         const i = <span class="cstat-no" title="statement not covered" >focusedIndexRef.current;</span>
         const next = <span class="cstat-no" title="statement not covered" >i - 1 &lt; 0 ? items.length - 1 : i - 1;</span>
 <span class="cstat-no" title="statement not covered" >        focusedIndexRef.current = next;</span>
 <span class="cstat-no" title="statement not covered" >        highlightItem(items, next);</span>
-<span class="cstat-no" title="statement not covered" >      } else if (e.key === "Enter") {</span>
+      } else <span class="cstat-no" title="statement not covered" >if (e.key === "Enter") {</span>
 <span class="cstat-no" title="statement not covered" >        e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >        e.stopPropagation();</span>
         const idx = <span class="cstat-no" title="statement not covered" >Math.max(0, focusedIndexRef.current);</span>
 <span class="cstat-no" title="statement not covered" >        items[idx]?.click();</span>
-<span class="cstat-no" title="statement not covered" >      } else if (e.key === "Escape") {</span>
+      } else <span class="cstat-no" title="statement not covered" >if (e.key === "Escape") {</span>
 <span class="cstat-no" title="statement not covered" >        setOpen(false);</span>
       }
     };
@@ -1750,7 +1750,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
                           /&gt;
                         ))
                     : Object.entries(groupedByCategory)
-                        .toSorted(<span class="fstat-no" title="function not covered" >([</span>a], [b]) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>
+                        .<span class="fstat-no" title="function not covered" >toSorted(([</span>a], [b]) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>
                         .map(([category, items]) =&gt; {
                           const categoryKey = `${source}:${category}`;
                           const isCategoryExpanded =
@@ -1782,7 +1782,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
                               {isCategoryExpanded &amp;&amp; (
                                 &lt;div className="bg-muted/30"&gt;
                                   {items
-                                    .toSorted(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt;
+                                    .<span class="fstat-no" title="function not covered" >toSorted((a</span>, b) =&gt;
 <span class="cstat-no" title="statement not covered" >                                      a.title.localeCompare(b.title),</span>
                                     )
                                     .map((example) =&gt; (
@@ -1813,7 +1813,7 @@ function ExamplesTree({ examples, onLoadExample, canUseServerExamples }: Example
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -1981,11 +1981,11 @@ function activeMeasurement(requested: number, measurement: CapacityScenarioMeasu
 }
 &nbsp;
 function <span class="fstat-no" title="function not covered" >startupMeasurement(r</span>equested: number, measurement: CapacityScenarioMeasurement): StartupMeasurement {
-  const cpu = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.flatMap(<span class="fstat-no" title="function not covered" >(s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.cpuPercent === null ? [] : [sample.cpuPercent])</span>;</span>
-  const iowait = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.flatMap(<span class="fstat-no" title="function not covered" >(s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.iowaitPercent === null ? [] : [sample.iowaitPercent])</span>;</span>
-  const memory = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.flatMap(<span class="fstat-no" title="function not covered" >(s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.availableMemoryBytes === null ? [] : [sample.availableMemoryBytes])</span>;</span>
-  const failed = <span class="cstat-no" title="statement not covered" >measurement.clients.filter(<span class="fstat-no" title="function not covered" >(c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >!client.started || client.errors.length &gt; 0)</span>.length;</span>
-  const timeouts = <span class="cstat-no" title="statement not covered" >measurement.clients.filter(<span class="fstat-no" title="function not covered" >(c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.operationErrorCodes.some(<span class="fstat-no" title="function not covered" >(c</span>ode) =&gt; <span class="cstat-no" title="statement not covered" >code.includes("TIMEOUT"))</span>)</span>.length;</span>
+  const cpu = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.<span class="fstat-no" title="function not covered" >flatMap((s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.cpuPercent === null ? [] : [sample.cpuPercent])</span>;</span>
+  const iowait = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.<span class="fstat-no" title="function not covered" >flatMap((s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.iowaitPercent === null ? [] : [sample.iowaitPercent])</span>;</span>
+  const memory = <span class="cstat-no" title="statement not covered" >measurement.hostSamples.<span class="fstat-no" title="function not covered" >flatMap((s</span>ample) =&gt; <span class="cstat-no" title="statement not covered" >sample.availableMemoryBytes === null ? [] : [sample.availableMemoryBytes])</span>;</span>
+  const failed = <span class="cstat-no" title="statement not covered" >measurement.clients.<span class="fstat-no" title="function not covered" >filter((c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >!client.started || client.errors.length &gt; 0)</span>.length;</span>
+  const timeouts = <span class="cstat-no" title="statement not covered" >measurement.clients.<span class="fstat-no" title="function not covered" >filter((c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.operationErrorCodes.<span class="fstat-no" title="function not covered" >some((c</span>ode) =&gt; <span class="cstat-no" title="statement not covered" >code.includes("TIMEOUT"))</span>)</span>.length;</span>
   const startupSamplesComplete = <span class="cstat-no" title="statement not covered" >measurement.authoritativeSandboxStartWaitSamplesComplete === true;</span>
 <span class="cstat-no" title="statement not covered" >  return {</span>
     requested,
@@ -2017,8 +2017,8 @@ export function getClassroomOutcomeCounts(measurementClients: CapacityScenarioMe
 &nbsp;
 function <span class="fstat-no" title="function not covered" >classroomMeasurement(m</span>easurement: CapacityScenarioMeasurement): ClassroomMeasurement {
   const starts = <span class="cstat-no" title="statement not covered" >measurement.clients</span>
-    .filter(<span class="fstat-no" title="function not covered" >(c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.runtimeStartedAtMs !== null)</span>
-    .sort(<span class="fstat-no" title="function not covered" >(l</span>eft, <span class="cstat-no" title="statement not covered" >right) =&gt; (left.runtimeStartedAtMs ?? Infinity) - (right.runtimeStartedAtMs ?? Infinity))</span>;
+    .<span class="fstat-no" title="function not covered" >filter((c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.runtimeStartedAtMs !== null)</span>
+    .<span class="fstat-no" title="function not covered" >sort((l</span>eft, <span class="cstat-no" title="statement not covered" >right) =&gt; (left.runtimeStartedAtMs ?? Infinity) - (right.runtimeStartedAtMs ?? Infinity))</span>;
   let inversions = <span class="cstat-no" title="statement not covered" >0;</span>
 <span class="cstat-no" title="statement not covered" >  for (let left = <span class="cstat-no" title="statement not covered" >0; l</span>eft &lt; starts.length; left++) {</span>
 <span class="cstat-no" title="statement not covered" >    for (let right = <span class="cstat-no" title="statement not covered" >left + 1; r</span>ight &lt; starts.length; right++) {</span>
@@ -2028,7 +2028,7 @@ function <span class="fstat-no" title="function not covered" >classroomMeasureme
   const pairs = <span class="cstat-no" title="statement not covered" >starts.length * Math.max(0, starts.length - 1) / 2;</span>
   const outcomes = <span class="cstat-no" title="statement not covered" >getClassroomOutcomeCounts(measurement.clients);</span>
   const authoritativeSamples = <span class="cstat-no" title="statement not covered" >measurement.authoritativeSandboxStartWaitSamplesMs ?? [];</span>
-  const expectedAuthoritativeSamples = <span class="cstat-no" title="statement not covered" >measurement.clients.filter(<span class="fstat-no" title="function not covered" >(c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.started || client.startupBeganAtMs !== null)</span>.length;</span>
+  const expectedAuthoritativeSamples = <span class="cstat-no" title="statement not covered" >measurement.clients.<span class="fstat-no" title="function not covered" >filter((c</span>lient) =&gt; <span class="cstat-no" title="statement not covered" >client.started || client.startupBeganAtMs !== null)</span>.length;</span>
   const authoritativeSamplesComplete = <span class="cstat-no" title="statement not covered" >measurement.authoritativeSandboxStartWaitSamplesComplete === true</span>
     &amp;&amp; authoritativeSamples.length === expectedAuthoritativeSamples
     &amp;&amp; expectedAuthoritativeSamples &gt; 0;
@@ -2065,22 +2065,22 @@ function notCalibrated&lt;T&gt;(): Recommendation&lt;T&gt; {
 }
 &nbsp;
 async function <span class="fstat-no" title="function not covered" >findFreePort(): Promise&lt;number&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve, reject) =&gt; {</span>
     const server = <span class="cstat-no" title="statement not covered" >net.createServer();</span>
 <span class="cstat-no" title="statement not covered" >    server.once("error", reject);</span>
-<span class="cstat-no" title="statement not covered" >    server.listen(0, "127.0.0.1", <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    server.listen(0, <span class="fstat-no" title="function not covered" >"127.0.0.1", () =&gt; {</span></span>
       const address = <span class="cstat-no" title="statement not covered" >server.address();</span>
 <span class="cstat-no" title="statement not covered" >      if (!address || typeof address === "string") { <span class="cstat-no" title="statement not covered" >server.close(); <span class="cstat-no" title="statement not covered" >r</span>eject(new Error("Could not allocate a loopback port")); <span class="cstat-no" title="statement not covered" >r</span>eturn; }</span></span>
-<span class="cstat-no" title="statement not covered" >      server.close(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; <span class="cstat-no" title="statement not covered" >error ? reject(error) : resolve(address.port))</span>;</span>
+<span class="cstat-no" title="statement not covered" >      server.<span class="fstat-no" title="function not covered" >close((e</span>rror) =&gt; <span class="cstat-no" title="statement not covered" >error ? reject(error) : resolve(address.port))</span>;</span>
     });
   });
 }
 &nbsp;
 function <span class="fstat-no" title="function not covered" >stopProcess(c</span>hild: ChildProcess): Promise&lt;void&gt; {
-<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (child.exitCode !== null) { <span class="cstat-no" title="statement not covered" >resolve(); <span class="cstat-no" title="statement not covered" >r</span>eturn; }</span></span>
-    const timer = <span class="cstat-no" title="statement not covered" >setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span> <span class="cstat-no" title="statement not covered" >child.kill("SIGKILL"); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>, 5_000);</span>
-<span class="cstat-no" title="statement not covered" >    child.once("close", <span class="fstat-no" title="function not covered" >() =&gt; {</span> <span class="cstat-no" title="statement not covered" >clearTimeout(timer); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>);</span>
+    const timer = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setTimeout(() =&gt; {</span> <span class="cstat-no" title="statement not covered" >child.kill("SIGKILL"); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>, 5_000);</span>
+<span class="cstat-no" title="statement not covered" >    child.once(<span class="fstat-no" title="function not covered" >"close", () =&gt; {</span> <span class="cstat-no" title="statement not covered" >clearTimeout(timer); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>);</span>
 <span class="cstat-no" title="statement not covered" >    child.kill("SIGTERM");</span>
   });
 }
@@ -2093,7 +2093,7 @@ function <span class="fstat-no" title="function not covered" >ownedContainerCoun
 async function <span class="fstat-no" title="function not covered" >defaultStartBackend(c</span>apacity: EffectiveCapacityConfiguration, runId: string): Promise&lt;{ baseUrl: string; stop: () =&gt; Promise&lt;void&gt; }&gt; {
   const port = <span class="cstat-no" title="statement not covered" >await findFreePort();</span>
   const baseUrl = <span class="cstat-no" title="statement not covered" >`http://127.0.0.1:${port}`;</span>
-  const <span class="cstat-no" title="statement not covered" >child = spawn("./node_modules/.bin/tsx", ["server/index.ts"], {</span>
+  const child = <span class="cstat-no" title="statement not covered" >spawn("./node_modules/.bin/tsx", ["server/index.ts"], {</span>
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -2116,8 +2116,8 @@ async function <span class="fstat-no" title="function not covered" >defaultStart
     stdio: ["ignore", "pipe", "pipe"],
   });
   let startupOutput = <span class="cstat-no" title="statement not covered" >"";</span>
-<span class="cstat-no" title="statement not covered" >  child.stdout?.on("data", <span class="fstat-no" title="function not covered" >(c</span>hunk: Buffer | string) =&gt; { <span class="cstat-no" title="statement not covered" >startupOutput += chunk.toString(); }</span>);</span>
-<span class="cstat-no" title="statement not covered" >  child.stderr?.on("data", <span class="fstat-no" title="function not covered" >(c</span>hunk: Buffer | string) =&gt; { <span class="cstat-no" title="statement not covered" >startupOutput += chunk.toString(); }</span>);</span>
+<span class="cstat-no" title="statement not covered" >  child.stdout?.on(<span class="fstat-no" title="function not covered" >"data", (c</span>hunk: Buffer | string) =&gt; { <span class="cstat-no" title="statement not covered" >startupOutput += chunk.toString(); }</span>);</span>
+<span class="cstat-no" title="statement not covered" >  child.stderr?.on(<span class="fstat-no" title="function not covered" >"data", (c</span>hunk: Buffer | string) =&gt; { <span class="cstat-no" title="statement not covered" >startupOutput += chunk.toString(); }</span>);</span>
   const deadline = <span class="cstat-no" title="statement not covered" >Date.now() + 180_000;</span>
 <span class="cstat-no" title="statement not covered" >  while (Date.now() &lt; deadline) {</span>
 <span class="cstat-no" title="statement not covered" >    if (child.exitCode !== null) {</span>
@@ -2134,7 +2134,7 @@ async function <span class="fstat-no" title="function not covered" >defaultStart
             baseUrl,
             stop: <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >              await stopProcess(child);</span>
-              const <span class="cstat-no" title="statement not covered" >ownedIds = execFileSync("docker", ["ps", "-aq", "--filter", `label=unosim.capacity-test-run-id=${runId}`], { encoding: "utf8" })</span>
+              const ownedIds = <span class="cstat-no" title="statement not covered" >execFileSync("docker", ["ps", "-aq", "--filter", `label=unosim.capacity-test-run-id=${runId}`], { encoding: "utf8" })</span>
                 .trim().split("\n").filter(Boolean);
 <span class="cstat-no" title="statement not covered" >              for (const id of ownedIds) <span class="cstat-no" title="statement not covered" >execFileSync("docker", ["rm", "-f", id], { stdio: "ignore" });</span></span>
             },
@@ -2144,7 +2144,7 @@ async function <span class="fstat-no" title="function not covered" >defaultStart
     } catch {
       // Continue polling while the server boots.
     }
-<span class="cstat-no" title="statement not covered" >    await new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 500))</span>;</span>
+<span class="cstat-no" title="statement not covered" >    await new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 500))</span>;</span>
   }
 <span class="cstat-no" title="statement not covered" >  await stopProcess(child);</span>
   const suffix = <span class="cstat-no" title="statement not covered" >startupOutput.trim() ? `: ${startupOutput.trim()}` : "";</span>
@@ -2346,7 +2346,7 @@ async function runActiveCandidateList(
       const summary = activeMeasurement(candidate, await measureCalibrationCandidate(context, "active", candidate, candidate));
       measurements.push(summary);
       <span class="missing-if-branch" title="if path not taken" >I</span>if (allowDownwardRefinement &amp;&amp; index === 0 &amp;&amp; summary.cpuP95Percent !== null &amp;&amp; summary.cpuP95Percent &gt; context.config.targetCpuPercent) {
-<span class="cstat-no" title="statement not covered" >        candidates = [candidate, ...planDownwardRefinement(candidate, context.config, context.host.required.logicalCpus).filter(<span class="fstat-no" title="function not covered" >(v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >value !== candidate)</span>];</span>
+<span class="cstat-no" title="statement not covered" >        candidates = [candidate, ...planDownwardRefinement(candidate, context.config, context.host.required.logicalCpus).<span class="fstat-no" title="function not covered" >filter((v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >value !== candidate)</span>];</span>
       }
       if (summary.cpuP95Percent !== null &amp;&amp; summary.cpuP95Percent &gt;= context.config.maxCpuPercent) {
         context.safetyEvents.push({ atMs: context.now(), phase: "active", kind: "cpu", message: `Active candidate ${candidate} reached the hard CPU ceiling`, immediate: false });
@@ -2380,7 +2380,7 @@ async function runStartupPhase(context: CalibrationPhaseContext, selectedActive:
   let p99: number | null = null;
   let max: number | null = null;
   <span class="missing-if-branch" title="else path not taken" >E</span>if (context.config.skipStartupTuning || <span class="branch-1 cbranch-no" title="branch not covered" >selectedActive === null || <span class="branch-2 cbranch-no" title="branch not covered" >p</span>artial) r</span>eturn { measurements, partial, stopReason: null, p99, max };
-<span class="cstat-no" title="statement not covered" >  for (const candidate of context.startupCandidates.filter(<span class="fstat-no" title="function not covered" >(v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >value &lt;= selectedActive)</span>) {</span>
+<span class="cstat-no" title="statement not covered" >  for (const candidate of context.startupCandidates.<span class="fstat-no" title="function not covered" >filter((v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >value &lt;= selectedActive)</span>) {</span>
 <span class="cstat-no" title="statement not covered" >    if (context.now() &gt;= context.deadline) <span class="cstat-no" title="statement not covered" >return { measurements, partial: true, stopReason: "calibration deadline reached during startup phase", p99, max };</span></span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const measurement = <span class="cstat-no" title="statement not covered" >await measureCalibrationCandidate(context, "startup", selectedActive, candidate);</span>
@@ -2409,7 +2409,7 @@ async function runCalibrationPhases(context: CalibrationPhaseContext): Promise&l
   phases.startup = startup.measurements;
   partial = startup.partial;
   stopReason = startup.stopReason ?? stopReason;
-  const selectedStartup = context.config.skipStartupTuning ? <span class="branch-1 cbranch-no" title="branch not covered" >null : selectStartupRecommendation(phases.startup, context.baseCapacity.sandboxStartMaxConcurrent, selectedActive ?? 1).value;</span>
+  const selectedStartup = context.config.skipStartupTuning ? null : <span class="branch-1 cbranch-no" title="branch not covered" >selectStartupRecommendation(phases.startup, context.baseCapacity.sandboxStartMaxConcurrent, selectedActive ?? 1).value;</span>
   let finalCleanup = context.lastCleanup;
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!context.config.skipClassroom &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >selectedActive !== null &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >s</span>electedStartup !== null &amp;&amp; <span class="branch-3 cbranch-no" title="branch not covered" >!</span>partial) {</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
@@ -2433,8 +2433,8 @@ function buildCalibrationRecommendations(
 ): CalibrationRecommendations {
   const activeRecommendation = selectActiveRecommendation(phases.active, config);
   const startupRecommendation = config.skipStartupTuning
-    ? notCalibrated&lt;number&gt;(<span class="branch-1 cbranch-no" title="branch not covered" >)</span>
-    : selectStartupRecommendation(phases.startup, baseCapacity.sandboxStartMaxConcurrent, activeRecommendation.value ?? 1);
+    ? notCalibrated&lt;number&gt;()
+    : <span class="branch-1 cbranch-no" title="branch not covered" >selectStartupRecommendation(phases.startup, baseCapacity.sandboxStartMaxConcurrent, activeRecommendation.value ?? 1);</span>
   const controlDurations = phases.dockerControl.filter((sample) =&gt; sample.condition === "parallel").flatMap((sample) =&gt; sample.durationsMs);
   const controlRecommendation = recommendDockerControlTimeout(percentile(controlDurations, 99), DOCKER_CONTROL_DEFAULT_MS, DOCKER_CONTROL_RANGE);
   const classroomRecommendations = buildClassroomRecommendations(config, phases, startupSlotWaitP99Ms, startupSlotWaitMaxMs);
@@ -2484,7 +2484,7 @@ function buildSlotRecommendation(classroom: ClassroomMeasurement | null, startup
   <span class="missing-if-branch" title="if path not taken" >I</span>if (classroom?.authoritativeSandboxStartWaitSamplesComplete) {
 <span class="cstat-no" title="statement not covered" >    return recommendSandboxStartSlotTimeout(classroom.startupSlotWaitP99Ms, classroom.startupSlotWaitMaxMs, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);</span>
   }
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!classroom &amp;&amp; startup.length &gt; 0 &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >startup.every(<span class="fstat-no" title="function not covered" >(m</span>easurement) =&gt; <span class="cstat-no" title="statement not covered" >measurement.startupSlotWaitSamplesComplete === true)</span>) {</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!classroom &amp;&amp; startup.length &gt; 0 &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >startup.<span class="fstat-no" title="function not covered" >every((m</span>easurement) =&gt; <span class="cstat-no" title="statement not covered" >measurement.startupSlotWaitSamplesComplete === true)</span>) {</span>
 <span class="cstat-no" title="statement not covered" >    return recommendSandboxStartSlotTimeout(p99, max, SANDBOX_START_SLOT_DEFAULT_MS, SANDBOX_START_SLOT_RANGE);</span>
   }
   const expected = classroom?.authoritativeSandboxStartWaitSamplesExpected;
@@ -2509,10 +2509,10 @@ export async function runCalibration(
   dependencies: CalibrationDependencies = {},
 ): Promise&lt;CalibrationRunResult&gt; {
   const now = dependencies.now ?? Date.now;
-  const collectHost = dependencies.collectHostProbe ?? (<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >() =&gt; c</span>ollectHostProbe());</span></span>
-  const collectDocker = dependencies.collectDockerProbe ?? (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >(<span class="cstat-no" title="statement not covered" >i</span>mage: string) =&gt; collectDockerProbe(image));</span></span>
-  const measureControl = dependencies.measureDockerControlLatency ?? (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >(i</span>mage: string, parallelism: number, <span class="cstat-no" title="statement not covered" >samples: number) =&gt; measureDockerControlLatency(image, parallelism, samples));</span></span>
-  const runScenario = dependencies.runScenario ?? (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >(<span class="cstat-no" title="statement not covered" >o</span>ptions: CapacityScenarioOptions) =&gt; runCapacityScenario(options));</span></span>
+  const collectHost = dependencies.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >collectHostProbe ?? (() =&gt; <span class="cstat-no" title="statement not covered" >c</span>ollectHostProbe()</span></span>);
+  const collectDocker = dependencies.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >collectDockerProbe ?? ((i</span>mage: string) =&gt; <span class="cstat-no" title="statement not covered" >collectDockerProbe(image));</span></span>
+  const measureControl = dependencies.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >measureDockerControlLatency ?? ((i</span>mage: string, parallelism: number, samples: number) =&gt; <span class="cstat-no" title="statement not covered" >measureDockerControlLatency(image, parallelism, samples));</span></span>
+  const runScenario = dependencies.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >runScenario ?? ((o</span>ptions: CapacityScenarioOptions) =&gt; <span class="cstat-no" title="statement not covered" >runCapacityScenario(options));</span></span>
   const startBackend = dependencies.startBackend ?? defaultStartBackend;
   const countOwnedContainers = dependencies.ownedContainerCount ?? ownedContainerCount;
   const image = process.env.DOCKER_SANDBOX_IMAGE ?? DEFAULT_IMAGE;
@@ -2614,7 +2614,7 @@ export async function runCalibration(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../prettify.js"></script>
         <script>

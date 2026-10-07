@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75.16% </span>
+                <span class="strong">75.08% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>224/298</span>
+                <span class='fraction'>223/297</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">58.89% </span>
+                <span class="strong">58.38% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>96/163</span>
+                <span class='fraction'>94/161</span>
             </div>
         
             
@@ -1869,7 +1869,7 @@ export class ExecutionManager {
     // Create and start PinStateBatcher
     state.pinStateBatcher = new PinStateBatcher({
       tickIntervalMs: config.timeouts.batcherTickIntervalMs,
-      onBatch: <span class="fstat-no" title="function not covered" >(b</span>atch: PinStateBatch) =&gt; {
+<span class="fstat-no" title="function not covered" >      onBatch: (b</span>atch: PinStateBatch) =&gt; {
 <span class="cstat-no" title="statement not covered" >        if (state.messageQueue &amp;&amp; this.registryManager.isWaiting()) {</span>
 <span class="cstat-no" title="statement not covered" >          for (const s of batch.states) {</span>
 <span class="cstat-no" title="statement not covered" >            state.messageQueue.push({</span>
@@ -1877,9 +1877,9 @@ export class ExecutionManager {
               data: { pin: s.pin, stateType: s.stateType, value: s.value },
             });
           }
-<span class="cstat-no" title="statement not covered" >        } else if (onPinStateBatch) {</span>
+        } else <span class="cstat-no" title="statement not covered" >if (onPinStateBatch) {</span>
 <span class="cstat-no" title="statement not covered" >          onPinStateBatch(batch);</span>
-<span class="cstat-no" title="statement not covered" >        } else if (onPinState) {</span>
+        } else <span class="cstat-no" title="statement not covered" >if (onPinState) {</span>
 <span class="cstat-no" title="statement not covered" >          for (const s of batch.states) {</span>
 <span class="cstat-no" title="statement not covered" >            onPinState(s.pin, s.stateType, s.value);</span>
           }
@@ -1906,7 +1906,7 @@ export class ExecutionManager {
         <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof onOutput !== "function") <span class="cstat-no" title="statement not covered" >return;</span>
 &nbsp;
         <span class="missing-if-branch" title="if path not taken" >I</span>if (state.backpressurePaused) {
-<span class="cstat-no" title="statement not covered" >          setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >          setTimeout(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >            if (</span>
               state.backpressurePaused &amp;&amp;
               state.serialOutputBatcher &amp;&amp;
@@ -2173,7 +2173,7 @@ export class ExecutionManager {
     };
 &nbsp;
     let runtimeStarted = false;
-    let resolveRuntimeStart: (started: boolean) =&gt; void = <span class="fstat-no" title="function not covered" >() =&gt; {</span>};
+    let <span class="fstat-no" title="function not covered" >resolveRuntimeStart: (started: boolean) =&gt; void = () =&gt; {</span>};
     const runtimeStartPromise = new Promise&lt;boolean&gt;((resolve) =&gt; {
       resolveRuntimeStart = resolve;
     });
@@ -2215,11 +2215,11 @@ export class ExecutionManager {
 &nbsp;
       const dockerCallbacks = {
         onOutput: callbacks.onOutput,
-        onPinState: callbacks.onPinState ?? (<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >() =&gt; {</span>}),</span>
+        onPinState: callbacks.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >onPinState ?? (() =&gt; {</span>}),</span>
         onError: callbacks.onError,
       };
 &nbsp;
-      state.processController.onError(<span class="fstat-no" title="function not covered" >(e</span>rr) =&gt; {
+      state.processController.<span class="fstat-no" title="function not covered" >onError((e</span>rr) =&gt; {
 <span class="cstat-no" title="statement not covered" >        this.logger.error(`Docker process error: ${err.message}`);</span>
 <span class="cstat-no" title="statement not covered" >        callbacks.onError(`Docker process failed: ${err.message}`);</span>
       });
@@ -2354,7 +2354,7 @@ export class ExecutionManager {
       logger: this.logger,
     });
 &nbsp;
-    state.processController.onStdout(<span class="fstat-no" title="function not covered" >(d</span>ata) =&gt; {
+    state.processController.<span class="fstat-no" title="function not covered" >onStdout((d</span>ata) =&gt; {
       const str = <span class="cstat-no" title="statement not covered" >data.toString();</span>
       const withinLimit = <span class="cstat-no" title="statement not covered" >state.outputCollector?.append(str) ?? false;</span>
 <span class="cstat-no" title="statement not covered" >      state.totalOutputBytes = state.outputCollector?.totalBytes ?? state.totalOutputBytes + str.length;</span>
@@ -2365,7 +2365,7 @@ export class ExecutionManager {
       }
 &nbsp;
       const lines = <span class="cstat-no" title="statement not covered" >str.split(/\r?\n/);</span>
-<span class="cstat-no" title="statement not covered" >      lines.forEach(<span class="fstat-no" title="function not covered" >(l</span>ine) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      lines.<span class="fstat-no" title="function not covered" >forEach((l</span>ine) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        if (!line) <span class="cstat-no" title="statement not covered" >return;</span></span>
         const parsed = <span class="cstat-no" title="statement not covered" >this.stderrParser.parseStderrLine(line, state.processStartTime);</span>
 <span class="cstat-no" title="statement not covered" >        delegateParsedLineToStreamHandler(parsed, state, callbacks, {</span>
@@ -2378,7 +2378,7 @@ export class ExecutionManager {
     const useFallbackParser = !state.processController.supportsStderrLineStreaming();
     state.stderrFallbackBuffer = "";
 &nbsp;
-    state.processController.onStderr(<span class="fstat-no" title="function not covered" >(d</span>ata) =&gt; {
+    state.processController.<span class="fstat-no" title="function not covered" >onStderr((d</span>ata) =&gt; {
 <span class="cstat-no" title="statement not covered" >      if (useFallbackParser) {</span>
 <span class="cstat-no" title="statement not covered" >        handleStderrFallbackData(data, state, callbacks, {</span>
           registryManager: this.registryManager,
@@ -2388,7 +2388,7 @@ export class ExecutionManager {
       }
     });
 &nbsp;
-    state.processController.onStderrLine(<span class="fstat-no" title="function not covered" >(l</span>ine) =&gt; {
+    state.processController.<span class="fstat-no" title="function not covered" >onStderrLine((l</span>ine) =&gt; {
 <span class="cstat-no" title="statement not covered" >      if (line.length === 0) <span class="cstat-no" title="statement not covered" >return;</span></span>
       const parsed = <span class="cstat-no" title="statement not covered" >this.stderrParser.parseStderrLine(line, state.processStartTime);</span>
 <span class="cstat-no" title="statement not covered" >      delegateParsedLineToStreamHandler(parsed, state, callbacks, {</span>
@@ -2473,7 +2473,7 @@ export class ExecutionManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

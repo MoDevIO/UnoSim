@@ -1586,8 +1586,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2047,7 +2047,7 @@ export function useArduinoSimulatorPage() {
   const telemetryData = useTelemetryStore();
 &nbsp;
   // Helper to request the global Settings dialog to open (App listens for this event)
-  const openSettings = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >openSettings = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      globalThis.dispatchEvent(new CustomEvent("open-settings"));</span>
     } catch {}
@@ -2079,11 +2079,11 @@ export function useArduinoSimulatorPage() {
   const { toast } = useToast();
   const { setDebugMode } = useDebugMode();
   const loadFilesTriggerRef = useRef&lt;(() =&gt; void) | null&gt;(null);
-  const openLoadFiles = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const openLoadFiles = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    loadFilesTriggerRef.current?.();</span>
   }, []);
   const renameTriggerRef = useRef&lt;(() =&gt; void) | null&gt;(null);
-  const openRenameFile = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const openRenameFile = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
     const trigger = <span class="cstat-no" title="statement not covered" >renameTriggerRef.current;</span>
 <span class="cstat-no" title="statement not covered" >    if (trigger) <span class="cstat-no" title="statement not covered" >globalThis.queueMicrotask(trigger);</span></span>
   }, []);
@@ -2113,11 +2113,11 @@ export function useArduinoSimulatorPage() {
   );
 &nbsp;
   // All outgoing WebSocket commands share this offline guard.
-  const sendMessage = useCallback(<span class="fstat-no" title="function not covered" >(m</span>essage: IncomingArduinoMessage) =&gt; {
+  const sendMessage = <span class="fstat-no" title="function not covered" >useCallback((m</span>essage: IncomingArduinoMessage) =&gt; {
 <span class="cstat-no" title="statement not covered" >    if (!capabilities.canUseRealtimeControls) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >    sendMessageRaw(message);</span>
   }, [capabilities, sendMessageRaw]);
-  const sendMessageImmediateGuarded = useCallback(<span class="fstat-no" title="function not covered" >(m</span>essage: IncomingArduinoMessage) =&gt; {
+  const sendMessageImmediateGuarded = <span class="fstat-no" title="function not covered" >useCallback((m</span>essage: IncomingArduinoMessage) =&gt; {
 <span class="cstat-no" title="statement not covered" >    if (!capabilities.canUseRealtimeControls) <span class="cstat-no" title="statement not covered" >return false;</span></span>
 <span class="cstat-no" title="statement not covered" >    return sendMessageImmediate(message);</span>
   }, [capabilities, sendMessageImmediate]);
@@ -2177,7 +2177,7 @@ export function useArduinoSimulatorPage() {
     setIoRegistry: setRuntimeIoRegistry,
     setIsModified,
     setDebugMessages,
-    addDebugMessage: <span class="fstat-no" title="function not covered" >(p</span>arams: DebugMessageParams) =&gt;
+<span class="fstat-no" title="function not covered" >    addDebugMessage: (p</span>arams: DebugMessageParams) =&gt;
 <span class="cstat-no" title="statement not covered" >      addDebugMessage(</span>
         params.source,
         params.type,
@@ -2195,23 +2195,23 @@ export function useArduinoSimulatorPage() {
     pendingPinConflicts,
     setPendingPinConflicts,
     isModified,
-    handleCompileAndStart: <span class="fstat-no" title="function not covered" >() =&gt; {</span>},
+<span class="fstat-no" title="function not covered" >    handleCompileAndStart: () =&gt; {</span>},
     startSimulationRef,
   });
 &nbsp;
   // Centralize simulator actions (start, stop, pause, resume, reset, compile &amp; start)
   // This extracts control logic into a reusable hook for better testability and modularity
-  const handleStartAndClearRuntime = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const handleStartAndClearRuntime = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setRuntimeIoRegistry(null);</span>
 <span class="cstat-no" title="statement not covered" >    controllerHandleStart();</span>
   }, [controllerHandleStart, setRuntimeIoRegistry]);
 &nbsp;
-  const handleStopAndClearRuntime = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const handleStopAndClearRuntime = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setRuntimeIoRegistry(null);</span>
 <span class="cstat-no" title="statement not covered" >    controllerHandleStop();</span>
   }, [controllerHandleStop, setRuntimeIoRegistry]);
 &nbsp;
-  const handleResetAndClearRuntime = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const handleResetAndClearRuntime = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setRuntimeIoRegistry(null);</span>
 <span class="cstat-no" title="statement not covered" >    controllerHandleReset();</span>
   }, [controllerHandleReset, setRuntimeIoRegistry]);
@@ -2238,7 +2238,7 @@ export function useArduinoSimulatorPage() {
 &nbsp;
   // Use centralized output panel hook for all output-related state and callbacks
 &nbsp;
-  const onReplaceAllFiles = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const onReplaceAllFiles = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    invalidatePendingStart();</span>
 <span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") {</span>
 <span class="cstat-no" title="statement not covered" >      sendMessage({ type: "stop_simulation" });</span>
@@ -2266,14 +2266,14 @@ export function useArduinoSimulatorPage() {
     setRuntimeIoRegistry,
   ]);
 &nbsp;
-  const onLoadExample = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const onLoadExample = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    invalidatePendingStart();</span>
 <span class="cstat-no" title="statement not covered" >    if (simulationStatus === "running") {</span>
 <span class="cstat-no" title="statement not covered" >      sendMessage({ type: "stop_simulation" });</span>
     }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    clearOutputs();</span>
-<span class="cstat-no" title="statement not covered" >    setStaticIoRegistry(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >    setStaticIoRegistry(() =&gt; {</span></span>
       const pins: IOPinRecord[] = <span class="cstat-no" title="statement not covered" >[];</span>
 <span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >0; i</span> &lt;= 13; i++) <span class="cstat-no" title="statement not covered" >pins.push({ pin: String(i), defined: false, usedAt: [] });</span></span>
 <span class="cstat-no" title="statement not covered" >      for (let i = <span class="cstat-no" title="statement not covered" >0; i</span> &lt;= 5; i++) <span class="cstat-no" title="statement not covered" >pins.push({ pin: `A${i}`, defined: false, usedAt: [] });</span></span>
@@ -2328,16 +2328,16 @@ export function useArduinoSimulatorPage() {
     location: SourceLocation;
   } | null&gt;(null);
 &nbsp;
-  const navigateToSourceLocation = useCallback(
-<span class="fstat-no" title="function not covered" >    (t</span>arget: SourceNavigationTarget) =&gt; {
-      const <span class="cstat-no" title="statement not covered" >line = isSourceLocation(target) ? target.line : target;</span>
+  const navigateToSourceLocation = <span class="fstat-no" title="function not covered" >useCallback(</span>
+    (target: SourceNavigationTarget) =&gt; {
+      const line = <span class="cstat-no" title="statement not covered" >isSourceLocation(target) ? target.line : target;</span>
 <span class="cstat-no" title="statement not covered" >      if (line &lt;= 0) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >      if (!isSourceLocation(target)) {</span>
 <span class="cstat-no" title="statement not covered" >        editorRef.current?.goToLine?.(line);</span>
 <span class="cstat-no" title="statement not covered" >        return;</span>
       }
 &nbsp;
-      const <span class="cstat-no" title="statement not covered" >targetTab = findTabForSourceLocation(tabs, target);</span>
+      const targetTab = <span class="cstat-no" title="statement not covered" >findTabForSourceLocation(tabs, target);</span>
 <span class="cstat-no" title="statement not covered" >      if (!targetTab) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >      if (targetTab.id === activeTabId) {</span>
 <span class="cstat-no" title="statement not covered" >        editorRef.current?.goToLine?.(line);</span>
@@ -2365,7 +2365,7 @@ export function useArduinoSimulatorPage() {
   const { data: sketches } = useQuery&lt;Sketch[]&gt;({
     queryKey: ["/api/sketches"],
     retry: 3,
-    retryDelay: <span class="fstat-no" title="function not covered" >(a</span>ttemptIndex) =&gt; <span class="cstat-no" title="statement not covered" >Math.min(1000 * 2 ** attemptIndex, 30000),</span>
+<span class="fstat-no" title="function not covered" >    retryDelay: (a</span>ttemptIndex) =&gt; <span class="cstat-no" title="statement not covered" >Math.min(1000 * 2 ** attemptIndex, 30000),</span>
     enabled: backendReachable, // Only query if backend is reachable
   });
 &nbsp;
@@ -2503,17 +2503,17 @@ export function useArduinoSimulatorPage() {
       capabilities,
     });
 &nbsp;
-  const handleSerialInputSend = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const <span class="fstat-no" title="function not covered" >handleSerialInputSend = () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!serialInputValue.trim()) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >    handleSerialSend(serialInputValue);</span>
   };
 &nbsp;
-  const closeMobilePanel = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const closeMobilePanel = <span class="fstat-no" title="function not covered" >useCallback(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (isMobile) <span class="cstat-no" title="statement not covered" >setMobilePanel("code");</span></span>
   }, [isMobile, setMobilePanel]);
 &nbsp;
   // Remaining handlers for OutputPanel integration
-  const handleInsertSuggestion = useCallback(<span class="fstat-no" title="function not covered" >(s</span>uggestion: string, line?: number) =&gt; {
+  const handleInsertSuggestion = <span class="fstat-no" title="function not covered" >useCallback((s</span>uggestion: string, line?: number) =&gt; {
     const insertSmartly = <span class="cstat-no" title="statement not covered" >editorRef.current?.insertSuggestionSmartly;</span>
 <span class="cstat-no" title="statement not covered" >    if (insertSmartly) {</span>
 <span class="cstat-no" title="statement not covered" >      suppressAutoStopOnce();</span>
@@ -2557,7 +2557,7 @@ export function useArduinoSimulatorPage() {
     renameTriggerRef,
     handleFilesLoaded,
     handleLoadExample,
-    downloadAllFiles: <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="fstat-no" title="function not covered" >    downloadAllFiles: () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      void downloadAllFiles();</span>
     },
     formatCode,
@@ -2613,7 +2613,7 @@ export function useArduinoSimulatorPage() {
   const externalAllowedOrigin =
     globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
 &nbsp;
-  const loadExternalCode = useCallback(<span class="fstat-no" title="function not covered" >(n</span>extCode: string) =&gt; {
+  const loadExternalCode = <span class="fstat-no" title="function not covered" >useCallback((n</span>extCode: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >    invalidatePendingStart();</span>
 <span class="cstat-no" title="statement not covered" >    setCode(nextCode);</span>
   }, [invalidatePendingStart, setCode]);
@@ -2782,7 +2782,7 @@ export type ArduinoSimulatorPageState = ReturnType&lt;typeof useArduinoSimulator
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -1057,7 +1057,7 @@ export class ArduinoCompiler {
 &nbsp;
     // Ensure provided tempRoot exists (important for Worker pool and deterministic tests)
     <span class="missing-if-branch" title="if path not taken" >I</span>if (tempRoot) {
-<span class="cstat-no" title="statement not covered" >      await mkdir(tempRoot, { recursive: true }).catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>});</span>
+<span class="cstat-no" title="statement not covered" >      await mkdir(tempRoot, { recursive: true }).<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>});</span>
     }
 &nbsp;
     // use a unique temporary directory per-call to avoid state conflicts
@@ -1134,10 +1134,10 @@ export class ArduinoCompiler {
       // 3. Create directories and process headers
       await mkdir(sketchDir, { recursive: true });
       <span class="missing-if-branch" title="if path not taken" >I</span>if (options?.buildPath) {
-<span class="cstat-no" title="statement not covered" >        await mkdir(options.buildPath, { recursive: true }).catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>});</span>
+<span class="cstat-no" title="statement not covered" >        await mkdir(options.buildPath, { recursive: true }).<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>});</span>
       }
       <span class="missing-if-branch" title="if path not taken" >I</span>if (options?.buildCachePath) {
-<span class="cstat-no" title="statement not covered" >        await mkdir(options.buildCachePath, { recursive: true }).catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>});</span>
+<span class="cstat-no" title="statement not covered" >        await mkdir(options.buildCachePath, { recursive: true }).<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>});</span>
       }
 &nbsp;
       const { processedCode, lineOffset } = await processHeaderIncludes(
@@ -1197,7 +1197,7 @@ export class ArduinoCompiler {
       return {
         success: false,
         output: "",
-        stderr: `Compilation failed: ${error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)}</span>`,
+        stderr: `Compilation failed: ${error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error)}`,</span>
         errors: [],
         arduinoCliStatus: "error",
         parserMessages: allParserMessages,
@@ -1230,12 +1230,12 @@ export class ArduinoCompiler {
 &nbsp;
     if (cliResult.binary) {
       // Write to both instant cache and persistent hex cache
-      await writeHexToCache(sketchHash, hexCacheDir, cliResult.binary).catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+      await writeHexToCache(sketchHash, hexCacheDir, cliResult.binary).<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >        this.logger.debug(</span>
           `[CompileCache] failed to write HEX cache: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
-      await writeBinaryToStorage(sketchHash, cliResult.binary, this.defaultBinaryStorageDir).catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+      await writeBinaryToStorage(sketchHash, cliResult.binary, this.defaultBinaryStorageDir).<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >        this.logger.debug(</span>
           `[CompileCache] failed to write binary storage cache: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -1243,8 +1243,8 @@ export class ArduinoCompiler {
       // Store the formatted output alongside both cache locations so cache hits
       // can reproduce the full compiler output (sketch size, RAM usage, etc.)
       <span class="missing-if-branch" title="else path not taken" >E</span>if (cliOutput) {
-        await writeOutputToCache(hexCacheDir, sketchHash, cliOutput).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
-        await writeOutputToCache(this.defaultBinaryStorageDir, sketchHash, cliOutput).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
+        await writeOutputToCache(hexCacheDir, sketchHash, cliOutput).<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
+        await writeOutputToCache(this.defaultBinaryStorageDir, sketchHash, cliOutput).<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;
       }
       await runHexCacheCleanup(hexCacheDir);
       await runHexCacheCleanup(this.defaultBinaryStorageDir);
@@ -1300,7 +1300,7 @@ export class ArduinoCompiler {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

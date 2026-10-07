@@ -1993,17 +1993,17 @@ interface PauseButtonProps {
   readonly isMobile?: boolean;
 }
 &nbsp;
-function <span class="fstat-no" title="function not covered" >PauseButton({</span> isPausing, simulateDisabled, isLoading, onPause, isMobile = <span class="branch-0 cbranch-no" title="branch not covered" >false }</span>: PauseButtonProps) {
-  const handleClick = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(e</span>: React.MouseEvent) =&gt; {</span>
+function <span class="fstat-no" title="function not covered" >PauseButton({</span> isPausing, simulateDisabled, isLoading, onPause, isMobile = <span class="branch-0 cbranch-no" title="branch not covered" >false }: PauseButtonProps) {</span>
+  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >handleClick = (e</span>: React.MouseEvent) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >    e.stopPropagation();</span>
 <span class="cstat-no" title="statement not covered" >    if (!simulateDisabled &amp;&amp; !isLoading) <span class="cstat-no" title="statement not covered" >onPause();</span></span>
   };
-  const handleMouseDown = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(e</span>: React.MouseEvent) =&gt; {</span>
+  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >handleMouseDown = (e</span>: React.MouseEvent) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >    e.stopPropagation();</span>
   };
-  const handleKeyDown = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(e</span>: React.KeyboardEvent) =&gt; {</span>
+  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >handleKeyDown = (e</span>: React.KeyboardEvent) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (e.key === "Enter" || e.key === " ") {</span>
 <span class="cstat-no" title="statement not covered" >      e.preventDefault();</span>
 <span class="cstat-no" title="statement not covered" >      e.stopPropagation();</span>
@@ -2149,7 +2149,7 @@ export function DesktopMenuBar({
     if (openMenuRef.current &amp;&amp; openMenuRef.current !== menu) {
       menuSwitchPending.current = true;
       setCurrentOpenMenu(menu);
-    <span class="missing-if-branch" title="else path not taken" >E</span>} else if (!openMenuRef.current) {
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>if (!openMenuRef.current) {
       menuSwitchPending.current = false;
     }
   }, [setCurrentOpenMenu]);
@@ -2209,9 +2209,9 @@ export function DesktopMenuBar({
           File
         &lt;/MenubarTrigger&gt;
         &lt;MenubarContent
-          onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
+<span class="fstat-no" title="function not covered" >          onKeyDown={(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
         &gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nFileAdd()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nFileAdd()}&gt;</span>
             New File
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⇧⌥⌘N" : "</span>Ctrl+Alt+Shift+N"}
@@ -2233,7 +2233,7 @@ export function DesktopMenuBar({
             Save All Files
           &lt;/MenubarItem&gt;
           &lt;MenubarSeparator /&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nSettings()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nSettings()}&gt;</span>
             Settings
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘," : "</span>Ctrl+,"}
@@ -2254,53 +2254,53 @@ export function DesktopMenuBar({
           Edit
         &lt;/MenubarTrigger&gt;
         &lt;MenubarContent
-          onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
+<span class="fstat-no" title="function not covered" >          onKeyDown={(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
         &gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nUndo()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nUndo()}&gt;</span>
             Undo
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘Z" : "</span>Ctrl+Z"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nRedo()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nRedo()}&gt;</span>
             Redo
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⇧⌘Z" : "</span>Ctrl+Y"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
           &lt;MenubarSeparator /&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCut()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCut()}&gt;</span>
             Cut
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘X" : "</span>Ctrl+X"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCopy()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCopy()}&gt;</span>
             Copy
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘C" : "</span>Ctrl+C"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nPaste()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nPaste()}&gt;</span>
             Paste
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘V" : "</span>Ctrl+V"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nSelectAll()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nSelectAll()}&gt;</span>
             Select All
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘A" : "</span>Ctrl+A"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
           &lt;MenubarSeparator /&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nGoToLine()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nGoToLine()}&gt;</span>
             Go to Line…
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘G" : "</span>Ctrl+G"}
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nFind()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nFind()}&gt;</span>
             Find
             &lt;MenubarShortcut&gt;
               {isMac ? <span class="branch-0 cbranch-no" title="branch not covered" >"⌘F" : "</span>Ctrl+F"}
@@ -2321,12 +2321,12 @@ export function DesktopMenuBar({
           Sketch
         &lt;/MenubarTrigger&gt;
         &lt;MenubarContent
-          onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
+<span class="fstat-no" title="function not covered" >          onKeyDown={(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
         &gt;
           &lt;MenubarItem
             disabled={!canCompile}
             title={canCompile ? undefined : "Server connection required"}
-            onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCompile()}</span>
+<span class="fstat-no" title="function not covered" >            onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nCompile()}</span>
           &gt;
             Compile
             &lt;MenubarShortcut&gt;F5&lt;/MenubarShortcut&gt;
@@ -2343,7 +2343,7 @@ export function DesktopMenuBar({
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
           &lt;MenubarSeparator /&gt;
-          &lt;MenubarItem onSelect={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nOutputPanelToggle()}&gt;</span>
+          &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nOutputPanelToggle()}&gt;</span>
             &lt;div className="flex items-center justify-between w-full"&gt;
               &lt;span&gt;Output Panel&lt;/span&gt;
               {showCompilationOutput &amp;&amp; (
@@ -2370,7 +2370,7 @@ export function DesktopMenuBar({
         &gt;
           &lt;MenubarItem
             className="cursor-default"
-            onSelect={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.preventDefault()}</span>
+<span class="fstat-no" title="function not covered" >            onSelect={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.preventDefault()}</span>
           &gt;
             &lt;div className="flex items-center justify-between w-full"&gt;
               &lt;span&gt;Board:&lt;/span&gt;
@@ -2381,7 +2381,7 @@ export function DesktopMenuBar({
           &lt;/MenubarItem&gt;
           &lt;MenubarItem
             className="cursor-default"
-            onSelect={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.preventDefault()}</span>
+<span class="fstat-no" title="function not covered" >            onSelect={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.preventDefault()}</span>
           &gt;
             &lt;div className="flex items-center justify-between w-full"&gt;
               &lt;span&gt;Baud Rate:&lt;/span&gt;
@@ -2397,7 +2397,7 @@ export function DesktopMenuBar({
             &lt;MenubarSubContent&gt;
               &lt;MenubarRadioGroup
                 value={String(simulationTimeout)}
-                onValueChange={<span class="fstat-no" title="function not covered" >(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >onTimeoutChange(Number(v))}</span>
+<span class="fstat-no" title="function not covered" >                onValueChange={(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >onTimeoutChange(Number(v))}</span>
               &gt;
                 &lt;MenubarRadioItem value="5"&gt;5s&lt;/MenubarRadioItem&gt;
                 &lt;MenubarRadioItem value="10"&gt;10s&lt;/MenubarRadioItem&gt;
@@ -2423,10 +2423,10 @@ export function DesktopMenuBar({
           Help
         &lt;/MenubarTrigger&gt;
         &lt;MenubarContent
-          onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
+<span class="fstat-no" title="function not covered" >          onKeyDown={(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.key === "Escape" &amp;&amp; clearMenuSwitchPending()}</span>
         &gt;
           &lt;MenubarItem
-            onSelect={<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="fstat-no" title="function not covered" >            onSelect={() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >              globalThis.open(</span>
                 "https://github.com/MoDevIO/UnoSim",
                 "_blank",
@@ -2674,7 +2674,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75.51% </span>
+                <span class="strong">74% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>37/49</span>
+                <span class='fraction'>37/50</span>
             </div>
         
             
@@ -416,7 +416,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -751,13 +751,13 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 &nbsp;
-const SerialPlotter = lazy(<span class="fstat-no" title="function not covered" >() =&gt;</span>
-<span class="cstat-no" title="statement not covered" >  import("@/components/features/serial-plotter").then((m) =&gt; (<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >{</span></span></span>
-    default: m.SerialPlotter,
+const SerialPlotter = <span class="fstat-no" title="function not covered" >lazy(() =&gt;</span>
+<span class="cstat-no" title="statement not covered" >  import("@/components/features/serial-plotter").then((m) =&gt; ({</span>
+<span class="fstat-no" title="function not covered" >    default: m</span>.<span class="cstat-no" title="statement not covered" >SerialPlotter,</span>
   })),
 );
 &nbsp;
-const LoadingPlaceholder = <span class="fstat-no" title="function not covered" >() =&gt; (</span>
+const <span class="fstat-no" title="function not covered" >LoadingPlaceholder = () =&gt; (</span>
 <span class="cstat-no" title="statement not covered" >  &lt;div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground"&gt;</span>
     &lt;span className="text-ui-sm"&gt;Loading chart...&lt;/span&gt;
   &lt;/div&gt;
@@ -948,7 +948,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
 &nbsp;
     // Keep only last 2 seconds of history
     const cutoff = now - 2000;
-    serialEventsRef.current = serialEventsRef.current.filter(<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.ts &gt;= cutoff)</span>;
+    serialEventsRef.current = serialEventsRef.current.<span class="fstat-no" title="function not covered" >filter((e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.ts &gt;= cutoff)</span>;
   }, [serialOutput, renderedSerialOutput]);
 &nbsp;
   // Update fallback telemetry once per second
@@ -956,9 +956,9 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
     const interval = setInterval(() =&gt; {
       const now = Date.now();
       const windowStart = now - 1000;
-      const window = serialEventsRef.current.filter(<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.ts &gt;= windowStart)</span>;
+      const window = serialEventsRef.current.<span class="fstat-no" title="function not covered" >filter((e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.ts &gt;= windowStart)</span>;
       const count = window.length;
-      const totalBytes = window.reduce(<span class="fstat-no" title="function not covered" >(a</span>cc, e) =&gt; <span class="cstat-no" title="statement not covered" >acc + e.bytes, 0</span>);
+      const totalBytes = window.<span class="fstat-no" title="function not covered" >reduce((a</span>cc, e) =&gt; <span class="cstat-no" title="statement not covered" >acc + e.bytes, 0</span>);
       setFallbackSerialTelemetry({
         telegramsPerSecond: count,
         bytesPerTelegram: count &gt; 0 ? <span class="branch-0 cbranch-no" title="branch not covered" >totalBytes / count : 0</span>,
@@ -1016,7 +1016,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 className={clsx(
                   autoScrollEnabled ? "text-cyan-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-muted-foreground",</span>
                 )}
-                onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etAutoScrollEnabled(!autoScrollEnabled)}</span>
+<span class="fstat-no" title="function not covered" >                onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etAutoScrollEnabled(!autoScrollEnabled)}</span>
                 disabled={serialViewMode === "plotter"}
                 aria-pressed={autoScrollEnabled}
                 data-testid="button-autoscroll"
@@ -1054,7 +1054,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             type="text"
             placeholder="Send to Arduino..."
             value={serialInputValue}
-            onChange={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setSerialInputValue(e.target.value)}</span>
+<span class="fstat-no" title="function not covered" >            onChange={(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setSerialInputValue(e.target.value)}</span>
             onKeyDown={handleSerialInputKeyDown}
             onSubmit={handleSerialInputSend}
             title={capabilities &amp;&amp; !capabilities.canUseRealtimeControls ? <span class="branch-0 cbranch-no" title="branch not covered" >"Server connection required" : u</span>ndefined}
@@ -1081,7 +1081,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -635,7 +635,7 @@ function hasRegistryConflict(record: IOPinRecord): boolean {
   const digitalWrites = ops.filter((u) =&gt; u.operation.includes("digitalWrite"));
   const pinModes = ops
     .filter((u) =&gt; u.operation.includes("pinMode"))
-    .map(<span class="fstat-no" title="function not covered" >(u</span>) =&gt; {
+    .<span class="fstat-no" title="function not covered" >map((u</span>) =&gt; {
       const match = <span class="cstat-no" title="statement not covered" >/pinMode:(\d+)/.exec(u.operation);</span>
 <span class="cstat-no" title="statement not covered" >      return pinModeToString(match ? Number.parseInt(match[1]) : -1);</span>
     });
@@ -709,7 +709,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
     onParserMessagesClear,
     onParserGoToLine,
     onInsertSuggestion,
-    onRegistryClear = <span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >() =&gt; {</span>},</span>
+<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >    onRegistryClear = () =&gt; {</span>},</span>
     setDebugMessageFilter,
     setDebugViewMode,
     onCopyDebugMessages,
@@ -727,7 +727,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
   const messageStatusClass = getStatusTextClass(messageStatus);
 &nbsp;
   return (
-    &lt;Tabs value={activeOutputTab} onValueChange={<span class="fstat-no" title="function not covered" >(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >onTabChange(v as OutputTab)} c</span>lassName="h-full flex flex-col"&gt;
+    &lt;Tabs value={activeOutputTab} <span class="fstat-no" title="function not covered" >onValueChange={(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >onTabChange(v as OutputTab)} c</span>lassName="h-full flex flex-col"&gt;
       &lt;TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--panel justify-start h-[var(--ui-header-height)] border-b"&gt;
         &lt;TabsList className="h-full flex gap-0 bg-transparent items-center"&gt;
           &lt;TabsTrigger value="compiler" onDoubleClick={() =&gt; openOutputPanel("compiler")} className={clsx("uppercase tracking-wide", compilationStatusClass)}&gt;
@@ -742,14 +742,14 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             &lt;/span&gt;
           &lt;/TabsTrigger&gt;
 &nbsp;
-          &lt;TabsTrigger value="registry" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("registry")} c</span>lassName={clsx("uppercase tracking-wide", getStatusTextClass(registryHasConflict ? "error" : "idle"))}&gt;
+          &lt;TabsTrigger value="registry" <span class="fstat-no" title="function not covered" >onDoubleClick={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("registry")} c</span>lassName={clsx("uppercase tracking-wide", getStatusTextClass(registryHasConflict ? "error" : "idle"))}&gt;
             &lt;span className={getStatusTextClass(registryHasConflict ? "error" : "idle")}&gt;
               I/O Registry
             &lt;/span&gt;
           &lt;/TabsTrigger&gt;
 &nbsp;
           {debugMode &amp;&amp; (
-            &lt;TabsTrigger value="debug" onDoubleClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("debug")} c</span>lassName="uppercase tracking-wide text-cyan-400"&gt;
+            &lt;TabsTrigger value="debug" <span class="fstat-no" title="function not covered" >onDoubleClick={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>penOutputPanel("debug")} c</span>lassName="uppercase tracking-wide text-cyan-400"&gt;
               Debug
               {debugMessages.length &gt; 0 &amp;&amp; (
                 &lt;span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden"&gt;
@@ -796,7 +796,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 &lt;span className="text-ui-xs text-muted-foreground whitespace-nowrap"&gt;Filter:&lt;/span&gt;
                 &lt;select value={debugMessageFilter} onChange={(e) =&gt; setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border border-muted-foreground/20 rounded text-foreground min-w-0 max-w-xs"&gt;
                   &lt;option value=""&gt;All Types&lt;/option&gt;
-                  {Array.from(new Set(debugMessages.map((m) =&gt; m.type))).sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>.map((type) =&gt; (
+                  {Array.from(new Set(debugMessages.map((m) =&gt; m.type))).<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>.map((type) =&gt; (
                     &lt;option key={type} value={type.toLowerCase()}&gt;
                       {type}
                     &lt;/option&gt;
@@ -837,10 +837,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   &lt;/thead&gt;
                   &lt;tbody&gt;
                     {debugMessages.filter((m) =&gt; !debugMessageFilter || <span class="branch-1 cbranch-no" title="branch not covered" >m.type.toLowerCase() === debugMessageFilter)</span>.slice(-100).map((msg, idx) =&gt; (
-                      &lt;tr key={msg.id} className={`border-b border-muted-foreground/10 ${idx % 2 === 0 ? "bg-background" : <span class="branch-1 cbranch-no" title="branch not covered" >"bg-muted/20"}</span> hover:bg-muted/40 transition-colors`}&gt;
+                      &lt;tr key={msg.id} className={`border-b border-muted-foreground/10 ${idx % 2 === 0 ? "bg-background" : <span class="branch-1 cbranch-no" title="branch not covered" >"bg-muted/20"} </span>hover:bg-muted/40 transition-colors`}&gt;
                         &lt;td className="px-2 py-1 text-cyan-400 border-r border-muted-foreground/10 font-mono whitespace-nowrap"&gt;{msg.timestamp.toLocaleTimeString()}&lt;/td&gt;
                         &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className={msg.sender === "server" ? "text-blue-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-green-400"}&gt;{m</span>sg.sender.toUpperCase()}&lt;/span&gt;&lt;/td&gt;
-                        &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className={msg.protocol === "http" ? <span class="branch-0 cbranch-no" title="branch not covered" >"text-orange-400" : "</span>text-purple-400"}&gt;{msg.protocol?.toUpperCase() || <span class="branch-1 cbranch-no" title="branch not covered" >"?"}&lt;</span>/span&gt;&lt;/td&gt;
+                        &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className={msg.protocol === "http" ? <span class="branch-0 cbranch-no" title="branch not covered" >"text-orange-400" : "</span>text-purple-400"}&gt;{msg.protocol?.toUpperCase() || <span class="branch-1 cbranch-no" title="branch not covered" >"?"}&lt;/span&gt;</span>&lt;/td&gt;
                         &lt;td className="px-2 py-1 border-r border-muted-foreground/10 whitespace-nowrap"&gt;&lt;span className="text-yellow-400 font-mono"&gt;{msg.type}&lt;/span&gt;&lt;/td&gt;
                         &lt;td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}&gt;{msg.content}&lt;/td&gt;
                       &lt;/tr&gt;
@@ -859,7 +859,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 <span class="branch-1 cbranch-no" title="branch not covered" >              &lt;UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}&gt;</span>
                 &lt;div className="p-3"&gt;
                   &lt;div className="space-y-3"&gt;
-                    {debugMessages.filter(<span class="fstat-no" title="function not covered" >(m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.slice(-50).map(<span class="fstat-no" title="function not covered" >(m</span>sg) =&gt; (
+                    {debugMessages.<span class="fstat-no" title="function not covered" >filter((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.slice(-50).<span class="fstat-no" title="function not covered" >map((m</span>sg) =&gt; (
 <span class="cstat-no" title="statement not covered" >                      &lt;div key={msg.id} className="bg-muted/20 border border-muted-foreground/20 rounded p-3 hover:bg-muted/40 transition-colors"&gt;</span>
                         &lt;div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-muted-foreground/20"&gt;
                           &lt;div className="flex items-center gap-3"&gt;
@@ -868,10 +868,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                           &lt;/div&gt;
                           &lt;span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap"&gt;{msg.timestamp.toLocaleTimeString()}&lt;/span&gt;
                         &lt;/div&gt;
-                        &lt;pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border border-muted-foreground/10"&gt;&lt;code&gt;{(<span class="fstat-no" title="function not covered" >() =&gt; {</span> <span class="cstat-no" title="statement not covered" >try { const parsed = <span class="cstat-no" title="statement not covered" >JSON.parse(msg.content); <span class="cstat-no" title="statement not covered" >r</span>eturn JSON.stringify(parsed, null, 2); }</span> catch { <span class="cstat-no" title="statement not covered" >return msg.content; }</span> }</span>)()}&lt;/code&gt;&lt;/pre&gt;
+                        &lt;pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border border-muted-foreground/10"&gt;<span class="fstat-no" title="function not covered" >&lt;c</span>ode&gt;{(() =&gt; { <span class="cstat-no" title="statement not covered" >try { const parsed = <span class="cstat-no" title="statement not covered" >JSON.parse(msg.content); <span class="cstat-no" title="statement not covered" >r</span>eturn JSON.stringify(parsed, null, 2); }</span> catch { <span class="cstat-no" title="statement not covered" >return msg.content; }</span> }</span>)()}&lt;/code&gt;&lt;/pre&gt;
                       &lt;/div&gt;
                     ))}
-                    {debugMessages.filter(<span class="fstat-no" title="function not covered" >(m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.length === 0 &amp;&amp; (
+                    {debugMessages.<span class="fstat-no" title="function not covered" >filter((m</span>) =&gt; <span class="cstat-no" title="statement not covered" >!debugMessageFilter || m.type.toLowerCase() === debugMessageFilter)</span>.length === 0 &amp;&amp; (
                       &lt;div className="text-center text-muted-foreground text-ui-xs py-8"&gt;{debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}&lt;/div&gt;
                     )}
                   &lt;/div&gt;
@@ -892,7 +892,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

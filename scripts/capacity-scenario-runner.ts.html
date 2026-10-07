@@ -2058,7 +2058,7 @@ export class CapacityScenarioConfigurationError extends Error {
       &amp;&amp; actual.simulationQueueTimeoutMs !== requirements.simulationQueueTimeoutMs) {
       mismatches.push(`queue timeout ${actual.simulationQueueTimeoutMs}ms (expected ${requirements.simulationQueueTimeoutMs}ms)`);
     }
-    super(`Runtime Capacity configuration cannot represent the requested scenario: ${mismatches.join(", ") || <span class="branch-1 cbranch-no" title="branch not covered" >"unknown mismatch"}</span>`);
+    super(`Runtime Capacity configuration cannot represent the requested scenario: ${mismatches.join(", ") || <span class="branch-1 cbranch-no" title="branch not covered" >"unknown mismatch"}`)</span>;
     this.name = "CapacityScenarioConfigurationError";
   }
 }
@@ -2325,19 +2325,19 @@ export function applyClientCapacityTiming(
 }
 &nbsp;
 function <span class="fstat-no" title="function not covered" >getJson&lt;T&gt;(u</span>rl: string): Promise&lt;{ statusCode: number; body: T; headers: http.IncomingHttpHeaders }&gt; {
-<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve, reject) =&gt; {</span>
     const target = <span class="cstat-no" title="statement not covered" >new URL(url);</span>
     const request = <span class="cstat-no" title="statement not covered" >http.get(</span>
       {
         hostname: target.hostname,
         port: target.port,
         path: `${target.pathname}${target.search}`,
-      },
-<span class="fstat-no" title="function not covered" >      (r</span>esponse) =&gt; {
+<span class="fstat-no" title="function not covered" >      },</span>
+      (response) =&gt; {
         let body = <span class="cstat-no" title="statement not covered" >"";</span>
 <span class="cstat-no" title="statement not covered" >        response.setEncoding("utf8");</span>
-<span class="cstat-no" title="statement not covered" >        response.on("data", <span class="fstat-no" title="function not covered" >(c</span>hunk: string) =&gt; { <span class="cstat-no" title="statement not covered" >body += chunk; }</span>);</span>
-<span class="cstat-no" title="statement not covered" >        response.on("end", <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >        response.on(<span class="fstat-no" title="function not covered" >"data", (c</span>hunk: string) =&gt; { <span class="cstat-no" title="statement not covered" >body += chunk; }</span>);</span>
+<span class="cstat-no" title="statement not covered" >        response.on(<span class="fstat-no" title="function not covered" >"end", () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >          try {</span>
 <span class="cstat-no" title="statement not covered" >            resolve({</span>
               statusCode: response.statusCode ?? 0,
@@ -2360,7 +2360,7 @@ function <span class="fstat-no" title="function not covered" >sketch(c</span>lie
 &nbsp;
 function <span class="fstat-no" title="function not covered" >defaultDockerContainerCount(r</span>unId: string, includeStopped = <span class="branch-0 cbranch-no" title="branch not covered" >false): number {</span>
   const statusArgs = <span class="cstat-no" title="statement not covered" >includeStopped ? [] : ["--filter", "status=running"];</span>
-  const <span class="cstat-no" title="statement not covered" >output = execFileSync("docker", [</span>
+  const output = <span class="cstat-no" title="statement not covered" >execFileSync("docker", [</span>
     "ps",
     ...(includeStopped ? ["-a"] : []),
     ...statusArgs,
@@ -2371,7 +2371,7 @@ function <span class="fstat-no" title="function not covered" >defaultDockerConta
 }
 &nbsp;
 function <span class="fstat-no" title="function not covered" >defaultStatus(b</span>aseUrl: string): Promise&lt;StatusSnapshot&gt; {
-<span class="cstat-no" title="statement not covered" >  return getJson&lt;StatusSnapshot&gt;(`${baseUrl}/api/status`).then(<span class="fstat-no" title="function not covered" >(r</span>esponse) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return getJson&lt;StatusSnapshot&gt;(`${baseUrl}/api/status`).<span class="fstat-no" title="function not covered" >then((r</span>esponse) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (response.statusCode !== 200) <span class="cstat-no" title="statement not covered" >throw new Error(`GET /api/status returned HTTP ${response.statusCode}`);</span></span>
 <span class="cstat-no" title="statement not covered" >    return response.body;</span>
   });
@@ -2390,15 +2390,15 @@ async function <span class="fstat-no" title="function not covered" >defaultSessi
 type DockerEventTracker = { readonly peak: number; stop: () =&gt; Promise&lt;void&gt; };
 &nbsp;
 function <span class="fstat-no" title="function not covered" >startDockerEventTracker(r</span>unId: string): DockerEventTracker {
-  const <span class="cstat-no" title="statement not covered" >child = spawn(</span>
+  const child = <span class="cstat-no" title="statement not covered" >spawn(</span>
     "docker",
     ["events", "--format", "{{json .}}", "--filter", `label=unosim.capacity-test-run-id=${runId}`],
     { stdio: ["ignore", "pipe", "ignore"] },
   );
 <span class="cstat-no" title="statement not covered" >  if (!child.stdout) <span class="cstat-no" title="statement not covered" >throw new Error("Docker events did not provide stdout");</span></span>
-  const <span class="cstat-no" title="statement not covered" >tracker = createDockerLifecycleTracker(runId);</span>
+  const tracker = <span class="cstat-no" title="statement not covered" >createDockerLifecycleTracker(runId);</span>
   let buffer = <span class="cstat-no" title="statement not covered" >"";</span>
-<span class="cstat-no" title="statement not covered" >  child.stdout.on("data", <span class="fstat-no" title="function not covered" >(c</span>hunk: Buffer | string) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  child.stdout.on(<span class="fstat-no" title="function not covered" >"data", (c</span>hunk: Buffer | string) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    buffer += chunk.toString();</span>
     const lines = <span class="cstat-no" title="statement not covered" >buffer.split("\n");</span>
 <span class="cstat-no" title="statement not covered" >    buffer = lines.pop() ?? "";</span>
@@ -2406,10 +2406,10 @@ function <span class="fstat-no" title="function not covered" >startDockerEventTr
   });
 <span class="cstat-no" title="statement not covered" >  return {</span>
     get <span class="fstat-no" title="function not covered" >peak() {</span> <span class="cstat-no" title="statement not covered" >return tracker.peak; }</span>,
-    stop: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>ew Promise&lt;void&gt;(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; {</span>
+<span class="fstat-no" title="function not covered" >    stop: () =&gt; <span class="cstat-no" title="statement not covered" >n</span>ew <span class="fstat-no" title="function not covered" >Promise&lt;void&gt;((r</span>esolve) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      if (child.exitCode !== null) { <span class="cstat-no" title="statement not covered" >resolve(); <span class="cstat-no" title="statement not covered" >r</span>eturn; }</span></span>
-      const timer = <span class="cstat-no" title="statement not covered" >setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span> <span class="cstat-no" title="statement not covered" >child.kill("SIGTERM"); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>, 1_000);</span>
-<span class="cstat-no" title="statement not covered" >      child.once("close", <span class="fstat-no" title="function not covered" >() =&gt; {</span> <span class="cstat-no" title="statement not covered" >clearTimeout(timer); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>);</span>
+      const timer = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setTimeout(() =&gt; {</span> <span class="cstat-no" title="statement not covered" >child.kill("SIGTERM"); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>, 1_000);</span>
+<span class="cstat-no" title="statement not covered" >      child.once(<span class="fstat-no" title="function not covered" >"close", () =&gt; {</span> <span class="cstat-no" title="statement not covered" >clearTimeout(timer); <span class="cstat-no" title="statement not covered" >r</span>esolve(); }</span>);</span>
 <span class="cstat-no" title="statement not covered" >      child.kill("SIGTERM");</span>
     }),
   };
@@ -2450,7 +2450,7 @@ function <span class="fstat-no" title="function not covered" >websocketPayloadTe
 }
 &nbsp;
 function <span class="fstat-no" title="function not covered" >scheduleSimulationStop(w</span>s: WebSocket | null, holdDurationMs: number): NodeJS.Timeout {
-<span class="cstat-no" title="statement not covered" >  return setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  return <span class="fstat-no" title="function not covered" >setTimeout(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >    if (ws?.readyState === WebSocket.OPEN) <span class="cstat-no" title="statement not covered" >ws.send(JSON.stringify({ type: "stop_simulation" }));</span></span>
   }, holdDurationMs);
 }
@@ -2464,19 +2464,19 @@ function <span class="fstat-no" title="function not covered" >runClient(</span>
   now: () =&gt; number,
   createSessionCookie: (baseUrl: string) =&gt; Promise&lt;string&gt;,
 ): Promise&lt;ClientResult&gt; {
-<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve) =&gt; {</span>
     const requestedAt = <span class="cstat-no" title="statement not covered" >now();</span>
     const result = <span class="cstat-no" title="statement not covered" >emptyClient(clientId, requestedAt);</span>
     let ws: WebSocket | null = <span class="cstat-no" title="statement not covered" >null;</span>
     let finished = <span class="cstat-no" title="statement not covered" >false;</span>
     let holdTimer: NodeJS.Timeout | null = <span class="cstat-no" title="statement not covered" >null;</span>
     const timeoutMs = <span class="cstat-no" title="statement not covered" >clientWatchdogMs;</span>
-    const timeoutTimer = <span class="cstat-no" title="statement not covered" >setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+    const timeoutTimer = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setTimeout(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >      recordClientWatchdogExpiry(result, timeoutMs);</span>
 <span class="cstat-no" title="statement not covered" >      finish();</span>
     }, timeoutMs);
 &nbsp;
-    const finish = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+    const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >finish = () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >      if (finished) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >      finished = true;</span>
 <span class="cstat-no" title="statement not covered" >      clearTimeout(timeoutTimer);</span>
@@ -2488,15 +2488,15 @@ function <span class="fstat-no" title="function not covered" >runClient(</span>
 <span class="cstat-no" title="statement not covered" >      resolve(result);</span>
     };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    createSessionCookie(baseUrl).then(<span class="fstat-no" title="function not covered" >(c</span>ookie) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    createSessionCookie(baseUrl).<span class="fstat-no" title="function not covered" >then((c</span>ookie) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      if (finished) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >      ws = new WebSocket(`${baseUrl.replace(/^http/, "ws")}/ws`, { headers: { cookie } });</span>
-<span class="cstat-no" title="statement not covered" >      ws.on("open", <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      ws.on(<span class="fstat-no" title="function not covered" >"open", () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >        result.connected = true;</span>
 <span class="cstat-no" title="statement not covered" >        result.connectedAtMs ??= now();</span>
 <span class="cstat-no" title="statement not covered" >        ws?.send(JSON.stringify({ type: "start_simulation", code: sketch(clientId), timeout: timeoutSec }));</span>
       });
-<span class="cstat-no" title="statement not covered" >      ws.on("message", <span class="fstat-no" title="function not covered" >(r</span>aw) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      ws.on(<span class="fstat-no" title="function not covered" >"message", (r</span>aw) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        try {</span>
           const message = <span class="cstat-no" title="statement not covered" >JSON.parse(websocketPayloadText(raw)) as ClientCapacityTimingMessage &amp; { code?: string };</span>
           const at = <span class="cstat-no" title="statement not covered" >now();</span>
@@ -2525,18 +2525,18 @@ function <span class="fstat-no" title="function not covered" >runClient(</span>
 <span class="cstat-no" title="statement not covered" >          result.errors.push(error instanceof Error ? error.message : String(error));</span>
         }
       });
-<span class="cstat-no" title="statement not covered" >      ws.on("close", <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      ws.on(<span class="fstat-no" title="function not covered" >"close", () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >        result.terminalAtMs ??= now();</span>
 <span class="cstat-no" title="statement not covered" >        if (result.completedAtMs === null &amp;&amp; result.operationErrorCodes.length === 0 &amp;&amp; result.errors.length === 0) {</span>
 <span class="cstat-no" title="statement not covered" >          result.errors.push("WebSocket closed before completion");</span>
         }
 <span class="cstat-no" title="statement not covered" >        finish();</span>
       });
-<span class="cstat-no" title="statement not covered" >      ws.on("error", <span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      ws.on(<span class="fstat-no" title="function not covered" >"error", (e</span>rror) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        result.errors.push(error.message);</span>
 <span class="cstat-no" title="statement not covered" >        finish();</span>
       });
-    }).catch(<span class="fstat-no" title="function not covered" >(e</span>rror: unknown) =&gt; {
+    }).<span class="fstat-no" title="function not covered" >catch((e</span>rror: unknown) =&gt; {
 <span class="cstat-no" title="statement not covered" >      result.errors.push(error instanceof Error ? error.message : String(error));</span>
 <span class="cstat-no" title="statement not covered" >      finish();</span>
     });
@@ -2587,7 +2587,7 @@ function <span class="fstat-no" title="function not covered" >createDefaultHostS
 <span class="cstat-no" title="statement not covered" >    if (process.platform === "darwin") {</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
         const { stdout } = <span class="cstat-no" title="statement not covered" >await execFileAsync("ps", ["-A", "-o", "%cpu="], { encoding: "utf8" });</span>
-        const sum = <span class="cstat-no" title="statement not covered" >stdout.split("\n").map(<span class="fstat-no" title="function not covered" >(v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >Number(value.trim()))</span>.filter(Number.isFinite).reduce(<span class="fstat-no" title="function not covered" >(t</span>otal, value) =&gt; <span class="cstat-no" title="statement not covered" >total + value, 0</span>);</span>
+        const sum = <span class="cstat-no" title="statement not covered" >stdout.split("\n").<span class="fstat-no" title="function not covered" >map((v</span>alue) =&gt; <span class="cstat-no" title="statement not covered" >Number(value.trim()))</span>.filter(Number.isFinite).<span class="fstat-no" title="function not covered" >reduce((t</span>otal, value) =&gt; <span class="cstat-no" title="statement not covered" >total + value, 0</span>);</span>
 <span class="cstat-no" title="statement not covered" >        cpuPercent = Math.min(100, sum / Math.max(1, os.cpus().length));</span>
       } catch {
 <span class="cstat-no" title="statement not covered" >        cpuPercent = null;</span>
@@ -2595,8 +2595,8 @@ function <span class="fstat-no" title="function not covered" >createDefaultHostS
     } else {
 <span class="cstat-no" title="statement not covered" >      try {</span>
         const stat = <span class="cstat-no" title="statement not covered" >await fs.promises.readFile("/proc/stat", "utf8");</span>
-        const fields = <span class="cstat-no" title="statement not covered" >stat.split("\n").find(<span class="fstat-no" title="function not covered" >(l</span>ine) =&gt; <span class="cstat-no" title="statement not covered" >line.startsWith("cpu "))</span>?.trim().split(/\s+/).slice(1).map(Number) ?? [];</span>
-        const [user = <span class="branch-0 cbranch-no" title="branch not covered" >0, n</span>ice = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>ystem = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>dle = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>owait = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>rq = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>oftirq = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>teal = <span class="branch-0 cbranch-no" title="branch not covered" >0]</span> = <span class="cstat-no" title="statement not covered" >fields;</span>
+        const fields = <span class="cstat-no" title="statement not covered" >stat.split("\n").<span class="fstat-no" title="function not covered" >find((l</span>ine) =&gt; <span class="cstat-no" title="statement not covered" >line.startsWith("cpu "))</span>?.trim().split(/\s+/).slice(1).map(Number) ?? [];</span>
+        const [user = <span class="branch-0 cbranch-no" title="branch not covered" >0, n</span>ice = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>ystem = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>dle = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>owait = <span class="branch-0 cbranch-no" title="branch not covered" >0, i</span>rq = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>oftirq = <span class="branch-0 cbranch-no" title="branch not covered" >0, s</span>teal = <span class="branch-0 cbranch-no" title="branch not covered" >0] = <span class="cstat-no" title="statement not covered" >f</span>ields;</span>
         const total = <span class="cstat-no" title="statement not covered" >user + nice + system + idle + iowait + irq + softirq + steal;</span>
         const idleAll = <span class="cstat-no" title="statement not covered" >idle + iowait;</span>
 <span class="cstat-no" title="statement not covered" >        if (previousLinuxCounters) {</span>
@@ -2643,7 +2643,7 @@ async function <span class="fstat-no" title="function not covered" >runScenarioC
 ): Promise&lt;ClientResult[]&gt; {
   const arrivalWindowMs = <span class="cstat-no" title="statement not covered" >options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;</span>
   const intervalMs = <span class="cstat-no" title="statement not covered" >options.clientCount &gt; 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;</span>
-<span class="cstat-no" title="statement not covered" >  return Promise.all(Array.from({ length: options.clientCount }, <span class="fstat-no" title="function not covered" >(_</span>, <span class="cstat-no" title="statement not covered" >index) =&gt; (<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span></span>
+<span class="cstat-no" title="statement not covered" >  return Promise.all(Array.from({ length: options.clientCount <span class="fstat-no" title="function not covered" >}, (_</span>, <span class="cstat-no" title="statement not covered" >index) =&gt; (<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span></span>
 <span class="cstat-no" title="statement not covered" >    if (index &gt; 0 &amp;&amp; intervalMs &gt; 0) <span class="cstat-no" title="statement not covered" >await sleep(intervalMs);</span></span>
 <span class="cstat-no" title="statement not covered" >    return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);</span>
   })()));
@@ -2663,7 +2663,7 @@ async function <span class="fstat-no" title="function not covered" >resolveScena
 <span class="cstat-no" title="statement not covered" >    quiescence = await waitForScenarioQuiescence({ baseUrl: options.baseUrl, runId: options.runId, getStatus, countContainers, sleep, now });</span>
   } catch (error) {
 <span class="cstat-no" title="statement not covered" >    errors.push(error instanceof Error ? error.message : String(error));</span>
-    const failedStatus = <span class="cstat-no" title="statement not covered" >await getStatus(options.baseUrl).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>nitialStatus)</span>;</span>
+    const failedStatus = <span class="cstat-no" title="statement not covered" >await getStatus(options.baseUrl).<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >i</span>nitialStatus)</span>;</span>
 <span class="cstat-no" title="statement not covered" >    quiescence = {</span>
       quiescent: false,
       waitedMs: 0,
@@ -2675,7 +2675,7 @@ async function <span class="fstat-no" title="function not covered" >resolveScena
       sandboxStartWaiting: failedStatus.capacity?.sandboxStart?.waiting ?? null,
     };
   }
-  const finalStatus = <span class="cstat-no" title="statement not covered" >await getStatus(options.baseUrl).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>nitialStatus)</span>;</span>
+  const finalStatus = <span class="cstat-no" title="statement not covered" >await getStatus(options.baseUrl).<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >i</span>nitialStatus)</span>;</span>
 <span class="cstat-no" title="statement not covered" >  return { quiescence, finalStatus };</span>
 }
 &nbsp;
@@ -2686,7 +2686,7 @@ export async function <span class="fstat-no" title="function not covered" >runCa
 <span class="cstat-no" title="statement not covered" >  validateCapacityScenarioOptions(options);</span>
 &nbsp;
   const now = <span class="cstat-no" title="statement not covered" >dependencies.now ?? Date.now;</span>
-  const sleep = <span class="cstat-no" title="statement not covered" >dependencies.sleep ?? (<span class="fstat-no" title="function not covered" >(m</span>s: number) =&gt; <span class="cstat-no" title="statement not covered" >new Promise&lt;void&gt;(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, ms))</span>);</span></span>
+  const sleep = <span class="cstat-no" title="statement not covered" >dependencies.<span class="fstat-no" title="function not covered" >sleep ?? ((m</span>s: number) =&gt; <span class="cstat-no" title="statement not covered" >new <span class="fstat-no" title="function not covered" >Promise&lt;void&gt;((r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, ms))</span>);</span></span>
   const getStatus = <span class="cstat-no" title="statement not covered" >dependencies.getStatus ?? defaultStatus;</span>
   const createSessionCookie = <span class="cstat-no" title="statement not covered" >dependencies.createSessionCookie ?? defaultSessionCookie;</span>
   const countContainers = <span class="cstat-no" title="statement not covered" >dependencies.dockerContainerCount ?? defaultDockerContainerCount;</span>
@@ -2706,13 +2706,13 @@ export async function <span class="fstat-no" title="function not covered" >runCa
   const eventTracker = <span class="cstat-no" title="statement not covered" >startDockerEventTracker(options.runId);</span>
   let pollingPeak = <span class="cstat-no" title="statement not covered" >countContainers(options.runId);</span>
   let pollInFlight = <span class="cstat-no" title="statement not covered" >false;</span>
-  const statusPoller = <span class="cstat-no" title="statement not covered" >setInterval(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    getStatus(options.baseUrl).then(<span class="fstat-no" title="function not covered" >(s</span>tatus) =&gt; <span class="cstat-no" title="statement not covered" >statusHistory.push({ ...status, sampledAtMs: now() }))</span>.catch(<span class="fstat-no" title="function not covered" >(e</span>rror: unknown) =&gt; {</span>
+  const statusPoller = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setInterval(() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    getStatus(options.baseUrl).<span class="fstat-no" title="function not covered" >then((s</span>tatus) =&gt; <span class="cstat-no" title="statement not covered" >statusHistory.push({ ...status, sampledAtMs: now() }))</span>.<span class="fstat-no" title="function not covered" >catch((e</span>rror: unknown) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      errors.push(error instanceof Error ? error.message : String(error));</span>
     });
   }, 250);
-  const hostPoller = <span class="cstat-no" title="statement not covered" >setInterval(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    sampleHost().then(<span class="fstat-no" title="function not covered" >(s</span>ample) =&gt; {</span>
+  const hostPoller = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setInterval(() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    sampleHost().<span class="fstat-no" title="function not covered" >then((s</span>ample) =&gt; {</span>
       let enriched = <span class="cstat-no" title="statement not covered" >sample;</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
 <span class="cstat-no" title="statement not covered" >        enriched = { ...sample, capacityDockerContainers: countContainers(options.runId) };</span>
@@ -2721,11 +2721,11 @@ export async function <span class="fstat-no" title="function not covered" >runCa
 <span class="cstat-no" title="statement not covered" >        errors.push(error instanceof Error ? error.message : String(error));</span>
       }
 <span class="cstat-no" title="statement not covered" >      hostSamples.push(enriched);</span>
-    }).catch(<span class="fstat-no" title="function not covered" >(e</span>rror: unknown) =&gt; {
+    }).<span class="fstat-no" title="function not covered" >catch((e</span>rror: unknown) =&gt; {
 <span class="cstat-no" title="statement not covered" >      errors.push(error instanceof Error ? error.message : String(error));</span>
     });
   }, 1_000);
-  const dockerPoller = <span class="cstat-no" title="statement not covered" >setInterval(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+  const dockerPoller = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >setInterval(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >    if (pollInFlight) <span class="cstat-no" title="statement not covered" >return;</span></span>
 <span class="cstat-no" title="statement not covered" >    pollInFlight = true;</span>
 <span class="cstat-no" title="statement not covered" >    try { <span class="cstat-no" title="statement not covered" >pollingPeak = Math.max(pollingPeak, countContainers(options.runId)); }</span></span>
@@ -2818,7 +2818,7 @@ function <span class="fstat-no" title="function not covered" >validateCapacitySc
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../prettify.js"></script>
         <script>

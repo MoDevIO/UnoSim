@@ -3492,7 +3492,7 @@ function safeResult(value: unknown, credential?: string): Record&lt;string, unkn
       result[key] = redact(item, credential);
     } else if (typeof item === "number" || typeof item === "boolean" || item === undefined) {
       result[key] = item;
-    <span class="missing-if-branch" title="else path not taken" >E</span>} else if (Array.isArray(item) &amp;&amp; item.every((entry) =&gt; typeof entry === "string")) {
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>if (Array.isArray(item) &amp;&amp; item.every((entry) =&gt; typeof entry === "string")) {
       result[key] = item.map((entry) =&gt; redact(entry, credential));
     }
   }
@@ -3516,7 +3516,7 @@ function safeTurn(turn: TutorQualityTurn, credential?: string): TutorQualityTurn
     question: redact(turn.question, credential),
     answer: redact(turn.answer, credential),
     ...(turn.history === undefined ? {} : <span class="branch-1 cbranch-no" title="branch not covered" >{</span>
-      history: turn.history.map(<span class="fstat-no" title="function not covered" >(e</span>ntry) =&gt; (<span class="cstat-no" title="statement not covered" >{</span>
+      history: turn.history.<span class="fstat-no" title="function not covered" >map((e</span>ntry) =&gt; (<span class="cstat-no" title="statement not covered" >{</span>
         ...entry,
         question: redact(entry.question, credential),
         answer: redact(entry.answer, credential),
@@ -3613,7 +3613,7 @@ function deterministicRawChecks(
     addNotApplicableCheck(checks, "raw-provider-question-not-repeated", "raw-provider-schema-invalid");
     return;
   }
-  const previous = [turn.question, ...(turn.history ?? []).map(<span class="fstat-no" title="function not covered" >({</span> question: historyQuestion }) =&gt; <span class="cstat-no" title="statement not covered" >historyQuestion)</span>];
+  const previous = [turn.question, ...(turn.history ?? []).<span class="fstat-no" title="function not covered" >map(({</span> question: historyQuestion }) =&gt; <span class="cstat-no" title="statement not covered" >historyQuestion)</span>];
   const repeated = isSemanticallyRepeatedQuestion(question, previous);
   addCheck(checks, "raw-provider-question-not-repeated", !repeated);
   if (repeated) {
@@ -3670,7 +3670,7 @@ function expectedAnswerRatingCheck(context: ExpectedCheckContext): void {
   const passed = !ratingOutOfBand(context);
   addCheck(context.checks, "expected-answer-rating", passed, `${band[0]}-${band[1]}`);
   if (!passed) {
-    addViolation(context.violations, "answer-rating-out-of-band", "final-tutor", context.turnIndex, `${context.result.answerRating ?? <span class="branch-1 cbranch-no" title="branch not covered" >"none"}</span> not in ${band[0]}-${band[1]}`);
+    addViolation(context.violations, "answer-rating-out-of-band", "final-tutor", context.turnIndex, `${context.result.answerRating ?? <span class="branch-1 cbranch-no" title="branch not covered" >"none"} </span>not in ${band[0]}-${band[1]}`);
   }
 }
 &nbsp;
@@ -3716,7 +3716,7 @@ function expectedStateCheck(context: ExpectedCheckContext): void {
 &nbsp;
 function expectedQuestionCheck(context: ExpectedCheckContext): void {
   if (context.scenario.expected?.questionNotRepeat !== "exact-or-heuristic" || context.turn.kind !== "dialog") return;
-  const previousQuestions = [context.turn.question, ...(context.turn.history ?? []).map(<span class="fstat-no" title="function not covered" >({</span> question }) =&gt; <span class="cstat-no" title="statement not covered" >question)</span>];
+  const previousQuestions = [context.turn.question, ...(context.turn.history ?? []).<span class="fstat-no" title="function not covered" >map(({</span> question }) =&gt; <span class="cstat-no" title="statement not covered" >question)</span>];
   const passed = !isSemanticallyRepeatedQuestion(context.result.question, previousQuestions);
   addCheck(context.checks, "final-question-not-repeated", passed);
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!passed) <span class="cstat-no" title="statement not covered" >addViolation(context.violations, "question-repeat", "final-tutor", context.turnIndex, "stage1-heuristic");</span>
@@ -3767,7 +3767,7 @@ function questionIdReuseCheck(
   turnIndex: number,
 ): void {
   if (!courseContent?.tutor || turn.kind !== "dialog" || !result.questionId) return;
-  const usedIds = new Set((turn.history ?? []).map(<span class="fstat-no" title="function not covered" >({</span> questionId }) =&gt; <span class="cstat-no" title="statement not covered" >questionId)</span>.filter(<span class="fstat-no" title="function not covered" >(i</span>d): id is string =&gt; <span class="cstat-no" title="statement not covered" >id !== undefined)</span>);
+  const usedIds = new Set((turn.history ?? []).<span class="fstat-no" title="function not covered" >map(({</span> questionId }) =&gt; <span class="cstat-no" title="statement not covered" >questionId)</span>.<span class="fstat-no" title="function not covered" >filter((i</span>d): id is string =&gt; <span class="cstat-no" title="statement not covered" >id !== undefined)</span>);
   <span class="missing-if-branch" title="if path not taken" >I</span>if (result.questionId === undefined) <span class="cstat-no" title="statement not covered" >return;</span>
   const passed = !usedIds.has(result.questionId);
   addCheck(checks, "question-id-not-reused", passed);
@@ -4383,7 +4383,7 @@ async function createEarlyResult(
     status = "not-run";
     reason = "missing-judge-credential";
     calls = EMPTY_PROVIDER_CALLS;
-  <span class="missing-if-branch" title="if path not taken" >I</span>} else if (options.maxCalls === 0) {
+  } else <span class="missing-if-branch" title="if path not taken" >I</span>if (options.maxCalls === 0) {
 <span class="cstat-no" title="statement not covered" >    status = "not-run";</span>
 <span class="cstat-no" title="statement not covered" >    reason = "call-budget-zero";</span>
 <span class="cstat-no" title="statement not covered" >    calls = EMPTY_PROVIDER_CALLS;</span>
@@ -4452,7 +4452,7 @@ function redactSemanticEvaluation(
       })),
     } : {}),
     ...(evaluation.criticalIssues ? {
-      criticalIssues: evaluation.criticalIssues.map(<span class="fstat-no" title="function not covered" >(i</span>ssue) =&gt; (<span class="cstat-no" title="statement not covered" >{</span>
+      criticalIssues: evaluation.criticalIssues.<span class="fstat-no" title="function not covered" >map((i</span>ssue) =&gt; (<span class="cstat-no" title="statement not covered" >{</span>
         ...issue,
         reason: redactValue(issue.reason),
         quote: redactValue(issue.quote),
@@ -4528,7 +4528,7 @@ export { EvaluationBudgetExceeded };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-07T13:18:33.143Z
+                at 2026-10-07T13:54:45.604Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
