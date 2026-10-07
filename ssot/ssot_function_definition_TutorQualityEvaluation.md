@@ -899,8 +899,8 @@ workflow. It has no `pull_request` or `push` trigger (R-PYR-2).
   this runbook and of the workflow contract test.
 - **Full-corpus configuration** used for merge decisions (R-BUD-2, compute
   before every run from the current call graph): Tutor `openai-gpt5.4-mini`,
-  Judge `openai-gpt5.5`, 5 samples per case, no `--case`; for corpus v8
-  `1 + 5 × (52 + 9) = 306` calls.
+  Judge `openai-gpt5.5`, 5 samples per case, no `--case`; for corpus v9
+  `1 + 5 × (52 + 12) = 321` calls.
 - **Result**: the job result is the CLI exit code (R-VER-8). `pass` and `warn`
   are green; `fail` (exit 2) and `inconclusive` (exit 3) are red; a run without
   the Tutor or Judge secret ends `not-run` and stays green (R-PYR-2); it is no
