@@ -27,8 +27,11 @@ export LOG_LEVEL=1
 export NODE_ENV=test
 # Keep the test pipeline on the supported local profile and prevent removed
 # shell-level mode selectors from leaking into Vitest or later pipeline steps.
+# Keep this list in sync with removedRuntimeVariables in server/config.ts (guarded by
+# tests/server/run-tests-environment-contract.test.ts): config.ts rejects these at startup.
 unset UNOSIM_SIMULATION_MODE UNOSIM_TRUST_MODE FORCE_DOCKER \
-    UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY
+    UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL UNOSIM_DOCKER_TEST_BYPASS_GATEWAY \
+    SANDBOX_POOL_MIN_RUNNERS SANDBOX_POOL_MAX_RUNNERS DOCKER_COMPILE_CONCURRENT
 export UNOSIM_SERVER_MODE=local
 
 # Docker-Konfiguration (überschreibbar per Umgebungsvariable)
