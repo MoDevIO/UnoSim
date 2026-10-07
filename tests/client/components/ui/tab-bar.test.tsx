@@ -38,12 +38,12 @@ describe("TabBar", () => {
     expect(activeTab).toHaveAttribute("data-app-tab", "true");
     expect(activeTab).not.toHaveClass(
       "unified-tab-trigger",
-      "shadow-sm",
+      "shadow-xs",
       "rounded-sm",
       "focus-visible:ring-2",
     );
     expect(activeTab).toHaveClass(
-      "focus-visible:outline-none",
+      "focus-visible:outline-hidden",
       "focus-visible:ring-0",
       "focus-visible:ring-offset-0",
     );

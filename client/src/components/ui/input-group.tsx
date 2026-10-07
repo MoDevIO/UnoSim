@@ -32,7 +32,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
 
     return (
       <div className={cn("w-full", className)}>
-        <div className="flex items-center w-full rounded-md border border-border bg-input overflow-hidden transition-colors duration-150 focus-within:ring-0 focus-within:outline-none">
+        <div className="flex items-center w-full rounded-md border border-border bg-input overflow-hidden transition-colors duration-150 focus-within:ring-0 focus-within:outline-hidden">
           <input
             ref={ref}
             {...props}
@@ -40,7 +40,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
             disabled={disabled}
             onKeyDown={handleKeyDown}
             className={cn(
-              "flex-1 bg-transparent px-3 py-2 text-ui-md placeholder-muted-foreground text-foreground focus:outline-none",
+              "flex-1 bg-transparent px-3 py-2 text-ui-md placeholder-muted-foreground text-foreground focus:outline-hidden",
               "rounded-none border-0",
             )}
             style={{

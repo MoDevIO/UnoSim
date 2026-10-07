@@ -1,8 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "./styles/theme-tokens.css";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "./**/*.{js,jsx,ts,tsx}";
+@config "../../tailwind.config.ts";
 
 html, body {
   overflow-y: hidden !important;
@@ -299,6 +300,17 @@ html, body {
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Tailwind v4 preflight changed these v3 defaults; keep the previous behavior. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
   }
 
   body {

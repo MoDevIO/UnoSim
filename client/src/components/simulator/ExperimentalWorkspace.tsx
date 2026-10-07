@@ -132,9 +132,9 @@ function getWorkspaceColumnClassName(column: WorkspaceColumn): string {
     case "code":
       return "bg-background";
     case "simulation":
-      return "border-l border-border/40 bg-muted/[0.035]";
+      return "border-l";
     case "tutor":
-      return "border-l border-border/40 bg-muted/[0.06]";
+      return "border-l";
   }
 }
 
@@ -269,7 +269,7 @@ function TutorPlaceholder({
           />
         ) : (
           <div className="flex flex-1 items-start justify-start p-4 text-left text-muted-foreground">
-            <div className="w-full rounded-md border border-dashed border-border/70 bg-muted/20 p-4">
+            <div className="w-full rounded-md border border-dashed p-4">
               <p className="font-medium text-foreground">Learning questions panel</p>
               <p className="mt-1 text-ui-sm">Placeholder for the future Tutor integration.</p>
             </div>
@@ -343,7 +343,7 @@ function TutorPanelContent({
             Server connection required
           </output>
         )}
-        <div className="mx-auto w-full max-w-xl rounded-md border border-border/70 bg-muted/20 p-4">
+        <div className="mx-auto w-full max-w-xl rounded-md border p-4">
           <div>
             <label htmlFor="tutor-api-key" className="text-ui-xs font-medium text-foreground">API key</label>
             <div className="mt-1 flex gap-2">
@@ -356,7 +356,7 @@ function TutorPanelContent({
                 title={tutor.capabilities.canConfigureTutor ? undefined : "Server connection required"}
                 autoComplete="off"
                 spellCheck={false}
-                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </div>
@@ -412,16 +412,16 @@ function TutorPanelContent({
         <div className="flex w-full flex-col gap-4">
           {tutor.history.map((turn, index) => (
             <div key={`${turn.question}-${index}`} className="space-y-2" data-testid="tutor-history-turn">
-              <div className="max-w-[88%] rounded-lg bg-muted/30 px-4 py-3">
+              <div className="max-w-[88%] rounded-lg px-4 py-3">
                 <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Tutor</p>
                 <p className="mt-1 leading-relaxed text-foreground">{turn.question}</p>
               </div>
-              <div className="ml-auto max-w-[88%] rounded-lg bg-primary/10 px-4 py-3">
+              <div className="ml-auto max-w-[88%] rounded-lg px-4 py-3">
                 <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Du</p>
                 <p className="mt-1 whitespace-pre-wrap leading-relaxed text-foreground">{turn.answer}</p>
               </div>
               {(turn.feedback || turn.answerRating !== undefined) && (
-                <div className="max-w-[88%] rounded-lg border border-border/60 px-4 py-3" data-testid="tutor-history-feedback">
+                <div className="max-w-[88%] rounded-lg border px-4 py-3" data-testid="tutor-history-feedback">
                   <div className="flex items-center gap-2 text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {turn.responseStyle === "philosophical" ? "Tutor reflection" : "Tutor feedback"}
                     {turn.answerRating !== undefined && (
@@ -441,7 +441,7 @@ function TutorPanelContent({
           ))}
 
           {tutor.question && (
-            <div className="max-w-[88%] rounded-lg bg-muted/30 px-4 py-3" data-testid="tutor-question">
+            <div className="max-w-[88%] rounded-lg px-4 py-3" data-testid="tutor-question">
               <div className="flex items-center justify-between gap-2 text-ui-xs text-muted-foreground">
                 <span>{tutor.question.responseStyle === "philosophical" ? "Philosophical fallback" : tutor.question.topic ?? "Learning question"}</span>
               </div>
@@ -476,7 +476,7 @@ function TutorPanelContent({
               maxLength={2_000}
               disabled={!tutor.question || tutor.isLoading || !tutor.capabilities.canUseTutor}
               placeholder={tutor.question ? "Your answer …" : "Start a new learning question first …"}
-              className="block min-h-10 max-h-40 min-w-0 w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-3 py-2 pr-12 text-ui-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+              className="block min-h-10 max-h-40 min-w-0 w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-3 py-2 pr-12 text-ui-sm text-foreground outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Your answer"
             />
             <Button
@@ -559,7 +559,7 @@ export function ExperimentalWorkspace({
     <div className="flex h-full min-h-0 flex-col" data-testid="experimental-workspace">
       {visibleColumns.length === 0 ? (
         <div className="flex flex-1 items-center justify-center p-6" data-testid="workspace-empty-state">
-          <div className="max-w-lg rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
+          <div className="max-w-lg rounded-lg border border-dashed border-border p-8 text-center">
             <h2 className="text-lg font-semibold">Keine Ansicht geöffnet</h2>
             <p className="mt-2 text-ui-sm text-muted-foreground">
               Blende mindestens einen Workspace-Bereich ein, um weiterzuarbeiten.
@@ -622,7 +622,7 @@ export function ExperimentalWorkspace({
                 <ResizableHandle
                   withHandle
                   data-testid={`workspace-resizer-${resizePairs[index][0]}-${resizePairs[index][1]}`}
-                  className="workspace-experimental-horizontal-handle bg-border/45 transition-colors hover:bg-primary/70 hover:after:bg-primary data-[state=dragging]:bg-primary data-[state=dragging]:after:bg-primary"
+                  className="workspace-experimental-horizontal-handle transition-colors hover:after:bg-primary data-[state=dragging]:bg-primary data-[state=dragging]:after:bg-primary"
                 />
               )}
             </React.Fragment>

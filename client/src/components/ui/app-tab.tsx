@@ -17,7 +17,7 @@ export const AppTab = React.forwardRef<HTMLDivElement, AppTabProps>(
       {...(active === undefined ? {} : { "data-active": active ? "true" : "false" })}
       className={cn(
         appTabClassName,
-        "group focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+        "group focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0",
         className,
       )}
       {...props}

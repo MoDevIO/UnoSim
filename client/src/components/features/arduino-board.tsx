@@ -25,7 +25,7 @@ const TelemetryMetrics = memo(function TelemetryMetrics({
 }) {
   return (
     <div
-      className="ml-4 flex items-center gap-4 text-muted-foreground border-l border-muted-foreground/30 pl-4"
+      className="ml-4 flex items-center gap-4 text-muted-foreground border-l pl-4"
       style={{ fontSize: "var(--fs-body-xs)" }}
       data-testid="telemetry-metrics"
     >

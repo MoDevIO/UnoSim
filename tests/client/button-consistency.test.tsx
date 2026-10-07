@@ -34,8 +34,8 @@ describe("shared Button consistency", () => {
         "[&_svg]:size-4",
       );
     }
-    expect(icon).toHaveClass("w-[var(--ui-button-height)]", "p-0", "border-border/70");
-    expect(compact).toHaveClass("px-3", "border-border/70", "bg-background/70");
+    expect(icon).toHaveClass("w-[var(--ui-button-height)]", "p-0");
+    expect(compact).toHaveClass("px-3");
     expect(destructive).toHaveClass(
       "px-3",
       "border-destructive",
