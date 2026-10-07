@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 10
+corpusVersion: 11
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -89,6 +89,10 @@ scenarios:
         question: Wie hängt counter mit der Schleife zusammen?
         answer: counter ist eine Zahl.
         difficulty: 30
+    expected:
+      # Punkt C, Eintrag 15: Die Folgefrage zitierte `counter += 1;` und nahm den Zusammenhang vorweg.
+      mustNotReveal:
+        - counter += 1
     judge:
       facts:
         - counter wird mit dem Wert 3 initialisiert.
@@ -96,7 +100,7 @@ scenarios:
         - Die Antwort, dass counter eine Zahl ist, stimmt, sagt aber nichts über den Zusammenhang mit der Schleife.
       criteria:
         - id: no-solution-revealed
-          text: Feedback und Folgefrage nennen den gesuchten Zusammenhang (loop erhöht counter in jedem Durchlauf um eins) nicht ausdrücklich und nicht so unmittelbar, dass er nur noch wiederholt werden muss.
+          text: Feedback und Folgefrage nennen den gesuchten Zusammenhang (loop erhöht counter in jedem Durchlauf um eins) weder in Worten noch durch einen Code-Ausdruck, aus dem er unmittelbar abgelesen werden kann, und nicht so unmittelbar, dass er nur noch wiederholt werden muss.
 
   - id: strong-answer-progression
     sketch: evals/tutor-quality/fixtures/serial-output.ino
