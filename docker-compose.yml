@@ -14,10 +14,10 @@ services:
       - PORT=3000
       - UNOSIM_SERVER_MODE=docker
       - NODE_ENV=production
-      # Public/multi-user deployments must sit behind an authenticating gateway.
+      # Docker deployments require a trusted gateway; user authentication is optional.
       # Compose fails before startup when either required secret is absent.
       - UNOSIM_GATEWAY_SECRET=${UNOSIM_GATEWAY_SECRET:?Set UNOSIM_GATEWAY_SECRET to at least 32 characters}
-      - UNOSIM_TRUSTED_PROXY=${UNOSIM_TRUSTED_PROXY:?Set UNOSIM_TRUSTED_PROXY to the gateway IP or CIDR}
+      - UNOSIM_TRUSTED_PROXY=${UNOSIM_TRUSTED_PROXY:?Set UNOSIM_TRUSTED_PROXY to an IP or CIDR for Express proxy trust}
       - UNOSIM_ALLOWED_WS_ORIGINS=${UNOSIM_ALLOWED_WS_ORIGINS:?Set UNOSIM_ALLOWED_WS_ORIGINS to the comma-separated browser origins}
       # Public GitHub source; set SOURCE and REF both empty for built-ins only.
       - UNOSIM_EXAMPLES_SOURCE=${UNOSIM_EXAMPLES_SOURCE-ttbombadil/unosim-examples}

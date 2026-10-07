@@ -44,6 +44,8 @@ storage/binaries/
 # Project specific temp folders (runtime artifacts)
 /temp/*
 !/temp/.gitkeep
+# Local-only holding area for workspace files kept out of feature commits
+/local-temp/
 /cache/
 /test-results/
 .tutor-quality-output/

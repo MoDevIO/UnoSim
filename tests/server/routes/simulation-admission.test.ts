@@ -159,29 +159,41 @@ describe("simulation admission through /ws", () => {
       type: "operation_error",
       operation: "start_simulation",
       code: "RATE_LIMITED",
-      message: "Simulation start rate limit exceeded. Please wait 4 seconds before starting again.",
+      message: "Rate-Limit: Bitte warte 4 Sekunden, bevor du eine weitere Simulation startest.",
       retryAfter: 4,
     });
     expect(harness.pool.acquireRunner).not.toHaveBeenCalled();
   });
 
-  it("rejects a second socket with the same authenticated gateway subject", async () => {
+  it("allows five sockets and rate-limits a sixth for the same gateway subject", async () => {
     const harness = await createHarness({ gateway: true });
-    const first = await harness.connect("student-a");
-    const second = await harness.connect("student-a");
-    start(first);
-    await waitFor(() => harness.admission.getStats().active === 1, "first admission");
+    const clients = await Promise.all(
+      Array.from({ length: 6 }, () => harness.connect("student-a")),
+    );
+    clients.slice(0, 5).forEach((client) => start(client));
+    await waitFor(() => harness.admission.getStats().active === 5, "five admissions");
 
-    start(second);
+    start(clients[5]!);
     await waitFor(
-      () => second.messages.some(
+      () => clients[5]!.messages.some(
         (message) => message.type === "operation_error" &&
-          message.code === "SIMULATION_ALREADY_ACTIVE",
+          message.code === "RATE_LIMITED",
       ),
-      "same-subject rejection",
+      "per-subject rate-limit rejection",
     );
 
-    expect(harness.pool.acquireRunner).toHaveBeenCalledTimes(1);
+    expect(clients[5]!.messages).toContainEqual({
+      type: "operation_error",
+      operation: "start_simulation",
+      code: "RATE_LIMITED",
+      message: "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.",
+    });
+    expect(harness.pool.acquireRunner).toHaveBeenCalledTimes(5);
+    expect(harness.admission.getStats()).toMatchObject({
+      active: 5,
+      maxPerSubject: 5,
+      identityRejectedTotal: 1,
+    });
   });
 
   it("admits different gateway subjects independently", async () => {

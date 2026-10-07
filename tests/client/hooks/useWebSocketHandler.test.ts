@@ -96,6 +96,7 @@ function createMockParams() {
       return Number.isNaN(n) ? null : n;
     }),
     setParserMessages: vi.fn(),
+    toast: vi.fn(),
   };
 }
 
@@ -178,6 +179,28 @@ describe("useWebSocketHandler", () => {
 
     expect(params.setSimulationStatus).toHaveBeenCalledWith("running");
     expect(params.resumeRendering).toHaveBeenCalled();
+    expect(params.toast).toHaveBeenCalledWith({
+      title: "Simulation Started",
+      description: "Arduino simulation is now running",
+    });
+  });
+
+  it("shows the Rate-Limit toast for a rejected simulation start", () => {
+    const message = "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.";
+    mockMessageQueue.push({
+      type: "operation_error",
+      operation: "start_simulation",
+      code: "RATE_LIMITED",
+      message,
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.toast).toHaveBeenCalledWith({
+      title: "Rate-Limit",
+      description: message,
+      variant: "destructive",
+    });
   });
 
   it("shows the required SYSTEM_BUSY message", () => {

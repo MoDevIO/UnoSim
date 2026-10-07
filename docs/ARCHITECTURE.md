@@ -8,7 +8,17 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 ## Governance-Grenzen
 
 - Dieses Dokument ist der aktuelle Architekturüberblick. Es beschreibt Komponenten, Datenflüsse, State Ownership und Betriebsmodell bewusst zusammenfassend.
-- Verbindliche Detailentscheidungen bleiben in den ADRs: Gateway/Auth/Security in `adr/0001-authentication-and-gateway-contract.md`, UnifiedScrollArea in `adr/0002-unified-scroll-area.md`, Skalierung/HA in `adr/0003-scalability-and-ha-model.md`, die historische Tutor-Pilotentscheidung in `adr/0004-repository-based-tutor-curriculum.md`, die dynamische Examples-Auswahl in `adr/0005-browser-scoped-external-examples.md` und der aktuelle Course-Content-/Tutor-Vertrag in `adr/0006-unified-course-content-and-tutor-strategy.md`.
+- Verbindliche Detailentscheidungen bleiben in den ADRs: ursprünglicher
+  Gateway-Vertrag in `adr/0001-authentication-and-gateway-contract.md` und
+  optionale Benutzeranmeldung in
+  `adr/0008-optional-gateway-authentication.md`, UnifiedScrollArea in
+  `adr/0002-unified-scroll-area.md`, Skalierung/HA in
+  `adr/0003-scalability-and-ha-model.md`, die historische
+  Tutor-Pilotentscheidung in `adr/0004-repository-based-tutor-curriculum.md`,
+  die dynamische Examples-Auswahl in
+  `adr/0005-browser-scoped-external-examples.md` und der aktuelle
+  Course-Content-/Tutor-Vertrag in
+  `adr/0006-unified-course-content-and-tutor-strategy.md`.
 - Die mastery-driven didaktische Phasenentscheidung ist in `adr/0007-mastery-driven-tutor-progression.md` normativ ergänzt.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
@@ -290,7 +300,11 @@ ViewModels gegliedert:
 
 ## 🔒 Sicherheits- und Betriebsmodell
 
-Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authentication-and-gateway-contract.md`). Die folgenden Punkte sind eine Architektur-Zusammenfassung und ersetzen die ADR nicht.
+Der Gateway-Vertrag ist in ADR 0001
+(`adr/0001-authentication-and-gateway-contract.md`) festgehalten; ADR 0008
+(`adr/0008-optional-gateway-authentication.md`) präzisiert, dass
+Benutzeranmeldung optional ist. Die folgenden Punkte sind eine
+Architektur-Zusammenfassung und ersetzen die ADRs nicht.
 
 ### Sandbox-Sicherheit
 - **Isolation:** Jeder Sketch läuft in eigenem Docker-Container
@@ -299,8 +313,10 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
 - **Timeouts:** Laufzeit pro Simulation standardmäßig 60 Sekunden, je Start 1–300 Sekunden
 
 ### WebSocket-Sicherheit
-- **Authentifizierung:** Gateway-Modus mit `X-UnoSim-*` Headern (ADR 0001)
-- **Origin-Check:** Im Gateway-Modus nur exakt erlaubte Origins; lokal zusätzlich derselbe Host
+- **Gateway-Identität:** Docker-Modus verlangt gültige `X-UnoSim-*`-Header;
+  das Gateway darf eine Benutzeranmeldung verlangen oder den Subject aus der
+  Client-IP ableiten (ADR 0008)
+- **Origin-Check:** Im Gateway-Modus nur exakt erlaubte Origins; lokal zusätzlich derselbe Host. Der Check ersetzt keine Gateway-Identität.
 - **Rate-Limiting:** Simulationsstarts pro Identität; alle Nachrichten einer Verbindung über einen Token-Bucket (500/s, Burst 1000, Überschuss wird verworfen); höchstens 1 MiB ausstehende Sketch-Eingabe
 - **Heartbeat:** Ping alle 30 Sekunden (`WS_HEARTBEAT_INTERVAL_MS`); eine Verbindung ohne Pong wird getrennt und gibt Runner und Reservierung frei
 - **Isolation:** Der Kompatibilitäts-Fallback für `start_simulation` ohne `code` nutzt nur den zuletzt kompilierten Code derselben Identität
@@ -312,10 +328,11 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
   Session identifiziert den einzelnen vertrauenswürdigen Entwickler. Docker
   wird nicht verwendet.
 - **Docker (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container und jede
-  Simulation in einer kurzlebigen Docker-Sandbox. Ein authentifizierendes
-  Gateway ist verpflichtend; Dockerfehler führen nicht zu lokaler Ausführung.
+  Simulation in einer kurzlebigen Docker-Sandbox. Ein vertrauenswürdiges
+  Gateway ist verpflichtend; Benutzeranmeldung ist optional. Dockerfehler
+  führen nicht zu lokaler Ausführung.
 - **Docker-Testprofil:** Nur `NODE_ENV=test` darf mit
-  `UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` die externe Gateway-Authentifizierung
+  `UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` die externe Gateway-Identität
   ersetzen. Sandbox-Ausführung und Docker-Readiness bleiben aktiv.
 
 ### Zentrale Konfiguration
@@ -326,8 +343,9 @@ Der verbindliche Trust- und Gateway-Vertrag liegt in ADR 0001 (`adr/0001-authent
   request-scoped Override für beide optionalen Fähigkeiten und keine zweite
   serverweite Konfiguration. Obsolete separate Tutor-Source-Variablen werden
   als Startup-Tombstones abgelehnt.
-- **Status:** `server/config.ts` leitet Ausführung und Authentifizierung aus dem
-  Runtime-Profil ab. Frühere unabhängige Mode- und Compatibility-Schalter
+- **Status:** `server/config.ts` leitet Ausführung und
+  Gateway-Identitätsprüfung aus dem Runtime-Profil ab. Frühere unabhängige
+  Mode- und Compatibility-Schalter
   werden abgelehnt. Aktuelle Anforderungen stehen in `INSTALL_SERVER.md` und
   `SECURITY.md`.
 
@@ -354,7 +372,8 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 ---
 
 **Siehe auch:**
-- [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) – Verbindlicher Gateway-/Auth-Vertrag
+- [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md) – ursprünglicher Gateway-Vertrag
+- [`adr/0008-optional-gateway-authentication.md`](adr/0008-optional-gateway-authentication.md) – Benutzeranmeldung am Gateway ist optional
 - [`adr/0004-repository-based-tutor-curriculum.md`](adr/0004-repository-based-tutor-curriculum.md) – historische, durch ADR 0006 supersedierte Tutor-Pilotentscheidung
 - [`adr/0005-browser-scoped-external-examples.md`](adr/0005-browser-scoped-external-examples.md) – Zielarchitektur für dynamische External Examples
 - [`adr/0006-unified-course-content-and-tutor-strategy.md`](adr/0006-unified-course-content-and-tutor-strategy.md) – aktueller einheitlicher Course-Content-/Tutor-Vertrag

@@ -2,15 +2,17 @@
 
 Docker ist das einzige unterstützte Deployment-Profil. Der UnoSim-Server läuft
 in einem Container und jede Simulation in einer kurzlebigen Docker-Sandbox.
-Der Backend-Port ist ausschließlich über ein authentifizierendes Gateway
-erreichbar. Es gibt keinen unterstützten produktiven Betrieb ohne Gateway und
+Der Backend-Port muss hinter einem vertrauenswürdigen Gateway liegen. Dieses
+Gateway ist verpflichtend; eine Anmeldung einzelner Personen davor ist eine
+Option. Es gibt keinen unterstützten produktiven Betrieb ohne Gateway und
 keinen host-nativen Simulations-Fallback.
 
 ## Voraussetzungen
 
 - Linux-Docker-Host oder Docker Desktop
 - Docker Engine mit Compose Plugin
-- Reverse Proxy oder Identity-Aware Gateway mit TLS und Authentifizierung
+- Reverse Proxy mit TLS und UnoSim-Gateway-Headern; Benutzeranmeldung ist
+  optional
 - Sandbox- und Server-Image aus demselben geprüften Source-Stand
 
 ## Images und Compose
@@ -28,9 +30,9 @@ docker compose up --build
 ```
 
 `docker-compose.yml` setzt `NODE_ENV=production` und
-`UNOSIM_SERVER_MODE=docker`. Das Profil leitet Gateway-Authentifizierung und
-Docker-Simulation automatisch ab. Der Server prüft Docker-Daemon, Sandbox-Image
-und Runner-Pool vor der Readiness-Freigabe.
+`UNOSIM_SERVER_MODE=docker`. Das Profil aktiviert die Prüfung der erforderlichen
+Gateway-Identität und Docker-Simulation automatisch. Der Server prüft
+Docker-Daemon, Sandbox-Image und Runner-Pool vor der Readiness-Freigabe.
 
 Die vollständige Kapazitäts- und Timeout-Semantik steht in
 [`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md). Die dortigen
@@ -41,15 +43,37 @@ Produktionsvorgaben.
 
 Das Gateway muss:
 
-1. TLS terminieren und Benutzer authentifizieren,
-2. eingehende `X-UnoSim-*`-Header entfernen,
+1. TLS terminieren,
+2. eingehende `X-UnoSim-*`-Header entfernen und die vertrauenswürdigen Werte
+   selbst setzen,
 3. `X-UnoSim-Gateway-Secret`, `X-UnoSim-Subject` und `X-UnoSim-Roles` für HTTP
    und WebSocket setzen,
-4. den Backend-Port gegen direkten Benutzerzugriff abschirmen,
+4. den Backend-Port gegen direkten Clientzugriff abschirmen,
 5. HTTP- und WebSocket-Traffic mit derselben Identität weiterleiten.
 
-Der vollständige Vertrag steht in
-[`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md).
+Das Gateway kann Personen anmelden und den Subject aus ihrem Konto ableiten.
+Für ein privates Netz kann es ohne Benutzeranmeldung arbeiten und den Subject
+aus der direkt beobachteten Client-IP bilden, beispielsweise mit Nginx als
+`ip-$remote_addr`. Verwende dafür nicht den vom Client gesendeten
+`X-Forwarded-For`-Wert. Dies ist keine Authentifizierung: Alle erreichbaren
+Clients erhalten Zugriff. Clients, die über dieselbe NAT-, VPN- oder Proxy-IP
+ankommen, teilen ihre UnoSim-Identität und damit deren Limits.
+
+`UNOSIM_TRUSTED_PROXY` konfiguriert Express' Proxy-Trust-Verhalten. Die aktuelle
+Autorisierung vergleicht die tatsächliche Gegenstellen-IP nicht mit diesem
+Wert. Deshalb muss die Netzwerktopologie den Backend-Port abschirmen. Compose
+bindet ihn standardmäßig an `127.0.0.1:3000`.
+
+`UNOSIM_ALLOWED_WS_ORIGINS` akzeptiert exakte Browser-Origin-Werte aus Schema,
+Host und Port. Der Standard-HTTPS-Port 443 wird ohne Port geschrieben;
+alternative Ports müssen explizit eingetragen werden, zum Beispiel
+`https://unosim.vbox` und `https://unosim.vbox:8443`. Wildcards oder bloße
+Hostname-Suffixe sind keine Origin-Allowlist.
+
+Der ursprüngliche Vertrag steht in
+[`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md);
+die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
+[`adr/0008-optional-gateway-authentication.md`](adr/0008-optional-gateway-authentication.md).
 
 ## Docker-Sandbox-Vertrag
 
@@ -77,7 +101,7 @@ Diese Werte hängen von der Installation und dem vorgeschalteten Gateway ab:
 |---|---|
 | `DOCKER_GID` | numerische Gruppe des Docker-Sockets |
 | `UNOSIM_GATEWAY_SECRET` | gemeinsames Gateway-Secret, mindestens 32 Zeichen |
-| `UNOSIM_TRUSTED_PROXY` | exakte Gateway-IP oder CIDR |
+| `UNOSIM_TRUSTED_PROXY` | IP oder CIDR für Express-Proxy-Trust; keine Quell-IP-ACL |
 | `UNOSIM_ALLOWED_WS_ORIGINS` | exakte Browser-Origin-Allowlist |
 
 `docker-compose.yml` setzt `NODE_ENV=production`,
@@ -107,7 +131,10 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
 `SIMULATION_MAX_CONCURRENT=5`). Die Produktions-Compose-Datei setzt aktuell
 `SIMULATION_MAX_CONCURRENT=200` ausdrücklich als Deployment-Override; das ist
-kein neuer Anwendungdefault. Dieser Wert muss vor einem produktiven Einsatz
+kein neuer Anwendungdefault. Dieser Wert begrenzt globale logische Runner und
+ist nicht das Limit pro Gateway-Subject. Der effektive Admission-Grenzwert pro
+Identität hängt vom verwendeten Source-Stand und dessen Konfiguration ab.
+Dieser Wert muss vor einem produktiven Einsatz
 gegen die aktuelle Zielserver-Abnahme geprüft werden. Wirksam wird er nur
 zusammen mit `SIMULATION_ADMISSION_MAX`: Ohne diesen Wert lässt die Admission
 höchstens 25 laufende und wartende Simulationen zu.
@@ -156,7 +183,7 @@ Simulationen bleiben echte Docker-Sandboxen. Er ist kein Deploymentmodus.
 - `/api/health`: HTTP-Prozess erreichbar
 - `/api/readiness`: Docker-Runner-Pool initialisiert und bereit
 - `/api/status`: Runner, Compile-Slots, Worker, WebSockets, Admission und
-  Prozessmetriken; im Docker-Profil nur authentifiziert
+  Prozessmetriken; im Docker-Profil nur mit gültiger Gateway-Identität
 
 Eine Instanz darf erst nach erfolgreicher Readiness Traffic erhalten.
 
