@@ -10,23 +10,51 @@ import type { SimulationTimeoutManager } from "../simulation-timeout-manager";
 import { normalizeSimulationTimeout } from "@shared/input-limits";
 import type { PinStateChange } from "@shared/types/arduino.types";
 import { config } from "../../config";
+import {
+  appendCompilerDiagnostics,
+  limitCompilerDiagnostics,
+  type CompilerDiagnosticsBuffer,
+} from "../compiler-diagnostics";
 
 const RUNTIME_START_MARKER = "[[RUNTIME_START]]";
+const IO_REGISTRY_MARKER = "[[IO_REGISTRY_START]]";
+/**
+ * Compile output kept between chunks for the marker search: enough for a marker
+ * split across chunks plus the context that decides whether it counts.
+ */
+const MARKER_SCAN_CARRY = RUNTIME_START_MARKER.length - 1 + IO_REGISTRY_MARKER.length + 1;
 
-function findRuntimeStartMarker(output: string): { start: number; end: number } | null {
-  let searchFrom = 0;
+/**
+ * Finds the runtime marker in `output` starting at or after `minStart`; matches
+ * before it were already rejected when their chunk arrived. Each call therefore
+ * scans only new output plus a constant carry.
+ */
+function findRuntimeStartMarker(output: string, minStart = 0): { start: number; end: number } | null {
+  let searchFrom = minStart;
   while (searchFrom < output.length) {
     const start = output.indexOf(RUNTIME_START_MARKER, searchFrom);
     if (start < 0) return null;
 
     const isLineStart = start === 0 || output[start - 1] === "\n";
-    const followsRegistryMarker = output.slice(0, start).endsWith("[[IO_REGISTRY_START]]");
+    const followsRegistryMarker = output.startsWith(IO_REGISTRY_MARKER, start - IO_REGISTRY_MARKER.length);
     if (isLineStart || followsRegistryMarker) {
       return { start, end: start + RUNTIME_START_MARKER.length };
     }
     searchFrom = start + 1;
   }
   return null;
+}
+
+/**
+ * Drops the part of the latest chunk that follows the marker start from the
+ * diagnostics; a marker that began in the carry also removes its already-kept prefix.
+ */
+function keepDiagnosticsBeforeMarker(buffer: CompilerDiagnosticsBuffer, scanned: string, carryLength: number, markerStart: number): void {
+  if (markerStart >= carryLength) {
+    appendCompilerDiagnostics(buffer, scanned.slice(carryLength, markerStart));
+  } else if (!buffer.omittedChars) {
+    buffer.value = buffer.value.slice(0, buffer.value.length - (carryLength - markerStart));
+  }
 }
 
 interface DockerManagerCallbacks {
@@ -53,7 +81,7 @@ interface DockerEventHandlers {
 
 interface DockerHandlerState {
   isCompilePhase: { value: boolean };
-  compileErrorBuffer: { value: string };
+  compileErrorBuffer: CompilerDiagnosticsBuffer;
   compileSuccessSent: { value: boolean };
   totalOutputBytes: { value: number };
   processStartTime: number | null;
@@ -136,6 +164,8 @@ export class DockerManager {
   ): void {
     const isCompilePhase = state.isCompilePhase;
     const compileSuccessSent = state.compileSuccessSent;
+    // The last compile output, kept so a marker split across chunks is still found.
+    let scanCarry = "";
 
     this.processController.onStdout((data) => {
       const str = data.toString();
@@ -145,13 +175,19 @@ export class DockerManager {
       if (isCompilePhase.value) {
         // g++ stderr is redirected to stdout by the Docker command. Keep all
         // compile output out of the runtime stream and wait for the explicit
-        // sentinel before declaring compilation successful.
-        state.compileErrorBuffer.value += str;
-        const markerMatch = findRuntimeStartMarker(state.compileErrorBuffer.value);
-        if (!markerMatch) return;
+        // sentinel before declaring compilation successful. Diagnostics are
+        // bounded and the marker search only looks at new output.
+        const scanned = scanCarry + str;
+        // Only a marker that ends in the new chunk can be new.
+        const markerMatch = findRuntimeStartMarker(scanned, Math.max(0, scanCarry.length - RUNTIME_START_MARKER.length + 1));
+        if (!markerMatch) {
+          appendCompilerDiagnostics(state.compileErrorBuffer, str);
+          scanCarry = scanned.slice(-MARKER_SCAN_CARRY);
+          return;
+        }
 
-        const runtimeOutput = state.compileErrorBuffer.value.slice(markerMatch.end).replace(/^\r?\n/, "");
-        state.compileErrorBuffer.value = state.compileErrorBuffer.value.slice(0, markerMatch.start);
+        const runtimeOutput = scanned.slice(markerMatch.end).replace(/^\r?\n/, "");
+        keepDiagnosticsBeforeMarker(state.compileErrorBuffer, scanned, scanCarry.length, markerMatch.start);
         isCompilePhase.value = false;
         onRuntimeStart?.();
         if (!compileSuccessSent.value && onCompileSuccess) {
@@ -210,7 +246,7 @@ export class DockerManager {
       if (!this.consumeOutputBudget(state, data, callbacks)) return;
       const chunk = data.toString();
       if (isCompilePhase.value && useFallbackParser) {
-        compileErrorBuffer.value += chunk;
+        appendCompilerDiagnostics(compileErrorBuffer, chunk);
       }
 
       // Fallback parsing when readline is unavailable
@@ -276,7 +312,9 @@ export class DockerManager {
 
     // Report compile errors or success
     if (code !== 0 && isCompilePhase.value && handlers.onCompileError) {
-      const compileError = compileErrorBuffer.value || `Simulation build failed (exit code ${code}).`;
+      const compileError = compileErrorBuffer.value
+        ? limitCompilerDiagnostics(compileErrorBuffer.value, compileErrorBuffer.omittedChars)
+        : `Simulation build failed (exit code ${code}).`;
       handlers.onCompileError(this.cleanCompilerErrors(compileError));
     } else if (code === 0 && handlers.onCompileSuccess && !state.compileSuccessSent.value) {
       state.compileSuccessSent.value = true;

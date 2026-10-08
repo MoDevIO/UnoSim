@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { compileWithArduinoCli } from "../../../../server/services/compiler/cli-runner";
-import type { ProcessExecutor } from "../../../../server/services/process-executor";
+import { ProcessOutputLimitError, type ProcessExecutor } from "../../../../server/services/process-executor";
 
 describe("compileWithArduinoCli", () => {
   it("classifies an Arduino memory overflow after a started CLI as a compile error", async () => {
@@ -37,6 +37,30 @@ describe("compileWithArduinoCli", () => {
       }),
     ]);
     expect(result.parsedErrors?.[0]?.message).toContain("data section exceeds available space");
+  });
+
+  it("caps compiler output and reports a diagnostic flood as a truncated compile error", async () => {
+    const flood = "/tmp/unosim/sketch.ino:3:1: error: expected ';' before '}' token\n".repeat(20_000);
+    const processExecutor = {
+      execute: vi.fn().mockResolvedValue({
+        code: -1,
+        stdout: "",
+        stderr: flood,
+        error: new ProcessOutputLimitError(8 * 1024 * 1024),
+      }),
+    } as unknown as ProcessExecutor;
+
+    const result = await compileWithArduinoCli("/tmp/unosim/sketch.ino", { fqbn: "arduino:avr:uno" }, processExecutor);
+
+    expect(processExecutor.execute).toHaveBeenCalledWith("arduino-cli", expect.any(Array), expect.objectContaining({
+      maxOutputBytes: 8 * 1024 * 1024,
+    }));
+    expect(result.success).toBe(false);
+    expect(result.errors).not.toContain("Failed to execute arduino-cli");
+    expect(result.errors!.length).toBeLessThan(260 * 1024);
+    expect(result.errors).toMatch(/more characters of compiler output omitted\.$/);
+    expect(result.parsedErrors!.length).toBeGreaterThan(0);
+    expect(result.parsedErrors!.length).toBeLessThan(5_000);
   });
 
   it("keeps library scan diagnostics as warnings", async () => {

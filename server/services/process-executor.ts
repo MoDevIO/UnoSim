@@ -32,6 +32,14 @@ interface ExecutionOptions {
   maxOutputBytes?: number;   // combined captured raw stdout/stderr bytes
 }
 
+/** The process was stopped because it exceeded `maxOutputBytes`; the output captured so far is kept. */
+export class ProcessOutputLimitError extends Error {
+  constructor(readonly maxOutputBytes: number) {
+    super(`Process output limit exceeded (${maxOutputBytes} bytes)`);
+    this.name = "ProcessOutputLimitError";
+  }
+}
+
 interface ExecutionResult {
   code: number;
   stdout?: string;
@@ -175,7 +183,7 @@ export class ProcessExecutor {
         else stderr += chunk.toString();
         if (chunk.byteLength > 0 && onData) onData(chunk);
         if (data.byteLength > remaining) {
-          outputError = new Error(`Process output limit exceeded (${maxOutputBytes} bytes)`);
+          outputError = new ProcessOutputLimitError(maxOutputBytes);
           this.signalProcess(proc, detached, "SIGKILL");
         }
       };

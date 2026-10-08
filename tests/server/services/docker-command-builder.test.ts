@@ -36,6 +36,10 @@ describe("DockerCommandBuilder", () => {
       "cd /sandbox-work && ./sketch",
     );
   });
+  it("stops g++ after a bounded number of errors", () => {
+    expect(DockerCommandBuilder.buildCompileAndRunCommand(7200).at(-1)).toContain("-pthread -fmax-errors=50 2>&1");
+  });
+
   it("bounds the whole container by an independent hard lifetime", () => {
     const command = DockerCommandBuilder.buildCompileAndRunCommand(7200);
     expect(command.slice(0, 5)).toEqual(["timeout", "--signal=KILL", "7200", "sh", "-c"]);

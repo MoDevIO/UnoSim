@@ -134,6 +134,9 @@ development startup reject the flag.
 - Each WebSocket connection is limited to 500 messages per second (burst 1000);
   excess messages are dropped. At most 1 MiB of sketch input may wait in a
   sketch's stdin. Connections that miss a heartbeat pong are closed.
+- Compilers stop after 50 errors (`-fmax-errors`) and after 8 MiB of captured
+  output. At most 256 KiB of compiler diagnostics reach the client; the rest is
+  reported as omitted.
 - The code-less `start_simulation` fallback is scoped to the identity. The
   sketch API is read-only: it serves only the seeded start sketch and accepts
   no client-created or changed sketches.

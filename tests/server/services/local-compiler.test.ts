@@ -70,7 +70,7 @@ describe("LocalCompiler public compile behavior", () => {
     );
     expect(execute).toHaveBeenCalledWith(
       "g++",
-      ["-I", workspace.root, workspace.sketchFile, workspace.coreArchive, "-o", workspace.executableFile, "-pthread"],
+      ["-I", workspace.root, workspace.sketchFile, workspace.coreArchive, "-o", workspace.executableFile, "-pthread", "-fmax-errors=50"],
       expect.objectContaining({ detached: true, stdio: "pipe" }),
     );
     expect(onProcess).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe("LocalCompiler public compile behavior", () => {
 
     expect(execute).toHaveBeenCalledWith(
       "g++",
-      ["-I", workspace.root, workspace.sketchFile, "-o", workspace.executableFile, "-pthread"],
+      ["-I", workspace.root, workspace.sketchFile, "-o", workspace.executableFile, "-pthread", "-fmax-errors=50"],
       expect.objectContaining({ detached: true, stdio: "pipe" }),
     );
     expect(observedBusyStates).toEqual([true]);
