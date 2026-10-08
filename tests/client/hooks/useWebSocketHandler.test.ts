@@ -203,6 +203,26 @@ describe("useWebSocketHandler", () => {
     });
   });
 
+  it("keeps the tab's running simulation when a second start is rejected", () => {
+    const message = "In dieser Sitzung läuft bereits eine Simulation oder wartet auf den Start. Bitte zuerst stoppen.";
+    mockMessageQueue.push({
+      type: "operation_error",
+      operation: "start_simulation",
+      code: "SIMULATION_ALREADY_ACTIVE",
+      message,
+    });
+
+    renderHook(() => useWebSocketHandler(params));
+
+    expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
+    expect(params.toast).toHaveBeenCalledWith({
+      title: "Simulation läuft bereits",
+      description: message,
+      variant: "destructive",
+    });
+    expect(emitOperationErrorEvent).toHaveBeenCalledOnce();
+  });
+
   it("shows the required SYSTEM_BUSY message", () => {
     const message = "Der Simulator ist momentan ausgelastet. Bitte in wenigen Sekunden erneut versuchen.";
     mockMessageQueue.push({

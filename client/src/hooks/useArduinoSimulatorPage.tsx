@@ -43,6 +43,7 @@ import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { isSourceLocation } from "@/types/source-navigation";
 import type { SourceLocation } from "@shared/source-project";
+import { holdsServerSimulation } from "@shared/types/arduino.types";
 import { isMac } from "@/lib/platform";
 import {
   DIGITAL_PIN_COUNT,
@@ -367,7 +368,7 @@ export function useArduinoSimulatorPage() {
 
   const onReplaceAllFiles = useCallback(() => {
     invalidatePendingStart();
-    if (simulationStatus === "running") {
+    if (holdsServerSimulation(simulationStatus)) {
       sendMessage({ type: "stop_simulation" });
     }
 
@@ -395,7 +396,7 @@ export function useArduinoSimulatorPage() {
 
   const onLoadExample = useCallback(() => {
     invalidatePendingStart();
-    if (simulationStatus === "running") {
+    if (holdsServerSimulation(simulationStatus)) {
       sendMessage({ type: "stop_simulation" });
     }
 

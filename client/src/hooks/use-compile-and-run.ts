@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject,
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
-import type { SimulationStatus } from "@shared/types/arduino.types";
+import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
@@ -329,6 +329,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       uiFeedback.showNoCodeToast();
       return;
     }
+    // Compile/Upload restarts: the connection may own only one lifecycle.
+    if (holdsServerSimulation(simulation.simulationStatus)) {
+      simulation.stopSimulationImmediately();
+    }
 
     // Build payload
     logger.info(`[CLIENT] Compile & Start with ${headers.length} headers`);
@@ -387,7 +391,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     invalidatePendingStart();
     if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
-    if (simulation.simulationStatus === "running") simulation.handleStop();
+    if (holdsServerSimulation(simulation.simulationStatus)) simulation.handleStop();
     clearOutputs();
     params.resetPinUI({ keepDetected: true });
 

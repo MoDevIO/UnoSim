@@ -238,3 +238,45 @@ describe("REST compile-to-start ownership", () => {
     expect(fixture.params.toast).not.toHaveBeenCalled();
   });
 });
+
+describe("one server lifecycle per connection", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const immediateMessages = (params: CompileAndRunParams) =>
+    vi.mocked(params.sendMessageImmediate!).mock.calls.map(([message]) => message.type);
+
+  it.each(["running", "paused", "queued"] as const)(
+    "stops a %s simulation before Compile/Upload starts a new one",
+    async (status) => {
+      const fixture = setup();
+      act(() => fixture.result.current.setSimulationStatus(status));
+      await fixture.start();
+      await fixture.complete();
+      expect(immediateMessages(fixture.params)).toEqual(["stop_simulation", "start_simulation"]);
+    },
+  );
+
+  it("does not send a stop when no simulation is held", async () => {
+    const fixture = setup();
+    await fixture.start();
+    await fixture.complete();
+    expect(immediateMessages(fixture.params)).toEqual(["start_simulation"]);
+  });
+
+  it("stops a paused simulation before Reset restarts it", async () => {
+    const fixture = setup();
+    act(() => fixture.result.current.setSimulationStatus("paused"));
+    vi.useFakeTimers();
+    try {
+      act(() => fixture.result.current.handleReset());
+      await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    } finally {
+      vi.useRealTimers();
+    }
+    await fixture.complete();
+    const sent = immediateMessages(fixture.params);
+    expect(sent.at(-1)).toBe("start_simulation");
+    expect(sent.indexOf("stop_simulation")).toBeGreaterThanOrEqual(0);
+    expect(sent.indexOf("stop_simulation")).toBeLessThan(sent.indexOf("start_simulation"));
+  });
+});

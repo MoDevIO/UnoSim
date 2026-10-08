@@ -279,10 +279,17 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       ...(message.retryAfter === undefined ? {} : { retryAfter: message.retryAfter }),
     });
     if (message.operation === "start_simulation") {
+      if (message.code === "SIMULATION_ALREADY_ACTIVE") {
+        // The earlier run of this tab continues; the server resends its status.
+        params.toast?.({
+          title: "Simulation läuft bereits",
+          description: message.message || "Bitte die laufende Simulation zuerst stoppen.",
+          variant: "destructive",
+        });
+        return;
+      }
       setSimulationStatus("idle");
-      const isRateLimited =
-        message.code === "RATE_LIMITED" ||
-        message.code === "SIMULATION_ALREADY_ACTIVE";
+      const isRateLimited = message.code === "RATE_LIMITED";
       params.toast?.({
         title: isRateLimited ? "Rate-Limit" : "Start Failed",
         description: message.message || "Could not start simulation",

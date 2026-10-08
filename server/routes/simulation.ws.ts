@@ -20,7 +20,11 @@ import {
 } from "../security/access-control";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { WsMessageRouter } from "./simulation/ws-message-router";
-import { type ClientState, WsSessionManager } from "./simulation/ws-session-manager";
+import {
+  type ClientState,
+  hasSimulationLifecycle,
+  WsSessionManager,
+} from "./simulation/ws-session-manager";
 import { sendMessageToClient, WsOutputBuffer } from "./simulation/ws-output-buffer";
 import { WEBSOCKET_PROTOCOL_VERSION } from "../services/protocol-version";
 import {
@@ -66,6 +70,43 @@ function rejectAdmission(
       ),
     );
   }
+}
+
+/**
+ * Waits until no earlier lifecycle of this connection is being released.
+ * Returns false when a stop, code change or disconnect arrived meanwhile.
+ */
+async function waitForPreviousRelease(clientState: ClientState): Promise<boolean> {
+  const generation = clientState.startGeneration ?? 0;
+  while (clientState.releasing) {
+    await clientState.releasing.catch(() => undefined);
+  }
+  return !clientState.closed && (clientState.startGeneration ?? 0) === generation;
+}
+
+function rejectActiveLifecycle(ws: WebSocket, clientState: ClientState): void {
+  sendMessageToClient(ws, {
+    type: WSMessageType.OPERATION_ERROR,
+    operation: "start_simulation",
+    ...operationError(
+      "SIMULATION_ALREADY_ACTIVE",
+      "In dieser Sitzung läuft bereits eine Simulation oder wartet auf den Start. Bitte zuerst stoppen.",
+    ),
+  });
+  // Resynchronise the client with the run that keeps going.
+  let status: "paused" | "running" | "queued" = "queued";
+  if (clientState.isPaused) status = "paused";
+  else if (clientState.isRunning) status = "running";
+  sendMessageToClient(ws, { type: WSMessageType.SIMULATION_STATUS, status });
+}
+
+/** Whether a start continuation still owns the connection's lifecycle. */
+function ownsLifecycle(
+  clientState: ClientState,
+  reservation: SimulationReservation,
+  runner: SandboxRunner,
+): boolean {
+  return clientState.reservation === reservation && clientState.runner === runner;
 }
 
 /** Preserve the existing serial diagnostic and stopped-status protocol. */
@@ -307,6 +348,8 @@ export function registerSimulationWebSocket(
               "onExit",
               reservation,
             );
+            // A start waiting for this release may already own the session.
+            if (capturedCs.reservation && capturedCs.reservation !== reservation) return;
           }
 
           if (!shouldSendSimulationEndMessage(compileFailed)) return;
@@ -478,20 +521,18 @@ export function registerSimulationWebSocket(
   ): Promise<boolean> {
     const acquireAbort = new AbortController();
     clientState.queueAbortController = acquireAbort;
-    try {
-      clientState.runner = await pool.acquireRunner(acquireAbort.signal);
-      clientState.queueAbortController = null;
-      if (clientState.reservation !== reservation) {
-        await pool.releaseRunner(clientState.runner);
-        clientState.runner = null;
-        return false;
+    const clearOwnAbort = () => {
+      if (clientState.queueAbortController === acquireAbort) {
+        clientState.queueAbortController = null;
       }
-      logger.debug(
-        `[SandboxRunnerPool] Acquired runner for client. Pool stats: ${JSON.stringify(pool.getStats())}`,
-      );
-      return true;
+    };
+    let runner: SandboxRunner;
+    try {
+      runner = await pool.acquireRunner(acquireAbort.signal);
     } catch (error) {
-      clientState.queueAbortController = null;
+      clearOwnAbort();
+      // Stop, code change or disconnect already ended this lifecycle.
+      if (clientState.reservation !== reservation) return false;
       const isCancelled =
         error instanceof Error && error.message.includes("cancelled");
       if (isCancelled) {
@@ -506,9 +547,6 @@ export function registerSimulationWebSocket(
           operationError("SYSTEM_BUSY", SYSTEM_BUSY_MESSAGE, 5),
         );
       }
-      clientState.runner = null;
-      clientState.isRunning = false;
-      clientState.isPaused = false;
       await sessionManager.safeReleaseRunner(
         clientState,
         "runner-acquire-failed",
@@ -516,6 +554,18 @@ export function registerSimulationWebSocket(
       );
       return false;
     }
+    clearOwnAbort();
+    if (clientState.reservation !== reservation) {
+      // The lifecycle ended while the grant was in flight: the runner was
+      // never attached to the session, so nothing else would return it.
+      await pool.releaseRunner(runner);
+      return false;
+    }
+    clientState.runner = runner;
+    logger.debug(
+      `[SandboxRunnerPool] Acquired runner for client. Pool stats: ${JSON.stringify(pool.getStats())}`,
+    );
+    return true;
   }
 
   /**
@@ -537,14 +587,23 @@ export function registerSimulationWebSocket(
   }
 
   /**
-   * Handle "start_simulation" WebSocket message
-   * Checks rate limits, acquires runner, and starts sketch execution.
+   * Admission phase of a start: waits for this connection's previous release,
+   * then checks lifecycle, rate limit and code and reserves admission. Returns
+   * null when the start was rejected or cancelled.
    */
-  async function handleStartSimulation(
+  async function admitStart(
     ws: WebSocket,
     data: Extract<ClientToServerWSMessage, { type: "start_simulation" }>,
     clientState: ClientState,
-  ): Promise<void> {
+  ): Promise<{ code: string; reservation: SimulationReservation } | null> {
+    if (!(await waitForPreviousRelease(clientState))) return null;
+    // From here to the reservation everything runs synchronously, so the
+    // lifecycle check and the reservation are atomic for this connection.
+    if (hasSimulationLifecycle(clientState)) {
+      rejectActiveLifecycle(ws, clientState);
+      return null;
+    }
+
     // Rate limiting check
     const rateLimiter = getSimulationRateLimiter();
     const limitCheck = deps.disableRateLimit
@@ -564,7 +623,7 @@ export function registerSimulationWebSocket(
           retryAfter,
         ),
       );
-      return;
+      return null;
     }
 
     // Use per-client code from the WS message if provided (multi-client isolation),
@@ -577,12 +636,6 @@ export function registerSimulationWebSocket(
         ? data.code
         : getLastCompiledCode(clientState.subject);
     if (!code) {
-      if (clientState.runner) {
-        await safeReleaseRunner(clientState, "missing-compiled-code");
-      }
-      clientState.isRunning = false;
-      clientState.isPaused = false;
-
       sendMessageToClient(ws, {
         type: WSMessageType.SERIAL_OUTPUT,
         data: "[ERR] No compiled code available. Please compile first.\n",
@@ -591,16 +644,30 @@ export function registerSimulationWebSocket(
         type: WSMessageType.SIMULATION_STATUS,
         status: "stopped",
       });
-      return;
+      return null;
     }
 
     const admission = admissionController.reserve(clientState.subject);
     if (!admission.admitted) {
       rejectAdmission(ws, admission);
-      return;
+      return null;
     }
-    const reservation = admission.reservation;
-    clientState.reservation = reservation;
+    clientState.reservation = admission.reservation;
+    return { code, reservation: admission.reservation };
+  }
+
+  /**
+   * Handle "start_simulation" WebSocket message
+   * Checks rate limits, acquires runner, and starts sketch execution.
+   */
+  async function handleStartSimulation(
+    ws: WebSocket,
+    data: Extract<ClientToServerWSMessage, { type: "start_simulation" }>,
+    clientState: ClientState,
+  ): Promise<void> {
+    const admitted = await admitStart(ws, data, clientState);
+    if (!admitted) return;
+    const { code, reservation } = admitted;
 
     // If the pool is saturated, notify client it is queued and wait for a slot
     const statsBeforeAcquire = pool.getStats();
@@ -678,6 +745,8 @@ export function registerSimulationWebSocket(
       if (!processReady) return;
     } catch (error) {
       logger.error(`[Simulation] runSketch failed (${safeErrorLogMetadata(error)})`);
+      // A stop or disconnect during startup already released and reported.
+      if (clientState.reservation !== reservation) return;
       await sessionManager.safeReleaseRunner(
         clientState,
         "runSketch-error",
@@ -692,6 +761,8 @@ export function registerSimulationWebSocket(
       );
       return;
     }
+    // Ended during startup: never mark a released session as running.
+    if (!ownsLifecycle(clientState, reservation, acquiredRunner)) return;
 
     sessionManager.markSessionRunning(clientState);
     sendMessageToClient(ws, {
@@ -712,6 +783,7 @@ export function registerSimulationWebSocket(
     _ws: WebSocket,
     clientState: ClientState,
   ): Promise<void> {
+    sessionManager.cancelPendingStart(clientState);
     if (clientState?.runner || clientState?.reservation) {
       sessionManager.abortQueuedAcquire(clientState);
       await safeReleaseRunner(clientState, "code_changed");
@@ -733,6 +805,7 @@ export function registerSimulationWebSocket(
     _ws: WebSocket,
     clientState: ClientState,
   ): Promise<void> {
+    sessionManager.cancelPendingStart(clientState);
     sessionManager.abortQueuedAcquire(clientState);
     if (clientState?.runner || clientState?.reservation) {
       await safeReleaseRunner(clientState, "stop_simulation");
@@ -862,6 +935,7 @@ export function registerSimulationWebSocket(
     const cleanedTestRunIds: (string | undefined)[] = [];
 
     for (const [ws, clientState] of sessionManager.entries()) {
+      sessionManager.cancelPendingStart(clientState);
       sessionManager.abortQueuedAcquire(clientState);
       if (clientState.runner || clientState.reservation) {
         await safeReleaseRunner(clientState, "test-reset");
