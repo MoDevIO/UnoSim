@@ -29,8 +29,11 @@ version and an explicit migration/parallel-operation period.
 
 ## Security
 
-The simulator only processes messages whose `event.origin` exactly matches the detected parent origin (`window.location.ancestorOrigins[0]`).  
-When the simulator runs top-level (not in an iframe) the effective allowed origin is `"*"` (any).  
+The simulator only processes messages that come from the embedding window itself (`event.source === window.parent`) and whose `event.origin` exactly matches the detected parent origin. Responses and events are posted to that origin only.
+
+The parent origin is `window.location.ancestorOrigins[0]` where the browser provides it (Chromium, WebKit). Firefox has no `ancestorOrigins`; there the origin of the iframe's referrer is used, so the embedding page must not suppress the referrer completely (the browser default `strict-origin-when-cross-origin` is sufficient). Which pages may embed the simulator at all is enforced by the browser through the CSP `frame-ancestors` allowlist below.
+
+When the simulator runs top-level (not in an iframe), its own origin is used.
 Messages from all other origins are silently discarded.
 
 > Important: iframe embedding is controlled by the simulator page's own CSP header, not by the parent page.

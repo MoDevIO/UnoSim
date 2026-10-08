@@ -180,6 +180,8 @@ export function useExternalApi(params: UseExternalApiParams): void {
   useEffect(() => {
     const handleMessage = (event: MessageEvent): void => {
       if (allowedOrigin !== "*" && event.origin !== allowedOrigin) return;
+      // Embedded, only the embedding page itself may drive the simulator.
+      if (globalThis.parent !== globalThis.window && event.source !== globalThis.parent) return;
       const msg = event.data;
       if (typeof msg !== "object" || msg === null || typeof msg.type !== "string") return;
       const message = msg as SimulatorMessage;
