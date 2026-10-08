@@ -36,8 +36,9 @@ describe("examples repository request scoping", () => {
     }, context);
     expect(defaultCatalog.source.selection).toBe("default");
     expect(overrideCatalog.source.selection).toBe("browser-override");
-    expect(resolve).toHaveBeenNthCalledWith(1, "default/repo", "main", context, false);
-    expect(resolve).toHaveBeenNthCalledWith(2, "default/repo", "main", context, false);
+    // An override naming the operator default still draws on the default's GitHub quota reserve.
+    expect(resolve).toHaveBeenNthCalledWith(1, "default/repo", "main", { ...context, sourcePriority: "default" }, false);
+    expect(resolve).toHaveBeenNthCalledWith(2, "default/repo", "main", { ...context, sourcePriority: "default" }, false);
   });
 
   it("binds detail loading directly to repository plus requested revision", async () => {

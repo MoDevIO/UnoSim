@@ -66,6 +66,7 @@ Häufig verwendete optionale Werte:
 | `UNOSIM_EXAMPLES_SOURCE` | `ttbombadil/unosim-examples` | öffentliches Examples-Repository |
 | `UNOSIM_EXAMPLES_REF` | `main` | Examples-Ref; serverseitig zu einem Commit aufgelöst |
 | `UNOSIM_EXAMPLES_ALLOWED_HOSTS` | GitHub-Hosts im Development | ausgehende Host-Allowlist |
+| `UNOSIM_GITHUB_TOKEN` | leer | optionaler Read-only-Token nur für `api.github.com`; hebt das Ref-Kontingent von 60 auf 5000 Abfragen pro Stunde |
 
 External-Examples-Details stehen in
 [`ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md).

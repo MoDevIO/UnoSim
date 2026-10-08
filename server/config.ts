@@ -294,6 +294,8 @@ export interface ParsedExamplesConfig {
   maxSources: number;
   snapshotCacheMaxEntries: number;
   snapshotCacheMaxBytes: number;
+  /** Optional token for api.github.com only; raises the REST quota from 60 to 5000 requests per hour. */
+  githubToken?: string;
 }
 
 function resolveExamplesSourceConfig(env: NodeJS.ProcessEnv, nodeEnv: string): Pick<ParsedExamplesConfig, "mode" | "source" | "ref" | "repository" | "allowedHosts"> {
@@ -355,7 +357,16 @@ export function parseExamplesConfig(
     maxSources: int("UNOSIM_EXAMPLES_MAX_SOURCES", 32, 1, 256),
     snapshotCacheMaxEntries: int("UNOSIM_EXAMPLES_SNAPSHOT_CACHE_MAX_ENTRIES", 64, 1, 512),
     snapshotCacheMaxBytes,
+    ...parseGitHubToken(env.UNOSIM_GITHUB_TOKEN),
   };
+}
+
+function parseGitHubToken(value: string | undefined): { githubToken?: string } {
+  const token = value?.trim();
+  if (!token) return {};
+  // Rejects anything that could break out of the Authorization header.
+  if (!/^[A-Za-z0-9_.-]{1,255}$/.test(token)) throw new Error("UNOSIM_GITHUB_TOKEN has an invalid format");
+  return { githubToken: token };
 }
 
 export interface ParsedTutorSessionConfig {

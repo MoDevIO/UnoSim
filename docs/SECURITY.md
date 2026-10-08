@@ -142,6 +142,10 @@ development startup reject the flag.
   no client-created or changed sketches.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
+- GitHub ref lookups respect the REST quota: after a 403/429 rate-limit answer
+  no request is sent before the announced reset, and browser overrides leave a
+  reserve of 10 lookups to the operator's default Course. The optional
+  `UNOSIM_GITHUB_TOKEN` is sent to `api.github.com` only and never logged.
 - Tutor credentials are request-scoped personal KI:connect keys held only in
   browser memory; local loopback HTTP is allowed and deployed traffic must use
   HTTPS through the gateway.

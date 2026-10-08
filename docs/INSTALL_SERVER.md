@@ -140,6 +140,7 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
+| `UNOSIM_GITHUB_TOKEN` | optionaler Read-only-Token nur für `api.github.com` (Ref-Auflösung der Kursinhalte); ohne Token gilt das GitHub-Limit von 60 Abfragen pro Stunde und Server-IP |
 | `WS_HEARTBEAT_INTERVAL_MS` | Ping-Intervall der WebSocket-Verbindungen; eine Verbindung ohne Antwort auf den vorherigen Ping wird getrennt und gibt ihre Simulation frei; Standard `30000` ms |
 
 Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
