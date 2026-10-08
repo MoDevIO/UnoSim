@@ -92,9 +92,15 @@ die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
 - Der Docker-Socket ist nur für den UnoSim-Server verfügbar.
 - Temporäre Build-Pfade werden unter `UNOSIM_SHARED_TEMP_DIR` am identischen
   Host- und Containerpfad gemountet.
-- Jeder Sandbox-Container trägt das Label `unosim.owner=<host>:<pid>`. Nach
-  einem Neustart desselben Backend-Containers entfernt der Server beim Start
-  die Container seiner vorherigen Inkarnation.
+- Jeder Sandbox-Container trägt das Label `unosim.owner`: mit
+  `UNOSIM_INSTANCE_ID` den Wert `instance.<id>` (Compose setzt
+  `unosim-server`), sonst `<host>:<pid>`. Beim Start und am Ende eines
+  geordneten Shutdowns entfernt der Server die Container dieses Owners, auch
+  nach Absturz oder Redeploy mit neuem Backend-Container. Gleichzeitig laufende
+  Backends auf demselben Docker-Host brauchen verschiedene IDs.
+- Jede Sandbox endet spätestens nach `SANDBOX_MAX_LIFETIME_SECONDS`
+  (Standard 7200 s, Wanduhrzeit inklusive Pausen), auch wenn das Backend nicht
+  mehr läuft.
 
 Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
 sein.

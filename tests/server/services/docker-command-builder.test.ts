@@ -29,13 +29,18 @@ describe("DockerCommandBuilder", () => {
   });
 
   it("compiles from the read-only source mount and runs the bounded scratch executable", () => {
-    expect(DockerCommandBuilder.buildCompileAndRunCommand().at(-1)).toContain(
+    expect(DockerCommandBuilder.buildCompileAndRunCommand(7200).at(-1)).toContain(
       "-I/sandbox /sandbox/sketch.cpp -o /sandbox-work/sketch",
     );
-    expect(DockerCommandBuilder.buildCompileAndRunCommand().at(-1)).toContain(
+    expect(DockerCommandBuilder.buildCompileAndRunCommand(7200).at(-1)).toContain(
       "cd /sandbox-work && ./sketch",
     );
   });
+  it("bounds the whole container by an independent hard lifetime", () => {
+    const command = DockerCommandBuilder.buildCompileAndRunCommand(7200);
+    expect(command.slice(0, 5)).toEqual(["timeout", "--signal=KILL", "7200", "sh", "-c"]);
+  });
+
   it("passes the user ID and group ID into the Docker command", () => {
     const command = DockerCommandBuilder.buildSecureRunCommand({
       sketchDir: "/tmp/sketch",

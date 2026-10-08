@@ -164,6 +164,17 @@ function stripTrailingSlashes(value: string): string {
   return result;
 }
 
+const INSTANCE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
+
+export function parseInstanceId(value: string | undefined): string | undefined {
+  const instanceId = value?.trim();
+  if (!instanceId) return undefined;
+  if (!INSTANCE_ID_PATTERN.test(instanceId)) {
+    throw new Error("UNOSIM_INSTANCE_ID must be 1-63 characters of letters, digits, '.', '_' or '-'");
+  }
+  return instanceId;
+}
+
 export function parseListenHost(
   trustMode: "local" | "gateway",
   configuredHost: string | undefined,
@@ -489,6 +500,10 @@ export const config = {
       resetTimeoutMs: 10_000,
       /** Max queued acquire requests before rejecting immediately */
       maxQueueSize: 500,
+      /** Runners stopped in parallel during shutdown (each is one docker rm) */
+      shutdownConcurrency: 8,
+      /** Shutdown stops waiting for one runner after this; a final sweep follows */
+      shutdownStopTimeoutMs: 6_000,
     },
 
     // ── Per-Container Resource Limits ───────────────────────────
@@ -526,6 +541,18 @@ export const config = {
     dockerHost: envStr("DOCKER_HOST", "unix:///var/run/docker.sock"),
     /** Timeout for Docker CLI availability/control probes (not simulation runtime). */
     dockerControlTimeoutMs: envInt("DOCKER_CONTROL_TIMEOUT_MS", 2_000, { min: 100, max: 30_000 }),
+    /**
+     * Stable identity of this deployment, kept across restarts and redeploys.
+     * Owns the sandbox containers for the orphan sweep; without it, ownership
+     * falls back to host and PID. Concurrently running backends need distinct IDs.
+     */
+    instanceId: parseInstanceId(process.env.UNOSIM_INSTANCE_ID),
+    /**
+     * Absolute wall-clock lifetime of a sandbox container, enforced inside the
+     * container so it also ends when the backend dies. Includes paused time;
+     * far above compile time plus the longest simulation timeout.
+     */
+    maxLifetimeSeconds: envInt("SANDBOX_MAX_LIFETIME_SECONDS", 7_200, { min: 900, max: 86_400 }),
   },
 
   // ── Compilation ─────────────────────────────────────────────────

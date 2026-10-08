@@ -8,6 +8,9 @@ services:
     image: unosim-server:latest
     container_name: unosim-server
     restart: unless-stopped
+    # Longer than the backend's 10 s internal shutdown deadline, so Docker
+    # never SIGKILLs the backend while it removes its sandbox containers.
+    stop_grace_period: 15s
     group_add:
       - "${DOCKER_GID:?Set DOCKER_GID to the numeric GID of /var/run/docker.sock}"
     environment:
@@ -38,6 +41,10 @@ services:
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
+      # Owns the sandbox containers across restarts and redeploys: a new backend
+      # container removes the sandboxes its predecessor left running. Must be
+      # unique among backends running at the same time on this Docker host.
+      - UNOSIM_INSTANCE_ID=${UNOSIM_INSTANCE_ID:-unosim-server}
       # Logical simulation capacity grows on-demand; idle logical runners shrink after IDLE_TIMEOUT_MS.
       # Admission still caps running plus waiting simulations at SIMULATION_ADMISSION_MAX
       # (application default 25); see docs/CAPACITY_VALIDATION_PLAN.md before raising either.

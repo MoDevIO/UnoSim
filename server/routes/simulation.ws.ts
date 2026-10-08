@@ -36,6 +36,7 @@ import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { config } from "../config";
 import { InboundMessageLimiter } from "./simulation/ws-inbound-limiter";
 import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
+import { mapWithConcurrency, settleWithin } from "../services/concurrency";
 
 function sendStartError(
   ws: WebSocket,
@@ -930,28 +931,37 @@ export function registerSimulationWebSocket(
     });
   });
 
+  /**
+   * Ends every session's lifecycle (shutdown and test reset). Releases run in
+   * parallel with bounded concurrency, and a release that hangs stops being
+   * awaited after the shutdown stop timeout: the pool shutdown and the final
+   * owner sweep remove what is left.
+   */
   async function stopAllRunnersAndNotify() {
-    const cleanedUpCount = sessionManager.size;
-    const cleanedTestRunIds: (string | undefined)[] = [];
-
-    for (const [ws, clientState] of sessionManager.entries()) {
+    const sessions = [...sessionManager.entries()];
+    const settled = await mapWithConcurrency(sessions, config.sandbox.pool.shutdownConcurrency, async ([ws, clientState]) => {
       sessionManager.cancelPendingStart(clientState);
       sessionManager.abortQueuedAcquire(clientState);
-      if (clientState.runner || clientState.reservation) {
-        await safeReleaseRunner(clientState, "test-reset");
-      }
+      const released = clientState.runner || clientState.reservation
+        ? await settleWithin(safeReleaseRunner(clientState, "test-reset"), config.sandbox.pool.shutdownStopTimeoutMs)
+        : true;
       clientState.isRunning = false;
       clientState.isPaused = false;
-      cleanedTestRunIds.push(clientState.testRunId);
-
       sendMessageToClient(ws, {
         type: WSMessageType.SIMULATION_STATUS,
         status: "stopped",
       });
+      return released;
+    });
+    const unfinished = settled.filter((released) => !released).length;
+    if (unfinished > 0) {
+      logger.warn(`[Simulation] ${unfinished} session release(s) exceeded the shutdown stop timeout`);
     }
 
-    const cleaned = cleanedTestRunIds.filter((id): id is string => Boolean(id));
-    return { cleanedUpCount, cleanedTestRunIds: cleaned };
+    const cleanedTestRunIds = sessions
+      .map(([, clientState]) => clientState.testRunId)
+      .filter((id): id is string => Boolean(id));
+    return { cleanedUpCount: sessions.length, cleanedTestRunIds };
   }
 
   return { wss, stopAllRunnersAndNotify };

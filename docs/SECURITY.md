@@ -84,9 +84,15 @@ The Docker socket is a privileged host capability. Only the UnoSim backend may
 access it. Operators must restrict host access, pin reviewed images and keep
 the daemon patched.
 
-Every sandbox container carries the label `unosim.owner=<host>:<pid>`. On
-startup the backend removes containers left by its own previous incarnation;
-containers of other UnoSim instances on the same Docker host are not touched.
+Every sandbox container carries the label `unosim.owner`: `instance.<id>` when
+`UNOSIM_INSTANCE_ID` is set (Compose sets `unosim-server`), otherwise
+`<host>:<pid>`. On startup and at the end of a graceful shutdown the backend
+removes the containers of its owner, so a crashed or redeployed backend of the
+same deployment cleans up its predecessor's sandboxes; containers of other
+owners are not touched. Concurrently running backends must use distinct IDs.
+Independently of the backend, every sandbox runs under
+`timeout --signal=KILL` and ends after `SANDBOX_MAX_LIFETIME_SECONDS` (default
+7200 s wall clock, including paused time).
 
 ## Compile boundary
 

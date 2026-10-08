@@ -71,8 +71,14 @@ export class DockerCommandBuilder {
   /**
    * Builds the compile and run command for Docker
    */
-  static buildCompileAndRunCommand(): string[] {
+  static buildCompileAndRunCommand(maxLifetimeSeconds: number): string[] {
     return [
+      // Independent hard lifetime: the container ends after this wall-clock
+      // time even if the backend that would stop it has died. As PID 1 the
+      // timeout takes the whole container down with it.
+      "timeout",
+      "--signal=KILL",
+      String(maxLifetimeSeconds),
       "sh",
       "-c",
       // The echo marker is the only signal that compilation succeeded. This

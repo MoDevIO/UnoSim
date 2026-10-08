@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { parse as parseYaml } from "yaml";
 import { config } from "../../config";
 import { ExamplesError } from "../examples/examples-error";
-import { ExamplesLoadController, mapWithConcurrency } from "../examples/examples-load-controller";
+import { ExamplesLoadController } from "../examples/examples-load-controller";
+import { mapWithConcurrency } from "../concurrency";
 import type { TextFetcher } from "../examples/http-provider";
 import {
   courseContentTutorManifestSchema,

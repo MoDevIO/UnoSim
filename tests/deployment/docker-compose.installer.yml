@@ -9,6 +9,9 @@ services:
     container_name: ${DEPLOYMENT_BACKEND_CONTAINER:?DEPLOYMENT_BACKEND_CONTAINER is required}
     environment:
       DOCKER_SANDBOX_IMAGE: ${DEPLOYMENT_SANDBOX_IMAGE:?DEPLOYMENT_SANDBOX_IMAGE is required}
+      # Never the production default: the startup sweep must not touch the
+      # sandboxes of a real deployment on the same Docker host.
+      UNOSIM_INSTANCE_ID: ${DEPLOYMENT_INSTANCE_ID:?DEPLOYMENT_INSTANCE_ID is required}
       # Tutor requests must never leave the test host; a refused local port
       # proves the request passed the credential-transport check.
       UNOSIM_LLM_BASE_URL: http://127.0.0.1:9/api/v1

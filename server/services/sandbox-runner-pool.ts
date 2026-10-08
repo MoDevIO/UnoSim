@@ -1,6 +1,7 @@
 import { SandboxRunner } from "./sandbox-runner";
 import { Logger } from "@shared/logger";
 import { config } from "../config";
+import { mapWithConcurrency, settleWithin } from "./concurrency";
 
 interface PooledRunner {
   runner: SandboxRunner;
@@ -24,6 +25,8 @@ export interface SandboxRunnerPoolOptions {
   idleTimeoutMs?: number;
   acquireTimeoutMs?: number;
   resetTimeoutMs?: number;
+  shutdownConcurrency?: number;
+  shutdownStopTimeoutMs?: number;
 }
 
 export class SandboxRunnerPool {
@@ -36,6 +39,8 @@ export class SandboxRunnerPool {
   private readonly logger = new Logger("SandboxRunnerPool");
   private readonly acquireTimeoutMs: number;
   private readonly resetTimeoutMs: number;
+  private readonly shutdownConcurrency: number;
+  private readonly shutdownStopTimeoutMs: number;
   private initialized = false;
   private shuttingDown = false;
 
@@ -46,6 +51,8 @@ export class SandboxRunnerPool {
     this.idleTimeoutMs = options.idleTimeoutMs ?? config.sandbox.pool.idleTimeoutMs;
     this.acquireTimeoutMs = options.acquireTimeoutMs ?? config.sandbox.pool.acquireTimeoutMs;
     this.resetTimeoutMs = options.resetTimeoutMs ?? config.sandbox.pool.resetTimeoutMs;
+    this.shutdownConcurrency = options.shutdownConcurrency ?? config.sandbox.pool.shutdownConcurrency;
+    this.shutdownStopTimeoutMs = options.shutdownStopTimeoutMs ?? config.sandbox.pool.shutdownStopTimeoutMs;
     this.logger.info(
       `[SandboxRunnerPool] Logical simulation capacity: activeMax=${this.maxRunners}, warmFloor=${this.minRunners}, idleTimeout=${this.idleTimeoutMs}ms`,
     );
@@ -362,16 +369,23 @@ export class SandboxRunnerPool {
       }
     }
 
-    for (const { runner } of this.runners) {
-      try {
-        if (runner.isRunning || runner.hasPendingContainerCleanup) {
-          await runner.stop();
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[SandboxRunnerPool] Error stopping runner during shutdown: ${error}`,
-        );
-      }
+    // Parallel and bounded per runner: sequential docker removals of many
+    // active simulations would exceed the shutdown deadline, and one hanging
+    // stop must not hold back the others.
+    const active = this.runners
+      .map(({ runner }) => runner)
+      .filter((runner) => runner.isRunning || runner.hasPendingContainerCleanup);
+    const settled = await mapWithConcurrency(active, this.shutdownConcurrency, async (runner) => {
+      const stop = runner.stop().catch((error: unknown) => {
+        this.logger.warn(`[SandboxRunnerPool] Error stopping runner during shutdown: ${error}`);
+      });
+      return settleWithin(stop, this.shutdownStopTimeoutMs);
+    });
+    const unfinished = settled.filter((done) => !done).length;
+    if (unfinished > 0) {
+      this.logger.warn(
+        `[SandboxRunnerPool] ${unfinished} runner(s) did not stop within ${this.shutdownStopTimeoutMs}ms during shutdown`,
+      );
     }
 
     this.logger.info("[SandboxRunnerPool] Shutdown complete");
