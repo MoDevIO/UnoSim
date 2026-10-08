@@ -260,6 +260,94 @@ microbenchmark: Docker Desktop virtualization, different CPU topology, and
 background workloads affect them. The Mac data is secondary calibration and
 does not replace Dell evidence.
 
+## Reference Ubuntu/VBox VM (installer default)
+
+Measured on 2026-10-08 on the reference VBox VM the Ubuntu/VBox installer
+targets: aarch64 guest on Apple silicon, 8 vCPUs, 11 GiB RAM, **no swap**,
+ext4, Docker 29.1.3 (overlayfs, cgroup v2), Ubuntu 26.04.1, kernel 7.0. The
+measured commit was `main` at `d1ea0b7ab` with the production sandbox limits
+(0.25 CPU / 256 MiB per sandbox), 8 sandbox-start slots, 8 compile workers and
+`COMPILE_MAX_CONCURRENT=8`.
+
+Method. A throwaway harness container built from the production image ran the
+existing scenario runner against an owned test-mode backend on the VM, with the
+same host paths as the production compose file and its own instance ID. Each
+run started a fresh backend; 20 s idle separated runs. The production backend
+stayed deployed and idle. Side samplers recorded backend RSS, sandbox cgroup
+memory/CPU and `/api/health` latency every 0.5–2 s. 92 runs with 2,804 simulated learners and no harness errors: REST compile
+cohorts (8/16/30 parallel), synchronous bursts (10–100), staggered arrivals
+(30 over 60 s and 20 s, 40 over 20/60 s), mixed simulation plus 30 REST
+compiles, several tabs per subject, and the same arrivals with a CPU-bound
+sketch without `delay()`. Central scenarios ran 2–3 times; repeated runs
+differed by less than about 10% in start latency and CPU.
+
+| Scenario (8 start slots) | Success | Start p95 | Host CPU p95 / max | RAM available min | `/api/health` p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 10 burst | 100% | 4.9–5.4 s | 28–31% / 32% | 6.6 GiB | 95–105 ms |
+| 20 burst | 100% | 8.0–8.2 s | 38–41% / 45% | 6.3 GiB | 93–123 ms |
+| 25 burst | 100% | 8.7–9.5 s | 39–42% / 48% | 6.4 GiB | 109–221 ms |
+| 30 burst | 100% | 11.4–12.8 s | 46–47% / 50% | 6.1 GiB | 124–212 ms |
+| 30 burst with admission 25 (old default) | 25/30, 5 × `SYSTEM_BUSY` | 8.4–8.5 s | 40–42% / 47% | 6.2 GiB | 115–214 ms |
+| 30 staggered over 60 s | 100% | 2.8 s | 21–22% / 39% | 6.8 GiB | 114–117 ms |
+| 30 staggered over 20 s | 100% | 2.8–2.9 s | 28–29% / 34% | 6.7 GiB | 117–169 ms |
+| 30 staggered over 20 s, CPU-bound sketch | 100% | 3.1 s | 35–36% / 42% | 6.5 GiB | 196–286 ms |
+| 30 staggered + 30 REST compiles | 100% | 2.9–3.2 s | 29–30% / 78% | 5.7 GiB | 117–200 ms |
+| 40 staggered over 20 s | 100% | 3.0–3.1 s | 36–37% / 43% | 6.6 GiB | 161–173 ms |
+| 40 staggered over 20 s, CPU-bound sketch | 100% | 3.2–3.3 s | 43% / 49% | 6.3 GiB | 387–396 ms |
+| 40 staggered + 30 REST compiles | 100% | 3.0–3.1 s | 28% / 69% | 5.7 GiB | 247–282 ms |
+| 30 burst, 10 subjects × 3 tabs | 100% | 10.8–11.1 s | 44–46% / 50% | 6.2 GiB | 119–210 ms |
+| 30 burst + 30 REST compiles at once | 100% | 12.6 s | 83–86% / 93% | 5.6 GiB | 208–212 ms |
+| 60 burst, held 90 s | 100% | 22.2–22.9 s | 52% / 57% | 5.8 GiB | 487–676 ms |
+| 80 burst, held 90 s | 100% | 28.3–29.0 s | 56–58% / 64% | 5.5 GiB | 1184–1185 ms |
+| 100 burst, held 90 s | 94–95% | 34.7–35.5 s | 59–60% / 73% | 5.4 GiB | 1437–1441 ms |
+
+30 parallel REST compiles completed without `SYSTEM_BUSY` (p95 3.1–3.3 s,
+host CPU p95 62–70%). A single sandbox start takes about 2.7 s; running
+simulations are cheap (about 0.01 core each with `delay()`, about 0.05 core
+each when CPU-bound, about 35 MiB each). Backend RSS grew with connected
+simulations, from about 0.7 GiB at 10 to about 2.3 GiB at 80 (worker threads
+during compile storms add up to about 1 GiB).
+
+Saturation. The first limit is backend responsiveness, not CPU or RAM:
+`/api/health` p95 grows from about 60 ms at 10 active simulations to about
+0.5 s at 60 and 1.2 s at 80 while host CPU stays below 65% and at least
+5.4 GiB RAM remain available. Functionally the start pipeline saturates next:
+8 slots start about 2.7 simulations per second, so in a burst of 100 the last
+starts exceed the 30 s start-slot timeout and fail (reproduced twice). Host CPU
+only approaches saturation when a synchronous burst coincides with a REST
+compile storm (max 93%).
+
+Operating point. `SIMULATION_ADMISSION_MAX=40` keeps every measured scenario
+at 100% success, including bursts, several tabs per subject, CPU-bound sketches
+and concurrent compiles. It is half of the 80 simulations at which
+responsiveness exceeds 1 s and two thirds of the 60 at which it reaches 0.5 s.
+At 40, host CPU p95 stays at or below 43% (69–78% max during compile storms),
+and at least 5.6 GiB of the 11 GiB remain available. That reserve covers Tutor
+requests, browser and WebSocket traffic, garbage collection, the OS and
+Docker, which is important because the VM has no swap. 40 serves about 30
+learners with one simulation each plus room for extra tabs and restarts. The
+Ubuntu/VBox installer writes this value; other hosts keep the application
+default 25 unless calibrated.
+
+Kept unchanged: 8 start slots (10 slots shorten a synchronous 30-burst from
+about 12 s to about 8.7 s p95 at about 6 points more CPU, and 12 slots bring no
+further gain; staggered arrivals never wait at 8, so 10 is a tuning option for
+strictly synchronous classes, not a default), 5 admissions per subject, 8
+compile workers and `COMPILE_MAX_CONCURRENT=8`, 0.25 CPU / 256 MiB per sandbox.
+The compose value `SIMULATION_MAX_CONCURRENT=200` stays because admission caps
+active simulations below it.
+
+Limits of this measurement: the harness backend ran under `tsx` in test mode
+without the Nginx/TLS hop, so absolute RSS is somewhat higher and gateway
+overhead is not included. The VM shares its Apple host with macOS, which this
+measurement cannot control. Classes noticeably above 40 simultaneous
+simulations need a larger host or backend work on responsiveness rather than a
+higher limit on this VM.
+
+Earlier "classroom" scenarios of the scenario runner started every client
+after one arrival interval instead of spreading them over the window, so they
+were bursts; the runner now spreads arrivals evenly.
+
 ## Preliminary target-server sizing
 
 The current evidence supports a cautious starting range rather than a final

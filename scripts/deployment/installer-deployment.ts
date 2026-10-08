@@ -177,6 +177,11 @@ async function verifyTrustChain(
   });
   assert.equal(spoofed.statusCode, 200, "gateway must overwrite spoofed identity headers");
 
+  // D. The installer's measured admission limit reaches the backend unchanged through Compose.
+  const admissionMax = (JSON.parse(spoofed.body) as { capacity?: { admission?: { max?: number } } }).capacity?.admission?.max;
+  assert.equal(admissionMax, Number(installerEnv.SIMULATION_ADMISSION_MAX),
+    `backend admission limit ${admissionMax} does not match the installer value ${installerEnv.SIMULATION_ADMISSION_MAX}`);
+
 }
 
 /** Installer origins, WebSocket and a sandboxed simulation through the gateway. */

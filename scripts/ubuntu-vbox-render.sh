@@ -14,6 +14,7 @@ set -Eeuo pipefail
 # subnet makes the address deterministic and lets it be the trusted proxy.
 UNOSIM_DOCKER_SUBNET='172.31.253.0/24'
 UNOSIM_DOCKER_GATEWAY='172.31.253.1'
+UNOSIM_VBOX_ADMISSION_MAX='40'
 
 NGINX_SECRET_SNIPPET='/etc/nginx/snippets/unosim-gateway-secret.conf'
 TLS_CERT='/etc/nginx/unosim-tls/unosim-lan.crt'
@@ -57,6 +58,9 @@ render_env() {
   printf 'UNOSIM_TRUSTED_PROXY=%s/32\n' "$UNOSIM_DOCKER_GATEWAY"
   printf 'UNOSIM_ALLOWED_WS_ORIGINS=%s\n' "$origins"
   printf 'UNOSIM_BIND_ADDRESS=127.0.0.1\n'
+  # Measured on the reference VBox VM (8 vCPU, 11 GiB): 30 learners plus reserve for
+  # extra tabs and restarts; see docs/CAPACITY_VALIDATION_PLAN.md before changing it.
+  printf 'SIMULATION_ADMISSION_MAX=%s\n' "$UNOSIM_VBOX_ADMISSION_MAX"
 }
 
 render_nginx_secret_snippet() {
