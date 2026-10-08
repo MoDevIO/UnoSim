@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.96% </span>
+                <span class="strong">82.81% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>50/61</span>
+                <span class='fraction'>53/64</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.19% </span>
+                <span class="strong">79.03% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>44/57</span>
+                <span class='fraction'>49/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">95% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>18/19</span>
+                <span class='fraction'>19/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.31% </span>
+                <span class="strong">85.18% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>43/51</span>
+                <span class='fraction'>46/54</span>
             </div>
         
             
@@ -269,7 +269,18 @@
 <a name='L204'></a><a href='#L204'>204</a>
 <a name='L205'></a><a href='#L205'>205</a>
 <a name='L206'></a><a href='#L206'>206</a>
-<a name='L207'></a><a href='#L207'>207</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -399,6 +410,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
@@ -411,6 +423,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -479,6 +499,7 @@
   BrowserOverrideSelection,
   ExampleDetailResponse,
   ExamplesCatalogResponse,
+  ExamplesRef,
   ExamplesRequestSelection,
   ExamplesSourceMetadata,
   FullCommitSha,
@@ -544,7 +565,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
 <span class="cstat-no" title="statement not covered" >    if (resolved.mode !== "repository-ref") {</span>
 <span class="cstat-no" title="statement not covered" >      throw new ExamplesError("INVALID_SELECTION", "Invalid external examples selection");</span>
     }
-    const result = <span class="cstat-no" title="statement not covered" >await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, true);</span>
+    const result = <span class="cstat-no" title="statement not covered" >await this.sourceProvider.resolve(resolved.repository, resolved.ref, this.withPriority(context, resolved), true);</span>
 <span class="cstat-no" title="statement not covered" >    return {</span>
       selection: "browser-override",
       mode: "repository-ref",
@@ -566,7 +587,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
         revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
       }, builtins);
     }
-    const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, false);
+    const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, this.withPriority(context, resolved), false);
     return this.catalog({
       selection: resolved.selection,
       mode: "repository-ref",
@@ -604,9 +625,10 @@ export class ExamplesRepository implements TutorCourseContentResolver {
    * same repository/ref; otherwise only the current revision is accepted.
    */
   async resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise&lt;ResolvedTutorCourseContent&gt; {
+    const prioritized = this.withPriority(context, request);
     const snapshot = request.exampleId === undefined
-      ? (await this.sourceProvider.resolve(request.repository, request.ref, context, true)).snapshot
-      : await this.exampleSnapshot(request, context);
+      ? (await this.sourceProvider.resolve(request.repository, request.ref, prioritized, true)).snapshot
+      : await this.exampleSnapshot(request, prioritized);
     this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
     return {
       ...request,
@@ -617,6 +639,14 @@ export class ExamplesRepository implements TutorCourseContentResolver {
         ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
         : {}),
     };
+  }
+&nbsp;
+  /** The operator default keeps a GitHub quota reserve that browser overrides cannot spend. */
+  private withPriority(context: RequestContext, source: { repository: RepositorySlug; ref: ExamplesRef }): RequestContext {
+    const isDefault = this.examplesConfig.mode === "repository-ref"
+      &amp;&amp; source.repository === this.examplesConfig.repository
+      &amp;&amp; source.ref === this.examplesConfig.ref;
+    return { ...context, sourcePriority: isDefault ? "default" : "override" };
   }
 &nbsp;
   private async exampleSnapshot(request: TutorCourseContentRequest, context: RequestContext): Promise&lt;RevisionCacheEntry&gt; {
@@ -688,7 +718,7 @@ function deduplicateExamples(examples: ExampleRecord[]): ExampleRecord[] {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-08T17:33:18.055Z
+                at 2026-10-08T18:07:41.518Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
