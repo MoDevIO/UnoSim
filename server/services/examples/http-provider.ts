@@ -4,6 +4,7 @@ import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { config } from "../../config";
 import { ExamplesLoadController } from "./examples-load-controller";
 import { CourseContentLoader, type LoadedCourseContentSnapshot } from "../course-content/course-content-loader";
+import { githubApiBudget } from "./github-api-budget";
 
 export type LoadedRevisionSnapshot = LoadedCourseContentSnapshot;
 
@@ -50,6 +51,8 @@ export function validateSourceUrl(value: string): URL {
   return url;
 }
 
+const GITHUB_API_HOST = "api.github.com";
+
 async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal): Promise<string> {
   requestSignal?.throwIfAborted();
   const validated = validateSourceUrl(url.toString());
@@ -61,7 +64,15 @@ async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal
   else requestSignal?.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.examples.timeoutMs);
   try {
-    const response = await fetch(validated, { signal: controller.signal, redirect: "manual" });
+    const isGitHubApi = validated.hostname.toLowerCase() === GITHUB_API_HOST;
+    // The optional token is sent to the GitHub REST API only, never to raw content hosts.
+    const token = isGitHubApi ? config.examples.githubToken : undefined;
+    const response = await fetch(validated, {
+      signal: controller.signal,
+      redirect: "manual",
+      ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+    });
+    if (isGitHubApi) githubApiBudget.observe(response.status, response.headers);
     if (response.status >= 300 && response.status < 400) throw new Error("Redirects are not allowed for examples");
     if (!response.ok) throw new Error(`Examples source returned ${response.status}`);
     const contentLength = response.headers.get("content-length");

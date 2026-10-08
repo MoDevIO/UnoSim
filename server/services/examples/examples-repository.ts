@@ -2,6 +2,7 @@ import type {
   BrowserOverrideSelection,
   ExampleDetailResponse,
   ExamplesCatalogResponse,
+  ExamplesRef,
   ExamplesRequestSelection,
   ExamplesSourceMetadata,
   FullCommitSha,
@@ -67,7 +68,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     if (resolved.mode !== "repository-ref") {
       throw new ExamplesError("INVALID_SELECTION", "Invalid external examples selection");
     }
-    const result = await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, true);
+    const result = await this.sourceProvider.resolve(resolved.repository, resolved.ref, this.withPriority(context, resolved), true);
     return {
       selection: "browser-override",
       mode: "repository-ref",
@@ -89,7 +90,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
         revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
       }, builtins);
     }
-    const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, context, false);
+    const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, this.withPriority(context, resolved), false);
     return this.catalog({
       selection: resolved.selection,
       mode: "repository-ref",
@@ -127,9 +128,10 @@ export class ExamplesRepository implements TutorCourseContentResolver {
    * same repository/ref; otherwise only the current revision is accepted.
    */
   async resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise<ResolvedTutorCourseContent> {
+    const prioritized = this.withPriority(context, request);
     const snapshot = request.exampleId === undefined
-      ? (await this.sourceProvider.resolve(request.repository, request.ref, context, true)).snapshot
-      : await this.exampleSnapshot(request, context);
+      ? (await this.sourceProvider.resolve(request.repository, request.ref, prioritized, true)).snapshot
+      : await this.exampleSnapshot(request, prioritized);
     this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
     return {
       ...request,
@@ -140,6 +142,14 @@ export class ExamplesRepository implements TutorCourseContentResolver {
         ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
         : {}),
     };
+  }
+
+  /** The operator default keeps a GitHub quota reserve that browser overrides cannot spend. */
+  private withPriority(context: RequestContext, source: { repository: RepositorySlug; ref: ExamplesRef }): RequestContext {
+    const isDefault = this.examplesConfig.mode === "repository-ref"
+      && source.repository === this.examplesConfig.repository
+      && source.ref === this.examplesConfig.ref;
+    return { ...context, sourcePriority: isDefault ? "default" : "override" };
   }
 
   private async exampleSnapshot(request: TutorCourseContentRequest, context: RequestContext): Promise<RevisionCacheEntry> {
