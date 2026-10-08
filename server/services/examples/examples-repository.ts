@@ -129,6 +129,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     return {
       ...request,
       tutor: resolved.snapshot.tutor ?? { status: "absent" },
+      contentBytes: resolved.snapshot.contentBytes,
       ...(request.exampleId !== undefined && resolved.snapshot.exampleTutorAnnotations?.has(request.exampleId)
         ? { exampleTutorAnnotation: resolved.snapshot.exampleTutorAnnotations.get(request.exampleId) }
         : {}),

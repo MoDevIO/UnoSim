@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../../server/config";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { TutorProviderError } from "../../../server/services/tutor/llm-provider";
+import { TutorCourseContentSessionStore } from "../../../server/services/course-content/course-content-session";
 
 function listen(app: express.Express): Promise<{ url: string; server: http.Server }> {
   return new Promise((resolve) => {
@@ -277,6 +278,7 @@ describe("Tutor HTTP route", () => {
       revision: "a".repeat(40),
       exampleId: "arrays-example",
       tutor: { status: "invalid" as const, reason: "invalid-tutor-bundle" },
+      contentBytes: 4_096,
     };
     const resolver = {
       resolveTutorContent: vi.fn().mockResolvedValue(contentA),
@@ -301,7 +303,7 @@ describe("Tutor HTTP route", () => {
     const session = (first.body as { courseContentSession: string }).courseContentSession;
     expect(session).toMatch(/^[0-9a-f-]{36}$/);
     expect(service.generateQuestion).toHaveBeenCalledWith(
-      "void setup(){}", "request-only-secret", undefined, 30, contentA, expect.any(AbortSignal),
+      "void setup(){}", "request-only-secret", undefined, 30, expect.objectContaining(contentA), expect.any(AbortSignal),
     );
 
     const second = await post(listening.url, "/api/tutor/dialog", {
@@ -381,5 +383,199 @@ describe("Tutor HTTP route", () => {
       request.destroy();
       resolveGeneration?.({ model: "pilot-model", result: { question: "Frage" } });
     }
+  });
+});
+
+describe("Tutor Course Content session lifecycle", () => {
+  let server: http.Server | undefined;
+
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve());
+    server = undefined;
+  });
+
+  const revision = "d".repeat(40);
+  const courseContent = { repository: "owner/repo", ref: "main", revision };
+  const resolved = { ...courseContent, tutor: { status: "absent" as const }, contentBytes: 2_048 };
+  const sessionLimits = { ttlMs: 60_000, maxSessions: 50, maxSessionsPerSubject: 3, maxPinnedContentBytes: 1_048_576 };
+
+  async function startSessions(
+    service: object,
+    options: { resolver?: object; store?: TutorCourseContentSessionStore; withIdentity?: boolean } = {},
+  ) {
+    const store = options.store ?? new TutorCourseContentSessionStore(sessionLimits);
+    const resolver = options.resolver ?? { resolveTutorContent: vi.fn().mockResolvedValue(resolved) };
+    const app = express();
+    app.use(express.json());
+    app.use((req, res, next) => {
+      if (options.withIdentity !== false) {
+        res.locals.unosimIdentity = { subject: req.header("x-test-subject") ?? "local.learner-a", roles: ["user"] };
+      }
+      next();
+    });
+    registerTutorRoutes(app, {
+      service: service as never,
+      disableRateLimit: true,
+      logger: { warn: vi.fn(), error: vi.fn() },
+      courseContent: resolver as never,
+      sessionStore: store,
+    });
+    const listening = await listen(app);
+    server = listening.server;
+    return { url: listening.url, store, resolver };
+  }
+
+  const questionBody = { code: "void setup(){}", credential: "request-only-secret", courseContent };
+  const dialogBody = (session: string) => ({
+    code: "void setup(){}", history: [], question: "Frage?", answer: "Antwort", credential: "request-only-secret", courseContentSession: session,
+  });
+
+  it("commits one session only after a successful request and passes its progression state to the provider call", async () => {
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }),
+      generateDialogResponse: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Weiter?" } }),
+    };
+    const { url, store } = await startSessions(service);
+
+    const first = await post(url, "/api/tutor/question", questionBody);
+    const session = (first.body as { courseContentSession: string }).courseContentSession;
+    const second = await post(url, "/api/tutor/dialog", dialogBody(session));
+
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect((second.body as { courseContentSession: string }).courseContentSession).toBe(session);
+    expect(store.stats()).toMatchObject({ sessions: 1, subjects: 1, pinnedRevisions: 1, pinnedContentBytes: 2_048 });
+    const initialState = service.generateQuestion.mock.calls[0]?.[4]?.progressionState;
+    expect(initialState).toEqual(expect.objectContaining({ revision }));
+    // The initial question's progression is the session's progression, not a discarded copy.
+    expect(service.generateDialogResponse.mock.calls[0]?.[7]?.progressionState).toBe(initialState);
+  });
+
+  it.each([
+    ["provider-timeout", 504],
+    ["credential-invalid", 401],
+    ["rate-limited", 429],
+    ["model-unavailable", 502],
+    ["invalid-response", 502],
+    ["provider-unavailable", 502],
+  ] as const)("leaves no session behind when the provider fails with %s", async (kind, status) => {
+    const service = { generateQuestion: vi.fn().mockRejectedValue(new TutorProviderError(kind)) };
+    const { url, store, resolver } = await startSessions(service);
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await post(url, "/api/tutor/question", questionBody);
+      expect(response.status).toBe(status);
+      expect(response.body).not.toHaveProperty("courseContentSession");
+    }
+
+    expect((resolver as { resolveTutorContent: ReturnType<typeof vi.fn> }).resolveTutorContent).toHaveBeenCalledTimes(10);
+    expect(store.stats()).toMatchObject({ sessions: 0, pinnedRevisions: 0, pinnedContentBytes: 0 });
+  });
+
+  it("leaves no session behind for unexpected failures, invalid Course Content, or a missing credential", async () => {
+    const service = { generateQuestion: vi.fn().mockRejectedValue(new Error("socket hang up")) };
+    const rejecting = { resolveTutorContent: vi.fn().mockRejectedValueOnce(new Error("revision mismatch")).mockResolvedValue(resolved) };
+    const { url, store } = await startSessions(service, { resolver: rejecting });
+
+    const invalidContent = await post(url, "/api/tutor/question", questionBody);
+    const unexpected = await post(url, "/api/tutor/question", questionBody);
+    const noCredential = await post(url, "/api/tutor/question", { ...questionBody, credential: "" });
+
+    expect([invalidContent.status, unexpected.status, noCredential.status]).toEqual([400, 500, 400]);
+    expect(rejecting.resolveTutorContent).toHaveBeenCalledTimes(2);
+    expect(store.stats().sessions).toBe(0);
+  });
+
+  it("leaves no session behind when the client disconnects before the provider answers", async () => {
+    let finishGeneration: ((value: unknown) => void) | undefined;
+    const generation = new Promise((resolve) => { finishGeneration = resolve; });
+    const service = { generateQuestion: vi.fn(() => generation) };
+    const { url, store } = await startSessions(service);
+    const target = new URL("/api/tutor/question", url);
+    const payload = JSON.stringify(questionBody);
+    const request = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: target.pathname,
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+    }, () => undefined);
+    request.on("error", () => undefined);
+    request.end(payload);
+
+    await vi.waitFor(() => expect(service.generateQuestion).toHaveBeenCalledOnce());
+    const signal = (service.generateQuestion.mock.calls[0] as unknown[])[5] as AbortSignal;
+    request.destroy();
+    await vi.waitFor(() => expect(signal.aborted).toBe(true));
+    // Worst case: the provider still answers after the disconnect.
+    finishGeneration?.({ model: "pilot-model", result: { question: "Frage?" } });
+    await generation;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(store.stats().sessions).toBe(0);
+  });
+
+  it("rejects a session handle owned by another subject without touching its progression", async () => {
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }),
+      generateDialogResponse: vi.fn(),
+    };
+    const { url, store } = await startSessions(service);
+    const first = await post(url, "/api/tutor/question", questionBody);
+    const session = (first.body as { courseContentSession: string }).courseContentSession;
+
+    const foreign = await post(url, "/api/tutor/dialog", dialogBody(session), { "x-test-subject": "local.learner-b" });
+
+    expect(foreign).toEqual({ status: 400, body: { error: { code: "INVALID_REQUEST", message: "Der Tutor-Kontext ist abgelaufen oder ungültig." } } });
+    expect(service.generateDialogResponse).not.toHaveBeenCalled();
+    expect(store.get("local.learner-a", session)).not.toBeNull();
+    expect(store.stats().subjects).toBe(1);
+  });
+
+  it("rejects an expired session handle with the existing context error", async () => {
+    let now = 1_000;
+    const store = new TutorCourseContentSessionStore(sessionLimits, () => now);
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }),
+      generateDialogResponse: vi.fn(),
+    };
+    const { url } = await startSessions(service, { store });
+    const first = await post(url, "/api/tutor/question", questionBody);
+    now += sessionLimits.ttlMs;
+
+    const expired = await post(url, "/api/tutor/dialog", dialogBody((first.body as { courseContentSession: string }).courseContentSession));
+
+    expect(expired.status).toBe(400);
+    expect((expired.body as { error: { code: string } }).error.code).toBe("INVALID_REQUEST");
+    expect(service.generateDialogResponse).not.toHaveBeenCalled();
+    expect(store.stats()).toMatchObject({ sessions: 0, expired: 1 });
+  });
+
+  it("bounds the sessions of repeated questions without a handle per subject", async () => {
+    const service = { generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }) };
+    const { url, store } = await startSessions(service);
+
+    const handles: string[] = [];
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const response = await post(url, "/api/tutor/question", questionBody);
+      handles.push((response.body as { courseContentSession: string }).courseContentSession);
+    }
+    const other = await post(url, "/api/tutor/question", questionBody, { "x-test-subject": "local.learner-b" });
+
+    expect(new Set(handles).size).toBe(12);
+    expect(other.status).toBe(200);
+    expect(store.stats()).toMatchObject({ sessions: 4, subjects: 2, evicted: { "subject-limit": 9 } });
+    expect(handles.slice(-3).every((handle) => store.get("local.learner-a", handle) !== null)).toBe(true);
+  });
+
+  it("refuses Course Content without an authenticated subject instead of sharing an anonymous owner", async () => {
+    const service = { generateQuestion: vi.fn() };
+    const { url, store, resolver } = await startSessions(service, { withIdentity: false });
+
+    const response = await post(url, "/api/tutor/question", questionBody);
+
+    expect(response.status).toBe(500);
+    expect((resolver as { resolveTutorContent: ReturnType<typeof vi.fn> }).resolveTutorContent).not.toHaveBeenCalled();
+    expect(service.generateQuestion).not.toHaveBeenCalled();
+    expect(store.stats().sessions).toBe(0);
   });
 });
