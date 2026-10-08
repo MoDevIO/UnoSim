@@ -74,6 +74,9 @@ describe("independent sandbox lifetime (real Docker)", () => {
         pidsLimit: 50,
         imageName: IMAGE,
         containerName: name,
+        // Like production (start-phase): the sandbox runs as the backend's user,
+        // which owns the private sketch directory.
+        user: `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
         command: DockerCommandBuilder.buildCompileAndRunCommand(lifetimeSeconds),
       }).map((arg) => (arg === "-i" ? "-d" : arg));
       const startedAt = Date.now();
@@ -89,7 +92,7 @@ describe("independent sandbox lifetime (real Docker)", () => {
       }
       const elapsedSeconds = (Date.now() - startedAt) / 1_000;
 
-      expect(sawRuntime).toBe(true);
+      expect(sawRuntime, `runtime marker never appeared within ${elapsedSeconds}s`).toBe(true);
       expect(await exists(stdout.trim())).toBe(false);
       expect(elapsedSeconds).toBeGreaterThanOrEqual(lifetimeSeconds - 1);
       expect(elapsedSeconds).toBeLessThan(lifetimeSeconds + 15);
