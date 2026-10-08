@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/rate-limit-policy.ts</title>
+    <title>Code coverage report for server/security/api-request-guard.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../prettify.css" />
-    <link rel="stylesheet" href="../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,20 +19,20 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">server</a> rate-limit-policy.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">server/security</a> api-request-guard.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/7</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
@@ -97,73 +97,76 @@
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a>
-<a name='L35'></a><a href='#L35'>35</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { IncomingMessage } from "node:http";
-import { ipKeyGenerator } from "express-rate-limit";
-import { getRequestAuthorization, type TrustConfig } from "./security/access-control";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { NextFunction, Request, Response } from "express";
 &nbsp;
-const RATE_LIMIT_EXEMPT_API_PATHS = new Set([
-  "/api/status",
-  "/api/health",
-  "/api/config",
-]);
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+/** Fetch metadata values a page of this origin or the user itself produces. */
+const ALLOWED_FETCH_SITES = new Set(["same-origin", "none"]);
 &nbsp;
 /**
- * Returns whether the global API rate limiter should ignore a request.
- * Keep this decision independent from Express so it can be tested directly.
+ * Cross-site request guard for the JSON API. Browsers send a form or text/plain
+ * POST cross-site without a CORS preflight, so a foreign page could otherwise drive
+ * the API with the victim's network position or identity (in IP gateway mode the
+ * network is the access boundary). Mutating requests with a body must be JSON,
+ * which a foreign page cannot send without a preflight this server never grants,
+ * and browsers that report a cross-site or same-site sender are refused outright.
  */
-export function shouldSkipApiRateLimit(
-  originalUrl: string,
-  isTestMode: boolean,
-): boolean {
-  return isTestMode || RATE_LIMIT_EXEMPT_API_PATHS.has(originalUrl);
+export function guardApiMutations(req: Request, res: Response, next: NextFunction): void {
+  if (!MUTATING_METHODS.has(req.method)) {
+    next();
+    return;
+  }
+  const fetchSite = req.get("sec-fetch-site");
+  if (fetchSite !== undefined &amp;&amp; !ALLOWED_FETCH_SITES.has(fetchSite)) {
+    res.status(403).json({ error: "Cross-site API requests are not allowed" });
+    return;
+  }
+  // `req.is` is null without a body and false for any other media type; an empty body carries no data.
+  if (!hasEmptyBody(req) &amp;&amp; req.is("application/json") === false) {
+    res.status(415).json({ error: "API requests must be sent as application/json" });
+    return;
+  }
+  next();
 }
 &nbsp;
-/**
- * Key of the global API rate limit. Behind the gateway, a whole course often
- * shares one public IP (campus NAT), so an authenticated subject gets its own
- * budget. Requests without a valid gateway identity, and local mode, where a
- * client can always obtain a fresh session, stay on the client IP.
- */
-export function apiRateLimitKey(req: IncomingMessage &amp; { ip?: string }, trust: TrustConfig): string {
-  if (trust.mode === "gateway") {
-    const authorization = getRequestAuthorization(req, trust);
-    if (authorization.allowed) return `subject:${authorization.identity.subject}`;
-  }
-  return `ip:${ipKeyGenerator(req.ip ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>}`;
+function hasEmptyBody(req: Request): boolean {
+  return req.headers["transfer-encoding"] === undefined &amp;&amp; req.headers["content-length"] === "0";
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -174,14 +177,14 @@ export function apiRateLimitKey(req: IncomingMessage &amp; { ip?: string }, trus
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2026-10-08T16:17:11.970Z
             </div>
-        <script src="../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../sorter.js"></script>
-        <script src="../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     
