@@ -44,7 +44,9 @@ The settings have separate responsibilities:
 - SANDBOX_START_MAX_CONCURRENT limits Docker sandbox startup/compile operations
   in flight. The slot is acquired before docker run and released at the first
   valid RUNTIME_START or on an error. It is startup pressure, not steady-state
-  simulation capacity and not a Docker container maximum.
+  simulation capacity and not a Docker container maximum. Waiting starts are
+  served oldest first, but while other subjects wait one subject holds at most
+  half of these slots; alone it may use all of them.
 - SANDBOX_START_SLOT_TIMEOUT_MS limits how long an already admitted request may
   wait for a sandbox-start slot. It is separate from the simulation queue,
   startup watchdog, and runtime timeout.

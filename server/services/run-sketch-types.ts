@@ -25,6 +25,6 @@ export interface RunSketchOptions extends RunSketchCallbacks {
   entryFile?: string;
   timeoutSec?: number;
   tempDir?: string;
-  /** Optional tracing context for traceability */
-  context?: { sessionId?: string; label?: string };
+  /** Optional tracing context; `subject` also spreads sandbox-start slots fairly across users. */
+  context?: { sessionId?: string; label?: string; subject?: string };
 }
