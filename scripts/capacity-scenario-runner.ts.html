@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">24.29% </span>
+                <span class="strong">24.92% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>86/354</span>
+                <span class='fraction'>89/357</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.93% </span>
+                <span class="strong">28.75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>88/315</span>
+                <span class='fraction'>90/313</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28% </span>
+                <span class="strong">29.87% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>21/75</span>
+                <span class='fraction'>23/77</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">25.32% </span>
+                <span class="strong">25.81% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>77/304</span>
+                <span class='fraction'>79/306</span>
             </div>
         
             
@@ -979,7 +979,16 @@
 <a name='L914'></a><a href='#L914'>914</a>
 <a name='L915'></a><a href='#L915'>915</a>
 <a name='L916'></a><a href='#L916'>916</a>
-<a name='L917'></a><a href='#L917'>917</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L917'></a><a href='#L917'>917</a>
+<a name='L918'></a><a href='#L918'>918</a>
+<a name='L919'></a><a href='#L919'>919</a>
+<a name='L920'></a><a href='#L920'>920</a>
+<a name='L921'></a><a href='#L921'>921</a>
+<a name='L922'></a><a href='#L922'>922</a>
+<a name='L923'></a><a href='#L923'>923</a>
+<a name='L924'></a><a href='#L924'>924</a>
+<a name='L925'></a><a href='#L925'>925</a>
+<a name='L926'></a><a href='#L926'>926</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1731,6 +1740,15 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2642,11 +2660,20 @@ async function <span class="fstat-no" title="function not covered" >runScenarioC
   createSessionCookie: (baseUrl: string) =&gt; Promise&lt;string&gt;,
 ): Promise&lt;ClientResult[]&gt; {
   const arrivalWindowMs = <span class="cstat-no" title="statement not covered" >options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;</span>
-  const intervalMs = <span class="cstat-no" title="statement not covered" >options.clientCount &gt; 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;</span>
-<span class="cstat-no" title="statement not covered" >  return Promise.all(Array.from({ length: options.clientCount <span class="fstat-no" title="function not covered" >}, (_</span>, <span class="cstat-no" title="statement not covered" >index) =&gt; (<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span></span>
-<span class="cstat-no" title="statement not covered" >    if (index &gt; 0 &amp;&amp; intervalMs &gt; 0) <span class="cstat-no" title="statement not covered" >await sleep(intervalMs);</span></span>
+  const offsets = <span class="cstat-no" title="statement not covered" >arrivalOffsetsMs(options.clientCount, arrivalWindowMs);</span>
+<span class="cstat-no" title="statement not covered" >  return Promise.all(offsets.<span class="fstat-no" title="function not covered" >map((o</span>ffsetMs, <span class="cstat-no" title="statement not covered" >index) =&gt; (<span class="fstat-no" title="function not covered" >async () =&gt; {</span></span></span>
+<span class="cstat-no" title="statement not covered" >    if (offsetMs &gt; 0) <span class="cstat-no" title="statement not covered" >await sleep(offsetMs);</span></span>
 <span class="cstat-no" title="statement not covered" >    return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);</span>
   })()));
+}
+&nbsp;
+/**
+ * Start offsets that spread classroom arrivals evenly over the window: the first
+ * client starts at 0, the last at the end of the window. A burst uses window 0.
+ */
+export function arrivalOffsetsMs(clientCount: number, arrivalWindowMs: number): number[] {
+  const intervalMs = clientCount &gt; 1 ? arrivalWindowMs / (clientCount - 1) : 0;
+  return Array.from({ length: clientCount }, (_, index) =&gt; index * intervalMs);
 }
 &nbsp;
 async function <span class="fstat-no" title="function not covered" >resolveScenarioCleanup(</span>
@@ -2818,7 +2845,7 @@ function <span class="fstat-no" title="function not covered" >validateCapacitySc
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-08T18:15:32.432Z
+                at 2026-10-08T22:18:27.737Z
             </div>
         <script src="../prettify.js"></script>
         <script>
