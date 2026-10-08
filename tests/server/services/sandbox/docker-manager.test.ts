@@ -597,3 +597,97 @@ describe("DockerManager runtime timeout boundary", () => {
     expect(timeoutManager.clear).toHaveBeenCalledOnce();
   });
 });
+
+describe("DockerManager bounded compile diagnostics", () => {
+  function createCompileHarness() {
+    const processController = makeProcessController();
+    const stdoutHandlers: Array<(data: Buffer) => void> = [];
+    vi.mocked(processController.onStdout).mockImplementation((handler) => {
+      stdoutHandlers.push(handler as (data: Buffer) => void);
+    });
+    const parsedLines: string[] = [];
+    const manager = new DockerManager(
+      processController,
+      { parseStderrLine: vi.fn((line: string) => ({ type: "text", line })) } as any,
+      makeTimeoutManager(),
+      (parsed) => {
+        if (parsed.type === "text") parsedLines.push(parsed.line);
+      },
+    );
+    const onRuntimeStart = vi.fn();
+    const state = {
+      isCompilePhase: { value: true },
+      compileErrorBuffer: { value: "" } as { value: string; omittedChars?: number },
+      compileSuccessSent: { value: false },
+      totalOutputBytes: { value: 0 },
+      processStartTime: 1000,
+      runtimeOutputBuffer: { value: "" },
+      stderrFallbackBuffer: "",
+    };
+    manager.setupStdoutHandler({ ...mockCallbacks, onError: vi.fn() }, state, vi.fn(), onRuntimeStart);
+    const stdout = (chunk: string | Buffer) => stdoutHandlers[0]?.(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    return { manager, stdout, parsedLines, onRuntimeStart, state };
+  }
+
+  it("scans a flood of marker-like compiler output in linear time with a bounded buffer", () => {
+    const harness = createCompileHarness();
+    const nearMiss = " [[RUNTIME_START]]";
+    const chunk = Buffer.from(nearMiss.repeat(Math.ceil(65_536 / nearMiss.length)));
+    const startedAt = performance.now();
+    for (let sent = 0; sent < 16 * 1024 * 1024; sent += chunk.length) harness.stdout(chunk);
+    harness.stdout("\n[[RUNTIME_START]]\nready\n");
+    const elapsedMs = performance.now() - startedAt;
+
+    // The old full-buffer rescan needed several seconds for 16 MiB.
+    expect(elapsedMs).toBeLessThan(1_500);
+    expect(harness.state.compileErrorBuffer.value.length).toBeLessThanOrEqual(256 * 1024);
+    expect(harness.state.compileErrorBuffer.omittedChars).toBeGreaterThan(15 * 1024 * 1024);
+    expect(harness.onRuntimeStart).toHaveBeenCalledOnce();
+    expect(harness.parsedLines).toEqual(["ready"]);
+  });
+
+  it("reports a truncated compile error instead of the whole diagnostic flood", () => {
+    const harness = createCompileHarness();
+    const line = "/sandbox/sketch.cpp:3:1: error: expected ';' before '}' token\n";
+    const chunk = line.repeat(1_000);
+    for (let index = 0; index < 100; index += 1) harness.stdout(chunk);
+    const onCompileError = vi.fn();
+
+    harness.manager.handleDockerExit(
+      mockCallbacks,
+      harness.state,
+      1,
+      { flushBatchers: vi.fn(), flushMessageQueue: vi.fn(), getProcessKilled: () => false },
+      { onCompileError, onExit: vi.fn() },
+    );
+
+    const reported = onCompileError.mock.calls[0]?.[0] as string;
+    expect(reported.length).toBeLessThan(260 * 1024);
+    expect(reported).toMatch(/^sketch\.ino:3:1: error/);
+    expect(reported).toMatch(/\.\.\. \d+ more characters of compiler output omitted\.$/);
+  });
+
+  it("finds the marker at every chunk boundary and keeps exactly the output before it", () => {
+    const prefix = `${"warning: unused variable\n".repeat(4)}[[IO_REGISTRY_START]]`;
+    const text = `${prefix}[[RUNTIME_START]]\nrun\n`;
+    for (let size = 1; size <= 48; size += 1) {
+      const harness = createCompileHarness();
+      for (let offset = 0; offset < text.length; offset += size) harness.stdout(text.slice(offset, offset + size));
+
+      expect(harness.onRuntimeStart, `chunk size ${size}`).toHaveBeenCalledOnce();
+      expect(harness.state.compileErrorBuffer.value, `chunk size ${size}`).toBe(prefix);
+      expect(harness.parsedLines, `chunk size ${size}`).toEqual(["run"]);
+    }
+  });
+
+  it("never accepts an embedded marker once its context has left the scan carry", () => {
+    const text = `${"x".repeat(100)}[[RUNTIME_START]]${"y".repeat(100)}`;
+    for (const size of [1, 7, 17, 64]) {
+      const harness = createCompileHarness();
+      for (let offset = 0; offset < text.length; offset += size) harness.stdout(text.slice(offset, offset + size));
+
+      expect(harness.state.isCompilePhase.value, `chunk size ${size}`).toBe(true);
+      expect(harness.state.compileErrorBuffer.value, `chunk size ${size}`).toBe(text);
+    }
+  });
+});

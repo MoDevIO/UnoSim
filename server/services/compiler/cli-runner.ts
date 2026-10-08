@@ -1,9 +1,9 @@
 import { Logger } from "@shared/logger";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ProcessExecutor } from "../process-executor";
+import { ProcessExecutor, ProcessOutputLimitError } from "../process-executor";
 import type { CompilationError } from "./compiler-output-parser";
-import { parseCompilerDiagnostics } from "../compiler-diagnostics";
+import { limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES, parseCompilerDiagnostics } from "../compiler-diagnostics";
 import { config as appConfig } from "../../config";
 
 const logger = new Logger("CLIRunner");
@@ -61,11 +61,14 @@ export async function compileWithArduinoCli(
     const result = await processExecutor.execute("arduino-cli", args, {
       timeout: appConfig.compilation.timeoutMs,
       stdio: "pipe",
+      maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES,
     });
+    // A diagnostics flood is a failed compile with truncated output, not a missing CLI.
+    const outputLimited = result.error instanceof ProcessOutputLimitError;
 
     // ProcessExecutor also reports a non-zero exit code as `error`. Only code
     // -1 means that arduino-cli itself could not be started (e.g. ENOENT).
-    if (result.error && (result.code === -1 || isCliSpawnError(result.error))) {
+    if (result.error && !outputLimited && (result.code === -1 || isCliSpawnError(result.error))) {
       const errorMessage = withPathHint(`Failed to execute arduino-cli: ${result.error.message}.`);
       logger.error(errorMessage);
       return {
@@ -100,7 +103,7 @@ export async function compileWithArduinoCli(
         binary,
       };
     } else {
-      const cleanedErrors = cleanErrorMessage(diagnosticOutput, sketchFile);
+      const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, sketchFile));
       const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
       return {
         success: false,
