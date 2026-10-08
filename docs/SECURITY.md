@@ -133,8 +133,9 @@ development startup reject the flag.
 - Compilers stop after 50 errors (`-fmax-errors`) and after 8 MiB of captured
   output. At most 256 KiB of compiler diagnostics reach the client; the rest is
   reported as omitted.
-- The code-less `start_simulation` fallback and sketches created through the
-  sketch API are scoped to the identity; the seeded start sketch is read-only.
+- The code-less `start_simulation` fallback is scoped to the identity. The
+  sketch API is read-only: it serves only the seeded start sketch and accepts
+  no client-created or changed sketches.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
 - Tutor credentials are request-scoped personal KI:connect keys held only in
