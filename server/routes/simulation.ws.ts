@@ -741,7 +741,7 @@ export function registerSimulationWebSocket(
         onIORegistry: callbacks.onIORegistry,
         onTelemetry: callbacks.onTelemetry,
         onPinStateBatch: callbacks.onPinStateBatch,
-        context: { sessionId: clientState.testRunId, label: "default-ws" },
+        context: { sessionId: clientState.testRunId, label: "default-ws", subject: clientState.subject },
       });
       if (!processReady) return;
     } catch (error) {
