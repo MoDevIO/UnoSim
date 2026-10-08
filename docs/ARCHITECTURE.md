@@ -227,8 +227,14 @@ The initial default remains ttbombadil/unosim-examples with ref main.
 Tutor question responses receive an opaque server-issued Course Content session
 handle when repository context is active. Follow-up dialogs use that handle and
 remain pinned to the server-derived revision; browser repository/ref/revision
-metadata is request context only and never content authority. Changing the
-browser selection clears the client dialog and starts a new context.
+metadata is request context only and never content authority. A new session
+without an example pins the selection's current server revision. A loaded
+external example keeps the revision it was loaded from while that snapshot is
+still cached as resolved from the same repository/ref; otherwise only the
+current revision is accepted and the route answers `409 COURSE_CONTENT_STALE`,
+after which the client refreshes the catalog and asks for the example to be
+reloaded. Changing the browser selection clears the client dialog and starts a
+new context.
 Requests of one Tutor session run one after another, so overlapping requests
 (double submit, retry) cannot overwrite each other's progression evidence.
 A session is owned by the authenticated subject and is committed only after a

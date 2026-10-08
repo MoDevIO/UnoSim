@@ -15,7 +15,7 @@ import {
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
-import { useExternalExamples } from "@/lib/external-examples";
+import { refreshExternalExamplesCatalog, useExternalExamples } from "@/lib/external-examples";
 
 interface TutorConfig {
   readonly provider: string;
@@ -54,16 +54,21 @@ const DEFAULT_CONFIG: TutorConfig = {
 };
 
 function getErrorMessage(body: unknown): string {
-  const errorMessages: Record<string, string> = {
-    CREDENTIAL_REQUIRED: "Enter your personal Tutor API key first.",
-    CREDENTIAL_INVALID: "The Tutor access was rejected.",
-    PROVIDER_UNAVAILABLE: "The Tutor service is currently unavailable.",
-    PROVIDER_TIMEOUT: "The Tutor service took too long to respond.",
-    RATE_LIMITED: "The Tutor request limit has been reached. Please try again later.",
-    MODEL_UNAVAILABLE: "The selected Tutor model is unavailable.",
-    INVALID_PROVIDER_RESPONSE: "The Tutor service returned an invalid response.",
-    INVALID_REQUEST: "The Tutor request is invalid.",
-  };
+  const errorMessages = new Map<string, string>([
+    ["CREDENTIAL_REQUIRED", "Enter your personal Tutor API key first."],
+    ["CREDENTIAL_INVALID", "The Tutor access was rejected."],
+    ["PROVIDER_UNAVAILABLE", "The Tutor service is currently unavailable."],
+    ["PROVIDER_TIMEOUT", "The Tutor service took too long to respond."],
+    ["RATE_LIMITED", "The Tutor request limit has been reached. Please try again later."],
+    ["MODEL_UNAVAILABLE", "The selected Tutor model is unavailable."],
+    ["INVALID_PROVIDER_RESPONSE", "The Tutor service returned an invalid response."],
+    ["INVALID_REQUEST", "The Tutor request is invalid."],
+    ["COURSE_CONTENT_STALE", "The course content was updated. Reload the example from the Examples menu to continue."],
+  ]);
+  return errorMessages.get(getErrorCode(body) ?? "") ?? "The Tutor request failed.";
+}
+
+function getErrorCode(body: unknown): string | undefined {
   if (
     typeof body === "object" &&
     body !== null &&
@@ -71,12 +76,19 @@ function getErrorMessage(body: unknown): string {
     typeof body.error === "object" &&
     body.error !== null &&
     "code" in body.error &&
-    typeof body.error.code === "string" &&
-    body.error.code in errorMessages
+    typeof body.error.code === "string"
   ) {
-    return errorMessages[body.error.code] ?? "The Tutor request failed.";
+    return body.error.code;
   }
-  return "The Tutor request failed.";
+  return undefined;
+}
+
+function getTutorFailure(body: unknown): Error {
+  if (getErrorCode(body) === "COURSE_CONTENT_STALE") {
+    // The server moved on to a newer Course revision; refresh the catalog so the Examples menu offers it.
+    refreshExternalExamplesCatalog().catch(() => undefined);
+  }
+  return new Error(getErrorMessage(body));
 }
 
 function getSubmitAnswerValidationError({
@@ -347,7 +359,7 @@ export function useTutor(
         }),
       });
       const body: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(getErrorMessage(body));
+      if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       setQuestion(parsed.data);
@@ -423,7 +435,7 @@ export function useTutor(
         }),
       });
       const body: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(getErrorMessage(body));
+      if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);

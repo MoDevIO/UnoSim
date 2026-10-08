@@ -10,7 +10,7 @@ import type {
 } from "@shared/examples";
 import { config, type ParsedExamplesConfig } from "../../config";
 import { BuiltInProvider } from "./built-in-provider";
-import { ExamplesCache } from "./examples-cache";
+import { ExamplesCache, type RevisionCacheEntry } from "./examples-cache";
 import type { TutorCapability } from "../course-content/course-content-loader";
 import { ExamplesError } from "./examples-error";
 import { GitHubRevisionResolver } from "./github-revision-resolver";
@@ -120,20 +120,39 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     return example ? toDetail(example, revision) : null;
   }
 
+  /**
+   * The browser revision is untrusted metadata (Course Content SSOT 5). Without an
+   * example, the server pins the selection's current revision. An example stays on
+   * the revision it was loaded from while that snapshot is a validated one of the
+   * same repository/ref; otherwise only the current revision is accepted.
+   */
   async resolveTutorContent(request: TutorCourseContentRequest, context: RequestContext): Promise<ResolvedTutorCourseContent> {
-    const resolved = await this.sourceProvider.resolve(request.repository, request.ref, context, true);
-    if (resolved.revision !== request.revision) {
-      throw new ExamplesError("INVALID_REVISION", "Course Content revision is not the active server revision");
-    }
-    this.assertExampleInSnapshot(resolved.snapshot.examples, request.exampleId);
+    const snapshot = request.exampleId === undefined
+      ? (await this.sourceProvider.resolve(request.repository, request.ref, context, true)).snapshot
+      : await this.exampleSnapshot(request, context);
+    this.assertExampleInSnapshot(snapshot.examples, request.exampleId);
     return {
       ...request,
-      tutor: resolved.snapshot.tutor ?? { status: "absent" },
-      contentBytes: resolved.snapshot.contentBytes,
-      ...(request.exampleId !== undefined && resolved.snapshot.exampleTutorAnnotations?.has(request.exampleId)
-        ? { exampleTutorAnnotation: resolved.snapshot.exampleTutorAnnotations.get(request.exampleId) }
+      revision: snapshot.revision,
+      tutor: snapshot.tutor ?? { status: "absent" },
+      contentBytes: snapshot.contentBytes,
+      ...(request.exampleId !== undefined && snapshot.exampleTutorAnnotations?.has(request.exampleId)
+        ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
         : {}),
     };
+  }
+
+  private async exampleSnapshot(request: TutorCourseContentRequest, context: RequestContext): Promise<RevisionCacheEntry> {
+    try {
+      return await this.sourceProvider.getRevision(request.repository, request.revision, context, request.ref);
+    } catch (error) {
+      if (!(error instanceof ExamplesError) || error.code !== "INVALID_REVISION") throw error;
+    }
+    const resolved = await this.sourceProvider.resolve(request.repository, request.ref, context, true);
+    if (resolved.revision !== request.revision) {
+      throw new ExamplesError("INVALID_REVISION", "Course Content example revision is no longer available");
+    }
+    return resolved.snapshot;
   }
 
   private assertExampleInSnapshot(examples: readonly ExampleRecord[], exampleId: string | undefined): void {

@@ -193,6 +193,23 @@ describe("useTutor", () => {
     expect(questionBodies.at(-1)).not.toHaveProperty("courseContentSession");
   });
 
+  it("explains a stale Course Content example and refreshes the Examples catalog", async () => {
+    setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "a".repeat(40), exampleId: "arrays" });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }), { status: 200 });
+      if (String(input) === "/api/tutor/question") {
+        return new Response(JSON.stringify({ error: { code: "COURSE_CONTENT_STALE", message: "stale" } }), { status: 409 });
+      }
+      return new Response(JSON.stringify({ error: { code: "SOURCE_UNAVAILABLE" } }), { status: 503 });
+    });
+    const { result } = renderHook(() => useTutor());
+    act(() => result.current.setCredential("volatile-key"));
+    await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
+
+    expect(result.current.error).toMatch(/Reload the example/);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith("/api/examples"))).toBe(true));
+  });
+
   it("starts a fresh Course Content session for a new learning question in a running dialog", async () => {
     // LearningQuestions SSOT 2.3: a new learning question begins a fresh didactic session, so the
     // request must not reuse the pinned session handle (and with it the old progression state).
