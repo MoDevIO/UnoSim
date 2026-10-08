@@ -4,7 +4,7 @@ import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 
-// Sketch types (non-DB, for MemStorage)
+// The read-only default sketch served by GET /api/sketches
 export interface Sketch {
   id: string;
   name: string;
@@ -12,17 +12,6 @@ export interface Sketch {
   createdAt: Date;
   updatedAt: Date;
 }
-
-export interface InsertSketch {
-  name: string;
-  content: string;
-}
-
-// Zod schema for validation
-export const insertSketchSchema = z.object({
-  name: z.string(),
-  content: z.string(),
-});
 
 const compilerHeaderSchema = z
   .object({

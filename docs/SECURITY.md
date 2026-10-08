@@ -130,8 +130,9 @@ development startup reject the flag.
 - Each WebSocket connection is limited to 500 messages per second (burst 1000);
   excess messages are dropped. At most 1 MiB of sketch input may wait in a
   sketch's stdin. Connections that miss a heartbeat pong are closed.
-- The code-less `start_simulation` fallback and sketches created through the
-  sketch API are scoped to the identity; the seeded start sketch is read-only.
+- The code-less `start_simulation` fallback is scoped to the identity. The
+  sketch API is read-only: it serves only the seeded start sketch and accepts
+  no client-created or changed sketches.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
 - Tutor credentials are request-scoped personal KI:connect keys held only in

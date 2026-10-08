@@ -146,58 +146,28 @@ describe("registerRoutes core HTTP behavior", () => {
     expect((detail.body as { files: Array<{ content: string }> }).files.every((file) => typeof file.content === "string")).toBe(true);
   });
 
-  it("creates, reads, updates, lists, and deletes sketches through the public API", async () => {
+  it("serves the default sketch read-only through the public API", async () => {
     await startServer();
 
-    // Sketches belong to the creating identity; reuse its session cookie like a browser does.
-    const created = await sessionRequest(baseUrl, "POST", "/api/sketches", {
-      name: "routes-test.ino",
-      content: "void setup(){} void loop(){}",
-    });
-    expect(created.status).toBe(201);
-    const id = (created.body as { id: string }).id;
-    const session = created.setCookie?.[0]?.split(";")[0];
-    expect(session).toMatch(/^unosim_local_session=/);
-
-    await expect(request(baseUrl, "GET", `/api/sketches/${id}`, undefined, session)).resolves.toMatchObject({ status: 200, body: { id } });
-    await expect(request(baseUrl, "PUT", `/api/sketches/${id}`, { name: "updated.ino" }, session)).resolves.toMatchObject({
-      status: 200,
-      body: { id, name: "updated.ino" },
-    });
-    expect((await request(baseUrl, "GET", "/api/sketches", undefined, session)).status).toBe(200);
-    await expect(request(baseUrl, "DELETE", `/api/sketches/${id}`, undefined, session)).resolves.toMatchObject({ status: 204 });
-    await expect(request(baseUrl, "GET", `/api/sketches/${id}`, undefined, session)).resolves.toEqual({
-      status: 404,
-      body: { error: "Sketch not found" },
-    });
-  });
-
-  it("validates sketch payloads and maps missing resources to public status codes", async () => {
-    await startServer();
-
-    await expect(request(baseUrl, "POST", "/api/sketches", { name: 42 })).resolves.toEqual({
-      status: 400,
-      body: { error: "Invalid sketch data" },
-    });
-    await expect(request(baseUrl, "PUT", "/api/sketches/missing", { content: 42 })).resolves.toEqual({
-      status: 400,
-      body: { error: "Invalid sketch data" },
-    });
+    const list = await request(baseUrl, "GET", "/api/sketches");
+    expect(list.status).toBe(200);
+    const [seed] = list.body as Array<{ id: string; name: string }>;
+    expect(seed).toMatchObject({ name: "sketch.ino" });
+    await expect(request(baseUrl, "GET", `/api/sketches/${seed.id}`)).resolves.toMatchObject({ status: 200, body: { id: seed.id } });
     await expect(request(baseUrl, "GET", "/api/sketches/missing")).resolves.toEqual({
       status: 404,
       body: { error: "Sketch not found" },
     });
-    await expect(request(baseUrl, "DELETE", "/api/sketches/missing")).resolves.toEqual({
-      status: 404,
-      body: { error: "Sketch not found" },
-    });
+    for (const [method, route] of [["POST", "/api/sketches"], ["PUT", `/api/sketches/${seed.id}`], ["DELETE", `/api/sketches/${seed.id}`]]) {
+      expect((await request(baseUrl, method, route, method === "DELETE" ? undefined : { name: "x.ino", content: "x" })).status).toBe(404);
+    }
+    expect((await request(baseUrl, "GET", "/api/sketches")).body).toHaveLength(1);
   });
 
   it("maps storage failures to the documented error responses", async () => {
     await startServer();
     vi.spyOn(storage, "getAllSketches").mockRejectedValue(new Error("storage unavailable"));
     vi.spyOn(storage, "getSketch").mockRejectedValue(new Error("storage unavailable"));
-    vi.spyOn(storage, "deleteSketch").mockRejectedValue(new Error("storage unavailable"));
 
     await expect(request(baseUrl, "GET", "/api/sketches")).resolves.toEqual({
       status: 500,
@@ -206,10 +176,6 @@ describe("registerRoutes core HTTP behavior", () => {
     await expect(request(baseUrl, "GET", "/api/sketches/id")).resolves.toEqual({
       status: 500,
       body: { error: "Failed to fetch sketch" },
-    });
-    await expect(request(baseUrl, "DELETE", "/api/sketches/id")).resolves.toEqual({
-      status: 500,
-      body: { error: "Failed to delete sketch" },
     });
   });
 });
