@@ -318,6 +318,7 @@ Architektur-Zusammenfassung und ersetzen die ADRs nicht.
   Client-IP ableiten (ADR 0008)
 - **Origin-Check:** Im Gateway-Modus nur exakt erlaubte Origins; lokal zusätzlich derselbe Host. Der Check ersetzt keine Gateway-Identität.
 - **Rate-Limiting:** Simulationsstarts pro Identität; alle Nachrichten einer Verbindung über einen Token-Bucket (500/s, Burst 1000, Überschuss wird verworfen); höchstens 1 MiB ausstehende Sketch-Eingabe
+- **Ein Lebenszyklus pro Verbindung:** Eine WebSocket-Verbindung hält höchstens eine wartende, laufende oder pausierte Simulation. Ein weiterer Start wird mit `SIMULATION_ALREADY_ACTIVE` abgelehnt; ein Start direkt nach Stop wartet, bis Runner und Reservierung des vorigen Laufs freigegeben sind. Mehrere Verbindungen derselben Identität bleiben bis zum Limit pro Identität parallel möglich.
 - **Heartbeat:** Ping alle 30 Sekunden (`WS_HEARTBEAT_INTERVAL_MS`); eine Verbindung ohne Pong wird getrennt und gibt Runner und Reservierung frei
 - **Isolation:** Der Kompatibilitäts-Fallback für `start_simulation` ohne `code` nutzt nur den zuletzt kompilierten Code derselben Identität
 

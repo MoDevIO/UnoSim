@@ -33,6 +33,14 @@ export type SimulationStatus =
   | "paused";
 
 /**
+ * Statuses in which the server holds this tab's simulation lifecycle. A new
+ * start must stop it first: a connection owns at most one lifecycle.
+ */
+export function holdsServerSimulation(status: SimulationStatus): boolean {
+  return status === "running" || status === "paused" || status === "queued";
+}
+
+/**
  * Runtime status used for components that only care about active/pause/idle state.
  */
 export type RuntimeSimulationStatus = Extract<SimulationStatus, "running" | "paused" | "idle">;

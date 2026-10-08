@@ -20,7 +20,27 @@ export type ClientState = {
   queueAbortController: AbortController | null;
   reservation: SimulationReservation | null;
   metricsState?: "running" | "paused" | null;
+  /**
+   * In-flight release of this connection's lifecycle. Its reservation is
+   * already detached from the state, but runner and admission are not yet
+   * returned; a new start on this connection waits for it.
+   */
+  releasing?: Promise<void> | null;
+  /** Incremented by stop, code change and disconnect to cancel waiting starts. */
+  startGeneration?: number;
+  closed?: boolean;
 };
+
+/**
+ * A connection owns at most one simulation lifecycle: from admission until its
+ * release has returned runner and admission. Separate connections of the same
+ * subject remain independent (bounded by the per-subject admission limit).
+ */
+export function hasSimulationLifecycle(state: ClientState): boolean {
+  return Boolean(
+    state.reservation || state.runner || state.queueAbortController || state.releasing,
+  );
+}
 
 interface WsSessionManagerParams {
   pool: SandboxRunnerPool;
@@ -103,15 +123,37 @@ export class WsSessionManager {
     }
   }
 
-  async safeReleaseRunner(
+  /**
+   * Ends the connection's current lifecycle. The reservation is detached
+   * synchronously, so every async continuation of the old run sees that it no
+   * longer owns the session; runner and admission are returned before the
+   * returned promise settles. Concurrent callers join the release in flight.
+   */
+  safeReleaseRunner(
     state: ClientState,
     reason: string,
     expectedReservation: SimulationReservation | null = state.reservation,
   ): Promise<void> {
     if (expectedReservation && state.reservation !== expectedReservation) {
-      return;
+      return Promise.resolve();
     }
+    if (state.releasing) return state.releasing;
 
+    // The settled release clears itself before any waiter resumes.
+    const release: Promise<void> = this.releaseLifecycle(state, reason, expectedReservation)
+      .finally(() => {
+        if (state.releasing === release) state.releasing = null;
+      });
+    state.releasing = release;
+    return release;
+  }
+
+  private async releaseLifecycle(
+    state: ClientState,
+    reason: string,
+    expectedReservation: SimulationReservation | null,
+  ): Promise<void> {
+    if (expectedReservation) state.reservation = null;
     const runner = state.runner;
     state.runner = null;
     const wasRunning = state.isRunning;
@@ -145,10 +187,14 @@ export class WsSessionManager {
       }
     }
 
-    if (expectedReservation && state.reservation === expectedReservation) {
+    if (expectedReservation) {
       this.params.admissionController?.release(expectedReservation);
-      state.reservation = null;
     }
+  }
+
+  /** Cancels a start that is still waiting for this connection's previous release. */
+  cancelPendingStart(state: ClientState): void {
+    state.startGeneration = (state.startGeneration ?? 0) + 1;
   }
 
   abortQueuedAcquire(state: ClientState): void {
@@ -161,6 +207,8 @@ export class WsSessionManager {
   async cleanupClient(ws: WebSocket, reason: string): Promise<void> {
     const clientState = this.get(ws);
     if (clientState) {
+      clientState.closed = true;
+      this.cancelPendingStart(clientState);
       this.abortQueuedAcquire(clientState);
       if (clientState.runner || clientState.reservation) {
         await this.safeReleaseRunner(clientState, reason);
