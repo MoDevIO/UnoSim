@@ -4,6 +4,7 @@ import type { FullCommitSha, RepositorySlug } from "@shared/examples";
 import { config } from "../../config";
 import { ExamplesLoadController } from "./examples-load-controller";
 import { CourseContentLoader, type LoadedCourseContentSnapshot } from "../course-content/course-content-loader";
+import { githubApiBudget } from "./github-api-budget";
 
 export type LoadedRevisionSnapshot = LoadedCourseContentSnapshot;
 
@@ -50,6 +51,8 @@ export function validateSourceUrl(value: string): URL {
   return url;
 }
 
+const GITHUB_API_HOST = "api.github.com";
+
 async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal): Promise<string> {
   requestSignal?.throwIfAborted();
   const validated = validateSourceUrl(url.toString());
@@ -61,36 +64,53 @@ async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal
   else requestSignal?.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.examples.timeoutMs);
   try {
-    const response = await fetch(validated, { signal: controller.signal, redirect: "manual" });
+    const response = await requestSource(validated, controller.signal);
     if (response.status >= 300 && response.status < 400) throw new Error("Redirects are not allowed for examples");
     if (!response.ok) throw new Error(`Examples source returned ${response.status}`);
     const contentLength = response.headers.get("content-length");
     if (contentLength && Number(contentLength) > maxBytes) throw new Error("Examples response exceeds size limit");
     if (!response.body) throw new Error("Examples response has no body");
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    while (true) {
-      const next = await reader.read();
-      if (next.done) break;
-      total += next.value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new Error("Examples response exceeds size limit");
-      }
-      chunks.push(next.value);
-    }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return await readLimitedText(response.body, maxBytes);
   } finally {
     clearTimeout(timeout);
     requestSignal?.removeEventListener("abort", abort);
   }
+}
+
+async function requestSource(url: URL, signal: AbortSignal): Promise<Response> {
+  const isGitHubApi = url.hostname.toLowerCase() === GITHUB_API_HOST;
+  // The optional token is sent to the GitHub REST API only, never to raw content hosts.
+  const token = isGitHubApi ? config.examples.githubToken : undefined;
+  const response = await fetch(url, {
+    signal,
+    redirect: "manual",
+    ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+  });
+  if (isGitHubApi) githubApiBudget.observe(response.status, response.headers);
+  return response;
+}
+
+async function readLimitedText(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<string> {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    total += next.value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error("Examples response exceeds size limit");
+    }
+    chunks.push(next.value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
 async function assertPublicHost(hostname: string): Promise<void> {

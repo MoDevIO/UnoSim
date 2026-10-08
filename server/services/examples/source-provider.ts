@@ -10,11 +10,14 @@ import {
 } from "./examples-cache";
 import { ExamplesLoadController } from "./examples-load-controller";
 import type { LoadedRevisionSnapshot } from "./http-provider";
+import type { SourcePriority } from "./github-api-budget";
 
 export interface RequestContext {
   identity: string;
   requestId: string;
   signal?: AbortSignal;
+  /** Operator default or browser override; overrides leave a GitHub quota reserve to the default. */
+  sourcePriority?: SourcePriority;
 }
 
 export interface RevisionResolver {
@@ -99,12 +102,16 @@ export class SourceProvider {
       );
     } catch (error) {
       if (context.signal?.aborted) throw context.signal.reason ?? error;
+      // A rate limit announces when GitHub answers again; retrying earlier only wastes quota.
+      const retryAfterMs = error instanceof ExamplesError && error.code === "RATE_LIMITED"
+        ? (error.retryAfterSeconds ?? 0) * 1000
+        : 0;
       const lastGood = this.cache.markSourceFailure(
         sourceKey,
-        this.now() + Math.min(
+        this.now() + Math.max(retryAfterMs, Math.min(
           this.options.refreshRetryMs ?? config.examples.refreshRetryMs,
           this.options.refreshMs ?? config.examples.refreshMs,
-        ),
+        )),
       );
       if (lastGood && !requireFresh) return this.fromEntry(lastGood);
       throw asExamplesError(error);
