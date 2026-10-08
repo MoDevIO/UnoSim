@@ -1,0 +1,30 @@
+# Test override for the production docker-compose.yml in the Ubuntu/VBox
+# installer topology: the backend runs unchanged from docker-compose.yml with
+# the installer-rendered .env, and Nginx runs in the host network namespace,
+# reaching the backend through the loopback-published port exactly like the
+# host Nginx the installer configures.
+services:
+  unosim-backend:
+    image: ${DEPLOYMENT_SERVER_IMAGE:?DEPLOYMENT_SERVER_IMAGE is required}
+    container_name: ${DEPLOYMENT_BACKEND_CONTAINER:?DEPLOYMENT_BACKEND_CONTAINER is required}
+    environment:
+      DOCKER_SANDBOX_IMAGE: ${DEPLOYMENT_SANDBOX_IMAGE:?DEPLOYMENT_SANDBOX_IMAGE is required}
+      # Tutor requests must never leave the test host; a refused local port
+      # proves the request passed the credential-transport check.
+      UNOSIM_LLM_BASE_URL: http://127.0.0.1:9/api/v1
+    healthcheck:
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+
+  installer-gateway:
+    image: nginx:1.27-alpine
+    network_mode: host
+    depends_on:
+      unosim-backend:
+        condition: service_healthy
+    volumes:
+      - ${DEPLOYMENT_NGINX_SITE:?DEPLOYMENT_NGINX_SITE is required}:/etc/nginx/conf.d/default.conf:ro
+      - ${DEPLOYMENT_NGINX_SECRET_SNIPPET:?DEPLOYMENT_NGINX_SECRET_SNIPPET is required}:/etc/nginx/snippets/unosim-gateway-secret.conf:ro
+      - ${DEPLOYMENT_TLS_DIR:?DEPLOYMENT_TLS_DIR is required}:/etc/nginx/unosim-tls:ro
