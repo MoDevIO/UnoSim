@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.45% </span>
+                <span class="strong">94.54% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>100/107</span>
+                <span class='fraction'>104/110</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.17% </span>
+                <span class="strong">83.52% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>69/85</span>
+                <span class='fraction'>71/85</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>13/13</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.89% </span>
+                <span class="strong">96.03% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>93/98</span>
+                <span class='fraction'>97/101</span>
             </div>
         
             
@@ -354,7 +354,15 @@
 <a name='L289'></a><a href='#L289'>289</a>
 <a name='L290'></a><a href='#L290'>290</a>
 <a name='L291'></a><a href='#L291'>291</a>
-<a name='L292'></a><a href='#L292'>292</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -390,6 +398,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -398,7 +409,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">40x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -453,16 +469,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">44x</span>
-<span class="cline-any cline-yes">223x</span>
-<span class="cline-any cline-yes">223x</span>
-<span class="cline-any cline-yes">735x</span>
+<span class="cline-any cline-yes">225x</span>
+<span class="cline-any cline-yes">225x</span>
+<span class="cline-any cline-yes">739x</span>
 <span class="cline-any cline-yes">223x</span>
 <span class="cline-any cline-yes">223x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">223x</span>
+<span class="cline-any cline-yes">225x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -679,6 +695,14 @@ interface ExecutionOptions {
   maxOutputBytes?: number;   // combined captured raw stdout/stderr bytes
 }
 &nbsp;
+/** The process was stopped because it exceeded `maxOutputBytes`; the output captured so far is kept. */
+export class ProcessOutputLimitError extends Error {
+  constructor(readonly maxOutputBytes: number) {
+    super(`Process output limit exceeded (${maxOutputBytes} bytes)`);
+    this.name = "ProcessOutputLimitError";
+  }
+}
+&nbsp;
 interface ExecutionResult {
   code: number;
   stdout?: string;
@@ -751,9 +775,9 @@ function validateCommand(command: string, args: string[]): void {
         break;
       }
     }
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!isAllowed) {
+    if (!isAllowed) {
       // Reject suspicious arguments
-<span class="cstat-no" title="statement not covered" >      if (/[;&amp;|`$(){}]/.test(arg)) {</span>
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (/[;&amp;|`$(){}]/.test(arg)) {
 <span class="cstat-no" title="statement not covered" >        throw new Error(`Argument contains shell metacharacters: ${arg}`);</span>
       }
     }
@@ -822,7 +846,7 @@ export class ProcessExecutor {
         else stderr += chunk.toString();
         if (chunk.byteLength &gt; 0 &amp;&amp; onData) onData(chunk);
         if (data.byteLength &gt; remaining) {
-          outputError = new Error(`Process output limit exceeded (${maxOutputBytes} bytes)`);
+          outputError = new ProcessOutputLimitError(maxOutputBytes);
           this.signalProcess(proc, detached, "SIGKILL");
         }
       };
@@ -943,7 +967,7 @@ export class ProcessExecutor {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-08T15:40:03.980Z
+                at 2026-10-08T16:06:46.694Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
