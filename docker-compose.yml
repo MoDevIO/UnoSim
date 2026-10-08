@@ -48,8 +48,10 @@ services:
       # unique among backends running at the same time on this Docker host.
       - UNOSIM_INSTANCE_ID=${UNOSIM_INSTANCE_ID:-unosim-server}
       # Logical simulation capacity grows on-demand; idle logical runners shrink after IDLE_TIMEOUT_MS.
-      # Admission still caps running plus waiting simulations at SIMULATION_ADMISSION_MAX
-      # (application default 25); see docs/CAPACITY_VALIDATION_PLAN.md before raising either.
+      # Admission caps running plus waiting simulations. Without a host-specific value it
+      # stays at the application default 25; the Ubuntu/VBox installer writes the value
+      # measured on its reference VM. See docs/CAPACITY_VALIDATION_PLAN.md before raising.
+      - SIMULATION_ADMISSION_MAX=${SIMULATION_ADMISSION_MAX:-25}
       - SIMULATION_MAX_CONCURRENT=200
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
       # Per-sandbox Docker resource limits

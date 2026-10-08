@@ -152,7 +152,11 @@ Identität hängt vom verwendeten Source-Stand und dessen Konfiguration ab.
 Dieser Wert muss vor einem produktiven Einsatz
 gegen die aktuelle Zielserver-Abnahme geprüft werden. Wirksam wird er nur
 zusammen mit `SIMULATION_ADMISSION_MAX`: Ohne diesen Wert lässt die Admission
-höchstens 25 laufende und wartende Simulationen zu.
+höchstens 25 laufende und wartende Simulationen zu. Der Ubuntu/VBox-Installer
+schreibt `SIMULATION_ADMISSION_MAX=40` in die `.env`; dieser Wert ist auf der
+Referenz-VBox (8 vCPU, 11 GiB, kein Swap) für Klassen von etwa 30 Studierenden
+gemessen (siehe `CAPACITY_VALIDATION_PLAN.md`). Auf anderer Hardware vor einer
+Übernahme erneut messen.
 
 Ist der Compile-Worker-Pool ausgelastet (500 wartende Compiles oder 30 s
 Wartezeit), antwortet `/api/compile` mit `503` und `SYSTEM_BUSY`.
