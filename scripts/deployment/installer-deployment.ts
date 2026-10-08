@@ -201,7 +201,7 @@ async function verifyWebSocketAndSimulation(
     body: JSON.stringify({ code: blinkSketch }),
     timeoutMs: 180_000,
   });
-  assert.equal(compiled.statusCode, 200, `compile through installer gateway returned ${compiled.statusCode}`);
+  assert.equal(compiled.statusCode, 200, `compile through installer gateway returned ${compiled.statusCode}: ${compiled.body}`);
   assert.equal(parseJson(compiled.body).success, true, "compile through installer gateway must succeed");
 
   socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
@@ -252,6 +252,12 @@ async function teardown(run: {
   await rm(projectDir, { recursive: true, force: true });
 
   return cleanupError;
+}
+
+/** Fails diagnostically: the backend log explains most deployment failures. */
+async function printBackendLogTail(container: string): Promise<void> {
+  const logs = await runCommand("docker", ["logs", "--tail", "200", container], { timeoutMs: 30_000 });
+  console.error(`[installer-deployment] backend log tail:\n${logs.stdout}${logs.stderr}`);
 }
 
 async function main(): Promise<void> {
@@ -320,6 +326,9 @@ async function main(): Promise<void> {
     assert.match(logs, /for subject ip-[0-9a-f.:]+/, "subject must come from the gateway's observed client address");
     assert.doesNotMatch(logs, /subject attacker/, "client-supplied subject must not reach the backend");
     console.log("[installer-deployment] trust chain, gateway headers, origins and simulation verified");
+  } catch (error) {
+    if (stackStarted) await printBackendLogTail(backendContainer);
+    throw error;
   } finally {
     cleanupError = await teardown({ sockets, stackStarted, compose, baselineContainers, images, projectDir });
   }
