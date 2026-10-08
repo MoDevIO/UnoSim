@@ -1,4 +1,5 @@
 import { realpathSync } from "node:fs";
+import { COMPILER_MAX_ERRORS_FLAG } from "./compiler-diagnostics";
 
 // Match the existing 64 MiB transient /tmp ceiling while keeping runtime-relative
 // writes and the compiled executable off the host-backed source bind.
@@ -84,7 +85,7 @@ export class DockerCommandBuilder {
       // The echo marker is the only signal that compilation succeeded. This
       // matters because g++ stderr is redirected to stdout above; compiler
       // diagnostics must not be mistaken for runtime output.
-      "g++ -I/sandbox /sandbox/sketch.cpp -o /sandbox-work/sketch -pthread 2>&1 && echo '[[RUNTIME_START]]' && cd /sandbox-work && ./sketch",
+      `g++ -I/sandbox /sandbox/sketch.cpp -o /sandbox-work/sketch -pthread ${COMPILER_MAX_ERRORS_FLAG} 2>&1 && echo '[[RUNTIME_START]]' && cd /sandbox-work && ./sketch`,
     ];
   }
 }

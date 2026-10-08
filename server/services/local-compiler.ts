@@ -11,6 +11,7 @@ import { ChildProcess, spawn } from "node:child_process";
 import { Logger } from "@shared/logger";
 import { ProcessExecutor } from "./process-executor";
 import { config } from "../config";
+import { COMPILER_MAX_ERRORS_FLAG, limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES } from "./compiler-diagnostics";
 
 /**
  * Custom error type for compiler-specific failures
@@ -186,7 +187,7 @@ export class LocalCompiler {
     if (coreArchive) {
       args.push(coreArchive);
     }
-    args.push("-o", exeFile, "-pthread");
+    args.push("-o", exeFile, "-pthread", COMPILER_MAX_ERRORS_FLAG);
 
     // Use ProcessExecutor for safe, unified compilation handling
     const result = await this.processExecutor.execute("g++", args, {
@@ -194,10 +195,11 @@ export class LocalCompiler {
       detached: true,
       stdio: "pipe",
       onProcess,
+      maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES,
     });
 
     if (result.error || result.code !== 0) {
-      const cleanedError = this.cleanCompilerErrors(result.stderr || "");
+      const cleanedError = limitCompilerDiagnostics(this.cleanCompilerErrors(result.stderr || ""));
       this.logger.error(`Compiler failed (code ${result.code}, attempt ${attempt}, ${Buffer.byteLength(cleanedError)} diagnostic bytes)`);
       throw new CompilerError(cleanedError);
     }
@@ -289,6 +291,7 @@ export class LocalCompiler {
         timeout: this.compileTimeoutMs,
         detached: true,
         stdio: "pipe",
+        maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES,
       });
 
       if (result.error) {
