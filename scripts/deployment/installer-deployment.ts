@@ -103,6 +103,157 @@ async function untrustedTutorRequest(network: string, image: string, env: Env): 
   return JSON.parse(result.stdout.trim().split("\n").at(-1) ?? "{}");
 }
 
+/** Writes the installer-rendered .env, Nginx site, secret snippet and TLS files. */
+async function renderInstallerProject(
+  projectDir: string,
+  nginxDir: string,
+  tlsDir: string,
+): Promise<{ installerEnv: Env; ca: Buffer }> {
+  // Same directories the installer creates; container user and runner user
+  // differ in CI, so the bind-mounted runtime directories must be writable.
+  for (const directory of ["server/arduino-cache", "temp", "storage"]) {
+    await mkdir(join(projectDir, directory), { recursive: true });
+    await chmod(join(projectDir, directory), 0o777);
+  }
+  await mkdir(tlsDir, { recursive: true });
+
+  const gatewaySecret = (await checked("openssl", ["rand", "-hex", "32"])).stdout.trim();
+  const renderedEnv = (await checked("bash", [
+    renderer, "env", "--lan-ip", lanIp, "--docker-gid", await resolveDockerGid(),
+  ], { input: `${gatewaySecret}\n` })).stdout;
+  const override = process.env.DEPLOYMENT_TRUSTED_PROXY_OVERRIDE;
+  const dotEnv = override
+    ? renderedEnv.replace(/^UNOSIM_TRUSTED_PROXY=.*$/m, `UNOSIM_TRUSTED_PROXY=${override}`)
+    : renderedEnv;
+  await writeFile(join(projectDir, ".env"), dotEnv, { mode: 0o600 });
+  const installerEnv = parseDotEnv(dotEnv);
+  await assertSubnetUnused(installerEnv.UNOSIM_DOCKER_SUBNET);
+
+  await writeFile(join(nginxDir, "site.conf"), (await checked("bash", [renderer, "nginx-site", "--lan-ip", lanIp])).stdout);
+  await writeFile(join(nginxDir, "secret.conf"), (await checked("bash", [renderer, "nginx-secret-snippet"], { input: `${gatewaySecret}\n` })).stdout);
+  const ca = await createTestCertificate(tlsDir, { certificate: "unosim-lan.crt", key: "unosim-lan.key" });
+  await chmod(join(tlsDir, "unosim-lan.key"), 0o644);
+
+  return { installerEnv, ca };
+}
+
+/** Trusted and untrusted credential transport and gateway-owned identity headers. */
+async function verifyTrustChain(
+  gateway: { port: number; ca: Buffer },
+  network: string,
+  image: string,
+  env: Env,
+  installerEnv: Env,
+): Promise<void> {
+  // A. Trusted proxy: the host gateway's X-Forwarded-Proto counts, so a
+  // personal credential passes the HTTPS transport check and reaches the
+  // (deliberately unreachable) provider.
+  const trusted = await httpsRequest(gateway, "/api/tutor/models", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ credential: testCredential }),
+    timeoutMs: 60_000,
+  });
+  const trustedCode = parseJson(trusted.body).error?.code;
+  assert.notEqual(trustedCode, "INVALID_REQUEST",
+    `credential over the installer HTTPS gateway was rejected as insecure transport (trusted proxy ${installerEnv.UNOSIM_TRUSTED_PROXY}): ${trusted.body}`);
+  assert.equal(trusted.statusCode, 502, `expected provider failure after transport check, got ${trusted.statusCode}: ${trusted.body}`);
+  assert.equal(trustedCode, "PROVIDER_UNAVAILABLE");
+
+  // B. Untrusted peer with a forged X-Forwarded-Proto and a valid gateway
+  // identity: not the trusted proxy, so the credential must be refused.
+  const untrusted = await untrustedTutorRequest(network, image, env);
+  assert.equal(untrusted.status, 400, `forged X-Forwarded-Proto from an untrusted peer returned ${untrusted.status}`);
+  assert.equal(untrusted.body.error?.code, "INVALID_REQUEST");
+  assert.match(String(untrusted.body.error?.message), /HTTPS/);
+
+  // C. Gateway headers: client-supplied identity headers have no effect.
+  const spoofed = await httpsRequest(gateway, "/api/status", {
+    headers: {
+      "X-UnoSim-Gateway-Secret": "attacker-secret",
+      "X-UnoSim-Subject": "attacker",
+      "X-UnoSim-Roles": "admin",
+    },
+  });
+  assert.equal(spoofed.statusCode, 200, "gateway must overwrite spoofed identity headers");
+
+}
+
+/** Installer origins, WebSocket and a sandboxed simulation through the gateway. */
+async function verifyWebSocketAndSimulation(
+  gateway: { port: number; ca: Buffer },
+  installerEnv: Env,
+  baselineContainers: Set<string>,
+  sockets: WebSocket[],
+): Promise<void> {
+  // D. Production origins and WebSocket through the installer gateway.
+  const allowedOrigins = installerEnv.UNOSIM_ALLOWED_WS_ORIGINS.split(",");
+  assert.ok(allowedOrigins.includes(gatewayOrigin), `${gatewayOrigin} must be an installer origin`);
+  await expectRejectedOrigin(gateway);
+  await expectRejectedOrigin(gateway, "https://127.0.0.1:9443");
+  const socket = await openWebSocket(gateway, gatewayOrigin, { "X-UnoSim-Subject": "attacker" });
+  sockets.push(socket);
+  await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "stopped");
+
+  const compiled = await httpsRequest(gateway, "/api/compile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: blinkSketch }),
+    timeoutMs: 180_000,
+  });
+  assert.equal(compiled.statusCode, 200, `compile through installer gateway returned ${compiled.statusCode}`);
+  assert.equal(parseJson(compiled.body).success, true, "compile through installer gateway must succeed");
+
+  socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
+  await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "running", 180_000);
+  const running = [...await listContainerNames()].filter((name) => name.startsWith("unosim-sandbox-") && !baselineContainers.has(name));
+  assert.ok(running.length > 0, "simulation must run in a Docker sandbox started through the installer compose setup");
+  socket.send(JSON.stringify({ type: "stop_simulation" }));
+  await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "stopped", 60_000);
+  await waitFor("sandbox runner release", async () => {
+    const status = parseJson((await httpsRequest(gateway, "/api/status")).body);
+    return status.sandboxRunners.inUse === 0 && status.webSocketSessions.running === 0;
+  }, 60_000);
+
+}
+
+/** Stops the stack and removes everything the run created; returns the first cleanup failure. */
+async function teardown(run: {
+  sockets: WebSocket[];
+  stackStarted: boolean;
+  compose: (args: string[], timeoutMs?: number) => Promise<CommandResult>;
+  baselineContainers: Set<string>;
+  images: Awaited<ReturnType<typeof prepareImages>> | undefined;
+  projectDir: string;
+}): Promise<Error | undefined> {
+  const { sockets, stackStarted, compose, baselineContainers, images, projectDir } = run;
+  let cleanupError: Error | undefined;
+  for (const socket of sockets) if (socket.readyState !== WebSocket.CLOSED) socket.terminate();
+  if (stackStarted) {
+    try {
+      await compose(["down", "--remove-orphans", "-v"], 90_000);
+    } catch (error) {
+      cleanupError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  try {
+    const leaked = await removeLeakedSandboxes(baselineContainers);
+    if (leaked.length > 0) cleanupError ??= new Error(`installer test left sandbox containers: ${leaked.join(", ")}`);
+  } catch (error) {
+    cleanupError ??= error instanceof Error ? error : new Error(String(error));
+  }
+  if (images) {
+    // Files written by the container user may not be removable by the runner user.
+    await runCommand("docker", [
+      "run", "--rm", "--user", "0", "-v", `${projectDir}:/cleanup`, "--entrypoint", "sh", images.server,
+      "-c", "rm -rf /cleanup/temp /cleanup/server /cleanup/storage",
+    ], { timeoutMs: 60_000 });
+  }
+  await rm(projectDir, { recursive: true, force: true });
+
+  return cleanupError;
+}
+
 async function main(): Promise<void> {
   const runId = `${Date.now()}-${process.pid}`;
   const projectName = `unosim-installer-test-${process.pid}`;
@@ -114,7 +265,7 @@ async function main(): Promise<void> {
   let images: Awaited<ReturnType<typeof prepareImages>> | undefined;
   let composeEnv: Env = {};
   let stackStarted = false;
-  let socket: WebSocket | undefined;
+  const sockets: WebSocket[] = [];
   let cleanupError: Error | undefined;
 
   const compose = (args: string[], timeoutMs = 120_000): Promise<CommandResult> => checked("docker", [
@@ -126,30 +277,7 @@ async function main(): Promise<void> {
     for (const port of [3000, 443, gatewayPort]) await assertPortFree(port);
     images = await prepareImages(runId);
 
-    // Same directories the installer creates; container user and runner user
-    // differ in CI, so the bind-mounted runtime directories must be writable.
-    for (const directory of ["server/arduino-cache", "temp", "storage"]) {
-      await mkdir(join(projectDir, directory), { recursive: true });
-      await chmod(join(projectDir, directory), 0o777);
-    }
-    await mkdir(tlsDir, { recursive: true });
-
-    const gatewaySecret = (await checked("openssl", ["rand", "-hex", "32"])).stdout.trim();
-    const renderedEnv = (await checked("bash", [
-      renderer, "env", "--lan-ip", lanIp, "--docker-gid", await resolveDockerGid(),
-    ], { input: `${gatewaySecret}\n` })).stdout;
-    const override = process.env.DEPLOYMENT_TRUSTED_PROXY_OVERRIDE;
-    const dotEnv = override
-      ? renderedEnv.replace(/^UNOSIM_TRUSTED_PROXY=.*$/m, `UNOSIM_TRUSTED_PROXY=${override}`)
-      : renderedEnv;
-    await writeFile(join(projectDir, ".env"), dotEnv, { mode: 0o600 });
-    const installerEnv = parseDotEnv(dotEnv);
-    await assertSubnetUnused(installerEnv.UNOSIM_DOCKER_SUBNET);
-
-    await writeFile(join(nginxDir, "site.conf"), (await checked("bash", [renderer, "nginx-site", "--lan-ip", lanIp])).stdout);
-    await writeFile(join(nginxDir, "secret.conf"), (await checked("bash", [renderer, "nginx-secret-snippet"], { input: `${gatewaySecret}\n` })).stdout);
-    const ca = await createTestCertificate(tlsDir, { certificate: "unosim-lan.crt", key: "unosim-lan.key" });
-    await chmod(join(tlsDir, "unosim-lan.key"), 0o644);
+    const { installerEnv, ca } = await renderInstallerProject(projectDir, nginxDir, tlsDir);
     const gateway = { port: gatewayPort, ca };
 
     composeEnv = {
@@ -183,65 +311,9 @@ async function main(): Promise<void> {
     const standardPort = await httpsRequest({ port: 443, ca }, "/api/readiness");
     assert.equal(standardPort.statusCode, 200, "installer site must also serve HTTPS on port 443");
 
-    // A. Trusted proxy: the host gateway's X-Forwarded-Proto counts, so a
-    // personal credential passes the HTTPS transport check and reaches the
-    // (deliberately unreachable) provider.
-    const trusted = await httpsRequest(gateway, "/api/tutor/models", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ credential: testCredential }),
-      timeoutMs: 60_000,
-    });
-    const trustedCode = parseJson(trusted.body).error?.code;
-    assert.notEqual(trustedCode, "INVALID_REQUEST",
-      `credential over the installer HTTPS gateway was rejected as insecure transport (trusted proxy ${installerEnv.UNOSIM_TRUSTED_PROXY}): ${trusted.body}`);
-    assert.equal(trusted.statusCode, 502, `expected provider failure after transport check, got ${trusted.statusCode}: ${trusted.body}`);
-    assert.equal(trustedCode, "PROVIDER_UNAVAILABLE");
+    await verifyTrustChain(gateway, network, images.server, { ...composeEnv, ...installerEnv }, installerEnv);
 
-    // B. Untrusted peer with a forged X-Forwarded-Proto and a valid gateway
-    // identity: not the trusted proxy, so the credential must be refused.
-    const untrusted = await untrustedTutorRequest(network, images.server, { ...composeEnv, ...installerEnv });
-    assert.equal(untrusted.status, 400, `forged X-Forwarded-Proto from an untrusted peer returned ${untrusted.status}`);
-    assert.equal(untrusted.body.error?.code, "INVALID_REQUEST");
-    assert.match(String(untrusted.body.error?.message), /HTTPS/);
-
-    // C. Gateway headers: client-supplied identity headers have no effect.
-    const spoofed = await httpsRequest(gateway, "/api/status", {
-      headers: {
-        "X-UnoSim-Gateway-Secret": "attacker-secret",
-        "X-UnoSim-Subject": "attacker",
-        "X-UnoSim-Roles": "admin",
-      },
-    });
-    assert.equal(spoofed.statusCode, 200, "gateway must overwrite spoofed identity headers");
-
-    // D. Production origins and WebSocket through the installer gateway.
-    const allowedOrigins = installerEnv.UNOSIM_ALLOWED_WS_ORIGINS.split(",");
-    assert.ok(allowedOrigins.includes(gatewayOrigin), `${gatewayOrigin} must be an installer origin`);
-    await expectRejectedOrigin(gateway);
-    await expectRejectedOrigin(gateway, "https://127.0.0.1:9443");
-    socket = await openWebSocket(gateway, gatewayOrigin, { "X-UnoSim-Subject": "attacker" });
-    await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "stopped");
-
-    const compiled = await httpsRequest(gateway, "/api/compile", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: blinkSketch }),
-      timeoutMs: 180_000,
-    });
-    assert.equal(compiled.statusCode, 200, `compile through installer gateway returned ${compiled.statusCode}`);
-    assert.equal(parseJson(compiled.body).success, true, "compile through installer gateway must succeed");
-
-    socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
-    await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "running", 180_000);
-    const running = [...await listContainerNames()].filter((name) => name.startsWith("unosim-sandbox-") && !baselineContainers.has(name));
-    assert.ok(running.length > 0, "simulation must run in a Docker sandbox started through the installer compose setup");
-    socket.send(JSON.stringify({ type: "stop_simulation" }));
-    await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "stopped", 60_000);
-    await waitFor("sandbox runner release", async () => {
-      const status = parseJson((await httpsRequest(gateway, "/api/status")).body);
-      return status.sandboxRunners.inUse === 0 && status.webSocketSessions.running === 0;
-    }, 60_000);
+    await verifyWebSocketAndSimulation(gateway, installerEnv, baselineContainers, sockets);
 
     const logs = (await compose(["logs", "--no-color", "unosim-backend"], 30_000)).stdout;
     assert.match(logs, /Trust Mode:\s+gateway/);
@@ -249,28 +321,7 @@ async function main(): Promise<void> {
     assert.doesNotMatch(logs, /subject attacker/, "client-supplied subject must not reach the backend");
     console.log("[installer-deployment] trust chain, gateway headers, origins and simulation verified");
   } finally {
-    if (socket && socket.readyState !== WebSocket.CLOSED) socket.terminate();
-    if (stackStarted) {
-      try {
-        await compose(["down", "--remove-orphans", "-v"], 90_000);
-      } catch (error) {
-        cleanupError = error instanceof Error ? error : new Error(String(error));
-      }
-    }
-    try {
-      const leaked = await removeLeakedSandboxes(baselineContainers);
-      if (leaked.length > 0) cleanupError ??= new Error(`installer test left sandbox containers: ${leaked.join(", ")}`);
-    } catch (error) {
-      cleanupError ??= error instanceof Error ? error : new Error(String(error));
-    }
-    if (images) {
-      // Files written by the container user may not be removable by the runner user.
-      await runCommand("docker", [
-        "run", "--rm", "--user", "0", "-v", `${projectDir}:/cleanup`, "--entrypoint", "sh", images.server,
-        "-c", "rm -rf /cleanup/temp /cleanup/server /cleanup/storage",
-      ], { timeoutMs: 60_000 });
-    }
-    await rm(projectDir, { recursive: true, force: true });
+    cleanupError = await teardown({ sockets, stackStarted, compose, baselineContainers, images, projectDir });
   }
 
   if (cleanupError) throw cleanupError;
