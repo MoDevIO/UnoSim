@@ -22,6 +22,7 @@ import {
   type ResolvedTutorCourseContent,
   type TutorCourseContentResolver,
 } from "../services/course-content/course-content-session";
+import { ExamplesError } from "../services/examples/examples-error";
 import type { RequestContext } from "../services/examples/source-provider";
 import type { TutorCourseContentContext } from "@shared/tutor";
 
@@ -37,7 +38,7 @@ type TutorRouteDeps = {
 function responseError(
   res: Response,
   status: number,
-  code: "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST",
+  code: "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST" | "COURSE_CONTENT_STALE",
   message: string,
   retryAfter?: number,
 ): void {
@@ -298,11 +299,20 @@ async function resolveTutorContent(
   let resolved: ResolvedTutorCourseContent;
   try {
     resolved = await resolver.resolveTutorContent(request, context);
-  } catch {
+  } catch (error) {
     if (signal.aborted) return undefined;
+    if (isStaleCourseContent(error)) {
+      // The example's revision is neither a validated snapshot of its selection nor the current one.
+      responseError(res, 409, "COURSE_CONTENT_STALE", "Der Kursinhalt wurde aktualisiert. Bitte das Beispiel neu laden.");
+      return undefined;
+    }
     responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist ungültig oder nicht mehr aktiv.");
     return undefined;
   }
   if (signal.aborted) return undefined;
   return { identity, content: prepareTutorCourseContentSession(resolved) };
+}
+
+function isStaleCourseContent(error: unknown): boolean {
+  return error instanceof ExamplesError && (error.code === "INVALID_REVISION" || error.code === "EXAMPLE_NOT_FOUND");
 }
