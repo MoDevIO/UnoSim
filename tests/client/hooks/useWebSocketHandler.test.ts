@@ -17,9 +17,11 @@ const consumeMessagesFn = vi.fn(() => {
   return msgs;
 });
 
+let mockIsConnected = true;
+
 vi.mock("@/hooks/use-websocket", () => ({
   useWebSocket: () => ({
-    isConnected: true,
+    isConnected: mockIsConnected,
     messageQueue: mockMessageQueue,
     consumeMessages: consumeMessagesFn,
     sendMessage: vi.fn(),
@@ -101,7 +103,7 @@ function createMockParams() {
 }
 
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
-import { emitOperationErrorEvent } from "@/hooks/use-external-api";
+import { emitOperationErrorEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
 
 describe("useWebSocketHandler", () => {
   let params: ReturnType<typeof createMockParams>;
@@ -109,7 +111,66 @@ describe("useWebSocketHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMessageQueue = [];
+    mockIsConnected = true;
     params = createMockParams();
+  });
+
+  describe("connection loss", () => {
+    it("returns a running simulation to idle with cleared pins when the socket drops", () => {
+      const { rerender } = renderHook(() => useWebSocketHandler(params));
+
+      mockIsConnected = false;
+      rerender();
+
+      expect(params.setSimulationStatus).toHaveBeenCalledWith("idle");
+      expect(params.stopRendering).toHaveBeenCalled();
+      expect(params.setPinStates).toHaveBeenCalledWith([]);
+      expect(params.setAnalogPinsUsed).toHaveBeenCalledWith([]);
+      expect(params.setIoRegistry).toHaveBeenCalledWith(null);
+      expect(params.resetPinUI).toHaveBeenCalledWith({ keepDetected: true });
+      expect(params.setCompilationStatus).toHaveBeenCalledWith("ready");
+      expect(params.appendRenderedText).toHaveBeenCalledWith(expect.stringContaining("connection to the server was lost"));
+      expect(emitSimulationStateEvent).toHaveBeenCalledWith("IDLE");
+    });
+
+    it("resets a paused simulation too, but only once per lost connection", () => {
+      const pausedParams = { ...params, simulationStatus: "paused" as const };
+      const { rerender } = renderHook(() => useWebSocketHandler(pausedParams));
+
+      mockIsConnected = false;
+      rerender();
+      rerender();
+
+      expect(pausedParams.setSimulationStatus).toHaveBeenCalledTimes(1);
+      expect(pausedParams.setSimulationStatus).toHaveBeenCalledWith("idle");
+    });
+
+    it("leaves an idle workspace, including compiler state, untouched", () => {
+      const idleParams = { ...params, simulationStatus: "idle" as const };
+      const { rerender } = renderHook(() => useWebSocketHandler(idleParams));
+
+      mockIsConnected = false;
+      rerender();
+
+      expect(idleParams.setSimulationStatus).not.toHaveBeenCalled();
+      expect(idleParams.setCompilationStatus).not.toHaveBeenCalled();
+      expect(idleParams.resetPinUI).not.toHaveBeenCalled();
+    });
+
+    it("processes a new run normally after reconnecting", () => {
+      const { rerender } = renderHook(() => useWebSocketHandler(params));
+      mockIsConnected = false;
+      rerender();
+      vi.clearAllMocks();
+
+      mockIsConnected = true;
+      mockMessageQueue = [{ type: "simulation_status", status: "running" }];
+      rerender();
+
+      expect(params.setSimulationStatus).toHaveBeenCalledWith("running");
+      expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
+      expect(params.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Simulation Started" }));
+    });
   });
 
   it("returns sendMessage and isConnected", () => {

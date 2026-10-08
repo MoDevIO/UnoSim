@@ -298,6 +298,22 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     }
   };
 
+  /** Clears all run state once the simulation is over, whether the server said so or the socket closed. */
+  const resetStoppedSimulation = () => {
+    params.setDockerGccPhase?.("idle");
+    params.setHasFirstOutput?.(false);
+    stopRendering();
+    if (serialEventQueueRef?.current) {
+      serialEventQueueRef.current = [];
+    }
+    setPinStates([]);
+    setAnalogPinsUsed([]);
+    setIoRegistry(null);
+    resetPinUI({ keepDetected: true });
+    setCompilationStatus("ready");
+    emitSimulationStateEvent("IDLE");
+  };
+
   /** Handle simulation_status messages. */
   const handleSimulationStatus = (message: SimulationStatusPayload) => {
     const { status } = message;
@@ -308,18 +324,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     setSimulationStatus(clientStatus);
 
     if (status === "stopped") {
-      params.setDockerGccPhase?.("idle");
-      params.setHasFirstOutput?.(false);
-      stopRendering();
-      if (serialEventQueueRef?.current) {
-        serialEventQueueRef.current = [];
-      }
-      setPinStates([]);
-      setAnalogPinsUsed([]);
-      setIoRegistry(null);
-      resetPinUI({ keepDetected: true });
-      setCompilationStatus("ready");
-      emitSimulationStateEvent("IDLE");
+      resetStoppedSimulation();
     } else if (status === "queued") {
       emitSimulationStateEvent("QUEUED_FOR_SIMULATION");
     } else if (status === "paused") {
@@ -531,6 +536,24 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       processMessage(message);
     }
   }, [messageQueue, consumeMessages, addDebugMessage]);
+
+  // The server ends a connection's simulation and releases its slot when the socket
+  // closes, and a reconnect opens a new session without it. Mirror that locally so
+  // the UI does not keep showing a run that no longer exists.
+  const wasConnectedRef = useRef(isConnected);
+  const simulationStatusRef = useRef(simulationStatus);
+  simulationStatusRef.current = simulationStatus;
+  useEffect(() => {
+    const connectionLost = wasConnectedRef.current && !isConnected;
+    wasConnectedRef.current = isConnected;
+    if (!connectionLost) return;
+    lastServerReportedStatusRef.current = null;
+    if (simulationStatusRef.current === "idle") return;
+    // Rendered before the reset stops the serial renderer, like a server-side stop notice.
+    appendRenderedText("--- Simulation stopped: connection to the server was lost ---\n");
+    setSimulationStatus("idle");
+    resetStoppedSimulation();
+  }, [isConnected]);
 
   return { sendMessage, isConnected };
 }
