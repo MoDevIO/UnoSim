@@ -225,7 +225,8 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         signal,
       );
       if (signal.aborted) return;
-      const session = commitTutorSession(content, sessionStore);
+      // A provider-free fallback verified no credential: it may use an existing session but not create one.
+      const session = generated.withoutProvider ? content?.session : commitTutorSession(content, sessionStore);
       res.json({
         ...generated.result,
         provider: config.tutor.provider,

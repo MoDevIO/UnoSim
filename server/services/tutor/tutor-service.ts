@@ -653,6 +653,11 @@ export interface TutorServiceResponse {
   readonly result: TutorContentResult;
   readonly model: string;
   readonly followUpSource: TutorFollowUpSource;
+  /**
+   * Set when the response was built without any provider call, so the request
+   * credential was never verified. Such a response must not establish new session state.
+   */
+  readonly withoutProvider?: true;
 }
 
 export class TutorService {
@@ -770,6 +775,7 @@ export class TutorService {
         model: requestedModel ?? "fallback",
         result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty, question), strategy),
         followUpSource: "application-fallback",
+        withoutProvider: true,
       };
     }
     const context = buildTutorContext(code);
