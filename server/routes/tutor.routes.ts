@@ -16,12 +16,13 @@ import { TutorService } from "../services/tutor/tutor-service";
 import { createTutorService } from "../services/tutor/tutor-service-factory";
 import type { RequestIdentity } from "../security/access-control";
 import {
+  prepareTutorCourseContentSession,
   TutorCourseContentSessionStore,
+  type PinnedTutorCourseContent,
   type ResolvedTutorCourseContent,
   type TutorCourseContentResolver,
 } from "../services/course-content/course-content-session";
 import type { RequestContext } from "../services/examples/source-provider";
-import type { TutorPlanningContentContext } from "../services/tutor/tutor-planning";
 import type { TutorCourseContentContext } from "@shared/tutor";
 
 type TutorRouteDeps = {
@@ -148,15 +149,16 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
-        content?.planning,
+        content?.content,
         signal,
       );
       if (signal.aborted) return;
+      const session = commitTutorSession(content, sessionStore);
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
         model: generated.model,
-        ...(content?.session ? { courseContentSession: content.session } : {}),
+        ...(session ? { courseContentSession: session } : {}),
       });
     } catch (error) {
       if (signal.aborted) return;
@@ -218,15 +220,16 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
-        content?.planning,
+        content?.content,
         signal,
       );
       if (signal.aborted) return;
+      const session = commitTutorSession(content, sessionStore);
       res.json({
         ...generated.result,
         provider: config.tutor.provider,
         model: generated.model,
-        ...(content?.session ? { courseContentSession: content.session } : {}),
+        ...(session ? { courseContentSession: session } : {}),
       });
     } catch (error) {
       if (signal.aborted) return;
@@ -240,6 +243,23 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   });
 }
 
+type TutorRequestContent = {
+  readonly identity: string;
+  readonly content: PinnedTutorCourseContent;
+  /** Present for an existing session; absent while a new session is only request-scoped. */
+  readonly session?: string;
+};
+
+/**
+ * A new Course Content session becomes visible only here, after the Tutor request
+ * succeeded and before its response is sent. Failed, rejected, or aborted requests
+ * therefore never leave a session behind.
+ */
+function commitTutorSession(content: TutorRequestContent | undefined, sessions: TutorCourseContentSessionStore): string | undefined {
+  if (!content) return undefined;
+  return content.session ?? sessions.commit(content.identity, content.content);
+}
+
 async function resolveTutorContent(
   req: Request,
   res: Response,
@@ -248,16 +268,22 @@ async function resolveTutorContent(
   resolver: TutorCourseContentResolver | undefined,
   sessions: TutorCourseContentSessionStore,
   signal: AbortSignal,
-): Promise<{ readonly planning: TutorPlanningContentContext; readonly session: string } | undefined> {
+): Promise<TutorRequestContent | undefined> {
   if (signal.aborted) return undefined;
-  const identity = (res.locals.unosimIdentity as RequestIdentity | undefined)?.subject ?? "anonymous";
+  if (sessionHandle === undefined && request === undefined) return undefined;
+  // Sessions are owned by the authenticated subject; without one there is no owner to bind them to.
+  const identity = (res.locals.unosimIdentity as RequestIdentity | undefined)?.subject;
+  if (!identity) {
+    responseError(res, 500, "PROVIDER_UNAVAILABLE", "Tutor-Anfrage konnte nicht autorisiert werden.");
+    return undefined;
+  }
   if (sessionHandle !== undefined) {
     const pinned = sessions.get(identity, sessionHandle);
     if (!pinned) {
       responseError(res, 400, "INVALID_REQUEST", "Der Tutor-Kontext ist abgelaufen oder ungültig.");
       return undefined;
     }
-    return { planning: pinned, session: sessionHandle };
+    return { identity, content: pinned, session: sessionHandle };
   }
   if (request === undefined) return undefined;
   if (!resolver) {
@@ -278,6 +304,5 @@ async function resolveTutorContent(
     return undefined;
   }
   if (signal.aborted) return undefined;
-  const handle = sessions.create(identity, resolved);
-  return { planning: resolved, session: handle };
+  return { identity, content: prepareTutorCourseContentSession(resolved) };
 }

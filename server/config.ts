@@ -358,7 +358,40 @@ export function parseExamplesConfig(
   };
 }
 
+export interface ParsedTutorSessionConfig {
+  ttlMs: number;
+  maxSessions: number;
+  maxSessionsPerSubject: number;
+  maxPinnedContentBytes: number;
+}
+
+/**
+ * Bounds for the in-memory Tutor Course Content sessions. A session pins the
+ * Tutor data of one immutable revision, so the pinned-content budget must hold
+ * at least one complete Course Content snapshot.
+ */
+export function parseTutorSessionConfig(env: NodeJS.ProcessEnv, examplesMaxTotalBytes: number): ParsedTutorSessionConfig {
+  const int = (key: string, fallback: number, min: number, max: number) =>
+    parseEnvInt(key, env[key], fallback, { min, max });
+  const maxSessions = int("TUTOR_SESSION_MAX_SESSIONS", 1_000, 10, 10_000);
+  const maxSessionsPerSubject = int("TUTOR_SESSION_MAX_PER_SUBJECT", 5, 1, 50);
+  const maxPinnedContentBytes = int("TUTOR_SESSION_MAX_PINNED_CONTENT_BYTES", 64 * 1_048_576, 1_048_576, 512 * 1_048_576);
+  if (maxSessionsPerSubject > maxSessions) {
+    throw new Error("TUTOR_SESSION_MAX_PER_SUBJECT must not exceed TUTOR_SESSION_MAX_SESSIONS");
+  }
+  if (maxPinnedContentBytes < examplesMaxTotalBytes) {
+    throw new Error("TUTOR_SESSION_MAX_PINNED_CONTENT_BYTES must cover UNOSIM_EXAMPLES_MAX_TOTAL_BYTES");
+  }
+  return {
+    ttlMs: int("TUTOR_SESSION_TTL_MS", 3_600_000, 60_000, 86_400_000),
+    maxSessions,
+    maxSessionsPerSubject,
+    maxPinnedContentBytes,
+  };
+}
+
 const examplesConfig = parseExamplesConfig(process.env);
+const tutorSessionConfig = parseTutorSessionConfig(process.env, examplesConfig.maxTotalBytes);
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -609,6 +642,8 @@ export const config = {
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
     rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 20, { min: 1, max: 100 }),
     rateLimitBlockDurationMs: envInt("TUTOR_RATE_LIMIT_BLOCK_DURATION_MS", 30_000, { min: 1_000, max: 86_400_000 }),
+    /** Bounded, subject-owned Course Content sessions; see parseTutorSessionConfig. */
+    sessions: tutorSessionConfig,
   },
 
   // ── Scattered Timeouts (centralized) ────────────────────────────

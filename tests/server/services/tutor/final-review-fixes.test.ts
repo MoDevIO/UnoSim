@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { TutorCourseContentSessionStore } from "../../../../server/services/course-content/course-content-session";
+import { prepareTutorCourseContentSession, TutorCourseContentSessionStore } from "../../../../server/services/course-content/course-content-session";
 import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { createTutorProgressionState, markTopicMastered, type TutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
@@ -29,6 +29,7 @@ function tutorContext(
     repository: "owner/repo" as const,
     ref: "main" as const,
     revision,
+    contentBytes: 1_024,
     progressionState: state,
     tutor: {
       status: "valid" as const,
@@ -57,7 +58,7 @@ function successfulProvider(question = "Providerfrage"): LLMProvider {
 
 function sessionContent(content: ReturnType<typeof tutorContext>) {
   const sessions = new TutorCourseContentSessionStore();
-  const handle = sessions.create("identity", content);
+  const handle = sessions.commit("identity", prepareTutorCourseContentSession(content));
   const pinned = sessions.get("identity", handle);
   if (!pinned) throw new Error("Expected a pinned Tutor session");
   return { sessions, handle, pinned };
