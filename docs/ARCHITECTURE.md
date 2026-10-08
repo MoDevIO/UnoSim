@@ -92,7 +92,9 @@ graph TD
 - **Hauptmerkmale:**
   - **Runner-Pool:** Vorgehaltene Runner-Objekte; Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
   - **Wiederverwendung:** Jeder Lauf trägt eine Generation und ein Abbruchsignal. Ein gestoppter Lauf, der noch auf einen Start-Slot wartet, startet nicht mehr und berührt den Folgelauf auf demselben Runner nicht; Ereignisse eines ersetzten Kindprozesses werden verworfen. Den Reset vor der Wiederverwendung besitzt der Runner (`resetForReuse`).
-  - **Verwaiste Container:** Jeder Sandbox-Container trägt das Label `unosim.owner=<host>:<pid>`. Beim Start entfernt das Backend Container seiner eigenen früheren Inkarnation (z. B. nach einem Absturz); andere UnoSim-Instanzen auf demselben Docker-Host bleiben unberührt.
+  - **Verwaiste Container:** Jeder Sandbox-Container trägt das Label `unosim.owner` – `instance.<UNOSIM_INSTANCE_ID>` (Compose: `unosim-server`) oder ohne ID `<host>:<pid>`. Beim Start und am Ende eines geordneten Shutdowns entfernt das Backend die Container dieses Owners, auch nach Absturz oder Redeploy; Container anderer Owner bleiben unberührt.
+  - **Shutdown:** Runner werden parallel (höchstens 8) und je Runner höchstens 6 s lang gestoppt, danach entfernt ein Label-Sweep Reste; Compose gibt dem Backend 15 s vor SIGKILL.
+  - **Harte Lebensdauer:** `timeout --signal=KILL` beendet jede Sandbox nach `SANDBOX_MAX_LIFETIME_SECONDS` (Standard 7200 s Wanduhrzeit inklusive Pausen), unabhängig vom Backend.
   - **Isolation:** Jeder Sketch läuft in eigenem Container
   - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
 

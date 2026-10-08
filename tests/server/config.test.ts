@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as configModule from "../../server/config";
-import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseListenHost, parseRuntimeProfile, rejectObsoleteTutorCurriculumEnv, validateSimulationCapacity } from "../../server/config";
+import { getClientConfig, parseCapacityTestRunId, parseEnvInt, parseInstanceId, parseListenHost, parseRuntimeProfile, rejectObsoleteTutorCurriculumEnv, validateSimulationCapacity } from "../../server/config";
 
 describe("central configuration validation", () => {
   it("provides one parser for the complete runtime profile", () => {
@@ -143,5 +143,14 @@ describe("central configuration validation", () => {
     "UNOSIM_TUTOR_CURRICULUM_MAX_TOTAL_BYTES",
   ])("tombstones obsolete Tutor repository configuration %s", (key) => {
     expect(() => rejectObsoleteTutorCurriculumEnv({ [key]: "legacy" })).toThrow(new RegExp(`${key}.*Course Content`));
+  });
+
+  it("accepts a label-safe deployment instance ID and rejects anything else", () => {
+    expect(parseInstanceId(undefined)).toBeUndefined();
+    expect(parseInstanceId("  ")).toBeUndefined();
+    expect(parseInstanceId(" unosim-server ")).toBe("unosim-server");
+    for (const invalid of ["-leading", "a b", "a:b", "x".repeat(64), "a=b"]) {
+      expect(() => parseInstanceId(invalid)).toThrow(/UNOSIM_INSTANCE_ID/);
+    }
   });
 });

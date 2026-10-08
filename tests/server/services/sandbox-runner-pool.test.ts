@@ -286,6 +286,42 @@ describe("SandboxRunnerPool", () => {
     expect(pool.getStats().inUseRunners).toBe(1);
   });
 
+  it("shutdown stops active runners in parallel and does not wait forever for a hanging stop", async () => {
+    vi.useFakeTimers();
+    try {
+      const pool = new SandboxRunnerPool({
+        minRunners: 4, maxRunners: 4, shutdownConcurrency: 4, shutdownStopTimeoutMs: 1_000,
+      });
+      await pool.initialize();
+      const runners = [];
+      for (let i = 0; i < 4; i++) runners.push(await pool.acquireRunner());
+      let inFlight = 0;
+      let maxInFlight = 0;
+      for (const runner of runners) {
+        runner.isRunning = true;
+        runner.stop.mockImplementation(async () => {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          inFlight -= 1;
+        });
+      }
+      runners[3].stop.mockImplementation(() => new Promise(() => {}));
+
+      let done = false;
+      const shutdown = pool.shutdown().then(() => { done = true; });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await shutdown;
+
+      expect(maxInFlight).toBe(3);
+      for (const runner of runners) expect(runner.stop).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shutdown stops all runners and rejects queued requests", async () => {
     const pool = getSandboxRunnerPool();
     await pool.initialize();

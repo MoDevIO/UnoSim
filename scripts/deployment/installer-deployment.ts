@@ -312,6 +312,7 @@ async function main(): Promise<void> {
       DEPLOYMENT_SERVER_IMAGE: images.server,
       DEPLOYMENT_SANDBOX_IMAGE: images.sandbox,
       DEPLOYMENT_BACKEND_CONTAINER: backendContainer,
+      DEPLOYMENT_INSTANCE_ID: `installer-test-${runId}`,
       DEPLOYMENT_NGINX_SITE: join(nginxDir, "site.conf"),
       DEPLOYMENT_NGINX_SECRET_SNIPPET: join(nginxDir, "secret.conf"),
       DEPLOYMENT_TLS_DIR: tlsDir,

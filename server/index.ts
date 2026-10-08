@@ -272,24 +272,29 @@ let cleanupTimer: NodeJS.Timeout | null = null;
         }
       });
 
-      // Gracefully shutdown the worker pool
-      try {
-        const pool = getCompilationPool();
-        if (pool) {
-          console.log(`[Shutdown] Shutting down compilation worker pool...`);
-          await pool.shutdown();
-          console.log(`[Shutdown] Worker pool shut down complete`);
-        }
-      } catch (error_) {
-        console.error(`[Shutdown] Pool shutdown error:`, error_);
-      }
-
       if (cleanupTimer) {
         clearInterval(cleanupTimer);
         cleanupTimer = null;
       }
-      await (server as Server & { shutdownServices?: () => Promise<void> })
-        .shutdownServices?.();
+
+      // Compile workers and simulations shut down concurrently, so the
+      // sandbox cleanup gets as much of the deadline as possible.
+      const shutdownCompilePool = async () => {
+        try {
+          const pool = getCompilationPool();
+          if (pool) {
+            console.log(`[Shutdown] Shutting down compilation worker pool...`);
+            await pool.shutdown();
+            console.log(`[Shutdown] Worker pool shut down complete`);
+          }
+        } catch (error_) {
+          console.error(`[Shutdown] Pool shutdown error:`, error_);
+        }
+      };
+      await Promise.all([
+        shutdownCompilePool(),
+        (server as Server & { shutdownServices?: () => Promise<void> }).shutdownServices?.(),
+      ]);
 
       clearTimeout(shutdownTimeout);
       console.log(`[Shutdown] Graceful shutdown complete`);

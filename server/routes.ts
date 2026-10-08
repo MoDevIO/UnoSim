@@ -231,6 +231,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await closePromise;
     }
     await runnerPool.shutdown();
+    if (config.serverMode === "docker") {
+      // Final safety net: anything a stop could not confirm is removed by
+      // label; what still survives is removed by the next start's sweep.
+      await removeOrphanedSandboxContainers(new ProcessExecutor(), sandboxOwner(), logger, 3_000);
+    }
   };
 
   // (WS implementation moved to server/routes/simulation.ws.ts)

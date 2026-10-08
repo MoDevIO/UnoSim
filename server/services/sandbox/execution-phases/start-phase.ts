@@ -4,6 +4,7 @@ import type { ExecutionState } from "../execution-manager";
 import type { SimulationState } from "../../simulation-state-machine";
 import { DockerCommandBuilder } from "../../docker-command-builder";
 import { SANDBOX_CONFIG } from "../execution-manager";
+import { config } from "../../../config";
 import { SANDBOX_OWNER_LABEL, sandboxOwner } from "../orphan-sweep";
 
 /**
@@ -103,7 +104,7 @@ export async function runDockerStart(
     cpuLimit: SANDBOX_CONFIG.cpuLimit,
     pidsLimit: SANDBOX_CONFIG.pidsLimit,
     imageName: SANDBOX_CONFIG.dockerImage,
-    command: DockerCommandBuilder.buildCompileAndRunCommand(),
+    command: DockerCommandBuilder.buildCompileAndRunCommand(config.sandbox.maxLifetimeSeconds),
     containerName: params.containerName,
     labels: [`${SANDBOX_OWNER_LABEL}=${sandboxOwner()}`, ...(params.labels ?? [])],
   });
