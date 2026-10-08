@@ -258,6 +258,12 @@ async function teardown(run: {
 async function printBackendLogTail(container: string): Promise<void> {
   const logs = await runCommand("docker", ["logs", "--tail", "200", container], { timeoutMs: 30_000 });
   console.error(`[installer-deployment] backend log tail:\n${logs.stdout}${logs.stderr}`);
+  // Writable runtime paths of the production compose file, seen by the backend user.
+  const probe = await runCommand("docker", [
+    "exec", container, "sh", "-c",
+    'id; for d in "$ARDUINO_CACHE_DIR" "$UNOSIM_SHARED_TEMP_DIR" /app/storage; do ls -ld "$d"; touch "$d/.write-probe" && echo "writable $d" && rm -f "$d/.write-probe"; done; ls -la /app/storage "$UNOSIM_SHARED_TEMP_DIR"',
+  ], { timeoutMs: 30_000 });
+  console.error(`[installer-deployment] backend filesystem probe:\n${probe.stdout}${probe.stderr}`);
 }
 
 async function main(): Promise<void> {
