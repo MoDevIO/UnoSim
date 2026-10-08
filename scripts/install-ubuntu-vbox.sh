@@ -92,6 +92,8 @@ PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || f
 [[ -f "$PROJECT_DIR/Dockerfile" ]] || fail 'Dockerfile fehlt in der UnoSim-Arbeitskopie.'
 [[ -f "$PROJECT_DIR/Dockerfile.sandbox" ]] || fail 'Dockerfile.sandbox fehlt in der UnoSim-Arbeitskopie.'
 [[ -f "$PROJECT_DIR/docker-compose.yml" ]] || fail 'docker-compose.yml fehlt in der UnoSim-Arbeitskopie.'
+RENDER="$SCRIPT_DIR/ubuntu-vbox-render.sh"
+[[ -f "$RENDER" ]] || fail 'scripts/ubuntu-vbox-render.sh fehlt in der UnoSim-Arbeitskopie.'
 
 ENV_FILE="$PROJECT_DIR/.env"
 NGINX_SITE="/etc/nginx/sites-available/unosim"
@@ -158,15 +160,15 @@ sudo docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
 # succeeds. That avoids leaving a partial .env behind if that build fails.
 DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
 GATEWAY_SECRET="$(openssl rand -hex 32)"
-ALLOWED_ORIGINS="https://unosim.vbox,https://unosim.vbox:8443,https://${LAN_IP},https://${LAN_IP}:8443,https://localhost,https://localhost:8443,https://127.0.0.1,https://127.0.0.1:8443"
 
 # Store secrets locally with owner-only access. noclobber also protects against
-# a .env file appearing between the preflight check and this write.
+# a .env file appearing between the preflight check and this write. The secret
+# goes over stdin so it never appears in a process listing.
 (
   umask 077
   set -o noclobber
-  printf 'DOCKER_GID=%s\nUNOSIM_GATEWAY_SECRET=%s\nUNOSIM_TRUSTED_PROXY=127.0.0.1/32\nUNOSIM_ALLOWED_WS_ORIGINS=%s\nUNOSIM_BIND_ADDRESS=127.0.0.1\n' \
-    "$DOCKER_GID" "$GATEWAY_SECRET" "$ALLOWED_ORIGINS" > "$ENV_FILE"
+  printf '%s\n' "$GATEWAY_SECRET" \
+    | bash "$RENDER" env --lan-ip "$LAN_IP" --docker-gid "$DOCKER_GID" > "$ENV_FILE"
 )
 chmod 600 "$ENV_FILE"
 
@@ -206,48 +208,15 @@ sudo chmod 644 "$TLS_CERT"
 
 # The gateway secret is sent over stdin so it is not written to the terminal
 # or exposed as an argument in a process listing.
-printf 'proxy_set_header X-UnoSim-Gateway-Secret "%s";\n' "$GATEWAY_SECRET" \
+printf '%s\n' "$GATEWAY_SECRET" \
+  | bash "$RENDER" nginx-secret-snippet \
   | sudo tee "$NGINX_SECRET_SNIPPET" >/dev/null
 sudo chown root:root "$NGINX_SECRET_SNIPPET"
 sudo chmod 600 "$NGINX_SECRET_SNIPPET"
 
-# This site intentionally has no auth_basic directive. The gateway role is a
-# UnoSim role header; it is not a username or a claim of user authentication.
-sudo tee "$NGINX_SITE" >/dev/null <<NGINX
-map \$http_upgrade \$connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-
-server {
-    listen 127.0.0.1:443 ssl;
-    listen ${LAN_IP}:443 ssl;
-    listen 127.0.0.1:8443 ssl;
-    listen ${LAN_IP}:8443 ssl;
-    server_name unosim.vbox localhost ${LAN_IP};
-
-    ssl_certificate     ${TLS_CERT};
-    ssl_certificate_key ${TLS_KEY};
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-
-        proxy_set_header Host \$host;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Real-IP \$remote_addr;
-
-        include ${NGINX_SECRET_SNIPPET};
-        proxy_set_header X-UnoSim-Subject "ip-\$remote_addr";
-        proxy_set_header X-UnoSim-Roles "user";
-
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
-        proxy_read_timeout 120s;
-    }
-}
-NGINX
+# The site, the .env and the secret snippet come from one renderer that the
+# automated deployment test uses as well.
+bash "$RENDER" nginx-site --lan-ip "$LAN_IP" | sudo tee "$NGINX_SITE" >/dev/null
 sudo chown root:root "$NGINX_SITE"
 sudo chmod 644 "$NGINX_SITE"
 sudo ln -s "$NGINX_SITE" "$NGINX_ENABLED_SITE"

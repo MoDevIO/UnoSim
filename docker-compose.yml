@@ -77,6 +77,19 @@ services:
       retries: 3
       start_period: 20s
 
+networks:
+  default:
+    # A host-local gateway (e.g. Nginx on the host) reaches the backend through
+    # the published port; Docker forwards that connection from this network's
+    # gateway, so the backend sees the gateway address as its peer, never
+    # 127.0.0.1. A fixed gateway makes UNOSIM_TRUSTED_PROXY deterministic.
+    # The Ubuntu/VBox installer writes these values together with
+    # UNOSIM_TRUSTED_PROXY=<gateway>/32; change all three together.
+    ipam:
+      config:
+        - subnet: ${UNOSIM_DOCKER_SUBNET:-172.31.253.0/24}
+          gateway: ${UNOSIM_DOCKER_GATEWAY:-172.31.253.1}
+
 # NOTE: The mcp/sonarqube MCP server is intentionally NOT part of this stack.
 # It is a stdio-based dev tool managed by Docker Desktop MCP Toolkit and
 # launched on-demand per VS Code session. Running it as a persistent service

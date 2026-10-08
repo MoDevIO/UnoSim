@@ -381,6 +381,18 @@ setzt diese Header auch dann selbst, wenn es keinen Browser-Benutzer anmeldet.
 Quell-IP-Zugriffsliste der Gateway-Autorisierung. Die Loopback-Bindung des
 Backends hält den direkten LAN-Zugriff auf den Backend-Port geschlossen.
 
+Nginx erreicht das Backend über den Host-Port `127.0.0.1:3000`. Docker leitet
+diese Verbindung aus dem Gateway des Compose-Netzes weiter; das Backend sieht
+deshalb nicht `127.0.0.1`, sondern dieses Gateway als Gegenstelle. Das Skript
+legt das Netz fest (`UNOSIM_DOCKER_SUBNET=172.31.253.0/24`,
+`UNOSIM_DOCKER_GATEWAY=172.31.253.1`) und trägt
+`UNOSIM_TRUSTED_PROXY=172.31.253.1/32` ein. Nur so gilt das von Nginx gesetzte
+`X-Forwarded-Proto: https`, und persönliche Tutor-Keys werden angenommen.
+Ändere die drei Werte nur gemeinsam, etwa wenn das Subnetz mit einem anderen
+Docker-Netz kollidiert. Eine ältere Installation mit
+`UNOSIM_TRUSTED_PROXY=127.0.0.1/32` übernimmt die drei Werte in ihre `.env` und
+erstellt den Dienst mit `docker compose down` und `docker compose up -d` neu.
+
 In der IP-Variante setzt Nginx den Subject aus der direkt beobachteten
 Quell-IP (`$remote_addr`), nicht aus dem vom Client gesendeten
 `X-Forwarded-For`-Header. Geräte, die mit derselben Quell-IP ankommen, teilen

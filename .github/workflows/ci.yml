@@ -255,3 +255,67 @@ jobs:
           path: test-results/integration-docker-metrics.json
           if-no-files-found: error
           retention-days: 14
+
+  # JOB 5: Produktionspfad hinter dem Gateway (echtes Production-Image, Gateway-Modus)
+  deployment-tests:
+    name: Production Gateway Deployment
+    runs-on: ubuntu-latest
+    # A hung Docker or Compose call must fail the gate, not hold the runner.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.sandbox
+          load: true
+          tags: unosim-sandbox:deployment-ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Production Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: unosim-server:deployment-ci
+          cache-from: type=gha,scope=unosim-production
+          cache-to: type=gha,scope=unosim-production,mode=max
+
+      - name: Containerised gateway deployment
+        timeout-minutes: 15
+        env:
+          DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
+          DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+        run: npm run test:deployment
+
+      - name: Ubuntu/VBox installer topology (host gateway, production compose)
+        timeout-minutes: 15
+        env:
+          DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
+          DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+        run: npm run test:deployment:installer
+
+      - name: Diagnostics and leftover cleanup
+        if: always()
+        run: |
+          docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -E 'unosim|deployment|installer' || true
+          for container in $(docker ps -aq --filter 'name=unosim-'); do docker rm -f "$container" >/dev/null || true; done
+          for project in $(docker compose ls -aq | grep -E '^unosim-(deployment|installer)-test-' || true); do
+            docker compose -p "$project" down --remove-orphans -v || true
+          done

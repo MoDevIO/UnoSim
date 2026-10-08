@@ -64,6 +64,14 @@ Autorisierung vergleicht die tatsächliche Gegenstellen-IP nicht mit diesem
 Wert. Deshalb muss die Netzwerktopologie den Backend-Port abschirmen. Compose
 bindet ihn standardmäßig an `127.0.0.1:3000`.
 
+Trusted Proxy ist die Adresse, die das Backend als Gegenstelle sieht. Ein
+Gateway auf demselben Host, das den veröffentlichten Port `127.0.0.1:3000`
+nutzt, erscheint dort als Gateway des Compose-Netzes, nicht als `127.0.0.1`.
+`docker-compose.yml` legt dieses Netz deshalb fest
+(`UNOSIM_DOCKER_SUBNET`, Standard `172.31.253.0/24`; `UNOSIM_DOCKER_GATEWAY`,
+Standard `172.31.253.1`); für diese Topologie gilt
+`UNOSIM_TRUSTED_PROXY=172.31.253.1/32`.
+
 `UNOSIM_ALLOWED_WS_ORIGINS` akzeptiert exakte Browser-Origin-Werte aus Schema,
 Host und Port. Der Standard-HTTPS-Port 443 wird ohne Port geschrieben;
 alternative Ports müssen explizit eingetragen werden, zum Beispiel
