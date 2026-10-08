@@ -5,7 +5,7 @@ import type { WebSocketServer } from "ws";
 
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
-import { ownedSketches } from "./storage";
+import { storage } from "./storage";
 import { getCompilerWithFallback } from "./services/compiler-with-fallback";
 import { SandboxRunner } from "./services/sandbox-runner";
 import {
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     disableRateLimit: config.server.disableRateLimit,
     courseContent: examplesRepository,
   });
-  registerSketchRoutes(app, ownedSketches);
+  registerSketchRoutes(app, storage);
 
   // --- COMPILATION (moved to modular route) ---
   // Delegate the /api/compile handler to the compiler module and inject

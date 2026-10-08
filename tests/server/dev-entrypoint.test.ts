@@ -227,24 +227,20 @@ describe("local development entrypoint", () => {
     const port = await reservePort();
     const child = spawnLocalDevelopment(createLocalServerEnv(port));
     const output = collectOutput(child);
-    const marker = "F01_REST_SOURCE_SENTINEL_2c0f6a";
-    const markerPrefix = "F01_REST_SOURCE";
+    // The read-only sketch API returns the default sketch source; the access log must not contain it.
+    const sourceLine = "put your setup code here";
     try {
       await waitForReadiness(child, port, output);
-      const response = await fetch(`http://127.0.0.1:${port}/api/sketches`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "", content: marker }),
-      });
+      const response = await fetch(`http://127.0.0.1:${port}/api/sketches`);
 
-      expect(response.status).toBe(201);
-      expect(await response.json()).toMatchObject({ content: marker });
+      expect(response.status).toBe(200);
+      expect(JSON.stringify(await response.json())).toContain(sourceLine);
       const deadline = Date.now() + 1_000;
-      while (!output().includes("POST /api/sketches 201") && Date.now() < deadline) {
+      while (!output().includes("GET /api/sketches 200") && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
-      expect(output()).toContain("POST /api/sketches 201");
-      expect(output()).not.toContain(markerPrefix);
+      expect(output()).toContain("GET /api/sketches 200");
+      expect(output()).not.toContain(sourceLine);
     } finally {
       await stopProcess(child);
     }
