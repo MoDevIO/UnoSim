@@ -11,6 +11,7 @@ import { getCompilationPool } from "./services/compilation-worker-pool";
 import { config } from "./config";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { createLocalSessionMiddleware } from "./security/access-control";
+import { guardApiMutations } from "./security/api-request-guard";
 import {
   formatStartupLine,
   getStartupConfigurationEntries,
@@ -119,8 +120,8 @@ const apiLimiter = rateLimit({
 // Apply rate limiting to API routes
 app.use("/api/", apiLimiter);
 
+app.use("/api/", guardApiMutations);
 app.use(express.json({ limit: INPUT_LIMITS.rest.maxBodyBytes }));
-app.use(express.urlencoded({ extended: false, limit: INPUT_LIMITS.rest.maxBodyBytes }));
 
 // Resolve public folder for both dev (repo root) and prod (dist/public)
 const publicPathCandidates = [

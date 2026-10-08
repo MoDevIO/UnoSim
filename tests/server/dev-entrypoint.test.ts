@@ -246,3 +246,27 @@ describe("local development entrypoint", () => {
     }
   }, 20_000);
 });
+
+describe("local development entrypoint API request guard", () => {
+  it("rejects form-encoded and cross-site API mutations but keeps JSON working", async () => {
+    const port = await reservePort();
+    const child = spawnLocalDevelopment(createLocalServerEnv(port));
+    const output = collectOutput(child);
+    try {
+      await waitForReadiness(child, port, output);
+      const compile = (headers: Record<string, string>, body: string) =>
+        fetch(`http://127.0.0.1:${port}/api/compile`, { method: "POST", headers, body });
+
+      const form = await compile({ "content-type": "application/x-www-form-urlencoded" }, "code=void+setup(){}+void+loop(){}");
+      const crossSite = await compile({ "content-type": "application/json", "sec-fetch-site": "cross-site" }, JSON.stringify({ code: "x" }));
+      const json = await compile({ "content-type": "application/json", "sec-fetch-site": "same-origin" }, JSON.stringify({ code: 42 }));
+
+      expect(form.status).toBe(415);
+      expect(crossSite.status).toBe(403);
+      // Reaches the compile route, which rejects the invalid payload itself.
+      expect(json.status).toBe(400);
+    } finally {
+      await stopProcess(child);
+    }
+  }, 20_000);
+});

@@ -124,6 +124,10 @@ development startup reject the flag.
 ## Input and network controls
 
 - HTTP and WebSocket payloads are schema-validated and size-limited.
+- Mutating `/api` requests with a body must be `application/json` (else 415),
+  so a foreign page cannot send them as a CORS-simple form or text request.
+  Browsers that report `Sec-Fetch-Site: cross-site` or `same-site` are refused
+  (403). There is no form-encoded body parser.
 - Rate limits and simulation admission use the established request identity;
   the global API limit counts per gateway subject behind the gateway and per
   IP otherwise.
