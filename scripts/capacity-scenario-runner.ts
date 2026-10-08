@@ -745,11 +745,20 @@ async function runScenarioClients(
   createSessionCookie: (baseUrl: string) => Promise<string>,
 ): Promise<ClientResult[]> {
   const arrivalWindowMs = options.scenario === "classroom" ? options.arrivalWindowMs ?? 0 : 0;
-  const intervalMs = options.clientCount > 1 ? arrivalWindowMs / (options.clientCount - 1) : 0;
-  return Promise.all(Array.from({ length: options.clientCount }, (_, index) => (async () => {
-    if (index > 0 && intervalMs > 0) await sleep(intervalMs);
+  const offsets = arrivalOffsetsMs(options.clientCount, arrivalWindowMs);
+  return Promise.all(offsets.map((offsetMs, index) => (async () => {
+    if (offsetMs > 0) await sleep(offsetMs);
     return runClient(options.baseUrl, index + 1, options.holdDurationMs, options.simulationTimeoutSec, clientWatchdogMs, now, createSessionCookie);
   })()));
+}
+
+/**
+ * Start offsets that spread classroom arrivals evenly over the window: the first
+ * client starts at 0, the last at the end of the window. A burst uses window 0.
+ */
+export function arrivalOffsetsMs(clientCount: number, arrivalWindowMs: number): number[] {
+  const intervalMs = clientCount > 1 ? arrivalWindowMs / (clientCount - 1) : 0;
+  return Array.from({ length: clientCount }, (_, index) => index * intervalMs);
 }
 
 async function resolveScenarioCleanup(

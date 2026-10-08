@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  arrivalOffsetsMs,
   CapacityScenarioConfigurationError,
   classifyClientOutcome,
   countClientOutcomes,
@@ -80,6 +81,17 @@ function status(overrides: Partial<StatusSnapshot>): StatusSnapshot {
     ...overrides,
   };
 }
+
+describe("classroom arrival schedule", () => {
+  it("spreads arrivals evenly over the window instead of starting all clients after one interval", () => {
+    expect(arrivalOffsetsMs(5, 8_000)).toEqual([0, 2_000, 4_000, 6_000, 8_000]);
+  });
+
+  it("starts every client at once for a burst and a single client immediately", () => {
+    expect(arrivalOffsetsMs(3, 0)).toEqual([0, 0, 0]);
+    expect(arrivalOffsetsMs(1, 60_000)).toEqual([0]);
+  });
+});
 
 describe("capacity scenario measurement aggregation", () => {
   it("derives a classroom watchdog outside all legitimate phase budgets", () => {
