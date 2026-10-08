@@ -40,6 +40,27 @@ describe("useExternalApi", () => {
     vi.restoreAllMocks();
   });
 
+  it("when embedded, ignores messages that do not come from the embedding window itself", () => {
+    const parentWindow = { postMessage: vi.fn() } as unknown as Window;
+    vi.spyOn(globalThis, "parent", "get").mockReturnValue(parentWindow);
+    const params = buildParams();
+    renderHook(() => useExternalApi(params));
+
+    act(() => {
+      globalThis.dispatchEvent(new MessageEvent("message", { data: { type: SimulatorActionType.LOAD_CODE, payload: { code: "x" } }, origin: ALLOWED_ORIGIN }));
+    });
+    expect(params.onLoadCode).not.toHaveBeenCalled();
+
+    act(() => {
+      globalThis.dispatchEvent(new MessageEvent("message", {
+        data: { type: SimulatorActionType.LOAD_CODE, payload: { code: "from parent" } },
+        origin: ALLOWED_ORIGIN,
+        source: parentWindow as unknown as MessageEventSource,
+      }));
+    });
+    expect(params.onLoadCode).toHaveBeenCalledWith("from parent");
+  });
+
   // ── Test 1: LOAD_CODE ────────────────────────────────────────────────────
 
   it("LOAD_CODE updates the editor content via onLoadCode callback", () => {

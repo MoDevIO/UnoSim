@@ -49,6 +49,7 @@ import {
   DIGITAL_PIN_COUNT,
   ANALOG_PIN_COUNT,
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
+import { detectParentOrigin } from "@/lib/parent-origin";
 
 export function useArduinoSimulatorPage() {
   const editorRef = useRef<{
@@ -738,8 +739,7 @@ export function useArduinoSimulatorPage() {
     toast,
   });
 
-  const externalAllowedOrigin =
-    globalThis.location.ancestorOrigins?.[0] ?? globalThis.location.origin;
+  const externalAllowedOrigin = detectParentOrigin();
 
   const loadExternalCode = useCallback((nextCode: string) => {
     invalidatePendingStart();
