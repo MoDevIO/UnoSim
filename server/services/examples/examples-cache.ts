@@ -33,8 +33,13 @@ export interface RevisionCacheEntry {
   tutor?: TutorCapability;
   exampleTutorAnnotations?: ReadonlyMap<string, ExampleTutorAnnotation>;
   contentBytes: number;
+  /** Refs of this repository the server resolved to this revision; an example's revision is checked against them. */
+  resolvedRefs?: ReadonlySet<ExamplesRef>;
   lastAccessedAt: number;
 }
+
+/** Bounds the provenance kept per snapshot; the oldest resolved ref is forgotten first. */
+const MAX_RESOLVED_REFS_PER_REVISION = 16;
 
 export interface ExamplesCacheOptions {
   maxSources: number;
@@ -95,7 +100,11 @@ export class ExamplesCache {
     const previous = this.revisions.get(revisionKey);
     if (previous) this.totalSnapshotBytes -= previous.contentBytes;
     const accessedAt = this.now();
-    const storedRevision = { ...revision, lastAccessedAt: accessedAt };
+    const storedRevision = {
+      ...revision,
+      resolvedRefs: withResolvedRef(previous?.resolvedRefs ?? revision.resolvedRefs, source.ref),
+      lastAccessedAt: accessedAt,
+    };
     const storedSource = { ...source, lastAccessedAt: accessedAt };
     this.revisions.set(revisionKey, storedRevision);
     this.totalSnapshotBytes += storedRevision.contentBytes;
@@ -307,4 +316,12 @@ export class ExamplesCache {
     for (const [key, entry] of revisions) this.revisions.set(key, entry);
     this.totalSnapshotBytes = totalSnapshotBytes;
   }
+}
+
+function withResolvedRef(refs: ReadonlySet<ExamplesRef> | undefined, ref: ExamplesRef): ReadonlySet<ExamplesRef> {
+  const next = new Set(refs);
+  next.delete(ref);
+  next.add(ref);
+  while (next.size > MAX_RESOLVED_REFS_PER_REVISION) next.delete(next.values().next().value as ExamplesRef);
+  return next;
 }

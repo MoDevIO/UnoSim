@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../../server/config";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { TutorProviderError } from "../../../server/services/tutor/llm-provider";
+import { ExamplesError } from "../../../server/services/examples/examples-error";
 import { TutorCourseContentSessionStore } from "../../../server/services/course-content/course-content-session";
 
 function listen(app: express.Express): Promise<{ url: string; server: http.Server }> {
@@ -333,6 +334,21 @@ describe("Tutor HTTP route", () => {
       courseContent: { repository: "owner/repo", ref: "main", revision: "b".repeat(40) },
     });
     expect(response.status).toBe(400);
+    expect(service.generateQuestion).not.toHaveBeenCalled();
+  });
+
+  it("reports an example revision the server no longer holds as stale Course Content", async () => {
+    const stale = new ExamplesError("INVALID_REVISION", "Course Content example revision is no longer available");
+    const resolver = { resolveTutorContent: vi.fn().mockRejectedValue(stale) };
+    const service = { generateQuestion: vi.fn() };
+    const listening = await start(service, false, resolver);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/question", {
+      code: "void setup(){}",
+      credential: "request-only-secret",
+      courseContent: { repository: "owner/repo", ref: "main", revision: "a".repeat(40), exampleId: "blink" },
+    });
+    expect(response).toMatchObject({ status: 409, body: { error: { code: "COURSE_CONTENT_STALE" } } });
     expect(service.generateQuestion).not.toHaveBeenCalled();
   });
 

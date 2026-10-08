@@ -111,14 +111,19 @@ export class SourceProvider {
     }
   }
 
+  /**
+   * Returns a cached, server-loaded snapshot. With `ref`, the snapshot must also have
+   * been resolved from that ref, so it belongs to that Course selection.
+   */
   async getRevision(
     repository: RepositorySlug,
     revision: FullCommitSha,
     _context: RequestContext,
+    ref?: ExamplesRef,
   ): Promise<RevisionCacheEntry> {
     const key = toRevisionCacheKey(repository, revision);
     const existing = this.cache.getRevision(key);
-    if (!existing) {
+    if (!existing || (ref !== undefined && !existing.resolvedRefs?.has(ref))) {
       throw new ExamplesError("INVALID_REVISION", "External examples revision is not a server-authorized snapshot");
     }
     return existing;
