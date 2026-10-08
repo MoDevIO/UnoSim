@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../../server/config";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { TutorProviderError } from "../../../server/services/tutor/llm-provider";
-import { TutorCourseContentSessionStore } from "../../../server/services/course-content/course-content-session";
+import { prepareTutorCourseContentSession, TutorCourseContentSessionStore } from "../../../server/services/course-content/course-content-session";
+import { TutorService } from "../../../server/services/tutor/tutor-service";
 
 function listen(app: express.Express): Promise<{ url: string; server: http.Server }> {
   return new Promise((resolve) => {
@@ -428,6 +429,28 @@ describe("Tutor Course Content session lifecycle", () => {
   const questionBody = { code: "void setup(){}", credential: "request-only-secret", courseContent };
   const dialogBody = (session: string) => ({
     code: "void setup(){}", history: [], question: "Frage?", answer: "Antwort", credential: "request-only-secret", courseContentSession: session,
+  });
+
+  it("creates no session for a provider-free dialog fallback but keeps an existing handle usable", async () => {
+    const provider = {
+      listModels: vi.fn().mockRejectedValue(new TutorProviderError("credential-invalid")),
+      generateLearningQuestion: vi.fn().mockRejectedValue(new TutorProviderError("credential-invalid")),
+    };
+    const { url, store } = await startSessions(new TutorService(provider));
+    const nonsense = { code: "void setup(){}", history: [], question: "Frage?", answer: "???!!!", credential: "not-a-valid-key" };
+
+    const fresh = await post(url, "/api/tutor/dialog", { ...nonsense, courseContent });
+
+    expect(fresh.status).toBe(200);
+    expect(fresh.body).not.toHaveProperty("courseContentSession");
+    expect(provider.generateLearningQuestion).not.toHaveBeenCalled();
+    expect(store.stats()).toMatchObject({ sessions: 0, pinnedRevisions: 0 });
+
+    const existing = store.commit("local.learner-a", prepareTutorCourseContentSession(resolved));
+    const followUp = await post(url, "/api/tutor/dialog", { ...nonsense, courseContentSession: existing });
+
+    expect(followUp).toMatchObject({ status: 200, body: { courseContentSession: existing } });
+    expect(store.stats()).toMatchObject({ sessions: 1 });
   });
 
   it("commits one session only after a successful request and passes its progression state to the provider call", async () => {

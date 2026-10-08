@@ -232,8 +232,8 @@ browser selection clears the client dialog and starts a new context.
 Requests of one Tutor session run one after another, so overlapping requests
 (double submit, retry) cannot overwrite each other's progression evidence.
 A session is owned by the authenticated subject and is committed only after a
-successful Tutor response, so failed, rejected, or aborted requests leave no
-session behind. The store is process-local in-memory state with an absolute
+successful Tutor response that involved the provider, so failed, rejected, or
+aborted requests and provider-free dialog fallbacks leave no session behind. The store is process-local in-memory state with an absolute
 one-hour TTL and bounds per subject, overall, and for the Tutor data of distinct
 pinned revisions (`config.tutor.sessions`); eviction releases the least recently
 used session or revision and its handle then reports an expired context.
