@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.12% </span>
+                <span class="strong">84.95% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>269/316</span>
+                <span class='fraction'>271/319</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">74.86% </span>
+                <span class="strong">74.58% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>134/179</span>
+                <span class='fraction'>135/181</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">81.13% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>40/50</span>
+                <span class='fraction'>43/53</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.37% </span>
+                <span class="strong">87.16% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>256/293</span>
+                <span class='fraction'>258/296</span>
             </div>
         
             
@@ -1021,7 +1021,18 @@
 <a name='L956'></a><a href='#L956'>956</a>
 <a name='L957'></a><a href='#L957'>957</a>
 <a name='L958'></a><a href='#L958'>958</a>
-<a name='L959'></a><a href='#L959'>959</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L959'></a><a href='#L959'>959</a>
+<a name='L960'></a><a href='#L960'>960</a>
+<a name='L961'></a><a href='#L961'>961</a>
+<a name='L962'></a><a href='#L962'>962</a>
+<a name='L963'></a><a href='#L963'>963</a>
+<a name='L964'></a><a href='#L964'>964</a>
+<a name='L965'></a><a href='#L965'>965</a>
+<a name='L966'></a><a href='#L966'>966</a>
+<a name='L967'></a><a href='#L967'>967</a>
+<a name='L968'></a><a href='#L968'>968</a>
+<a name='L969'></a><a href='#L969'>969</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1954,25 +1965,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2017,6 +2037,7 @@ import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { config } from "../config";
 import { InboundMessageLimiter } from "./simulation/ws-inbound-limiter";
 import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
+import { mapWithConcurrency, settleWithin } from "../services/concurrency";
 &nbsp;
 function sendStartError(
   ws: WebSocket,
@@ -2911,28 +2932,37 @@ export function registerSimulationWebSocket(
     });
   });
 &nbsp;
+  /**
+   * Ends every session's lifecycle (shutdown and test reset). Releases run in
+   * parallel with bounded concurrency, and a release that hangs stops being
+   * awaited after the shutdown stop timeout: the pool shutdown and the final
+   * owner sweep remove what is left.
+   */
   async function stopAllRunnersAndNotify() {
-    const cleanedUpCount = sessionManager.size;
-    const cleanedTestRunIds: (string | undefined)[] = [];
-&nbsp;
-    for (const [ws, clientState] of sessionManager.entries()) {
+    const sessions = [...sessionManager.entries()];
+    const settled = await mapWithConcurrency(sessions, config.sandbox.pool.shutdownConcurrency, async ([ws, clientState]) =&gt; {
       sessionManager.cancelPendingStart(clientState);
       sessionManager.abortQueuedAcquire(clientState);
-      if (clientState.runner || clientState.reservation) {
-        await safeReleaseRunner(clientState, "test-reset");
-      }
+      const released = clientState.runner || clientState.reservation
+        ? await settleWithin(safeReleaseRunner(clientState, "test-reset"), config.sandbox.pool.shutdownStopTimeoutMs)
+        : true;
       clientState.isRunning = false;
       clientState.isPaused = false;
-      cleanedTestRunIds.push(clientState.testRunId);
-&nbsp;
       sendMessageToClient(ws, {
         type: WSMessageType.SIMULATION_STATUS,
         status: "stopped",
       });
+      return released;
+    });
+    const unfinished = settled.filter((released) =&gt; !released).length;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (unfinished &gt; 0) {
+<span class="cstat-no" title="statement not covered" >      logger.warn(`[Simulation] ${unfinished} session release(s) exceeded the shutdown stop timeout`);</span>
     }
 &nbsp;
-    const cleaned = cleanedTestRunIds.filter((id): id is string =&gt; Boolean(id));
-    return { cleanedUpCount, cleanedTestRunIds: cleaned };
+    const cleanedTestRunIds = sessions
+      .map(([, clientState]) =&gt; clientState.testRunId)
+      .filter((id): id is string =&gt; Boolean(id));
+    return { cleanedUpCount: sessions.length, cleanedTestRunIds };
   }
 &nbsp;
   return { wss, stopAllRunnersAndNotify };
@@ -2944,7 +2974,7 @@ export function registerSimulationWebSocket(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-08T06:43:38.351Z
+                at 2026-10-08T13:04:56.042Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
