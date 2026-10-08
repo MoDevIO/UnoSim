@@ -254,6 +254,16 @@ async function teardown(run: {
   return cleanupError;
 }
 
+/** The production compose file must mount the installer's runtime directories. */
+async function assertRuntimeMounts(container: string, projectDir: string): Promise<void> {
+  const mounts = (await checked("docker", [
+    "inspect", container, "--format", "{{range .Mounts}}{{.Source}}\n{{end}}",
+  ], { timeoutMs: 20_000 })).stdout.split("\n").filter(Boolean);
+  for (const directory of ["server/arduino-cache", "temp", "storage"]) {
+    assert.ok(mounts.includes(join(projectDir, directory)), `backend must mount ${join(projectDir, directory)} (mounts: ${mounts.join(", ")})`);
+  }
+}
+
 /** Fails diagnostically: the backend log explains most deployment failures. */
 async function printBackendLogTail(container: string): Promise<void> {
   const logs = await runCommand("docker", ["logs", "--tail", "200", container], { timeoutMs: 30_000 });
@@ -280,10 +290,11 @@ async function main(): Promise<void> {
   const sockets: WebSocket[] = [];
   let cleanupError: Error | undefined;
 
+  // Like the installer (cd + PWD): Compose may take ${PWD} from the working directory.
   const compose = (args: string[], timeoutMs = 120_000): Promise<CommandResult> => checked("docker", [
     "compose", "-p", projectName, "--project-directory", projectDir,
     "-f", productionComposeFile, "-f", installerOverrideFile, ...args,
-  ], { env: composeEnv, timeoutMs });
+  ], { cwd: projectDir, env: composeEnv, timeoutMs });
 
   try {
     for (const port of [3000, 443, gatewayPort]) await assertPortFree(port);
@@ -310,6 +321,7 @@ async function main(): Promise<void> {
     stackStarted = true;
     await compose(["up", "-d", "--no-build"], 240_000);
 
+    await assertRuntimeMounts(backendContainer, projectDir);
     const network = `${projectName}_default`;
     const networkGateway = (await checked("docker", [
       "network", "inspect", network, "--format", "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
