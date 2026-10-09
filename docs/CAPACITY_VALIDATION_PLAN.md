@@ -234,6 +234,38 @@ The queue result is therefore **infeasible**, not a failed calibration; it
 records that this UX ceiling and workload do not fit together on this host
 under the selected policy.
 
+### Re-analysis of the Dell raw data (2026-10-09)
+
+The retained calibration artifacts (commit `743f3d22`) change how the numbers
+above must be read; the results themselves stand.
+
+- The active-cap CPU p95 values measure the **startup storm**, not running
+  simulations. Each candidate started N clients at once with N sandbox-start
+  slots, so the p95 falls in the first 5–8 s of concurrent `g++` builds. Once
+  all containers ran, host CPU (median) was about 4% at 20, 6% at 40, 7% at
+  50, 9% at 60 and 11% at 80 running simulations (`delay()` sketch), with at
+  least 14.8 GiB available. N=50 was therefore selected by startup pressure,
+  not by steady-state capacity; the CPU-bound regression above
+  (about 1.3% per simulation) remains the steady-state bound for sketches that
+  use their full 0.25 CPU.
+- The classroom phase was effectively a **burst**: its 200 requests were sent
+  within 56 ms because of the arrival bug fixed in the scenario runner. A burst
+  is the worse case, so the 200/200 result and the admission value remain
+  valid; queue waits are slightly pessimistic.
+- With 8 start slots the Dell started about 1.6–2 sandboxes per second
+  (startup p50 about 4.5 s, host CPU at most 25%), slower than the about 2.7
+  per second of the Ubuntu/VBox reference VM below. Each build runs inside a
+  0.25-CPU sandbox, so single-thread speed sets the start rate; the 1.9 GHz
+  i9-10900T gains start throughput from more start slots instead (wait p95
+  20.5 s at 8 slots, 8.8 s at 16, 4.3 s at 32 for a 50-burst).
+
+The historical measurements predate the current `main` (fair start-slot
+sharing, read-only sandbox root, hard container lifetime). A delta check on
+current `main` could not run on 2026-10-09 because Docker inside the Dell's
+systemd-nspawn container could not start containers
+(`bpf_prog_query(BPF_CGROUP_DEVICE)` denied); the temporary
+`--system-call-filter=bpf` setting used for the campaign was no longer active.
+
 ## Secondary Mac comparison
 
 A short comparison used a MacBook Pro M2 Pro (10 CPU cores, 32 GiB RAM) with
