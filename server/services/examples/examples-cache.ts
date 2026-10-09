@@ -46,6 +46,8 @@ export interface ExamplesCacheOptions {
   maxSnapshots: number;
   maxSnapshotBytes: number;
   now?: () => number;
+  /** Sources the LRU never evicts: the operator's default Course, which overrides must not displace. */
+  protectedSourceKeys?: readonly SourceCacheKey[];
 }
 
 interface SharedFlight {
@@ -62,9 +64,11 @@ export class ExamplesCache {
   private readonly revisionFlights = new Map<RevisionCacheKey, SharedFlight>();
   private totalSnapshotBytes = 0;
   private readonly now: () => number;
+  private readonly protectedSources: ReadonlySet<SourceCacheKey>;
 
   constructor(private readonly options: ExamplesCacheOptions) {
     this.now = options.now ?? Date.now;
+    this.protectedSources = new Set(options.protectedSourceKeys);
   }
 
   getSource(key: SourceCacheKey): SourceCacheEntry | undefined {
@@ -285,7 +289,7 @@ export class ExamplesCache {
 
   private evictOldestSource(): boolean {
     const oldest = [...this.sources.entries()]
-      .filter(([key]) => !this.sourceFlights.has(key))
+      .filter(([key]) => !this.sourceFlights.has(key) && !this.protectedSources.has(key))
       .sort(([, left], [, right]) => left.lastAccessedAt - right.lastAccessedAt)[0];
     if (!oldest) return false;
     this.sources.delete(oldest[0]);

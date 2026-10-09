@@ -256,6 +256,10 @@ Der Server MUSS weiterhin erzwingen:
 - keine Redirects;
 - kanonische Repository-/Ref-Werte und sichere Dateipfade;
 - Timeouts, Größen-, Datei-, Parallelitäts-, Rate- und Cache-Grenzen;
+- Browser-Overrides können den operatorseitigen Default-Course nicht
+  verdrängen: getrennte Load-Slots, Warteschlangen und Load-Start-Budgets,
+  eine Reserve an Upstream-Fetches für den Default und kein LRU-Evict der
+  Default-Quelle;
 - strikte GitHub-Response-, Manifest- und Dateischemata;
 - vollständige Snapshot-Validierung vor Aktivierung.
 
