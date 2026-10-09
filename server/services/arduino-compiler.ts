@@ -18,6 +18,7 @@ import { resolvePathWithinRoot } from "../security/safe-paths";
 import {
   ensureTempDirs,
   cleanupSketchDirs,
+  robustCleanupDir,
 } from "./compiler/temp-fs";
 import {
   writeBinaryToStorage,
@@ -181,6 +182,10 @@ export class ArduinoCompiler {
 
     const sketchDir = resolvePathWithinRoot(baseTempDir, sketchId);
     const sketchFile = resolvePathWithinRoot(sketchDir, `${sketchId}.ino`);
+    // One build directory per compile, removed afterwards: the HEX lives on in the
+    // caches. Without --build-path arduino-cli would keep a directory per (random)
+    // sketch path in its own cache.
+    const buildPath = options?.buildPath ?? resolvePathWithinRoot(baseTempDir, `${sketchId}-build`);
 
     // Pre-compilation validation and parsing
     const parser = new CodeParser();
@@ -248,9 +253,7 @@ export class ArduinoCompiler {
 
       // 3. Create directories and process headers
       await mkdir(sketchDir, { recursive: true });
-      if (options?.buildPath) {
-        await mkdir(options.buildPath, { recursive: true }).catch(() => {});
-      }
+      await mkdir(buildPath, { recursive: true }).catch(() => {});
       if (options?.buildCachePath) {
         await mkdir(options.buildCachePath, { recursive: true }).catch(() => {});
       }
@@ -266,7 +269,7 @@ export class ArduinoCompiler {
       // 4. Run Arduino CLI compilation
       const cliConfig: CLICompileConfig = {
         fqbn: options?.fqbn || this.defaultFqbn,
-        buildPath: options?.buildPath,
+        buildPath,
         buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
       };
       const cliResult = await compileWithArduinoCli(sketchFile, cliConfig, this.processExecutor);
@@ -319,6 +322,7 @@ export class ArduinoCompiler {
         ioRegistry,
       };
     } finally {
+      await robustCleanupDir(buildPath);
       await this._cleanupSketchDirs(sketchDir, baseTempDir, tempRoot);
     }
   }

@@ -92,6 +92,11 @@ die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
 - Der Docker-Socket ist nur für den UnoSim-Server verfügbar.
 - Temporäre Build-Pfade werden unter `UNOSIM_SHARED_TEMP_DIR` am identischen
   Host- und Containerpfad gemountet.
+- Jeder Compile entfernt sein Build-Verzeichnis danach selbst; das HEX bleibt
+  in den Caches unter `storage/`. Der Server entfernt minütlich, was älter als
+  5 Minuten ist: Sketch-Verzeichnisse beendeter Läufe (`unosim-temp/*.cleanup`)
+  und liegengebliebene Compile-Build-Verzeichnisse
+  (`unosim-worker-build/worker_*/build-output/*`).
 - Jeder Sandbox-Container trägt das Label `unosim.owner`: mit
   `UNOSIM_INSTANCE_ID` den Wert `instance.<id>` (Compose setzt
   `unosim-server`), sonst `<host>:<pid>`. Beim Start und am Ende eines

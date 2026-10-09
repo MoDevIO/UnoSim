@@ -17,6 +17,7 @@ import {
   getStartupConfigurationEntries,
 } from "./startup-access";
 import { apiRateLimitKey, shouldSkipApiRateLimit } from "./rate-limit-policy";
+import { sweepTempArtifacts } from "./services/temp-artifact-sweep";
 import {
   safeErrorLogMetadata,
   safeErrorStackFrames,
@@ -28,50 +29,16 @@ function parseAllowedFrameAncestors(): string[] {
   return Array.from(new Set(config.server.allowedFrameAncestors));
 }
 
-// Cleanup service: Delete old .cleanup.json files and .cleanup directories (> 5 minutes old)
+// Cleanup service: removes abandoned run and compile artifacts (> 5 minutes old)
+// from the shared temp directory that sandbox runs and compile workers use.
 function startCleanupService(): NodeJS.Timeout {
   const CLEANUP_INTERVAL_MS = 60 * 1000; // Check every minute
-  const CLEANUP_AGE_MS = 5 * 60 * 1000; // Delete files/dirs older than 5 minutes
+  const legacyTempDir = path.join(process.cwd(), "temp");
 
   return setInterval(async () => {
-    try {
-      const tempDir = path.join(process.cwd(), "temp");
-      try {
-        await fs.promises.access(tempDir);
-      } catch {
-        return; // tempDir doesn't exist
-      }
-
-      const items = await fs.promises.readdir(tempDir);
-      const now = Date.now();
-      let deletedCount = 0;
-
-      for (const item of items) {
-        const itemPath = path.join(tempDir, item);
-        const stats = await fs.promises.stat(itemPath);
-        const age = now - stats.mtimeMs;
-
-        // Delete old .cleanup.json files
-        if (item.endsWith(".cleanup.json") && age > CLEANUP_AGE_MS) {
-          await fs.promises.unlink(itemPath);
-          deletedCount++;
-        }
-        // Delete old .cleanup directories
-        else if (
-          item.endsWith(".cleanup") &&
-          stats.isDirectory() &&
-          age > CLEANUP_AGE_MS
-        ) {
-          await fs.promises.rm(itemPath, { recursive: true, force: true });
-          deletedCount++;
-        }
-      }
-
-      if (deletedCount > 0) {
-        console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
-      }
-    } catch {
-      // Silently handle cleanup errors
+    const deletedCount = await sweepTempArtifacts({ legacyTempDir });
+    if (deletedCount > 0) {
+      console.log(`[Cleanup] Deleted ${deletedCount} old temp items`);
     }
   }, CLEANUP_INTERVAL_MS);
 }
