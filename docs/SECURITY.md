@@ -17,10 +17,15 @@ gateway is optional.
 
 Local development is not approved for shared, LAN or public access.
 `UNOSIM_LISTEN_HOST` in local mode accepts only numeric loopback addresses
-(`127.0.0.0/8` or `::1`). Binding elsewhere requires the explicit dangerous
-opt-in `UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND=true`; it adds no authentication
-or sandboxing and exposes local process execution to clients that can reach the
-listener.
+(`127.0.0.0/8` or `::1`). The Vite dev server of `npm run dev:full` listens on
+`127.0.0.1:3001` only. In local mode the backend accepts only HTTP requests and
+WebSocket upgrades whose `Host` is `localhost` or a numeric loopback address
+(any port), so neither a LAN client nor a DNS rebinding page whose host name
+resolves to `127.0.0.1` reaches it; WebSocket clients without an `Origin`
+header must connect from a loopback address. Binding elsewhere requires the
+explicit dangerous opt-in `UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND=true`, which
+also lifts these host checks; it adds no authentication or sandboxing and
+exposes local process execution to clients that can reach the listener.
 
 ### Docker deployment
 

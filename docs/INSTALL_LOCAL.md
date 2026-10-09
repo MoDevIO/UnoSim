@@ -43,6 +43,12 @@ Die Projektskripte setzen `NODE_ENV=development` und
 Sketches als lokale Prozesse aus. Docker wird weder geprüft noch als Fallback
 verwendet.
 
+Weil Sketches nativ laufen, ist der Local-Modus nur vom eigenen Rechner aus
+erreichbar: Vite lauscht auf `127.0.0.1:3001`, das Backend auf `127.0.0.1:3000`,
+und das Backend nimmt nur Anfragen an `localhost` oder eine Loopback-Adresse an.
+Aufruf über `http://localhost:3001`; LAN-Adressen und fremde Hostnamen werden
+abgewiesen (siehe [SECURITY.md](SECURITY.md)).
+
 ## Konfiguration
 
 `UNOSIM_SERVER_MODE` ist der einzige Topologie-Schalter. Für Entwicklung ist
