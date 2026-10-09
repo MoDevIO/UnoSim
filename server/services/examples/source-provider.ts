@@ -97,7 +97,7 @@ export class SourceProvider {
             status: cachedSnapshot ? "cache" as const : "remote" as const,
             stale: false,
           };
-        }, signal),
+        }, signal, context.sourcePriority ?? "default"),
         context.signal,
       );
     } catch (error) {

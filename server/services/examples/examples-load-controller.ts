@@ -1,4 +1,6 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { ExamplesError } from "./examples-error";
+import type { SourcePriority } from "./github-api-budget";
 
 interface Waiter {
   resolve: (release: () => void) => void;
@@ -64,56 +66,87 @@ export interface ExamplesLoadControllerOptions {
   now?: () => number;
 }
 
+/** Outbound fetches kept for loads of the operator's default Course. */
+function defaultOutboundReserve(maxOutboundFetches: number): number {
+  return maxOutboundFetches > 1 ? Math.max(1, Math.floor(maxOutboundFetches / 4)) : 0;
+}
+
+/**
+ * Bounds remote examples loading. Loads of the operator's default Course and
+ * browser overrides, which any client can trigger with arbitrary repositories
+ * and refs, use separate load slots, queues and load-start budgets of the same
+ * size, so overrides can never deny the default a load. Outbound fetches share
+ * one cap, but override loads may hold only part of it; the rest is reserved
+ * for default loads.
+ */
 export class ExamplesLoadController {
-  private readonly loads: BoundedSemaphore;
+  private readonly loads: Record<SourcePriority, BoundedSemaphore>;
   private readonly outbound: BoundedSemaphore;
-  private readonly starts: number[] = [];
+  private readonly overrideOutbound: BoundedSemaphore;
+  private readonly starts: Record<SourcePriority, number[]> = { default: [], override: [] };
+  private readonly loadPriority = new AsyncLocalStorage<SourcePriority>();
   private readonly now: () => number;
 
   constructor(private readonly options: ExamplesLoadControllerOptions) {
     this.now = options.now ?? Date.now;
-    this.loads = new BoundedSemaphore(
+    const loadSlots = () => new BoundedSemaphore(
       options.maxConcurrentLoads,
       options.maxLoadQueue,
       () => new ExamplesError("LOAD_CAPACITY_EXCEEDED", "External examples load capacity is exhausted"),
     );
-    this.outbound = new BoundedSemaphore(
-      options.maxOutboundFetches,
+    this.loads = { default: loadSlots(), override: loadSlots() };
+    const fetchSlots = (capacity: number) => new BoundedSemaphore(
+      capacity,
       Number.MAX_SAFE_INTEGER,
       () => new ExamplesError("LOAD_CAPACITY_EXCEEDED", "External examples fetch capacity is exhausted"),
     );
+    this.outbound = fetchSlots(options.maxOutboundFetches);
+    this.overrideOutbound = fetchSlots(options.maxOutboundFetches - defaultOutboundReserve(options.maxOutboundFetches));
   }
 
-  async runLoad<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-    const release = await this.loads.acquire(signal);
+  /** Runs one load; its outbound fetches inherit the priority. */
+  async runLoad<T>(operation: () => Promise<T>, signal?: AbortSignal, priority: SourcePriority = "override"): Promise<T> {
+    const release = await this.loads[priority].acquire(signal);
     try {
-      this.recordLoadStart();
-      return await operation();
+      this.recordLoadStart(priority);
+      return await this.loadPriority.run(priority, operation);
     } finally {
       release();
     }
   }
 
   async runOutbound<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-    const release = await this.outbound.acquire(signal);
+    const releaseShare = this.loadPriority.getStore() === "override"
+      ? await this.overrideOutbound.acquire(signal)
+      : undefined;
     try {
-      return await operation();
+      const release = await this.outbound.acquire(signal);
+      try {
+        return await operation();
+      } finally {
+        release();
+      }
     } finally {
-      release();
+      releaseShare?.();
     }
   }
 
   getStats() {
-    return { loads: this.loads.getStats(), outbound: this.outbound.getStats() };
+    return {
+      loads: this.loads.override.getStats(),
+      defaultLoads: this.loads.default.getStats(),
+      outbound: this.outbound.getStats(),
+    };
   }
 
-  private recordLoadStart(): void {
+  private recordLoadStart(priority: SourcePriority): void {
+    const starts = this.starts[priority];
     const now = this.now();
     const cutoff = now - 60_000;
-    while (this.starts[0] !== undefined && this.starts[0] <= cutoff) this.starts.shift();
-    if (this.starts.length >= this.options.globalLoadStartsPerMinute) {
+    while (starts[0] !== undefined && starts[0] <= cutoff) starts.shift();
+    if (starts.length >= this.options.globalLoadStartsPerMinute) {
       throw new ExamplesError("RATE_LIMITED", "External examples load rate exceeded", 60);
     }
-    this.starts.push(now);
+    starts.push(now);
   }
 }

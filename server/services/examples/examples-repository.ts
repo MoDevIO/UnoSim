@@ -11,7 +11,7 @@ import type {
 } from "@shared/examples";
 import { config, type ParsedExamplesConfig } from "../../config";
 import { BuiltInProvider } from "./built-in-provider";
-import { ExamplesCache, type RevisionCacheEntry } from "./examples-cache";
+import { ExamplesCache, type RevisionCacheEntry, toSourceCacheKey } from "./examples-cache";
 import type { TutorCapability } from "../course-content/course-content-loader";
 import { ExamplesError } from "./examples-error";
 import { GitHubRevisionResolver } from "./github-revision-resolver";
@@ -53,6 +53,9 @@ export class ExamplesRepository implements TutorCourseContentResolver {
       maxSources: this.examplesConfig.maxSources,
       maxSnapshots: this.examplesConfig.snapshotCacheMaxEntries,
       maxSnapshotBytes: this.examplesConfig.snapshotCacheMaxBytes,
+      protectedSourceKeys: this.examplesConfig.mode === "repository-ref" && this.examplesConfig.repository
+        ? [toSourceCacheKey(this.examplesConfig.repository, this.examplesConfig.ref)]
+        : [],
     });
     this.sourceProvider = options.sourceProvider ?? new SourceProvider(
       new GitHubRevisionResolver(fetcher),
