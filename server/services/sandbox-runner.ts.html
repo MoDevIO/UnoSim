@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.62% </span>
+                <span class="strong">83.45% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>240/287</span>
+                <span class='fraction'>237/284</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.74% </span>
+                <span class="strong">71.03% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>104/147</span>
+                <span class='fraction'>103/145</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.9% </span>
+                <span class="strong">86.74% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>219/252</span>
+                <span class='fraction'>216/249</span>
             </div>
         
             
@@ -596,16 +596,7 @@
 <a name='L531'></a><a href='#L531'>531</a>
 <a name='L532'></a><a href='#L532'>532</a>
 <a name='L533'></a><a href='#L533'>533</a>
-<a name='L534'></a><a href='#L534'>534</a>
-<a name='L535'></a><a href='#L535'>535</a>
-<a name='L536'></a><a href='#L536'>536</a>
-<a name='L537'></a><a href='#L537'>537</a>
-<a name='L538'></a><a href='#L538'>538</a>
-<a name='L539'></a><a href='#L539'>539</a>
-<a name='L540'></a><a href='#L540'>540</a>
-<a name='L541'></a><a href='#L541'>541</a>
-<a name='L542'></a><a href='#L542'>542</a>
-<a name='L543'></a><a href='#L543'>543</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L534'></a><a href='#L534'>534</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -631,7 +622,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">72x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -697,18 +689,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
@@ -1170,6 +1152,7 @@ import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
 import { cleanupExecutionContainer, flushMessageQueue } from "./sandbox/execution-phases/cleanup-phase";
+import { delegateParsedLineToStreamHandler } from "./sandbox/execution-phases/stream-phase";
 import { config } from "../config";
 &nbsp;
 export class SandboxRunner {
@@ -1238,21 +1221,11 @@ export class SandboxRunner {
       this.processController,
       stderrParser,
       this.timeoutManager,
-      (parsed, callbacks) =&gt; {
-        // Delegate parsed line to stream handler
-        <span class="missing-if-branch" title="else path not taken" >E</span>if (this.executionState) {
-          const streamState = {
-            pinStateBatcher: this.executionState.pinStateBatcher,
-            serialOutputBatcher: this.executionState.serialOutputBatcher,
-            backpressurePaused: this.executionState.backpressurePaused,
-            isPaused: this.executionState.state === SimulationState.PAUSED,
-            baudrate: this.executionState.baudrate,
-            registryManager: this.registryManager,
-          };
-          this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
-          this.executionState.backpressurePaused = streamState.backpressurePaused;
-        }
-      },
+      // Same routing (and run budget) as the local path.
+      (parsed, callbacks) =&gt; delegateParsedLineToStreamHandler(parsed, this.executionState, callbacks, {
+        registryManager: this.registryManager,
+        streamHandler: this.streamHandler,
+      }),
       () =&gt; { this.executionState.terminationRequested = true; },
     );
     this.streamHandler = new StreamHandler(this.processController);
@@ -1696,7 +1669,7 @@ export class SandboxRunner {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-09T08:13:54.551Z
+                at 2026-10-09T10:03:22.808Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
