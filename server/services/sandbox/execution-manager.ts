@@ -24,6 +24,7 @@ import { normalizeBaudrate, normalizeSimulationTimeout } from "@shared/input-lim
 import { canTransition } from "../simulation-state-machine";
 import { createProcessExecutionPort, type ProcessExecution } from "../process-execution-port";
 import { OutputCollector } from "../output-collector";
+import { RuntimeTextLimiter } from "./runtime-text-limiter";
 import { flushMessageQueue, flushBatchers, cleanupExecutionContainer } from "./execution-phases/cleanup-phase";
 import { scheduleExecutionTimeout } from "./execution-phases/timeout-phase";
 import { createStreamCallbacks, delegateParsedLineToStreamHandler, handleStderrFallbackData } from "./execution-phases/stream-phase";
@@ -138,6 +139,8 @@ export interface ExecutionState {
   runGeneration?: number;
   /** Aborted when the current run is stopped or superseded. */
   runAbort?: AbortController | null;
+  /** Budget of the current run for sketch-controlled runtime text lines. */
+  runtimeTextLimiter?: RuntimeTextLimiter | null;
 }
 
 /**
@@ -384,6 +387,7 @@ export class ExecutionManager {
     state.isSendingOutput = false;
     state.totalOutputBytes = 0;
     state.outputCollector = new OutputCollector(SANDBOX_CONFIG.maxOutputBytes);
+    state.runtimeTextLimiter = new RuntimeTextLimiter();
     state.onOutputCallback = onOutput;
     state.ioRegistryCallback = onIORegistry;
   }

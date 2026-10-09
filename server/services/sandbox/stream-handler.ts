@@ -9,6 +9,7 @@ import type { SerialOutputBatcher } from "../serial-output-batcher";
 import type { RegistryManager } from "../registry-manager";
 import type { ParsedStderrOutput } from "../arduino-output-parser";
 import { Logger } from "@shared/logger";
+import { RUNTIME_TEXT_LIMIT_NOTICE, type RuntimeTextLimiter } from "./runtime-text-limiter";
 import type { PinStateChange } from "@shared/types/arduino.types";
 
 interface StreamHandlerCallbacks {
@@ -24,6 +25,8 @@ interface StreamHandlerState {
   isPaused: boolean;
   baudrate: number;
   registryManager: RegistryManager;
+  /** Budget of the current run for runtime text lines; absent means unbounded. */
+  runtimeTextLimiter?: Pick<RuntimeTextLimiter, "admit">;
 }
 
 export class StreamHandler {
@@ -119,11 +122,19 @@ export class StreamHandler {
         break;
 
       case "text":
-        if (callbacks.onError) {
-          this.logger.warn(`[STDERR] diagnostic received (${Buffer.byteLength(parsed.line)} bytes)`);
-          callbacks.onError(parsed.line);
-        }
+        this.handleRuntimeText(parsed.line, state, callbacks);
         break;
     }
+  }
+
+  /**
+   * Runtime text is sketch-controlled. The run's limiter bounds what reaches the
+   * client; nothing is logged per line (the limiter logs drops aggregated).
+   */
+  private handleRuntimeText(line: string, state: StreamHandlerState, callbacks: StreamHandlerCallbacks): void {
+    if (!callbacks.onError) return;
+    const decision = state.runtimeTextLimiter?.admit() ?? "forward";
+    if (decision === "forward") callbacks.onError(line);
+    else if (decision === "notice") callbacks.onError(RUNTIME_TEXT_LIMIT_NOTICE);
   }
 }

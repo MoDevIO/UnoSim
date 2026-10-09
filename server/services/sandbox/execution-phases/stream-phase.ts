@@ -94,6 +94,7 @@ export function delegateParsedLineToStreamHandler(
     isPaused: state.state === "paused",
     baudrate: state.baudrate,
     registryManager: deps.registryManager,
+    runtimeTextLimiter: state.runtimeTextLimiter ?? undefined,
   };
 
   deps.streamHandler.handleParsedLine(parsed, streamState, callbacks);
