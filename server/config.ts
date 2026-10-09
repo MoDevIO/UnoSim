@@ -277,7 +277,8 @@ const cwd = process.cwd();
 const cpuCount = os.cpus().length;
 const defaultWorkers = Math.min(8, Math.max(2, Math.floor(cpuCount * 0.5)));
 const defaultCompileMaxConcurrent = Math.max(1, cpuCount - 1);
-const trust = parseTrustConfig(process.env, runtimeProfile);
+const allowUnsafeExternalLocalBind = envBool("UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND", false);
+const trust = parseTrustConfig(process.env, runtimeProfile, allowUnsafeExternalLocalBind);
 const localWebSocketOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -450,7 +451,7 @@ export const config = {
     listenHost: parseListenHost(
       trust.mode,
       process.env.UNOSIM_LISTEN_HOST,
-      envBool("UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND", false),
+      allowUnsafeExternalLocalBind,
     ),
     /**
      * Register destructive endpoints used for test isolation.

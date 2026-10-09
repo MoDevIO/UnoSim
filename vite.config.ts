@@ -65,7 +65,8 @@ export default defineConfig({
     },
   },
   server: {
-    host: true,
+    // Loopback only: the proxied local backend runs sketches as native processes.
+    host: "127.0.0.1",
     port: 3001, // Vite devserver Port
     headers: {
       "Content-Security-Policy": getAllowedFrameAncestors(),

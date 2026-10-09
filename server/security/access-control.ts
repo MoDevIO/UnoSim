@@ -10,6 +10,11 @@ export interface TrustConfig {
   mode: TrustMode;
   gatewaySecret?: string;
   trustedProxy?: string;
+  /**
+   * Local mode only: the explicit UNOSIM_UNSAFE_ALLOW_EXTERNAL_LOCAL_BIND
+   * opt-in. Without it, local mode serves loopback clients only.
+   */
+  allowExternalLocalClients?: true;
 }
 
 export interface RequestIdentity {
@@ -109,8 +114,14 @@ export function parseTrustConfig(
     serverMode: "local" | "docker";
     dockerTestBypassGateway: boolean;
   },
+  allowUnsafeExternalLocalBind = false,
 ): TrustConfig {
-  if (profile.serverMode === "local" || profile.dockerTestBypassGateway) {
+  if (profile.serverMode === "local") {
+    return allowUnsafeExternalLocalBind
+      ? { mode: "local", allowExternalLocalClients: true }
+      : { mode: "local" };
+  }
+  if (profile.dockerTestBypassGateway) {
     return { mode: "local" };
   }
 
@@ -139,13 +150,66 @@ function singleHeader(
   return Array.isArray(value) ? undefined : value;
 }
 
+function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const normalized = address.startsWith("::ffff:") ? address.slice("::ffff:".length) : address;
+  const version = isIP(normalized);
+  if (version === 6) return normalized === "::1";
+  return version === 4 && normalized.split(".", 1)[0] === "127";
+}
+
+/**
+ * Whether a Host header names this machine: `localhost` or a numeric loopback
+ * address, with any port. A DNS rebinding page reaches a loopback listener
+ * under its own host name, and a LAN client under the machine's LAN address;
+ * both fail here.
+ */
+export function isLoopbackHostHeader(host: string | undefined): boolean {
+  // A Host header is host[:port]; anything URL syntax would reinterpret is refused.
+  if (!host || /[\s/\\@?#]/.test(host)) return false;
+  let hostname: string;
+  try {
+    hostname = new URL(`http://${host}`).hostname;
+  } catch {
+    return false;
+  }
+  if (hostname === "localhost") return true;
+  if (hostname === "[::1]") return true;
+  return isIP(hostname) === 4 && isLoopbackAddress(hostname);
+}
+
+/**
+ * Local mode runs sketches as native processes, so only this machine may use it.
+ * Gateway mode and the explicit unsafe external opt-in are not restricted here.
+ */
+export function isLocalClientAllowed(req: IncomingMessage, trust: TrustConfig): boolean {
+  if (trust.mode !== "local" || trust.allowExternalLocalClients) return true;
+  return isLoopbackHostHeader(singleHeader(req.headers, "host"));
+}
+
+/** Rejects HTTP requests for a non-loopback host in local mode (LAN, DNS rebinding). */
+export function createLocalHostGuard(trust: TrustConfig): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!isLocalClientAllowed(req, trust)) {
+      res.status(403).json({ error: "Local mode accepts only localhost requests" });
+      return;
+    }
+    next();
+  };
+}
+
 export function isWebSocketOriginAllowed(
   headers: IncomingHttpHeaders,
   trust: TrustConfig,
   allowedOrigins: readonly string[],
+  remoteAddress?: string,
 ): boolean {
   const origin = singleHeader(headers, "origin");
-  if (!origin) return trust.mode === "local";
+  if (!origin) {
+    // Non-browser clients send no Origin; locally only this machine may connect without one.
+    return trust.mode === "local"
+      && (trust.allowExternalLocalClients === true || isLoopbackAddress(remoteAddress));
+  }
 
   let parsed: URL;
   try {
@@ -269,7 +333,11 @@ export function createWebSocketAuthorizationVerifier(
       );
       return;
     }
-    if (!isWebSocketOriginAllowed(req.headers, trust, allowedOrigins)) {
+    if (!isLocalClientAllowed(req, trust)) {
+      done(false, 403, "Forbidden host");
+      return;
+    }
+    if (!isWebSocketOriginAllowed(req.headers, trust, allowedOrigins, req.socket?.remoteAddress)) {
       done(false, 403, "Forbidden origin");
       return;
     }
