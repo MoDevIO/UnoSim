@@ -243,6 +243,20 @@ const simulationAdmissionMax = envInt("SIMULATION_ADMISSION_MAX", 25, { min: 1, 
 const simulationQueueTimeoutMs = envInt("SIMULATION_QUEUE_TIMEOUT_MS", 60_000, { min: 1_000, max: 900_000 });
 const sandboxStartSlotTimeoutMs = envInt("SANDBOX_START_SLOT_TIMEOUT_MS", 30_000, { min: 1_000, max: 900_000 });
 
+const sandboxMaxLifetimeSeconds = envInt("SANDBOX_MAX_LIFETIME_SECONDS", 7_200, { min: 900, max: 86_400 });
+const simulationMaxPausedSeconds = envInt("SIMULATION_MAX_PAUSED_SECONDS", 600, { min: 10, max: 86_400 });
+
+/**
+ * A paused run must end before the sandbox's own hard lifetime, which cannot
+ * fire while `docker pause` freezes the container.
+ */
+export function validatePausedBudget(maxPausedSeconds: number, maxLifetimeSeconds: number): void {
+  if (maxPausedSeconds >= maxLifetimeSeconds) {
+    throw new Error("SIMULATION_MAX_PAUSED_SECONDS must be lower than SANDBOX_MAX_LIFETIME_SECONDS");
+  }
+}
+validatePausedBudget(simulationMaxPausedSeconds, sandboxMaxLifetimeSeconds);
+
 /** Logical warm-object floor. It never pre-creates Docker containers. */
 const logicalWarmRunnerFloor = Math.min(5, simulationMaxConcurrent);
 
@@ -593,10 +607,16 @@ export const config = {
     instanceId: parseInstanceId(process.env.UNOSIM_INSTANCE_ID),
     /**
      * Absolute wall-clock lifetime of a sandbox container, enforced inside the
-     * container so it also ends when the backend dies. Includes paused time;
-     * far above compile time plus the longest simulation timeout.
+     * container so it also ends when the backend dies; far above compile time
+     * plus the longest simulation timeout. `docker pause` freezes this clock's
+     * process, so a paused container ends on its pause budget instead.
      */
-    maxLifetimeSeconds: envInt("SANDBOX_MAX_LIFETIME_SECONDS", 7_200, { min: 900, max: 86_400 }),
+    maxLifetimeSeconds: sandboxMaxLifetimeSeconds,
+    /**
+     * Total time one run may spend paused. The backend ends a run that exceeds
+     * it, which releases its runner, admission and container.
+     */
+    maxPausedSeconds: simulationMaxPausedSeconds,
   },
 
   // ── Compilation ─────────────────────────────────────────────────
