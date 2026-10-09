@@ -4,9 +4,8 @@
 import { ProcessController, type IProcessController } from "./process-controller";
 import { mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { Logger } from "@shared/logger";
-import { getFastTmpBaseDir } from "@shared/utils/temp-paths";
+import { sandboxTempDir } from "./temp-artifact-sweep";
 import { ArduinoOutputParser as StderrParser } from "./arduino-output-parser";
 import { RegistryManager } from "./registry-manager";
 import { SimulationTimeoutManager } from "./simulation-timeout-manager";
@@ -63,7 +62,7 @@ export class SandboxRunner {
 
   constructor(options?: { tempDir?: string; processController?: IProcessController }) {
     this.processController = options?.processController ?? new ProcessController();
-    this.tempDir = options?.tempDir ?? join(getFastTmpBaseDir(), "unosim-temp");
+    this.tempDir = options?.tempDir ?? sandboxTempDir();
     this.timeoutManager = new SimulationTimeoutManager();
     this.fileBuilder = new SketchFileBuilder(this.tempDir);
     this.localCompiler = new LocalCompiler();
