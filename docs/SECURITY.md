@@ -134,6 +134,13 @@ development startup reject the flag.
 - Each WebSocket connection is limited to 500 messages per second (burst 1000);
   excess messages are dropped. At most 1 MiB of sketch input may wait in a
   sketch's stdin. Connections that miss a heartbeat pong are closed.
+- Sketch code controls the simulation's stdout and stderr. Plain runtime text
+  reaches the client at up to 50 lines per second after a burst of 200 lines
+  per run; further lines are dropped and counted, the client is told once and
+  the log reports drops aggregated (at most every 10 s), never per line. At
+  most 4 I/O-registry cycles per run are processed; the generated program
+  emits one. Compose rotates the backend log (`json-file`, 5 × 10 MB by
+  default).
 - Compilers stop after 50 errors (`-fmax-errors`) and after 8 MiB of captured
   output. At most 256 KiB of compiler diagnostics reach the client; the rest is
   reported as omitted.

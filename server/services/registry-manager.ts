@@ -48,12 +48,23 @@ interface RegistryManagerConfig {
  * It provides debouncing to minimize WebSocket traffic and change detection
  * to avoid sending duplicate registry data.
  */
+/**
+ * The generated main() emits one registry per run. Registry markers are written
+ * to stdout/stderr, which sketch code controls, so further cycles are ignored:
+ * each would otherwise send, log and persist a registry.
+ */
+export const MAX_REGISTRY_COLLECTIONS_PER_RUN = 4;
+
 export class RegistryManager {
   private registry: IOPinRecord[] = [];
   /** Runtime pin modes observed before the first IO_REGISTRY_START marker. */
   private preCollectionRegistry: IOPinRecord[] = [];
   private hasStartedCollection = false;
   private isCollecting = false;
+  private collectionsThisRun = 0;
+  /** Inside a registry cycle beyond the per-run bound; its markers are ignored. */
+  private ignoringCollection = false;
+  private ignoredRegistryCycles = 0;
   private registryHash = "";
   private debounceTimer: NodeJS.Timeout | null = null;
   private waitTimer: NodeJS.Timeout | null = null;
@@ -390,6 +401,11 @@ export class RegistryManager {
    */
   startCollection(): void {
     if (this.destroyed) return;
+    if (this.collectionsThisRun >= MAX_REGISTRY_COLLECTIONS_PER_RUN) {
+      this.ignoreCollection();
+      return;
+    }
+    this.collectionsThisRun++;
     // Collection start (not logged individually — too noisy).
     
     // ROBUSTNESS: Flush current registry state before clearing
@@ -436,6 +452,18 @@ export class RegistryManager {
     }
   }
 
+  /** Skips a registry cycle beyond the per-run bound; logs only the first one. */
+  private ignoreCollection(): void {
+    this.ignoringCollection = true;
+    this.isCollecting = false;
+    this.ignoredRegistryCycles++;
+    if (this.ignoredRegistryCycles === 1) {
+      this.logger.warn(
+        `Ignoring further I/O registry cycles of this run (bound: ${MAX_REGISTRY_COLLECTIONS_PER_RUN})`,
+      );
+    }
+  }
+
   /**
    * Detect and annotate conflicts on a single pin record in-place.
    *
@@ -455,10 +483,8 @@ export class RegistryManager {
    */
   addPin(pinRecord: IOPinRecord): void {
     if (this.destroyed) return;
-    if (!this.isCollecting) {
-      this.logger.warn("Received pin record while not collecting - ignoring");
-      return;
-    }
+    // Sketch-controlled marker outside a collection: ignored without a log per line.
+    if (!this.isCollecting) return;
     // Individual pin additions are not logged (20 per start is too noisy).
     const existingIndex = this.registry.findIndex((p) => p.pin === pinRecord.pin);
     if (existingIndex >= 0) {
@@ -501,6 +527,10 @@ export class RegistryManager {
    */
   finishCollection(): void {
     if (this.destroyed) return;
+    if (this.ignoringCollection) {
+      this.ignoringCollection = false;
+      return;
+    }
     this.logger.debug(
       `Registry collection complete: ${this.registry.length} pins`,
     );
@@ -720,6 +750,9 @@ export class RegistryManager {
    * Reset the manager state (called when simulation stops)
    */
   reset(): void {
+    this.collectionsThisRun = 0;
+    this.ignoringCollection = false;
+    this.ignoredRegistryCycles = 0;
     this.registry = [];
     this.preCollectionRegistry = [];
     this.hasStartedCollection = false;

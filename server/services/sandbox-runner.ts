@@ -21,6 +21,7 @@ import { StreamHandler } from "./sandbox/stream-handler";
 import { FilesystemHelper } from "./sandbox/filesystem-helper";
 import { ExecutionManager, type ExecutionState, SimulationState, SANDBOX_CONFIG } from "./sandbox/execution-manager";
 import { cleanupExecutionContainer, flushMessageQueue } from "./sandbox/execution-phases/cleanup-phase";
+import { delegateParsedLineToStreamHandler } from "./sandbox/execution-phases/stream-phase";
 import { config } from "../config";
 
 export class SandboxRunner {
@@ -89,21 +90,11 @@ export class SandboxRunner {
       this.processController,
       stderrParser,
       this.timeoutManager,
-      (parsed, callbacks) => {
-        // Delegate parsed line to stream handler
-        if (this.executionState) {
-          const streamState = {
-            pinStateBatcher: this.executionState.pinStateBatcher,
-            serialOutputBatcher: this.executionState.serialOutputBatcher,
-            backpressurePaused: this.executionState.backpressurePaused,
-            isPaused: this.executionState.state === SimulationState.PAUSED,
-            baudrate: this.executionState.baudrate,
-            registryManager: this.registryManager,
-          };
-          this.streamHandler.handleParsedLine(parsed, streamState, callbacks);
-          this.executionState.backpressurePaused = streamState.backpressurePaused;
-        }
-      },
+      // Same routing (and run budget) as the local path.
+      (parsed, callbacks) => delegateParsedLineToStreamHandler(parsed, this.executionState, callbacks, {
+        registryManager: this.registryManager,
+        streamHandler: this.streamHandler,
+      }),
       () => { this.executionState.terminationRequested = true; },
     );
     this.streamHandler = new StreamHandler(this.processController);

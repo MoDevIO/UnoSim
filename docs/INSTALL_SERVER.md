@@ -141,6 +141,7 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 | `UNOSIM_GITHUB_TOKEN` | optionaler Read-only-Token nur für `api.github.com` (Ref-Auflösung der Kursinhalte); ohne Token gilt das GitHub-Limit von 60 Abfragen pro Stunde und Server-IP |
+| `UNOSIM_LOG_MAX_SIZE`, `UNOSIM_LOG_MAX_FILE` | Rotation des Backend-Logs (Docker `json-file`); Standard `10m` je Datei und `5` Dateien |
 | `WS_HEARTBEAT_INTERVAL_MS` | Ping-Intervall der WebSocket-Verbindungen; eine Verbindung ohne Antwort auf den vorherigen Ping wird getrennt und gibt ihre Simulation frei; Standard `30000` ms |
 
 Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem

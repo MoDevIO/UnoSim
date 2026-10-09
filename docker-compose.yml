@@ -11,6 +11,12 @@ services:
     # Longer than the backend's 10 s internal shutdown deadline, so Docker
     # never SIGKILLs the backend while it removes its sandbox containers.
     stop_grace_period: 15s
+    # Bounded on-disk log: Docker's json-file default keeps every line forever.
+    logging:
+      driver: json-file
+      options:
+        max-size: "${UNOSIM_LOG_MAX_SIZE:-10m}"
+        max-file: "${UNOSIM_LOG_MAX_FILE:-5}"
     group_add:
       - "${DOCKER_GID:?Set DOCKER_GID to the numeric GID of /var/run/docker.sock}"
     environment:

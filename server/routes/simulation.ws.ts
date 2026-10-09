@@ -326,8 +326,10 @@ export function registerSimulationWebSocket(
       outputBuffer.sendSerialOutputBatched(ws, line, isComplete);
     };
 
+    // Runtime diagnostics are sketch-controlled and already bounded per run;
+    // a log entry per line would let a sketch flood the backend log.
     const onError = (err: string) => {
-      logger.warn(`[Client WS][ERR] diagnostic received (${Buffer.byteLength(err)} bytes)`);
+      logger.debug(`[Client WS][ERR] diagnostic received (${Buffer.byteLength(err)} bytes)`);
       outputBuffer.flushSerialOutputBuffer(ws);
       sendMessageToClient(ws, {
         type: WSMessageType.SERIAL_OUTPUT,
