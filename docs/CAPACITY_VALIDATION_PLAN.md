@@ -304,6 +304,23 @@ Findings:
 - The CPU-bound characterization (about 1.3% host CPU per simulation) was not
   repeated; it is not affected by the code changes since then.
 
+### Dell host prerequisite for re-runs
+
+The Dell measurements run inside the NixOS systemd-nspawn container `tom`,
+with Docker inside that container. runc needs BPF to set up device cgroups, so
+the outer host must start `tom` with:
+
+    extraFlags = [ "--system-call-filter=bpf" ];
+
+Without it every `docker run` fails with exit code 125 and
+`bpf_prog_query(BPF_CGROUP_DEVICE) failed: operation not permitted`; the
+backend reports this as a sandbox build failure. On 2026-10-09 the flag was
+active only through `nixos-rebuild test` from a separate test flake
+(`/root/nixos-tom-bpf-test` on the outer host). That flake is not the outer
+host's full production configuration, so it must not be activated with
+`nixos-rebuild switch`; the flag belongs in the host's own configuration. The
+next reboot of the outer host removes it until then.
+
 ## Secondary Mac comparison
 
 A short comparison used a MacBook Pro M2 Pro (10 CPU cores, 32 GiB RAM) with
