@@ -23,6 +23,7 @@ const serializedHttpUnitTests = [
   "tests/server/cache-optimization.test.ts",
   "tests/server/cli-label-isolation.test.ts",
   "tests/server/dev-entrypoint.test.ts",
+  "tests/server/ubuntu-vbox-installer-readiness.test.ts",
   "tests/server/routes/compiler.routes.test.ts",
   "tests/server/routes/compiler-binary-payload.test.ts",
   "tests/server/routes/api-rate-limit-key.test.ts",

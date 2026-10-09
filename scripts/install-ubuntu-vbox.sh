@@ -188,7 +188,7 @@ printf 'Starte den UnoSim-Backenddienst …\n'
 sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" up -d --no-build unosim-backend
 
 printf 'Warte auf die Backend-Readiness …\n'
-BACKEND_READINESS="$(curl --retry 10 --retry-connrefused --retry-delay 2 --fail --silent --show-error \
+BACKEND_READINESS="$(curl --retry 10 --retry-connrefused --retry-all-errors --retry-delay 2 --fail --silent --show-error \
   http://127.0.0.1:3000/api/readiness)" || {
   sudo env PWD="$PROJECT_DIR" docker compose --project-directory "$PROJECT_DIR" logs --tail 80 unosim-backend >&2 || true
   fail 'Der Backenddienst wurde gestartet, meldet aber keine Readiness. Prüfe die Compose-Logs.'
@@ -239,7 +239,7 @@ else
 fi
 
 printf 'Prüfe HTTPS-Gateway und Proxy …\n'
-GATEWAY_READINESS="$(curl --retry 10 --retry-connrefused --retry-delay 2 --fail --silent --show-error \
+GATEWAY_READINESS="$(curl --retry 10 --retry-connrefused --retry-all-errors --retry-delay 2 --fail --silent --show-error \
   --insecure --resolve 'unosim.vbox:443:127.0.0.1' \
   https://unosim.vbox/api/readiness)" || fail 'Nginx ist aktiv, aber die Readiness-Prüfung über HTTPS ist fehlgeschlagen.'
 printf 'Gateway-Readiness: %s\n' "$GATEWAY_READINESS"
