@@ -42,6 +42,9 @@ export class SandboxRunner {
 
   private controlCompletion?: Promise<boolean>;
   private controlPending = false;
+  /** Total time one run may spend paused before the runner ends it. */
+  private readonly maxPausedMs: number;
+  private pauseBudgetTimer: NodeJS.Timeout | null = null;
 
   /** Completion of the last accepted control; Stop never waits for it. */
   get controlResult(): Promise<boolean> | undefined {
@@ -60,8 +63,9 @@ export class SandboxRunner {
   private get state(): SimulationState { return this.executionState?.state ?? SimulationState.STOPPED; }
   private set state(v: SimulationState | string) { this.executionState.state = v as SimulationState; }
 
-  constructor(options?: { tempDir?: string; processController?: IProcessController }) {
+  constructor(options?: { tempDir?: string; processController?: IProcessController; maxPausedMs?: number }) {
     this.processController = options?.processController ?? new ProcessController();
+    this.maxPausedMs = options?.maxPausedMs ?? config.sandbox.maxPausedSeconds * 1_000;
     this.tempDir = options?.tempDir ?? sandboxTempDir();
     this.timeoutManager = new SimulationTimeoutManager();
     this.fileBuilder = new SketchFileBuilder(this.tempDir);
@@ -330,7 +334,37 @@ export class SandboxRunner {
     if (!s.processKilled) this.processController.writeStdin("[[PAUSE_TIME]]\n");
     s.pauseStartTime = Date.now();
     this.registryManager.markPauseTime(s.pauseStartTime);
+    this.startPauseBudget();
     this.logger.info("Simulation paused");
+  }
+
+  /**
+   * The paused time of all pauses of a run is bounded: a paused run keeps its
+   * runner, admission and (frozen) container, and `docker pause` also freezes
+   * the sandbox's own hard lifetime.
+   */
+  private startPauseBudget(): void {
+    this.clearPauseBudget();
+    const remainingMs = Math.max(0, this.maxPausedMs - this.executionState.totalPausedTime);
+    this.pauseBudgetTimer = setTimeout(() => this.endPausedRun(), remainingMs);
+    this.pauseBudgetTimer.unref?.();
+  }
+
+  private clearPauseBudget(): void {
+    if (this.pauseBudgetTimer) clearTimeout(this.pauseBudgetTimer);
+    this.pauseBudgetTimer = null;
+  }
+
+  /** Ends the run like the runtime timeout does: its exit releases the session. */
+  private endPausedRun(): void {
+    this.pauseBudgetTimer = null;
+    const s = this.executionState;
+    if (this.state !== SimulationState.PAUSED || s.processKilled || s.terminationRequested) return;
+    const limitSeconds = Math.round(this.maxPausedMs / 1_000);
+    this.logger.info(`Paused run exceeded its pause budget of ${limitSeconds}s; ending it`);
+    s.onOutputCallback?.(`--- Simulation stopped: paused longer than ${limitSeconds} s ---`, true);
+    s.terminationRequested = true;
+    this.processController.kill("SIGKILL");
   }
 
   pause(): boolean {
@@ -347,6 +381,7 @@ export class SandboxRunner {
 
   private commitResume(): void {
     const s = this.executionState;
+    this.clearPauseBudget();
     const pauseDuration = Date.now() - (this.pauseStartTime ?? Date.now());
     s.totalPausedTime += pauseDuration;
     if (!s.processKilled) this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
@@ -413,6 +448,7 @@ export class SandboxRunner {
     // Cancels a run that is still preparing or waiting for a start slot.
     s.runAbort?.abort();
     this.controlPending = false;
+    this.clearPauseBudget();
     if (this.state === SimulationState.STOPPED || s.processKilled) {
       await this.cleanupDockerContainer(s.currentContainerName);
       return;
@@ -483,6 +519,7 @@ export class SandboxRunner {
     s.runAbort?.abort();
     this.controlPending = false;
     this.controlCompletion = undefined;
+    this.clearPauseBudget();
     if (s.currentContainerName) {
       await this.cleanupDockerContainer(s.currentContainerName);
       if (s.currentContainerName) throw new Error(`Docker cleanup unconfirmed for ${s.currentContainerName}`);

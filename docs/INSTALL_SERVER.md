@@ -103,9 +103,13 @@ die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
   geordneten Shutdowns entfernt der Server die Container dieses Owners, auch
   nach Absturz oder Redeploy mit neuem Backend-Container. Gleichzeitig laufende
   Backends auf demselben Docker-Host brauchen verschiedene IDs.
-- Jede Sandbox endet spätestens nach `SANDBOX_MAX_LIFETIME_SECONDS`
-  (Standard 7200 s, Wanduhrzeit inklusive Pausen), auch wenn das Backend nicht
-  mehr läuft.
+- Jede laufende Sandbox endet spätestens nach `SANDBOX_MAX_LIFETIME_SECONDS`
+  (Standard 7200 s Wanduhrzeit), auch wenn das Backend nicht mehr läuft.
+  `docker pause` friert auch diesen Timer ein; pausierte Läufe begrenzt
+  deshalb das Backend: Ein Lauf darf insgesamt höchstens
+  `SIMULATION_MAX_PAUSED_SECONDS` (Standard 600 s, stets kleiner als die harte
+  Lebensdauer) pausiert sein, danach wird er beendet und gibt Runner, Admission
+  und Container frei.
 
 Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
 sein.
@@ -147,6 +151,7 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 | `UNOSIM_GITHUB_TOKEN` | optionaler Read-only-Token nur für `api.github.com` (Ref-Auflösung der Kursinhalte); ohne Token gilt das GitHub-Limit von 60 Abfragen pro Stunde und Server-IP |
 | `UNOSIM_LOG_MAX_SIZE`, `UNOSIM_LOG_MAX_FILE` | Rotation des Backend-Logs (Docker `json-file`); Standard `10m` je Datei und `5` Dateien |
+| `SIMULATION_MAX_PAUSED_SECONDS` | maximale Gesamtpausenzeit eines Simulationslaufs; danach wird er beendet und gibt seine Kapazität frei; Standard `600`, muss kleiner als `SANDBOX_MAX_LIFETIME_SECONDS` sein |
 | `WS_HEARTBEAT_INTERVAL_MS` | Ping-Intervall der WebSocket-Verbindungen; eine Verbindung ohne Antwort auf den vorherigen Ping wird getrennt und gibt ihre Simulation frei; Standard `30000` ms |
 
 Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem

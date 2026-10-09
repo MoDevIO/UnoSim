@@ -59,6 +59,8 @@ services:
       # measured on its reference VM. See docs/CAPACITY_VALIDATION_PLAN.md before raising.
       - SIMULATION_ADMISSION_MAX=${SIMULATION_ADMISSION_MAX:-25}
       - SIMULATION_MAX_CONCURRENT=200
+      # Total paused time of one run; a paused run still holds its capacity.
+      - SIMULATION_MAX_PAUSED_SECONDS=${SIMULATION_MAX_PAUSED_SECONDS:-600}
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
       # Per-sandbox Docker resource limits
       # ┌─ Scenario breakdown ────────────────────────────────────────────────────┐

@@ -90,9 +90,14 @@ Every sandbox container carries the label `unosim.owner`: `instance.<id>` when
 removes the containers of its owner, so a crashed or redeployed backend of the
 same deployment cleans up its predecessor's sandboxes; containers of other
 owners are not touched. Concurrently running backends must use distinct IDs.
-Independently of the backend, every sandbox runs under
+Independently of the backend, every running sandbox runs under
 `timeout --signal=KILL` and ends after `SANDBOX_MAX_LIFETIME_SECONDS` (default
-7200 s wall clock, including paused time).
+7200 s wall clock). `docker pause` freezes that timer's process too, so a
+paused sandbox is bounded by the backend instead: the paused time of a run is
+limited to `SIMULATION_MAX_PAUSED_SECONDS` (default 600 s, always below the
+hard lifetime); then the run ends and its runner, admission and container are
+released. A paused container left by a crashed backend is removed by the next
+start's owner sweep.
 
 ## Compile boundary
 

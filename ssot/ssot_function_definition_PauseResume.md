@@ -57,7 +57,7 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 **Gültige Übergänge:**
 - `RUNNING` → `PAUSED` (nur via Pause-Button möglich)
 - `PAUSED` → `RUNNING` (nur via Resume-Button möglich)
-- `PAUSED` → `STOPPED` (nur via Stop-Button möglich)
+- `PAUSED` → `STOPPED` (via Stop-Button oder serverseitig nach Ablauf des Pausenbudgets, siehe 7.2)
 - `RUNNING` → `STOPPED` (Code-Änderung oder Stop-Button)
 
 ---
@@ -187,6 +187,16 @@ Sketch: Erhält neuen Wert (wird beim Resume berücksichtigt)
 Beim Start der Simulation wird ein Execution-Timeout geplant. Beim Pausieren wird die verbleibende Restzeit bis zum Timeout berechnet und gespeichert; der aktive Timeout-Timer wird gelöscht. Während der Pause läuft der Execution-Timeout daher nicht weiter.
 
 Beim Fortsetzen wird ein neuer Timeout-Timer mit der gespeicherten Restzeit gestartet. Die reale Dauer der Pause zählt nicht gegen das Simulations-Timeout. Für Benutzer bedeutet das: Eine Simulation, die z. B. nach 50 von 60 Sekunden pausiert wird, hat nach Resume weiterhin etwa 10 Sekunden Restlaufzeit.
+
+### 7.2 Pausenbudget
+
+Ein pausierter Lauf belegt weiterhin Simulationskapazität (Runner, Admission und den eingefrorenen Sandbox-Container). Die Pausenzeit aller Pausen eines Laufs ist deshalb insgesamt auf `SIMULATION_MAX_PAUSED_SECONDS` begrenzt (Standard 600 s). Ist das Budget während einer Pause aufgebraucht, beendet der Server den Lauf wie bei einem Timeout:
+
+1. Ausgabe `--- Simulation stopped: paused longer than <N> s ---`
+2. Prozess bzw. Container wird beendet und entfernt; Runner und Admission werden freigegeben
+3. Nachricht an den Client: `{ "type": "simulation_status", "status": "stopped" }`
+
+Das Budget gehört zum Lauf, nicht zur einzelnen Pause; ein neuer Start beginnt mit vollem Budget.
 
 ---
 
@@ -411,6 +421,7 @@ useEffect(() => {
 **Stress-Tests:**
 - Schnelle Pause/Resume-Zyklen
 - Pause länger als Original-Timeout
+- Pause länger als das Pausenbudget (Lauf endet, Kapazität wird frei; auch mit echtem pausiertem Docker-Container)
 - Serielle Eingaben versuchen während Pause (werden abgelehnt)
 
 ---
