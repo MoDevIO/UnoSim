@@ -259,12 +259,50 @@ above must be read; the results themselves stand.
   i9-10900T gains start throughput from more start slots instead (wait p95
   20.5 s at 8 slots, 8.8 s at 16, 4.3 s at 32 for a 50-burst).
 
+### Delta check on current `main` (2026-10-09)
+
 The historical measurements predate the current `main` (fair start-slot
-sharing, read-only sandbox root, hard container lifetime). A delta check on
-current `main` could not run on 2026-10-09 because Docker inside the Dell's
-systemd-nspawn container could not start containers
-(`bpf_prog_query(BPF_CGROUP_DEVICE)` denied); the temporary
-`--system-call-filter=bpf` setting used for the campaign was no longer active.
+sharing, read-only sandbox root, hard container lifetime). A delta check at
+`2016bc73` repeated the Ubuntu/VBox method on the Dell: a fresh owned test-mode
+backend per run, `delay()` sketch, 0.25 CPU / 256 MiB per sandbox, 8 start
+slots, `SANDBOX_START_SLOT_TIMEOUT_MS=30000`, 8 compile workers and
+`COMPILE_MAX_CONCURRENT=8`, `/api/health` and backend RSS sampled every
+0.5 s. One run per scenario; the two 80-bursts below the line were targeted
+follow-ups.
+
+| Scenario | Success | Start p95 | Host CPU p95 / max | RAM available min | `/api/health` p95 | Backend RSS max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 30 burst | 100% | 17.2 s | 16% / 16% | 24.8 GiB | 36 ms | 1.4 GiB |
+| 30 staggered over 20 s | 100% | 4.7 s | 14% / 14% | 25.1 GiB | 8 ms | 1.4 GiB |
+| 40 staggered over 20 s | 100% | 5.6 s | 18% / 19% | 24.8 GiB | 40 ms | 1.7 GiB |
+| 40 burst | 100% | 21.6 s | 17% / 20% | 24.8 GiB | 7 ms | 1.7 GiB |
+| 60 burst, held 90 s | 100% | 34.5 s | 18% / 29% | 24.2 GiB | 53 ms | 2.4 GiB |
+| 80 burst, held 90 s | 64/80 | 34.9 s | 19% / 45% | 24.1 GiB | 53 ms | 2.5 GiB |
+| 80 burst, start-slot timeout 43 s | 100% | 43.3 s | 22% / 47% | 24.1 GiB | 73 ms | 3.0 GiB |
+| 80 burst, 16 start slots | 100% | 24.5 s | 33% / 59% | 23.2 GiB | 78 ms | 3.0 GiB |
+
+All runs reached the expected Docker peak by lifecycle events and polling and
+ended quiescent without leftover containers. The 16 failures in the plain
+80-burst were all start-slot timeouts at about 31.8 s: 8 slots started only 64
+sandboxes within 30 s (about 2.1 per second).
+
+Findings:
+
+- **The first limit on the Dell is the start pipeline, not CPU, RAM or
+  backend responsiveness.** A single start takes about 4.4 s (VBox: about
+  2.7 s). At 80 simulations `/api/health` p95 stays below 80 ms (VBox: about
+  1.2 s) and at least 23 GiB remain available.
+- With the production default of 30 s, 8 start slots carry a synchronous burst
+  of about 60 subjects; staggered arrivals never wait. The historical
+  calibration's `SANDBOX_START_SLOT_TIMEOUT_MS=43000` carries an 80-burst, but
+  with a start-slot wait p95 of 37 s it has little margin. 16 start slots
+  double the start rate and stay well within 30 s at 59% host CPU max.
+- The historical recommendation of 50 active / 8 start slots / 200 admissions
+  with a 43 s start-slot timeout remains plausible: at most 50 starts compete
+  for the 8 slots, which takes about 25 s. The queue-timeout result stays
+  infeasible for a 240 s UX ceiling. No full recalibration is needed.
+- The CPU-bound characterization (about 1.3% host CPU per simulation) was not
+  repeated; it is not affected by the code changes since then.
 
 ## Secondary Mac comparison
 

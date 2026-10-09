@@ -31,6 +31,12 @@ Docker peak of 80, a polling peak of 80, and complete cleanup without
 OOM, backend, Docker, or marker/parser errors. The CPU p95 value for N80 is
 not stated because the retained result did not include it.
 
+That run used 80 sandbox-start slots. On current `main` with 8 start slots
+and the 30 s start-slot timeout, a synchronous 80-burst started only 64; the
+rest timed out waiting for a start slot. A 43 s timeout or 16 start slots
+brought it back to 80/80. See the 2026-10-09 delta check in
+CAPACITY_VALIDATION_PLAN.md.
+
 ## Dell classroom validation
 
 The successful classroom run used 70 active simulations, 20 sandbox-start
