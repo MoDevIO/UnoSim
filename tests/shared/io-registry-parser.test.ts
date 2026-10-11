@@ -2,7 +2,7 @@
  * io-registry-parser.test.ts
  *
  * Unit tests for parseStaticIORegistry() covering all 11 test cases defined
- * in ssot_io-registry.md.
+ * in ssot_function_definition_IoRegistry.md.
  *
  * TC  1 – literal pin + literal mode (pinMode)
  * TC  2 – A0 alias → pinId 14, digitalRead column

@@ -197,7 +197,7 @@ fixtures and authoring examples only. The normative details are in
 [adr/0007-mastery-driven-tutor-progression.md](adr/0007-mastery-driven-tutor-progression.md),
 [ssot_function_definition_LearningQuestions.md](../ssot/ssot_function_definition_LearningQuestions.md),
 and the deterministic quality gates in
-[ssot_function_definition_TutorQuality.md](../ssot/ssot_function_definition_TutorQuality.md).
+[ssot_function_definition_TutorQualityGates.md](../ssot/ssot_function_definition_TutorQualityGates.md).
 
 ### Dynamic Course Content selection
 

@@ -64,4 +64,6 @@ in der Git-Historie.
 
 Dateien im Wurzelverzeichnis heißen `THEMA_INHALT.md` in Großbuchstaben. Das
 Präfix gruppiert zusammengehörige Dokumente (`INSTALL_`, `CAPACITY_`). ADRs
-liegen unter `adr/` als `NNNN-titel.md`.
+liegen unter `adr/` als `NNNN-titel.md`. Fachliche SSOTs unter `../ssot/`
+heißen `ssot_function_definition_<Thema>.md` mit `<Thema>` in PascalCase;
+nur die Agenten-Policy heißt `ssot_agent_policy.md`.
