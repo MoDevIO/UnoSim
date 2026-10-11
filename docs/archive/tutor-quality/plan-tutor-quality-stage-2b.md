@@ -12,7 +12,7 @@
 
 **Tech Stack:** TypeScript/ESM, Node 24.20.0 from .nvmrc, existing yaml and zod dependencies, existing TutorService/LLMProvider/KiconnectProvider boundary, Vitest, tsx, and an optional workflow_dispatch-only GitHub Actions workflow.
 
-**Spec:** docs/archive/tutor-quality/ssot_function_definition_TutorQualityStage2B.md (normative at the time); the former Stage-2A SSOT (removed in PR D; superseded by ssot/ssot_function_definition_TutorQualityEvaluation.md) and ssot/ssot_function_definition_TutorQuality.md were authoritative within their scopes at the time.
+**Spec:** docs/archive/tutor-quality/ssot_function_definition_TutorQualityStage2B.md (normative at the time); the former Stage-2A SSOT (removed in PR D; superseded by ssot/ssot_function_definition_TutorQualityEvaluation.md) and ssot/ssot_function_definition_TutorQualityGates.md were authoritative within their scopes at the time.
 
 This plan follows the existing repository convention at docs/archive/tutor-quality/plan-tutor-quality-stage-2a.md. It is non-normative; where it conflicts with the Stage-2B SSOT, the SSOT wins. The implementation branch starts from 68d2703f3513762b521284718f0b5c0b6a4a5de8 and is docs/tutor-quality-stage-2b-implementation-plan.
 

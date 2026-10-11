@@ -1,4 +1,4 @@
-# Textbeschreibung:
+# Hybrid-I/O-Registry – Single Source of Truth
 
 Status: current  
 Zielrolle: feature-contract  

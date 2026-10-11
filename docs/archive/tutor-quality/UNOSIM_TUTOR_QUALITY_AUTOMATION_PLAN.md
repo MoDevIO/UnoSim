@@ -300,7 +300,7 @@ Gates grün.
 3. `docs/tutor-quality-stage-2a.md`: Bedienteil (lokaler Lauf, Workflow) als
    kurzer Abschnitt „Running an evaluation“ in die Evaluation-SSOT oder ein
    Runbook übernehmen; Datei löschen oder als Stub umleiten.
-4. `ssot/ssot_function_definition_TutorQuality.md` §7: auf die Evaluation-SSOT
+4. `ssot/ssot_function_definition_TutorQualityGates.md` §7: auf die Evaluation-SSOT
    verweisen (der Hinweis ist bereits gesetzt; Wortlaut prüfen).
 5. Historische Pläne: Kopfzeilen prüfen (bereits gesetzt, siehe Abschnitt 4).
 6. `docs/archive/tutor-quality/tutor-quality-judge-smoke-2026-10-01.md`: Kopfzeile mit Verweis auf
