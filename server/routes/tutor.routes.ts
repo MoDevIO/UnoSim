@@ -144,7 +144,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     try {
       const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore, signal);
       if (signal.aborted) return;
-      if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
+      if (res.headersSent) return;
       const generated = await service.generateQuestion(
         parsed.data.code,
         parsed.data.credential,
@@ -212,7 +212,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
     try {
       const content = await resolveTutorContent(req, res, parsed.data.courseContent, parsed.data.courseContentSession, deps.courseContent, sessionStore, signal);
       if (signal.aborted) return;
-      if ((parsed.data.courseContent !== undefined || parsed.data.courseContentSession !== undefined) && !content) return;
+      if (res.headersSent) return;
       const generated = await service.generateDialogResponse(
         parsed.data.code,
         parsed.data.history,
@@ -262,6 +262,10 @@ function commitTutorSession(content: TutorRequestContent | undefined, sessions: 
   return content.session ?? sessions.commit(content.identity, content.content);
 }
 
+/**
+ * Returns undefined for the free Tutor, or after an error response was sent;
+ * callers tell both apart by `res.headersSent`.
+ */
 async function resolveTutorContent(
   req: Request,
   res: Response,
@@ -302,6 +306,10 @@ async function resolveTutorContent(
     resolved = await resolver.resolveTutorContent(request, context);
   } catch (error) {
     if (signal.aborted) return undefined;
+    if (isSnapshotUnavailable(error)) {
+      // Course Content SSOT 11, case G: without the current revision the free Tutor answers.
+      return undefined;
+    }
     if (isStaleCourseContent(error)) {
       // The example's revision is neither a validated snapshot of its selection nor the current one.
       responseError(res, 409, "COURSE_CONTENT_STALE", "Der Kursinhalt wurde aktualisiert. Bitte das Beispiel neu laden.");
@@ -312,6 +320,11 @@ async function resolveTutorContent(
   }
   if (signal.aborted) return undefined;
   return { identity, content: prepareTutorCourseContentSession(resolved) };
+}
+
+function isSnapshotUnavailable(error: unknown): boolean {
+  return error instanceof ExamplesError
+    && (error.code === "SOURCE_UNAVAILABLE" || error.code === "RATE_LIMITED" || error.code === "LOAD_CAPACITY_EXCEEDED");
 }
 
 function isStaleCourseContent(error: unknown): boolean {
