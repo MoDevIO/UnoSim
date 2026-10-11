@@ -1,7 +1,7 @@
 # Tutor Quality – L3-Lauf Antwortbewertungsrahmen (Prompt v3)
 
 Status: Auswertung, **nicht normativ**. Prüft die in
-`docs/tutor-quality-answer-evaluation-analysis-2026-10-03.md` §7 vorab
+`docs/archive/tutor-quality/tutor-quality-answer-evaluation-analysis-2026-10-03.md` §7 vorab
 festgelegten Hypothesen H1–H5 für den Stack #141 (Prompt v2) und #142
 (Prompt v3). Normativ sind `ssot/ssot_function_definition_TutorQualityEvaluation.md`
 und `ssot/ssot_function_definition_LearningQuestions.md`. Rohartefakte liegen

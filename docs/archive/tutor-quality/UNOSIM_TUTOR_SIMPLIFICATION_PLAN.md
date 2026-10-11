@@ -1,9 +1,9 @@
 # UnoSim – Umsetzungsplan zur Vereinfachung von Tutor und Tutor Quality
 
-> **HISTORICAL / SUPERSEDED (2026-10-02).** Dieser Plan ist abgeschlossen bzw. überholt und keine Arbeitsgrundlage mehr. Aktueller Plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normativ: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
+> **HISTORICAL / SUPERSEDED (2026-10-02).** Dieser Plan ist abgeschlossen bzw. überholt und keine Arbeitsgrundlage mehr. Aktueller Plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normativ: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
 
 Stand: 2026-09-29
-Grundlage: `docs/UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md`
+Grundlage: `docs/archive/refactoring/ARCHITECTURE_HEALTH_REVIEW.md`
 Geprüft gegen:
 
 - `main` @ `59686397817e6dba123374590e00c750d0e41200`
@@ -353,7 +353,7 @@ zurückholen · **REMOVE** entfernen ohne Rückholabsicht.
 4. **Nach Gate G1:** Branch mit einem Tag archivieren
    (z. B. `archive/stage-2b-pr2-protocol-a`) und den offenen PR mit Verweis auf
    diesen Plan und die Messergebnisse schließen.
-5. **Der offene Stage-2B-Plan** (`docs/plan-tutor-quality-stage-2b.md`, PR 2–6) wird
+5. **Der offene Stage-2B-Plan** (`docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md`, PR 2–6) wird
    in Phase 2 durch einen kurzen Verweis auf diesen Plan ersetzt (siehe 6, PR 2.4).
 
 ---
@@ -466,7 +466,7 @@ Stage-2B-Bibliothek ist von `main` entfernt.
 | **2.1 Strategie-Fälle** | Fixture `progression-deepen` in `anchor-course-content.ts`; je **2–3 Szenarien** für LEARN, DEEPEN und EXPAND mit `judge`-Block. Kriterien pro Phase (Beispiele, final im PR): **LEARN:** Rating passt zur Antwortqualität, Feedback ohne Komplettlösung, bei schwacher Antwort Hinweis bzw. diagnostische Frage gemäß `hintFirst`. **DEEPEN:** Folgefrage verlangt Anwendung oder Transfer auf dasselbe Topic und fragt kein bereits Beherrschtes erneut ab. **EXPAND:** Frage zielt auf eine eigene, am Sketch prüfbare Erweiterung, bezieht sich auf das Expansion-Ziel und liefert keinen Ersatzcode. Deterministische `expected.learningPhase` bleibt für jedes Szenario gesetzt | `anchor-course-content.ts`, `anchor-corpus.yaml`, ggf. 1–2 neue `.ino`-Fixtures | KEEP + Daten | +60 / +40 |
 | **2.2 Stage 2B entfernen** | Alle Dateien aus 4.4 mit REMOVE/DEFER löschen; `semantic-corpus.yaml` löschen (TQ-SEM-001 ist seit 1.3 migriert); Re-Export `semantic-canonical.ts` entfernen; knip bleibt grün | `server/services/tutor/evaluation/semantic/**`, `tests/…/semantic/**`, `evals/tutor-quality/semantic-corpus.yaml`, `semantic-case-review-matrix.md` | REMOVE/DEFER | −1.206 / −868 |
 | **2.3 Stage-2A-Runner entschlacken** | `real-provider-evaluation.ts`: Artifact-I/O nach `report.ts`, Rates/`byScenario`-Aggregation durch einfache Zähler ersetzen, No-op-Block entfernen, Typen straffen; Verhalten der Checks unverändert | `real-provider-evaluation.ts`, `report.ts`, zugehörige Tests | SIMPLIFY | −500 bis −650 / −80 bis −120 |
-| **2.4 Doku zurückschneiden** | `ssot/ssot_function_definition_TutorQualityStage2B.md` (1.285 Z.) auf „Stage 2B Core“ (≈150–250 Z.) kürzen: Ziel, Datenmodell, Judge-Protokoll nach G1, Evidence-Grenzen, Statusmodell, Report. Ein Abschnitt „Deferred“ verweist auf diesen Plan. `docs/plan-tutor-quality-stage-2b.md` durch einen kurzen Hinweis ersetzen. `docs/tutor-quality-stage-2a.md` um Judge-Nutzung ergänzen | `ssot/…Stage2B.md`, `docs/plan-tutor-quality-stage-2b.md`, `docs/tutor-quality-stage-2a.md` | SIMPLIFY | Doku ≈ −1.500 Zeilen |
+| **2.4 Doku zurückschneiden** | `docs/archive/tutor-quality/ssot_function_definition_TutorQualityStage2B.md` (1.285 Z.) auf „Stage 2B Core“ (≈150–250 Z.) kürzen: Ziel, Datenmodell, Judge-Protokoll nach G1, Evidence-Grenzen, Statusmodell, Report. Ein Abschnitt „Deferred“ verweist auf diesen Plan. `docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md` durch einen kurzen Hinweis ersetzen. `docs/tutor-quality-stage-2a.md` um Judge-Nutzung ergänzen | `ssot/…Stage2B.md`, `docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md`, `docs/tutor-quality-stage-2a.md` | SIMPLIFY | Doku ≈ −1.500 Zeilen |
 
 **Abhängigkeiten:** Phase 1 abgeschlossen (G1). 2.1 ist unabhängig von 2.2 und 2.3.
 2.2 vor 2.3, weil 2.3 dann keine Stage-2B-Importe mehr berücksichtigen muss. 2.4

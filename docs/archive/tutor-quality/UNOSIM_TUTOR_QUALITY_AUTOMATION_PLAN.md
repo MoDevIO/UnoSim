@@ -4,9 +4,9 @@ Stand: 2026-10-02
 Status: ausführbarer Plan, **nicht normativ**. Normativ ist
 `ssot/ssot_function_definition_TutorQualityEvaluation.md` (im Folgenden
 „Evaluation-SSOT“, Regeln als `R-…`).
-Ersetzt als Arbeitsgrundlage: `docs/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`,
-`docs/plan-tutor-quality-stage-2a.md`,
-`docs/superpowers/plans/2026-09-27-tutor-quality-stage-1.md` (historisch).
+Ersetzt als Arbeitsgrundlage: `docs/archive/tutor-quality/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`,
+`docs/archive/tutor-quality/plan-tutor-quality-stage-2a.md`,
+`docs/superpowers/plans/2026-09-27-tutor-quality-stage-1.md` (gelöscht, siehe Git-Historie) (historisch).
 
 Geprüft gegen: `main` @ `c2c2940a`, lokaler Branch
 `refactor/tutor-quality-phase2-1-strategy-cases` @ `79032a3f`
@@ -19,7 +19,7 @@ Geprüft gegen: `main` @ `c2c2940a`, lokaler Branch
 **Claude Sonnet / Luna MUST read:**
 
 1. `ssot/ssot_function_definition_TutorQualityEvaluation.md`
-2. `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`
+2. `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`
 
 **before implementing any Tutor-Quality change.**
 
@@ -303,7 +303,7 @@ Gates grün.
 4. `ssot/ssot_function_definition_TutorQuality.md` §7: auf die Evaluation-SSOT
    verweisen (der Hinweis ist bereits gesetzt; Wortlaut prüfen).
 5. Historische Pläne: Kopfzeilen prüfen (bereits gesetzt, siehe Abschnitt 4).
-6. `docs/tutor-quality-judge-smoke-2026-10-01.md`: Kopfzeile mit Verweis auf
+6. `docs/archive/tutor-quality/tutor-quality-judge-smoke-2026-10-01.md`: Kopfzeile mit Verweis auf
    das Glossar der Evaluation-SSOT (Begriffe Protocol A/B, G1).
 7. `.github/workflows/tutor-quality-real-provider.yml`: Artefaktname
    `tutor-quality-stage-2a-…` → `tutor-quality-run-…`; Input-Text „leave empty
@@ -444,7 +444,7 @@ erweitern. Kein neuer Runner, kein neuer Workflow.
   damit bleiben die Wochenläufe mit diesen Daten vergleichbar.
 - **Bekannter Zustand bei Aktivierung:** Baseline und Nachlauf ergeben nach
   §12 `fail`, getragen von echten Tutor-Befunden
-  (`docs/tutor-quality-remediation-rerun-2026-10-03.md`):
+  (`docs/archive/tutor-quality/tutor-quality-remediation-rerun-2026-10-03.md`):
   `strategy-expand-observation` / `expand-observable-result` (6 / 6 Samples
   über beide Läufe) und `strategy-learn-strong-answer` mit
   `learn-feedback-grounds-sketch` (3 / 3) sowie
@@ -489,10 +489,10 @@ Nicht in A–G mischen:
 Als historisch bzw. abgelöst markiert, mit Verweis auf diesen Plan oder die
 Evaluation-SSOT:
 
-- `docs/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`
-- `docs/plan-tutor-quality-stage-2a.md`
-- `docs/superpowers/plans/2026-09-27-tutor-quality-stage-1.md`
+- `docs/archive/tutor-quality/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`
+- `docs/archive/tutor-quality/plan-tutor-quality-stage-2a.md`
+- `docs/superpowers/plans/2026-09-27-tutor-quality-stage-1.md` (gelöscht, siehe Git-Historie)
 - `ssot/ssot_function_definition_TutorQualityStage2A.md` (abgelöst; in PR D entfernt)
 - `docs/tutor-quality-stage-2a.md` (abgelöst; in PR D entfernt, Bedienteil in Appendix B der Evaluation-SSOT)
-- `ssot/ssot_function_definition_TutorQualityStage2B.md`, `docs/plan-tutor-quality-stage-2b.md`
+- `docs/archive/tutor-quality/ssot_function_definition_TutorQualityStage2B.md`, `docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md`
   (waren bereits historisch; Verweis ergänzt)

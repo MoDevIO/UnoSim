@@ -59,7 +59,7 @@ render_env() {
   printf 'UNOSIM_ALLOWED_WS_ORIGINS=%s\n' "$origins"
   printf 'UNOSIM_BIND_ADDRESS=127.0.0.1\n'
   # Measured on the reference VBox VM (8 vCPU, 11 GiB): 30 learners plus reserve for
-  # extra tabs and restarts; see docs/CAPACITY_VALIDATION_PLAN.md before changing it.
+  # extra tabs and restarts; see docs/CAPACITY_MODEL.md before changing it.
   printf 'SIMULATION_ADMISSION_MAX=%s\n' "$UNOSIM_VBOX_ADMISSION_MAX"
 }
 

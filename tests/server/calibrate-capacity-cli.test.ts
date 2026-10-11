@@ -36,7 +36,7 @@ describe("capacity calibration CLI", () => {
 
   it("is documented as a review-only workflow with stable artifact names", () => {
     const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")) as { scripts?: Record<string, string> };
-    const documentation = fs.readFileSync(path.resolve(process.cwd(), "docs/CAPACITY_VALIDATION_PLAN.md"), "utf8");
+    const documentation = fs.readFileSync(path.resolve(process.cwd(), "docs/CAPACITY_MODEL.md"), "utf8");
     expect(packageJson.scripts?.["capacity:calibrate"]).toBe("tsx scripts/calibrate-capacity.ts");
     expect(documentation).toContain("npm run capacity:calibrate -- --expected-users 200");
     expect(documentation).toContain("capacity-calibration.json");

@@ -5,7 +5,7 @@ Status: Auswertung, **nicht normativ**. Normativ ist
 lokal unter `.tutor-quality-output/freetutor-C-2026-10-07/`. Die verdeckte
 Referenzbewertung steht in `evals/tutor-quality/human-ratings/freetutor-C-2026-10-07.md`;
 sie stammt von einem LLM-Evaluator, nicht von einer Person. Vorher-Werte stehen in
-`docs/tutor-quality-freetutor-B-2026-10-07.md`.
+`docs/archive/tutor-quality/tutor-quality-freetutor-B-2026-10-07.md`.
 
 ## 1. Lauf und Vergleichsbedingungen
 

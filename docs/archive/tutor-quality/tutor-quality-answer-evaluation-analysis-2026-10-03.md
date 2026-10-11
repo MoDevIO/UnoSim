@@ -4,8 +4,8 @@ Status: Analyse und Arbeitsplan, **nicht normativ**. Normativ sind
 `ssot/ssot_function_definition_TutorQualityEvaluation.md` (Regeln `R-…`) und
 `ssot/ssot_function_definition_LearningQuestions.md`. Datengrundlage sind die
 beiden realen Läufe vom 2026-10-03:
-`docs/tutor-quality-baseline-2026-10-03.md` (im Folgenden „Baseline“, Corpus
-v5) und `docs/tutor-quality-remediation-rerun-2026-10-03.md` („Nachlauf“,
+`docs/archive/tutor-quality/tutor-quality-baseline-2026-10-03.md` (im Folgenden „Baseline“, Corpus
+v5) und `docs/archive/tutor-quality/tutor-quality-remediation-rerun-2026-10-03.md` („Nachlauf“,
 Corpus v6), jeweils `openai-gpt5.4-mini` als Tutor, `openai-gpt5.5` als Judge,
 3 Samples pro Case, Prompt-Revision `tutor-prompts-v1`. Ein geplanter
 Wochenlauf existierte bei Abschluss dieser Analyse noch nicht.

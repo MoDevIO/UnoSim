@@ -1,8 +1,8 @@
 # Tutor Quality – Neubewertung nach der Promptserie und nächster Architekturschritt
 
 Status: Analyse und Vorschlag, **nicht normativ**. Schließt die Promptserie
-v1 / v3 / v4 ab (`docs/tutor-quality-answer-frame-rerun-2026-10-03.md`,
-`docs/tutor-quality-guidance-only-rerun-2026-10-03.md`) und bewertet die
+v1 / v3 / v4 ab (`docs/archive/tutor-quality/tutor-quality-answer-frame-rerun-2026-10-03.md`,
+`docs/archive/tutor-quality/tutor-quality-guidance-only-rerun-2026-10-03.md`) und bewertet die
 verbleibenden Probleme neu. Alle Aussagen über den echten Course Content
 beziehen sich auf `MoDevIO/UnoSim-Examples` @ `2ac716f` (= `origin/main`) und
 wurden deterministisch mit dem echten `TutorService`, `CurriculumTutorAdapter`,

@@ -1,7 +1,7 @@
 # ADR 0003: Scalability and HA model
 
 - Status: Accepted for the historical Phase 3.4 envelope; current capacity
-  validation is documented in ../CAPACITY_VALIDATION_PLAN.md
+  validation is documented in ../CAPACITY_MODEL.md
 - Date: 2026-09-06
 - Owners: UnoSim maintainers and platform operators
 - Records: accepted scalability / HA decision based on the Phase 3.4 measurements
@@ -11,7 +11,7 @@
 Phase 3.4 measured UnoSim capacity with real Docker compile and simulation load.
 This ADR records that pre-refactor envelope. It must be read together with the
 current model and Dell reference measurements in
-../CAPACITY_VALIDATION_PLAN.md; the historical runner values below are not
+../CAPACITY_MODEL.md; the historical runner values below are not
 current operator settings.
 The measurement profile intentionally kept the existing production-like runner
 and resource configuration unchanged:

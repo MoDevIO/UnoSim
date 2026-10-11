@@ -4,7 +4,7 @@ Dieses Dokument bewahrt die Messung aus Phase 3.4 vor dem aktuellen
 Kapazitätsmodell. Es ist keine normative Aussage über die heutigen
 Produktionsgrenzen. Das aktuelle Modell, die aktuellen Defaults und die Dell-
 Referenzmessungen stehen in
-[CAPACITY_VALIDATION_PLAN.md](CAPACITY_VALIDATION_PLAN.md).
+[CAPACITY_MODEL.md](CAPACITY_MODEL.md).
 
 ## Gemessene Grenzen
 

@@ -180,7 +180,7 @@ then share an UnoSim identity and its limits. This
 IP-identified mode grants access to every client that can reach the proxy and
 is not user authentication. See [the deployment security contract](docs/SECURITY.md)
 and the [Docker installation guide](docs/INSTALL_SERVER.md). For a tested
-Ubuntu Desktop setup, see [README_UbuntuServer.md](README_UbuntuServer.md).
+Ubuntu Desktop setup, see [docs/INSTALL_UBUNTU_VBOX.md](docs/INSTALL_UBUNTU_VBOX.md).
 Sandbox execution remains dynamic and uses the Docker socket at runtime.
 
 If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.
@@ -211,12 +211,12 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 | `RUN_HEAVY_TESTS=1 ./run-tests.sh` | Full pipeline inklusive langsamem Parallel-Instanz-Stresstest |
 
 For host-specific Capacity sizing, use `npm run capacity:calibrate` and follow
-the review workflow in [`docs/CAPACITY_VALIDATION_PLAN.md`](docs/CAPACITY_VALIDATION_PLAN.md).
+the review workflow in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md).
 
 ### Architecture Overview
 
 - **Sandbox Runner Pool** — Manages runner leases for sketch execution. In the documented production path, each simulation runs in a short-lived isolated Docker sandbox with stdout/stderr capture for serial output and pin state reporting.
-- **Compilation Worker Pool** — In production mode, the configured Node.js Worker Thread pool handles compilations in parallel via `CompilerWithFallback`. The Compose reference uses 8 workers (the pool runs at most 8); a full pool answers `503 SYSTEM_BUSY`. Current capacity guidance is in [`docs/CAPACITY_VALIDATION_PLAN.md`](docs/CAPACITY_VALIDATION_PLAN.md); [`docs/SCALABILITY.md`](docs/SCALABILITY.md) keeps the historical measurement.
+- **Compilation Worker Pool** — In production mode, the configured Node.js Worker Thread pool handles compilations in parallel via `CompilerWithFallback`. The Compose reference uses 8 workers (the pool runs at most 8); a full pool answers `503 SYSTEM_BUSY`. Current capacity guidance is in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md); [`docs/CAPACITY_HISTORICAL_PHASE_3_4.md`](docs/CAPACITY_HISTORICAL_PHASE_3_4.md) keeps the historical measurement.
 - **WebSocket Layer** — Real-time communication between client and server for serial output, pin state batches, and simulation control (start/stop/pause/resume).
 - **SonarQube Integration** — Optional SonarQube scans are wired into the pre-push hook and `./run-tests.sh` when `SONAR_TOKEN` and a reachable SonarQube service are available. Release blocking is controlled by `REQUIRE_RELEASE_GATE=1`.
 
@@ -234,7 +234,7 @@ The repository contains a **robust, fast test pipeline**:
 3. Heavy stress tests are opt-in. Use `RUN_HEAVY_TESTS=1 ./run-tests.sh` when
    validating Docker sandbox isolation and cleanup. Load-test commands are
    listed in [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md) and capacity
-   conclusions belong in [`docs/CAPACITY_VALIDATION_PLAN.md`](docs/CAPACITY_VALIDATION_PLAN.md).
+   conclusions belong in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md).
 
 Local quick‑check example:
 

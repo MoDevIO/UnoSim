@@ -1,6 +1,6 @@
 # Tutor Quality – Real-Provider-Baseline (L3)
 
-Status: Auswertung von PR E aus `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`.
+Status: Auswertung von PR E aus `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`.
 Normativ ist `ssot/ssot_function_definition_TutorQualityEvaluation.md`
 (im Folgenden „SSOT“, Regeln als `R-…`). Dieser Bericht legt keine
 Verdict-Regel fest; Abschnitt 8 ist eine nicht-normative Empfehlung für PR F.

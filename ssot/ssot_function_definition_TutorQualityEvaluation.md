@@ -3,7 +3,7 @@
 Status: normative model for Tutor quality evaluation.
 Supersedes: the earlier execution-runner specification and the earlier
 semantic-layer design (see the historical glossary entries in §2). Implementation
-plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
+plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
 
 > **Conformance.** `main` implements this document; Appendix A records the
 > conformance status and lists no known deviation. A deviation found later is
@@ -62,7 +62,7 @@ key under §6.4.
 | *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQuality.md`. |
 | *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Its former SSOT and runbook were removed; the runbook moved to Appendix B. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
 | *Historical:* Stage 2B, Protocol A | Removed semantic layer and its non-reproducible judge protocol. Not normative. |
-| *Historical:* Protocol B, G1 | The minimal-Judge protocol and its one-time acceptance measurement (schema ≥ 95 %, evidence ≥ 90 %, repeatability ≥ 80 %), documented in `docs/tutor-quality-judge-smoke-2026-10-01.md`. G1 is bound to the Judge prompt revision it measured; it is not a runtime gate. |
+| *Historical:* Protocol B, G1 | The minimal-Judge protocol and its one-time acceptance measurement (schema ≥ 95 %, evidence ≥ 90 %, repeatability ≥ 80 %), documented in `docs/archive/tutor-quality/tutor-quality-judge-smoke-2026-10-01.md`. G1 is bound to the Judge prompt revision it measured; it is not a runtime gate. |
 
 ## 3. Architecture
 
@@ -709,8 +709,8 @@ fields requires a new schema identifier.
 ## 12. Quality verdict
 
 Evidence for this rule: the real-provider baseline
-(`docs/tutor-quality-baseline-2026-10-03.md`) and the remediation rerun of the
-repaired strategy cases (`docs/tutor-quality-remediation-rerun-2026-10-03.md`).
+(`docs/archive/tutor-quality/tutor-quality-baseline-2026-10-03.md`) and the remediation rerun of the
+repaired strategy cases (`docs/archive/tutor-quality/tutor-quality-remediation-rerun-2026-10-03.md`).
 In those runs, deterministic application violations never occurred; stable
 LLM-dependent findings recurred in 3 of 3 samples across runs; and the same
 case with byte-identical prompts showed a finding once in 1 of 3 and once in
@@ -822,7 +822,7 @@ dashboard, workflow engine, or statistics platform.
 ## Appendix A – Conformance status (non-normative)
 
 Verified against `main` @ `425bf362` plus the conformance fix that follows it
-(PRs #128–#132 of `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since
+(PRs #128–#132 of `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since
 the first version of this document: the EXPAND continuation (R-EXP-1..4, PR A),
 the corpus, rating-band, and binding contract (R-TURN-4, R-RAT-1..6, R-AUT-1..3,
 R-EXPD-1, R-BLK-1/2, PR B), the Judge quote, provenance, and report diagnostics

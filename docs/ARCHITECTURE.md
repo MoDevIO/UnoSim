@@ -393,5 +393,5 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 - [`adr/0006-unified-course-content-and-tutor-strategy.md`](adr/0006-unified-course-content-and-tutor-strategy.md) – aktueller einheitlicher Course-Content-/Tutor-Vertrag
 - [`../ssot/ssot_function_definition_CourseContent.md`](../ssot/ssot_function_definition_CourseContent.md) – Normativer Course-Content-Vertrag
 - [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md) – Fachlicher Examples-Vertrag
-- [`SCALABILITY.md`](SCALABILITY.md) – historische Kapazitätsmessung; aktuelle Werte in [`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md)
+- [`CAPACITY_HISTORICAL_PHASE_3_4.md`](CAPACITY_HISTORICAL_PHASE_3_4.md) – historische Kapazitätsmessung; aktuelle Werte in [`CAPACITY_MODEL.md`](CAPACITY_MODEL.md)
 - [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen
