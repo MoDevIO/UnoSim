@@ -416,7 +416,7 @@ Neue E2E-Tests:
 ### Phase 7: Dokumentation (Tag 4)
 | # | Aufgabe | Dateien |
 | :--- | :--- | :--- |
-| 7.1 | Dieses SSOT-Dokument als authoritative Quelle finalisieren | `ssot/ssot_function_description_serial_output.md` |
+| 7.1 | Dieses SSOT-Dokument als authoritative Quelle finalisieren | `ssot/ssot_function_definition_SerialOutput.md` |
 | 7.3 | `ssot_serial_parser_architecture.md` aktualisieren (falls vorhanden) | `ssot/ssot_serial_parser_architecture.md` |
 
 ## 13. Risiken & Offene Fragen
@@ -551,7 +551,7 @@ Die folgenden Worst-Case-Szenarien benötigen explizite E2E-Tests:
 ### Phase 8c: Dokumentation (Priorität: Niedrig)
 | # | Aufgabe | Dateien |
 |---|---------|---------|
-| 8c.1 | Dieses Dokument finalisieren | `ssot/ssot_function_description_serial_output.md` |
+| 8c.1 | Dieses Dokument finalisieren | `ssot/ssot_function_definition_SerialOutput.md` |
 | 8c.2 | README.md Serial-Sektion aktualisieren | `README.md` |
 
 ---

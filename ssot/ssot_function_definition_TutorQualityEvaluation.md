@@ -19,7 +19,7 @@ reviews can cite them.
 | --- | --- |
 | Didactic phases, mastery, deepening, extensions | `ssot_function_definition_LearningQuestions.md` |
 | Course Content schemas and loader | `ssot_function_definition_CourseContent.md` |
-| Runtime Tutor invariants (Stage 1 PR gate) | `ssot_function_definition_TutorQuality.md` |
+| Runtime Tutor invariants (Stage 1 PR gate) | `ssot_function_definition_TutorQualityGates.md` |
 | Model registration | `ssot_function_tutor_model_registration.md` (protected; never edited by Tutor-Quality work) |
 | Corpus, execution runs, deterministic evaluation checks, Judge, report, verdict | this document |
 
@@ -59,7 +59,7 @@ key under §6.4.
 | `executionStatus` | Whether a sample or run executed; never a quality statement (§11.1). |
 | `qualityVerdict` | The quality statement per run: `pass`, `warn`, `fail`, or `inconclusive` (§12). |
 | L1 / L2 / L3 | Test-pyramid levels (§4). |
-| *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQuality.md`. |
+| *Historical:* Stage 1 | Name of the deterministic runtime gate; still the title of `ssot_function_definition_TutorQualityGates.md`. |
 | *Historical:* Stage 2A, "Stage A" | Earlier name of the execution run. Its former SSOT and runbook were removed; the runbook moved to Appendix B. Survives only in artifact identifiers (§11.4) and internal type names; not used in the current model. |
 | *Historical:* Stage 2B, Protocol A | Removed semantic layer and its non-reproducible judge protocol. Not normative. |
 | *Historical:* Protocol B, G1 | The minimal-Judge protocol and its one-time acceptance measurement (schema ≥ 95 %, evidence ≥ 90 %, repeatability ≥ 80 %), documented in `docs/archive/tutor-quality/tutor-quality-judge-smoke-2026-10-01.md`. G1 is bound to the Judge prompt revision it measured; it is not a runtime gate. |
@@ -839,14 +839,14 @@ deterministic check record carries `outcome` (`pass`, `fail`, or
 uses it, not only `expected-phase-after` (#155).
 
 A full audit on 2026-10-03 checked every MUST/SHALL and `R-*` rule of this
-document, `ssot_function_definition_TutorQuality.md`,
+document, `ssot_function_definition_TutorQualityGates.md`,
 `ssot_function_definition_CourseContent.md`, and
 `ssot_function_definition_LearningQuestions.md` against code and tests; the UI
 rules of LearningQuestions §10 and §16.1 were taken from their existing test
 suites rather than re-verified one by one. It closed R-ATT-2 and found two further deviations, both closed: the corpus
 contract test capped the Strategy cases per phase at three (R-AUT-1, #156),
 and the Stage-1 scenario runner let scenarios fake the planner
-(`ssot_function_definition_TutorQuality.md` §5, #157). Remaining known deviations:
+(`ssot_function_definition_TutorQualityGates.md` §5, #157). Remaining known deviations:
 none.
 
 Intentional historical identifiers that stay in code and artifacts (§11.4):
