@@ -9,7 +9,7 @@ import {
 } from "../../../../../server/services/tutor/evaluation/quality-verdict";
 
 // Synthetic, anonymized fixtures shaped after the baseline and rerun data
-// (docs/tutor-quality-baseline-2026-10-03.md, docs/tutor-quality-remediation-rerun-2026-10-03.md).
+// (docs/archive/tutor-quality/tutor-quality-baseline-2026-10-03.md, docs/archive/tutor-quality/tutor-quality-remediation-rerun-2026-10-03.md).
 
 function sample(scenarioId: string, sampleIndex: number, overrides: Partial<TutorQualityVerdictSample> = {}): TutorQualityVerdictSample {
   return { scenarioId, sampleIndex, executionStatus: "completed", violations: [], ...overrides };

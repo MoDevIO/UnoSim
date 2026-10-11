@@ -3,14 +3,14 @@
 > **Nicht normativ.** Analyse-Stand nach Abschluss der Tutor-SSOT-Arbeit
 > (`main` @ `54cc2950`, nach #154–#158). Dieser Bericht ist die Grundlage der
 > anschließenden Refactoring-Serie; deren Arbeitsstand steht in
-> [UNOSIM_REFACTORING_OPL.md](UNOSIM_REFACTORING_OPL.md). Normative Verträge
-> bleiben die ADRs unter [adr/](adr/) und die SSOTs unter [../ssot/](../ssot/).
+> [REFACTORING_OPL.md](REFACTORING_OPL.md). Normative Verträge
+> bleiben die ADRs unter [adr/](../../adr/) und die SSOTs unter [../ssot/](../../../ssot/).
 >
 > Status der Befunde nach der Refactoring-Serie (bestätigt, falsifiziert,
 > umgesetzt, offen): siehe OPL. Dieser Bericht bleibt unverändert der
 > Analyse-Stand.
 >
-> Ältere Planungsdokumente (z. B. `UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`)
+> Ältere Planungsdokumente (z. B. `docs/archive/tutor-quality/UNOSIM_TUTOR_SIMPLIFICATION_PLAN.md`)
 > verweisen unter demselben Dateinamen auf eine frühere, nie versionierte
 > Review vom 2026-09-29. Diese Datei ersetzt jene Referenz nicht inhaltlich;
 > sie ist der hier beschriebene neue Analyse-Stand.
@@ -47,72 +47,72 @@ Im Tutor gibt es vor allem Übergangsschichten und unklare Zuständigkeiten, abe
 
 **S1. Ungeprüfter Compile im privilegierten Backend-Container: hoch [plausibel]**
 
-- `POST /api/compile` lässt im Docker-Modus `arduino-cli` direkt im Backend-Container laufen, nicht in der Sandbox ([cli-runner.ts:60](../server/services/compiler/cli-runner.ts#L60)). Der Backend-Container hat Zugriff auf `docker.sock`.
-- Der Spawn erbt die komplette Umgebung des Prozesses ([process-executor.ts:140](../server/services/process-executor.ts#L140)), also auch `UNOSIM_GATEWAY_SECRET`.
-- Nicht auflösbare `#include`-Zeilen bleiben unverändert im Quelltext ([source-project.ts:349-359](../shared/source-project.ts#L349-L359)). Absolute Pfade werden nirgends abgewiesen.
-- Die stderr-Ausgabe geht ungefiltert an den Client ([cli-runner.ts:133-164](../server/services/compiler/cli-runner.ts#L133-L164)).
+- `POST /api/compile` lässt im Docker-Modus `arduino-cli` direkt im Backend-Container laufen, nicht in der Sandbox ([cli-runner.ts:60](../../../server/services/compiler/cli-runner.ts#L60)). Der Backend-Container hat Zugriff auf `docker.sock`.
+- Der Spawn erbt die komplette Umgebung des Prozesses ([process-executor.ts:140](../../../server/services/process-executor.ts#L140)), also auch `UNOSIM_GATEWAY_SECRET`.
+- Nicht auflösbare `#include`-Zeilen bleiben unverändert im Quelltext ([source-project.ts:349-359](../../../shared/source-project.ts#L349-L359)). Absolute Pfade werden nirgends abgewiesen.
+- Die stderr-Ausgabe geht ungefiltert an den Client ([cli-runner.ts:133-164](../../../server/services/compiler/cli-runner.ts#L133-L164)).
 - Ein `#include "/proc/self/environ"` könnte deshalb das Gateway-Secret in Compiler-Diagnosen sichtbar machen. Das ist nicht ausgeführt, sollte aber in einer isolierten Umgebung verifiziert werden.
 - `SECURITY.md` beschreibt nur die Sandbox-Grenze der Simulation; der Compile-Pfad kommt dort nicht vor.
 
 **S2. Globaler `lastCompiledCode` bricht die Isolation zwischen Nutzern: mittel bis hoch [Code]**
 
-- Ein `start_simulation` ohne `code` führt den zuletzt von *irgendeinem* Nutzer kompilierten Code aus ([routes.ts:143](../server/routes.ts#L143), [simulation.ws.ts:519-527](../server/routes/simulation.ws.ts#L519-L527)).
+- Ein `start_simulation` ohne `code` führt den zuletzt von *irgendeinem* Nutzer kompilierten Code aus ([routes.ts:143](../../../server/routes.ts#L143), [simulation.ws.ts:519-527](../../../server/routes/simulation.ws.ts#L519-L527)).
 - Der aktuelle Client sendet immer Code. Der Pfad wird also nur von manipulierten oder alten Clients erreicht.
 - Der Isolationstest `concurrent-50-clients` läuft nur im `load`-Projekt, nicht in CI, und deckt nur den Pfad *mit* Code ab.
 
 **S3. Sketch-CRUD ohne Besitzer: mittel [Code]**
 
-- `POST/PUT/DELETE /api/sketches` arbeiten auf einem globalen `MemStorage` ([routes.ts:177-225](../server/routes.ts#L177-L225)).
-- Der Client lädt `sketches[0]` als Start-Sketch für *alle* Nutzer ([useFileSystem.ts:107-131](../client/src/hooks/useFileSystem.ts#L107-L131)).
+- `POST/PUT/DELETE /api/sketches` arbeiten auf einem globalen `MemStorage` ([routes.ts:177-225](../../../server/routes.ts#L177-L225)).
+- Der Client lädt `sketches[0]` als Start-Sketch für *alle* Nutzer ([useFileSystem.ts:107-131](../../../client/src/hooks/useFileSystem.ts#L107-L131)).
 - Jeder angemeldete Nutzer kann so den Startcode aller anderen überschreiben oder löschen. Der Client selbst nutzt nur `GET`.
 
 **S4. Race bei Runner-Wiederverwendung (fremde Ausgabe, verwaiste Container): hoch [plausibel]**
 
 - Der `ExecutionState` gehört zum Runner und wird von Lauf zu Lauf wiederverwendet. Es gibt keinen Lauf-Token und kein Abbruchsignal.
 - Ablauf des Problems:
-  1. Nutzer A stoppt oder trennt die Verbindung, während er in der Warteschlange für einen Sandbox-Start-Slot steht ([execution-manager.ts:405-414](../server/services/sandbox/execution-manager.ts#L405-L414)).
-  2. Der Runner wird zurückgesetzt ([sandbox-runner-pool.ts:381-452](../server/services/sandbox-runner-pool.ts#L381-L452)) und von B übernommen.
+  1. Nutzer A stoppt oder trennt die Verbindung, während er in der Warteschlange für einen Sandbox-Start-Slot steht ([execution-manager.ts:405-414](../../../server/services/sandbox/execution-manager.ts#L405-L414)).
+  2. Der Runner wird zurückgesetzt ([sandbox-runner-pool.ts:381-452](../../../server/services/sandbox-runner-pool.ts#L381-L452)) und von B übernommen.
   3. Die Prüfung nach dem Warten in A's Lauf sieht B's Zustand `STARTING` und läuft weiter.
 - Folgen:
   - A's Sketch-Ausgabe läuft über B's Batcher an B's Client.
   - Der Containername wurde schon *vor* dem Warten gesetzt (Zeile 394f) und dann von B überschrieben. A's Container wird deshalb nie mit `docker rm -f` entfernt.
 - Bedingungen: mehr als 8 gleichzeitige Starts plus Stop oder Verbindungsabbruch in der Warteschlange. Das ist bei einem Burst zu Kursbeginn realistisch.
-- Die WS-Schicht löst dasselbe Problem korrekt über Reservation-IDs ([ws-session-manager.ts:106-152](../server/routes/simulation/ws-session-manager.ts#L106-L152)); der ExecutionManager hat nichts Vergleichbares.
+- Die WS-Schicht löst dasselbe Problem korrekt über Reservation-IDs ([ws-session-manager.ts:106-152](../../../server/routes/simulation/ws-session-manager.ts#L106-L152)); der ExecutionManager hat nichts Vergleichbares.
 
 ## 3. Architekturprobleme
 
-- **A1. Bis zu fünf überlappende Concurrency-Mechanismen** [Code]: Admission (25), Runner-Pool-Queue (500), Sandbox-Start-Semaphore (8), Compile-Worker-Pool (fest auf ≤8 begrenzt, obwohl die Konfiguration bis 256 erlaubt: [compilation-worker-pool.ts:83-90](../server/services/compilation-worker-pool.ts#L83-L90)) und der UnifiedGatekeeper (im Docker-Betrieb nur noch auf dem Fallback-Pfad aktiv). `/api/status` vermischt die Zahlen: `capacity.compile` zeigt `COMPILE_MAX_CONCURRENT` mit den aktiven Workern, und das Legacy-Feld `compileSlots` zeigt in Wahrheit die Sandbox-Start-Semaphore ([status.routes.ts:59-70](../server/routes/status.routes.ts#L59-L70)).
+- **A1. Bis zu fünf überlappende Concurrency-Mechanismen** [Code]: Admission (25), Runner-Pool-Queue (500), Sandbox-Start-Semaphore (8), Compile-Worker-Pool (fest auf ≤8 begrenzt, obwohl die Konfiguration bis 256 erlaubt: [compilation-worker-pool.ts:83-90](../../../server/services/compilation-worker-pool.ts#L83-L90)) und der UnifiedGatekeeper (im Docker-Betrieb nur noch auf dem Fallback-Pfad aktiv). `/api/status` vermischt die Zahlen: `capacity.compile` zeigt `COMPILE_MAX_CONCURRENT` mit den aktiven Workern, und das Legacy-Feld `compileSlots` zeigt in Wahrheit die Sandbox-Start-Semaphore ([status.routes.ts:59-70](../../../server/routes/status.routes.ts#L59-L70)).
 - **A2. Gatekeeper-Fehler** [Code, ungetestet]:
-  - Wenn ein Slot per TTL abläuft, wird zwar `slot_released` gesendet, aber kein wartender Auftrag bekommt den Slot ([unified-gatekeeper.ts:425-434](../server/services/unified-gatekeeper.ts#L425-L434)).
-  - Die spätere echte Freigabe findet keinen Eintrag mehr und gibt die Warteschlange ebenfalls nicht frei ([unified-gatekeeper.ts:370-384](../server/services/unified-gatekeeper.ts#L370-L384)). Die Queue hängt also, während neue Anfragen am Fast-Path vorbeiziehen.
-  - Die TTL-Tests geben nur frei und prüfen nichts davon ([unified-gatekeeper.test.ts:670-700](../tests/server/services/unified-gatekeeper.test.ts#L670-L700)).
+  - Wenn ein Slot per TTL abläuft, wird zwar `slot_released` gesendet, aber kein wartender Auftrag bekommt den Slot ([unified-gatekeeper.ts:425-434](../../../server/services/unified-gatekeeper.ts#L425-L434)).
+  - Die spätere echte Freigabe findet keinen Eintrag mehr und gibt die Warteschlange ebenfalls nicht frei ([unified-gatekeeper.ts:370-384](../../../server/services/unified-gatekeeper.ts#L370-L384)). Die Queue hängt also, während neue Anfragen am Fast-Path vorbeiziehen.
+  - Die TTL-Tests geben nur frei und prüfen nichts davon ([unified-gatekeeper.test.ts:670-700](../../../tests/server/services/unified-gatekeeper.test.ts#L670-L700)).
   - Die Cache-Lock-API und `drain()` sind tote Abstraktionen.
 - **A3. Fallback umgeht die Lastgrenze** [Code]:
-  - Jeder Fehler des Worker-Pools führt zu einem Compile im Hauptthread ([compiler-with-fallback.ts:65-76](../server/services/compiler-with-fallback.ts#L65-L76)).
-  - Abgestürzte Worker werden nicht neu gestartet ([compilation-worker-pool.ts:162-171](../server/services/compilation-worker-pool.ts#L162-L171)). Danach läuft dauerhaft alles im Hauptthread.
+  - Jeder Fehler des Worker-Pools führt zu einem Compile im Hauptthread ([compiler-with-fallback.ts:65-76](../../../server/services/compiler-with-fallback.ts#L65-L76)).
+  - Abgestürzte Worker werden nicht neu gestartet ([compilation-worker-pool.ts:162-171](../../../server/services/compilation-worker-pool.ts#L162-L171)). Danach läuft dauerhaft alles im Hauptthread.
   - Die Worker-Queue ist unbegrenzt und hat keine Timeouts.
 - **A4. Cache-Schlüssel unterscheiden sich** [Code]:
-  - Der direkte Compiler hasht `code + fqbn + entryFile`, aber **ohne Header** ([arduino-compiler.ts:93-107](../server/services/arduino-compiler.ts#L93-L107)). Der Worker hasht mit Headern ([compile-worker-utils.ts:26-33](../server/services/workers/compile-worker-utils.ts#L26-L33)).
+  - Der direkte Compiler hasht `code + fqbn + entryFile`, aber **ohne Header** ([arduino-compiler.ts:93-107](../../../server/services/arduino-compiler.ts#L93-L107)). Der Worker hasht mit Headern ([compile-worker-utils.ts:26-33](../../../server/services/workers/compile-worker-utils.ts#L26-L33)).
   - Folge im lokalen Modus und auf dem Fallback-Pfad: Wird nur eine Header-Datei geändert, liefert der Compile einen veralteten Erfolg aus dem Cache.
-- **A5. Das HEX-Binary geht als JSON-Zahlenarray an den Client** [Code]: Es wird mitgeschickt (`Buffer` bzw. `{"0":58,…}` nach `postMessage`), aber vom Client nie genutzt ([compiler.routes.ts:190](../server/routes/compiler.routes.ts#L190)). Es liegt außerdem im LRU-Cache.
-- **A6. Der Pool greift in private Felder des Runners** [Code]: Über das Cast `SandboxRunnerInternal` setzt der Pool rund 25 Felder des `ExecutionState` von Hand zurück ([sandbox-runner-pool.ts:25-63](../server/services/sandbox-runner-pool.ts#L25-L63), [381-452](../server/services/sandbox-runner-pool.ts#L381-L452)). Jedes neue Feld im Zustand ist eine mögliche Isolationslücke. Hängt der Reset, wird der Runner ersetzt, ohne dass der Container sicher beendet ist ([sandbox-runner-pool.ts:253-271](../server/services/sandbox-runner-pool.ts#L253-L271)).
+- **A5. Das HEX-Binary geht als JSON-Zahlenarray an den Client** [Code]: Es wird mitgeschickt (`Buffer` bzw. `{"0":58,…}` nach `postMessage`), aber vom Client nie genutzt ([compiler.routes.ts:190](../../../server/routes/compiler.routes.ts#L190)). Es liegt außerdem im LRU-Cache.
+- **A6. Der Pool greift in private Felder des Runners** [Code]: Über das Cast `SandboxRunnerInternal` setzt der Pool rund 25 Felder des `ExecutionState` von Hand zurück ([sandbox-runner-pool.ts:25-63](../../../server/services/sandbox-runner-pool.ts#L25-L63), [381-452](../../../server/services/sandbox-runner-pool.ts#L381-L452)). Jedes neue Feld im Zustand ist eine mögliche Isolationslücke. Hängt der Reset, wird der Runner ersetzt, ohne dass der Container sicher beendet ist ([sandbox-runner-pool.ts:253-271](../../../server/services/sandbox-runner-pool.ts#L253-L271)).
 - **A7. Lifecycle-Lücken:**
-  - Beim Start gibt es keinen Sweep für verwaiste `unosim-sandbox-*`-Container. Bei `uncaughtException` beendet sich der Prozess im Docker-Modus sofort ([index.ts:186-193](../server/index.ts#L186-L193)), laufende Container bleiben stehen.
+  - Beim Start gibt es keinen Sweep für verwaiste `unosim-sandbox-*`-Container. Bei `uncaughtException` beendet sich der Prozess im Docker-Modus sofort ([index.ts:186-193](../../../server/index.ts#L186-L193)), laufende Container bleiben stehen.
   - Es gibt keinen WS-Ping/Pong. Halb offene Verbindungen halten ihre Reservierung bis zum Simulations-Timeout.
-  - Nachrichten einer Verbindung werden nicht serialisiert ([simulation.ws.ts:770-772](../server/routes/simulation.ws.ts#L770-L772)).
+  - Nachrichten einer Verbindung werden nicht serialisiert ([simulation.ws.ts:770-772](../../../server/routes/simulation.ws.ts#L770-L772)).
   - Für `serial_input` und `set_pin_value` gibt es kein Rate-Limit pro Nachricht.
 
 ## 4. Tutor, Course Content und Evaluation: Rückstände ohne Semantikfehler
 
-- **T1. Übergangsschichten im `CurriculumTutorAdapter`** [Code]: Der Adapter kennt drei Snapshot-Quellen: den vom Route-Handler gelieferten Kontext, `CourseContentSnapshotProvider` und den Legacy-Zweig `DidacticContentRepository` ([curriculum-tutor-adapter.ts:192-217](../server/services/tutor/curriculum-tutor-adapter.ts#L192-L217)). Produktiv wird nur der erste genutzt (Factory ohne Abhängigkeiten). Das Repository ist als „Test-only compatibility port“ markiert, hält aber einen Zweig im Produktionscode und zehn Testdateien am Leben. `TutorCourseContentResolver.getTutorContent` wird nirgends aufgerufen.
-- **T2. `match()` hat versteckte Seiteneffekte** [Code]: Die Methode verändert `activeTopicId`, `phase` und `progressionBlockedReason` ([curriculum-tutor-adapter.ts:219-256](../server/services/tutor/curriculum-tutor-adapter.ts#L219-L256)).
+- **T1. Übergangsschichten im `CurriculumTutorAdapter`** [Code]: Der Adapter kennt drei Snapshot-Quellen: den vom Route-Handler gelieferten Kontext, `CourseContentSnapshotProvider` und den Legacy-Zweig `DidacticContentRepository` ([curriculum-tutor-adapter.ts:192-217](../../../server/services/tutor/curriculum-tutor-adapter.ts#L192-L217)). Produktiv wird nur der erste genutzt (Factory ohne Abhängigkeiten). Das Repository ist als „Test-only compatibility port“ markiert, hält aber einen Zweig im Produktionscode und zehn Testdateien am Leben. `TutorCourseContentResolver.getTutorContent` wird nirgends aufgerufen.
+- **T2. `match()` hat versteckte Seiteneffekte** [Code]: Die Methode verändert `activeTopicId`, `phase` und `progressionBlockedReason` ([curriculum-tutor-adapter.ts:219-256](../../../server/services/tutor/curriculum-tutor-adapter.ts#L219-L256)).
   - Deshalb muss `planAnswered` vorher klonen.
   - `planFollowup` ruft `match` zweimal auf.
   - Ein `catch {}` verschluckt jeden Fehler ohne Log und fällt still auf den freien Tutor zurück.
-  - `findQuestion` existiert zweimal mit leicht unterschiedlicher Semantik (Adapter [curriculum-tutor-adapter.ts:618](../server/services/tutor/curriculum-tutor-adapter.ts#L618), Planner [learning-planner.ts:203](../server/services/tutor/curriculum/learning-planner.ts#L203)).
-- **T3. Der Client hat bei der Mastery-Evidenz mitzureden** [Code]: `sessionHistory` mischt gespeicherte Evidenz mit den vom Client gesendeten `answerRating`/`questionId`. `collectObservations` zählt Client-Ratings für Fragen ohne gespeicherte Evidenz ([learning-planner.ts:193-201](../server/services/tutor/curriculum/learning-planner.ts#L193-L201)). Die Wirkung betrifft nur den eigenen Nutzer. Es widerspricht aber dem Geist von „deterministische Mastery“ aus ADR 0007. Das ist eine **Produkt- und Vertrauensfrage**, kein Bug.
-- **T4. Verlorene Updates bei gleichzeitigen Anfragen** [Code]: Ablauf ist Klonen, Provider-Call (bis 30 s), dann Commit, bei dem der Letzte gewinnt ([tutor-service.ts:612-620](../server/services/tutor/tutor-service.ts#L612-L620), [progression-state.ts:52-64](../server/services/tutor/curriculum/progression-state.ts#L52-L64)). Zwei Anfragen auf derselben Session (Doppelklick, Retry nach 504) verlieren Evidenz. Abhilfe wäre ein Versions- oder Sperrmechanismus pro Session.
-- **T5. GitHub als harte Abhängigkeit für neue Tutor-Fragen** [Code]: Neue Fragen verlangen `requireFresh`. Fällt GitHub aus, scheitern sie, während Examples mit veraltetem Stand weiterlaufen ([source-provider.ts:66-68](../server/services/examples/source-provider.ts#L66-L68)). Es gibt kein GitHub-Token; die unauthentifizierte API erlaubt 60 Anfragen pro Stunde und IP. Mit vielen Browser-Overrides ist das ein reales Risiko.
+  - `findQuestion` existiert zweimal mit leicht unterschiedlicher Semantik (Adapter [curriculum-tutor-adapter.ts:618](../../../server/services/tutor/curriculum-tutor-adapter.ts#L618), Planner [learning-planner.ts:203](../../../server/services/tutor/curriculum/learning-planner.ts#L203)).
+- **T3. Der Client hat bei der Mastery-Evidenz mitzureden** [Code]: `sessionHistory` mischt gespeicherte Evidenz mit den vom Client gesendeten `answerRating`/`questionId`. `collectObservations` zählt Client-Ratings für Fragen ohne gespeicherte Evidenz ([learning-planner.ts:193-201](../../../server/services/tutor/curriculum/learning-planner.ts#L193-L201)). Die Wirkung betrifft nur den eigenen Nutzer. Es widerspricht aber dem Geist von „deterministische Mastery“ aus ADR 0007. Das ist eine **Produkt- und Vertrauensfrage**, kein Bug.
+- **T4. Verlorene Updates bei gleichzeitigen Anfragen** [Code]: Ablauf ist Klonen, Provider-Call (bis 30 s), dann Commit, bei dem der Letzte gewinnt ([tutor-service.ts:612-620](../../../server/services/tutor/tutor-service.ts#L612-L620), [progression-state.ts:52-64](../../../server/services/tutor/curriculum/progression-state.ts#L52-L64)). Zwei Anfragen auf derselben Session (Doppelklick, Retry nach 504) verlieren Evidenz. Abhilfe wäre ein Versions- oder Sperrmechanismus pro Session.
+- **T5. GitHub als harte Abhängigkeit für neue Tutor-Fragen** [Code]: Neue Fragen verlangen `requireFresh`. Fällt GitHub aus, scheitern sie, während Examples mit veraltetem Stand weiterlaufen ([source-provider.ts:66-68](../../../server/services/examples/source-provider.ts#L66-L68)). Es gibt kein GitHub-Token; die unauthentifizierte API erlaubt 60 Anfragen pro Stunde und IP. Mit vielen Browser-Overrides ist das ein reales Risiko.
 - **Kein Handlungsbedarf:**
   - Die Prompt-Duplikation zwischen Builder und `TUTOR_PROMPT_TEMPLATE_SOURCES` sichert ein Drift-Test ab (`tutor-prompt-revision.test.ts`).
   - Die Evaluation hängt nur über `canonical.ts` am Produktionscode.
@@ -121,29 +121,29 @@ Im Tutor gibt es vor allem Übergangsschichten und unklare Zuständigkeiten, abe
 
 | Befund | Status |
 |---|---|
-| Mit 200 Studierenden und 50 aktiven Simulationen liegt die Queue-Wartezeit bei p95 211 s. Die Doku nennt die Queue bei einer UX-Grenze von 240 s „infeasible“. Eine Simulation hält ihren Slot für die gesamte Laufzeit (Default 60 s, maximal 300 s). | [gemessen] ([CAPACITY_VALIDATION_PLAN.md](CAPACITY_VALIDATION_PLAN.md)) |
+| Mit 200 Studierenden und 50 aktiven Simulationen liegt die Queue-Wartezeit bei p95 211 s. Die Doku nennt die Queue bei einer UX-Grenze von 240 s „infeasible“. Eine Simulation hält ihren Slot für die gesamte Laufzeit (Default 60 s, maximal 300 s). | [gemessen] ([CAPACITY_MODEL.md](../../CAPACITY_MODEL.md)) |
 | Compose setzt `SIMULATION_MAX_CONCURRENT=200`, die Admission bleibt beim Default 25. Effektiv laufen also maximal 25 Simulationen; die 200 wirken nicht. Kalibriert empfohlen sind 50/8/200/43000. | [Code] |
 | Jeder Compile & Run kompiliert zweimal: `arduino-cli` im Backend und `g++` im Sandbox-Container mit 0,25 CPU. Die REST-Compile-Kapazität ist laut Doku „nicht kalibriert“. | [Code] |
-| Der globale API-Limiter erlaubt 300 Anfragen pro 15 min **pro IP** ([index.ts:113-124](../server/index.ts#L113-L124)). Hinter Campus-NAT teilt sich eine ganze Klasse dieses Budget; die identitätsbasierten Limiter existieren daneben. | [Code] Risiko, abhängig von der Netztopologie |
+| Der globale API-Limiter erlaubt 300 Anfragen pro 15 min **pro IP** ([index.ts:113-124](../../../server/index.ts#L113-L124)). Hinter Campus-NAT teilt sich eine ganze Klasse dieses Budget; die identitätsbasierten Limiter existieren daneben. | [Code] Risiko, abhängig von der Netztopologie |
 | Gatekeeper hängt nach TTL-Ablauf, der Fallback umgeht die Lastgrenze, die Worker-Queue ist unbegrenzt. | [Code] |
 | Runner-Race (S4), keine Orphan-Sweeps, kein Heartbeat, Tutor-Lost-Update | Architekturrisiko |
 | Kein `bufferedAmount`-Backpressure beim WS-Senden, stdin-Puffer bei Eingabe-Floods, Größe des Binary-JSON | [Hypothese] |
-| Kleinere Leaks: `compileTimes` wächst unbegrenzt ([compilation-worker-pool.ts:265](../server/services/compilation-worker-pool.ts#L265)), nie gelöschte Race-Timer in [prepare-phase.ts:41-49](../server/services/sandbox/execution-phases/prepare-phase.ts#L41-L49) | [Code], geringe Wirkung |
+| Kleinere Leaks: `compileTimes` wächst unbegrenzt ([compilation-worker-pool.ts:265](../../../server/services/compilation-worker-pool.ts#L265)), nie gelöschte Race-Timer in [prepare-phase.ts:41-49](../../../server/services/sandbox/execution-phases/prepare-phase.ts#L41-L49) | [Code], geringe Wirkung |
 
 ## 6. Dokumentationsinkonsistenzen
 
 | Stelle | Befund | Einordnung |
 |---|---|---|
-| ADR 0001 §51, `SECURITY.md` | „Backend nur von `UNOSIM_TRUSTED_PROXY` erreichbar“. Der Code prüft die Quell-IP nicht, er setzt nur `trust proxy` ([access-control.ts:177-213](../server/security/access-control.ts#L177-L213)). | echte Inkonsistenz |
+| ADR 0001 §51, `SECURITY.md` | „Backend nur von `UNOSIM_TRUSTED_PROXY` erreichbar“. Der Code prüft die Quell-IP nicht, er setzt nur `trust proxy` ([access-control.ts:177-213](../../../server/security/access-control.ts#L177-L213)). | echte Inkonsistenz |
 | `SECURITY.md` Sandbox-Abschnitt | Der unsandboxed REST-Compile (S1) wird nicht erwähnt. | echte Inkonsistenz |
-| `EXTERNAL_API.md:23` | „Initialer `handshake` mit `protocolVersion`“. Der Server sendet ihn nur bei `testRunId` ([simulation.ws.ts:762-768](../server/routes/simulation.ws.ts#L762-L768)). | echte Inkonsistenz |
+| `EXTERNAL_API.md:23` | „Initialer `handshake` mit `protocolVersion`“. Der Server sendet ihn nur bei `testRunId` ([simulation.ws.ts:762-768](../../../server/routes/simulation.ws.ts#L762-L768)). | echte Inkonsistenz |
 | ARCHITECTURE, WS-Sicherheit | „Rate-Limiting der Nachrichtenfrequenz“: Es gibt nur ein Limit für `start_simulation`. | echte Inkonsistenz |
-| Deprecation-Policy | ARCHITECTURE sagt „nach 2 Major-Releases“, der Code sagt „next major“ ([routes.ts:138-142](../server/routes.ts#L138-L142)). | konkurrierende Aussagen |
-| `SECURITY.md` „Secrets/Sketch-Source nicht loggen“ | Auf Debug-Level werden Code und Payloads geloggt ([simulation.ws.ts:467-486](../server/routes/simulation.ws.ts#L467-L486), [ws-message-router.ts:41](../server/routes/simulation/ws-message-router.ts#L41)). | echte Inkonsistenz, nur bei Debug |
+| Deprecation-Policy | ARCHITECTURE sagt „nach 2 Major-Releases“, der Code sagt „next major“ ([routes.ts:138-142](../../../server/routes.ts#L138-L142)). | konkurrierende Aussagen |
+| `SECURITY.md` „Secrets/Sketch-Source nicht loggen“ | Auf Debug-Level werden Code und Payloads geloggt ([simulation.ws.ts:467-486](../../../server/routes/simulation.ws.ts#L467-L486), [ws-message-router.ts:41](../../../server/routes/simulation/ws-message-router.ts#L41)). | echte Inkonsistenz, nur bei Debug |
 | `SECURITY.md` „reviewed immutable images“ | Dockerfile und CI installieren `arduino-cli` per `curl … master/install.sh \| sh`. | echte Inkonsistenz |
 | ARCHITECTURE und docs/README: „Tree enthält nur normative Doku“ | Im Tree liegen rund 15 als historisch oder nicht normativ markierte Pläne und Reports sowie die historische SSOT Stage2B. | absichtlich historisch, aber die Governance-Aussage ist falsch |
 | SSOT TutorQualityEvaluation und weitere getrackte Dateien | Sie verweisen auf `ssot_function_tutor_model_registration.md` und `UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md`. Beide waren zum Analysezeitpunkt nie in Git. | bewusst lokal(?), für einen frischen Clone nicht nachvollziehbar |
-| README/ARCHITECTURE nennen `SCALABILITY.md` „gemessene Kapazitätsgrenzen“ | Die Datei bezeichnet sich selbst als historisch. | kosmetisch bis irreführend |
+| README/ARCHITECTURE nennen `CAPACITY_HISTORICAL_PHASE_3_4.md` „gemessene Kapazitätsgrenzen“ | Die Datei bezeichnet sich selbst als historisch. | kosmetisch bis irreführend |
 | ARCHITECTURE: `ArduinoSimulatorPage` „753 Zeilen“, Coverage-Prozente, „In-Memory-Cache“, „Compile Semaphore“, „max. 60 s“ | Tatsächlich 7 Zeilen, drei Cache-Ebenen, Gatekeeper/Pool, maximal 300 s. | veraltet, eher kosmetisch |
 | Config | `disableGatekeeper` und `compilation.timeoutMs` werden nicht genutzt; der CLI-Timeout ist auf 60 s fest codiert. | tote Wahrheit |
 

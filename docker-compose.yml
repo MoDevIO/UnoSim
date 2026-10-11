@@ -56,7 +56,7 @@ services:
       # Logical simulation capacity grows on-demand; idle logical runners shrink after IDLE_TIMEOUT_MS.
       # Admission caps running plus waiting simulations. Without a host-specific value it
       # stays at the application default 25; the Ubuntu/VBox installer writes the value
-      # measured on its reference VM. See docs/CAPACITY_VALIDATION_PLAN.md before raising.
+      # measured on its reference VM. See docs/CAPACITY_MODEL.md before raising.
       - SIMULATION_ADMISSION_MAX=${SIMULATION_ADMISSION_MAX:-25}
       - SIMULATION_MAX_CONCURRENT=200
       # Total paused time of one run; a paused run still holds its capacity.

@@ -1,4 +1,4 @@
-# Capacity validation plan and operating model
+# Capacity model and validation
 
 This is the authoritative description of UnoSim's simulation capacity model,
 its timeout boundaries, and the validation evidence. Validation profiles are

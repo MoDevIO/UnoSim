@@ -1,6 +1,6 @@
 # Tutor Quality Stage 2B – Implementation Plan
 
-> Current plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
+> Current plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
 
 > **Historical plan — inactive.** The Stage-2B semantic implementation described here was removed in commit `ae8e2f53f27a5c8f9dce09649b668e44081fec6b`. This plan is retained as design history, not as current worker guidance. The active path uses `evals/tutor-quality/anchor-corpus.yaml` with the existing Stage-A runner and its optional Minimal Judge. Do not recreate this plan's semantic corpus, adapter, exposure, or transcript-reference architecture unless a later approved plan explicitly reactivates it.
 
@@ -12,9 +12,9 @@
 
 **Tech Stack:** TypeScript/ESM, Node 24.20.0 from .nvmrc, existing yaml and zod dependencies, existing TutorService/LLMProvider/KiconnectProvider boundary, Vitest, tsx, and an optional workflow_dispatch-only GitHub Actions workflow.
 
-**Spec:** ssot/ssot_function_definition_TutorQualityStage2B.md (normative); the former Stage-2A SSOT (removed in PR D; superseded by ssot/ssot_function_definition_TutorQualityEvaluation.md) and ssot/ssot_function_definition_TutorQuality.md were authoritative within their scopes at the time.
+**Spec:** docs/archive/tutor-quality/ssot_function_definition_TutorQualityStage2B.md (normative at the time); the former Stage-2A SSOT (removed in PR D; superseded by ssot/ssot_function_definition_TutorQualityEvaluation.md) and ssot/ssot_function_definition_TutorQuality.md were authoritative within their scopes at the time.
 
-This plan follows the existing repository convention at docs/plan-tutor-quality-stage-2a.md. It is non-normative; where it conflicts with the Stage-2B SSOT, the SSOT wins. The implementation branch starts from 68d2703f3513762b521284718f0b5c0b6a4a5de8 and is docs/tutor-quality-stage-2b-implementation-plan.
+This plan follows the existing repository convention at docs/archive/tutor-quality/plan-tutor-quality-stage-2a.md. It is non-normative; where it conflicts with the Stage-2B SSOT, the SSOT wins. The implementation branch starts from 68d2703f3513762b521284718f0b5c0b6a4a5de8 and is docs/tutor-quality-stage-2b-implementation-plan.
 
 ## Global Constraints
 
@@ -430,7 +430,7 @@ All deterministic Stage-2B test modules live under tests/server/services/tutor/e
 
 ## Final Plan Review and Handoff
 
-- [ ] Confirm this follow-up changes only docs/plan-tutor-quality-stage-2b.md; the protected local ssot/ssot_function_tutor_model_registration.md remains untracked and unchanged.
+- [ ] Confirm this follow-up changes only docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md; the protected local ssot/ssot_function_tutor_model_registration.md remains untracked and unchanged.
 - [ ] Cross-check all planned requirements against the Stage-2B, Stage-2A, and Stage-1 SSOTs; resolve any conflict in favor of the applicable SSOT.
 - [ ] Confirm the Stage-2A Case Adapter is the only primary Tutor-generation path and the old Stage-A anchor corpus/runner/CLI remain untouched.
 - [ ] Confirm PR 2's deterministic/fake-Judge slice can complete with DG-1/DG-10 open, while FIRST_USEFUL_STAGE_2B requires PR 2 plus both gates and the bounded manual real-Judge smoke; model benchmark MVP arrives after PR 4.
@@ -441,6 +441,6 @@ All deterministic Stage-2B test modules live under tests/server/services/tutor/e
 - [ ] Confirm each future PR is reviewable, testable with fake providers, and revertible without undoing another subsystem.
 - [ ] Confirm no real providers, Tutor prompts/strategies, implementation code, tests, Gold Case records, PR, or Stage 2C work were created as part of this plan task.
 - [ ] Run Node 24.20.0 as pinned by .nvmrc when available, then run only npm run check:docs and git diff --check for this documentation-only change.
-- [ ] Stage and commit only docs/plan-tutor-quality-stage-2b.md with commit message docs(tutor-quality): refine stage 2b implementation plan. Do not push or open a PR.
+- [ ] Stage and commit only docs/archive/tutor-quality/plan-tutor-quality-stage-2b.md with commit message docs(tutor-quality): refine stage 2b implementation plan. Do not push or open a PR.
 
 TUTOR_QUALITY_STAGE_2B_IMPLEMENTATION_PLAN_READY_FOR_REVIEW=YES

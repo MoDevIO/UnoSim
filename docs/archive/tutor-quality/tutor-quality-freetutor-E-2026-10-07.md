@@ -4,7 +4,7 @@ Status: Auswertung, **nicht normativ**. Rohartefakte liegen nur lokal unter
 `.tutor-quality-output/freetutor-E-2026-10-07/`. Die verdeckte Referenzbewertung steht in
 `evals/tutor-quality/human-ratings/freetutor-E-2026-10-07.md`; sie stammt von einem
 LLM-Evaluator, nicht von einer Person. Vorläufer:
-`docs/tutor-quality-freetutor-D-2026-10-07.md` (dort steht die vorab festgelegte
+`docs/archive/tutor-quality/tutor-quality-freetutor-D-2026-10-07.md` (dort steht die vorab festgelegte
 Entscheidungsregel).
 
 ## 1. Lauf

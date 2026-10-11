@@ -11,7 +11,7 @@ und Messläufe, keinen Vertrag.
   Kompilierung und Simulation.
 - [INSTALL_SERVER.md](INSTALL_SERVER.md) – Docker-Deployment mit erforderlichem
   Gateway, optionaler Benutzeranmeldung und Docker-Sandboxen.
-- [../README_UbuntuServer.md](../README_UbuntuServer.md) – Ubuntu-Desktop-Setup
+- [INSTALL_UBUNTU_VBOX.md](INSTALL_UBUNTU_VBOX.md) – Ubuntu-Desktop-Setup in VirtualBox
   mit Docker, Nginx, TLS und optionaler Benutzeranmeldung.
 - [SECURITY.md](SECURITY.md) – Sicherheits- und Isolationsvertrag.
 - [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) – Release-Gates und Betriebskontrollen.
@@ -22,8 +22,19 @@ und Messläufe, keinen Vertrag.
   Runtime-Profile.
 - [EXTERNAL_API.md](EXTERNAL_API.md) – versionierter iframe-/postMessage-Vertrag.
 - [TESTING_STANDARDS.md](TESTING_STANDARDS.md) – Testklassen und Qualitätsgates.
-- [SCALABILITY.md](SCALABILITY.md) – historische Kapazitätsmessung; aktuelle
-  Werte und Kalibrierung in [CAPACITY_VALIDATION_PLAN.md](CAPACITY_VALIDATION_PLAN.md).
+
+## Kapazität
+
+- [CAPACITY_MODEL.md](CAPACITY_MODEL.md) – maßgebliches
+  Kapazitätsmodell, Timeout-Grenzen und Kalibrierung.
+- [CAPACITY_VALIDATION_QUICKSTART.md](CAPACITY_VALIDATION_QUICKSTART.md) –
+  Ablauf der Validierung auf dem Staging-Host.
+- [CAPACITY_MIXED_LOAD_TESTING.md](CAPACITY_MIXED_LOAD_TESTING.md) – gemischte
+  Messung aus REST-Compiles, Simulationsstarts und laufenden Simulationen.
+- [CAPACITY_TEST_RESULTS.md](CAPACITY_TEST_RESULTS.md) – gemessene
+  Referenzergebnisse.
+- [CAPACITY_HISTORICAL_PHASE_3_4.md](CAPACITY_HISTORICAL_PHASE_3_4.md) –
+  historische Kapazitätsmessung aus Phase 3.4 (nicht normativ).
 
 ## Entscheidungen und Fachverträge
 
@@ -32,9 +43,25 @@ und Messläufe, keinen Vertrag.
 
 Bei Änderungen zuerst die zuständige normative Quelle aktualisieren.
 
-## Analysen und Arbeitsstand (nicht normativ)
+## Offene Punkte (nicht normativ)
 
-- [UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md](UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md)
-  – Architektur- und Gesundheitsbericht (Stand `54cc2950`).
-- [UNOSIM_REFACTORING_OPL.md](UNOSIM_REFACTORING_OPL.md) – Ergebnis der daraus
-  abgeleiteten Refactoring-Serie und offene Entscheidungen.
+- [OPEN_POINTS.md](OPEN_POINTS.md) – geprüfte offene Entscheidungen und
+  zurückgestellte Punkte.
+
+## Archiv
+
+- [archive/refactoring/](archive/refactoring/) – Architektur- und
+  Gesundheitsbericht (Stand `54cc2950`) und die daraus abgeleitete,
+  abgeschlossene Refactoring-Serie.
+- [archive/tutor-quality/](archive/tutor-quality/) – abgeschlossene Pläne und
+  Messberichte zur Tutor-Qualität. Normativ bleibt
+  [../ssot/ssot_function_definition_TutorQualityEvaluation.md](../ssot/ssot_function_definition_TutorQualityEvaluation.md).
+
+Erledigte Implementierungspläne werden gelöscht, nicht archiviert; sie bleiben
+in der Git-Historie.
+
+## Namenskonvention
+
+Dateien im Wurzelverzeichnis heißen `THEMA_INHALT.md` in Großbuchstaben. Das
+Präfix gruppiert zusammengehörige Dokumente (`INSTALL_`, `CAPACITY_`). ADRs
+liegen unter `adr/` als `NNNN-titel.md`.

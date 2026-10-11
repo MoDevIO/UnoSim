@@ -3,7 +3,7 @@
 Stand: 2026-10-06
 Status: Plan, **nicht normativ**. Normativ ist
 `ssot/ssot_function_definition_TutorQualityEvaluation.md` (Regeln `R-…`).
-Baut auf `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` und den Berichten vom
+Baut auf `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` und den Berichten vom
 2026-10-03 auf. Scope: nur der **Freetutor** (kein aktives Topic, keine
 Inline-Steuerung, keine Phasenstrategien).
 
@@ -164,7 +164,7 @@ Vorab Ihre Entscheidung zu den Kriterien, dann SSOT-Änderung vor Code (R-COR-1)
 - Optional (Variante D): ein anderes Tutor-Modell, falls die Relativierung
   korrekter Antworten bleibt. Dafür brauche ich von Ihnen eine feste
   Modell-ID. Das Schema steht in
-  `docs/tutor-quality-next-architecture-2026-10-03.md` §5.
+  `docs/archive/tutor-quality/tutor-quality-next-architecture-2026-10-03.md` §5.
 
 ### Schritt 6 – Verstetigen
 

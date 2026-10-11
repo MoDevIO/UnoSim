@@ -3,7 +3,7 @@
 Status: Auswertung, **nicht normativ**. Misst die Guidance-Änderung aus #141
 getrennt (#146: Remediation/Klärung nennen ihren SSOT-Auslöser, sonst
 nichts) und grenzt sie gegen Prompt v1 und den Antwortbewertungsrahmen v3 ab
-(`docs/tutor-quality-answer-frame-rerun-2026-10-03.md`). Rohartefakte liegen
+(`docs/archive/tutor-quality/tutor-quality-answer-frame-rerun-2026-10-03.md`). Rohartefakte liegen
 nur lokal.
 
 ## 1. Lauf

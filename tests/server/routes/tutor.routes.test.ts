@@ -353,6 +353,25 @@ describe("Tutor HTTP route", () => {
     expect(service.generateQuestion).not.toHaveBeenCalled();
   });
 
+  it.each(["SOURCE_UNAVAILABLE", "RATE_LIMITED", "LOAD_CAPACITY_EXCEEDED"] as const)(
+    "answers as the free Tutor without a session when the Course Content source is unavailable (%s)",
+    async (code) => {
+      const resolver = { resolveTutorContent: vi.fn().mockRejectedValue(new ExamplesError(code, "GitHub is unavailable")) };
+      const service = { generateQuestion: vi.fn().mockResolvedValue({ result: { question: "Was macht pinMode?" }, model: "test-model" }) };
+      const listening = await start(service, false, resolver);
+      server = listening.server;
+      const response = await post(listening.url, "/api/tutor/question", {
+        code: "void setup(){}",
+        credential: "request-only-secret",
+        courseContent: { repository: "owner/repo", ref: "main", revision: "a".repeat(40) },
+      });
+      expect(response.status).toBe(200);
+      expect(response.body).not.toHaveProperty("courseContentSession");
+      expect(service.generateQuestion).toHaveBeenCalledOnce();
+      expect(service.generateQuestion.mock.calls[0]?.[4]).toBeUndefined();
+    },
+  );
+
   it("aborts the shared route and Course Content signal when the client disconnects", async () => {
     const content = {
       repository: "owner/repo" as const,

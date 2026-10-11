@@ -120,7 +120,7 @@ Remaining risk: inline-assembler directives such as `.include` can still make
 the assembler report the first characters of each line of a readable file, and
 string concatenation defeats a textual filter. Do not place secrets as files in
 the backend container. A sandboxed REST compile is an open decision
-([refactoring OPL](UNOSIM_REFACTORING_OPL.md), S1-ASM). The process environment
+([open points](OPEN_POINTS.md), S1-ASM). The process environment
 is not reachable this way: `/proc/*/environ` reads as empty for both compilers
 in use.
 

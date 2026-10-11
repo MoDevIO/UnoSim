@@ -417,6 +417,6 @@ https://127.0.0.1
 https://127.0.0.1:8443
 ```
 
-Weitere Details stehen in [docs/INSTALL_SERVER.md](docs/INSTALL_SERVER.md),
-[docs/SECURITY.md](docs/SECURITY.md) und
-[ADR 0008](docs/adr/0008-optional-gateway-authentication.md).
+Weitere Details stehen in [INSTALL_SERVER.md](INSTALL_SERVER.md),
+[SECURITY.md](SECURITY.md) und
+[ADR 0008](adr/0008-optional-gateway-authentication.md).

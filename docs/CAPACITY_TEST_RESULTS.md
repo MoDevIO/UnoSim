@@ -2,7 +2,7 @@
 
 This document summarizes the measured reference results. The operating model,
 timeout boundaries, production defaults, and acceptance procedure are
-authoritative in CAPACITY_VALIDATION_PLAN.md.
+authoritative in CAPACITY_MODEL.md.
 
 ## Historical harness baseline
 
@@ -35,7 +35,7 @@ That run used 80 sandbox-start slots. On current `main` with 8 start slots
 and the 30 s start-slot timeout, a synchronous 80-burst started only 64; the
 rest timed out waiting for a start slot. A 43 s timeout or 16 start slots
 brought it back to 80/80. See the 2026-10-09 delta check in
-CAPACITY_VALIDATION_PLAN.md.
+CAPACITY_MODEL.md.
 
 ## Dell classroom validation
 

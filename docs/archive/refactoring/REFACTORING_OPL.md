@@ -1,7 +1,10 @@
 # UnoSim – Refactoring-OPL (Open Points List)
 
+> **Archiviert am 2026-10-11.** Die aktuellen offenen Punkte stehen in
+> [../../OPEN_POINTS.md](../../OPEN_POINTS.md).
+
 > **Nicht normativ.** Arbeitsstand der Refactoring-Serie, die aus
-> [UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md](UNOSIM_TECHNICAL_ARCHITECTURE_HEALTH_REVIEW.md)
+> [ARCHITECTURE_HEALTH_REVIEW.md](ARCHITECTURE_HEALTH_REVIEW.md)
 > (Analyse-Stand `54cc2950`) abgeleitet ist. Die Liste wird nach jedem
 > abgeschlossenen PR aktualisiert. Normative Verträge bleiben ADRs und SSOTs.
 
@@ -33,7 +36,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | R10b | Doku an den implementierten Stand angleichen (ARCHITECTURE, SECURITY, docs/README, INSTALL_SERVER, README, Compose-Kommentar) | Doku | Abschnitt 6 | gering | Doku beschreibt Isolation, Compile-Grenze inkl. Restrisiko, Lifecycle, Backpressure und offene Entscheidungen | klein | R10a | docs/consistency-after-refactoring | DONE | `check:docs`; keine ADR/SSOT geändert | PR-Merge siehe Verlauf |
 | R10-PROXY | ADR 0001 §51 „Backend nur vom Trusted Proxy erreichbar“ wird im Code nicht erzwungen | Security/Vertrag | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | entweder Quell-IP-Prüfung im Code (Rollout-Risiko bei falsch gesetztem `UNOSIM_TRUSTED_PROXY`) oder ADR-Formulierung als Betreiberpflicht; ADR wird nicht passend geschrieben |
 | R10-HANDSHAKE | EXTERNAL_API: „initialer Handshake mit `protocolVersion`“; Schema und Server senden ihn nur mit `testRunId` | Vertrag | [Code] | gering | – | – | – | – | BLOCKED_DECISION | – | Handshake für alle erfordert Schemaänderung (`testRunId` optional), sonst Vertragstext anpassen |
-| R10-PIN | `arduino-cli` wird in Dockerfile und CI ungepinnt per `curl … master/install.sh` installiert (SECURITY: „reviewed immutable images“) | Supply Chain | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | Versionswahl und Update-Prozess sind eine Betriebsentscheidung |
+| R10-PIN | `arduino-cli` wird in Dockerfile und CI ungepinnt per `curl … master/install.sh` installiert (SECURITY: „reviewed immutable images“) | Supply Chain | [Code] | mittel | – | – | – | – | DONE | Dockerfile und CI prüfen `arduino-cli version` auf 1.5.1 | `fff4be669` (build(toolchain): pin tested Arduino CLI 1.5.1) |
 | R10-SSOTREF | SSOT TutorQualityEvaluation verweist auf die geschützte, nicht versionierte `ssot_function_tutor_model_registration.md` | Doku | [Code] | gering | – | – | – | – | DEFERRED | – | geschützte Datei und SSOT bleiben unverändert; Klärung durch den Owner |
 
 ## Einzelbefunde
@@ -63,7 +66,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 | T2 | `match()` mit Seiteneffekten, doppeltes `findQuestion`, verschluckte Fehler | Tutor | [Code] bestätigt | gering–mittel | – | – | – | R8a | DONE | – | `planAnswered` behält seinen Klon, weil sein Ergebnis die angewandte Sicht braucht |
 | T3 | Client-Ratings fließen in Mastery-Evidenz ein | Produkt/Trust | [Code] | gering | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
 | T4 | Lost Update bei parallelen Anfragen einer Session | Tutor | [Code] reproduziert | mittel | – | – | – | R8b | DONE | – | Serialisierung statt 409: kein neuer Client-Vertrag nötig |
-| T5 | Neue Tutor-Fragen scheitern bei GitHub-Ausfall (`requireFresh`) | Produkt/Verfügbarkeit | [Code] | mittel | – | – | – | – | BLOCKED_DECISION | – | Produktentscheidung |
+| T5 | Neue Tutor-Fragen scheitern bei GitHub-Ausfall (`requireFresh`) | Produkt/Verfügbarkeit | [Code] | mittel | – | – | – | docs/cleanup-plans | DONE | RED→GREEN: `tutor.routes.test.ts` (Quelle nicht verfügbar → freier Tutor ohne Session) | Entscheidung 2026-10-11: freier Tutor (Course Content SSOT 11, Fall G) |
 
 ## Produktentscheidungen (nicht implementieren)
 
@@ -71,7 +74,7 @@ Abweichungen werden unter „Reihenfolge-Änderungen“ begründet.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | D1 | LEARN nach schwacher/mittlerer Antwort, wenn das Concept erschöpft, das Topic aber noch probeable ist | Produkt | nicht spezifiziert | – | – | – | – | – | BLOCKED_DECISION | – | – |
 | D2 | = T3: dürfen Client-Ratings Mastery beeinflussen? | Produkt/Trust | [Code] | – | – | – | – | – | BLOCKED_DECISION | – | – |
-| D3 | = T5: Verhalten neuer Tutor-Fragen bei GitHub-Ausfall / Last-known-good | Produkt | [Code] | – | – | – | – | – | BLOCKED_DECISION | – | – |
+| D3 | = T5: Verhalten neuer Tutor-Fragen bei GitHub-Ausfall / Last-known-good | Produkt | [Code] | – | – | – | – | – | DONE | – | entschieden 2026-10-11: freier Tutor, siehe T5 |
 | D4 | Session-TTL (absolut 1 h) als Produktpolitik | Produkt | [Code] | – | – | – | – | – | BLOCKED_DECISION | – | – |
 | D5 | Simulationsslot-Laufzeit, Inaktivitäts-Timeout, automatische Beendigung | Kapazität/Produkt | [gemessen] | – | – | – | – | – | BLOCKED_DECISION | – | – |
 

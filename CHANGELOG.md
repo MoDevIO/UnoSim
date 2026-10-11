@@ -2,6 +2,16 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- **Tutor keeps answering while GitHub is unavailable.** When the Course
+  Content source cannot be refreshed (outage, rate limit or load limit), Tutor
+  questions and dialogs fall back to the free Tutor without a Course Content
+  session instead of failing with `INVALID_REQUEST` (Course Content SSOT §11,
+  case G).
+
 ## v1.0.0 – 2026-10-09
 
 First versioned release of UnoSim. It covers everything merged since the last
@@ -25,7 +35,7 @@ stays at `1.4.0`.
 - **Capacity:** the application default admits 25 running plus waiting
   simulations, at most 5 per subject. The Ubuntu/VBox installer writes the
   value measured on its reference VM, `SIMULATION_ADMISSION_MAX=40`. Read
-  [CAPACITY_VALIDATION_PLAN.md](docs/CAPACITY_VALIDATION_PLAN.md) before
+  [CAPACITY_MODEL.md](docs/CAPACITY_MODEL.md) before
   raising it on other hosts.
 - **New lifetime limits:** a sandbox ends after `SANDBOX_MAX_LIFETIME_SECONDS`
   (default 7200 s) and a run after `SIMULATION_MAX_PAUSED_SECONDS` of total

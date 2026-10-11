@@ -35,7 +35,7 @@ Gateway-Identität und Docker-Simulation automatisch. Der Server prüft
 Docker-Daemon, Sandbox-Image und Runner-Pool vor der Readiness-Freigabe.
 
 Die vollständige Kapazitäts- und Timeout-Semantik steht in
-[`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md). Die dortigen
+[`CAPACITY_MODEL.md`](CAPACITY_MODEL.md). Die dortigen
 Validierungsprofile sind Testprofile und keine automatischen
 Produktionsvorgaben.
 
@@ -166,7 +166,7 @@ zusammen mit `SIMULATION_ADMISSION_MAX`: Ohne diesen Wert lässt die Admission
 höchstens 25 laufende und wartende Simulationen zu. Der Ubuntu/VBox-Installer
 schreibt `SIMULATION_ADMISSION_MAX=40` in die `.env`; dieser Wert ist auf der
 Referenz-VBox (8 vCPU, 11 GiB, kein Swap) für Klassen von etwa 30 Studierenden
-gemessen (siehe `CAPACITY_VALIDATION_PLAN.md`). Auf anderer Hardware vor einer
+gemessen (siehe `CAPACITY_MODEL.md`). Auf anderer Hardware vor einer
 Übernahme erneut messen.
 
 Ist der Compile-Worker-Pool ausgelastet (500 wartende Compiles oder 30 s
@@ -185,7 +185,7 @@ ist nur ein Review-Vorschlag; fehlende Werte müssen geprüft und ausdrücklich
 aufgelöst werden. Die Kalibrierung ändert keine Produktionskonfiguration
 automatisch. Die technische Referenz mit Messphasen, Timeout-Grenzen und
 Akzeptanzkriterien steht in
-[`CAPACITY_VALIDATION_PLAN.md`](CAPACITY_VALIDATION_PLAN.md).
+[`CAPACITY_MODEL.md`](CAPACITY_MODEL.md).
 
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
 `UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und

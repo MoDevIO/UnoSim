@@ -1,6 +1,6 @@
 # Tutor Quality – Stage 2A Implementation Plan
 
-> **HISTORICAL / SUPERSEDED — completed plan (2026-10-02).** Not current worker guidance. Current plan: `docs/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
+> **HISTORICAL / SUPERSEDED — completed plan (2026-10-02).** Not current worker guidance. Current plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`; normative model: `ssot/ssot_function_definition_TutorQualityEvaluation.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

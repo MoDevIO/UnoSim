@@ -1,7 +1,7 @@
 # Tutor Quality – Remediation-Nachlauf F1/F3 (L3)
 
 Status: Auswertung des Nachlaufs zu den Befunden F1 und F3 aus
-`docs/tutor-quality-baseline-2026-10-03.md` (im Folgenden „Baseline“). Die
+`docs/archive/tutor-quality/tutor-quality-baseline-2026-10-03.md` (im Folgenden „Baseline“). Die
 Baseline bleibt als historische Referenz unverändert. Normativ ist
 `ssot/ssot_function_definition_TutorQualityEvaluation.md` (im Folgenden
 „SSOT“, Regeln als `R-…`). Dieser Bericht legt keine Verdict-Regel fest;
