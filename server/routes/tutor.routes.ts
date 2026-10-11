@@ -305,21 +305,23 @@ async function resolveTutorContent(
   try {
     resolved = await resolver.resolveTutorContent(request, context);
   } catch (error) {
-    if (signal.aborted) return undefined;
-    if (isSnapshotUnavailable(error)) {
-      // Course Content SSOT 11, case G: without the current revision the free Tutor answers.
-      return undefined;
-    }
-    if (isStaleCourseContent(error)) {
-      // The example's revision is neither a validated snapshot of its selection nor the current one.
-      responseError(res, 409, "COURSE_CONTENT_STALE", "Der Kursinhalt wurde aktualisiert. Bitte das Beispiel neu laden.");
-      return undefined;
-    }
-    responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist ungültig oder nicht mehr aktiv.");
+    if (!signal.aborted) respondToUnresolvedContent(res, error);
     return undefined;
   }
   if (signal.aborted) return undefined;
   return { identity, content: prepareTutorCourseContentSession(resolved) };
+}
+
+/** Sends the error response for unresolved Course Content; the free Tutor needs none. */
+function respondToUnresolvedContent(res: Response, error: unknown): void {
+  // Course Content SSOT 11, case G: without the current revision the free Tutor answers.
+  if (isSnapshotUnavailable(error)) return;
+  if (isStaleCourseContent(error)) {
+    // The example's revision is neither a validated snapshot of its selection nor the current one.
+    responseError(res, 409, "COURSE_CONTENT_STALE", "Der Kursinhalt wurde aktualisiert. Bitte das Beispiel neu laden.");
+    return;
+  }
+  responseError(res, 400, "INVALID_REQUEST", "Der Course-Content-Kontext ist ungültig oder nicht mehr aktiv.");
 }
 
 function isSnapshotUnavailable(error: unknown): boolean {
