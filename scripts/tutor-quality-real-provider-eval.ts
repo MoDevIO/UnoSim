@@ -251,10 +251,10 @@ export function isTutorQualityRelevantUntrackedPath(relativePath: string, output
 export function readTutorQualityGitState(cwd: string, outputDir: string): TutorQualityGitState {
   const sha = execFileSync(resolveGitExecutable(), ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
   const lines = statusLines(cwd);
-  const trackedClean = lines.every((line) => line.slice(0, 2) === "??");
+  const trackedClean = lines.every((line) => line.startsWith("??"));
   const outputRelative = path.relative(cwd, path.resolve(cwd, outputDir));
   const relevantUntrackedClean = lines.every((line) => {
-    if (line.slice(0, 2) !== "??") return true;
+    if (!line.startsWith("??")) return true;
     return !isTutorQualityRelevantUntrackedPath(line.slice(3).trim(), outputRelative);
   });
   return { sha, trackedClean, relevantUntrackedClean };

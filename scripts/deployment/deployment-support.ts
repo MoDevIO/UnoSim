@@ -139,6 +139,10 @@ export async function httpsRequest(
   });
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? String(error) : JSON.stringify(error);
+}
+
 export async function waitFor(
   description: string,
   probe: () => Promise<boolean>,
@@ -154,7 +158,7 @@ export async function waitFor(
     }
     await sleep(500);
   }
-  const suffix = lastError ? `: ${String(lastError)}` : "";
+  const suffix = lastError ? `: ${describeError(lastError)}` : "";
   throw new Error(`Timed out waiting for ${description}${suffix}`);
 }
 
@@ -236,6 +240,12 @@ export function openWebSocket(
   });
 }
 
+/** `ws` delivers text frames as Buffer, ArrayBuffer or fragment list depending on its options. */
+function rawDataToString(raw: WebSocket.RawData): string {
+  if (Array.isArray(raw)) return Buffer.concat(raw).toString("utf8");
+  return Buffer.from(raw).toString("utf8");
+}
+
 export function nextWebSocketMessage(
   socket: WebSocket,
   predicate: (message: Record<string, any>) => boolean,
@@ -248,7 +258,7 @@ export function nextWebSocketMessage(
     }, timeoutMs);
     const onMessage = (raw: WebSocket.RawData) => {
       try {
-        const message = JSON.parse(raw.toString()) as Record<string, any>;
+        const message = JSON.parse(rawDataToString(raw)) as Record<string, any>;
         if (!predicate(message)) return;
         clearTimeout(timer);
         socket.removeListener("message", onMessage);

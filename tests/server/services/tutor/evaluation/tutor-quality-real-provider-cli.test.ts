@@ -146,7 +146,7 @@ describe("Tutor Quality real-provider CLI contract", () => {
       expect(transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateAfter)
         .toEqual(transcripts.find(({ scenario }) => scenario.id === "TQ-REG-001")?.stateBefore);
       const strategyTranscripts = transcripts.filter(({ scenario }) => scenario.id.startsWith("strategy-"));
-      expect(strategyTranscripts.length).toBe(scenarios.filter(({ id }) => id.startsWith("strategy-")).length);
+      expect(strategyTranscripts).toHaveLength(scenarios.filter(({ id }) => id.startsWith("strategy-")).length);
       expect(strategyTranscripts.every(({ turns }) => turns.every(({ deterministicChecks }) => deterministicChecks.some(
         ({ name, passed }) => name === "expected-learning-phase" && passed,
       )))).toBe(true);

@@ -2,7 +2,7 @@ import path from "node:path";
 import { validateTutorCourseContentDirectory } from "../server/services/course-content/tutor-quality-directory-validator.ts";
 
 const directory = process.argv[2];
-if (directory === undefined || directory.length === 0) {
+if (!directory) {
   console.error("Usage: npm run validate:tutor-course-content -- <course-content-directory>");
   process.exitCode = 2;
 } else {
