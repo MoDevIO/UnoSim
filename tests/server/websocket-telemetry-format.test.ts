@@ -76,7 +76,7 @@ describe('WebSocket Telemetry Message Format', () => {
     pushTelemetry(incomingMessage.metrics);
 
     // Verify frontend state would update
-    expect(telemetryHistory.length).toBe(1);
+    expect(telemetryHistory).toHaveLength(1);
     expect(lastHeartbeatAt).toBeDefined();
     expect(lastHeartbeatAt && lastHeartbeatAt > 0).toBe(true);
 

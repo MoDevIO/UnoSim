@@ -203,7 +203,7 @@ void loop() { delay(100); }
     expect(resultDiff.cached).toBe(false); // Different code → miss
 
     // Validate cache hits were returned consistently
-    expect(cacheHitTimes.length).toBe(5);
+    expect(cacheHitTimes).toHaveLength(5);
   }, 10000);
 
   it("should cache properly with identical headers", async () => {

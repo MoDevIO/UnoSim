@@ -55,7 +55,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
 
       // After destroy, no more data should arrive even after many ticks
       vi.advanceTimersByTime(5000);
-      expect(chunks.length).toBe(chunksBeforeStop);
+      expect(chunks).toHaveLength(chunksBeforeStop);
     });
 
     it('T-SPR-02: destroy() completes in <1ms (no flush delay)', () => {
@@ -79,7 +79,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
       vi.advanceTimersByTime(10000);
       const chunksAfter = chunks.length;
       vi.advanceTimersByTime(10000);
-      expect(chunks.length).toBe(chunksAfter);
+      expect(chunks).toHaveLength(chunksAfter);
     });
 
     it('T-SPR-03: stop() flushes remaining data (natural completion)', () => {
@@ -111,7 +111,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
       // Enqueue after destroy should not cause any output
       batcher.enqueue('Should not appear\n');
       vi.advanceTimersByTime(1000);
-      expect(chunks.length).toBe(0);
+      expect(chunks).toHaveLength(0);
     });
   });
 
@@ -140,7 +140,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
 
       // No more output after pause, even after many ticks
       vi.advanceTimersByTime(5000);
-      expect(chunks.length).toBe(chunksBeforePause);
+      expect(chunks).toHaveLength(chunksBeforePause);
 
       // Buffer should still hold remaining data
       const telemetry = batcher.getTelemetryAndReset();
@@ -218,7 +218,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
 
       // No output during pause
       vi.advanceTimersByTime(500);
-      expect(chunks.length).toBe(0);
+      expect(chunks).toHaveLength(0);
 
       // Resume
       batcher.resume();
@@ -244,7 +244,7 @@ describe('Serial Output Stop/Pause/Resume', () => {
       batcher.enqueue('During pause\n');
 
       vi.advanceTimersByTime(500);
-      expect(chunks.length).toBe(0); // nothing sent during pause
+      expect(chunks).toHaveLength(0); // nothing sent during pause
 
       // Resume
       batcher.resume();

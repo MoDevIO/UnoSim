@@ -61,11 +61,11 @@ describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
     send("World", true);
     send("Test", true);
 
-    expect(messages.length).toBe(0);
+    expect(messages).toHaveLength(0);
     vi.advanceTimersByTime(50);
 
     // All lines have newlines after them (newline AFTER every complete line)
-    expect(messages.length).toBe(1);
+    expect(messages).toHaveLength(1);
     expect(messages[0].type).toBe("serial_output");
     expect(messages[0].data).toBe("Hello\nWorld\nTest\n");
     expect(messages[0].isComplete).toBe(true);
@@ -78,14 +78,14 @@ describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
     send("Line2", true);
     
     vi.advanceTimersByTime(50);
-    expect(messages.length).toBe(1);
+    expect(messages).toHaveLength(1);
     expect(messages[0].data).toBe("Line1\nLine2\n");
     expect(messages[0].isComplete).toBe(true);
 
     send("Line3", true);
     
     vi.advanceTimersByTime(50);
-    expect(messages.length).toBe(2);
+    expect(messages).toHaveLength(2);
     expect(messages[1].data).toBe("Line3\n");
     expect(messages[1].isComplete).toBe(true);
   });
@@ -100,7 +100,7 @@ describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
     vi.advanceTimersByTime(50);
     
     // Incomplete lines don't get newlines, complete ones do
-    expect(messages.length).toBe(1);
+    expect(messages).toHaveLength(1);
     expect(messages[0].data).toBe("Partial Output\n");
     expect(messages[0].isComplete).toBe(true);
   });
@@ -113,7 +113,7 @@ describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
     vi.advanceTimersByTime(50);
     
     // Incomplete line has no newline
-    expect(messages.length).toBe(1);
+    expect(messages).toHaveLength(1);
     expect(messages[0].data).toBe("Still typing");
     expect(messages[0].isComplete).toBe(false);
   });
@@ -127,7 +127,7 @@ describe("serial_output WebSocket Batching (WsOutputBuffer)", () => {
     
     vi.advanceTimersByTime(50);
     
-    expect(messages.length).toBe(1);
+    expect(messages).toHaveLength(1);
     let expectedData = "";
     for (let i = 0; i < 10; i++) {
       expectedData += `Line${i}\n`;

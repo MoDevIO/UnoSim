@@ -132,7 +132,7 @@ describe("Control Characters Examples and Handling", () => {
       // After first chunk, X is still there
       expect(snapshots[0]).toBe("X");
       // Simulate "waiting" - snapshots don't change without new chunks
-      expect(snapshots.length).toBe(1);
+      expect(snapshots).toHaveLength(1);
     });
 
     it("Phase 3: backspace+Y replaces X with Y at same position", () => {

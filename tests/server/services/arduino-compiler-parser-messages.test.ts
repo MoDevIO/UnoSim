@@ -188,7 +188,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       const serialMessages = (result.parserMessages ?? []).filter(
         (m) => m.category === "serial",
       );
-      expect(serialMessages.length).toBe(0);
+      expect(serialMessages).toHaveLength(0);
 
       // Output is clean (only compiler info)
       expect(result.output).toContain("Board: Arduino UNO");
@@ -273,7 +273,7 @@ describe("ArduinoCompiler - Parser Messages Tests", () => {
       const serialMessages = (result.parserMessages ?? []).filter(
         (m) => m.category === "serial",
       );
-      expect(serialMessages.length).toBe(0);
+      expect(serialMessages).toHaveLength(0);
 
       // Output is clean
       expect(result.output).toContain("Board: Arduino UNO");

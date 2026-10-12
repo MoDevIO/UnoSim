@@ -365,7 +365,7 @@ void loop() {
 
       // State errors acceptable in local mode due to timing differences
       if (dockerAvailable) {
-        expect(stateErrors.length).toBe(0); // No state transition errors
+        expect(stateErrors).toHaveLength(0); // No state transition errors
         expect(successfulPauses).toBeGreaterThan(15); // Most pauses should succeed
         expect(successfulResumes).toBeGreaterThan(15); // Most resumes should succeed
         expect(tickCount).toBeGreaterThan(10); // Some execution happened
@@ -594,7 +594,7 @@ void loop() {
         return !e.endsWith(".cleanup") && existsSync(join(fullPath, "sketch.ino"));
       });
 
-      expect(remainingSketchDirs.length).toBe(0); // All sketch dirs should be cleaned/renamed
+      expect(remainingSketchDirs).toHaveLength(0); // All sketch dirs should be cleaned/renamed
     }, 120000); // Needs time for 2 real Arduino compilations in parallel
 
     it("should cleanup temp directory after rapid start/stop cycles", async () => {

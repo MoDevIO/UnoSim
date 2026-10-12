@@ -232,7 +232,7 @@ describe("SerialCharacterRenderer - Unit Tests", () => {
       vi.runAllTimers();
       
       // Should render all due to high baudrate batching
-      expect(capturedOutput.join("").length).toBe(10000);
+      expect(capturedOutput.join("")).toHaveLength(10000);
     });
 
     it("should not crash when cleared multiple times", () => {

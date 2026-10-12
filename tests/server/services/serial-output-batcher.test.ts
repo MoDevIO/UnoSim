@@ -82,7 +82,7 @@ describe("SerialOutputBatcher", () => {
 
       expect(chunks).toHaveLength(1);
       expect(chunks[0]).toBe(largeData);
-      expect(chunks[0].length).toBe(2001);
+      expect(chunks[0]).toHaveLength(2001);
     });
 
     it("T04: Pause stoppt Timer, Resume startet Timer neu", () => {
@@ -615,7 +615,7 @@ describe("SerialOutputBatcher", () => {
       // Collect all chunks and verify total output
       const totalOutput = chunks.join("");
       expect(totalOutput).toBe(message);
-      expect(totalOutput.length).toBe(13);
+      expect(totalOutput).toHaveLength(13);
     });
 
     it("T25: Multiple consecutive messages at low baudrate should all arrive", () => {

@@ -57,7 +57,7 @@ describe("use-toast", () => {
       expect(t).toHaveProperty("update");
     });
 
-    expect(result.current.toasts.length).toBe(1);
+    expect(result.current.toasts).toHaveLength(1);
     expect(result.current.toasts[0].title).toBe("Hello");
     expect(result.current.toasts[0].open).toBe(true);
   });
@@ -87,7 +87,7 @@ describe("use-toast", () => {
     });
 
     // TOAST_LIMIT = 1, so only the newest toast should be present
-    expect(result.current.toasts.length).toBe(1);
+    expect(result.current.toasts).toHaveLength(1);
     expect(result.current.toasts[0].title).toBe("Second");
   });
 
@@ -138,7 +138,7 @@ describe("use-toast", () => {
       vi.advanceTimersByTime(4000);
     });
 
-    expect(result.current.toasts.length).toBe(0);
+    expect(result.current.toasts).toHaveLength(0);
   });
 
   it("dismiss without toastId dismisses all toasts", () => {
@@ -173,7 +173,7 @@ describe("use-toast", () => {
       vi.advanceTimersByTime(4000);
     });
 
-    expect(result.current.toasts.length).toBe(0);
+    expect(result.current.toasts).toHaveLength(0);
   });
 
   it("onOpenChange(false) triggers dismiss", () => {
@@ -255,6 +255,6 @@ describe("use-toast", () => {
       vi.advanceTimersByTime(4000);
     });
 
-    expect(result.current.toasts.length).toBe(0);
+    expect(result.current.toasts).toHaveLength(0);
   });
 });

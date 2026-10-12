@@ -417,7 +417,7 @@ describe("applyBackspaceAcrossLines", () => {
     const lines: Array<{ text: string; incomplete: boolean }> = [];
     const result = applyBackspaceAcrossLines(lines, "\b\bHello", true);
     expect(result).toBe("\b\bHello");
-    expect(lines.length).toBe(0);
+    expect(lines).toHaveLength(0);
   });
 
   it("processes backspaces in middle of text via processAnsiCodes", () => {

@@ -327,7 +327,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
       }
 
       const history = client.getHistory();
-      expect(history.length).toBe(3);
+      expect(history).toHaveLength(3);
 
       // Verify timestamps are increasing
       for (let i = 1; i < history.length; i++) {
@@ -476,7 +476,7 @@ describe("Telemetry - E2E Integration Pipeline", () => {
 
       // Verify history captured all bursts
       const history = client.getHistory();
-      expect(history.length).toBe(3);
+      expect(history).toHaveLength(3);
       expect(history[0].pinChangesPerSecond).toBe(30);
       expect(history[0].serialOutputPerSecond).toBe(20);
       expect(history[1].pinChangesPerSecond).toBe(2);
