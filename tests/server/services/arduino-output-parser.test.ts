@@ -194,23 +194,13 @@ describe("ArduinoOutputParser", () => {
   });
 
   describe("protocol fragment handling", () => {
-    it("should ignore standalone closing brackets ']]'", () => {
-      const result = parser.parseStderrLine("]]", processStartTime);
-      expect(result.type).toBe("ignored");
-    });
-
-    it("should ignore standalone opening brackets '[['", () => {
-      const result = parser.parseStderrLine("[[", processStartTime);
-      expect(result.type).toBe("ignored");
-    });
-
-    it("should ignore partial protocol header without closing", () => {
-      const result = parser.parseStderrLine("[[SERIAL_EVENT:", processStartTime);
-      expect(result.type).toBe("ignored");
-    });
-
-    it("should ignore short base64 tail with closing brackets", () => {
-      const result = parser.parseStderrLine("SGVsbG8=]]", processStartTime);
+    it.each([
+      { title: "standalone closing brackets ']]'", line: "]]" },
+      { title: "standalone opening brackets '[['", line: "[[" },
+      { title: "partial protocol header without closing", line: "[[SERIAL_EVENT:" },
+      { title: "short base64 tail with closing brackets", line: "SGVsbG8=]]" },
+    ])("should ignore $title", ({ line }) => {
+      const result = parser.parseStderrLine(line, processStartTime);
       expect(result.type).toBe("ignored");
     });
 

@@ -5,189 +5,59 @@ import type { SourceLocation } from "@shared/source-project";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 
-// Helper function to extract pinMode data (extracted from parser-output.tsx)
-const PIN_MODE_LABELS: Record<number, string> = {
-  0: "INPUT",
-  1: "OUTPUT",
-  2: "INPUT_PULLUP",
-};
-
-function extractPinModeData(
-  operations: Array<{ line: number; operation: string }>,
-) {
-  const pinModes = operations
-    .filter((u) => u.operation.includes("pinMode"))
-    .map((u) => {
-      const match = /pinMode:(\d+)/.exec(u.operation);
-      const mode = match ? Number.parseInt(match[1]) : -1;
-      return PIN_MODE_LABELS[mode] ?? "UNKNOWN";
-    });
-
-  const uniqueModes = [...new Set(pinModes)];
-  const hasMultipleModes = uniqueModes.length > 1;
-
-  return { pinModes, uniqueModes, hasMultipleModes };
+// Registry records of the legacy format carry only `usedAt` operations such as
+// "pinMode:1"; the pin mode is derived from them when `pinModeModes` is absent.
+function legacyRecord(pin: string, operations: string[]): IOPinRecord {
+  return { pin, defined: true, usedAt: operations.map((operation) => ({ line: 0, operation })) };
 }
 
-describe("ParserOutput - pinMode Detection", () => {
-  describe("extractPinModeData", () => {
-    it("should parse single pinMode:0 as INPUT", () => {
-      const operations = [{ line: 0, operation: "pinMode:0" }];
-      const result = extractPinModeData(operations);
+function renderRegistry(...records: IOPinRecord[]) {
+  return render(
+    <ParserOutput messages={[]} ioRegistry={records} onClear={vi.fn()} defaultTab="registry" />,
+  );
+}
 
-      expect(result.pinModes).toEqual(["INPUT"]);
-      expect(result.uniqueModes).toEqual(["INPUT"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
+describe("ParserOutput - pinMode derived from legacy usedAt operations", () => {
+  it.each([
+    ["pinMode:0", "INPUT"],
+    ["pinMode:1", "OUTPUT"],
+    ["pinMode:2", "INPUT_PULLUP"],
+    ["pinMode:99", "UNKNOWN"],
+    ["pinMode", "UNKNOWN"],
+  ])("shows %s as %s without a conflict marker", (operation, label) => {
+    renderRegistry(legacyRecord("7", [operation]));
 
-    it("should parse single pinMode:1 as OUTPUT", () => {
-      const operations = [{ line: 0, operation: "pinMode:1" }];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["OUTPUT"]);
-      expect(result.uniqueModes).toEqual(["OUTPUT"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should parse single pinMode:2 as INPUT_PULLUP", () => {
-      const operations = [{ line: 0, operation: "pinMode:2" }];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["INPUT_PULLUP"]);
-      expect(result.uniqueModes).toEqual(["INPUT_PULLUP"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should detect multiple different modes (conflict)", () => {
-      const operations = [
-        { line: 0, operation: "pinMode:1" },
-        { line: 0, operation: "pinMode:0" },
-      ];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["OUTPUT", "INPUT"]);
-      expect(result.uniqueModes).toEqual(["OUTPUT", "INPUT"]);
-      expect(result.hasMultipleModes).toBe(true);
-    });
-
-    it("should detect same mode repeated", () => {
-      const operations = [
-        { line: 0, operation: "pinMode:0" },
-        { line: 0, operation: "pinMode:0" },
-        { line: 0, operation: "pinMode:0" },
-      ];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["INPUT", "INPUT", "INPUT"]);
-      expect(result.uniqueModes).toEqual(["INPUT"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should handle mixed operations and extract only pinMode", () => {
-      const operations = [
-        { line: 5, operation: "digitalWrite" },
-        { line: 0, operation: "pinMode:1" },
-        { line: 8, operation: "digitalRead" },
-        { line: 0, operation: "pinMode:0" },
-      ];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["OUTPUT", "INPUT"]);
-      expect(result.uniqueModes).toEqual(["OUTPUT", "INPUT"]);
-      expect(result.hasMultipleModes).toBe(true);
-    });
-
-    it("should return UNKNOWN for invalid mode numbers", () => {
-      const operations = [{ line: 0, operation: "pinMode:99" }];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["UNKNOWN"]);
-      expect(result.uniqueModes).toEqual(["UNKNOWN"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should return UNKNOWN for malformed pinMode operation", () => {
-      const operations = [{ line: 0, operation: "pinMode" }];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["UNKNOWN"]);
-      expect(result.uniqueModes).toEqual(["UNKNOWN"]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should handle empty operations array", () => {
-      const operations: Array<{ line: number; operation: string }> = [];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual([]);
-      expect(result.uniqueModes).toEqual([]);
-      expect(result.hasMultipleModes).toBe(false);
-    });
-
-    it("should handle complex scenario with conflicts and repeats", () => {
-      const operations = [
-        { line: 0, operation: "pinMode:1" },
-        { line: 0, operation: "pinMode:1" },
-        { line: 0, operation: "pinMode:0" },
-        { line: 0, operation: "pinMode:1" },
-      ];
-      const result = extractPinModeData(operations);
-
-      expect(result.pinModes).toEqual(["OUTPUT", "OUTPUT", "INPUT", "OUTPUT"]);
-      expect(result.uniqueModes).toEqual(["OUTPUT", "INPUT"]);
-      expect(result.hasMultipleModes).toBe(true);
-    });
+    expect(screen.getAllByText(label)).toHaveLength(1);
+    expect(screen.queryByText("!")).toBeNull();
   });
 
-  describe("pinMode count logic", () => {
-    it("should correctly count occurrences of each mode", () => {
-      const pinModes = ["INPUT", "INPUT", "OUTPUT", "INPUT"];
-      const uniqueModes = [...new Set(pinModes)];
+  it("shows every distinct mode and flags a conflict when modes differ", () => {
+    renderRegistry(legacyRecord("7", ["pinMode:1", "pinMode:0"]));
 
-      const inputCount = pinModes.filter((m) => m === "INPUT").length;
-      const outputCount = pinModes.filter((m) => m === "OUTPUT").length;
-
-      expect(uniqueModes).toEqual(["INPUT", "OUTPUT"]);
-      expect(inputCount).toBe(3);
-      expect(outputCount).toBe(1);
-    });
-  });
-});
-
-describe("I/O Registry - pinMode Operation Format", () => {
-  it("should match pinMode:0 format", () => {
-    const operation = "pinMode:0";
-    const match = /pinMode:(\d+)/.exec(operation);
-
-    expect(match?.[1]).toBe("0");
+    expect(screen.getAllByText("OUTPUT")).toHaveLength(1);
+    expect(screen.getAllByText("INPUT")).toHaveLength(1);
+    expect(screen.getAllByText("!")).toHaveLength(2);
   });
 
-  it("should match pinMode:1 format", () => {
-    const operation = "pinMode:1";
-    const match = /pinMode:(\d+)/.exec(operation);
+  it("shows a repeated mode once without a conflict marker", () => {
+    renderRegistry(legacyRecord("7", ["pinMode:0", "pinMode:0", "pinMode:0"]));
 
-    expect(match?.[1]).toBe("1");
+    expect(screen.getAllByText("INPUT")).toHaveLength(1);
+    expect(screen.queryByText("!")).toBeNull();
   });
 
-  it("should match pinMode:2 format", () => {
-    const operation = "pinMode:2";
-    const match = /pinMode:(\d+)/.exec(operation);
+  it("derives modes only from pinMode operations", () => {
+    renderRegistry(legacyRecord("7", ["digitalWrite", "pinMode:1", "digitalRead", "pinMode:0"]));
 
-    expect(match?.[1]).toBe("2");
+    expect(screen.getAllByText("OUTPUT")).toHaveLength(1);
+    expect(screen.getAllByText("INPUT")).toHaveLength(1);
   });
 
-  it("should not match plain pinMode without colon", () => {
-    const operation = "pinMode";
-    const match = /pinMode:(\d+)/.exec(operation);
+  it("prefers pinModeModes over the legacy operations", () => {
+    renderRegistry({ ...legacyRecord("7", ["pinMode:1"]), pinModeModes: ["INPUT_PULLUP"] });
 
-    expect(match).toBeNull();
-  });
-
-  it("should not match pinMode with non-numeric mode", () => {
-    const operation = "pinMode:INPUT";
-    const match = /pinMode:(\d+)/.exec(operation);
-
-    expect(match).toBeNull();
+    expect(screen.getAllByText("INPUT_PULLUP")).toHaveLength(1);
+    expect(screen.queryByText("OUTPUT")).toBeNull();
   });
 });
 

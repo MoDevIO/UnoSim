@@ -98,11 +98,9 @@ test("handles simulation_status message", async () => {
     vi.runOnlyPendingTimers();
   });
 
-  // Test the assertion
-  await act(async () => {
-    await waitFor(() => {
-      expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
-    });
+  // waitFor flushes its own updates; no surrounding act() needed
+  await waitFor(() => {
+    expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
   });
 
   // Final timer flush

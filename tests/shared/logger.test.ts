@@ -104,97 +104,63 @@ describe("Logger", () => {
   });
 
   describe("Logger - Sanitization (sanitize() coverage)", () => {
-    it("should redact credential key-value pairs in log messages", () => {
+    function logSanitized(input: string): void {
       setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("login failed: password=redact-me"); // NOSONAR S2068
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[REDACTED]"),
-      );
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("redact-me"),
-      );
+      new Logger("SanitizeTest").info(input);
+    }
+
+    // The plaintext secret must be replaced by the marker and must not be logged.
+    it.each([
+      {
+        title: "should redact credential key-value pairs in log messages",
+        input: "login failed: password=redact-me", // NOSONAR S2068
+        marker: "[REDACTED]",
+        leaked: "redact-me",
+      },
+      {
+        title: "should redact abbreviated credential key-value pairs in log messages",
+        input: "login: pwd=redact-me", // NOSONAR S2068
+        marker: "[REDACTED]",
+        leaked: "redact-me",
+      },
+      {
+        title: "should redact email addresses in log messages",
+        input: "User logged in: user@example.com",
+        marker: "[EMAIL_REDACTED]",
+        leaked: "user@example.com",
+      },
+      {
+        title: "should redact JSON sensitive fields (password/token/secret in JSON objects)",
+        input: 'Request body: {"password": "hunter2", "user": "admin"}',
+        marker: "[REDACTED]",
+        leaked: "hunter2",
+      },
+    ])("$title", ({ input, marker, leaked }) => {
+      logSanitized(input);
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(marker));
+      expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining(leaked));
     });
 
-    it("should redact abbreviated credential key-value pairs in log messages", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("login: pwd=redact-me"); // NOSONAR S2068
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[REDACTED]"),
-      );
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("redact-me"),
-      );
-    });
+    // Patterns whose replacement marker is the whole contract; ordinary text passes through.
+    it.each([
+      {
+        title: "should redact bearer tokens in log messages",
+        input: "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc",
+        marker: "bearer [REDACTED_TOKEN]",
+      },
+      {
+        title: "should not redact normal log messages",
+        input: "Simulation started successfully",
+        marker: "Simulation started successfully",
+      },
+      { title: "should redact SSN patterns (XXX-XX-XXXX)", input: "Customer SSN: 123-45-6789", marker: "[SSN_REDACTED]" },
+      { title: "should redact phone numbers", input: "Call us at 555-123-4567", marker: "[PHONE_REDACTED]" },
+      { title: "should redact credit card numbers", input: "Card: 1234 5678 9012 3456", marker: "[CARD_REDACTED]" },
+    ])("$title", ({ input, marker }) => {
+      logSanitized(input);
 
-    it("should redact email addresses in log messages", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("User logged in: user@example.com");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[EMAIL_REDACTED]"),
-      );
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("user@example.com"),
-      );
-    });
-
-    it("should redact bearer tokens in log messages", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("bearer [REDACTED_TOKEN]"),
-      );
-    });
-
-    it("should not redact normal log messages", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("Simulation started successfully");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Simulation started successfully"),
-      );
-    });
-
-    it("should redact JSON sensitive fields (password/token/secret in JSON objects)", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info('Request body: {"password": "hunter2", "user": "admin"}');
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[REDACTED]"),
-      );
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("hunter2"),
-      );
-    });
-
-    it("should redact SSN patterns (XXX-XX-XXXX)", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("Customer SSN: 123-45-6789");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[SSN_REDACTED]"),
-      );
-    });
-
-    it("should redact phone numbers", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("Call us at 555-123-4567");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[PHONE_REDACTED]"),
-      );
-    });
-
-    it("should redact credit card numbers", () => {
-      setLogLevel("INFO");
-      const sanitizeLogger = new Logger("SanitizeTest");
-      sanitizeLogger.info("Card: 1234 5678 9012 3456");
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[CARD_REDACTED]"),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(marker));
     });
   });
 
