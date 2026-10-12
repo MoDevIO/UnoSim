@@ -335,7 +335,7 @@ export function CodeEditor({
       },
       fontSize: Math.round(initial.fs),
       lineHeight: Math.round(initial.lh),
-      fontFamily: "JetBrains Mono, Consolas, Monaco, monospace",
+      fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", Consolas, Monaco, monospace',
       wordWrap: "on",
       scrollBeyondLastLine: false,
       automaticLayout: true,

@@ -130,8 +130,8 @@
   /* ═══════════════════════════════════════════════════════════
      FONT FAMILIES (constant, no scaling)
      ═══════════════════════════════════════════════════════════ */
-  --font-code: "JetBrains Mono", Consolas, Monaco, monospace;
-  --font-sans: var(--font-sans, Inter, system-ui, sans-serif);
+  --font-code: "JetBrains Mono Variable", "JetBrains Mono", Consolas, Monaco, monospace;
+  --font-sans: var(--font-sans, "Inter Variable", Inter, system-ui, sans-serif);
 }
 
 /* ═══════════════════════════════════════════════════════════
