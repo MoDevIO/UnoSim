@@ -98,7 +98,7 @@ describe("ExamplesMenu behavior", () => {
     expect(screen.getByText("Load Example")).toHaveClass("ui-type-menu-title");
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
     expect(
-      screen.queryByRole("button", { name: "Built-in", exact: true }),
+      screen.getByRole("button", { name: "Built-in", exact: true }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Other" }),

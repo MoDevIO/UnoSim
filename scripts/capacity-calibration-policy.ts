@@ -171,7 +171,7 @@ export function selectActiveRecommendation(
   const stable = measurements.filter((measurement) => activeIsStable(measurement, options));
   const target = stable.filter((measurement) => (measurement.cpuP95Percent ?? Infinity) <= options.targetCpuPercent);
   if (target.length > 0) {
-    const selected = target.reduce((best, current) => current.requested > best.requested ? current : best);
+    const selected = target.reduce((best, current) => current.requested > best.requested ? current : best, target[0]);
     return {
       value: selected.requested,
       status: "recommended",
@@ -181,7 +181,7 @@ export function selectActiveRecommendation(
     };
   }
   if (stable.length > 0) {
-    const selected = stable.reduce((best, current) => current.requested > best.requested ? current : best);
+    const selected = stable.reduce((best, current) => current.requested > best.requested ? current : best, stable[0]);
     return {
       value: selected.requested,
       status: "recommended",

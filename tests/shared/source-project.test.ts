@@ -54,7 +54,7 @@ describe("source project validation and include resolution", () => {
       ].join("\n"),
     }));
 
-    expect(result.lineOrigins.length).toBe(result.source.split("\n").length);
+    expect(result.lineOrigins).toHaveLength(result.source.split("\n").length);
     expect(result.lineOrigins).toEqual([
       { file: "a.h", line: 1 },
       { file: "sub/b.h", line: 1 },
