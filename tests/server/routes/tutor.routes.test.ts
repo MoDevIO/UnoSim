@@ -10,7 +10,7 @@ import { TutorService } from "../../../server/services/tutor/tutor-service";
 
 function listen(app: express.Express): Promise<{ url: string; server: http.Server }> {
   return new Promise((resolve) => {
-    const server = app.listen(0, () => {
+    const server = app.listen(0, "127.0.0.1", () => {
       const address = server.address() as { port: number };
       resolve({ url: `http://127.0.0.1:${address.port}`, server });
     });

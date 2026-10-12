@@ -27,7 +27,7 @@ describe("protocol version contract", () => {
     app.use("/api", apiVersionMiddleware);
     app.get("/api/status", (_req, res) => res.json({ status: "ok" }));
     const server = createServer(app);
-    await new Promise<void>((resolve) => server.listen(0, resolve));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     const port = typeof address === "object" && address ? address.port : 0;
     const response = await fetch(`http://127.0.0.1:${port}/api/status`, {

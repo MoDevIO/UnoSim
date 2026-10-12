@@ -35,7 +35,7 @@ function createApp() {
 /** Start the express app on a random port and return base URL + close fn */
 function listen(app: express.Express): Promise<{ baseUrl: string; server: http.Server }> {
   return new Promise((resolve) => {
-    const server = app.listen(0, () => {
+    const server = app.listen(0, "127.0.0.1", () => {
       const addr = server.address() as { port: number };
       resolve({ baseUrl: `http://127.0.0.1:${addr.port}`, server });
     });
