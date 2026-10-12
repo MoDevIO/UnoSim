@@ -73,7 +73,10 @@ ein- und ausblenden kannst.
 
 Der Tutor nutzt ein Sprachmodell über KI:connect.nrw und braucht dafür deinen
 **persönlichen KI:connect-API-Key**. Den Key bekommst du über deine Schule oder
-Hochschule.
+Hochschule. Ein anderer Anbieter oder ein anderer Zugang ist derzeit nicht
+möglich; ohne KI:connect-Key steht der Tutor nicht zur Verfügung. Die
+Unterstützung weiterer Anbieter ist in
+[Issue #243](https://github.com/MoDevIO/UnoSim/issues/243) geplant.
 
 1. In der Tutor-Spalte auf das Schlüssel-Symbol klicken
    (**API key missing**).

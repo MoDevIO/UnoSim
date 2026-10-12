@@ -261,9 +261,13 @@ Akzeptanzkriterien steht in
 | `TUTOR_SESSION_TTL_MS` | `3600000` | absolute Lebensdauer einer Tutor-Sitzung |
 | `TUTOR_SESSION_MAX_PER_SUBJECT` | `5` | gleichzeitige Tutor-Sitzungen pro Identität |
 
-Der Tutor braucht serverseitig keinen Schlüssel: Jede Person trägt ihren
-persönlichen KI:connect-Key im Browser ein (siehe
-[USER_GUIDE.md](USER_GUIDE.md#der-tutor)). Ist GitHub nicht erreichbar,
+Der Tutor unterstützt derzeit nur KI:connect.nrw. Er braucht serverseitig
+keinen Schlüssel: Jede Person trägt ihren persönlichen KI:connect-Key im
+Browser ein (siehe [USER_GUIDE.md](USER_GUIDE.md#der-tutor)). Ein
+serverseitiger Schlüssel oder ein anderer Anbieter ist nicht vorgesehen;
+`UNOSIM_LLM_BASE_URL` auf einen anderen OpenAI-kompatiblen Endpunkt zu setzen
+ist weder getestet noch unterstützt. Die Verallgemeinerung ist
+[Issue #243](https://github.com/MoDevIO/UnoSim/issues/243). Ist GitHub nicht erreichbar,
 antwortet der Tutor ohne Kursinhalt als freier Tutor.
 
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:

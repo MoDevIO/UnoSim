@@ -44,7 +44,7 @@ and an interactive Arduino Preview for sketches.
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
 - **I/O Registry**: See which pins your program uses
 - **Examples**: Load examples from a public GitHub repository; each browser can pick its own collection
-- **Tutor**: Learning questions about the current sketch through a personal KI:connect key (experimental workspace)
+- **Tutor**: Learning questions about the current sketch (experimental workspace). The Tutor currently works only with KI:connect.nrw and a personal KI:connect key; other providers are tracked in [#243](https://github.com/MoDevIO/UnoSim/issues/243)
 
 ## Tech Stack
 

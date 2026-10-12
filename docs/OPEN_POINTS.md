@@ -28,6 +28,12 @@ Statuswerte: `BLOCKED_DECISION` (wartet auf eine Entscheidung) · `DEFERRED`
 | D4 | Tutor-Sessions laufen nach einer absoluten TTL ab (Default 1 h, per `TUTOR_SESSION_TTL_MS` einstellbar), auch bei laufender Nutzung. | gering | [config.ts:412](../server/config.ts#L412), [course-content-session.ts:107](../server/services/course-content/course-content-session.ts#L107) | BLOCKED_DECISION | Absolute oder gleitende TTL? |
 | D5 | Ein laufender Sketch hält seinen Simulationsslot bis zum Lauf-Timeout (Default 60 s, Client-Maximum 300 s). Pausierte Läufe enden nach `SIMULATION_MAX_PAUSED_SECONDS` (600 s), jeder Container nach `SANDBOX_MAX_LIFETIME_SECONDS` (2 h). Einen Inaktivitäts-Timeout für laufende Simulationen gibt es nicht. | gering | [input-limits.ts:40-42](../shared/input-limits.ts#L40-L42), [config.ts:246-247](../server/config.ts#L246-L247) | BLOCKED_DECISION | Reichen die vorhandenen Grenzen, oder soll eine Simulation ohne Nutzerinteraktion früher enden? |
 
+## Erweiterungen
+
+| ID | Befund | Risiko | Beleg | Status | Nötige Entscheidung |
+|---|---|---|---|---|---|
+| TUTOR-PROVIDER | Der Tutor funktioniert nur mit KI:connect.nrw und persönlichen Keys; das beschränkt ihn praktisch auf Schulen und Hochschulen in NRW. | gering | [config.ts:667-670](../server/config.ts#L667-L670), [tutor.routes.ts:129](../server/routes/tutor.routes.ts#L129), [Issue #243](https://github.com/MoDevIO/UnoSim/issues/243) | BLOCKED_DECISION | Credential-Modell (nur persönliche Keys oder auch Server-Key) und Provider-Abstraktion festlegen |
+
 ## Wartung
 
 | ID | Befund | Risiko | Beleg | Status | Nötige Entscheidung |
