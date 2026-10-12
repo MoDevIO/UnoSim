@@ -167,9 +167,9 @@ describe("local development entrypoint", () => {
         }));
         expect(directives.get("default-src")).toEqual(["'self'"]);
         expect(directives.get("script-src")).toContain("'self'");
-        expect(directives.get("connect-src")).toEqual([
-          "'self'", "ws:", "wss:", "https://fonts.googleapis.com", "https://fonts.gstatic.com",
-        ]);
+        expect(directives.get("connect-src")).toEqual(["'self'", "ws:", "wss:"]);
+        // Fonts are self-hosted; the page loads nothing from third-party hosts.
+        expect(policy).not.toMatch(/https?:\/\/(?!course\.example)/);
         expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
         expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
         expect(response.headers.get("x-frame-options")).toBeNull();

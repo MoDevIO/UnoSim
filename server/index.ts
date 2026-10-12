@@ -60,11 +60,11 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://replit.com", "blob:"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "ws:", "wss:", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+        fontSrc: ["'self'", "data:"],
         workerSrc: ["'self'", "blob:", "data:"],
         childSrc: ["'self'", "blob:"], // Wichtig für ältere Browser/Playwright
         frameAncestors: parseAllowedFrameAncestors(),
