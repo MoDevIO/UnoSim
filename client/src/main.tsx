@@ -3,6 +3,9 @@ import "./lib/monaco-error-suppressor"; // Geändert von @/lib/...
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+// Self-hosted fonts: the page must not depend on third-party hosts to load.
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { getCurrentFontScale, increaseFontScale, decreaseFontScale } from "./lib/font-scale-utils";
 import { isMac } from "./lib/platform";
