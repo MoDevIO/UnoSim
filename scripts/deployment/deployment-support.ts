@@ -139,6 +139,10 @@ export async function httpsRequest(
   });
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? String(error) : JSON.stringify(error);
+}
+
 export async function waitFor(
   description: string,
   probe: () => Promise<boolean>,
@@ -154,7 +158,7 @@ export async function waitFor(
     }
     await sleep(500);
   }
-  const suffix = lastError ? `: ${lastError instanceof Error ? String(lastError) : JSON.stringify(lastError)}` : "";
+  const suffix = lastError ? `: ${describeError(lastError)}` : "";
   throw new Error(`Timed out waiting for ${description}${suffix}`);
 }
 
