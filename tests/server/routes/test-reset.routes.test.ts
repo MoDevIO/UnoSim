@@ -32,7 +32,7 @@ async function postToReset(isTest: boolean, enabled: boolean) {
   });
 
   const server = await new Promise<http.Server>((resolve) => {
-    const listeningServer = app.listen(0, () => resolve(listeningServer));
+    const listeningServer = app.listen(0, "127.0.0.1", () => resolve(listeningServer));
   });
   servers.push(server);
   const address = server.address();

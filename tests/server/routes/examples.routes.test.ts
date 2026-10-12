@@ -60,7 +60,7 @@ describe("request-scoped examples routes", () => {
       validateRateLimiter: new IdentityRateLimiter("test validate", { maxRequests: validateMax, windowMs: 60_000, blockDurationMs: 60_000 }),
       overrideRateLimiter: new IdentityRateLimiter("test override", { maxRequests: overrideMax, windowMs: 60_000, blockDurationMs: 30_000 }),
     });
-    server = app.listen(0);
+    server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server!.once("listening", resolve));
     const address = server.address() as { port: number };
     return { baseUrl: `http://127.0.0.1:${address.port}`, validate, getCatalog, getExample };
