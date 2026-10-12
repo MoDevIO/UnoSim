@@ -158,7 +158,7 @@ describe("useTutor", () => {
       difficulty: 30,
     });
     expect(result.current.question?.question).toBe("Welche Ausgabe erwartest du?");
-    expect(localStorage.length).toBe(0);
+    expect(localStorage).toHaveLength(0);
   });
 
   it("resets a pinned dialog when the active Course Content revision changes", async () => {

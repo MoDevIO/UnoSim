@@ -709,7 +709,7 @@ function isClassroomComplete(classroom: ClassroomMeasurement | null, expectedUse
 }
 
 function buildQueueRecommendation(classroom: ClassroomMeasurement | null, complete: boolean, config: CalibrationCliConfig): Recommendation<number> {
-  if (complete && classroom && classroom.queueWaitMs.length === config.expectedUsers) {
+  if (complete && classroom?.queueWaitMs.length === config.expectedUsers) {
     return recommendQueueTimeout(classroom.queueP95Ms, classroom.queueP99Ms, classroom.queueMaxMs, config.maxUserWaitSec);
   }
   return {

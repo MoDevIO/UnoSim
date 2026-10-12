@@ -398,6 +398,6 @@ describe("experimental workspace layout", () => {
       { credential: "volatile-key" },
       { credential: "volatile-key" },
     ]);
-    expect(localStorage.length).toBe(0);
+    expect(localStorage).toHaveLength(0);
   });
 });

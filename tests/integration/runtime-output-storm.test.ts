@@ -74,7 +74,7 @@ maybeDescribe("runtime output storm", () => {
     expect(floodLines).toBeLessThan(1_000);
     expect(errors.filter((line) => line.includes("Runtime output rate limit"))).toHaveLength(1);
     // Without aggregation every line produced its own diagnostic log entry.
-    expect(logCalls.filter((message) => message.includes("STDERR")).length).toBe(0);
+    expect(logCalls.filter((message) => message.includes("STDERR"))).toHaveLength(0);
     expect(logCalls.length).toBeLessThan(200);
   }, 90_000);
 });

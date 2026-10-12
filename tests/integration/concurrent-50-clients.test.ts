@@ -421,10 +421,10 @@ void loop() { digitalWrite(13, HIGH); Serial.println("LED ON"); delay(500); digi
     const errored = results.filter((r) => r.errors.length > 0);
 
     // All must compile
-    expect(compiled.length).toBe(N);
+    expect(compiled).toHaveLength(N);
 
     // All must connect via WS
-    expect(connected.length).toBe(N);
+    expect(connected).toHaveLength(N);
 
     // All must receive serial output (the key user-visible requirement)
     if (gotOutput.length < N) {
@@ -439,10 +439,10 @@ void loop() { digitalWrite(13, HIGH); Serial.println("LED ON"); delay(500); digi
     }
 
     // All must see simulation end
-    expect(gotStopped.length).toBe(N);
+    expect(gotStopped).toHaveLength(N);
 
     // No errors
-    expect(errored.length).toBe(0);
+    expect(errored).toHaveLength(0);
   }, 30_000);
 
   // ─── Per-client isolation: different code per client ───────────────────
@@ -464,7 +464,7 @@ void loop() { digitalWrite(13, HIGH); Serial.println("LED ON"); delay(500); digi
     const gotOutput = results.filter(
       (r) => r.compiled && r.receivedSerialOutput,
     );
-    expect(gotOutput.length).toBe(N);
+    expect(gotOutput).toHaveLength(N);
 
     // Each client MUST see its own marker in the serial output.
     // This fails if the server uses a global shared lastCompiledCode

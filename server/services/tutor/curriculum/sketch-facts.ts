@@ -25,7 +25,7 @@ const TYPE_ALIASES: Readonly<Record<string, SketchType>> = {
 };
 
 const TYPE_PATTERN = /\b(?:(?:unsigned|signed)\s+)?(?:char|byte|uint8_t|int|long|float)\b/g;
-const ARRAY_PATTERN = /\b(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[\s*([^\]]*)\s*\]/g;
+const ARRAY_PATTERN = /\b(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[([^\]]*)\]/g;
 const INITIALIZER_PATTERN = /^\s*=\s*\{([^}]*)\}/;
 const SERIAL_PATTERN = /\bSerial\s*\.\s*(print|println|write)\s*\(/gi;
 

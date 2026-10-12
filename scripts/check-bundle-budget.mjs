@@ -16,7 +16,7 @@ const largest = Math.max(...sizes.map((file) => file.bytes), 0);
 // 700 kB limit reflected Vite 5 chunk placement. Recalibrated together with the initial-path check below.
 const limits = { total: 6_000_000, largest: 4_500_000, initial: 710_000 };
 const initial = sizes
-  .filter((file) => /^index-/.test(file.name))
+  .filter((file) => file.name.startsWith("index-"))
   .reduce((sum, file) => sum + file.bytes, 0);
 
 // Initial load path: static import closure of the HTML entry, from the Vite build manifest.

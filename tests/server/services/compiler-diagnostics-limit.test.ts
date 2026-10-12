@@ -27,7 +27,7 @@ describe("compiler diagnostics limits", () => {
     const chunk = "x".repeat(100_000);
     for (let index = 0; index < 10; index += 1) appendCompilerDiagnostics(buffer, chunk);
 
-    expect(buffer.value.length).toBe(MAX_COMPILER_DIAGNOSTIC_CHARS);
+    expect(buffer.value).toHaveLength(MAX_COMPILER_DIAGNOSTIC_CHARS);
     expect(buffer.omittedChars).toBe(1_000_000 - MAX_COMPILER_DIAGNOSTIC_CHARS);
     expect(limitCompilerDiagnostics(buffer.value, buffer.omittedChars)).toMatch(/\.\.\. 737856 more characters/);
   });
