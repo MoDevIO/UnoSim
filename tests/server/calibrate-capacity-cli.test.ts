@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { INPUT_LIMITS, TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import {
+  assertCalibrationBuildArtifacts,
+  createCalibrationRunId,
   effectiveCapacityForPhase,
   getClassroomOutcomeCounts,
   parseCalibrationArgs,
@@ -44,6 +48,14 @@ describe("capacity calibration CLI", () => {
     expect(documentation).toContain("capacity.env");
     expect(documentation).toContain("Calibrate -> Review -> Apply");
     expect(documentation).toContain("60-second active duration");
+  });
+
+  it("documents the build preconditions in order for host calibration", () => {
+    const sequence = /npm ci\n\s*npm run build\n\s*npm run build:sandbox\n\s*npm run capacity:calibrate -- --expected-users/;
+    for (const file of ["docs/INSTALL_SERVER.md", "docs/CAPACITY_MODEL.md"]) {
+      const documentation = fs.readFileSync(path.resolve(process.cwd(), file), "utf8");
+      expect(documentation, file).toMatch(sequence);
+    }
   });
 
   it("applies documented defaults and fixed classroom duration", async () => {
@@ -151,6 +163,7 @@ describe("capacity calibration CLI", () => {
     });
     let stopCount = 0;
     const deps: CalibrationDependencies = {
+      verifyBuildArtifacts: () => undefined,
       collectHostProbe: vi.fn(async () => {
         order.push("host");
         return {
@@ -226,6 +239,7 @@ describe("capacity calibration CLI", () => {
       dryRun: false,
       verbose: false,
     }, {
+      verifyBuildArtifacts: () => undefined,
       collectHostProbe: async () => ({
         required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 20 },
         optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
@@ -288,6 +302,7 @@ describe("capacity calibration CLI", () => {
       dryRun: false,
       verbose: false,
     }, {
+      verifyBuildArtifacts: () => undefined,
       collectHostProbe: async () => ({
         required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
         optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
@@ -318,6 +333,7 @@ describe("capacity calibration CLI", () => {
       dryRun: false,
       verbose: false,
     }, {
+      verifyBuildArtifacts: () => undefined,
       collectHostProbe: async () => ({
         required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
         optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
@@ -331,5 +347,115 @@ describe("capacity calibration CLI", () => {
     expect(report.partial).toBe(true);
     expect(report.stopReason).toBe("Docker unavailable");
     fs.rmSync(outputDir, { recursive: true, force: true });
+  });
+  describe("calibration run IDs", () => {
+    it("matches the central test-run-ID pattern and length limit", () => {
+      const runId = createCalibrationRunId();
+      expect(runId).toMatch(TEST_RUN_ID_PATTERN);
+      expect(runId.length).toBeLessThanOrEqual(INPUT_LIMITS.webSocket.maxTestRunIdChars);
+    });
+
+    it("stays within the limit for the longest realistic timestamp and a canonical UUID", () => {
+      const runId = createCalibrationRunId(() => 9_999_999_999_999, () => "00000000-0000-4000-8000-000000000000");
+      expect(runId).toBe("cap_9999999999999_00000000-0000-4000-8000-000000000000");
+      expect(runId).toMatch(TEST_RUN_ID_PATTERN);
+      expect(runId.length).toBeLessThanOrEqual(INPUT_LIMITS.webSocket.maxTestRunIdChars);
+    });
+
+    it("distinguishes runs by timestamp and by UUID", () => {
+      const uuid = "11111111-1111-4111-8111-111111111111";
+      const other = "22222222-2222-4222-8222-222222222222";
+      const ids = new Set([
+        createCalibrationRunId(() => 1_000, () => uuid),
+        createCalibrationRunId(() => 1_001, () => uuid),
+        createCalibrationRunId(() => 1_000, () => other),
+      ]);
+      expect(ids.size).toBe(3);
+    });
+
+    it("rejects an ID that the backend would refuse instead of starting a doomed backend", () => {
+      expect(() => createCalibrationRunId(() => 1, () => "x".repeat(INPUT_LIMITS.webSocket.maxTestRunIdChars))).toThrow(/Calibration run ID must match/);
+      expect(() => createCalibrationRunId(() => 1, () => "not url safe/..")).toThrow(/Calibration run ID must match/);
+    });
+  });
+
+  describe("built-application preflight", () => {
+    const withTempDir = (run: (dir: string) => void | Promise<void>) => async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "unosim-calibration-build-"));
+      try { await run(dir); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    };
+    const baseConfig = {
+      expectedUsers: 20,
+      targetCpuPercent: 75,
+      maxCpuPercent: 85,
+      maxUserWaitSec: 240,
+      maxDurationMin: 30,
+      classroomDurationSec: 60,
+      skipClassroom: false,
+      skipStartupTuning: false,
+      verbose: false,
+    } as const;
+
+    it("accepts an existing built client index", withTempDir((dir) => {
+      const indexPath = path.join(dir, "index.html");
+      fs.writeFileSync(indexPath, "<!doctype html>");
+      expect(() => assertCalibrationBuildArtifacts(indexPath)).not.toThrow();
+    }));
+
+    it("tells the operator to run npm run build when the client index is missing", withTempDir((dir) => {
+      const indexPath = path.join(dir, "dist", "public", "index.html");
+      expect(() => assertCalibrationBuildArtifacts(indexPath)).toThrow(
+        /Capacity calibration requires a built application.*run npm run build\./,
+      );
+      expect(() => assertCalibrationBuildArtifacts(indexPath)).toThrow(indexPath);
+    }));
+
+    it("aborts before any Docker probe, control measurement, backend, or report when the build is missing", withTempDir(async (dir) => {
+      const outputDir = path.join(dir, "results");
+      const missingIndex = path.join(dir, "dist", "public", "index.html");
+      const collectHostProbe = vi.fn();
+      const collectDockerProbe = vi.fn();
+      const measureDockerControlLatency = vi.fn();
+      const startBackend = vi.fn();
+      const runScenario = vi.fn();
+      await expect(runCalibration(
+        { ...baseConfig, outputDir, dryRun: false },
+        {
+          verifyBuildArtifacts: () => assertCalibrationBuildArtifacts(missingIndex),
+          collectHostProbe,
+          collectDockerProbe,
+          measureDockerControlLatency,
+          startBackend,
+          runScenario,
+        },
+      )).rejects.toThrow(/requires a built application.*npm run build/);
+      expect(collectHostProbe).not.toHaveBeenCalled();
+      expect(collectDockerProbe).not.toHaveBeenCalled();
+      expect(measureDockerControlLatency).not.toHaveBeenCalled();
+      expect(startBackend).not.toHaveBeenCalled();
+      expect(runScenario).not.toHaveBeenCalled();
+      expect(fs.existsSync(outputDir)).toBe(false);
+    }));
+
+    it("does not require the build for a dry run, which starts no backend", withTempDir(async (dir) => {
+      const verifyBuildArtifacts = vi.fn(() => { throw new Error("must not be called"); });
+      const startBackend = vi.fn();
+      const result = await runCalibration(
+        { ...baseConfig, outputDir: path.join(dir, "results"), dryRun: true },
+        {
+          verifyBuildArtifacts,
+          collectHostProbe: async () => ({
+            required: { gitSha: "abc", gitDirty: false, nodeVersion: "v24.20.0", architecture: "x64", logicalCpus: 4 },
+            optional: { physicalMemoryBytes: 16_000_000_000, loadAverage: [1], availableMemoryBytes: 8_000_000_000, swapUsedBytes: 0, iowaitPercent: 1, thermalPressure: null },
+            safetySignals: { cpuAvailable: true, memoryAvailable: true },
+          }),
+          collectDockerProbe: async () => ({ clientVersion: "29", serverVersion: "29", architecture: "x64", cpus: 4, memoryBytes: 16_000_000_000, storageDriver: "overlay2", daemonHealthy: true, image: { reference: "unosim-sandbox:latest", id: "img", digest: null }, runningContainers: [] }),
+          startBackend,
+        },
+      );
+      expect(verifyBuildArtifacts).not.toHaveBeenCalled();
+      expect(startBackend).not.toHaveBeenCalled();
+      expect(result.phases.active).toEqual([]);
+    }));
   });
 });

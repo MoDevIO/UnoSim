@@ -109,6 +109,8 @@ changing the server default; see
 
 For host-specific Capacity sizing, use `npm run capacity:calibrate` and follow
 the review workflow in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md).
+Calibration needs a built application (`npm run build`) and the sandbox image
+(`npm run build:sandbox`); it aborts early with a hint if the build is missing.
 
 ### Architecture Overview
 
