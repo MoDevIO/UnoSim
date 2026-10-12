@@ -58,7 +58,10 @@ services:
       # stays at the application default 25; the Ubuntu/VBox installer writes the value
       # measured on its reference VM. See docs/CAPACITY_MODEL.md before raising.
       - SIMULATION_ADMISSION_MAX=${SIMULATION_ADMISSION_MAX:-25}
-      - SIMULATION_MAX_CONCURRENT=200
+      - SIMULATION_MAX_CONCURRENT=${SIMULATION_MAX_CONCURRENT:-200}
+      # Empty keeps the application default (60000 ms, server/config.ts); a value
+      # from .env or a reviewed capacity.env proposal is passed through unchanged.
+      - SIMULATION_QUEUE_TIMEOUT_MS=${SIMULATION_QUEUE_TIMEOUT_MS:-}
       # Total paused time of one run; a paused run still holds its capacity.
       - SIMULATION_MAX_PAUSED_SECONDS=${SIMULATION_MAX_PAUSED_SECONDS:-600}
       - SANDBOX_POOL_IDLE_TIMEOUT_MS=300000
@@ -86,6 +89,10 @@ services:
       - "${UNOSIM_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # The backend runs as the image's unprivileged `node` user (UID/GID 1000).
+      # Run `sudo ./scripts/prepare-runtime-dirs.sh` once before the first start:
+      # otherwise Docker creates missing mount sources as root:root and the
+      # backend cannot write its compile cache, temp files or storage (EACCES).
       - ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache
       - ${PWD}/temp:${PWD}/temp
       - ./storage:/app/storage

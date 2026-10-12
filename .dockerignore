@@ -21,3 +21,9 @@ server/arduino-cache
 # Temporary files
 temp
 *.log
+
+# Runtime state bind-mounted by docker-compose.yml. After
+# scripts/prepare-runtime-dirs.sh it belongs to the container user (UID 1000,
+# mode 0750), which the host user cannot read; sending it as build context
+# would fail with "permission denied". It is never copied into an image.
+storage

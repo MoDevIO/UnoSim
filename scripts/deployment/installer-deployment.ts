@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
@@ -103,18 +103,65 @@ async function untrustedTutorRequest(network: string, image: string, env: Env): 
   return JSON.parse(result.stdout.trim().split("\n").at(-1) ?? "{}");
 }
 
+/**
+ * Capacity values an operator applies from a reviewed capacity.env proposal by
+ * appending them to .env. Distinct from every default, so the assertions below
+ * prove that Compose passes them to the backend.
+ */
+const appliedCapacityEnv: Env = {
+  SIMULATION_MAX_CONCURRENT: "96",
+  SIMULATION_QUEUE_TIMEOUT_MS: "151000",
+};
+
+const runtimeDirectories = ["server/arduino-cache", "temp", "storage"];
+const prepareScript = join(repoRoot, "scripts/prepare-runtime-dirs.sh");
+
+/**
+ * Runs the production preparation script the installer calls through sudo. It
+ * runs as root inside the server image, the way sudo runs it on a host, and
+ * leaves the directories to the image's own user. The runner user that owns
+ * projectDir is not that user (UID 1001 on GitHub runners), so this proves the
+ * preparation does not depend on the host account's UID.
+ */
+async function prepareRuntimeDirectories(projectDir: string, serverImage: string): Promise<void> {
+  const [uid, gid] = await Promise.all(["-u", "-g"].map(async (flag) => (await checked("docker", [
+    "run", "--rm", "--entrypoint", "id", serverImage, flag,
+  ], { timeoutMs: 60_000 })).stdout.trim()));
+  const source = await readFile(prepareScript, "utf8");
+  const defaults = `${/^RUNTIME_UID='(\d+)'$/m.exec(source)?.[1]}:${/^RUNTIME_GID='(\d+)'$/m.exec(source)?.[1]}`;
+  assert.equal(defaults, `${uid}:${gid}`, "prepare-runtime-dirs.sh must default to the UID:GID of the image's user");
+
+  await checked("docker", [
+    "run", "--rm", "--user", "0",
+    "-v", `${projectDir}:/project`,
+    "-v", `${prepareScript}:/prepare-runtime-dirs.sh:ro`,
+    "--entrypoint", "bash", serverImage, "/prepare-runtime-dirs.sh", "--project-dir", "/project",
+  ], { timeoutMs: 60_000 });
+}
+
+/** The backend user must be able to write every bind-mounted runtime directory. */
+async function assertRuntimeDirectoriesWritable(container: string): Promise<void> {
+  const probe = await checked("docker", [
+    "exec", container, "sh", "-c",
+    'id -u; for d in "$ARDUINO_CACHE_DIR" "$UNOSIM_SHARED_TEMP_DIR" /app/storage; do ' +
+      'f="$d/.deployment-write-probe"; touch "$f" && rm -f "$f" && echo "writable $d" || echo "NOT WRITABLE $d"; done',
+  ], { timeoutMs: 30_000 });
+  const lines = probe.stdout.trim().split("\n");
+  assert.notEqual(lines[0], "0", "the backend must not run as root");
+  assert.equal(lines.filter((line) => line.startsWith("writable ")).length, runtimeDirectories.length,
+    `backend user cannot write all runtime directories:\n${probe.stdout}`);
+}
+
 /** Writes the installer-rendered .env, Nginx site, secret snippet and TLS files. */
 async function renderInstallerProject(
   projectDir: string,
   nginxDir: string,
   tlsDir: string,
+  serverImage: string,
 ): Promise<{ installerEnv: Env; ca: Buffer }> {
-  // Same directories the installer creates; container user and runner user
-  // differ in CI, so the bind-mounted runtime directories must be writable.
-  for (const directory of ["server/arduino-cache", "temp", "storage"]) {
-    await mkdir(join(projectDir, directory), { recursive: true });
-    await chmod(join(projectDir, directory), 0o777);
-  }
+  // The installer creates these through prepare-runtime-dirs.sh; the checkout
+  // owner and the container user differ, so a plain mkdir is not enough.
+  await prepareRuntimeDirectories(projectDir, serverImage);
   await mkdir(tlsDir, { recursive: true });
 
   const gatewaySecret = (await checked("openssl", ["rand", "-hex", "32"])).stdout.trim();
@@ -122,9 +169,11 @@ async function renderInstallerProject(
     renderer, "env", "--lan-ip", lanIp, "--docker-gid", await resolveDockerGid(),
   ], { input: `${gatewaySecret}\n` })).stdout;
   const override = process.env.DEPLOYMENT_TRUSTED_PROXY_OVERRIDE;
-  const dotEnv = override
+  const gatewayEnv = override
     ? renderedEnv.replace(/^UNOSIM_TRUSTED_PROXY=.*$/m, `UNOSIM_TRUSTED_PROXY=${override}`)
     : renderedEnv;
+  const capacityLines = Object.entries(appliedCapacityEnv).map(([key, value]) => `${key}=${value}\n`).join("");
+  const dotEnv = gatewayEnv + capacityLines;
   await writeFile(join(projectDir, ".env"), dotEnv, { mode: 0o600 });
   const installerEnv = parseDotEnv(dotEnv);
   await assertSubnetUnused(installerEnv.UNOSIM_DOCKER_SUBNET);
@@ -182,6 +231,15 @@ async function verifyTrustChain(
   assert.equal(admissionMax, Number(installerEnv.SIMULATION_ADMISSION_MAX),
     `backend admission limit ${admissionMax} does not match the installer value ${installerEnv.SIMULATION_ADMISSION_MAX}`);
 
+  // E. Capacity values applied through .env reach the backend: Compose used to
+  // ignore SIMULATION_QUEUE_TIMEOUT_MS and pin SIMULATION_MAX_CONCURRENT to 200.
+  const capacity = (JSON.parse(spoofed.body) as {
+    capacity?: { queue?: { timeoutMs?: number }; simulation?: { maxConcurrent?: number } };
+  }).capacity;
+  assert.equal(capacity?.queue?.timeoutMs, Number(appliedCapacityEnv.SIMULATION_QUEUE_TIMEOUT_MS),
+    `backend queue timeout ${capacity?.queue?.timeoutMs} does not match .env SIMULATION_QUEUE_TIMEOUT_MS`);
+  assert.equal(capacity?.simulation?.maxConcurrent, Number(appliedCapacityEnv.SIMULATION_MAX_CONCURRENT),
+    `backend simulation limit ${capacity?.simulation?.maxConcurrent} does not match .env SIMULATION_MAX_CONCURRENT`);
 }
 
 /** Installer origins, WebSocket and a sandboxed simulation through the gateway. */
@@ -264,7 +322,7 @@ async function assertRuntimeMounts(container: string, projectDir: string): Promi
   const mounts = (await checked("docker", [
     "inspect", container, "--format", "{{range .Mounts}}{{.Source}}\n{{end}}",
   ], { timeoutMs: 20_000 })).stdout.split("\n").filter(Boolean);
-  for (const directory of ["server/arduino-cache", "temp", "storage"]) {
+  for (const directory of runtimeDirectories) {
     assert.ok(mounts.includes(join(projectDir, directory)), `backend must mount ${join(projectDir, directory)} (mounts: ${mounts.join(", ")})`);
   }
 }
@@ -305,7 +363,7 @@ async function main(): Promise<void> {
     for (const port of [3000, 443, gatewayPort]) await assertPortFree(port);
     images = await prepareImages(runId);
 
-    const { installerEnv, ca } = await renderInstallerProject(projectDir, nginxDir, tlsDir);
+    const { installerEnv, ca } = await renderInstallerProject(projectDir, nginxDir, tlsDir, images.server);
     const gateway = { port: gatewayPort, ca };
 
     composeEnv = {
@@ -328,6 +386,7 @@ async function main(): Promise<void> {
     await compose(["up", "-d", "--no-build"], 240_000);
 
     await assertRuntimeMounts(backendContainer, projectDir);
+    await assertRuntimeDirectoriesWritable(backendContainer);
     const network = `${projectName}_default`;
     const networkGateway = (await checked("docker", [
       "network", "inspect", network, "--format", "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
