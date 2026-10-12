@@ -172,7 +172,8 @@ async function renderInstallerProject(
   const gatewayEnv = override
     ? renderedEnv.replace(/^UNOSIM_TRUSTED_PROXY=.*$/m, `UNOSIM_TRUSTED_PROXY=${override}`)
     : renderedEnv;
-  const dotEnv = `${gatewayEnv}${Object.entries(appliedCapacityEnv).map(([key, value]) => `${key}=${value}\n`).join("")}`;
+  const capacityLines = Object.entries(appliedCapacityEnv).map(([key, value]) => `${key}=${value}\n`).join("");
+  const dotEnv = gatewayEnv + capacityLines;
   await writeFile(join(projectDir, ".env"), dotEnv, { mode: 0o600 });
   const installerEnv = parseDotEnv(dotEnv);
   await assertSubnetUnused(installerEnv.UNOSIM_DOCKER_SUBNET);
