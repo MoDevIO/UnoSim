@@ -1,5 +1,4 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 import path from "node:path";
 
 // Force NODE_ENV to 'test' regardless of shell environment.
@@ -49,7 +48,6 @@ const serializedHttpUnitTests = [
 ] as const;
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
   resolve: {
     alias: {
       "@shared": path.resolve(__dirname, "shared"),
