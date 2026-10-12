@@ -12,7 +12,16 @@
 A web-based Arduino simulator with a browser UI, server-side Arduino compilation
 and an interactive Arduino Preview for sketches.
 
-> **Administration:** For local development and Docker installation, see [`docs/INSTALL_LOCAL.md`](docs/INSTALL_LOCAL.md) and [`docs/INSTALL_SERVER.md`](docs/INSTALL_SERVER.md). Security requirements are in [`docs/SECURITY.md`](docs/SECURITY.md).
+## Start here
+
+| You want to … | Read |
+|---|---|
+| use UnoSim in the browser (learners, teachers) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) (German) |
+| try UnoSim in a classroom on one Ubuntu VM | [docs/INSTALL_UBUNTU_VBOX.md](docs/INSTALL_UBUNTU_VBOX.md) (German, tested end to end) |
+| run UnoSim on a server behind your own reverse proxy | [docs/INSTALL_SERVER.md](docs/INSTALL_SERVER.md) (German) and [docs/SECURITY.md](docs/SECURITY.md) |
+| develop UnoSim on your machine | [Development setup](#development-setup) below and [docs/INSTALL_LOCAL.md](docs/INSTALL_LOCAL.md) |
+| write your own examples and Tutor content | [UnoSim-Examples README](https://github.com/ttbombadil/UnoSim-Examples#course-content-and-tutor-authoring) |
+| find any other document | [docs/README.md](docs/README.md) |
 
 ## Preview
 
@@ -33,7 +42,9 @@ and an interactive Arduino Preview for sketches.
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
 - **Web-based UI**: Use the simulator in a browser; local/server installation runs the backend
 - **Modern UI**: Built with React and TailwindCSS for a responsive, professional interface
-- **I/O Registry**: You can see what Pins are used in your Program!
+- **I/O Registry**: See which pins your program uses
+- **Examples**: Load examples from a public GitHub repository; each browser can pick its own collection
+- **Tutor**: Learning questions about the current sketch (experimental workspace). The Tutor currently works only with KI:connect.nrw and a personal KI:connect key; other providers are tracked in [#243](https://github.com/MoDevIO/UnoSim/issues/243)
 
 ## Tech Stack
 
@@ -43,153 +54,39 @@ and an interactive Arduino Preview for sketches.
 - **Testing**: Vitest with React Testing Library
 - **Build Tools**: Vite, esbuild
 
-## Installation (only for Linux/MacOS)
+## Development setup
+
+UnoSim runs on Linux and macOS. Production always runs in Docker; see
+[docs/INSTALL_SERVER.md](docs/INSTALL_SERVER.md).
 
 ### Prerequisites
 
-- Node.js 24.20.0 LTS (see `.nvmrc`)
-- npm or yarn
+- Node.js 24.20.0 LTS (see `.nvmrc`) and npm
+- [Arduino CLI](https://arduino.github.io/arduino-cli/) with the `arduino:avr` core
+
+Docker is not needed for development.
 
 ### Setup
-
-1. Clone the repository:
 
 ```bash
 git clone https://github.com/MoDevIO/UnoSim.git
 cd UnoSim
-```
-
-2. Install dependencies:
-
-```bash
-    npm ci
-```
-
-3. Start the dev-server:
-
-```bash
+npm ci
+arduino-cli core update-index
+arduino-cli core install arduino:avr
 npm run dev:full
 ```
 
-This will start both the backend server and the frontend development server.
+Open `http://localhost:3001`. `npm run dev:full` starts the backend
+(`127.0.0.1:3000`) and the Vite dev server with hot reload; `npm run dev`
+starts only the backend. The development profile is single-user, compiles and
+runs sketches directly on your machine and accepts only loopback requests.
 
-## Usage
-
-UnoSim supports two runtime profiles: local development and Docker deployment.
-
-### Development Mode
-
-```bash
-npm run dev:full
-```
-
-Starts the backend (Express + WebSocket) and the Vite dev server with hot-reload.
-The backend runs via `tsx` (TypeScript execution) and the client is served by Vite on a separate port with HMR.
-Compilation uses `arduino-cli` directly on the host — Docker is **not** required.
-
-`npm run dev` starts only the backend on the local listener (`127.0.0.1`). The
-development profile is single-user and is not a deployment mode. Both commands
-use the configured external-example source, ref, and host allowlist from the
-development script.
-
-The accepted target architecture keeps that server configuration as the
-default, while allowing each browser to select a validated public GitHub
-Examples repository and ref in Settings. The browser preference is
-request-scoped, never changes the server default, and never fetches GitHub
-directly. The default is `ttbombadil/unosim-examples` at `main`; the server
-resolves the ref to a full commit SHA before loading a complete snapshot. See
+Examples load from the public GitHub repository
+`ttbombadil/unosim-examples` at `main` by default. Each browser can choose a
+different repository under **File → Settings → External Examples** without
+changing the server default; see
 [`ssot_function_definition_ExternalExamples.md`](ssot/ssot_function_definition_ExternalExamples.md).
-
-| Component | Details |
-|-----------|---------|
-| Backend | `tsx server/index.ts` on configured `PORT` (default 3000) |
-| Client | Vite HMR dev server (proxied) |
-| Compiler | Direct `arduino-cli` calls on host |
-| Worker Pool | Disabled (`CompilerWithFallback.usePool = false` outside production) |
-
-### Docker Mode
-
-```bash
-npm run build
-npm run start
-```
-
-Builds the full stack (client + server + worker) into `dist/`. The supported
-production profile runs this server in Docker and executes every simulation in
-a Docker sandbox. The Vite-built client is served as static files from
-`dist/public/`.
-
-| Component | Details |
-|-----------|---------|
-| Backend | `node dist/index.js` on configured `PORT` (default 3000) |
-| Client | Static files from `dist/public/` |
-| Compiler | Configured Worker Pool (Compose reference: 8 parallel workers) |
-| Docker | Required for the server container and all simulation sandboxes |
-
-> **Note:** Local development compiles and executes directly on the host. The
-> Docker profile requires a working Docker daemon and sandbox image and never
-> falls back to host-native simulation.
-
-```bash
-docker build -t unosim-sandbox:latest -f Dockerfile.sandbox .
-docker build -t unosim-server:latest .
-```
-
-For a manual production container, use the same gateway, sandbox and mount
-requirements as Compose. At minimum, production requires Gateway mode,
-`UNOSIM_GATEWAY_SECRET` (at least 32 characters), `UNOSIM_TRUSTED_PROXY`, and
-`UNOSIM_ALLOWED_WS_ORIGINS`; the backend also needs the Docker socket and the
-`unosim-sandbox:latest` image available to the configured Docker daemon:
-
-```bash
-docker run --rm -p 127.0.0.1:3000:3000 \
-   -e NODE_ENV=production \
-   -e UNOSIM_SERVER_MODE=docker \
-   -e UNOSIM_GATEWAY_SECRET='<secret-from-secret-store>' \
-   -e UNOSIM_TRUSTED_PROXY='<express-trusted-proxy-ip-or-cidr>' \
-   -e UNOSIM_ALLOWED_WS_ORIGINS='https://classroom.example.edu' \
-   -e DOCKER_HOST=unix:///var/run/docker.sock \
-   -e DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest \
-   -e ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache \
-   -e UNOSIM_SHARED_TEMP_DIR=${PWD}/temp \
-   -v /var/run/docker.sock:/var/run/docker.sock \
-   -v ${PWD}/server/arduino-cache:${PWD}/server/arduino-cache \
-   -v ${PWD}/temp:${PWD}/temp \
-   -v ${PWD}/storage:/app/storage \
-   unosim-server:latest
-```
-
-Or with Docker Compose (backend only):
-
-```bash
-export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
-export UNOSIM_GATEWAY_SECRET="<at-least-32-random-characters>"
-export UNOSIM_TRUSTED_PROXY="<express-trusted-proxy-ip-or-cidr>"
-export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
-docker compose up --build
-```
-Compose starts the UnoSim backend only. Docker mode always requires an
-trusted reverse proxy that supplies the gateway identity; authenticating a
-person is optional. The four variables above are mandatory and must be supplied
-by the deployment's secret/environment management. The proxy must replace
-client-supplied `X-UnoSim-*` headers with the gateway secret, subject and `user`
-role for both HTTP and WebSocket requests. A private deployment may derive the
-subject from the directly observed client IP, not a client-supplied
-`X-Forwarded-For` value; clients behind the same NAT, VPN or upstream proxy
-then share an UnoSim identity and its limits. This
-IP-identified mode grants access to every client that can reach the proxy and
-is not user authentication. See [the deployment security contract](docs/SECURITY.md)
-and the [Docker installation guide](docs/INSTALL_SERVER.md). For a tested
-Ubuntu Desktop setup, see [docs/INSTALL_UBUNTU_VBOX.md](docs/INSTALL_UBUNTU_VBOX.md).
-Sandbox execution remains dynamic and uses the Docker socket at runtime.
-
-If you need SonarQube, run it separately in its own stack or service; the UnoSim compose file does not include SonarQube or MCP.
-
-The application runs inside a container and is available at `http://localhost:3000`.
-
-For sandboxed sketch execution, the server container must use a temp directory that is bind-mounted from the host at the same absolute path. The provided Compose file does this via `UNOSIM_SHARED_TEMP_DIR=${PWD}/temp` and `${PWD}/temp:${PWD}/temp`.
-
-On macOS, make sure your project directory is allowed under Docker Desktop file sharing, otherwise the inner sandbox container cannot see generated files such as `sketch.cpp`.
 
 ### Available Scripts
 
@@ -208,12 +105,14 @@ On macOS, make sure your project directory is allowed under Docker Desktop file 
 | `npm run capacity:calibrate` | Measure host/Docker simulation capacity and generate review-only Capacity recommendations |
 | `npm run test:all` | Run unit, integration and Docker gates |
 | `./run-tests.sh` | Full pipeline: lint, unit tests, Docker build, integration tests, E2E |
-| `RUN_HEAVY_TESTS=1 ./run-tests.sh` | Full pipeline inklusive langsamem Parallel-Instanz-Stresstest |
+| `RUN_HEAVY_TESTS=1 ./run-tests.sh` | Full pipeline including the slow parallel-instance stress test |
 
 For host-specific Capacity sizing, use `npm run capacity:calibrate` and follow
 the review workflow in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md).
 
 ### Architecture Overview
+
+The full picture is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - **Sandbox Runner Pool** — Manages runner leases for sketch execution. In the documented production path, each simulation runs in a short-lived isolated Docker sandbox with stdout/stderr capture for serial output and pin state reporting.
 - **Compilation Worker Pool** — In production mode, the configured Node.js Worker Thread pool handles compilations in parallel via `CompilerWithFallback`. The Compose reference uses 8 workers (the pool runs at most 8); a full pool answers `503 SYSTEM_BUSY`. Current capacity guidance is in [`docs/CAPACITY_MODEL.md`](docs/CAPACITY_MODEL.md); [`docs/CAPACITY_HISTORICAL_PHASE_3_4.md`](docs/CAPACITY_HISTORICAL_PHASE_3_4.md) keeps the historical measurement.
@@ -258,7 +157,7 @@ licenses.
 ### Getting Help
 
 - **Issues & Bugs**: Use the [GitHub Issues](https://github.com/modevio/UnoSim/issues) tracker
-- **Feature Requests**: Create an [Pull Request](https://github.com/modevio/UnoSim/pulls)
+- **Feature Requests**: Open an [issue](https://github.com/modevio/UnoSim/issues) or a [pull request](https://github.com/modevio/UnoSim/pulls)
 - **Questions**: Open a discussion or check existing issues
 
 ### Project Maintainers

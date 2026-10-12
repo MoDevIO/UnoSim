@@ -34,6 +34,16 @@ docker compose up --build
 Gateway-Identität und Docker-Simulation automatisch. Der Server prüft
 Docker-Daemon, Sandbox-Image und Runner-Pool vor der Readiness-Freigabe.
 
+Das Backend ist danach nur unter `127.0.0.1:3000` erreichbar und erwartet die
+Gateway-Header. Ein direkter Aufruf ohne Gateway wird mit `401` oder `403`
+abgelehnt; das ist gewollt. Zum Prüfen dienen `/api/health` und
+`/api/readiness` (siehe unten). Nutzer erreichen UnoSim ausschließlich über den
+Reverse Proxy.
+
+Für einen schnellen, durchgetesteten Aufbau auf einer einzelnen Ubuntu-VM
+installiert [INSTALL_UBUNTU_VBOX.md](INSTALL_UBUNTU_VBOX.md) Docker, Nginx und
+TLS per Skript.
+
 Die vollständige Kapazitäts- und Timeout-Semantik steht in
 [`CAPACITY_MODEL.md`](CAPACITY_MODEL.md). Die dortigen
 Validierungsprofile sind Testprofile und keine automatischen
@@ -77,6 +87,54 @@ Host und Port. Der Standard-HTTPS-Port 443 wird ohne Port geschrieben;
 alternative Ports müssen explizit eingetragen werden, zum Beispiel
 `https://unosim.vbox` und `https://unosim.vbox:8443`. Wildcards oder bloße
 Hostname-Suffixe sind keine Origin-Allowlist.
+
+### Beispiel: Nginx ohne Benutzeranmeldung
+
+Diese Konfiguration entspricht der des Ubuntu/VBox-Installers. Sie leitet
+HTTP und WebSocket an das Backend weiter und vergibt die Identität anhand der
+Client-IP. `unosim.example.edu` und die Zertifikatspfade sind anzupassen.
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 443 ssl;
+    server_name unosim.example.edu;
+
+    ssl_certificate     /etc/nginx/tls/unosim.crt;
+    ssl_certificate_key /etc/nginx/tls/unosim.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # Secret in einer Datei mit Rechten 0600 halten, nicht im Site-File:
+        # proxy_set_header X-UnoSim-Gateway-Secret "<UNOSIM_GATEWAY_SECRET>";
+        include /etc/nginx/snippets/unosim-gateway-secret.conf;
+        proxy_set_header X-UnoSim-Subject "ip-$remote_addr";
+        proxy_set_header X-UnoSim-Roles "user";
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+`proxy_set_header` überschreibt gleichnamige Header des Clients. Läuft Nginx auf
+demselben Host wie Compose, gilt `UNOSIM_TRUSTED_PROXY=172.31.253.1/32`, und
+`UNOSIM_ALLOWED_WS_ORIGINS` ist `https://unosim.example.edu`. Mit
+Benutzeranmeldung setzt das Gateway `X-UnoSim-Subject` stattdessen aus dem
+angemeldeten Konto; ein Beispiel mit HTTP Basic Auth steht in
+[INSTALL_UBUNTU_VBOX.md](INSTALL_UBUNTU_VBOX.md#optional-anmeldung-am-gateway).
 
 Der ursprüngliche Vertrag steht in
 [`adr/0001-authentication-and-gateway-contract.md`](adr/0001-authentication-and-gateway-contract.md);
@@ -154,20 +212,20 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | `SIMULATION_MAX_PAUSED_SECONDS` | maximale Gesamtpausenzeit eines Simulationslaufs; danach wird er beendet und gibt seine Kapazität frei; Standard `600`, muss kleiner als `SANDBOX_MAX_LIFETIME_SECONDS` sein |
 | `WS_HEARTBEAT_INTERVAL_MS` | Ping-Intervall der WebSocket-Verbindungen; eine Verbindung ohne Antwort auf den vorherigen Ping wird getrennt und gibt ihre Simulation frei; Standard `30000` ms |
 
-Die Defaults der Anwendung stehen in `server/config.ts` (unter anderem
-`SIMULATION_MAX_CONCURRENT=5`). Die Produktions-Compose-Datei setzt aktuell
-`SIMULATION_MAX_CONCURRENT=200` ausdrücklich als Deployment-Override; das ist
-kein neuer Anwendungdefault. Dieser Wert begrenzt globale logische Runner und
-ist nicht das Limit pro Gateway-Subject. Der effektive Admission-Grenzwert pro
-Identität hängt vom verwendeten Source-Stand und dessen Konfiguration ab.
-Dieser Wert muss vor einem produktiven Einsatz
-gegen die aktuelle Zielserver-Abnahme geprüft werden. Wirksam wird er nur
-zusammen mit `SIMULATION_ADMISSION_MAX`: Ohne diesen Wert lässt die Admission
-höchstens 25 laufende und wartende Simulationen zu. Der Ubuntu/VBox-Installer
-schreibt `SIMULATION_ADMISSION_MAX=40` in die `.env`; dieser Wert ist auf der
-Referenz-VBox (8 vCPU, 11 GiB, kein Swap) für Klassen von etwa 30 Studierenden
-gemessen (siehe `CAPACITY_MODEL.md`). Auf anderer Hardware vor einer
-Übernahme erneut messen.
+Wie viele Simulationen gleichzeitig laufen, begrenzen zwei Werte gemeinsam:
+
+- `SIMULATION_MAX_CONCURRENT` begrenzt die gleichzeitig laufenden Simulationen
+  auf dem Server. Die Anwendung setzt standardmäßig `5`; `docker-compose.yml`
+  überschreibt das mit `200`.
+- `SIMULATION_ADMISSION_MAX` begrenzt laufende **und** wartende Simulationen
+  zusammen. Der Standard ist `25`.
+
+Es gilt der kleinere der beiden Werte. Mit der Compose-Datei laufen ohne
+weitere Einstellung also höchstens 25 Simulationen gleichzeitig. Der
+Ubuntu/VBox-Installer setzt `SIMULATION_ADMISSION_MAX=40`; dieser Wert ist auf
+der Referenz-VM (8 vCPU, 11 GiB RAM, kein Swap) für Klassen mit etwa 30
+Lernenden gemessen (siehe [CAPACITY_MODEL.md](CAPACITY_MODEL.md)). Auf anderer
+Hardware vor einer Übernahme neu messen.
 
 Ist der Compile-Worker-Pool ausgelastet (500 wartende Compiles oder 30 s
 Wartezeit), antwortet `/api/compile` mit `503` und `SYSTEM_BUSY`.
@@ -186,6 +244,31 @@ aufgelöst werden. Die Kalibrierung ändert keine Produktionskonfiguration
 automatisch. Die technische Referenz mit Messphasen, Timeout-Grenzen und
 Akzeptanzkriterien steht in
 [`CAPACITY_MODEL.md`](CAPACITY_MODEL.md).
+
+### Kursinhalte und Tutor
+
+| Variable | Standard (Compose) | Zweck |
+|---|---|---|
+| `UNOSIM_EXAMPLES_SOURCE` | `ttbombadil/unosim-examples` | öffentliches GitHub-Repository mit Beispielen und Tutor-Inhalten; leer = nur eingebaute Beispiele |
+| `UNOSIM_EXAMPLES_REF` | `main` | Branch, Tag oder Commit; der Server löst ihn zu einem Commit auf |
+| `UNOSIM_EXAMPLES_ALLOWED_HOSTS` | `api.github.com,raw.githubusercontent.com` | erlaubte Ziele für ausgehende Abrufe |
+| `UNOSIM_EXAMPLES_REFRESH_MS` | `300000` | Abstand zwischen zwei Prüfungen auf einen neuen Stand |
+| `UNOSIM_GITHUB_TOKEN` | leer | siehe oben |
+| `UNOSIM_LLM_BASE_URL` | `https://chat.kiconnect.nrw/api/v1` | OpenAI-kompatibler Endpunkt für den Tutor |
+| `UNOSIM_LLM_TIMEOUT_MS` | `30000` | maximale Dauer eines Tutor-Aufrufs |
+| `TUTOR_RATE_LIMIT_MAX_REQUESTS` | `20` | Tutor-Anfragen pro Identität und Fenster |
+| `TUTOR_RATE_LIMIT_WINDOW_MS` | `60000` | Fenster für das Tutor-Limit |
+| `TUTOR_SESSION_TTL_MS` | `3600000` | absolute Lebensdauer einer Tutor-Sitzung |
+| `TUTOR_SESSION_MAX_PER_SUBJECT` | `5` | gleichzeitige Tutor-Sitzungen pro Identität |
+
+Der Tutor unterstützt derzeit nur KI:connect.nrw. Er braucht serverseitig
+keinen Schlüssel: Jede Person trägt ihren persönlichen KI:connect-Key im
+Browser ein (siehe [USER_GUIDE.md](USER_GUIDE.md#der-tutor)). Ein
+serverseitiger Schlüssel oder ein anderer Anbieter ist nicht vorgesehen;
+`UNOSIM_LLM_BASE_URL` auf einen anderen OpenAI-kompatiblen Endpunkt zu setzen
+ist weder getestet noch unterstützt. Die Verallgemeinerung ist
+[Issue #243](https://github.com/MoDevIO/UnoSim/issues/243). Ist GitHub nicht erreichbar,
+antwortet der Tutor ohne Kursinhalt als freier Tutor.
 
 Frühere Topologie- und Kompatibilitätsschalter werden beim Start abgelehnt:
 `UNOSIM_SIMULATION_MODE`, `UNOSIM_TRUST_MODE`, `FORCE_DOCKER` und
@@ -216,6 +299,21 @@ Simulationen bleiben echte Docker-Sandboxen. Er ist kein Deploymentmodus.
   Prozessmetriken; im Docker-Profil nur mit gültiger Gateway-Identität
 
 Eine Instanz darf erst nach erfolgreicher Readiness Traffic erhalten.
+
+## Datensicherung
+
+UnoSim speichert keine Nutzerdaten auf dem Server: Sketches existieren nur im Browser
+und werden dort über **File → Save All Files** gesichert, Tutor-Sitzungen
+liegen im Arbeitsspeicher des Backends. `storage/`, `temp/` und
+`server/arduino-cache/` enthalten nur Caches und Zwischenstände, die nach einem
+Verlust neu entstehen.
+
+Zu sichern sind:
+
+- die `.env` bzw. die Umgebungswerte, vor allem `UNOSIM_GATEWAY_SECRET`
+  (vertraulich ablegen),
+- die Gateway-Konfiguration samt TLS-Zertifikat und -Schlüssel,
+- der eingesetzte Source-Stand (Commit oder Image-Tag) für ein Rollback.
 
 ## Update und Rollback
 
