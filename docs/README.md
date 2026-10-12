@@ -5,7 +5,19 @@ Architektur. Weitere Dateien in diesem Verzeichnis sind als historisch oder
 nicht normativ gekennzeichnet (Kopfzeile); sie dokumentieren Analysen, Pläne
 und Messläufe, keinen Vertrag.
 
+## Nutzung
+
+- [USER_GUIDE.md](USER_GUIDE.md) – UnoSim im Browser bedienen: Sketches,
+  Simulation, Beispiele und Tutor.
+- [UnoSim-Examples](https://github.com/ttbombadil/UnoSim-Examples#course-content-and-tutor-authoring)
+  – eigene Beispiele und Tutor-Inhalte erstellen.
+
 ## Installation und Betrieb
+
+Für einen ersten Klassenraum-Aufbau ist
+[INSTALL_UBUNTU_VBOX.md](INSTALL_UBUNTU_VBOX.md) der kürzeste Weg; für einen
+eigenen Reverse Proxy gilt [INSTALL_SERVER.md](INSTALL_SERVER.md).
+
 
 - [INSTALL_LOCAL.md](INSTALL_LOCAL.md) – lokale Entwicklung mit lokaler
   Kompilierung und Simulation.
