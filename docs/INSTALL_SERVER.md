@@ -42,6 +42,12 @@ mit `EACCES` und `POST /api/compile 500`. Das Skript ist idempotent, repariert
 auch bereits root-eigene Inhalte und verlangt `sudo`; der Ubuntu/VBox-Installer
 ruft es selbst auf. Die UID des Host-Benutzers spielt keine Rolle.
 
+Danach kann der Host-Benutzer diese Verzeichnisse nicht mehr lesen. Deshalb
+stehen `server/arduino-cache`, `temp` und `storage` in der `.dockerignore`: Sie
+sind Laufzeitzustand, gehören nicht in ein Image und dürfen den Build-Kontext
+nicht erreichen. Sonst scheitert `docker compose up --build` mit
+`permission denied`, sobald ein Dockerfile-Schritt wie `COPY . …` sie einsammelt.
+
 `docker-compose.yml` setzt `NODE_ENV=production` und
 `UNOSIM_SERVER_MODE=docker`. Das Profil aktiviert die Prüfung der erforderlichen
 Gateway-Identität und Docker-Simulation automatisch. Der Server prüft
