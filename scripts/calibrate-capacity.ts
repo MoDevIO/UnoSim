@@ -1,8 +1,11 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { INPUT_LIMITS, TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import {
   CALIBRATION_POLICY_VERSION,
   planActiveCandidates,
@@ -47,6 +50,8 @@ const DOCKER_CONTROL_RANGE = { min: 100, max: 30_000 };
 const SANDBOX_START_SLOT_DEFAULT_MS = 30_000;
 const SANDBOX_START_SLOT_RANGE = { min: 1_000, max: 900_000 };
 const FIXED_CLASSROOM_DURATION_SEC = 60 as const;
+// The owned backend runs server/index.ts with NODE_ENV=test, which serves the built client via serveStatic().
+const BUILT_CLIENT_INDEX = fileURLToPath(new URL("../dist/public/index.html", import.meta.url));
 
 export type SafetyEvent = {
   atMs: number;
@@ -118,7 +123,23 @@ export type CalibrationDependencies = {
   runScenario?: (options: CapacityScenarioOptions) => Promise<CapacityScenarioMeasurement>;
   startBackend?: (capacity: EffectiveCapacityConfiguration, runId: string) => Promise<{ baseUrl: string; stop: () => Promise<void> }>;
   ownedContainerCount?: (runId: string, includeStopped?: boolean) => number;
+  verifyBuildArtifacts?: () => void;
 };
+
+/** Fails early when the built client that the owned backend serves is missing. */
+export function assertCalibrationBuildArtifacts(indexPath: string = BUILT_CLIENT_INDEX): void {
+  if (fs.existsSync(indexPath)) return;
+  throw new Error(`Capacity calibration requires a built application (${indexPath} not found); run npm run build.`);
+}
+
+/** Creates a calibration run ID that satisfies the central test-run-ID pattern and length limit. */
+export function createCalibrationRunId(now: () => number = Date.now, uuid: () => string = randomUUID): string {
+  const runId = `cap_${now()}_${uuid()}`;
+  if (!TEST_RUN_ID_PATTERN.test(runId)) {
+    throw new Error(`Calibration run ID must match ${TEST_RUN_ID_PATTERN} (max ${INPUT_LIMITS.webSocket.maxTestRunIdChars} characters)`);
+  }
+  return runId;
+}
 
 function timestampOutputDir(): string {
   return path.join("capacity-test-results", `calibration-${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}`);
@@ -527,7 +548,7 @@ type PhaseRunResult = {
 
 async function measureCalibrationCandidate(context: CalibrationPhaseContext, phase: SafetyEvent["phase"], active: number, startup: number, scenario: "burst" | "classroom" = "burst"): Promise<CapacityScenarioMeasurement> {
   if (context.now() >= context.deadline) throw new Error("calibration deadline reached");
-  const runId = `capacity_calibration_${Date.now()}_${randomUUID()}`;
+  const runId = createCalibrationRunId();
   const classroom = scenario === "classroom";
   const clientCount = classroom ? context.config.expectedUsers : active;
   const admission = classroom ? context.config.expectedUsers : Math.max(context.baseCapacity.simulationAdmissionMax, clientCount);
@@ -754,11 +775,14 @@ export async function runCalibration(
   const runScenario = dependencies.runScenario ?? ((options: CapacityScenarioOptions) => runCapacityScenario(options));
   const startBackend = dependencies.startBackend ?? defaultStartBackend;
   const countOwnedContainers = dependencies.ownedContainerCount ?? ownedContainerCount;
+  const verifyBuildArtifacts = dependencies.verifyBuildArtifacts ?? (() => assertCalibrationBuildArtifacts());
   const image = process.env.DOCKER_SANDBOX_IMAGE ?? DEFAULT_IMAGE;
   const startedAt = now();
   const deadline = startedAt + config.maxDurationMin * 60_000;
   const safetyEvents: SafetyEvent[] = [];
   console.log(`UnoSim Capacity Calibration\nPolicy: expected users=${config.expectedUsers}, target CPU=${config.targetCpuPercent}%, hard CPU=${config.maxCpuPercent}%, max wait=${config.maxUserWaitSec}s, duration=${config.maxDurationMin}min`);
+  // Dry runs start no backend, so only measuring runs need the built client.
+  if (!config.dryRun) verifyBuildArtifacts();
   let host = unavailableHostProbe();
   let docker = unavailableDockerProbe(image);
   try {

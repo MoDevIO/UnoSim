@@ -485,7 +485,16 @@ remain under the ignored capacity-test-results/ directory.
 Use the calibration command when a host, Docker runtime, sandbox resource
 limit, or CPU-intensive workload changes materially:
 
+    npm ci
+    npm run build
+    npm run build:sandbox
     npm run capacity:calibrate -- --expected-users 200
+
+The calibration starts its own backend from the source tree, which serves the
+built client from `dist/public`. If `dist/public/index.html` is missing, the
+command aborts before any Docker or load measurement with a message to run
+`npm run build`; it never builds the application itself. `--dry-run` starts no
+backend and does not require the build.
 
 The command follows **Calibrate -> Review -> Apply**. It measures Docker
 control latency, directly measured active-simulation candidates, startup

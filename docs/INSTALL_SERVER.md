@@ -231,11 +231,23 @@ Ist der Compile-Worker-Pool ausgelastet (500 wartende Compiles oder 30 s
 Wartezeit), antwortet `/api/compile` mit `503` und `SYSTEM_BUSY`.
 
 Für größere Installationen sollte vor einer manuellen Erhöhung der
-Kapazitätswerte die Host-Kalibrierung ausgeführt werden:
+Kapazitätswerte die Host-Kalibrierung ausgeführt werden. Sie läuft direkt auf
+dem Host im Repository-Checkout und startet ein eigenes Test-Backend aus dem
+Quellcode; dieses liefert den gebauten Client aus `dist/public` aus. Das
+Server-Image `unosim-server` wird dafür nicht benötigt.
 
 ```bash
+npm ci
+npm run build
+npm run build:sandbox
 npm run capacity:calibrate -- --expected-users 200
 ```
+
+`npm run build:sandbox` ist derselbe Befehl wie
+`docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .` oben. Fehlt der
+gebaute Client (`dist/public/index.html`), bricht die Kalibrierung vor allen
+Docker- und Lastmessungen mit dem Hinweis ab, `npm run build` auszuführen. Sie
+baut die Anwendung nicht selbst.
 
 Die Ergebnisse sind host-spezifisch und hängen unter anderem von Docker,
 Sandbox-CPU-/Memory-Limits und dem tatsächlichen Workload ab. `capacity.env`
