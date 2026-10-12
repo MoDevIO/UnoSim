@@ -17,6 +17,7 @@ import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
+import { isUnoPwmPin } from "@shared/utils/arduino-utils";
 import {
   formatSourceNavigationTarget,
   isSourceLocation,
@@ -28,7 +29,6 @@ import { TabBar } from "@/components/ui/tab-bar";
 import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
 
 // Module-level constants (not re-created on every render)
-const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
 const ALL_PIN_RECORDS: IOPinRecord[] = Array.from({ length: 20 }, (_, pinId) => ({
   pin: pinId >= 14 ? `A${pinId - 14}` : String(pinId),
   pinId,
@@ -80,7 +80,7 @@ function getRxTxBadge(pin: string): JSX.Element | null {
 /** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
 function getPwmTilde(pin: string): JSX.Element | null {
   const n = Number.parseInt(pin, 10);
-  return !Number.isNaN(n) && PWM_PINS.has(n)
+  return !Number.isNaN(n) && isUnoPwmPin(n)
     ? <span className="text-yellow-400">~</span>
     : null;
 }

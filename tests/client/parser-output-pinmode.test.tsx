@@ -53,6 +53,16 @@ describe("ParserOutput - pinMode derived from legacy usedAt operations", () => {
     expect(screen.getAllByText("INPUT")).toHaveLength(1);
   });
 
+  it("marks only PWM-capable pins with a tilde", () => {
+    renderRegistry(
+      legacyRecord("3", ["pinMode:1"]),
+      legacyRecord("4", ["pinMode:1"]),
+      legacyRecord("A0", ["pinMode:0"]),
+    );
+
+    expect(screen.getAllByText("~")).toHaveLength(1);
+  });
+
   it("prefers pinModeModes over the legacy operations", () => {
     renderRegistry({ ...legacyRecord("7", ["pinMode:1"]), pinModeModes: ["INPUT_PULLUP"] });
 

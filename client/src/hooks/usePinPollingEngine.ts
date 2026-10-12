@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import type { PinState } from "@/components/features/arduino-board";
+import { UNO_PWM_PINS, isUnoPwmPin } from "@shared/utils/arduino-utils";
 
 // Constants
 const VIEWBOX_HEIGHT = 209;
-const PWM_PINS = [3, 5, 6, 9, 10, 11];
 const FADE_OUT_MS = 200;
 
 /**
@@ -240,7 +240,7 @@ function pinColorForState(state: PinState, pin: number, brightness: number): str
   if (brightness <= 0) return "var(--color-black)";
   const intensity = Math.round(brightness * 255);
   if (state.type === "digital") return `rgb(${intensity}, 0, 0)`;
-  if (PWM_PINS.includes(pin)) {
+  if (isUnoPwmPin(pin)) {
     const pwmIntensity = Math.round((state.value / 255) * intensity);
     return `rgb(${pwmIntensity}, 0, 0)`;
   }
@@ -391,7 +391,7 @@ export function usePinPollingEngine({
       return;
     }
 
-    for (const pin of PWM_PINS) {
+    for (const pin of UNO_PWM_PINS) {
       const valStr = getPinState(pin)?.value?.toString() ?? "";
       updateLabelForPin(svgEl, `pin-${pin}-state`, `pin-${pin}-frame`, `pin-${pin}-val`, valStr, showPWMValues);
     }
