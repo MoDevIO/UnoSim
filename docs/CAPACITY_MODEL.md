@@ -97,7 +97,7 @@ absent:
 
 The application defaults above come from server/config.ts. The Compose files
 may supply explicit deployment values: the current production compose file
-sets SIMULATION_MAX_CONCURRENT=200, while the deployment fixture uses 1 for
+defaults SIMULATION_MAX_CONCURRENT to 200 (overridable through `.env`), while the deployment fixture uses 1 for
 isolated deployment tests. Those are deployment policies, not application
 defaults, and this documentation does not change them. A target host should
 use an explicitly reviewed operating point rather than inheriting a test or
@@ -566,7 +566,10 @@ default `capacity-test-results/calibration-<timestamp>/`):
   measured recommendations. It is intentionally allowed to be incomplete:
   omitted values can mean `not calibrated`, `infeasible`, `out of range`, or
   insufficient measurement evidence. It is not necessarily a complete
-  deployment configuration and is never applied automatically.
+  deployment configuration and is never applied automatically. The production
+  `docker-compose.yml` consumes every variable of the file from `.env`; verify
+  the effective values under `capacity` in `/api/status` after recreating the
+  backend container.
 
 If `SIMULATION_QUEUE_TIMEOUT_MS` is omitted because the queue result is
 infeasible, do not blindly apply the remaining lines while leaving an old queue

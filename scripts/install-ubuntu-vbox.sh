@@ -94,6 +94,8 @@ PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || f
 [[ -f "$PROJECT_DIR/docker-compose.yml" ]] || fail 'docker-compose.yml fehlt in der UnoSim-Arbeitskopie.'
 RENDER="$SCRIPT_DIR/ubuntu-vbox-render.sh"
 [[ -f "$RENDER" ]] || fail 'scripts/ubuntu-vbox-render.sh fehlt in der UnoSim-Arbeitskopie.'
+PREPARE_RUNTIME_DIRS="$SCRIPT_DIR/prepare-runtime-dirs.sh"
+[[ -f "$PREPARE_RUNTIME_DIRS" ]] || fail 'scripts/prepare-runtime-dirs.sh fehlt in der UnoSim-Arbeitskopie.'
 
 ENV_FILE="$PROJECT_DIR/.env"
 NGINX_SITE="/etc/nginx/sites-available/unosim"
@@ -149,8 +151,11 @@ sudo usermod -aG docker "$INSTALL_USER"
 
 sudo docker info >/dev/null || fail 'Der Docker-Daemon ist nicht erreichbar.'
 
-# These directories are bind-mounted into the backend container at runtime.
-mkdir -p "$PROJECT_DIR/server/arduino-cache" "$PROJECT_DIR/temp" "$PROJECT_DIR/storage"
+# These directories are bind-mounted into the backend container at runtime. The
+# container runs as its unprivileged node user (UID/GID 1000), which is not the
+# installing user, so they must belong to it; docker would otherwise create them
+# as root:root and every compile would fail with EACCES.
+sudo bash "$PREPARE_RUNTIME_DIRS" --project-dir "$PROJECT_DIR"
 
 cd "$PROJECT_DIR"
 printf 'Baue das UnoSim-Sandbox-Image …\n'

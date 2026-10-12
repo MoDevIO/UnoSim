@@ -21,6 +21,9 @@ keinen host-nativen Simulations-Fallback.
 docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
 docker build -t unosim-server:latest .
 
+# Einmalig vor dem ersten Start: Laufzeitverzeichnisse für den Container-User.
+sudo ./scripts/prepare-runtime-dirs.sh
+
 export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
 export UNOSIM_GATEWAY_SECRET="<mindestens-32-zufaellige-Zeichen>"
 export UNOSIM_TRUSTED_PROXY="<gateway-ip-oder-cidr>"
@@ -28,6 +31,16 @@ export UNOSIM_ALLOWED_WS_ORIGINS="https://classroom.example.edu"
 
 docker compose up --build
 ```
+
+Der Backend-Container läuft als unprivilegierter Benutzer `node` (UID/GID
+1000), nicht als Benutzer des Hosts. Die drei eingebundenen Verzeichnisse
+`server/arduino-cache`, `temp` und `storage` müssen ihm gehören.
+`scripts/prepare-runtime-dirs.sh` legt sie an und übergibt sie an UID/GID 1000
+(Modus `0750`, kein `chmod 777`, Backend nicht als root). Ohne diesen Schritt
+legt Docker fehlende Verzeichnisse als `root:root` an, und jeder Compile endet
+mit `EACCES` und `POST /api/compile 500`. Das Skript ist idempotent, repariert
+auch bereits root-eigene Inhalte und verlangt `sudo`; der Ubuntu/VBox-Installer
+ruft es selbst auf. Die UID des Host-Benutzers spielt keine Rolle.
 
 `docker-compose.yml` setzt `NODE_ENV=production` und
 `UNOSIM_SERVER_MODE=docker`. Das Profil aktiviert die Prüfung der erforderlichen
@@ -199,12 +212,12 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 |---|---|
 | `WORKER_COUNT` | Anzahl paralleler Compile-Worker für `/api/compile`; höchstens 8 werden gestartet (ein höherer Wert wird beim Start als Warnung gemeldet) |
 | `COMPILE_MAX_CONCURRENT` | Obergrenze gleichzeitiger Compiles im Hauptprozess (lokaler Modus und Fallback bei ausgefallenem Worker-Pool) |
-| `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen |
+| `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen; Standard in Compose `200` |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
 | `SANDBOX_START_SLOT_TIMEOUT_MS` | maximale Wartezeit eines zugelassenen Starts auf einen Sandbox-Startplatz; Standard `30000` ms |
 | `DOCKER_CONTROL_TIMEOUT_MS` | Timeout für kurze Docker-Verfügbarkeits- und Steuerbefehle wie `docker info`; Standard `2000` ms |
 | `SIMULATION_ADMISSION_MAX` | maximale Zahl zugelassener aktiver und wartender Anforderungen |
-| `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität |
+| `SIMULATION_QUEUE_TIMEOUT_MS` | Wartezeit einer zugelassenen Anforderung auf eine Simulationskapazität; Standard `60000` ms (Anwendungsstandard) |
 | `SANDBOX_MEMORY_MB` | Memory-Limit pro Sandbox |
 | `SANDBOX_CPU_LIMIT` | CPU-Limit pro Sandbox |
 | `UNOSIM_GITHUB_TOKEN` | optionaler Read-only-Token nur für `api.github.com` (Ref-Auflösung der Kursinhalte); ohne Token gilt das GitHub-Limit von 60 Abfragen pro Stunde und Server-IP |
@@ -216,7 +229,7 @@ Wie viele Simulationen gleichzeitig laufen, begrenzen zwei Werte gemeinsam:
 
 - `SIMULATION_MAX_CONCURRENT` begrenzt die gleichzeitig laufenden Simulationen
   auf dem Server. Die Anwendung setzt standardmäßig `5`; `docker-compose.yml`
-  überschreibt das mit `200`.
+  verwendet `200`, sofern `.env` keinen Wert setzt.
 - `SIMULATION_ADMISSION_MAX` begrenzt laufende **und** wartende Simulationen
   zusammen. Der Standard ist `25`.
 
@@ -253,7 +266,13 @@ Die Ergebnisse sind host-spezifisch und hängen unter anderem von Docker,
 Sandbox-CPU-/Memory-Limits und dem tatsächlichen Workload ab. `capacity.env`
 ist nur ein Review-Vorschlag; fehlende Werte müssen geprüft und ausdrücklich
 aufgelöst werden. Die Kalibrierung ändert keine Produktionskonfiguration
-automatisch. Die technische Referenz mit Messphasen, Timeout-Grenzen und
+automatisch.
+
+Übernommene `capacity.env`-Werte wirken erst, wenn sie in `.env` stehen und
+`docker compose up -d` den Backend-Container neu erzeugt hat; Compose reicht
+alle sieben Variablen der Datei an das Backend durch. Danach zeigt
+`/api/status` unter `capacity` die tatsächlich wirksamen Werte, z. B.
+`queue.timeoutMs`. Die technische Referenz mit Messphasen, Timeout-Grenzen und
 Akzeptanzkriterien steht in
 [`CAPACITY_MODEL.md`](CAPACITY_MODEL.md).
 

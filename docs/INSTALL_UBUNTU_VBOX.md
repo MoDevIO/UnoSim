@@ -98,6 +98,11 @@ Das Skript bindet das Backend an `127.0.0.1:3000`. LAN-Clients erreichen es
 über Nginx auf TCP-Port 443. Der alternative HTTPS-Port 8443 bleibt ebenfalls
 aktiv.
 
+Die Laufzeitverzeichnisse `server/arduino-cache`, `temp` und `storage` gehören
+nach der Installation der Container-UID/GID 1000 (`scripts/prepare-runtime-dirs.sh`,
+Modus `0750`). Das ist unabhängig von der UID des installierenden Benutzers; der
+Backend-Container läuft nicht als root.
+
 Das Skript fügt den Benutzer der Gruppe `docker` hinzu. Die Änderung wird
 nach dem nächsten Ab- und Anmelden wirksam. Bis dahin verwendet das Skript
 `sudo` für Docker-Befehle; du musst `newgrp` nicht installieren.
