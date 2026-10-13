@@ -76,7 +76,7 @@ test("handles simulation_status message", async () => {
 
   // Sanity-check: hook exposes empty queue initially
   const wsMock = (await import("@/hooks/use-websocket")).useWebSocket();
-  expect(wsMock.messageQueue.length).toBe(0);
+  expect(wsMock.messageQueue).toHaveLength(0);
 
   // Push message AFTER mount and trigger re-render in act()
   await act(async () => {
@@ -98,11 +98,9 @@ test("handles simulation_status message", async () => {
     vi.runOnlyPendingTimers();
   });
 
-  // Test the assertion
-  await act(async () => {
-    await waitFor(() => {
-      expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
-    });
+  // waitFor flushes its own updates; no surrounding act() needed
+  await waitFor(() => {
+    expect(document.querySelector('[data-testid="sim-status"]')?.textContent).toBe("running");
   });
 
   // Final timer flush

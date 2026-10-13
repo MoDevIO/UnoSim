@@ -103,7 +103,7 @@ describe("OutputPanel — callback reference stability", () => {
     return new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         observer.disconnect();
-        expect(records.length).toBe(0);
+        expect(records).toHaveLength(0);
         resolve();
       });
     });

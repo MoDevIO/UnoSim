@@ -6,8 +6,8 @@ import {
   type StaticIOOperation,
   type UnresolvedStaticIOCall,
 } from "@shared/io-registry-parser";
+import { UNO_PWM_PINS, isUnoPwmPin } from "@shared/utils/arduino-utils";
 
-const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
 const DIGITAL_OPERATIONS = new Set<StaticIOOperation>([
   "digitalRead",
   "digitalWrite",
@@ -93,13 +93,13 @@ export class HardwareCompatibilityParser {
 
   private checkAnalogWritePWM(): ParserMessage[] {
     return resolvedCalls(this.analysis, "analogWrite")
-      .filter(({ pinId }) => !PWM_PINS.has(pinId))
+      .filter(({ pinId }) => !isUnoPwmPin(pinId))
       .map((call) => ({
         id: randomUUID(),
         type: "warning" as const,
         category: "hardware" as const,
         severity: 2 as const,
-        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on Arduino UNO. PWM pins: 3, 5, 6, 9, 10, 11.`,
+        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on Arduino UNO. PWM pins: ${UNO_PWM_PINS.join(", ")}.`,
         suggestion: "// Use PWM pin instead: analogWrite(3, value);",
         ...sourceLocation(call),
       }));

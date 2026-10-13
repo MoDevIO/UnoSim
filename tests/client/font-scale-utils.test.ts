@@ -110,90 +110,34 @@ describe("Font Scale Utils", () => {
   });
 
   describe("increaseFontScale", () => {
-    it("should increase from S to M", () => {
-      setFontScale(0.875); // S
+    it.each([
+      { title: "should increase from S to M", from: 0.875, changed: true, to: 1.0 },
+      { title: "should increase from M to L", from: 1.0, changed: true, to: 1.125 },
+      { title: "should increase from L to XL", from: 1.125, changed: true, to: 1.25 },
+      { title: "should increase from XL to XXL", from: 1.25, changed: true, to: 1.5 },
+      { title: "should not increase beyond XXL", from: 1.5, changed: false, to: 1.5 },
+      { title: "should handle custom scale values (0.9 jumps to M)", from: 0.9, changed: true, to: 1.0 },
+    ])("$title", ({ from, changed, to }) => {
+      setFontScale(from);
       const result = increaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.0); // M
-    });
-
-    it("should increase from M to L", () => {
-      setFontScale(1.0); // M
-      const result = increaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.125); // L
-    });
-
-    it("should increase from L to XL", () => {
-      setFontScale(1.125); // L
-      const result = increaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.25); // XL
-    });
-
-    it("should increase from XL to XXL", () => {
-      setFontScale(1.25); // XL
-      const result = increaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.5); // XXL
-    });
-
-    it("should not increase beyond XXL", () => {
-      setFontScale(1.5); // XXL
-      const result = increaseFontScale();
-      expect(result).toBe(false);
-      expect(getCurrentFontScale()).toBe(1.5); // Still XXL
-    });
-
-    it("should handle custom scale values", () => {
-      setFontScale(0.9); // Between S and M
-      const result = increaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.0); // Jumps to M
+      expect(result).toBe(changed);
+      expect(getCurrentFontScale()).toBe(to);
     });
   });
 
   describe("decreaseFontScale", () => {
-    it("should decrease from XXL to XL", () => {
-      setFontScale(1.5); // XXL
+    it.each([
+      { title: "should decrease from XXL to XL", from: 1.5, changed: true, to: 1.25 },
+      { title: "should decrease from XL to L", from: 1.25, changed: true, to: 1.125 },
+      { title: "should decrease from L to M", from: 1.125, changed: true, to: 1.0 },
+      { title: "should decrease from M to S", from: 1.0, changed: true, to: 0.875 },
+      { title: "should not decrease below S", from: 0.875, changed: false, to: 0.875 },
+      { title: "should handle custom scale values (1.1 jumps to M)", from: 1.1, changed: true, to: 1.0 },
+    ])("$title", ({ from, changed, to }) => {
+      setFontScale(from);
       const result = decreaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.25); // XL
-    });
-
-    it("should decrease from XL to L", () => {
-      setFontScale(1.25); // XL
-      const result = decreaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.125); // L
-    });
-
-    it("should decrease from L to M", () => {
-      setFontScale(1.125); // L
-      const result = decreaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.0); // M
-    });
-
-    it("should decrease from M to S", () => {
-      setFontScale(1.0); // M
-      const result = decreaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(0.875); // S
-    });
-
-    it("should not decrease below S", () => {
-      setFontScale(0.875); // S
-      const result = decreaseFontScale();
-      expect(result).toBe(false);
-      expect(getCurrentFontScale()).toBe(0.875); // Still S
-    });
-
-    it("should handle custom scale values", () => {
-      setFontScale(1.1); // Between M and L
-      const result = decreaseFontScale();
-      expect(result).toBe(true);
-      expect(getCurrentFontScale()).toBe(1.0); // Jumps to M
+      expect(result).toBe(changed);
+      expect(getCurrentFontScale()).toBe(to);
     });
   });
 

@@ -125,7 +125,7 @@ describe("WebSocketManager", () => {
   it("creates a WebSocket on connect()", () => {
     const mgr = getWebSocketManager();
     mgr.connect();
-    expect(wsInstances.length).toBe(1);
+    expect(wsInstances).toHaveLength(1);
     expect(wsInstances[0].url).toBe("ws://localhost:3000/ws");
     expect(mgr.getState()).toBe("connecting");
   });
@@ -135,7 +135,7 @@ describe("WebSocketManager", () => {
     mgr.connect();
     wsInstances[0]._simulateOpen();
     mgr.connect(); // should be no-op
-    expect(wsInstances.length).toBe(1);
+    expect(wsInstances).toHaveLength(1);
   });
 
   it("handles successful connection", () => {
@@ -163,11 +163,11 @@ describe("WebSocketManager", () => {
     expect(result).toBe(true);
 
     // Not sent yet (buffered)
-    expect(wsInstances[0].sentMessages.length).toBe(0);
+    expect(wsInstances[0].sentMessages).toHaveLength(0);
 
     // Advance past buffer flush interval (30ms)
     vi.advanceTimersByTime(35);
-    expect(wsInstances[0].sentMessages.length).toBe(1);
+    expect(wsInstances[0].sentMessages).toHaveLength(1);
     expect(JSON.parse(wsInstances[0].sentMessages[0])).toEqual(msg);
   });
 
@@ -182,7 +182,7 @@ describe("WebSocketManager", () => {
     }
 
     // Should be flushed immediately
-    expect(wsInstances[0].sentMessages.length).toBe(100);
+    expect(wsInstances[0].sentMessages).toHaveLength(100);
   });
 
   it("returns false when WebSocket is not open", () => {
@@ -202,7 +202,7 @@ describe("WebSocketManager", () => {
     const msg = { type: "serial_input" as const, data: "urgent" };
     const result = mgr.sendImmediate(msg);
     expect(result).toBe(true);
-    expect(wsInstances[0].sentMessages.length).toBe(1);
+    expect(wsInstances[0].sentMessages).toHaveLength(1);
   });
 
   it("sendImmediate returns false when not connected", () => {
@@ -221,7 +221,7 @@ describe("WebSocketManager", () => {
     wsInstances[0]._simulateOpen();
     wsInstances[0]._simulateMessage({ type: "serial_output", data: "hello" });
 
-    expect(received.length).toBe(1);
+    expect(received).toHaveLength(1);
     expect((received[0] as any).type).toBe("serial_output");
   });
 
@@ -292,7 +292,7 @@ describe("WebSocketManager", () => {
 
     // Advance timers to trigger reconnect
     vi.advanceTimersByTime(2000);
-    expect(wsInstances.length).toBe(2); // new WS created
+    expect(wsInstances).toHaveLength(2); // new WS created
   });
 
   it("does not reconnect after explicit disconnect", () => {
@@ -304,7 +304,7 @@ describe("WebSocketManager", () => {
     // Close should not trigger reconnect
     expect(mgr.getState()).toBe("disconnected");
     vi.advanceTimersByTime(60000);
-    expect(wsInstances.length).toBe(1); // no new WS
+    expect(wsInstances).toHaveLength(1); // no new WS
   });
 
   it("retries indefinitely – does not give up after many reconnect failures", () => {
@@ -361,7 +361,7 @@ describe("WebSocketManager", () => {
     mgr.disconnect();
     vi.advanceTimersByTime(50);
     // No error thrown, messages dropped
-    expect(wsInstances[0].sentMessages.length).toBe(0);
+    expect(wsInstances[0].sentMessages).toHaveLength(0);
   });
 
   // ---- Error in event handler ----
@@ -385,7 +385,7 @@ describe("WebSocketManager", () => {
     mgr.send({ type: "serial_input" as const, data: "c" });
 
     vi.advanceTimersByTime(35);
-    expect(wsInstances[0].sentMessages.length).toBe(3);
+    expect(wsInstances[0].sentMessages).toHaveLength(3);
   });
 
   // ---- sendImmediate error handling ----

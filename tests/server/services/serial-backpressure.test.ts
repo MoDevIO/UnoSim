@@ -101,7 +101,7 @@ void loop() {
     const lineMatches = output.match(/Line \d{6}/g) || [];
     log(`[T-BP-01] Lines received: ${lineMatches.length}`);
     
-    expect(lineMatches.length).toBe(10);
+    expect(lineMatches).toHaveLength(10);
 
     // Extract timing deltas
     const deltas: number[] = [];

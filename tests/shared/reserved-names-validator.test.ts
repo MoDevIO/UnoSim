@@ -99,7 +99,7 @@ void setup() {
 void loop() {
 }`;
       const messages = reservedNamesValidator.validateReservedNames(code);
-      expect(messages.length).toBe(0);
+      expect(messages).toHaveLength(0);
     });
 
     it("should allow setup and loop function names", () => {
@@ -266,7 +266,7 @@ void loop() {
     it("should handle empty code", () => {
       const code = "";
       const messages = reservedNamesValidator.validateReservedNames(code);
-      expect(messages.length).toBe(0);
+      expect(messages).toHaveLength(0);
     });
 
     it("should handle code with only comments", () => {
@@ -275,7 +275,7 @@ void loop() {
 /* and another pause */
 `;
       const messages = reservedNamesValidator.validateReservedNames(code);
-      expect(messages.length).toBe(0);
+      expect(messages).toHaveLength(0);
     });
 
     it("should handle multiline block comments", () => {
@@ -292,7 +292,7 @@ void setup() {
 void loop() {
 }`;
       const messages = reservedNamesValidator.validateReservedNames(code);
-      expect(messages.length).toBe(0);
+      expect(messages).toHaveLength(0);
     });
 
     it("should handle unterminated block comment gracefully", () => {
@@ -305,7 +305,7 @@ void loop() {
 }`;
       const messages = reservedNamesValidator.validateReservedNames(code);
       // Everything after /* is treated as comment, so no reserved name detected
-      expect(messages.length).toBe(0);
+      expect(messages).toHaveLength(0);
     });
   });
 });

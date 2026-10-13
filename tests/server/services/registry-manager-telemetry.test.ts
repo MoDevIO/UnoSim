@@ -283,7 +283,7 @@ describe("RegistryManager - Telemetry Metrics", () => {
 
       vi.advanceTimersByTime(3000);
 
-      expect(callbacks.length).toBe(0);
+      expect(callbacks).toHaveLength(0);
       localManager.destroy();
     });
 
@@ -306,7 +306,7 @@ describe("RegistryManager - Telemetry Metrics", () => {
       localManager.pauseTelemetry();
       vi.advanceTimersByTime(2000);
 
-      expect(callbacks.length).toBe(beforePauseCount);
+      expect(callbacks).toHaveLength(beforePauseCount);
       localManager.destroy();
     });
 

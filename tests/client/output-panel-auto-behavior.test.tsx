@@ -380,7 +380,7 @@ error: missing semicolon on line 5`;
       // Verify the condition logic
       expect(successCondition.lastCompilationResult).toBe("success");
       expect(successCondition.hasCompilationErrors).toBe(false);
-      expect(successCondition.parserMessages.length).toBe(0);
+      expect(successCondition.parserMessages).toHaveLength(0);
 
       // Panel should be minimized to 3%
       const shouldMinimize =

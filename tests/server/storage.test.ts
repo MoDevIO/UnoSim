@@ -11,7 +11,7 @@ describe("DefaultSketchStore", () => {
   describe("constructor", () => {
     it("should initialize with a default sketch", async () => {
       const sketches = await storage.getAllSketches();
-      expect(sketches.length).toBe(1);
+      expect(sketches).toHaveLength(1);
       expect(sketches[0].name).toBe("sketch.ino");
       expect(sketches[0].content).toContain("void setup()");
       expect(sketches[0].content).toContain("void loop()");

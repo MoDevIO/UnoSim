@@ -451,7 +451,7 @@ describe("useBackendHealth", () => {
     });
 
     // No new calls after unmount
-    expect(fetchSpy.mock.calls.length).toBe(callsBefore);
+    expect(fetchSpy.mock.calls).toHaveLength(callsBefore);
   });
 
   it("should not update state after unmount", async () => {

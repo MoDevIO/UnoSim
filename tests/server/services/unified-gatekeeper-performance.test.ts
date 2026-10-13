@@ -45,7 +45,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
       // With event-driven approach, this should complete in ~100-500ms
       // With polling (25ms intervals), this would take much longer
       expect(elapsedMs).toBeLessThan(1000);
-      expect(readers.length).toBe(numWaiters);
+      expect(readers).toHaveLength(numWaiters);
 
       // Cleanup
       for (const reader of readers) {
@@ -90,7 +90,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
       await write1();
 
       const readers1 = await Promise.all(waitersKey1);
-      expect(readers1.length).toBe(50);
+      expect(readers1).toHaveLength(50);
 
       // key2 waiters should still be waiting
       let key2Resolved = false;
@@ -104,7 +104,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
       // Release key2
       await write2();
       const readers2 = await Promise.all(waitersKey2);
-      expect(readers2.length).toBe(50);
+      expect(readers2).toHaveLength(50);
 
       // Cleanup
       for (const r of readers1) await r();
@@ -228,7 +228,7 @@ describe("UnifiedGatekeeper - Performance Benchmarks", () => {
       // Event-driven notification should be nearly instant
       // Polling would require multiple 25ms cycles
       expect(notificationTime).toBeLessThan(1000);
-      expect(readers.length).toBe(500);
+      expect(readers).toHaveLength(500);
 
       // Cleanup
       for (const r of readers) await r();

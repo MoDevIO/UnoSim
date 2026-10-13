@@ -431,7 +431,7 @@ function createLoadTestSuite(
           testResults.push(stats);
         }
 
-        expect(testSizes.length).toBe(5);
+        expect(testSizes).toHaveLength(5);
       },
       240000,
     );

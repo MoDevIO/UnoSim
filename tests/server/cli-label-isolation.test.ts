@@ -145,8 +145,8 @@ describe("CLI Label Session Isolation", () => {
 
     const session1Hashes = sessionCompilations.get("session-1") || [];
     const session2Hashes = sessionCompilations.get("session-2") || [];
-    expect(session1Hashes.length).toBe(1);
-    expect(session2Hashes.length).toBe(1);
+    expect(session1Hashes).toHaveLength(1);
+    expect(session2Hashes).toHaveLength(1);
     expect(session1Hashes[0]).not.toBe(session2Hashes[0]);
 
     expect(result1.cached).toBe(false);

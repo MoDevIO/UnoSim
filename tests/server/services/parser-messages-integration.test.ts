@@ -140,7 +140,7 @@ describe("Parser Messages Integration", () => {
     // Should have NO Serial messages
     const messages = result.parserMessages as ParserMessage[];
     const serialMessages = messages.filter((m) => m.category === "serial");
-    expect(serialMessages.length).toBe(0);
+    expect(serialMessages).toHaveLength(0);
 
     // Should NOT be in output
     expect(result.output).not.toContain("Serial.begin");
@@ -208,7 +208,7 @@ describe("Parser Messages Integration", () => {
     // Should have NO Serial warnings
     const messages = result.parserMessages as ParserMessage[];
     const serialMessages = messages.filter((m) => m.category === "serial");
-    expect(serialMessages.length).toBe(0);
+    expect(serialMessages).toHaveLength(0);
 
     // Should NOT be in output
     expect(result.output).not.toContain("Serial.begin");
