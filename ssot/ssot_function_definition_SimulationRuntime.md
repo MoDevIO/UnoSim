@@ -2,7 +2,7 @@
 
 Status: current  
 Zielrolle: feature-contract  
-Ziel-SSOT für die Laufzeit des Emulationskerns `@unosim/avr-emulator`: Diagnosen und ihre Grenzen, Befehle und Ereignisse zwischen UI und Worker, Worker-Host und Headless-Lauf. Zeitmodell, Speichermodell, Überwachung des Workers und Modellannahmen kommen mit den Paketen P1.12 und P3.1 des [Umsetzungsplans](../docs/proposals/browser-emulation-plan.md) hinzu. Der Plan ist nicht normativ; dieses Dokument gilt für das, was der Code umsetzt.
+Ziel-SSOT für die Laufzeit des Emulationskerns `@unosim/avr-emulator`: Diagnosen und ihre Grenzen sowie Befehle und Ereignisse zwischen UI und Worker, Worker-Host und Headless-Lauf. Zeitmodell, Speichermodell, Überwachung des Workers und Modellannahmen kommen mit den Paketen P3.1 und P3.2 des [Umsetzungsplans](../docs/proposals/browser-emulation-plan.md) hinzu. Der Plan ist nicht normativ; dieses Dokument gilt für das, was der Code umsetzt.
 
 ## Governance-Grenzen
 
@@ -52,7 +52,7 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 
 | Befehl | Felder | Grenzen |
 |---|---|---|
-| `load` | `board`, `buildId`, `sha256`, `flash` (`ArrayBuffer`), `symbols` | bekanntes Board, `buildId` 1–256 Zeichen, `sha256` 64 Hexziffern, Flash 1 Byte bis 256 KiB |
+| `load` | `board` (gewählt), `artifactBoard`, `buildId`, `sha256`, `flash` (`ArrayBuffer`), `symbols` | bekannte Boards, `buildId` 1–256 Zeichen, `sha256` 64 Hexziffern, Flash 1 Byte bis 256 KiB |
 | `start` | `timeoutMs` | 1000–300000 (1–300 s, E8) |
 | `pause`, `resume`, `stop`, `reset` | – | – |
 | `serialIn` | `port`, `text` | Port 0–3, 1 bis 4096 Byte UTF-8 |
@@ -71,6 +71,19 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - Pins: letzter Zustand je Pin, `changeCount` summiert. Serial: je Port zusammenhängender Text; Reihenfolge von Serial, Diagnosen und Status bleibt erhalten, Pins und `usage` folgen am Ende der Gruppe.
 - Telemetrie höchstens einmal je Sekunde: simulierte Zeit, Echtzeitfaktor, Pin-Änderungen und Serial-Zeichen je Sekunde, verworfene Serial-Zeichen.
 - Schutz der UI: Serial-Text, der über 256 Ki wartende Zeichen hinausgeht, wird verworfen und in `serialCharsDropped` gezählt; ein Serial-Ereignis trägt höchstens 32 Ki Zeichen; höchstens 1000 wartende Status- und Diagnoseeinträge.
+
+## 3. Worker-Host
+
+`WorkerHost` (`packages/avr-emulator/src/worker/host.ts`, Einstieg `@unosim/avr-emulator/worker`, Verdrahtung `installWorker`) setzt die Befehle um. Er bleibt zwischen Läufen bestehen; `load` ersetzt die Maschine.
+
+- **Prüfung:** Jede Nachricht geht durch `parseCommand`. Ungültige Nachrichten und Befehle mit anderer `runId` als der des laufenden Laufs werden verworfen; `load`, `start` und `reset` müssen eine höhere `runId` tragen als die bisherige.
+- **`load`:** Wegen `artifactBoard ≠ board` (Artefakt für ein anderes Board als das gewählte) oder bei ungültigem Abbild (Größe, SHA-256) antwortet der Host mit `fault` und `status stopped` (Grund `fault`). Sonst baut er die Maschine auf und sendet `ready`. Das Timeout gilt ab `start`.
+- **Bestätigungen:** `start` und `resume` → `status running`; `pause` → `status paused`; `stop` → `status stopped` (Grund `stop`); `reset` → `status running` bzw. `paused`; Timeout und interne Fehler enden mit `status stopped` (Grund `timeout` bzw. `fault`, bei `fault` zusätzlich das Ereignis `fault`). Bestätigungen gehen sofort hinaus, `serialIn`, `setDigital` und `setAnalog` warten auf das reguläre Paketintervall.
+- **Ende eines Laufs:** Vor `status stopped` werden alle noch wartenden Ausgaben gesendet; danach wird der Zustand verworfen. Ein ersetzter Lauf (`load`) meldet kein `stopped`.
+- **Heartbeat:** etwa alle 500 ms, solange eine Maschine geladen ist, auch in der Pause.
+- **Sammeln:** Alle 1/60 s holt der Host Pins, Serial-Ausgabe, `usage` und Diagnosen aus dem Emulator und gibt sie an den `EventBatcher`.
+- **Pins, die das Board nicht hat,** und Analogwerte für Pins ohne ADC-Kanal werden wie ungültige Befehle verworfen.
+
 
 ## 4. Headless-Lauf
 

@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics, event protocol (plan packages P1.1–P1.11 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics, event protocol, worker host (plan packages P1.1–P1.12 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -182,6 +182,16 @@ joined per port, telemetry once per second, bounded memory) and `RunGate`
 (UI side: `runId` per run, events of other runs discarded, state only after the
 confirmation). The worker (P1.12) builds on these. See
 [ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
+
+### Worker host
+
+`WorkerHost` (`{ clock, post }`) is the worker side of the protocol: it checks
+commands, runs the `Emulator`, collects pins, serial text, usage and
+diagnostics, bundles them with the `EventBatcher` and posts `RunEvent`s with
+the run's `runId`. `installWorker(scope)` wires it to a Web Worker scope; the
+package entry `@unosim/avr-emulator/worker` does so on the global scope when
+imported inside a worker. Supervision from outside (deadlines, `terminate()`)
+stays with the main thread (P3.2).
 
 ### Headless runner and tool
 

@@ -43,6 +43,7 @@ export {
   MEMORY_SYMBOLS,
   SIMULATION_IMAGE_FORMAT_VERSION,
   buildSimulationImage,
+  loadFlashImage,
   loadSimulationImage,
 } from "./image/simulation-image";
 export type {
@@ -72,6 +73,10 @@ export type { CommandResult } from "./protocol/commands";
 export { EventBatcher } from "./protocol/event-batcher";
 export type { BatcherOptions, FlushContext } from "./protocol/event-batcher";
 export { RunGate } from "./protocol/run-gate";
+export { WorkerHost } from "./worker/host";
+export type { WorkerHostOptions } from "./worker/host";
+export { installWorker } from "./worker/install";
+export type { WorkerScopeLike } from "./worker/install";
 export { runHeadless, parseStimuli } from "./headless/run-headless";
 export type { HeadlessOptions, HeadlessResult, StateCheck, StateExpectation, StimulusEvent } from "./headless/run-headless";
 export { formatReport, runCli } from "./headless/cli";

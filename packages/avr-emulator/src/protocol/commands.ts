@@ -15,13 +15,13 @@ type Fields = Record<string, unknown>;
 
 const parserTable: Record<Command["type"], (fields: Fields, runId: number) => CommandResult> = {
   load(fields, runId) {
-    const { board, buildId, sha256, flash, symbols } = fields;
-    if (!isBoardHardwareId(board)) return fail("unknown board");
+    const { board, artifactBoard, buildId, sha256, flash, symbols } = fields;
+    if (!isBoardHardwareId(board) || !isBoardHardwareId(artifactBoard)) return fail("unknown board");
     if (typeof buildId !== "string" || buildId.length === 0 || buildId.length > COMMAND_LIMITS.maxBuildIdLength) return fail("invalid buildId");
     if (typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256)) return fail("invalid sha256");
     if (!(flash instanceof ArrayBuffer) || flash.byteLength === 0 || flash.byteLength > COMMAND_LIMITS.maxFlashBytes) return fail("invalid flash");
     if (!isObject(symbols)) return fail("invalid symbols");
-    return { ok: true, command: { type: "load", runId, board, buildId, sha256, flash, symbols: symbols as unknown as ImageSymbols } };
+    return { ok: true, command: { type: "load", runId, board, artifactBoard, buildId, sha256, flash, symbols: symbols as unknown as ImageSymbols } };
   },
   start(fields, runId) {
     const { timeoutMs } = fields;
