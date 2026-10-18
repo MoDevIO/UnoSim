@@ -6,6 +6,14 @@
  */
 export { BOARD_HARDWARE_IDS, BOARD_MCU, isBoardHardwareId } from "./boards/ids";
 export type { BoardHardwareId } from "./boards/ids";
+export { NANO, UNO } from "./boards/atmega328p-boards";
+export { boardHardware, hasBoardHardware } from "./boards/registry";
+export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./boards/types";
+export { createMachine } from "./machine";
+export type { Machine } from "./machine";
+export { ATMEGA328P } from "./mcu/atmega328p";
+export { mcuProfile } from "./mcu/registry";
+export type { McuPeripherals, McuProfile } from "./mcu/types";
 export { encodeBase64, decodeBase64 } from "./image/base64";
 export { readElfSymbols } from "./image/elf";
 export type { ElfSymbol } from "./image/elf";

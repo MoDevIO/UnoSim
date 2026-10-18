@@ -17,4 +17,12 @@ Expectations derived independently with the toolchain:
 `avr-nm` lists `__bss_end` and `_end` at `0x800109` in both ELF files and
 `digitalWrite` at `0x12a`, `pinMode` at `0x1c2` in `uno-blink-nolto.elf`.
 
+`<board>-<sketch>.hex` are `arduino-cli compile` outputs of `sketches/<sketch>/`
+for `uno` (`arduino:avr:uno`) and `nano` (`arduino:avr:nano:cpu=atmega328`),
+same toolchain. Derived expectations: RAMEND 0x8FF and E2END 1023 from the
+datasheet, `__bss_end` 0x800210 for `memory_probe` from `avr-nm`, ADC values
+`floor(V / 5 · 1024)`; `int_probe` outputs are those measured on a real Uno in
+the proposal (section 2). A comparison of `memory_probe` with a real Uno is
+still open (hardware).
+
 The reproducible fixture set of the runtime corpus (plan 7.4) is separate.

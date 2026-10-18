@@ -1,0 +1,34 @@
+import {
+  AVRADC, AVRClock, AVREEPROM, AVRIOPort, AVRTimer, AVRUSART, AVRWatchdog, EEPROMMemoryBackend,
+  adcConfig, atmega328Channels, clockConfig, eepromConfig, portBConfig, portCConfig, portDConfig,
+  timer0Config, timer1Config, timer2Config, usart0Config, watchdogConfig,
+} from "avr8js";
+import { MCU_FLASH_BYTES } from "./mcus";
+import type { McuProfile } from "./types";
+
+/**
+ * ATmega328P (Uno, Nano). avr8js ships configurations for exactly this MCU;
+ * only the data-space size must be set explicitly (plan 4.3).
+ */
+export const ATMEGA328P: McuProfile = {
+  id: "atmega328p",
+  flashBytes: MCU_FLASH_BYTES.atmega328p,
+  memory: { sramStart: 0x100, sramBytes: 2048 },
+  eepromBytes: 1024,
+  createPeripherals(cpu, clockHz) {
+    const clock = new AVRClock(cpu, clockHz, clockConfig);
+    return {
+      ports: new Map([
+        ["B", new AVRIOPort(cpu, portBConfig)],
+        ["C", new AVRIOPort(cpu, portCConfig)],
+        ["D", new AVRIOPort(cpu, portDConfig)],
+      ]),
+      timers: [timer0Config, timer1Config, timer2Config].map((config) => new AVRTimer(cpu, config)),
+      usarts: [new AVRUSART(cpu, usart0Config, clockHz)],
+      adc: new AVRADC(cpu, { ...adcConfig, numChannels: 8, muxChannels: atmega328Channels }),
+      eeprom: new AVREEPROM(cpu, new EEPROMMemoryBackend(1024), eepromConfig),
+      watchdog: new AVRWatchdog(cpu, watchdogConfig, clock),
+      clock,
+    };
+  },
+};

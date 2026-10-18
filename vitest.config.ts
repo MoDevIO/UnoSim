@@ -110,6 +110,7 @@ export default defineConfig({
           exclude: [
             "tests/integration/serial-flooding.test.ts",
             "tests/integration/serial-flow.test.ts",
+            "tests/integration/avr-emulator-board-pinmap.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",
@@ -162,6 +163,7 @@ export default defineConfig({
         test: {
           name: "integration-toolchain",
           include: [
+            "tests/integration/avr-emulator-board-pinmap.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",

@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold and simulation image (plan packages P1.1 and P1.2 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano (plan packages P1.1–P1.3 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -48,6 +48,24 @@ data-space addresses (without the ELF offset 0x800000).
 
 Board hardware IDs: `uno`, `nano`, `mega2560`, `attiny85`, mapped to the MCUs
 `atmega328p`, `atmega2560`, `attiny85`.
+
+### Boards, MCU profiles, machine
+
+| Export | Purpose |
+|---|---|
+| `UNO`, `NANO`, `boardHardware(id)` | board pin maps as the pinned core numbers them: Arduino pin, label, port/bit, ADC channel, PWM timer channel, serial role; serial ports; `LED_BUILTIN`; clock and VCC |
+| `ATMEGA328P`, `mcuProfile(id)` | flash, SRAM layout, EEPROM and the avr8js peripherals: ports B/C/D, timers 0–2, USART0, ADC (8 channels), EEPROM, watchdog, clock prescaler |
+| `createMachine(loadedImage)` | CPU with the data space of the MCU (plan 4.3), its peripherals and the board |
+
+| Board | MCU | Pins | PWM | Analog |
+|---|---|---|---|---|
+| `uno` | ATmega328P, 16 MHz | 0–19 (A0–A5 = 14–19) | 3, 5, 6, 9, 10, 11 | A0–A5 |
+| `nano` | ATmega328P, 16 MHz | as Uno plus A6/A7 = 20/21, analog only | as Uno | A0–A7 |
+
+On the Uno the ADC channels 6 and 7 have no pin and read 0 V. Mega 2560 and
+ATtiny85 have IDs but no profile yet (`boardHardware` throws).
+`tests/integration/avr-emulator-board-pinmap.test.ts` (toolchain gate) checks
+the pin maps against `pins_arduino.h` of `arduino:avr@1.8.8`.
 
 ## Tests
 

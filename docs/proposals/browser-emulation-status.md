@@ -13,6 +13,7 @@
 | P0.6 | erledigt | #261 | Mega-Profil mit eigenen Vektoren; alle Proben stimmen |
 | P0.7 | erledigt | #254 | Branch `feature/browser-emulation` existiert, CI-Trigger aktiv |
 | P1.1 | erledigt | #264 | Workspace-Paket `@unosim/avr-emulator`, avr8js 0.21.1, Gates verdrahtet |
-| P1.2 | erledigt | (dieser PR) | `SimulationImage`: HEX-Parser 00–05, ELF-Symbole, SHA-256, Base64, Validierung beim Laden |
+| P1.2 | erledigt | #265 | `SimulationImage`: HEX-Parser 00–05, ELF-Symbole, SHA-256, Base64, Validierung beim Laden |
+| P1.3 | erledigt | (dieser PR) | ATmega328P-Profil, Uno und Nano; Pinbelegung gegen den Core geprüft (Toolchain-Gate). Abgleich der Speicherprobe mit einem echten Uno wartet auf Mensch (P1.14) |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert
