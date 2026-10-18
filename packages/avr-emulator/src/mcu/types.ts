@@ -21,6 +21,10 @@ export interface McuProfile {
   readonly eepromBytes: number;
   /** Timer registers by timer number, for PWM observation. */
   readonly timerRegisters: readonly TimerRegisters[];
-  /** Timers, ports, USARTs, ADC, EEPROM, watchdog and clock prescaler for one CPU. */
-  createPeripherals(cpu: CPU, clockHz: number): McuPeripherals;
+  /**
+   * Timers, ports, USARTs, ADC, EEPROM, watchdog and clock prescaler for one
+   * CPU. `eeprom` (eepromBytes long) is the EEPROM content; the peripheral
+   * reads and writes it in place.
+   */
+  createPeripherals(cpu: CPU, clockHz: number, eeprom: Uint8Array): McuPeripherals;
 }

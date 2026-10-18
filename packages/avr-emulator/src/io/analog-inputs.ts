@@ -49,6 +49,10 @@ export class AnalogInputs {
     return this.machine.peripherals.adc.channelValues[this.channelOf(pin)] ?? 0;
   }
 
+  get arefVolts(): number {
+    return this.machine.peripherals.adc.aref;
+  }
+
   /** Voltage at AREF for `analogReference(EXTERNAL)`. */
   setArefVolts(volts: number): void {
     if (!Number.isFinite(volts) || volts <= 0 || volts > this.machine.board.vccVolts) {

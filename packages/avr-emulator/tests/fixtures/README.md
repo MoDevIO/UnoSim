@@ -22,7 +22,10 @@ for `uno` (`arduino:avr:uno`) and `nano` (`arduino:avr:nano:cpu=atmega328`),
 same toolchain. Derived expectations: RAMEND 0x8FF and E2END 1023 from the
 datasheet, `__bss_end` 0x800210 for `memory_probe` from `avr-nm`, ADC values
 `floor(V / 5 · 1024)`; `int_probe` outputs are those measured on a real Uno in
-the proposal (section 2). `uno-serial_probe.hex` and `uno-serial_overflow.hex` (`sketches/serial_*`)
+the proposal (section 2). `uno-delay_probe.hex` and `uno-tick_probe.hex` (`sketches/delay_probe`,
+`sketches/tick_probe`) check `delay(587)` against the 586–587 ms measured on a
+real Uno (proposal section 2) and print `<n> <millis>` every 10 ms.
+`uno-serial_probe.hex` and `uno-serial_overflow.hex` (`sketches/serial_*`)
 expect the 1 s timeout of `Stream::parseInt` and 63 kept bytes from the
 64-byte ring buffer of `HardwareSerial` (`derived` from the core).
 `uno-adc_probe.hex` (`sketches/adc_probe/`) is checked against the datasheet

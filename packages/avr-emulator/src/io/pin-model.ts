@@ -84,6 +84,11 @@ export class PinModel {
     return true;
   }
 
+  /** Levels currently driven from outside, by pin (a reset keeps them, like wires on the board). */
+  outsideLevels(): ReadonlyMap<number, Level> {
+    return new Map(this.external);
+  }
+
   /** Changes since the last call; resets the change list and counter. */
   takeChanges(): PinChanges {
     const result = { changes: [...this.changed].sort((a, b) => a - b).map((pin) => this.state(pin)), changeCount: this.changeCount };

@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports (plan packages P1.1–P1.7 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle (plan packages P1.1–P1.8 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -117,6 +117,29 @@ index 0 = `Serial`, from P5.3 also `Serial1`–`Serial3`):
   parity and stop bits.
 
 `Utf8StreamDecoder` and `encodeUtf8` work without platform APIs.
+
+### Emulator: timing and lifecycle
+
+`new Emulator(loadedImage, { clock, timeoutMs, eeprom?, onStop? })` runs one
+image with its pin model (`pins`), analog inputs (`analog`) and serial ports
+(`serial`, output via `takeSerialOutput()`). Timing follows plan 4.7:
+
+| Situation | Behaviour |
+|---|---|
+| simulated time | `cpu.cycles / clockHz`, resets included (`simTimeMs`) |
+| behind the wall clock | slices of at most 8 ms (`sliceMs`) back to back; a backlog above 100 ms (`maxLagMs`) resets the wall-clock reference, no cycle is skipped |
+| ahead of the wall clock | waits about 4 ms (`waitMs`) instead of computing on |
+| `realTimeFactor` | simulated per wall time over the last 3 s of running |
+| `pause()` / `resume()` | simulated time and `millis()` stop; serial input is refused while paused (`sendSerial` returns `false`), pins may be set |
+| timeout | wall-clock run time without pauses (`wallTimeMs`); `onStop` gets both times |
+| `reset()` | RESET button: a new machine from the same image, the run goes on; EEPROM content, outside pin levels, analog voltages and untaken serial output persist, serial input not yet received is lost |
+| internal error | stops with reason `fault` |
+
+`at(simMs, action)` schedules an action in simulated time; `advance(simMs)`
+runs headless as fast as possible, without wall clock or timeout.
+`systemClock()` uses `setImmediate` in Node and a `MessageChannel` in Web
+Workers, so a busy emulator never starves timers; tests inject an artificial
+clock (`RuntimeClock`).
 
 ## Tests
 
