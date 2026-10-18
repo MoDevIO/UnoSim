@@ -20,6 +20,21 @@ CI runtime depends on shared-runner load. Local HTTP listener tests run in the
 serial `unit-node-http` project while the remaining Node tests stay
 file-parallel. The budget is a wall-clock guard, not a per-test timeout.
 
+### Emulator coverage pass
+
+`npm run test:coverage` runs the Vitest project `unit-emulator`
+(`packages/avr-emulator/tests/`) in a second coverage pass with its own
+budget (`unit-emulator-coverage`, warning 60 s, hard fail 120 s) and report
+directory `coverage/emulator/`. V8 block coverage instruments the avr8js
+interpreter as well and slows emulation down by an order of magnitude, which
+would otherwise consume the shared unit-coverage budget. `npm run test:unit`
+still runs every project in one pass without coverage. The coverage guard
+validates both `lcov` files and requires at least 90 % line coverage for
+`packages/avr-emulator/src/`; Sonar reads both reports.
+
+Emulator tests should keep simulated time short: about 1 ms of simulated time
+costs roughly 1 ms of wall time without coverage and 5–25 ms with it.
+
 ---
 
 ## Coverage-Hotspots
