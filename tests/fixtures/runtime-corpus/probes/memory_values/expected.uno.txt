@@ -1,0 +1,4 @@
+SP in setup = 0x8FA
+__bss_end = 0x1EC
+free = 1807
+DONE

@@ -1,0 +1,23 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "INPUT_PULLUP, a driven INPUT and an OUTPUT that outside levels cannot change.",
+  "basis": "ATmega328P datasheet 14.2.3: with DDR = 0 and PORT = 1 the internal pull-up (20-50 kOhm) makes the pin read HIGH; a source driven from outside overrides it; a pin the sketch drives as OUTPUT keeps the level of the sketch",
+  "events": [
+    [0, "pin", 4, 0],
+    [25, "pin", 2, 0],
+    [45, "pin", 2, 1],
+    [60, "pin", 4, 1],
+    [70, "pin", 6, 0]
+  ],
+  "expectState": [
+    [10, "pin", 2, "INPUT_PULLUP", 1],
+    [30, "pin", 2, "INPUT_PULLUP", 0],
+    [50, "pin", 2, "INPUT_PULLUP", 1],
+    [90, "pin", 4, "INPUT", 1],
+    [90, "pin", 6, "OUTPUT", 1]
+  ],
+  "tolerances": []
+}
