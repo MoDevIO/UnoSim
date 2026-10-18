@@ -113,29 +113,30 @@ export class PinModel {
   }
 
   private refresh(pins: readonly DigitalPin[]): void {
+    for (const pin of pins) this.record(this.nextState(pin));
+  }
+
+  private nextState({ hardware, io }: DigitalPin): PinSnapshot {
     const { data } = this.machine.cpu;
-    for (const { hardware, io } of pins) {
-      const { pin } = hardware;
-      const mask = 1 << hardware.port.bit;
-      let next: PinSnapshot;
-      if (data[io.portConfig.DDR] & mask) {
-        this.external.delete(pin); // the sketch took the pin over
-        const pwm = hardware.pwm && pwmDuty(data, this.machine.mcu.timerRegisters[hardware.pwm.timer], hardware.pwm.channel);
-        next = pwm === undefined
-          ? { pin, mode: "OUTPUT", level: io.pinState(hardware.port.bit) === PinState.High ? 1 : 0 }
-          : { pin, mode: "OUTPUT", level: pwm >= 128 ? 1 : 0, pwm };
-      } else {
-        const pullUp = (data[io.portConfig.PORT] & mask) !== 0;
-        const level: Level = this.external.get(pin) ?? (pullUp ? 1 : 0);
-        io.setPin(hardware.port.bit, level === 1);
-        next = { pin, mode: pullUp ? "INPUT_PULLUP" : "INPUT", level };
-      }
-      const previous = this.current.get(pin);
-      if (previous?.mode !== next.mode || previous.level !== next.level || previous.pwm !== next.pwm) {
-        this.current.set(pin, next);
-        this.changed.add(pin);
-        this.changeCount++;
-      }
+    const { pin } = hardware;
+    const mask = 1 << hardware.port.bit;
+    if (data[io.portConfig.DDR] & mask) {
+      this.external.delete(pin); // the sketch took the pin over
+      const pwm = hardware.pwm && pwmDuty(data, this.machine.mcu.timerRegisters[hardware.pwm.timer], hardware.pwm.channel);
+      if (pwm !== undefined) return { pin, mode: "OUTPUT", level: pwm >= 128 ? 1 : 0, pwm };
+      return { pin, mode: "OUTPUT", level: io.pinState(hardware.port.bit) === PinState.High ? 1 : 0 };
     }
+    const pullUp = (data[io.portConfig.PORT] & mask) !== 0;
+    const level: Level = this.external.get(pin) ?? (pullUp ? 1 : 0);
+    io.setPin(hardware.port.bit, level === 1);
+    return { pin, mode: pullUp ? "INPUT_PULLUP" : "INPUT", level };
+  }
+
+  private record(next: PinSnapshot): void {
+    const previous = this.current.get(next.pin);
+    if (previous?.mode === next.mode && previous.level === next.level && previous.pwm === next.pwm) return;
+    this.current.set(next.pin, next);
+    this.changed.add(next.pin);
+    this.changeCount++;
   }
 }
