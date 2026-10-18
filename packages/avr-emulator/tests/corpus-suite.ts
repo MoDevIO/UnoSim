@@ -24,12 +24,10 @@ export const SHARDS: Readonly<Record<string, (testCase: CorpusCase) => boolean>>
  * `derived` the match with an independent derivation, `regression` only that
  * nothing changed.
  */
-export function describeShard(name: string): void {
+export function shardSuite(name: string): () => void {
   const cases = loadCorpus().filter(SHARDS[name]);
 
-  // The coverage pass (`npm run test:coverage`) skips the corpus: it adds no coverage of `src/`
-  // and costs minutes under V8 instrumentation. `npm run test:unit` always runs it.
-  describe.skipIf(process.env.UNOSIM_SKIP_CORPUS === "1")(`runtime reference corpus: ${name}`, () => {
+  return () => {
     it("has cases", () => {
       expect(cases.length).toBeGreaterThan(0);
     });
@@ -54,5 +52,12 @@ export function describeShard(name: string): void {
         expect(run.result.diagnostics).toEqual([]);
       });
     });
-  });
+  };
 }
+
+/**
+ * The coverage pass (`npm run test:coverage`) skips the corpus: it adds no
+ * coverage of `src/` and costs minutes under V8 instrumentation.
+ * `npm run test:unit` always runs it.
+ */
+export const SKIP_CORPUS = process.env.UNOSIM_SKIP_CORPUS === "1";

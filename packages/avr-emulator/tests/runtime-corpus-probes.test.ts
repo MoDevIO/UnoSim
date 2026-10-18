@@ -1,3 +1,4 @@
-import { describeShard } from "./corpus-suite";
+import { describe } from "vitest";
+import { SKIP_CORPUS, shardSuite } from "./corpus-suite";
 
-describeShard("probes");
+describe.skipIf(SKIP_CORPUS)("runtime reference corpus: probes", shardSuite("probes"));
