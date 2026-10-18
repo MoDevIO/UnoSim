@@ -10,6 +10,8 @@ export { NANO, UNO } from "./boards/atmega328p-boards";
 export { boardHardware, hasBoardHardware } from "./boards/registry";
 export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./boards/types";
 export { createMachine } from "./machine";
+export { PinModel } from "./io/pin-model";
+export type { Level, PinChanges, PinMode, PinSnapshot } from "./io/pin-model";
 export type { Machine } from "./machine";
 export { ATMEGA328P } from "./mcu/atmega328p";
 export { mcuProfile } from "./mcu/registry";
