@@ -24,6 +24,11 @@ arduino-cli core update-index
 arduino-cli core install arduino:avr
 ```
 
+Das Repository ist ein npm-Workspace: `npm ci` im Wurzelverzeichnis
+installiert auch die Pakete unter `packages/` (derzeit der Emulationskern
+`@unosim/avr-emulator`) und verlinkt sie unter `node_modules/@unosim/`. In
+`packages/` selbst ist kein eigenes `npm install` nötig.
+
 ## Start
 
 Backend und Vite-Frontend mit Hot Reload:
@@ -85,6 +90,10 @@ npm run test:unit
 npm run test:integration
 npm run test:e2e
 ```
+
+`npm run test:unit` umfasst das Vitest-Projekt `unit-emulator` für
+`packages/avr-emulator/tests/`; `npm run check` prüft das Paket mit seiner
+eigenen, strengeren `tsconfig.json`.
 
 Docker-Sandbox-Tests sind ein getrenntes Gate und werden unter
 [`INSTALL_SERVER.md`](INSTALL_SERVER.md) beschrieben.

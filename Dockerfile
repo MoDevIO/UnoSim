@@ -7,6 +7,8 @@ WORKDIR /app
 # No .git in the build context; skip the husky `prepare` hook.
 ENV HUSKY=0
 COPY package.json package-lock.json ./
+# npm workspaces: every workspace manifest must exist before npm ci.
+COPY packages/avr-emulator/package.json ./packages/avr-emulator/package.json
 RUN npm ci
 COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
 COPY scripts/check-bundle-budget.mjs ./scripts/check-bundle-budget.mjs
@@ -14,6 +16,7 @@ COPY public ./public
 COPY client ./client
 COPY server ./server
 COPY shared ./shared
+COPY packages ./packages
 RUN npm run build
 
 ########################################
@@ -52,6 +55,7 @@ COPY --from=builder /app/dist ./dist
 
 # Copy package metadata and install dependencies
 COPY package.json package-lock.json ./
+COPY packages/avr-emulator/package.json ./packages/avr-emulator/package.json
 RUN npm ci --omit=dev --legacy-peer-deps --ignore-scripts \
     && chown -R node:node /app \
     && usermod -aG root node

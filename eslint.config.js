@@ -65,4 +65,17 @@ export default [
       "unicorn/prefer-string-raw": "error",
     },
   },
+  {
+    // The emulation core describes hardware only and must stay usable without
+    // UnoSim (plan 4.3): no imports from client/, server/ or shared/.
+    files: ["packages/avr-emulator/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          { group: ["@/*", "@shared/*"], message: "@unosim/avr-emulator must not import UnoSim code." },
+          { group: ["**/client/**", "**/server/**", "**/shared/**"], message: "@unosim/avr-emulator must not import UnoSim code." },
+        ],
+      }],
+    },
+  },
 ];

@@ -6,6 +6,9 @@
   },
   "type": "module",
   "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
   "overrides": {
     "express": {
       "path-to-regexp": "0.1.13",
@@ -17,7 +20,7 @@
     "yaml": "2.9.0"
   },
   "scripts": {
-    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared,scripts -Dsonar.tests=tests -Dsonar.host.url=http://localhost:9000 -Dsonar.token=$SONAR_TOKEN -Dsonar.qualitygate.wait=true -Dsonar.scm.exclusions.disabled=true",
+    "sonar": "npm run test:coverage && sonar-scanner -Dsonar.projectKey=unosim -Dsonar.sources=client/src,server,shared,scripts,packages/avr-emulator/src -Dsonar.tests=tests,packages/avr-emulator/tests -Dsonar.host.url=http://localhost:9000 -Dsonar.token=$SONAR_TOKEN -Dsonar.qualitygate.wait=true -Dsonar.scm.exclusions.disabled=true",
     "dev": "UNOSIM_EXAMPLES_SOURCE=ttbombadil/unosim-examples UNOSIM_EXAMPLES_REF=main UNOSIM_EXAMPLES_ALLOWED_HOSTS=api.github.com,raw.githubusercontent.com node scripts/start-local-dev.mjs --node-env=development",
     "dev:e2e": "UNOSIM_EXAMPLES_SOURCE= UNOSIM_EXAMPLES_REF= ENABLE_TEST_ENDPOINTS=true DISABLE_RATE_LIMIT=true node scripts/start-local-dev.mjs --node-env=test",
     "dev:full": "concurrently -n \"BACKEND,CLIENT\" -c \"bgBlue,bgMagenta\" \"npm run dev\" \"node scripts/wait-for-backend.mjs && npm run dev:client\"",
@@ -31,15 +34,15 @@
     "build:copy-public": "[ -d public ] && cp -r public dist/ || true",
     "build:sandbox": "docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc --noEmit && tsc -p tests/tsconfig.tutor.json --noEmit",
+    "check": "tsc --noEmit && tsc -p tests/tsconfig.tutor.json --noEmit && tsc -p packages/avr-emulator/tsconfig.json --noEmit",
     "check:node-version": "node scripts/check-node-version.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",
     "test": "npm run test:unit",
     "test:fast": "npm run test:unit",
-    "test:unit": "TEST_BUDGET_SUITE=unit TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=120000 LOG_LEVEL=warn vitest run --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
-    "test:related": "TEST_BUDGET_SUITE=related TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest related --run --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
+    "test:unit": "TEST_BUDGET_SUITE=unit TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=120000 LOG_LEVEL=warn vitest run --project=unit-client --project=unit-node --project=unit-node-http --project=unit-emulator --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
+    "test:related": "TEST_BUDGET_SUITE=related TEST_BUDGET_MS=15000 LOG_LEVEL=warn vitest related --run --project=unit-client --project=unit-node --project=unit-node-http --project=unit-emulator --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:integration": "TEST_BUDGET_SUITE=integration-toolchain TEST_BUDGET_MS=120000 LOG_LEVEL=warn vitest run --project=integration-toolchain --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:docker": "NODE_ENV=test UNOSIM_SERVER_MODE=docker UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1 TEST_BUDGET_SUITE=integration-docker TEST_BUDGET_MS=180000 DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest SKIP_HEAVY_TESTS=false LOG_LEVEL=warn vitest run --project=integration-docker --reporter=default --reporter=./scripts/test-budget-reporter.mjs",
     "test:deployment": "tsx scripts/deployment/gateway-deployment.ts",
@@ -50,9 +53,9 @@
     "validate:tutor-course-content": "tsx scripts/validate-tutor-course-content.mjs",
     "eval:tutor-quality:real": "tsx scripts/tutor-quality-real-provider-eval.ts",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:docker",
-    "test:watch": "LOG_LEVEL=info vitest --project=unit-client --project=unit-node --project=unit-node-http",
-    "test:coverage": "node scripts/coverage-guard.mjs prepare && TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=120000 LOG_LEVEL=warn vitest run --coverage --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs && node scripts/coverage-guard.mjs validate",
-    "test:debug": "LOG_LEVEL=debug vitest run --project=unit-client --project=unit-node --project=unit-node-http",
+    "test:watch": "LOG_LEVEL=info vitest --project=unit-client --project=unit-node --project=unit-node-http --project=unit-emulator",
+    "test:coverage": "node scripts/coverage-guard.mjs prepare && TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=120000 LOG_LEVEL=warn vitest run --coverage --project=unit-client --project=unit-node --project=unit-node-http --project=unit-emulator --reporter=default --reporter=./scripts/test-budget-reporter.mjs && node scripts/coverage-guard.mjs validate",
+    "test:debug": "LOG_LEVEL=debug vitest run --project=unit-client --project=unit-node --project=unit-node-http --project=unit-emulator",
     "test:ci": "npm run test:unit",
     "test:e2e": "ARDUINO_CACHE_DIR=./server/arduino-cache playwright test",
     "test:e2e:ci": "ARDUINO_CACHE_DIR=./server/arduino-cache playwright test && ./check-leaks.sh --cleanup",
