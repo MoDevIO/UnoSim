@@ -2,7 +2,7 @@
 
 Status: current  
 Zielrolle: feature-contract  
-Ziel-SSOT für die Laufzeit des Emulationskerns `@unosim/avr-emulator`: Diagnosen und ihre Grenzen sowie Befehle und Ereignisse zwischen UI und Worker. Zeitmodell, Speichermodell, Überwachung des Workers und Modellannahmen kommen mit den Paketen P1.12 und P3.1 des [Umsetzungsplans](../docs/proposals/browser-emulation-plan.md) hinzu. Der Plan ist nicht normativ; dieses Dokument gilt für das, was der Code umsetzt.
+Ziel-SSOT für die Laufzeit des Emulationskerns `@unosim/avr-emulator`: Diagnosen und ihre Grenzen, Befehle und Ereignisse zwischen UI und Worker, Worker-Host und Headless-Lauf. Zeitmodell, Speichermodell, Überwachung des Workers und Modellannahmen kommen mit den Paketen P1.12 und P3.1 des [Umsetzungsplans](../docs/proposals/browser-emulation-plan.md) hinzu. Der Plan ist nicht normativ; dieses Dokument gilt für das, was der Code umsetzt.
 
 ## Governance-Grenzen
 
@@ -71,4 +71,26 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - Pins: letzter Zustand je Pin, `changeCount` summiert. Serial: je Port zusammenhängender Text; Reihenfolge von Serial, Diagnosen und Status bleibt erhalten, Pins und `usage` folgen am Ende der Gruppe.
 - Telemetrie höchstens einmal je Sekunde: simulierte Zeit, Echtzeitfaktor, Pin-Änderungen und Serial-Zeichen je Sekunde, verworfene Serial-Zeichen.
 - Schutz der UI: Serial-Text, der über 256 Ki wartende Zeichen hinausgeht, wird verworfen und in `serialCharsDropped` gezählt; ein Serial-Ereignis trägt höchstens 32 Ki Zeichen; höchstens 1000 wartende Status- und Diagnoseeinträge.
+
+## 4. Headless-Lauf
+
+`runHeadless(image, { simMs, events, expectState, eeprom? })` (`packages/avr-emulator/src/headless/`) führt ein Abbild so schnell wie möglich ohne Wanduhr, Pacing und Timeout aus; das Ergebnis ist deterministisch. Das Werkzeug `npm run emulate -- <sketch.hex> [--elf …] [--ms …] [--events …] [--case …] [--repeat n] [--json]` ruft ihn auf.
+
+Reize `events` (Zeit in simulierten ms, aufsteigend nicht erforderlich):
+
+| Eintrag | Wirkung |
+|---|---|
+| `[ms, "serial", text, port?]` | Text an Serial-Port (Standard 0) |
+| `[ms, "pin", pin, level]` | Pin von außen auf 0 oder 1 treiben |
+| `[ms, "adcVolts", channel, volts]` (auch `"adc"`) | Spannung am ADC-Kanal (0 = A0 am Uno) |
+
+Zustandsprüfungen `expectState`, ausgewertet zur angegebenen Zeit nach den Reizen derselben Zeit; ein Eintrag zur Endzeit des Laufs zählt mit:
+
+| Eintrag | Prüfung |
+|---|---|
+| `[ms, "pin", pin, mode, level]` | Modus (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) und Pegel |
+| `[ms, "pwm", pin, duty]` | Tastverhältnis 0–255 |
+| `[ms, "adcRaw", channel, value]` | Ergebnis der letzten Wandlung in ADCL/ADCH, nur gültig, solange ADMUX diesen Kanal wählt |
+
+Unbekannte Arten, falsche Argumente und ein ADC-Kanal, den das Board nicht hat, sind ein Fehler vor dem Lauf. Das Ergebnis enthält Serial-Text je Port (unverändert, `println` endet mit CRLF), Pins, I/O-Funde, Diagnosen, die Prüfergebnisse und die Geschwindigkeit (simulierte je Wanduhrzeit). Das Werkzeug endet mit Code 1, wenn eine Prüfung fehlschlägt, und mit 2 bei Bedienfehlern.
 

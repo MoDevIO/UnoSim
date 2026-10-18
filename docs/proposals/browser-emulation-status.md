@@ -23,5 +23,6 @@
 | P1.9 | erledigt | (dieser PR) | `IoUsageObserver` nach Spike P0.4, Stufe R2, je Maschine (auch nach Reset); IoRegistry-SSOT-Fälle 1–11 als Tests mit HEX-Fixtures (Fall 7: `digitalWrite` portgenau, mit ELF-Symbolen pin-genau); `analogWrite` 0/255 als `digitalWrite`; keine Wiederholung in `loop()` |
 | P1.10 | erledigt | #274 | `Diagnostics`: Stack in `.bss`/Heap, PC außerhalb des Programms, Watchdog-Reset (baut die Maschine neu auf), `sleep` bei gesperrten Interrupts; neue SSOT SimulationRuntime (Abschnitt Diagnosen); Prüfung je 4000-Takte-Abschnitt und bei SPL-Schreibzugriffen |
 | P1.11 | erledigt | (dieser PR) | `protocol/`: Befehls- und Ereignistypen mit Version, `parseCommand`, `EventBatcher` (≈ 60 Gruppen/s, Telemetrie 1/s, begrenzter Speicher), `RunGate` (UI-Seite der `runId`); SSOT SimulationRuntime Abschnitt 2 |
+| P1.13 | erledigt | (dieser PR) | `runHeadless` (Reize, Zustandsprüfungen, Ergebnis), Werkzeug `npm run emulate` (ersetzt das Prototyp-Skript), Messbericht [report-p1-13-leistung.md](report-p1-13-leistung.md): 3,5–6,4 × Echtzeit auf M2 Pro; `Emulator` führt Aktionen zur Endzeit von `advance` aus |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert

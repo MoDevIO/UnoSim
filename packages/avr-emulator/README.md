@@ -183,6 +183,16 @@ joined per port, telemetry once per second, bounded memory) and `RunGate`
 confirmation). The worker (P1.12) builds on these. See
 [ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
 
+### Headless runner and tool
+
+`runHeadless(image, { simMs, events, expectState })` runs an image as fast as
+possible and returns serial text, pins, I/O findings, diagnostics, state checks
+and the speed; stimuli and checks follow the `case.json` format of the
+reference corpus (plan 7.4). `npm run emulate -- sketch.hex --ms 3000 --events
+'[[500,"serial","42"],[1000,"pin",2,0]]'` prints the result; `--case`, `--elf`,
+`--json` and `--repeat n` (median speed) are available. Format and exit codes:
+[ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
+
 ## Tests
 
 `npm run test:unit` in the repository root runs the Vitest project

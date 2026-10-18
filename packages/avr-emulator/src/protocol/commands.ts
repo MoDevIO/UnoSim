@@ -63,7 +63,7 @@ const parsers: Record<Command["type"], (fields: Fields, runId: number) => Comman
 export function parseCommand(message: unknown): CommandResult {
   if (!isObject(message)) return fail("message must be an object");
   const { type, runId } = message;
-  if (typeof type !== "string" || !Object.hasOwn(parsers, type)) return fail("unknown command");
+  if (typeof type !== "string" || !Object.prototype.hasOwnProperty.call(parsers, type)) return fail("unknown command");
   if (!isInteger(runId, 0, Number.MAX_SAFE_INTEGER)) return fail("invalid runId");
   return parsers[type as Command["type"]](message, runId);
 }

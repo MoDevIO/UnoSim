@@ -36,6 +36,7 @@
     "vite.config.ts",
     "playwright.config.ts",
     "scripts/capacity-mixed-load.ts",
+    "scripts/emulate.ts",
     "scripts/tutor-catalog-eval.ts"
   ],
   "exclude": ["node_modules", "dist"]

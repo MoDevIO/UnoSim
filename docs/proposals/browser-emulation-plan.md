@@ -839,6 +839,11 @@ kann.
 **P1.13 Headless-Runner und Werkzeug (S).**
 `runHeadless(image, { simMs, events })` für Tests und Korpus; ein kleines CLI
 für Maintainer ersetzt das Prototyp-Skript; Leistungsmessung als Bericht.
+Umgesetzt unter `packages/avr-emulator/src/headless/`, Werkzeug
+`scripts/emulate.ts` (`npm run emulate`), Bericht
+[report-p1-13-leistung.md](report-p1-13-leistung.md). Das Format der Reize und
+Prüfungen steht in der SimulationRuntime-SSOT (Abschnitt 4); `adcRaw` ist das
+Ergebnis in ADCL/ADCH.
 
 **P1.14 Referenzkorpus (L, parallel bis M1).**
 Format, Klassen und Ablage nach Abschnitt 7.4; Proben für Datentypen,
