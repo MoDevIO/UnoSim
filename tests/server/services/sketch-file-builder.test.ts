@@ -95,11 +95,10 @@ void loop() {}
 void helper() {}
 `.trim();
       const content = await buildSketch(code);
-      // Forward decl must appear BEFORE the user-code section
+      // Like the Arduino IDE: directly before the first function definition
       const fwdIdx = content.indexOf("void helper();");
-      const userIdx = content.indexOf("// --- User code follows ---");
-      expect(fwdIdx).toBeGreaterThan(-1);
-      expect(fwdIdx).toBeLessThan(userIdx);
+      expect(fwdIdx).toBeGreaterThan(content.indexOf("// --- User code follows ---"));
+      expect(fwdIdx).toBeLessThan(content.indexOf("void setup() {"));
     });
 
     it("does not add forward declarations for setup() and loop()", async () => {
@@ -136,11 +135,57 @@ void loop() {}
 int add(int left, int right) { return left + right; }
 `.trim();
       const content = await buildSketch(code);
-      const declaration = "int add(int left, int right);";
-      const declarationIndex = content.indexOf(declaration);
-      const userCodeIndex = content.indexOf("// --- User code follows ---");
+      const declarationIndex = content.indexOf("int add(int left, int right);");
       expect(declarationIndex).toBeGreaterThan(-1);
-      expect(declarationIndex).toBeLessThan(userCodeIndex);
+      expect(declarationIndex).toBeLessThan(content.indexOf("void setup() {"));
+    });
+
+    it("places prototypes after a typedef that their signatures use", async () => {
+      const code = `
+typedef struct vektor { float x; float y; } Vektor;
+void setup() { Vektor v = addieren(v, v); }
+void loop() {}
+Vektor addieren(Vektor v, Vektor s) { return v; }
+`.trim();
+      const content = await buildSketch(code);
+      const declarationIndex = content.indexOf("Vektor addieren(Vektor v, Vektor s);");
+      expect(declarationIndex).toBeGreaterThan(content.indexOf("} Vektor;"));
+      expect(declarationIndex).toBeLessThan(content.indexOf("void setup() {"));
+    });
+
+    it("places prototypes after constants used as array sizes", async () => {
+      const code = `
+const int M = 3;
+void setup() {}
+void loop() {}
+void clear(double mat[M][M]) {}
+`.trim();
+      const content = await buildSketch(code);
+      const declarationIndex = content.indexOf("void clear(double mat[M][M]);");
+      expect(declarationIndex).toBeGreaterThan(content.indexOf("const int M = 3;"));
+    });
+
+    it("leaves default arguments out of prototypes", async () => {
+      const code = `
+void setup() { show(); }
+void loop() {}
+void show(const char *name = "M", byte precision = 2) {}
+`.trim();
+      const content = await buildSketch(code);
+      expect(content).toContain("void show(const char *name, byte precision);");
+      expect(content).toContain('void show(const char *name = "M", byte precision = 2) {}');
+    });
+
+    it("places prototypes before the first sketch function, after an included header", async () => {
+      const content = await buildProjectSketch(
+        '#include "mat.h"\nvoid setup() { scale(2); }\nvoid loop() {}\nvoid scale(double factor) {}',
+        "main.ino",
+        [{ name: "mat.h", content: "const int M = 3;\nvoid show(int precision = 2) {}" }],
+      );
+      const forwardIndex = content.indexOf("// --- Forward declarations");
+      expect(forwardIndex).toBeGreaterThan(content.indexOf("void show(int precision = 2) {}"));
+      expect(forwardIndex).toBeLessThan(content.indexOf("void setup() {"));
+      expect(content).toContain("void scale(double factor);");
     });
 
     it("does not duplicate declarations for overloaded or repeated function names", async () => {

@@ -13,6 +13,7 @@ import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { isSafeHeaderName } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
 import { normalizeSourcePath, resolveSourceProject } from "@shared/source-project";
+import { insertForwardDeclarations, planForwardDeclarations } from "./sketch-prototypes";
 
 interface SketchBuildResult {
   sketchDir: string;
@@ -21,18 +22,7 @@ interface SketchBuildResult {
 }
 
 export function extractForwardDeclarations(code: string): string {
-  const stripped = code.replaceAll(/\/\/[^\n]*/g, "").replaceAll(/\/\*[\s\S]*?\*\//g, "");
-  const skipped = new Set(["if", "else", "while", "for", "do", "switch", "case", "return", "break", "continue", "goto", "class", "struct", "union", "enum", "namespace", "typedef", "setup", "loop", "main"]);
-  const definition = /^((?:\w[\w*&]*\s+)*\w[\w*&]*)\s+(\w+)\s*(\([^)]*\))\s*\{/gm;
-  const seen = new Set<string>();
-  const declarations: string[] = [];
-  for (const match of stripped.matchAll(definition)) {
-    const signature = `${match[2]}${match[3]}`;
-    if (skipped.has(match[2]) || seen.has(signature)) continue;
-    seen.add(signature);
-    declarations.push(`${match[1].trim()} ${match[2]}${match[3]};`);
-  }
-  return declarations.join("\n");
+  return planForwardDeclarations(code).declarations;
 }
 
 export class SketchFileBuilder {
@@ -76,7 +66,7 @@ export class SketchFileBuilder {
     }
 
     const footer = this.buildFooter(hasSetup, hasLoop);
-    const projectSource = entryFile
+    const project = entryFile
       ? resolveSourceProject({
         entryFile,
         files: {
@@ -86,16 +76,17 @@ export class SketchFileBuilder {
             return files;
           }, {}),
         },
-      }).source
-      : code;
+      })
+      : undefined;
+    const projectSource = project ? project.source : code;
+    // Removing the include keeps every line in place, so lineOrigins still match.
     const cleanedCode = projectSource.replaceAll(/#include\s*[<"]Arduino\.h[>"]/g, "");
+    const isSketchLine = project
+      ? (lineIndex: number) => project.lineOrigins[lineIndex]?.file === project.entryFile
+      : undefined;
+    const userCode = insertForwardDeclarations(cleanedCode, isSketchLine);
 
-    const forwardDecls = this.extractForwardDeclarations(cleanedCode);
-    const forwardSection = forwardDecls
-      ? `// --- Forward declarations (auto-generated, mirrors Arduino IDE behaviour) ---\n${forwardDecls}\n\n`
-      : "";
-
-    const combined = `#include <Arduino.h>\n\n${forwardSection}// --- User code follows ---\n${cleanedCode}\n\n// --- Footer ---\n${footer}`;
+    const combined = `#include <Arduino.h>\n\n// --- User code follows ---\n${userCode}\n\n// --- Footer ---\n${footer}`;
 
     await writeFile(join(sketchDir, "Arduino.h"), ARDUINO_MOCK_CODE);
     await writeFile(sketchFile, combined);
@@ -119,18 +110,6 @@ export class SketchFileBuilder {
 
   clearCreatedSketchDir(dir: string): void {
     this.createdSketchDirs.delete(dir);
-  }
-
-  /**
-   * Extracts forward declarations for all user-defined functions.
-   *
-   * The Arduino IDE automatically generates prototypes for every function in a
-   * sketch so that helper functions can be called before they are defined (just
-   * like in a real Arduino sketch).  We replicate that behaviour here so that
-   * the local g++ compiler accepts the same code the Arduino IDE would accept.
-   */
-  private extractForwardDeclarations(code: string): string {
-    return extractForwardDeclarations(code);
   }
 
   /**

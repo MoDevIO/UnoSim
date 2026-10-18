@@ -143,7 +143,8 @@ function advanceStringMask(state: StringMaskState, current: string): StringMaskS
   return state;
 }
 
-function maskCommentsPreservingLines(source: string): string {
+/** Replaces comment characters with spaces, keeping every offset and line break of `source`. */
+export function maskCommentsPreservingLines(source: string): string {
   const result: string[] = [];
   let inBlockComment = false;
   let stringState: StringMaskState = { quote: null, escaped: false };

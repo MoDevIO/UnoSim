@@ -11,6 +11,25 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   questions and dialogs fall back to the free Tutor without a Course Content
   session instead of failing with `INVALID_REQUEST` (Course Content SSOT §11,
   case G).
+- **Sketches with `typedef` types, constant array sizes or default arguments
+  in function signatures run.** The generated function prototypes now sit
+  directly before the first function the sketch defines, without default
+  arguments, as in the Arduino IDE. Before, they stood at the top of the
+  file, so `Vektor add(Vektor a, Vektor b)`, `void f(double m[M][N])` and
+  `void f(byte precision = 2)` compiled with the Arduino compiler but failed
+  in the simulation.
+- **An open `INPUT_PULLUP` pin reads `HIGH`.** The simulation now models the
+  internal pull-up resistor; before, such a pin read `LOW` as if a button
+  were pressed.
+
+### Documentation
+
+- The user guide lists the known differences between the simulation and a
+  real Arduino Uno (section "Grenzen der Simulation"): `int` is 32 bits wide
+  instead of 16, `long` and `double` are 64 bits, `Serial.print` of a float
+  without a precision prints `2.5` instead of `2.50`, `Serial.parseInt()`
+  returns at once instead of waiting for its timeout, and loop speed, memory
+  size and `random()` sequences differ. Point students to that section.
 
 ## v1.0.0 – 2026-10-09
 
