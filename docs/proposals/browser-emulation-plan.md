@@ -125,7 +125,7 @@ dadurch keine Hardware-Anbindung.
 | B2 | Die Simulation kompiliert ein zweites Mal mit g++. | [prepare-phase.ts](../../server/services/sandbox/execution-phases/prepare-phase.ts) | Die Browser-Emulation startet mit dem Artefakt des REST-Compiles. |
 | B3 | `fqbn` wird im Request angenommen, die Argument-Allowlist lässt aber nur `arduino:avr:uno` zu; die Compile-Ausgabe schreibt fest „Board: Arduino UNO“. | [schema.ts](../../shared/schema.ts), [process-executor.ts](../../server/services/process-executor.ts), [cli-runner.ts](../../server/services/compiler/cli-runner.ts) | Board-ID mit Katalog statt freier FQBN (P2.2). |
 | B4 | Das Pin-Modell 0–19 (A0–A5 = 14–19) ist an vielen Stellen fest verdrahtet. | [input-limits.ts](../../shared/input-limits.ts) (`maxPin: 19`), [use-simulation-store.ts](../../client/src/hooks/use-simulation-store.ts), [arduino-board.tsx](../../client/src/components/features/arduino-board.tsx), [io-registry-parser.ts](../../shared/io-registry-parser.ts), [hardware-compatibility-parser.ts](../../shared/parsers/hardware-compatibility-parser.ts), [EXTERNAL_API.md](../EXTERNAL_API.md), [IoRegistry-SSOT](../../ssot/ssot_function_definition_IoRegistry.md) | Eigene Phase für die Board-Generalisierung (Phase 4). Uno bleibt Default, damit bestehende Tests unverändert gelten. |
-| B5 | Der Client ersetzt während eines Laufs die statische Registry vollständig durch den Laufzeit-Snapshot; die IoRegistry-SSOT verlangt dagegen, dass sich beide ergänzen. Beim Host-Mock fällt das kaum auf, weil seine Instrumentierung Zeilen mitliefert. avr8js macht Lese- und Schreibzugriffe auf I/O-Register beobachtbar (`readHooks`, `writeHooks`; auch `IN`, `LDS`, `LD`, `SBIC`, `SBIS` lesen darüber). Ein Lesezugriff auf ein PIN-Register zeigt aber nur den Port, nicht Pin und Arduino-Funktion. | [io-registry-state.ts](../../client/src/lib/io-registry-state.ts), [arduino-registry-logic.ts](../../server/mocks/arduino-mock/arduino-registry-logic.ts), avr8js 0.21.1 `cpu/cpu`, `cpu/instruction` | Zusammenführung mit Herkunft statt Ersetzen (P3.7); Laufzeit-Erkennung über Registerzugriffe, ELF-Symbole nur zur Ergänzung (E7, P0.4, P1.9). |
+| B5 | Der Client ersetzt während eines Laufs die statische Registry vollständig durch den Laufzeit-Snapshot; die IoRegistry-SSOT verlangt dagegen, dass sich beide ergänzen. Beim Host-Mock fällt das kaum auf, weil seine Instrumentierung Zeilen mitliefert. avr8js macht Lese- und Schreibzugriffe auf I/O-Register beobachtbar (`readHooks`, `writeHooks`; auch `IN`, `LDS`, `LD`, `SBIC`, `SBIS` lesen darüber). Ein Lesezugriff auf ein PIN-Register zeigt für sich nur den Port; Pin und Bit liefert erst der zugreifende Befehl (P0.4). | [io-registry-state.ts](../../client/src/lib/io-registry-state.ts), [arduino-registry-logic.ts](../../server/mocks/arduino-mock/arduino-registry-logic.ts), avr8js 0.21.1 `cpu/cpu`, `cpu/instruction` | Zusammenführung mit Herkunft statt Ersetzen (P3.7); Laufzeit-Erkennung über Registerzugriffe mit Befehlsdekodierung, ELF-Symbole nur optional (E7, P0.4, P1.9). |
 | B6 | Pause friert den Prozess per `SIGSTOP` bzw. `docker pause` ein, `millis()` läuft weiter. Das Pausenbudget schützt Serverressourcen. | [PauseResume-SSOT](../../ssot/ssot_function_definition_PauseResume.md) 4.3 und 7.2 | Im Browser hält Pause die simulierte Zeit an; das Pausenbudget gilt nur noch für den Host-Mock. |
 | B7 | Der Client steuert die Simulation ausschließlich über den WebSocket; Capabilities folgen aus der Erreichbarkeit des Backends. | [use-simulation-controller.ts](../../client/src/hooks/use-simulation-controller.ts), [useWebSocketHandler.ts](../../client/src/hooks/useWebSocketHandler.ts), [server-capabilities.ts](../../client/src/lib/server-capabilities.ts) | Laufzeit-Schnittstelle im Client (P3.1). Die Browser-Emulation erzeugt dieselben Nachrichtenformen wie der Server, damit die Auswertung bleibt. |
 | B8 | `UNOSIM_SIMULATION_MODE` ist als entfernte Variable gesperrt. | [config.ts](../../server/config.ts) (`removedRuntimeVariables`) | Neue Variablen heißen `UNOSIM_RUNTIME_*` (Abschnitt 4.11). |
@@ -481,26 +481,32 @@ avr8js leitet Lesezugriffe (`IN`, `LDS`, `LD`, `SBIC`, `SBIS`) über
 `readHooks` und Schreibzugriffe über `writeHooks`; die eigenen Hooks rufen
 vorhandene Hooks der Peripherie weiter auf und ändern keine Werte.
 
-| Funktion | Beobachtung | Zuordnung ohne Symbole |
+| Funktion | Beobachtung | Zuordnung (Ergebnis P0.4) |
 |---|---|---|
-| `pinMode` | Schreiben auf DDR, für `INPUT_PULLUP` auch auf PORT | Pin über die geänderten Bits; ein Schreibzugriff ohne Bitänderung (etwa `INPUT` an einem Eingang) ist keinem Pin zuzuordnen |
-| `digitalWrite` | Schreiben auf PORT eines Ausgangs | wie `pinMode` |
-| `digitalRead` | Lesen des PIN-Registers | nur der Port, nicht der Pin |
+| `pinMode` | Schreiben auf DDR, für `INPUT` und `INPUT_PULLUP` auch auf PORT | Pin über die geänderten Bits, sonst über den dekodierten Befehl; ein PORT-Schreibzugriff höchstens 24 Takte nach einem DDR-Schreibzugriff ohne gesetztes Bit gehört zu `pinMode` und nennt Pin und Modus |
+| `digitalWrite` | Schreiben auf PORT | Pin über die geänderten Bits, sonst über den dekodierten Befehl; ohne Pegeländerung über die Pin-Tabelle des Cores nur portgenau |
+| `digitalRead` | Lesen des PIN-Registers | Pin über den dekodierten Befehl (`SBIS`/`SBIC` oder Maske im Folgebefehl) |
 | `analogRead` | ADMUX-Kanal beim Setzen von ADSC | Pin über den ADC-Kanal |
-| `analogWrite` | COM-Bits und OCR des Timer-Kanals | Pin über den Timer-Kanal; die Werte 0 und 255 erscheinen als `digitalWrite` |
+| `analogWrite` | COM-Bits und OCR des Timer-Kanals | Pin über den Timer-Kanal; die Werte 0 und 255 erscheinen als `digitalWrite`; das `pinMode(OUTPUT)` in `analogWrite` zählt nicht |
+
+**Befehlsdekodierung.** Im Hook zeigt `cpu.pc` auf den zugreifenden Befehl.
+`SBI`, `CBI`, `SBIS` und `SBIC` tragen das Bit im Opcode. Ändert ein
+Schreibzugriff kein Bit, liefert der vorangehende `ORI`/`OR`/`ANDI`/`AND` die
+Maske; nach einem Lesezugriff auf ein PIN-Register liefert einer der nächsten
+Befehle auf dem Zielregister (`ANDI`, `AND`, `SBRS`, `SBRC`) das Bit. Gewertet
+werden nur Einbit-Masken; alles andere bleibt portgenau und erscheint nicht in
+der Registry ([Spike P0.4](spike-p0-4-runtime-io.md): alle Paare außer einem
+`digitalWrite` pin-genau, keine Fehlzuordnung außer `analogWrite` mit 0/255).
 
 Direkte Registerzugriffe des Sketches (`PORTB |= …`) erscheinen auf demselben
 Weg; die Herkunft weist sie als Laufzeitbeobachtung aus.
 
-**Verfeinerung über Symbole.** Stehen die Einsprünge der fünf Funktionen im
-ELF, markiert der Worker diese Adressen (Flag je Flash-Wort, O(1) je Befehl)
-und liest beim Einsprung Pin (`r24`) und Wert bzw. Modus (`r22`) nach der
-Aufrufkonvention von avr-gcc. Das ordnet auch `digitalRead` und Aufrufe ohne
-Bitänderung einem Pin zu. Fehlen die Symbole, etwa weil LTO eine Funktion
-eingebettet hat, bleibt die Registry vollständig nutzbar; nur diese
-Verfeinerung entfällt. IoRegistry-SSOT-Testfall 8 (`digitalRead(p)` mit
-berechnetem Pin) braucht die Symbole, sonst bleibt der Pin zur Laufzeit
-unbekannt; die SSOT nennt diese Grenze.
+**Symbole als optionale Ergänzung.** Nach LTO stehen die fünf Funktionen fast
+nie als Symbol im ELF (P0.4: in 1 von 62 Builds). Wo ein Einsprung vorhanden
+ist, darf der Worker ihn markieren (Flag je Flash-Wort, O(1) je Befehl) und
+Pin (`r24`) und Wert bzw. Modus (`r22`) nach der Aufrufkonvention von avr-gcc
+lesen. Die Registry hängt davon nicht ab; IoRegistry-SSOT-Testfall 8
+(`digitalRead(p)` mit berechnetem Pin) löst bereits die Befehlsdekodierung.
 
 Weitere Regeln:
 
@@ -777,11 +783,14 @@ Timeout nach E8, Headless-Modus mit Reizskript.
 
 **P1.9 Laufzeit-IO-Erkennung (L).**
 Nach 4.9 und dem Ergebnis von P0.4: Registerbeobachtung als Grundlage,
-Einsprung-Haken über die Symboltabelle als Verfeinerung, Ereignis nur beim
-ersten Auftreten, Herkunft je Fund.
-*Abnahme:* Die Testfälle 1–11 der IoRegistry-SSOT liefern die erwarteten
-Einträge; Fälle, die ohne Symbole nur portgenau sind, sind mit und ohne
-Symbole getestet.
+Befehlsdekodierung als Verfeinerung (Einbit-Masken, `pinMode`-Fenster von 24
+Takten, `pinMode` in `analogWrite` unterdrückt), Einsprung-Haken über die
+Symboltabelle nur optional, Ereignis nur beim ersten Auftreten, Herkunft je
+Fund.
+*Abnahme:* Die Testfälle 1–11 der IoRegistry-SSOT liefern die Einträge aus dem
+Spike-Bericht P0.4 (Fall 7: `digitalWrite` portgenau); die Grenzfälle
+(Schreiben ohne Bitänderung, `analogWrite` mit 0 und 255, direkte
+Registerzugriffe) sind mit vorkompilierten HEX-Fixtures getestet.
 
 **P1.10 Diagnosen (S).**
 Gemeldet werden als Ereignis `diagnostic`:
@@ -1446,7 +1455,7 @@ des Mocks, Simulationsteil des Kapazitätsmodells.
 | Schwache Schulgeräte schaffen keine Echtzeit | `millis()` und Ausgabe laufen langsamer als die Uhr | P0.3 vor Phase 3; Echtzeitfaktor anzeigen; Scheibengröße anpassen; „Legacy“ als Rückfall |
 | Compile-Sandbox verlangsamt den Stundenbeginn | Wartezeit bei vielen parallelen Compiles | Core-Caches im Image, Cache-Treffer bei unveränderten Beispielen, Kalibrierung P7.1, sonst warme Container |
 | Lücken in avr8js (Mega-Peripherie, Analogkomparator, Schlafmodi) | einzelne Sketches laufen falsch | eigene Profile mit Tests, Korpus, Version pinnen, Fehler upstream melden, Fork als Notlösung |
-| LTO bettet I/O-Funktionen ein | Laufzeitfunde ungenauer, `digitalRead` nur portgenau | Registerweg ist Grundlage (P0.4), Symbole nur Verfeinerung, statische Analyse bleibt Hauptquelle |
+| LTO bettet I/O-Funktionen ein | keine Symbole für Einsprung-Haken (P0.4: 61 von 62 Builds) | Registerweg mit Befehlsdekodierung (P0.4: pin-genau bis auf `digitalWrite` ohne Pegeländerung), statische Analyse bleibt Hauptquelle |
 | Emulator-Fehler lässt den Worker hängen | Lauf reagiert nicht mehr | Überwachung aus dem Hauptthread mit `terminate()` und neuem Worker (4.5) |
 | Veraltetes Kompilat nach Toolchain-Wechsel | Lauf zeigt das Verhalten der alten Toolchain | vollständige Build-Identität mit Prüfung beim Treffer (E15, P2.5) |
 | Pflegezustand von ATTinyCore | Toolchain-Updates schwierig | Version pinnen, P0.5, Alternative bewerten, ATtiny85 bleibt länger `preview` |
@@ -1461,8 +1470,9 @@ des Mocks, Simulationsteil des Kapazitätsmodells.
 - Zeilennummern zur Laufzeit (DWARF-Zeilentabelle und Rücksprungadresse).
 - Serielle Eingabe beim ATtiny85 (Analogkomparator), falls P0.5 sie nicht
   löst.
-- Zuordnung von `digitalRead` zum Pin ohne ELF-Symbole, falls P0.4 dort eine
-  Lücke zeigt, die für den Unterricht zählt.
+- Zuordnung von `digitalWrite` ohne Pegeländerung über die Pin-Tabelle des
+  Cores (P0.4, IoRegistry-SSOT-Fall 7), z. B. über `lpm`-Zugriffe auf die
+  Pin-Tabellen kurz vor dem PORT-Zugriff.
 - EEPROM über das Neuladen der Seite hinaus speichern.
 - Längere oder unbegrenzte Timeouts im Browser, da der Server nicht mehr
   geschützt werden muss.

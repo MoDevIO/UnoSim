@@ -1,0 +1,9 @@
+{
+  "name": "unosim-spike-p0-4",
+  "private": true,
+  "type": "module",
+  "description": "Spike P0.4 – runtime IO detection with avr8js (not product code)",
+  "dependencies": {
+    "avr8js": "0.21.1"
+  }
+}

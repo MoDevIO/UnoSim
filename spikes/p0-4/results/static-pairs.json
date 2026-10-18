@@ -1,0 +1,463 @@
+{
+  "it01_01_variable_definieren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it01_02_konstante": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it01_03_datentyp_waehlen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it01_04_zeichen_ascii": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it01_05_global_lokal": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it02_01_arithmetische_operatoren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it02_02_vergleichsoperatoren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it02_03_boolesche_operatoren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it02_04_wertebereich_ueberlauf": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it02_05_bitoperatoren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it03_01_serielle_ausgabe": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it03_02_zeichen_einlesen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it03_03_zahl_einlesen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it03_04_led_blinken": {
+    "pairs": {
+      "pinMode:13": {
+        "lines": [21],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:13": {
+        "lines": [25, 27],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it03_05_pins_als_konstanten": {
+    "pairs": {
+      "pinMode:5": {
+        "lines": [22],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:5": {
+        "lines": [28, 30],
+        "modes": []
+      },
+      "pinMode:6": {
+        "lines": [23],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:6": {
+        "lines": [32, 34],
+        "modes": []
+      },
+      "pinMode:7": {
+        "lines": [24],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:7": {
+        "lines": [36, 38],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it03_06_digitaler_eingang": {
+    "pairs": {
+      "pinMode:2": {
+        "lines": [21],
+        "modes": ["INPUT_PULLUP"]
+      },
+      "digitalRead:2": {
+        "lines": [25],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it03_07_zeit_messen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it03_08_map": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it04_01_analoger_eingang": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [23],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it04_02_spannung_berechnen": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [23],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it04_03_pwm_ausgang": {
+    "pairs": {
+      "pinMode:11": {
+        "lines": [21],
+        "modes": ["OUTPUT"]
+      },
+      "analogWrite:11": {
+        "lines": [25, 27, 29],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it04_04_taster_flanke": {
+    "pairs": {
+      "pinMode:3": {
+        "lines": [21],
+        "modes": ["INPUT_PULLUP"]
+      },
+      "digitalRead:3": {
+        "lines": [25],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it04_05_helligkeit_steuern": {
+    "pairs": {
+      "pinMode:9": {
+        "lines": [22],
+        "modes": ["OUTPUT"]
+      },
+      "analogWrite:9": {
+        "lines": [28],
+        "modes": []
+      },
+      "analogRead:14": {
+        "lines": [26],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it05_01_if": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [24],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it05_02_if_else": {
+    "pairs": {
+      "pinMode:13": {
+        "lines": [21],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:13": {
+        "lines": [29, 32],
+        "modes": []
+      },
+      "analogRead:14": {
+        "lines": [25],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it05_03_else_if": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [25],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it05_04_switch_menue": {
+    "pairs": {
+      "pinMode:13": {
+        "lines": [21],
+        "modes": ["OUTPUT"]
+      },
+      "digitalWrite:13": {
+        "lines": [32, 36],
+        "modes": []
+      },
+      "digitalRead:13": {
+        "lines": [41],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it05_05_intervall_ohne_delay": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it06_01_while": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it06_02_do_while": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it06_03_for": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it06_04_binaerzahl": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it06_05_verschachtelte_schleifen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_01_funktion_ohne_rueckgabe": {
+    "pairs": {
+      "digitalWrite:13": {
+        "lines": [23, 25],
+        "modes": []
+      },
+      "pinMode:13": {
+        "lines": [57],
+        "modes": ["OUTPUT"]
+      }
+    },
+    "unresolved": []
+  },
+  "it07_02_funktion_mit_rueckgabe": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_03_call_by_value": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_04_call_by_reference": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_05_eindimensionales_array": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_06_zweidimensionales_array": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it07_07_array_an_funktion": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [21],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it08_01_struct": {
+    "pairs": {
+      "analogRead:14": {
+        "lines": [32],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "it08_02_struct_uebergeben": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it08_03_array_aus_structs": {
+    "pairs": {},
+    "unresolved": [
+      {
+        "op": "analogRead",
+        "line": 30,
+        "expr": "pin"
+      }
+    ]
+  },
+  "it08_04_typedef": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it08_05_headerdatei": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it08_06_funktion_testen": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it11_01_matrix_ausgeben": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it11_02_skalarmultiplikation": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it11_03_matrizen_addieren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it11_04_matrix_transponieren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "it11_05_matrizen_multiplizieren": {
+    "pairs": {},
+    "unresolved": []
+  },
+  "ssot_tc01": {
+    "pairs": {
+      "pinMode:13": {
+        "lines": [1],
+        "modes": ["OUTPUT"]
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc02": {
+    "pairs": {
+      "digitalRead:14": {
+        "lines": [1],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc03": {
+    "pairs": {
+      "digitalWrite:2": {
+        "lines": [2],
+        "modes": []
+      },
+      "digitalWrite:3": {
+        "lines": [2],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc04": {
+    "pairs": {
+      "digitalWrite:12": {
+        "lines": [2],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc05": {
+    "pairs": {
+      "pinMode:17": {
+        "lines": [2],
+        "modes": ["INPUT"]
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc06": {
+    "pairs": {
+      "digitalWrite:9": {
+        "lines": [2],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc07": {
+    "pairs": {
+      "digitalRead:5": {
+        "lines": [1],
+        "modes": []
+      },
+      "digitalWrite:5": {
+        "lines": [1],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc08": {
+    "pairs": {},
+    "unresolved": [
+      {
+        "op": "digitalRead",
+        "line": 1,
+        "expr": "p"
+      }
+    ]
+  },
+  "ssot_tc09": {
+    "pairs": {
+      "pinMode:14": {
+        "lines": [1],
+        "modes": ["INPUT"]
+      },
+      "digitalWrite:14": {
+        "lines": [1],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc10": {
+    "pairs": {
+      "digitalRead:8": {
+        "lines": [2],
+        "modes": []
+      }
+    },
+    "unresolved": []
+  },
+  "ssot_tc11": {
+    "pairs": {
+      "pinMode:13": {
+        "lines": [1, 1],
+        "modes": ["OUTPUT", "INPUT"]
+      }
+    },
+    "unresolved": []
+  }
+}
