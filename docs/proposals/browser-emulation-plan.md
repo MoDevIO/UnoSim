@@ -1033,9 +1033,12 @@ Board-Hardware aus P1.3, SVG, Proben für A6/A7, E2E-Smoke; Status `preview`.
 ### Phase 5 – Mega 2560 (M2)
 
 **P5.1 MCU-Profil ATmega2560 (L).**
-Ports A–L, Timer 0–5 (Konfigurationen für 3–5 selbst), USART0–3
-(Konfigurationen für 1–3 selbst), ADC mit 16 Kanälen (MUX5), Datenraum bis
-`0x21FF`, 22-Bit-PC, Interrupt-Vektoren.
+Ports A–L, Timer 0–5, USART0–3, ADC mit 16 Kanälen (MUX5), Datenraum bis
+`0x21FF`, 22-Bit-PC, Interrupt-Vektoren. Nach P0.6 sind alles Konfigurationen
+der vorhandenen avr8js-Klassen, aber für **alle** Peripherien mit den
+Mega-Vektoren (die mitgelieferten Konfigurationen tragen die des 328P),
+dazu die Interrupt-Verdrahtung der Ports (INT0–7, PCINT0–2) und die
+MUX5-Kanalbelegung ([Spike P0.6](spike-p0-6-mega2560.md)).
 
 **P5.2 Board-Hardware Mega (M).**
 Pins 0–69 (A0–A15 = 54–69), PWM 2–13 und 44–46, serielle Pins, LED an 13.
@@ -1499,7 +1502,7 @@ Cores zu bestätigen.
 | Serial (TX/RX) | USART0 1/0 | USART0 1/0 | USART0 1/0, USART1 18/19, USART2 16/17, USART3 14/15 | Software-Serial des Cores, laut Core-Doku TX an AIN0 (PB0), RX an AIN1 (PB1) |
 | `LED_BUILTIN` | 13 | 13 | 13 | Core-abhängig |
 | aus avr8js | alles außer Pull-up | wie Uno | Ports A–L, Timer 0–2, USART0, ADC mit MUX5, 22-Bit-PC | ATtinyTimer1, USI, Port-Klasse |
-| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Timer 3–5, USART1–3, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration, Software-UART-Dekoder, ggf. Analogkomparator |
+| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Konfigurationen mit Mega-Vektoren für Timer 0–5, USART0–3 und ADC (MUX5), Port-Interrupts, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration, Software-UART-Dekoder, ggf. Analogkomparator |
 | Host-Mock | ja | nein | nein | nein |
 | SVG | vorhanden | neu | neu | neu (DIP-8) |
 

@@ -1,0 +1,18 @@
+{
+  "hex": {
+    "usedBytes": 5006,
+    "recordTypes": [0, 1]
+  },
+  "cpu": {
+    "spAfterReset": 8703,
+    "dataBytes": 8704,
+    "pc22Bits": true,
+    "maxPcByte": 4830
+  },
+  "serial": [
+    "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii… (1464 chars)"
+  ],
+  "baud": [117647],
+  "realTimeFactor": 4.42,
+  "timers": 3
+}

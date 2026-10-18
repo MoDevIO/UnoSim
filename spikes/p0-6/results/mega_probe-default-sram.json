@@ -1,0 +1,26 @@
+{
+  "hex": {
+    "usedBytes": 5006,
+    "recordTypes": [0, 1]
+  },
+  "cpu": {
+    "spAfterReset": 8447,
+    "dataBytes": 8448,
+    "pc22Bits": true,
+    "maxPcByte": 4830
+  },
+  "serial": ["", "", "", ""],
+  "baud": [null, null, null, null],
+  "pwm": {
+    "D44 OCR5C": 0,
+    "D45 OCR5B": 0,
+    "D46 OCR5A": 0,
+    "D2 OCR3B": 0,
+    "D9 OCR2B": 0,
+    "D13 OCR0A": 0,
+    "TCCR5A": "00000000",
+    "TCCR3A": "00000000"
+  },
+  "realTimeFactor": 5.37,
+  "timers": 6
+}
