@@ -35,6 +35,31 @@ validates both `lcov` files and requires at least 90 % line coverage for
 Emulator tests should keep simulated time short: about 1 ms of simulated time
 costs roughly 1 ms of wall time without coverage and 5–25 ms with it.
 
+### Runtime reference corpus
+
+`tests/fixtures/runtime-corpus/` holds the cases that decide whether the
+emulation behaves like the board: `probes/<case>/` (sketch, `case.json`,
+`expected.<board>.txt`) and precompiled `hex/<board>/<case>.hex`, so the unit
+gate (`unit-emulator`, `packages/avr-emulator/tests/runtime-corpus.test.ts`)
+needs no toolchain. Every case belongs to exactly one class, and a pass proves
+exactly that much:
+
+| `provenance` | Source of the expectation | A pass proves |
+|---|---|---|
+| `hardware` | recorded once on a real board (`recordedOn`) | agreement with the board |
+| `derived` | derived independently of the emulator (datasheet, core source, calculation; stated in `basis`) | agreement with that derivation, not with hardware |
+| `regression` | emulator output, reviewed for plausibility | only that nothing changed |
+
+Expectations compare serial port 0 line by line (CRLF read as LF).
+Tolerances apply only to time values, each with a pattern, a width and a
+reason in `case.json`; the ±250 ms of the wall-clock tests above does not
+apply to emulator cases. `npm run fixtures:runtime` rebuilds the HEX files with
+the pinned toolchain; the toolchain gate
+(`tests/integration/runtime-corpus-fixtures.test.ts`) fails when a rebuild
+differs from the checked-in bytes, in which case fixtures and core version are
+updated together. Serial output of a case must fit in its `simMs` (at 115200
+baud about 11 characters per simulated millisecond).
+
 ---
 
 ## Coverage-Hotspots

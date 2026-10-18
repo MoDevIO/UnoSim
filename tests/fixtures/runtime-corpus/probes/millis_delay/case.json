@@ -1,0 +1,27 @@
+{
+  "board": "uno",
+  "simMs": 800,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "delay(), delayMicroseconds() and millis()/micros() against the simulated time.",
+  "basis": "Timer 0 core: millis() advances 1 per 1.024 ms overflow plus a fractional correction of 3/125 per overflow (wiring.c), so an interval of N ms measures N-1..N+1; micros() has 4 us resolution and delayMicroseconds(1000) takes 1000 us plus about 4 us of call overhead",
+  "events": [],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "^delay\\(100\\): (\\d+)$",
+      "plusMinus": 1,
+      "reason": "millis() granularity: a 100 ms interval spans 97 or 98 overflows plus 2 or 3 fractional increments"
+    },
+    {
+      "pattern": "^delayMicroseconds\\(1000\\): (\\d+)$",
+      "plusMinus": 8,
+      "reason": "micros() has 4 us resolution; call overhead of micros() and delayMicroseconds()"
+    },
+    {
+      "pattern": "^10 x delay\\(50\\): (\\d+)$",
+      "plusMinus": 1,
+      "reason": "millis() granularity"
+    }
+  ]
+}

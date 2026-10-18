@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 60,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "float arithmetic and Serial.print(float) formatting; double is the 32-bit float.",
+  "basis": "Print::printFloat of the pinned core executed step by step in IEEE 754 single precision (independent Python model with float32 rounding after every operation), which is also what avr-libc's soft-float computes for these operands",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

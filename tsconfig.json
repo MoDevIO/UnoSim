@@ -37,6 +37,7 @@
     "playwright.config.ts",
     "scripts/capacity-mixed-load.ts",
     "scripts/emulate.ts",
+    "scripts/runtime-fixtures.ts",
     "scripts/tutor-catalog-eval.ts"
   ],
   "exclude": ["node_modules", "dist"]
