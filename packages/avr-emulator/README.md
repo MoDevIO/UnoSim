@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model (plan packages P1.1–P1.4 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM (plan packages P1.1–P1.5 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -78,6 +78,13 @@ assumptions of plan 4.8:
 | `INPUT_PULLUP` | reads HIGH until driven LOW from outside |
 | level driven from outside (`setDigital(pin, level)`) | holds until the sketch makes the pin an OUTPUT, then it is dropped; ignored while the pin is an OUTPUT (`setDigital` returns `false`) |
 | analog-only pins (Nano A6/A7) | not digital pins; `setDigital` and `state` throw |
+
+While a timer drives an output pin with PWM, the snapshot carries `pwm`, the
+duty cycle 0–255 from compare-output mode, waveform (TOP: 0xFF, 9/10 bit, ICR
+or OCRA) and compare register, and `level` is the rounded mean level; edges
+of the waveform are not reported. `analogWrite` with 0 or 255 switches the pin
+digitally in the core and therefore shows as a plain output. `pwmDuty()`
+computes the duty cycle from registers alone.
 
 `snapshot()` lists all digital pins; `takeChanges()` returns the last state of
 every pin that changed since the previous call plus the number of changes

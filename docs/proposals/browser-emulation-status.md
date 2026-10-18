@@ -15,6 +15,7 @@
 | P1.1 | erledigt | #264 | Workspace-Paket `@unosim/avr-emulator`, avr8js 0.21.1, Gates verdrahtet |
 | P1.2 | erledigt | #265 | `SimulationImage`: HEX-Parser 00–05, ELF-Symbole, SHA-256, Base64, Validierung beim Laden |
 | P1.3 | erledigt | #266 | ATmega328P-Profil, Uno und Nano; Pinbelegung gegen den Core geprüft (Toolchain-Gate). Abgleich der Speicherprobe mit einem echten Uno wartet auf Mensch (P1.14) |
-| P1.4 | erledigt | (dieser PR) | `PinModel`: Modus aus DDR/PORT, Pull-up, äußerer Pegel mit Vorrang bis OUTPUT, Änderungsliste mit Zähler |
+| P1.4 | erledigt | #267 | `PinModel`: Modus aus DDR/PORT, Pull-up, äußerer Pegel mit Vorrang bis OUTPUT, Änderungsliste mit Zähler |
+| P1.5 | erledigt | (dieser PR) | Tastverhältnis 0–255 je Timerkanal aus COM/WGM/OCR; Abnahme Uno-Pins 3/5/6/9/10/11 × 0/1/25/128/254/255 |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert
