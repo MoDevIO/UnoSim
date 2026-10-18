@@ -1,0 +1,22 @@
+{
+  "board": "uno",
+  "simMs": 80,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "analogWrite on the six Uno PWM pins and the switch from PWM back to digital.",
+  "basis": "wiring_analog.c of arduino:avr@1.8.8: analogWrite(0) and analogWrite(255) are digitalWrite(LOW/HIGH), other values set OCRnx; wiring.c runs timers 0 to 2 in 8-bit PWM modes, so the duty cycle equals the value; digitalWrite on a PWM pin clears its COM bits (turnOffPWM)",
+  "events": [],
+  "expectState": [
+    [10, "pin", 3, "OUTPUT", 0],
+    [10, "pwm", 5, 1],
+    [10, "pwm", 6, 25],
+    [10, "pwm", 9, 128],
+    [10, "pwm", 10, 254],
+    [10, "pin", 11, "OUTPUT", 1],
+    [60, "pwm", 5, 1],
+    [60, "pwm", 6, 25],
+    [60, "pin", 9, "OUTPUT", 0],
+    [60, "pin", 10, "OUTPUT", 1]
+  ],
+  "tolerances": []
+}

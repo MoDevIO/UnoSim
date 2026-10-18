@@ -1,0 +1,8 @@
+A0 514
+A1 0
+A2 1023
+A3 225
+A4 122
+A4 internal 558
+A4 default again 122
+DONE
