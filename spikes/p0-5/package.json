@@ -1,0 +1,9 @@
+{
+  "name": "unosim-spike-p0-5",
+  "private": true,
+  "type": "module",
+  "description": "Spike P0.5 – ATtiny85 with avr8js (not product code)",
+  "dependencies": {
+    "avr8js": "0.21.1"
+  }
+}

@@ -153,7 +153,7 @@ Abschnitt 5 des Vorschlags.
 | E8 | Pause, Timeout, Limits | 5 | Der Worker setzt sie durch: Pause hält die simulierte Zeit an; Timeout bleibt Laufzeit nach Wanduhr ohne Pausen (1–300 s wie heute), ein Lauf mit Echtzeitfaktor unter 1 endet deshalb nach weniger simulierter Zeit (4.7); Pausenbudget, Simulations-Admission und Start-Rate-Limit nur noch für den Host-Mock | der Server hält für Browser-Läufe keine Ressource; die Bedienung bleibt gleich |
 | E9 | Rückfallebene | – | Host-Mock bleibt für den Uno, wählbar über die angebotenen Backends (Server) und die Einstellung „Simulation engine“ (Nutzer). Standard: lokal ab M1, Docker ab M4 die Browser-Emulation | Rückweg bei Fehlern im Unterricht |
 | E10 | Erster Meilenstein | 6 | wie vorgeschlagen: Die 51 Beispiele aus UnoSim-Examples `v3.0.0` stimmen mit Referenzen überein, die am echten Uno aufgenommen wurden. Ein Beispiel ohne solche Referenz weist die Abnahme aus; es zählt nicht als Hardwarevergleich (7.4) | messbar, deckt den Unterrichtsstoff ab, trennt Hardwarevergleich von Regression |
-| E11 | ATtiny-Core | – | ATTinyCore (SpenceKonde), Version gepinnt, `chip=85`, 8 MHz intern. `Serial` ist dort eine Software-Schnittstelle, die der Emulator am TX-Pin dekodiert; serielle Eingabe erst nach Spike (Analogkomparator) | einziger verbreiteter Core mit `Serial` auf dem ATtiny85; Version, Lizenz und Pflegezustand prüft P0.5 |
+| E11 | ATtiny-Core | – | ATTinyCore (SpenceKonde) 1.5.2, `chip=85`, 8 MHz intern, übrige Menüoptionen auf Standard. `Serial` ist dort eine Software-Schnittstelle, die der Emulator am TX-Pin dekodiert; die serielle Eingabe läuft über ein Modell des Analogkomparators ([Spike P0.5](spike-p0-5-attiny85.md)) | einziger verbreiteter Core mit `Serial` auf dem ATtiny85; LGPL 2.1 wie der Arduino-AVR-Core, derselbe Compiler; seit 2021 kein Release (P0.5) |
 | E12 | Echtzeit | – | Der Worker taktet auf Echtzeit. Ist das Gerät zu langsam, läuft die Simulation langsamer und zeigt den Echtzeitfaktor. Rückstand über 100 ms wird nicht aufgeholt: Der Bezug zur Wanduhr wird neu gesetzt, simuliert wird lückenlos weiter. Läuft der Worker voraus, wartet er. In verborgenen Tabs läuft er weiter (4.7) | `millis()` bleibt in sich stimmig, die UI bleibt bedienbar, kein Kern wird dauernd belegt |
 | E13 | Board pro Sketch | – | Auswahl pro Browser und Arbeitsbereich (localStorage); Beispiele dürfen ein Board angeben (optional, Default `uno`) | entspricht der Arduino IDE; Course Content bleibt abwärtskompatibel |
 | E14 | Verträge | – | WebSocket `1.0.0` bleibt (nur Host-Mock; neue Telemetriefelder optional). REST additiv `1.1.0` (`board`, `artifact`). iframe-API additiv `1.5.0` (Board, Pinbereich je Board). Worker-Protokoll neu und intern, versioniert im Paket | Clients brauchen keine Migration; die Produktversion steigt trotzdem auf 2.0.0 (E16) |
@@ -1058,12 +1058,18 @@ solange P2.4 nicht abgeschlossen ist, im Backend-Image.
 **P6.2 MCU-Profil ATtiny85 (L).**
 Port B, Timer0 mit eigener Konfiguration, ATtinyTimer1, ADC (ADC0–3 an PB5,
 PB2, PB4, PB3; Referenzen VCC, 1,1 V, 2,56 V), Watchdog, Ein-Wort-Vektoren,
-8 MHz; kein USART.
+8 MHz; kein USART. Die Referenzauswahl des ADC liest `REFS2` selbst an Bit 4,
+weil avr8js 0.21.1 es an Bit 3 erwartet (P0.5: sonst 102 statt 200 bei
+2,56 V); der Fehler wird upstream gemeldet.
 
 **P6.3 Software-UART (M).**
-TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite. Serielle Eingabe nur,
-wenn P0.5 sie für machbar hält (Analogkomparator); sonst ist das Eingabefeld
-für dieses Board aus und das Benutzerhandbuch nennt den Grund.
+TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite (größte
+Standard-Bitzeit, zu der die Flankenabstände passen; PB0 nur, solange er
+Ausgang und nicht PWM ist). Serielle Eingabe über ein Modell des
+Analogkomparators (ACSR, Vektor 7) mit einer Wellenform an PB1 in simulierter
+Zeit; Baudrate aus der Ausgabe, sonst aus dem Serial Monitor. Das
+Benutzerhandbuch nennt die Grenzen des Boards: Halbduplex, kein Empfang, wenn
+PB1 anders genutzt wird (P0.5).
 
 **P6.4 Board-Hardware und Regeln (M).**
 Pins 0–5, PB5 als RESET sichtbar, aber nicht nutzbar; A0–A3; PWM 0, 1, 4;
@@ -1471,8 +1477,6 @@ des Mocks, Simulationsteil des Kapazitätsmodells.
 ## 11. Offene Punkte nach diesem Plan
 
 - Zeilennummern zur Laufzeit (DWARF-Zeilentabelle und Rücksprungadresse).
-- Serielle Eingabe beim ATtiny85 (Analogkomparator), falls P0.5 sie nicht
-  löst.
 - Zuordnung von `digitalWrite` ohne Pegeländerung über die Pin-Tabelle des
   Cores (P0.4, IoRegistry-SSOT-Fall 7), z. B. über `lpm`-Zugriffe auf die
   Pin-Tabellen kurz vor dem PORT-Zugriff.
@@ -1495,14 +1499,14 @@ Cores zu bestätigen.
 | Flash / SRAM / EEPROM | 32 KB / 2 KB / 1 KB | 32 KB / 2 KB / 1 KB | 256 KB / 8 KB / 4 KB | 8 KB / 512 B / 512 B |
 | SRAM-Adressen / avr8js-Parameter (4.3) | 0x0100–0x08FF / 2048 | 0x0100–0x08FF / 2048 | 0x0200–0x21FF / 8448 | 0x0060–0x025F / 352 |
 | FQBN | `arduino:avr:uno` | `arduino:avr:nano:cpu=atmega328` | `arduino:avr:mega:cpu=atmega2560` | `ATTinyCore:avr:attinyx5:chip=85,clock=8internal` |
-| Core | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | ATTinyCore, Version aus P0.5 |
+| Core | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `ATTinyCore:avr@1.5.2` (P0.5) |
 | Digitale Pins | 0–13, A0–A5 als 14–19 | wie Uno; A6/A7 (20/21) nur analog | 0–53, A0–A15 als 54–69 | 0–5 (PB0–PB5), PB5 ist RESET |
 | PWM | 3, 5, 6, 9, 10, 11 | wie Uno | 2–13, 44–46 | 0, 1, 4 |
 | Analog | A0–A5 | A0–A7 | A0–A15 | A0–A3 an PB5, PB2, PB4, PB3 |
 | Serial (TX/RX) | USART0 1/0 | USART0 1/0 | USART0 1/0, USART1 18/19, USART2 16/17, USART3 14/15 | Software-Serial des Cores, laut Core-Doku TX an AIN0 (PB0), RX an AIN1 (PB1) |
-| `LED_BUILTIN` | 13 | 13 | 13 | Core-abhängig |
+| `LED_BUILTIN` | 13 | 13 | 13 | 1 (PB1) |
 | aus avr8js | alles außer Pull-up | wie Uno | Ports A–L, Timer 0–2, USART0, ADC mit MUX5, 22-Bit-PC | ATtinyTimer1, USI, Port-Klasse |
-| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Konfigurationen mit Mega-Vektoren für Timer 0–5, USART0–3 und ADC (MUX5), Port-Interrupts, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration, Software-UART-Dekoder, ggf. Analogkomparator |
+| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Konfigurationen mit Mega-Vektoren für Timer 0–5, USART0–3 und ADC (MUX5), Port-Interrupts, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration mit eigener Referenzauswahl, Software-UART-Dekoder, Analogkomparator |
 | Host-Mock | ja | nein | nein | nein |
 | SVG | vorhanden | neu | neu | neu (DIP-8) |
 
