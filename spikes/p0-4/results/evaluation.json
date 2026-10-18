@@ -1,0 +1,1026 @@
+{
+  "summary": {
+    "sketches": 62,
+    "sameSerialAsReference": 58,
+    "sketchesWithIoSymbolsAfterLto": 1,
+    "accuracy": {
+      "R0:pinMode": {
+        "tp": 11,
+        "fn": 4,
+        "fp": 0,
+        "modeOk": 11,
+        "modeTotal": 11
+      },
+      "R0:digitalWrite": {
+        "tp": 11,
+        "fn": 1,
+        "fp": 3,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R0:digitalRead": {
+        "tp": 0,
+        "fn": 7,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R0:analogRead": {
+        "tp": 14,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R0:analogWrite": {
+        "tp": 2,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R1:pinMode": {
+        "tp": 15,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 15,
+        "modeTotal": 15
+      },
+      "R1:digitalWrite": {
+        "tp": 11,
+        "fn": 1,
+        "fp": 1,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R1:digitalRead": {
+        "tp": 7,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R1:analogRead": {
+        "tp": 14,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R1:analogWrite": {
+        "tp": 2,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R2:pinMode": {
+        "tp": 15,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 15,
+        "modeTotal": 15
+      },
+      "R2:digitalWrite": {
+        "tp": 11,
+        "fn": 1,
+        "fp": 1,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R2:digitalRead": {
+        "tp": 7,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R2:analogRead": {
+        "tp": 14,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      },
+      "R2:analogWrite": {
+        "tp": 2,
+        "fn": 0,
+        "fp": 0,
+        "modeOk": 0,
+        "modeTotal": 0
+      }
+    },
+    "static": {
+      "pinMode": {
+        "static": 15,
+        "executed": 15,
+        "confirmedR2": 15,
+        "confirmedR0": 11
+      },
+      "digitalWrite": {
+        "static": 13,
+        "executed": 12,
+        "confirmedR2": 11,
+        "confirmedR0": 11
+      },
+      "digitalRead": {
+        "static": 6,
+        "executed": 6,
+        "confirmedR2": 6,
+        "confirmedR0": 0
+      },
+      "analogRead": {
+        "static": 8,
+        "executed": 8,
+        "confirmedR2": 8,
+        "confirmedR0": 8
+      },
+      "analogWrite": {
+        "static": 2,
+        "executed": 2,
+        "confirmedR2": 2,
+        "confirmedR0": 2
+      }
+    },
+    "truthPairsWithoutStaticEntry": 7,
+    "portOnlyFindings": {
+      "R0": 19,
+      "R1": 3
+    },
+    "hookCostRatioMedian": 1,
+    "hookCostRatioMax": 1.625,
+    "realTimeFactorBareMedian": 5.21,
+    "realTimeFactorObservedMedian": 5.2
+  },
+  "perSketch": {
+    "it01_01_variable_definieren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it01_02_konstante": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it01_03_datentyp_waehlen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it01_04_zeichen_ascii": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it01_05_global_lokal": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it02_01_arithmetische_operatoren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it02_02_vergleichsoperatoren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it02_03_boolesche_operatoren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it02_04_wertebereich_ueberlauf": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it02_05_bitoperatoren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it03_01_serielle_ausgabe": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it03_02_zeichen_einlesen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it03_03_zahl_einlesen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it03_04_led_blinken": {
+      "truth": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "static": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "R0": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "R1": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "R2": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "portOnly": []
+    },
+    "it03_05_pins_als_konstanten": {
+      "truth": [
+        "pinMode:5",
+        "pinMode:6",
+        "pinMode:7",
+        "digitalWrite:5",
+        "digitalWrite:6",
+        "digitalWrite:7"
+      ],
+      "static": [
+        "pinMode:5",
+        "digitalWrite:5",
+        "pinMode:6",
+        "digitalWrite:6",
+        "pinMode:7",
+        "digitalWrite:7"
+      ],
+      "R0": [
+        "pinMode:5",
+        "pinMode:6",
+        "pinMode:7",
+        "digitalWrite:5",
+        "digitalWrite:6",
+        "digitalWrite:7"
+      ],
+      "R1": [
+        "pinMode:5",
+        "pinMode:6",
+        "pinMode:7",
+        "digitalWrite:5",
+        "digitalWrite:6",
+        "digitalWrite:7"
+      ],
+      "R2": [
+        "pinMode:7",
+        "digitalWrite:5",
+        "pinMode:5",
+        "pinMode:6",
+        "digitalWrite:6",
+        "digitalWrite:7"
+      ],
+      "portOnly": []
+    },
+    "it03_06_digitaler_eingang": {
+      "truth": [
+        "pinMode:2",
+        "digitalRead:2"
+      ],
+      "static": [
+        "pinMode:2",
+        "digitalRead:2"
+      ],
+      "R0": [
+        "digitalWrite:2"
+      ],
+      "R1": [
+        "pinMode:2",
+        "digitalRead:2"
+      ],
+      "R2": [
+        "pinMode:2",
+        "digitalRead:2"
+      ],
+      "portOnly": []
+    },
+    "it03_07_zeit_messen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it03_08_map": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it04_01_analoger_eingang": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it04_02_spannung_berechnen": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it04_03_pwm_ausgang": {
+      "truth": [
+        "pinMode:11",
+        "analogWrite:11"
+      ],
+      "static": [
+        "pinMode:11",
+        "analogWrite:11"
+      ],
+      "R0": [
+        "pinMode:11",
+        "analogWrite:11",
+        "digitalWrite:11"
+      ],
+      "R1": [
+        "pinMode:11",
+        "analogWrite:11",
+        "digitalWrite:11"
+      ],
+      "R2": [
+        "pinMode:11",
+        "analogWrite:11",
+        "digitalWrite:11"
+      ],
+      "portOnly": [
+        "digitalWrite:B"
+      ]
+    },
+    "it04_04_taster_flanke": {
+      "truth": [
+        "pinMode:3",
+        "digitalRead:3"
+      ],
+      "static": [
+        "pinMode:3",
+        "digitalRead:3"
+      ],
+      "R0": [
+        "digitalWrite:3"
+      ],
+      "R1": [
+        "pinMode:3",
+        "digitalRead:3"
+      ],
+      "R2": [
+        "pinMode:3",
+        "digitalRead:3"
+      ],
+      "portOnly": []
+    },
+    "it04_05_helligkeit_steuern": {
+      "truth": [
+        "pinMode:9",
+        "analogRead:14",
+        "analogWrite:9"
+      ],
+      "static": [
+        "pinMode:9",
+        "analogWrite:9",
+        "analogRead:14"
+      ],
+      "R0": [
+        "pinMode:9",
+        "analogRead:14",
+        "analogWrite:9"
+      ],
+      "R1": [
+        "pinMode:9",
+        "analogRead:14",
+        "analogWrite:9"
+      ],
+      "R2": [
+        "analogRead:14",
+        "pinMode:9",
+        "analogWrite:9"
+      ],
+      "portOnly": []
+    },
+    "it05_01_if": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it05_02_if_else": {
+      "truth": [
+        "pinMode:13",
+        "analogRead:14",
+        "digitalWrite:13"
+      ],
+      "static": [
+        "pinMode:13",
+        "digitalWrite:13",
+        "analogRead:14"
+      ],
+      "R0": [
+        "pinMode:13",
+        "analogRead:14",
+        "digitalWrite:13"
+      ],
+      "R1": [
+        "pinMode:13",
+        "analogRead:14",
+        "digitalWrite:13"
+      ],
+      "R2": [
+        "pinMode:13",
+        "analogRead:14",
+        "digitalWrite:13"
+      ],
+      "portOnly": [
+        "digitalWrite:B"
+      ]
+    },
+    "it05_03_else_if": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it05_04_switch_menue": {
+      "truth": [
+        "pinMode:13",
+        "digitalRead:13"
+      ],
+      "static": [
+        "pinMode:13",
+        "digitalWrite:13",
+        "digitalRead:13"
+      ],
+      "R0": [
+        "pinMode:13"
+      ],
+      "R1": [
+        "pinMode:13",
+        "digitalRead:13"
+      ],
+      "R2": [
+        "pinMode:13",
+        "digitalRead:13"
+      ],
+      "portOnly": []
+    },
+    "it05_05_intervall_ohne_delay": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it06_01_while": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it06_02_do_while": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it06_03_for": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it06_04_binaerzahl": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it06_05_verschachtelte_schleifen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_01_funktion_ohne_rueckgabe": {
+      "truth": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "static": [
+        "digitalWrite:13",
+        "pinMode:13"
+      ],
+      "R0": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "R1": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "R2": [
+        "pinMode:13",
+        "digitalWrite:13"
+      ],
+      "portOnly": []
+    },
+    "it07_02_funktion_mit_rueckgabe": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_03_call_by_value": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_04_call_by_reference": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_05_eindimensionales_array": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_06_zweidimensionales_array": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it07_07_array_an_funktion": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it08_01_struct": {
+      "truth": [
+        "analogRead:14"
+      ],
+      "static": [
+        "analogRead:14"
+      ],
+      "R0": [
+        "analogRead:14"
+      ],
+      "R1": [
+        "analogRead:14"
+      ],
+      "R2": [
+        "analogRead:14"
+      ],
+      "portOnly": []
+    },
+    "it08_02_struct_uebergeben": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it08_03_array_aus_structs": {
+      "truth": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "static": [],
+      "R0": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "R1": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "R2": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "portOnly": []
+    },
+    "it08_04_typedef": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it08_05_headerdatei": {
+      "truth": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "static": [],
+      "R0": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "R1": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "R2": [
+        "analogRead:14",
+        "analogRead:15",
+        "analogRead:16"
+      ],
+      "portOnly": []
+    },
+    "it08_06_funktion_testen": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it11_01_matrix_ausgeben": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it11_02_skalarmultiplikation": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it11_03_matrizen_addieren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it11_04_matrix_transponieren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "it11_05_matrizen_multiplizieren": {
+      "truth": [],
+      "static": [],
+      "R0": [],
+      "R1": [],
+      "R2": [],
+      "portOnly": []
+    },
+    "ssot_tc01": {
+      "truth": [
+        "pinMode:13"
+      ],
+      "static": [
+        "pinMode:13"
+      ],
+      "R0": [
+        "pinMode:13"
+      ],
+      "R1": [
+        "pinMode:13"
+      ],
+      "R2": [
+        "pinMode:13"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc02": {
+      "truth": [
+        "digitalRead:14"
+      ],
+      "static": [
+        "digitalRead:14"
+      ],
+      "R0": [],
+      "R1": [
+        "digitalRead:14"
+      ],
+      "R2": [
+        "digitalRead:14"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc03": {
+      "truth": [
+        "digitalWrite:2",
+        "digitalWrite:3"
+      ],
+      "static": [
+        "digitalWrite:2",
+        "digitalWrite:3"
+      ],
+      "R0": [
+        "digitalWrite:2",
+        "digitalWrite:3"
+      ],
+      "R1": [
+        "digitalWrite:2",
+        "digitalWrite:3"
+      ],
+      "R2": [
+        "digitalWrite:2",
+        "digitalWrite:3"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc04": {
+      "truth": [
+        "digitalWrite:12"
+      ],
+      "static": [
+        "digitalWrite:12"
+      ],
+      "R0": [
+        "digitalWrite:12"
+      ],
+      "R1": [
+        "digitalWrite:12"
+      ],
+      "R2": [
+        "digitalWrite:12"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc05": {
+      "truth": [
+        "pinMode:17"
+      ],
+      "static": [
+        "pinMode:17"
+      ],
+      "R0": [],
+      "R1": [
+        "pinMode:17"
+      ],
+      "R2": [
+        "pinMode:17"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc06": {
+      "truth": [
+        "digitalWrite:9"
+      ],
+      "static": [
+        "digitalWrite:9"
+      ],
+      "R0": [
+        "digitalWrite:9"
+      ],
+      "R1": [
+        "digitalWrite:9"
+      ],
+      "R2": [
+        "digitalWrite:9"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc07": {
+      "truth": [
+        "digitalRead:5",
+        "digitalWrite:5"
+      ],
+      "static": [
+        "digitalRead:5",
+        "digitalWrite:5"
+      ],
+      "R0": [],
+      "R1": [
+        "digitalRead:5"
+      ],
+      "R2": [
+        "digitalRead:5"
+      ],
+      "portOnly": [
+        "digitalWrite:D"
+      ]
+    },
+    "ssot_tc08": {
+      "truth": [
+        "digitalRead:4"
+      ],
+      "static": [],
+      "R0": [],
+      "R1": [
+        "digitalRead:4"
+      ],
+      "R2": [
+        "digitalRead:4"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc09": {
+      "truth": [
+        "pinMode:14",
+        "digitalWrite:14"
+      ],
+      "static": [
+        "pinMode:14",
+        "digitalWrite:14"
+      ],
+      "R0": [
+        "digitalWrite:14"
+      ],
+      "R1": [
+        "pinMode:14",
+        "digitalWrite:14"
+      ],
+      "R2": [
+        "pinMode:14",
+        "digitalWrite:14"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc10": {
+      "truth": [
+        "digitalRead:8"
+      ],
+      "static": [
+        "digitalRead:8"
+      ],
+      "R0": [],
+      "R1": [
+        "digitalRead:8"
+      ],
+      "R2": [
+        "digitalRead:8"
+      ],
+      "portOnly": []
+    },
+    "ssot_tc11": {
+      "truth": [
+        "pinMode:13"
+      ],
+      "static": [
+        "pinMode:13"
+      ],
+      "R0": [
+        "pinMode:13"
+      ],
+      "R1": [
+        "pinMode:13"
+      ],
+      "R2": [
+        "pinMode:13"
+      ],
+      "portOnly": []
+    }
+  }
+}

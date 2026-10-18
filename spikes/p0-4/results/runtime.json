@@ -1,0 +1,2087 @@
+{
+ "simMs": 3000,
+ "avr8js": "0.21.1",
+ "results": {
+  "it01_01_variable_definieren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.034,
+   "realTimeFactorBare": 6.3,
+   "realTimeFactorObserved": 6.09,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it01_02_konstante": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.103,
+   "realTimeFactorBare": 6.22,
+   "realTimeFactorObserved": 5.64,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it01_03_datentyp_waehlen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.005,
+   "realTimeFactorBare": 6.21,
+   "realTimeFactorObserved": 6.18,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it01_04_zeichen_ascii": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.234,
+   "realTimeFactorBare": 6.22,
+   "realTimeFactorObserved": 5.04,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it01_05_global_lokal": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.014,
+   "realTimeFactorBare": 4.21,
+   "realTimeFactorObserved": 4.15,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it02_01_arithmetische_operatoren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 6.22,
+   "realTimeFactorObserved": 6.22,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it02_02_vergleichsoperatoren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 6.26,
+   "realTimeFactorObserved": 6.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it02_03_boolesche_operatoren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.016,
+   "realTimeFactorBare": 6.25,
+   "realTimeFactorObserved": 6.15,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it02_04_wertebereich_ueberlauf": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.99,
+   "realTimeFactorBare": 4.17,
+   "realTimeFactorObserved": 4.21,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it02_05_bitoperatoren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.994,
+   "realTimeFactorBare": 6.22,
+   "realTimeFactorObserved": 6.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it03_01_serielle_ausgabe": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.997,
+   "realTimeFactorBare": 6.24,
+   "realTimeFactorObserved": 6.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it03_02_zeichen_einlesen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.991,
+   "realTimeFactorBare": 4.4,
+   "realTimeFactorObserved": 4.44,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it03_03_zahl_einlesen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.004,
+   "realTimeFactorBare": 4.6,
+   "realTimeFactorObserved": 4.58,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it03_04_led_blinken": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.978,
+   "realTimeFactorBare": 4.05,
+   "realTimeFactorObserved": 4.14,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.01
+    },
+    "digitalWrite:13": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "it03_05_pins_als_konstanten": {
+   "ioSymbolsLto": [
+    "digitalWrite"
+   ],
+   "hookCostRatio": 1.02,
+   "realTimeFactorBare": 4.07,
+   "realTimeFactorObserved": 3.99,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:5": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "pinMode:6": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.02
+     },
+     "pinMode:7": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.02
+     },
+     "digitalWrite:5": {
+      "modes": [],
+      "firstMs": 0.02
+     },
+     "digitalWrite:6": {
+      "modes": [],
+      "firstMs": 300.05
+     },
+     "digitalWrite:7": {
+      "modes": [],
+      "firstMs": 600.06
+     }
+    },
+    "R1": {
+     "pinMode:5": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "pinMode:6": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.02
+     },
+     "pinMode:7": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.02
+     },
+     "digitalWrite:5": {
+      "modes": [],
+      "firstMs": 0.02
+     },
+     "digitalWrite:6": {
+      "modes": [],
+      "firstMs": 300.05
+     },
+     "digitalWrite:7": {
+      "modes": [],
+      "firstMs": 600.06
+     }
+    },
+    "R2": {
+     "pinMode:7": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.02
+     },
+     "digitalWrite:5": {
+      "modes": [],
+      "firstMs": 0.02
+     },
+     "pinMode:5": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 300.04
+     },
+     "pinMode:6": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 300.04
+     },
+     "digitalWrite:6": {
+      "modes": [],
+      "firstMs": 300.05
+     },
+     "digitalWrite:7": {
+      "modes": [],
+      "firstMs": 600.06
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:5": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.01
+    },
+    "pinMode:6": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.01
+    },
+    "pinMode:7": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.02
+    },
+    "digitalWrite:5": {
+     "modes": [],
+     "firstMs": 0.02
+    },
+    "digitalWrite:6": {
+     "modes": [],
+     "firstMs": 300.05
+    },
+    "digitalWrite:7": {
+     "modes": [],
+     "firstMs": 600.06
+    }
+   }
+  },
+  "it03_06_digitaler_eingang": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.044,
+   "realTimeFactorBare": 4.05,
+   "realTimeFactorObserved": 3.88,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:2": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R1": {
+     "pinMode:2": {
+      "modes": [
+       "INPUT_PULLUP"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalRead:2": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R2": {
+     "pinMode:2": {
+      "modes": [
+       "INPUT_PULLUP"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalRead:2": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:D",
+     "digitalRead:D"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:2": {
+     "modes": [
+      "INPUT_PULLUP"
+     ],
+     "firstMs": 0.13
+    },
+    "digitalRead:2": {
+     "modes": [],
+     "firstMs": 0.14
+    }
+   }
+  },
+  "it03_07_zeit_messen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.995,
+   "realTimeFactorBare": 3.92,
+   "realTimeFactorObserved": 3.94,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it03_08_map": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.995,
+   "realTimeFactorBare": 5.8,
+   "realTimeFactorObserved": 5.83,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it04_01_analoger_eingang": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.995,
+   "realTimeFactorBare": 3.94,
+   "realTimeFactorObserved": 3.96,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.14
+    }
+   }
+  },
+  "it04_02_spannung_berechnen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.997,
+   "realTimeFactorBare": 3.48,
+   "realTimeFactorObserved": 3.49,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.14
+    }
+   }
+  },
+  "it04_03_pwm_ausgang": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.997,
+   "realTimeFactorBare": 3.46,
+   "realTimeFactorObserved": 3.47,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:11": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "analogWrite:11": {
+      "modes": [],
+      "firstMs": 1000.03
+     },
+     "digitalWrite:11": {
+      "modes": [],
+      "firstMs": 2000.05
+     }
+    },
+    "R1": {
+     "pinMode:11": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "analogWrite:11": {
+      "modes": [],
+      "firstMs": 1000.03
+     },
+     "digitalWrite:11": {
+      "modes": [],
+      "firstMs": 2000.05
+     }
+    },
+    "R2": {
+     "pinMode:11": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 1000.03
+     },
+     "analogWrite:11": {
+      "modes": [],
+      "firstMs": 1000.03
+     },
+     "digitalWrite:11": {
+      "modes": [],
+      "firstMs": 2000.05
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:B",
+     "digitalWrite:B"
+    ],
+    "R1": [
+     "digitalWrite:B"
+    ]
+   },
+   "truth": {
+    "pinMode:11": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.01
+    },
+    "analogWrite:11": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "it04_04_taster_flanke": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.285,
+   "realTimeFactorBare": 4.19,
+   "realTimeFactorObserved": 3.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:3": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R1": {
+     "pinMode:3": {
+      "modes": [
+       "INPUT_PULLUP"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalRead:3": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R2": {
+     "pinMode:3": {
+      "modes": [
+       "INPUT_PULLUP"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalRead:3": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:D",
+     "digitalRead:D"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:3": {
+     "modes": [
+      "INPUT_PULLUP"
+     ],
+     "firstMs": 0.14
+    },
+    "digitalRead:3": {
+     "modes": [],
+     "firstMs": 0.15
+    }
+   }
+  },
+  "it04_05_helligkeit_steuern": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.961,
+   "realTimeFactorBare": 3.41,
+   "realTimeFactorObserved": 3.55,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:9": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.1
+     },
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "analogWrite:9": {
+      "modes": [],
+      "firstMs": 0.35
+     }
+    },
+    "R1": {
+     "pinMode:9": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.1
+     },
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "analogWrite:9": {
+      "modes": [],
+      "firstMs": 0.35
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "pinMode:9": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.35
+     },
+     "analogWrite:9": {
+      "modes": [],
+      "firstMs": 0.35
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:B"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:9": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.14
+    },
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.15
+    },
+    "analogWrite:9": {
+     "modes": [],
+     "firstMs": 0.4
+    }
+   }
+  },
+  "it05_01_if": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.018,
+   "realTimeFactorBare": 3.42,
+   "realTimeFactorObserved": 3.36,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.15
+    }
+   }
+  },
+  "it05_02_if_else": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.009,
+   "realTimeFactorBare": 3.42,
+   "realTimeFactorObserved": 3.39,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.11
+     },
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 1001.18
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.11
+     },
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 1001.18
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.11
+     },
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 1001.18
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalWrite:B"
+    ],
+    "R1": [
+     "digitalWrite:B"
+    ]
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.14
+    },
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.15
+    },
+    "digitalWrite:13": {
+     "modes": [],
+     "firstMs": 0.49
+    }
+   }
+  },
+  "it05_03_else_if": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.994,
+   "realTimeFactorBare": 3.39,
+   "realTimeFactorObserved": 3.41,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.15
+    }
+   }
+  },
+  "it05_04_switch_menue": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.018,
+   "realTimeFactorBare": 3.94,
+   "realTimeFactorObserved": 3.87,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.14
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.14
+     },
+     "digitalRead:13": {
+      "modes": [],
+      "firstMs": 1600.3
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.14
+     },
+     "digitalRead:13": {
+      "modes": [],
+      "firstMs": 1600.3
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalRead:B"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.18
+    },
+    "digitalRead:13": {
+     "modes": [],
+     "firstMs": 1600.33
+    }
+   }
+  },
+  "it05_05_intervall_ohne_delay": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.997,
+   "realTimeFactorBare": 3.59,
+   "realTimeFactorObserved": 3.6,
+   "sameSerial": false,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it06_01_while": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.968,
+   "realTimeFactorBare": 5.08,
+   "realTimeFactorObserved": 5.25,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it06_02_do_while": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 5.2,
+   "realTimeFactorObserved": 5.2,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it06_03_for": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.99,
+   "realTimeFactorBare": 5.17,
+   "realTimeFactorObserved": 5.22,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it06_04_binaerzahl": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.015,
+   "realTimeFactorBare": 5.31,
+   "realTimeFactorObserved": 5.23,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it06_05_verschachtelte_schleifen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.002,
+   "realTimeFactorBare": 4.57,
+   "realTimeFactorObserved": 4.56,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_01_funktion_ohne_rueckgabe": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 3.51,
+   "realTimeFactorObserved": 3.51,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.1
+     },
+     "digitalWrite:13": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.14
+    },
+    "digitalWrite:13": {
+     "modes": [],
+     "firstMs": 0.15
+    }
+   }
+  },
+  "it07_02_funktion_mit_rueckgabe": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.992,
+   "realTimeFactorBare": 5.28,
+   "realTimeFactorObserved": 5.32,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_03_call_by_value": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.996,
+   "realTimeFactorBare": 5.3,
+   "realTimeFactorObserved": 5.32,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_04_call_by_reference": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.029,
+   "realTimeFactorBare": 5.33,
+   "realTimeFactorObserved": 5.18,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_05_eindimensionales_array": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.055,
+   "realTimeFactorBare": 4.62,
+   "realTimeFactorObserved": 4.38,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_06_zweidimensionales_array": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.004,
+   "realTimeFactorBare": 5.25,
+   "realTimeFactorObserved": 5.23,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it07_07_array_an_funktion": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.006,
+   "realTimeFactorBare": 3.5,
+   "realTimeFactorObserved": 3.48,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.11
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.15
+    }
+   }
+  },
+  "it08_01_struct": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.009,
+   "realTimeFactorBare": 3.5,
+   "realTimeFactorObserved": 3.47,
+   "sameSerial": false,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.16
+    }
+   }
+  },
+  "it08_02_struct_uebergeben": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.002,
+   "realTimeFactorBare": 5.26,
+   "realTimeFactorObserved": 5.25,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it08_03_array_aus_structs": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.006,
+   "realTimeFactorBare": 3.5,
+   "realTimeFactorObserved": 3.48,
+   "sameSerial": false,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.16
+    },
+    "analogRead:15": {
+     "modes": [],
+     "firstMs": 0.39
+    },
+    "analogRead:16": {
+     "modes": [],
+     "firstMs": 0.52
+    }
+   }
+  },
+  "it08_04_typedef": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.996,
+   "realTimeFactorBare": 4.47,
+   "realTimeFactorObserved": 4.49,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it08_05_headerdatei": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.983,
+   "realTimeFactorBare": 3.42,
+   "realTimeFactorObserved": 3.48,
+   "sameSerial": false,
+   "levels": {
+    "R0": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    },
+    "R1": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    },
+    "R2": {
+     "analogRead:14": {
+      "modes": [],
+      "firstMs": 0.12
+     },
+     "analogRead:15": {
+      "modes": [],
+      "firstMs": 0.35
+     },
+     "analogRead:16": {
+      "modes": [],
+      "firstMs": 0.48
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "analogRead:14": {
+     "modes": [],
+     "firstMs": 0.16
+    },
+    "analogRead:15": {
+     "modes": [],
+     "firstMs": 0.39
+    },
+    "analogRead:16": {
+     "modes": [],
+     "firstMs": 0.52
+    }
+   }
+  },
+  "it08_06_funktion_testen": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.998,
+   "realTimeFactorBare": 5.25,
+   "realTimeFactorObserved": 5.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it11_01_matrix_ausgeben": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.996,
+   "realTimeFactorBare": 5.21,
+   "realTimeFactorObserved": 5.23,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it11_02_skalarmultiplikation": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.004,
+   "realTimeFactorBare": 5.23,
+   "realTimeFactorObserved": 5.21,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it11_03_matrizen_addieren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 5.24,
+   "realTimeFactorObserved": 5.24,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it11_04_matrix_transponieren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.998,
+   "realTimeFactorBare": 5.22,
+   "realTimeFactorObserved": 5.23,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "it11_05_matrizen_multiplizieren": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.004,
+   "realTimeFactorBare": 5.24,
+   "realTimeFactorObserved": 5.22,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {},
+    "R2": {}
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {}
+  },
+  "ssot_tc01": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.994,
+   "realTimeFactorBare": 5.24,
+   "realTimeFactorObserved": 5.27,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT"
+      ],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT"
+     ],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc02": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.015,
+   "realTimeFactorBare": 5.26,
+   "realTimeFactorObserved": 5.18,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {
+     "digitalRead:14": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "digitalRead:14": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalRead:C"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "digitalRead:14": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc03": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.996,
+   "realTimeFactorBare": 5.24,
+   "realTimeFactorObserved": 5.26,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:2": {
+      "modes": [],
+      "firstMs": 0.01
+     },
+     "digitalWrite:3": {
+      "modes": [],
+      "firstMs": 0.02
+     }
+    },
+    "R1": {
+     "digitalWrite:2": {
+      "modes": [],
+      "firstMs": 0.01
+     },
+     "digitalWrite:3": {
+      "modes": [],
+      "firstMs": 0.02
+     }
+    },
+    "R2": {
+     "digitalWrite:2": {
+      "modes": [],
+      "firstMs": 0.01
+     },
+     "digitalWrite:3": {
+      "modes": [],
+      "firstMs": 0.02
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "digitalWrite:2": {
+     "modes": [],
+     "firstMs": 0.01
+    },
+    "digitalWrite:3": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc04": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.004,
+   "realTimeFactorBare": 5.23,
+   "realTimeFactorObserved": 5.21,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:12": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "digitalWrite:12": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "digitalWrite:12": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "digitalWrite:12": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc05": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.029,
+   "realTimeFactorBare": 5.25,
+   "realTimeFactorObserved": 5.1,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {
+     "pinMode:17": {
+      "modes": [
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "pinMode:17": {
+      "modes": [
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:C",
+     "digitalWrite:C"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:17": {
+     "modes": [
+      "INPUT"
+     ],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc06": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.625,
+   "realTimeFactorBare": 3.9,
+   "realTimeFactorObserved": 2.4,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:9": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "digitalWrite:9": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "digitalWrite:9": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalWrite:B"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "digitalWrite:9": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc07": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.003,
+   "realTimeFactorBare": 5.88,
+   "realTimeFactorObserved": 5.86,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {
+     "digitalRead:5": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "digitalRead:5": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalRead:D",
+     "digitalWrite:D"
+    ],
+    "R1": [
+     "digitalWrite:D"
+    ]
+   },
+   "truth": {
+    "digitalRead:5": {
+     "modes": [],
+     "firstMs": 0.01
+    },
+    "digitalWrite:5": {
+     "modes": [],
+     "firstMs": 0.02
+    }
+   }
+  },
+  "ssot_tc08": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.809,
+   "realTimeFactorBare": 4.79,
+   "realTimeFactorObserved": 5.92,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {
+     "digitalRead:4": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    },
+    "R2": {
+     "digitalRead:4": {
+      "modes": [],
+      "firstMs": 0.1
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalRead:D"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "digitalRead:4": {
+     "modes": [],
+     "firstMs": 0.11
+    }
+   }
+  },
+  "ssot_tc09": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1,
+   "realTimeFactorBare": 5.36,
+   "realTimeFactorObserved": 5.36,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "digitalWrite:14": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "pinMode:14": {
+      "modes": [
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "digitalWrite:14": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "pinMode:14": {
+      "modes": [
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     },
+     "digitalWrite:14": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "pinMode:C",
+     "digitalWrite:C"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:14": {
+     "modes": [
+      "INPUT"
+     ],
+     "firstMs": 0.01
+    },
+    "digitalWrite:14": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc10": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 0.996,
+   "realTimeFactorBare": 5.36,
+   "realTimeFactorObserved": 5.38,
+   "sameSerial": true,
+   "levels": {
+    "R0": {},
+    "R1": {
+     "digitalRead:8": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "digitalRead:8": {
+      "modes": [],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [
+     "digitalRead:B"
+    ],
+    "R1": []
+   },
+   "truth": {
+    "digitalRead:8": {
+     "modes": [],
+     "firstMs": 0.01
+    }
+   }
+  },
+  "ssot_tc11": {
+   "ioSymbolsLto": [],
+   "hookCostRatio": 1.006,
+   "realTimeFactorBare": 5.36,
+   "realTimeFactorObserved": 5.33,
+   "sameSerial": true,
+   "levels": {
+    "R0": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT",
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     }
+    },
+    "R1": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT",
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     }
+    },
+    "R2": {
+     "pinMode:13": {
+      "modes": [
+       "OUTPUT",
+       "INPUT"
+      ],
+      "firstMs": 0.01
+     }
+    }
+   },
+   "portOnly": {
+    "R0": [],
+    "R1": []
+   },
+   "truth": {
+    "pinMode:13": {
+     "modes": [
+      "OUTPUT",
+      "INPUT"
+     ],
+     "firstMs": 0.01
+    }
+   }
+  }
+ }
+}
