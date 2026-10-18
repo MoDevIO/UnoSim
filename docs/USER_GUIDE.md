@@ -108,6 +108,38 @@ Unter **File → Settings** findest du außerdem:
 - **Pin Monitor**: Pin-Übersicht über dem Board,
 - **Toast Duration**: Anzeigedauer von Hinweisen.
 
+## Grenzen der Simulation
+
+UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für den Uno.
+Was hier kompiliert, kompiliert also auch auf der Hardware. Ausgeführt wird der
+Sketch danach aber nicht als Uno-Programm, sondern als Programm für den
+UnoSim-Server. Dadurch weicht die Simulation in einigen Punkten vom echten
+Arduino Uno ab:
+
+| Thema | Arduino Uno | UnoSim |
+|---|---|---|
+| Größe von `int` und `unsigned int` | 16 Bit: `int` reicht von −32768 bis 32767 | 32 Bit: `32767 + 1` ergibt 32768 statt −32768 |
+| Größe von `long` | 32 Bit | 64 Bit |
+| Größe von `double` | 32 Bit, gleich `float` | 64 Bit, rechnet genauer |
+| `sizeof` | z. B. `sizeof(int)` = 2 | zeigt die Größen des Servers, z. B. 4 |
+| `Serial.print` einer Kommazahl ohne Stellenangabe | `2.50` (immer 2 Nachkommastellen) | `2.5` |
+| `Serial.parseInt()` ohne Eingabe | wartet 1 Sekunde, liefert dann 0 | liefert sofort 0 |
+| Geschwindigkeit | 16 MHz | anders: Wie oft `loop()` pro Sekunde läuft, weicht ab. `millis()` und `delay()` stimmen. |
+| Arbeitsspeicher | 2 KB | praktisch unbegrenzt: Ein großes Array kann hier laufen und auf dem Uno abstürzen |
+| `random()` | feste Zahlenfolge des Uno | andere Zahlenfolge |
+
+Was das für deine Programme bedeutet:
+
+- Überläufe beobachtest du zuverlässig mit `byte` (0 bis 255); bei `int`
+  und `long` zeigt UnoSim die Grenzen des Uno nicht.
+- Gib Kommazahlen immer mit Stellenzahl aus, z. B. `Serial.println(wert, 2)`;
+  dann ist die Ausgabe auf Uno und UnoSim gleich.
+- Prüfe Programme, die von Wertebereichen, Speicher oder genauer Rechenzeit
+  abhängen, zusätzlich auf einem echten Board.
+
+Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10),
+wie im Serial Monitor der Arduino IDE mit der Einstellung „New Line“.
+
 ## Wenn etwas nicht klappt
 
 | Meldung oder Verhalten | Ursache und Lösung |
