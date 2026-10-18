@@ -19,7 +19,7 @@ export const PROVENANCES = ["hardware", "derived", "regression"] as const;
 export type Provenance = (typeof PROVENANCES)[number];
 
 export interface Tolerance {
-  /** Regular expression with one capture group holding the number; matched against whole lines. */
+  /** Regular expression whose capture groups hold the numbers that may deviate; matched against whole lines. */
   readonly pattern: string;
   readonly plusMinus: number;
   /** Why the value may deviate (plan 7.4: tolerances only for time values, justified per case). */
@@ -108,7 +108,7 @@ export const normalizeOutput = (text: string): string => text.replaceAll("\r\n",
 
 /**
  * Compares output with the expectation line by line. A line the tolerance
- * pattern matches may differ in its captured number by at most `plusMinus`;
+ * pattern matches may differ in every captured number by at most `plusMinus`;
  * everything else must be equal. Returns the differences (empty = equal).
  */
 export function diffOutput(expected: string, actual: string, tolerances: readonly Tolerance[] = []): string[] {
@@ -121,21 +121,30 @@ export function diffOutput(expected: string, actual: string, tolerances: readonl
   return problems;
 }
 
+/** Line with the spans of all capture groups cut out, and the numbers in them. */
+function split(line: string, regex: RegExp): { rest: string; numbers: number[] } | undefined {
+  const match = regex.exec(line);
+  if (!match?.indices) return undefined;
+  const spans = match.indices.slice(1).filter((span): span is [number, number] => span !== undefined);
+  if (spans.length === 0) return undefined;
+  let rest = "";
+  let from = 0;
+  for (const [start, end] of spans) {
+    rest += line.slice(from, start);
+    from = end;
+  }
+  return { rest: rest + line.slice(from), numbers: spans.map(([start, end]) => Number(line.slice(start, end))) };
+}
+
 function lineMatches(want: string | undefined, got: string | undefined, tolerances: readonly Tolerance[]): boolean {
   if (want === got) return true;
   if (want === undefined || got === undefined) return false;
-  for (const { pattern, plusMinus } of tolerances) {
+  return tolerances.some(({ pattern, plusMinus }) => {
     const regex = new RegExp(pattern, "d");
-    const a = regex.exec(want);
-    const b = regex.exec(got);
-    if (!a || !b || a.index !== b.index || a[1] === undefined || b[1] === undefined) continue;
-    const masked = (line: string, match: RegExpExecArray) => {
-      const [start, end] = match.indices?.[1] ?? [0, 0];
-      return line.slice(0, start) + line.slice(end);
-    };
-    if (Math.abs(Number(a[1]) - Number(b[1])) <= plusMinus && masked(want, a) === masked(got, b)) return true;
-  }
-  return false;
+    const a = split(want, regex);
+    const b = split(got, regex);
+    return a !== undefined && b !== undefined && a.rest === b.rest && a.numbers.every((n, i) => Math.abs(n - b.numbers[i]) <= plusMinus);
+  });
 }
 
 export interface CaseRun {

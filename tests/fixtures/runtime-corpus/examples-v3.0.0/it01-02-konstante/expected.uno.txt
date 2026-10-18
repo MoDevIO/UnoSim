@@ -1,0 +1,4 @@
+Maximale Anzahl: 10
+1 Zoll = 2.54 cm
+HIGH hat den Wert 1
+LOW hat den Wert 0

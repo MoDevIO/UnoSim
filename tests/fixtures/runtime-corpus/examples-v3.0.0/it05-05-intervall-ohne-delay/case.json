@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 1100,
+  "provenance": "regression",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Output every 500 ms without delay(); the number of loop() passes per interval.",
+  "basis": "Output of the emulator for this build (arduino-cli 1.5.1, arduino:avr@1.8.8), reviewed against the sketch: one line per 500 ms interval with the interval boundaries 500 and 1000 ms, and about 58 cycles per loop() pass (8,000,000 cycles per 500 ms / 137324 passes: millis() with its interrupt guard plus a 32-bit increment, subtraction and comparison). The pass count depends on the instruction timing of this build; a hardware recording replaces it once one exists",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

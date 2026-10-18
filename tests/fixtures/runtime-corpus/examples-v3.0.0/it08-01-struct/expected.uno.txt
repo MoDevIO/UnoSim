@@ -1,0 +1,1 @@
+Zeit: 0 ms	Stelle: 1	Wert: 2.77 V

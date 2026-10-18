@@ -1,0 +1,3 @@
+Antrieb ein:       0
+Antriebe stoppen:  1
+Signallampe:       0

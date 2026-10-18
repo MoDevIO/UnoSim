@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "A function with a float return value.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; (4+8)/2.0 = 6.00, (4+7)/2.0 = 5.50",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}
