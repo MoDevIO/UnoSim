@@ -21,5 +21,6 @@
 | P1.7 | erledigt | #271 | UTF-8-Stromdekoder je Port, Eingabe im Rahmentakt erst nach `Serial.begin`, 64-Byte-Puffer des Cores, Grenzen 4 KiB/1 MiB; SerialOutput-SSOT folgt mit dem Worker-Transport (P1.11/P1.12) |
 | P1.8 | erledigt | #272 | `Emulator`: Scheiben ≤ 8 ms, Neusetzen bei > 100 ms Rückstand, Warten bei Vorauslauf, Echtzeitfaktor, Pause/Resume/Stop/Reset, Timeout ohne Pausen, Headless `advance`/`at`; Abnahme „30 s bei Faktor 0,5“ skaliert getestet (400 ms → 200 ms) |
 | P1.9 | erledigt | (dieser PR) | `IoUsageObserver` nach Spike P0.4, Stufe R2, je Maschine (auch nach Reset); IoRegistry-SSOT-Fälle 1–11 als Tests mit HEX-Fixtures (Fall 7: `digitalWrite` portgenau, mit ELF-Symbolen pin-genau); `analogWrite` 0/255 als `digitalWrite`; keine Wiederholung in `loop()` |
+| P1.10 | erledigt | (dieser PR) | `Diagnostics`: Stack in `.bss`/Heap, PC außerhalb des Programms, Watchdog-Reset (baut die Maschine neu auf), `sleep` bei gesperrten Interrupts; neue SSOT SimulationRuntime (Abschnitt Diagnosen); Prüfung je 4000-Takte-Abschnitt und bei SPL-Schreibzugriffen |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert

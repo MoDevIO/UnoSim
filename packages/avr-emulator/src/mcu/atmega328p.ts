@@ -21,6 +21,7 @@ export const ATMEGA328P: McuProfile = {
   memory: { sramStart: 0x100, sramBytes: 2048 },
   eepromBytes: 1024,
   adcRegisters: { ADCSRA: adcConfig.ADCSRA, ADMUX: adcConfig.ADMUX, channel: (data) => data[adcConfig.ADMUX] & 0x0f },
+  sleepEnable: { register: 0x53, mask: 0x01 }, // SMCR.SE
   timerRegisters: [timer0Config, timer1Config, timer2Config].map(timerRegisters),
   createPeripherals(cpu, clockHz, eeprom) {
     const clock = new AVRClock(cpu, clockHz, clockConfig);

@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection (plan packages P1.1–P1.9 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics (plan packages P1.1–P1.10 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -159,6 +159,18 @@ the findings since the last call, `snapshot()` all of them.
 - `digitalWrite` without level change is not pin-exact from the registers
   alone (IoRegistry SSOT case 7) and stays unreported, unless the image
   carries the symbol (`LoadedImage.symbols`, rare after LTO).
+
+### Diagnostics
+
+`emulator.takeDiagnostics()` returns the cases of plan P1.10 since the last
+call, each with `simTimeMs`: `stack-overflow` (SP below `__bss_end`, or below
+`__brkval` once `malloc` grew the heap), `pc-out-of-program` (erased flash),
+`watchdog-reset` and `sleep-interrupts-disabled`. The stack check needs the
+ELF symbol `__bss_end`. Stack and PC are checked at the end of every
+4000-cycle chunk and on SPL writes; an overflow that returns in between goes
+unnoticed (`PUSH`, `CALL` and interrupts change SP without a hook in avr8js).
+A watchdog reset restarts the whole machine like the RESET button. Details
+and limits: [ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
 
 ## Tests
 

@@ -21,6 +21,8 @@ export interface McuProfile {
   readonly eepromBytes: number;
   /** ADC registers for the I/O observation; `channel` reads the selected input from the data space. */
   readonly adcRegisters: { readonly ADCSRA: number; readonly ADMUX: number; channel(data: Uint8Array): number };
+  /** Sleep enable bit (SE) for the diagnostics: SMCR on the ATmega, MCUCR on the ATtiny85. */
+  readonly sleepEnable: { readonly register: number; readonly mask: number };
   /** Timer registers by timer number, for PWM observation. */
   readonly timerRegisters: readonly TimerRegisters[];
   /**

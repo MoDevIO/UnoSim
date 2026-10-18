@@ -29,6 +29,7 @@ real Uno (proposal section 2) and print `<n> <millis>` every 10 ms.
 `uno-serial_probe.hex` and `uno-serial_overflow.hex` (`sketches/serial_*`)
 expect the 1 s timeout of `Stream::parseInt` and 63 kept bytes from the
 64-byte ring buffer of `HardwareSerial` (`derived` from the core).
+`uno-diag_*.hex` (`sketches/diag_*`) provoke the diagnostics of P1.10: stack into `.bss` and into the heap (with the stripped `uno-diag_stack_*.elf`; `avr-nm`: `__bss_end` 0x361 and 0x113, `__brkval` 0x10f), a modest recursion as negative case, a jump into erased flash, a 15 ms watchdog reset and `sleep` with and without `sei()` (`derived`).
 `uno-adc_probe.hex` (`sketches/adc_probe/`) is checked against the datasheet
 formula `floor(V / V_ref · 1024)`, at most 1023 (`derived`).
 `uno-pwm_probe.hex` (`sketches/pwm_probe/`) expects the duty cycle to equal the

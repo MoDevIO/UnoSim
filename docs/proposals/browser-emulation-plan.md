@@ -795,13 +795,20 @@ Registerzugriffe) sind mit vorkompilierten HEX-Fixtures getestet.
 **P1.10 Diagnosen (S).**
 Gemeldet werden als Ereignis `diagnostic`:
 - Stack ragt in `.bss` oder Heap: SP unter `__bss_end` bzw. `__brkval` (falls
-  `malloc` gelinkt ist). Geprüft wird am Ende jeder Scheibe und bei
-  Schreibzugriffen auf SPL/SPH. `PUSH`, `CALL` und Interrupts ändern SP in
+  `malloc` gelinkt ist). Geprüft wird am Ende jedes Rechenabschnitts von 4000
+  Takten (kürzer als eine Scheibe) und bei Schreibzugriffen auf SPL; SPH wird
+  nicht geprüft, weil der Zwischenstand aus altem SPL und neuem SPH falsche
+  Treffer liefern würde. `PUSH`, `CALL` und Interrupts ändern SP in
   avr8js direkt, ohne Hook; ein Überlauf, der vor der nächsten Prüfung
   zurückgeht, bleibt unerkannt.
 - PC außerhalb des Programms (gelöschter Flash).
-- Watchdog-Reset.
-- `sleep` bei gesperrten Interrupts.
+- Watchdog-Reset: avr8js setzt dabei nur PC und SP zurück; der Emulator baut
+  die Maschine wie bei der RESET-Taste neu auf.
+- `sleep` bei gesperrten Interrupts: geprüft wird je Befehl, aber nur, solange
+  das SE-Bit gesetzt ist.
+
+Dieselbe Diagnose erscheint höchstens einmal je simulierter Sekunde; eine
+Bedingung wird erst wieder gemeldet, nachdem sie geendet hat.
 
 Nicht erkannt werden Schreibzugriffe über Arraygrenzen, Zugriffe auf
 freigegebenen Speicher, Heap-Fragmentierung und Zeiger, die in I/O-Register

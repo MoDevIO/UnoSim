@@ -1,6 +1,7 @@
 import { avrInstruction } from "avr8js";
 import type { LoadedImage } from "../image/simulation-image";
 import { AnalogInputs } from "../io/analog-inputs";
+import { type Diagnostic, type DiagnosticKind, Diagnostics } from "../io/diagnostics";
 import { IoUsageObserver } from "../io/io-usage";
 import { type Level, PinModel } from "../io/pin-model";
 import { type SerialOutput, SerialPorts } from "../io/serial-ports";
@@ -18,6 +19,9 @@ export interface StopInfo {
   readonly wallTimeMs: number;
   readonly error?: string;
 }
+
+/** A diagnostic with the simulated time at which it occurred. */
+export type DiagnosticEvent = Diagnostic & { readonly simTimeMs: number };
 
 export interface EmulatorOptions {
   readonly clock: RuntimeClock;
@@ -42,8 +46,10 @@ interface TimedAction {
   readonly action: () => void;
 }
 
-/** Cycles executed between checks of the wall clock and of timed actions. */
+/** Cycles executed between checks of the wall clock, of timed actions and of the diagnostics. */
 const CHUNK_CYCLES = 4_000;
+/** The same diagnostic is reported at most this often (simulated time), so a loop cannot flood the console. */
+const DIAGNOSTIC_REPEAT_MS = 1_000;
 
 /**
  * Runs one sketch image in real time (plan 4.7, E8, E12): slices of at most
@@ -59,6 +65,9 @@ export class Emulator {
   private analogValue: AnalogInputs;
   private serialValue: SerialPorts;
   private usageValue: IoUsageObserver;
+  private diagnosticsValue: Diagnostics;
+  private readonly diagnosticLog: DiagnosticEvent[] = [];
+  private readonly lastDiagnosticMs = new Map<DiagnosticKind, number>();
   private stateValue: RunState = "idle";
   /** Simulated milliseconds of machines replaced by a reset. */
   private simOffsetMs = 0;
@@ -88,6 +97,7 @@ export class Emulator {
     this.analogValue = new AnalogInputs(this.machineValue);
     this.serialValue = new SerialPorts(this.machineValue);
     this.usageValue = new IoUsageObserver(this.machineValue, image.symbols);
+    this.diagnosticsValue = this.createDiagnostics();
   }
 
   get state(): RunState {
@@ -168,6 +178,10 @@ export class Emulator {
    */
   reset(): void {
     this.expectState(["idle", "running", "paused"], "reset");
+    this.restartMachine();
+  }
+
+  private restartMachine(): void {
     const outside = this.pinsValue.outsideLevels();
     const volts = this.analogValue.pins.map((pin) => [pin, this.analogValue.volts(pin)] as const);
     const aref = this.analogValue.arefVolts;
@@ -178,10 +192,20 @@ export class Emulator {
     this.analogValue = new AnalogInputs(this.machineValue);
     this.serialValue = new SerialPorts(this.machineValue);
     this.usageValue = new IoUsageObserver(this.machineValue, this.image.symbols);
+    this.diagnosticsValue = this.createDiagnostics();
     for (const [pin, level] of outside) this.pinsValue.setDigital(pin, level);
     for (const [pin, value] of volts) this.analogValue.setVolts(pin, value);
     this.analogValue.setArefVolts(aref);
     if (this.stateValue === "running") this.rebase();
+  }
+
+  /**
+   * Conditions of plan P1.10 since the previous call (stack into .bss or heap,
+   * PC outside the program, watchdog reset, SLEEP with interrupts disabled).
+   * Each is reported once while it lasts and at most once per second.
+   */
+  takeDiagnostics(): DiagnosticEvent[] {
+    return this.diagnosticLog.splice(0);
   }
 
   /** Serial output since the previous call, including output from before a reset. */
@@ -251,16 +275,34 @@ export class Emulator {
       while (this.actions.length > 0 && this.actions[0].atMs <= this.simTimeMs) this.actions.shift()?.action();
       const nextAction = this.actions[0]?.atMs ?? Number.POSITIVE_INFINITY;
       const stopMs = Math.min(targetMs, nextAction);
-      const { cpu } = this.machineValue;
-      const usage = this.usageValue;
-      const end = Math.min(cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs));
-      while (cpu.cycles < end) {
-        if (usage.needsStep) usage.step();
-        avrInstruction(cpu);
-        cpu.tick();
-      }
+      this.runChunk(Math.min(this.machineValue.cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs)));
       if (shouldYield()) return;
     }
+  }
+
+  /** Executes instructions up to cycle `end`; a watchdog reset replaces the machine. */
+  private runChunk(end: number): void {
+    const { cpu } = this.machineValue;
+    const usage = this.usageValue;
+    const diagnostics = this.diagnosticsValue;
+    while (cpu.cycles < end && !diagnostics.resetPending) {
+      if (usage.needsStep) usage.step();
+      if (diagnostics.needsStep) diagnostics.step();
+      avrInstruction(cpu);
+      cpu.tick();
+    }
+    if (diagnostics.resetPending) this.restartMachine(); // the whole MCU restarts
+    else diagnostics.check();
+  }
+
+  private createDiagnostics(): Diagnostics {
+    return new Diagnostics(this.machineValue, this.image, (diagnostic) => {
+      const simTimeMs = this.simTimeMs;
+      const last = this.lastDiagnosticMs.get(diagnostic.kind);
+      if (last !== undefined && simTimeMs - last < DIAGNOSTIC_REPEAT_MS) return;
+      this.lastDiagnosticMs.set(diagnostic.kind, simTimeMs);
+      this.diagnosticLog.push({ ...diagnostic, simTimeMs });
+    });
   }
 
   private machineSimMs(): number {
