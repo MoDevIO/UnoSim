@@ -36,7 +36,10 @@ the server and little for each student's browser.
 3. **Boards (E3).** Uno R3, Nano (ATmega328P), Mega 2560 and ATtiny85. All four
    are in a board catalog from the start (status `planned`) and become
    `preview` and `available` in the order Uno → Nano → Mega → ATtiny85.
-   *Mega scope pending spike P0.6.*
+   Spike P0.6 ([report](../proposals/spike-p0-6-mega2560.md)) ran the Mega
+   2560 in avr8js with its own peripheral profile (Mega vectors for all
+   timers, USARTs and the ADC; timers 3–5 and USART1–3 as configurations of
+   the existing classes) and matched every probe; the Mega stays in scope.
 4. **Package (E4).** The emulation core is the private workspace package
    `@unosim/avr-emulator` in `packages/avr-emulator/`. It imports nothing from
    UnoSim; `shared/` may import it. Its only runtime dependency is avr8js,
@@ -49,10 +52,16 @@ the server and little for each student's browser.
    analysis and runtime findings per pin and function and records the origin
    (`static`, `runtime`, both) instead of replacing the static registry
    during a run, for both backends. Runtime findings come from observing I/O
-   register access (avr8js `readHooks`/`writeHooks`); ELF symbols of the I/O
-   functions refine the mapping but are not required. Line numbers come only
-   from static analysis. Tutor facts stay static and receive the board as
-   context. *Accuracy pending spike P0.4.*
+   register access (avr8js `readHooks`/`writeHooks`), refined by decoding the
+   accessing instruction (bit in SBI/CBI/SBIS/SBIC, single-bit mask from the
+   neighbouring OR/AND/SBRS/SBRC). Only pin-exact findings enter the
+   registry; port-only findings are not shown. ELF symbols of the I/O
+   functions are optional: after LTO they exist in 1 of 62 builds. Spike P0.4
+   ([report](../proposals/spike-p0-4-runtime-io.md)) found every executed
+   pair of the 51 examples and IoRegistry SSOT cases 1–11 pin-exact except a
+   `digitalWrite` without level change through the core's pin table. Line
+   numbers come only from static analysis. Tutor facts stay static and
+   receive the board as context.
 7. **Pause, timeout and limits (E8).** The worker enforces them. Pause stops
    simulated time. The timeout stays wall-clock run time without pauses
    (1–300 s), so a run below real-time ends after less simulated time. The

@@ -9,8 +9,8 @@
   [SECURITY.md](../SECURITY.md) "Compile boundary",
   [open points](../OPEN_POINTS.md) S1-ASM
 
-> Draft. The compile-sandbox decision depends on spike P0.2 (overhead and
-> isolation) and is accepted only after its report and by the maintainers.
+> Draft. Spike P0.2 has met its criterion; the ADR is accepted by the
+> maintainers, not by an implementation session.
 
 ## Context
 
@@ -34,9 +34,13 @@ toolchain change must not serve an old build.
    filesystem, only the submitted project visible and read-only, build in a
    bounded tmpfs, CPU, memory, PID and time limits, output limit 8 MiB as
    today, no Docker socket, and the owner label of the existing sweep. The
-   include filter stays as an additional layer. *Overhead and isolation
-   pending spike P0.2; if the overhead criterion fails, a pool of warm
-   containers that are cleaned per job is evaluated.*
+   include filter stays as an additional layer. The sandbox starts with an
+   explicit minimal environment, never the backend's. The core cache is
+   prebuilt per FQBN in the image and copied into the tmpfs for each compile
+   (`ARDUINO_BUILD_CACHE_PATH`, output via `--output-dir`). Spike P0.2
+   ([report](../proposals/spike-p0-2-compile-sandbox.md)) measured at most
+   +195 ms p95 against today's compile and no readable backend file or
+   foreign project; a pool of warm containers is not needed.
 2. **Delivery gate.** The Docker profile returns `artifact` only when the
    compile sandbox is configured and ready; a startup check refuses the
    `browser` backend otherwise. The local profile, intended for one trusted
