@@ -13,7 +13,7 @@ const isObject = (value: unknown): value is Record<string, unknown> => typeof va
 
 type Fields = Record<string, unknown>;
 
-const parsers: Record<Command["type"], (fields: Fields, runId: number) => CommandResult> = {
+const parserTable: Record<Command["type"], (fields: Fields, runId: number) => CommandResult> = {
   load(fields, runId) {
     const { board, buildId, sha256, flash, symbols } = fields;
     if (!isBoardHardwareId(board)) return fail("unknown board");
@@ -54,6 +54,9 @@ const parsers: Record<Command["type"], (fields: Fields, runId: number) => Comman
   },
 };
 
+/** Looked up by `get`, so names inherited from Object (`constructor`) are not commands. */
+const parsers = new Map(Object.entries(parserTable));
+
 /**
  * Validates an incoming message against the command schema (plan 4.5). The
  * worker discards messages that fail; unknown fields are ignored, unknown
@@ -63,7 +66,8 @@ const parsers: Record<Command["type"], (fields: Fields, runId: number) => Comman
 export function parseCommand(message: unknown): CommandResult {
   if (!isObject(message)) return fail("message must be an object");
   const { type, runId } = message;
-  if (typeof type !== "string" || !Object.prototype.hasOwnProperty.call(parsers, type)) return fail("unknown command");
+  const parser = typeof type === "string" ? parsers.get(type) : undefined;
+  if (!parser) return fail("unknown command");
   if (!isInteger(runId, 0, Number.MAX_SAFE_INTEGER)) return fail("invalid runId");
-  return parsers[type as Command["type"]](message, runId);
+  return parser(message, runId);
 }

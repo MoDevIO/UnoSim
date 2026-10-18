@@ -1,4 +1,6 @@
 import { BOARD_HARDWARE_IDS, isBoardHardwareId, type BoardHardwareId } from "../boards/ids";
+import type { IoUsage } from "../io/io-usage";
+import type { PinSnapshot } from "../io/pin-model";
 import { buildSimulationImage, loadSimulationImage } from "../image/simulation-image";
 import { type HeadlessResult, type StateExpectation, type StimulusEvent, parseStimuli, runHeadless } from "./run-headless";
 
@@ -45,23 +47,36 @@ export function runCli(args: readonly string[], io: CliIo): number {
   }
 }
 
-function parseArguments(args: readonly string[], io: CliIo): Options | undefined {
+interface RawArguments {
+  readonly positional: readonly string[];
+  readonly values: ReadonlyMap<string, string>;
+  readonly json: boolean;
+}
+
+/** Splits the command line into the file, `--name value` pairs and the `--json` flag; undefined asks for the usage text. */
+function splitArguments(args: readonly string[]): RawArguments | undefined {
   const values = new Map<string, string>();
   const positional: string[] = [];
-  const flags = new Set<string>();
+  let json = false;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === "--json") flags.add("json");
-    else if (arg === "--help") return undefined;
+    if (arg === "--help") return undefined;
+    if (arg === "--json") json = true;
     else if (arg.startsWith("--")) {
       const value = args[++i];
       if (value === undefined) throw new Error(`${arg} needs a value`);
       values.set(arg.slice(2), value);
     } else positional.push(arg);
   }
-  if (positional.length !== 1) return undefined;
-  const caseFile = values.get("case") ? (JSON.parse(io.readText(values.get("case") ?? "")) as Record<string, unknown>) : {};
-  const board = String(values.get("board") ?? caseFile.board ?? "uno");
+  return positional.length === 1 ? { positional, values, json } : undefined;
+}
+
+function parseArguments(args: readonly string[], io: CliIo): Options | undefined {
+  const raw = splitArguments(args);
+  if (!raw) return undefined;
+  const { values } = raw;
+  const caseFile = values.has("case") ? (JSON.parse(io.readText(values.get("case") ?? "")) as Record<string, unknown>) : {};
+  const board = values.get("board") ?? (typeof caseFile.board === "string" ? caseFile.board : "uno");
   if (!isBoardHardwareId(board)) throw new Error(`unknown board "${board}"`);
   const events = values.has("events") ? JSON.parse(values.get("events") ?? "[]") : (caseFile.events ?? []);
   const expectState = caseFile.expectState ?? [];
@@ -71,7 +86,8 @@ function parseArguments(args: readonly string[], io: CliIo): Options | undefined
   const repeat = Number(values.get("repeat") ?? 1);
   if (!Number.isFinite(simMs) || simMs < 0) throw new Error("--ms must be a non-negative number");
   if (!Number.isInteger(repeat) || repeat < 1) throw new Error("--repeat must be a positive integer");
-  return { hex: positional[0], ...(values.has("elf") ? { elf: values.get("elf") } : {}), board, simMs, events, expectState, repeat, json: flags.has("json") } as Options;
+  const elf = values.get("elf");
+  return { hex: raw.positional[0], ...(elf ? { elf } : {}), board, simMs, events, expectState, repeat, json: raw.json } as Options;
 }
 
 function execute(options: Options, io: CliIo): number {
@@ -115,15 +131,24 @@ export function formatReport(result: HeadlessResult, speeds: readonly number[] =
     lines.push(`--- serial port ${port} ---`, text.replaceAll("\r\n", "\n").replace(/\n$/, ""));
   }
   const active = result.pins.filter((p) => p.mode !== "INPUT" || p.level !== 0 || p.pwm !== undefined);
-  lines.push("--- pins (not plain inputs at LOW) ---", ...active.map((p) => `pin ${p.pin}: ${p.mode} ${p.level}${p.pwm === undefined ? "" : ` pwm ${p.pwm}`}`));
-  lines.push("--- I/O usage ---", ...result.usages.map((u) => `${u.fn}(${u.pin}${u.mode ? `, ${u.mode}` : ""})`));
+  lines.push("--- pins (not plain inputs at LOW) ---", ...active.map(describePin), "--- I/O usage ---", ...result.usages.map(describeUsage));
   if (result.diagnostics.length > 0) {
     lines.push("--- diagnostics ---", ...result.diagnostics.map((d) => `${d.simTimeMs.toFixed(1)} ms: ${d.kind}`));
   }
   if (result.checks.length > 0) {
     lines.push("--- state checks ---", ...result.checks.map((c) => `${c.ok ? "ok  " : "FAIL"} ${JSON.stringify(c.expectation)} (actual: ${c.actual})`));
   }
-  const speed = median(speeds);
-  lines.push(`--- ${result.simTimeMs.toFixed(0)} ms simulated, speed ${speed.toFixed(1)}x real time (${speeds.length} run${speeds.length > 1 ? "s" : ""}, median) ---`);
+  const runs = speeds.length === 1 ? "1 run" : `${speeds.length} runs`;
+  lines.push(`--- ${result.simTimeMs.toFixed(0)} ms simulated, speed ${median(speeds).toFixed(1)}x real time (${runs}, median) ---`);
   return `${lines.join("\n")}\n`;
+}
+
+function describePin(pin: PinSnapshot): string {
+  const pwm = pin.pwm === undefined ? "" : ` pwm ${pin.pwm}`;
+  return `pin ${pin.pin}: ${pin.mode} ${pin.level}${pwm}`;
+}
+
+function describeUsage(usage: IoUsage): string {
+  const mode = usage.mode ? `, ${usage.mode}` : "";
+  return `${usage.fn}(${usage.pin}${mode})`;
 }
