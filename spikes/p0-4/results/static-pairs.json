@@ -54,18 +54,11 @@
   "it03_04_led_blinken": {
     "pairs": {
       "pinMode:13": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [21],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:13": {
-        "lines": [
-          25,
-          27
-        ],
+        "lines": [25, 27],
         "modes": []
       }
     },
@@ -74,48 +67,27 @@
   "it03_05_pins_als_konstanten": {
     "pairs": {
       "pinMode:5": {
-        "lines": [
-          22
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [22],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:5": {
-        "lines": [
-          28,
-          30
-        ],
+        "lines": [28, 30],
         "modes": []
       },
       "pinMode:6": {
-        "lines": [
-          23
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [23],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:6": {
-        "lines": [
-          32,
-          34
-        ],
+        "lines": [32, 34],
         "modes": []
       },
       "pinMode:7": {
-        "lines": [
-          24
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [24],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:7": {
-        "lines": [
-          36,
-          38
-        ],
+        "lines": [36, 38],
         "modes": []
       }
     },
@@ -124,17 +96,11 @@
   "it03_06_digitaler_eingang": {
     "pairs": {
       "pinMode:2": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "INPUT_PULLUP"
-        ]
+        "lines": [21],
+        "modes": ["INPUT_PULLUP"]
       },
       "digitalRead:2": {
-        "lines": [
-          25
-        ],
+        "lines": [25],
         "modes": []
       }
     },
@@ -151,9 +117,7 @@
   "it04_01_analoger_eingang": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          23
-        ],
+        "lines": [23],
         "modes": []
       }
     },
@@ -162,9 +126,7 @@
   "it04_02_spannung_berechnen": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          23
-        ],
+        "lines": [23],
         "modes": []
       }
     },
@@ -173,19 +135,11 @@
   "it04_03_pwm_ausgang": {
     "pairs": {
       "pinMode:11": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [21],
+        "modes": ["OUTPUT"]
       },
       "analogWrite:11": {
-        "lines": [
-          25,
-          27,
-          29
-        ],
+        "lines": [25, 27, 29],
         "modes": []
       }
     },
@@ -194,17 +148,11 @@
   "it04_04_taster_flanke": {
     "pairs": {
       "pinMode:3": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "INPUT_PULLUP"
-        ]
+        "lines": [21],
+        "modes": ["INPUT_PULLUP"]
       },
       "digitalRead:3": {
-        "lines": [
-          25
-        ],
+        "lines": [25],
         "modes": []
       }
     },
@@ -213,23 +161,15 @@
   "it04_05_helligkeit_steuern": {
     "pairs": {
       "pinMode:9": {
-        "lines": [
-          22
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [22],
+        "modes": ["OUTPUT"]
       },
       "analogWrite:9": {
-        "lines": [
-          28
-        ],
+        "lines": [28],
         "modes": []
       },
       "analogRead:14": {
-        "lines": [
-          26
-        ],
+        "lines": [26],
         "modes": []
       }
     },
@@ -238,9 +178,7 @@
   "it05_01_if": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          24
-        ],
+        "lines": [24],
         "modes": []
       }
     },
@@ -249,24 +187,15 @@
   "it05_02_if_else": {
     "pairs": {
       "pinMode:13": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [21],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:13": {
-        "lines": [
-          29,
-          32
-        ],
+        "lines": [29, 32],
         "modes": []
       },
       "analogRead:14": {
-        "lines": [
-          25
-        ],
+        "lines": [25],
         "modes": []
       }
     },
@@ -275,9 +204,7 @@
   "it05_03_else_if": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          25
-        ],
+        "lines": [25],
         "modes": []
       }
     },
@@ -286,24 +213,15 @@
   "it05_04_switch_menue": {
     "pairs": {
       "pinMode:13": {
-        "lines": [
-          21
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [21],
+        "modes": ["OUTPUT"]
       },
       "digitalWrite:13": {
-        "lines": [
-          32,
-          36
-        ],
+        "lines": [32, 36],
         "modes": []
       },
       "digitalRead:13": {
-        "lines": [
-          41
-        ],
+        "lines": [41],
         "modes": []
       }
     },
@@ -336,19 +254,12 @@
   "it07_01_funktion_ohne_rueckgabe": {
     "pairs": {
       "digitalWrite:13": {
-        "lines": [
-          23,
-          25
-        ],
+        "lines": [23, 25],
         "modes": []
       },
       "pinMode:13": {
-        "lines": [
-          57
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [57],
+        "modes": ["OUTPUT"]
       }
     },
     "unresolved": []
@@ -376,9 +287,7 @@
   "it07_07_array_an_funktion": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          21
-        ],
+        "lines": [21],
         "modes": []
       }
     },
@@ -387,9 +296,7 @@
   "it08_01_struct": {
     "pairs": {
       "analogRead:14": {
-        "lines": [
-          32
-        ],
+        "lines": [32],
         "modes": []
       }
     },
@@ -444,12 +351,8 @@
   "ssot_tc01": {
     "pairs": {
       "pinMode:13": {
-        "lines": [
-          1
-        ],
-        "modes": [
-          "OUTPUT"
-        ]
+        "lines": [1],
+        "modes": ["OUTPUT"]
       }
     },
     "unresolved": []
@@ -457,9 +360,7 @@
   "ssot_tc02": {
     "pairs": {
       "digitalRead:14": {
-        "lines": [
-          1
-        ],
+        "lines": [1],
         "modes": []
       }
     },
@@ -468,15 +369,11 @@
   "ssot_tc03": {
     "pairs": {
       "digitalWrite:2": {
-        "lines": [
-          2
-        ],
+        "lines": [2],
         "modes": []
       },
       "digitalWrite:3": {
-        "lines": [
-          2
-        ],
+        "lines": [2],
         "modes": []
       }
     },
@@ -485,9 +382,7 @@
   "ssot_tc04": {
     "pairs": {
       "digitalWrite:12": {
-        "lines": [
-          2
-        ],
+        "lines": [2],
         "modes": []
       }
     },
@@ -496,12 +391,8 @@
   "ssot_tc05": {
     "pairs": {
       "pinMode:17": {
-        "lines": [
-          2
-        ],
-        "modes": [
-          "INPUT"
-        ]
+        "lines": [2],
+        "modes": ["INPUT"]
       }
     },
     "unresolved": []
@@ -509,9 +400,7 @@
   "ssot_tc06": {
     "pairs": {
       "digitalWrite:9": {
-        "lines": [
-          2
-        ],
+        "lines": [2],
         "modes": []
       }
     },
@@ -520,15 +409,11 @@
   "ssot_tc07": {
     "pairs": {
       "digitalRead:5": {
-        "lines": [
-          1
-        ],
+        "lines": [1],
         "modes": []
       },
       "digitalWrite:5": {
-        "lines": [
-          1
-        ],
+        "lines": [1],
         "modes": []
       }
     },
@@ -547,17 +432,11 @@
   "ssot_tc09": {
     "pairs": {
       "pinMode:14": {
-        "lines": [
-          1
-        ],
-        "modes": [
-          "INPUT"
-        ]
+        "lines": [1],
+        "modes": ["INPUT"]
       },
       "digitalWrite:14": {
-        "lines": [
-          1
-        ],
+        "lines": [1],
         "modes": []
       }
     },
@@ -566,9 +445,7 @@
   "ssot_tc10": {
     "pairs": {
       "digitalRead:8": {
-        "lines": [
-          2
-        ],
+        "lines": [2],
         "modes": []
       }
     },
@@ -577,14 +454,8 @@
   "ssot_tc11": {
     "pairs": {
       "pinMode:13": {
-        "lines": [
-          1,
-          1
-        ],
-        "modes": [
-          "OUTPUT",
-          "INPUT"
-        ]
+        "lines": [1, 1],
+        "modes": ["OUTPUT", "INPUT"]
       }
     },
     "unresolved": []
