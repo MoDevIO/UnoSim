@@ -39,6 +39,7 @@ fixtures:runtime -- --check` compares a rebuild with the checked-in files.
 | `parse_int` | derived | `Stream::parseInt` with skipped characters and leftovers | core source |
 | `random_numbers` | derived | `randomSeed`/`random` sequences | Park-Miller generator of avr-libc |
 | `millis_delay` | derived | `delay`, `delayMicroseconds`, `millis`, `micros` | timer 0 core (`wiring.c`) |
+| `serial_read_while_printing` | derived | serial input arriving while the sketch prints loses no character | datasheet 19.7.3 (RXC is cleared only by reading UDR); found an avr8js defect |
 
 Cases of the class `hardware` are recorded once on a real board by a person
 and are not part of this change; until then no case claims agreement with the

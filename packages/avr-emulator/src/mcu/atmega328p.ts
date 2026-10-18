@@ -1,5 +1,5 @@
 import {
-  AVRADC, AVRClock, AVREEPROM, AVRIOPort, AVRTimer, AVRUSART, AVRWatchdog,
+  AVRADC, AVRClock, AVREEPROM, AVRIOPort, AVRTimer, AVRWatchdog,
   adcConfig, atmega328Channels, clockConfig, eepromConfig, portBConfig, portCConfig, portDConfig,
   timer0Config, timer1Config, timer2Config, usart0Config, watchdogConfig,
 } from "avr8js";
@@ -7,6 +7,7 @@ import type { AVRTimerConfig } from "avr8js";
 import type { TimerRegisters } from "../io/pwm";
 import { ArrayEepromBackend } from "./eeprom";
 import { MCU_FLASH_BYTES } from "./mcus";
+import { createUsart } from "./usart";
 import type { McuProfile } from "./types";
 
 const timerRegisters = ({ bits, TCCRA, TCCRB, OCRA, OCRB, OCRC, ICR }: AVRTimerConfig): TimerRegisters => ({ bits, TCCRA, TCCRB, OCRA, OCRB, OCRC, ICR });
@@ -38,7 +39,7 @@ export const ATMEGA328P: McuProfile = {
         ["D", new AVRIOPort(cpu, portDConfig)],
       ]),
       timers: [timer0Config, timer1Config, timer2Config].map((config) => new AVRTimer(cpu, config)),
-      usarts: [new AVRUSART(cpu, usart0Config, clockHz)],
+      usarts: [createUsart(cpu, usart0Config, clockHz)],
       adc: new AVRADC(cpu, { ...adcConfig, numChannels: 8, muxChannels: atmega328Channels }),
       eeprom: new AVREEPROM(cpu, new ArrayEepromBackend(eeprom), eepromConfig),
       watchdog: new AVRWatchdog(cpu, watchdogConfig, clock),
