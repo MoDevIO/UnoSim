@@ -3,8 +3,12 @@ import {
   adcConfig, atmega328Channels, clockConfig, eepromConfig, portBConfig, portCConfig, portDConfig,
   timer0Config, timer1Config, timer2Config, usart0Config, watchdogConfig,
 } from "avr8js";
+import type { AVRTimerConfig } from "avr8js";
+import type { TimerRegisters } from "../io/pwm";
 import { MCU_FLASH_BYTES } from "./mcus";
 import type { McuProfile } from "./types";
+
+const timerRegisters = ({ bits, TCCRA, TCCRB, OCRA, OCRB, OCRC, ICR }: AVRTimerConfig): TimerRegisters => ({ bits, TCCRA, TCCRB, OCRA, OCRB, OCRC, ICR });
 
 /**
  * ATmega328P (Uno, Nano). avr8js ships configurations for exactly this MCU;
@@ -15,6 +19,7 @@ export const ATMEGA328P: McuProfile = {
   flashBytes: MCU_FLASH_BYTES.atmega328p,
   memory: { sramStart: 0x100, sramBytes: 2048 },
   eepromBytes: 1024,
+  timerRegisters: [timer0Config, timer1Config, timer2Config].map(timerRegisters),
   createPeripherals(cpu, clockHz) {
     const clock = new AVRClock(cpu, clockHz, clockConfig);
     return {

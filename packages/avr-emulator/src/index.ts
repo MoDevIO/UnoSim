@@ -12,6 +12,8 @@ export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from ".
 export { createMachine } from "./machine";
 export { PinModel } from "./io/pin-model";
 export type { Level, PinChanges, PinMode, PinSnapshot } from "./io/pin-model";
+export { pwmDuty, pwmRegisterAddresses } from "./io/pwm";
+export type { PwmChannel, TimerRegisters } from "./io/pwm";
 export type { Machine } from "./machine";
 export { ATMEGA328P } from "./mcu/atmega328p";
 export { mcuProfile } from "./mcu/registry";
