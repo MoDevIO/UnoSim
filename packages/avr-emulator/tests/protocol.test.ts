@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COMMAND_LIMITS, type Command, type RunEvent, RunGate, parseCommand } from "../src/index";
 
 const flash = new Uint8Array([1, 2, 3, 4]).buffer;
-const load = { type: "load", runId: 1, board: "uno", buildId: "build-1", sha256: "a".repeat(64), flash, symbols: { functions: {}, data: {} } };
+const load = { type: "load", runId: 1, board: "uno", artifactBoard: "uno", buildId: "build-1", sha256: "a".repeat(64), flash, symbols: { functions: {}, data: {} } };
 
 describe("parseCommand (plan 4.5, P1.11)", () => {
   it.each<[string, unknown]>([
@@ -42,6 +42,8 @@ describe("parseCommand (plan 4.5, P1.11)", () => {
     ["a timeout above 300 s", { type: "start", runId: 1, timeoutMs: COMMAND_LIMITS.maxTimeoutMs + 1 }],
     ["a missing timeout", { type: "start", runId: 1 }],
     ["an unknown board", { ...load, board: "esp32" }],
+    ["an unknown artifact board", { ...load, artifactBoard: "esp32" }],
+    ["a missing artifact board", { ...load, artifactBoard: undefined }],
     ["an empty buildId", { ...load, buildId: "" }],
     ["a malformed sha256", { ...load, sha256: "xyz" }],
     ["flash that is not an ArrayBuffer", { ...load, flash: new Uint8Array(4) }],

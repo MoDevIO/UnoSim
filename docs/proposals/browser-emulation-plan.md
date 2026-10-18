@@ -835,6 +835,10 @@ interne Fehler als `fault` melden. Der Worker bleibt zwischen Läufen bestehen.
 Die Überwachung von außen (Fristen, `terminate()`, Neuerzeugung) liegt im
 Hauptthread (P3.2), weil ein festhängender Worker sie nicht selbst leisten
 kann.
+Umgesetzt unter `packages/avr-emulator/src/worker/`; `load` trägt neben dem
+gewählten `board` das `artifactBoard`, ein Widerspruch beider wird mit `fault`
+abgelehnt. Der Emulator bekommt das Timeout erst mit `start`
+(`Emulator.configureTimeout`).
 
 **P1.13 Headless-Runner und Werkzeug (S).**
 `runHeadless(image, { simMs, events })` für Tests und Korpus; ein kleines CLI

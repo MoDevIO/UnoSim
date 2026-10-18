@@ -81,13 +81,14 @@ export class Emulator {
   /** Output of a machine replaced by a reset that was not taken yet. */
   private carriedOutput: SerialOutput[] = [];
   private actionSequence = 0;
+  private timeoutMs: number;
   private readonly sliceMs: number;
   private readonly maxLagMs: number;
   private readonly waitMs: number;
   private readonly realTimeWindowMs: number;
 
   constructor(private readonly image: LoadedImage, private readonly options: EmulatorOptions) {
-    if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) throw new RangeError(`invalid timeout ${options.timeoutMs}`);
+    this.timeoutMs = Emulator.checkedTimeout(options.timeoutMs);
     this.sliceMs = options.sliceMs ?? 8;
     this.maxLagMs = options.maxLagMs ?? 100;
     this.waitMs = options.waitMs ?? 4;
@@ -102,6 +103,11 @@ export class Emulator {
 
   get state(): RunState {
     return this.stateValue;
+  }
+
+  private static checkedTimeout(timeoutMs: number): number {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError(`invalid timeout ${timeoutMs}`);
+    return timeoutMs;
   }
 
   /** The current machine; a reset replaces it, as it replaces pins, analog inputs and serial ports. */
@@ -143,6 +149,12 @@ export class Emulator {
     const last = this.samples.at(-1) ?? first;
     const wall = last.wall - first.wall;
     return wall > 0 ? (last.sim - first.sim) / wall : 1;
+  }
+
+  /** Changes the wall-clock timeout before the run starts (the worker learns it with `start`). */
+  configureTimeout(timeoutMs: number): void {
+    this.expectState(["idle"], "configure the timeout");
+    this.timeoutMs = Emulator.checkedTimeout(timeoutMs);
   }
 
   start(): void {
@@ -248,7 +260,7 @@ export class Emulator {
     const { clock } = this.options;
     try {
       this.accountWall();
-      if (this.runWallMs >= this.options.timeoutMs) {
+      if (this.runWallMs >= this.timeoutMs) {
         this.finish({ reason: "timeout" });
         return;
       }

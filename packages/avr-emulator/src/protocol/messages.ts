@@ -25,7 +25,10 @@ export type Command =
   | {
       readonly type: "load";
       readonly runId: number;
+      /** The board selected in the UI. */
       readonly board: BoardHardwareId;
+      /** The board the artifact was built for; the worker refuses a load when it differs from `board`. */
+      readonly artifactBoard: BoardHardwareId;
       /** Identity of the build (E15), echoed in `ready`; the worker compares it with the selected board. */
       readonly buildId: string;
       readonly sha256: string;
