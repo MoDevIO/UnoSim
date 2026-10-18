@@ -83,23 +83,34 @@ export function loadSimulationImage(image: unknown): LoadedImage {
   if (typeof candidate.flashBase64 !== "string" || typeof candidate.sha256 !== "string") {
     throw new ImageError("image needs flashBase64 and sha256");
   }
-  const mcu = BOARD_MCU[candidate.board];
-  const flashSize = MCU_FLASH_BYTES[mcu];
+  const flashSize = MCU_FLASH_BYTES[BOARD_MCU[candidate.board]];
   // Reject oversized input before decoding it.
-  if (candidate.flashBase64.length > Math.ceil(flashSize / 3) * 4) throw new ImageError(`image exceeds the flash size of ${mcu}`);
+  if (candidate.flashBase64.length > Math.ceil(flashSize / 3) * 4) throw new ImageError(`image exceeds the flash size of ${BOARD_MCU[candidate.board]}`);
   const bytes = decodeBase64(candidate.flashBase64);
   if (bytes.length === 0 || bytes.length !== candidate.flashBytes) throw new ImageError("flashBytes does not match the flash data");
-  if (sha256Hex(bytes) !== candidate.sha256) throw new ImageError("SHA-256 does not match the flash data");
+  return expandImage(candidate.board, bytes, candidate.sha256, candidate.symbols);
+}
 
+/** Validates flash bytes received as a transferred buffer (worker `load`) and expands them like {@link loadSimulationImage}. */
+export function loadFlashImage(board: BoardHardwareId, bytes: Uint8Array, sha256: string, symbols: unknown): LoadedImage {
+  if (bytes.length === 0) throw new ImageError("flash is empty");
+  if (bytes.length > MCU_FLASH_BYTES[BOARD_MCU[board]]) throw new ImageError(`image exceeds the flash size of ${BOARD_MCU[board]}`);
+  return expandImage(board, bytes, sha256, symbols);
+}
+
+function expandImage(board: BoardHardwareId, bytes: Uint8Array, sha256: string, symbols: unknown): LoadedImage {
+  const mcu = BOARD_MCU[board];
+  const flashSize = MCU_FLASH_BYTES[mcu];
+  if (sha256Hex(bytes) !== sha256) throw new ImageError("SHA-256 does not match the flash data");
   const flash = new Uint8Array(flashSize).fill(0xff);
   flash.set(bytes);
   return {
-    board: candidate.board,
+    board,
     mcu,
     progMem: new Uint16Array(flash.buffer),
     flashBytes: bytes.length,
-    sha256: candidate.sha256,
-    symbols: validateSymbols(candidate.symbols, flashSize),
+    sha256,
+    symbols: validateSymbols(symbols, flashSize),
   };
 }
 

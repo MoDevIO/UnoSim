@@ -106,11 +106,15 @@ export class EventBatcher {
     return this.hasPending() && this.intervalPassed(this.options.now());
   }
 
-  /** Events for the UI, or an empty list while the interval has not passed or nothing is pending. */
-  flush(context: FlushContext): RunEvent[] {
+  /**
+   * Events for the UI, or an empty list while the interval has not passed or
+   * nothing is pending. `force` ignores the interval (end of a run, change of
+   * the `runId`), so nothing is left behind.
+   */
+  flush(context: FlushContext, force = false): RunEvent[] {
     const now = this.options.now();
     const telemetryDue = now - this.lastTelemetry >= this.telemetryIntervalMs;
-    if (!this.intervalPassed(now) || !(this.hasPending() || telemetryDue)) return [];
+    if (!(force || this.intervalPassed(now)) || !(this.hasPending() || telemetryDue)) return [];
     this.lastFlush = now;
     const events: WorkerEvent[] = [];
     for (const entry of this.entries) {
