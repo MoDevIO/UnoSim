@@ -102,7 +102,7 @@ export class PinModel {
         next = { pin, mode: pullUp ? "INPUT_PULLUP" : "INPUT", level };
       }
       const previous = this.current.get(pin);
-      if (!previous || previous.mode !== next.mode || previous.level !== next.level) {
+      if (previous?.mode !== next.mode || previous.level !== next.level) {
         this.current.set(pin, next);
         this.changed.add(pin);
         this.changeCount++;
