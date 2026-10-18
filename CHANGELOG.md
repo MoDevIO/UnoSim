@@ -2,7 +2,29 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## v1.0.1 – 2026-10-18
+
+Bug-fix release covering #239–#252. The REST API and the WebSocket protocol
+still report version `1.0.0`; the embedding API (`postMessage`) stays at
+`1.4.0`. The examples catalog `UnoSim-Examples` `v3.0.0` needs this release
+(IT08.4, IT11 and the pull-up observations in IT03.6/IT04.4).
+
+### Upgrade notes for operators
+
+- **Prepare the runtime directories once** if you run Compose manually:
+  `sudo ./scripts/prepare-runtime-dirs.sh` hands `server/arduino-cache`,
+  `temp` and `storage` to the container user (UID/GID 1000). Without it,
+  compiles fail with `EACCES` on hosts where these directories belong to
+  another user. The Ubuntu/VBox installer runs the script itself.
+- **`capacity.env` values now take effect.** Compose forwards
+  `SIMULATION_QUEUE_TIMEOUT_MS` and reads `SIMULATION_MAX_CONCURRENT` from
+  `.env` (default unchanged: 200). Recreate the backend container after
+  changing `.env` and check the values under `/api/status` → `capacity`.
+- **No third-party hosts any more.** Fonts are bundled and the Content
+  Security Policy no longer allows `replit.com` or Google Fonts. A proxy or
+  firewall rule for those hosts is no longer needed.
+- Point students to the new section "Grenzen der Simulation" in the user
+  guide.
 
 ### Fixed
 
@@ -21,15 +43,39 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 - **An open `INPUT_PULLUP` pin reads `HIGH`.** The simulation now models the
   internal pull-up resistor; before, such a pin read `LOW` as if a button
   were pressed.
+- **The start page loads without third-party requests** (#244, #245). A
+  render-blocking Google Fonts stylesheet could stall the page load; Inter and
+  JetBrains Mono are now self-hosted, and the leftover Replit banner script is
+  gone.
+- **Capacity calibration works on a fresh host** (#248): the generated run ID
+  fits the 64-character limit, and a missing client build is reported before
+  the backend starts.
+- **Compose deployment** (#249): `capacity.env` values reach the backend
+  container, the runtime directories are writable for the container user, and
+  `storage` is excluded from the Docker build context.
 
 ### Documentation
 
+- New user guide `docs/USER_GUIDE.md` and role-based entry points in the
+  README for learners, teachers, administrators, developers and course
+  authors (#242).
+- Finished plans moved to `docs/archive/`; `docs/OPEN_POINTS.md` lists only
+  the open points, each verified against the code (#239, #241).
+- The Ubuntu/VBox guide mentions how long the first image builds take.
 - The user guide lists the known differences between the simulation and a
   real Arduino Uno (section "Grenzen der Simulation"): `int` is 32 bits wide
   instead of 16, `long` and `double` are 64 bits, `Serial.print` of a float
   without a precision prints `2.5` instead of `2.50`, `Serial.parseInt()`
   returns at once instead of waiting for its timeout, and loop speed, memory
   size and `random()` sequences differ. Point students to that section.
+
+### Internal
+
+- Findings of the SonarQube 26.9 rules and of the maintainability scan
+  resolved (#246, #251); no rule disabled.
+- Route test servers bind to the loopback address they request, which removes
+  two sporadic failures under the full suite (#247).
+- The redundant `vite-tsconfig-paths` plugin is removed (#250).
 
 ## v1.0.0 – 2026-10-09
 
