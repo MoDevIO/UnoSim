@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 60,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Memory facts of the ATmega328P: RAMEND, EEPROM size, flash size, stack and heap placement, EEPROM access.",
+  "basis": "ATmega328P datasheet and avr-libc iom328p.h: RAMEND 0x08FF = 2303, E2END 0x03FF = 1023, FLASHEND 0x7FFF = 32767, erased EEPROM reads 0xFF = 255; the stack starts at RAMEND, .bss starts above the 256-byte register and I/O space, malloc allocates between .bss and the stack",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

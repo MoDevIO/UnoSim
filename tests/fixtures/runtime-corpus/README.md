@@ -39,6 +39,11 @@ fixtures:runtime -- --check` compares a rebuild with the checked-in files.
 | `parse_int` | derived | `Stream::parseInt` with skipped characters and leftovers | core source |
 | `random_numbers` | derived | `randomSeed`/`random` sequences | Park-Miller generator of avr-libc |
 | `millis_delay` | derived | `delay`, `delayMicroseconds`, `millis`, `micros` | timer 0 core (`wiring.c`) |
+| `pwm_duty` | derived | `analogWrite` on all six PWM pins, 0 and 255 as digital, PWM → digital | `wiring_analog.c`, 8-bit PWM modes |
+| `adc_read` | derived | `analogRead` against fixed voltages, DEFAULT and INTERNAL reference | datasheet formula `floor(Vin · 1024 / Vref)` |
+| `pullup_input` | derived | `INPUT_PULLUP`, driven `INPUT`, outside level on an `OUTPUT` | datasheet 14.2.3 |
+| `memory_layout` | derived | RAMEND, E2END, FLASHEND, placement of stack, heap and `.bss`, EEPROM access | datasheet, avr-libc |
+| `memory_values` | regression | SP in `setup()`, end of `.bss`, free RAM of this build | emulator output, reviewed; to be replaced by a hardware recording |
 | `serial_read_while_printing` | derived | serial input arriving while the sketch prints loses no character | datasheet 19.7.3 (RXC is cleared only by reading UDR); found an avr8js defect |
 
 Cases of the class `hardware` are recorded once on a real board by a person
