@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano (plan packages P1.1–P1.3 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model (plan packages P1.1–P1.4 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -66,6 +66,22 @@ On the Uno the ADC channels 6 and 7 have no pin and read 0 V. Mega 2560 and
 ATtiny85 have IDs but no profile yet (`boardHardware` throws).
 `tests/integration/avr-emulator-board-pinmap.test.ts` (toolchain gate) checks
 the pin maps against `pins_arduino.h` of `arduino:avr@1.8.8`.
+
+### Pin model
+
+`new PinModel(machine)` tracks the digital pins of the board with the model
+assumptions of plan 4.8:
+
+| Situation | Model |
+|---|---|
+| open input (`INPUT`, not driven) | reads LOW |
+| `INPUT_PULLUP` | reads HIGH until driven LOW from outside |
+| level driven from outside (`setDigital(pin, level)`) | holds until the sketch makes the pin an OUTPUT, then it is dropped; ignored while the pin is an OUTPUT (`setDigital` returns `false`) |
+| analog-only pins (Nano A6/A7) | not digital pins; `setDigital` and `state` throw |
+
+`snapshot()` lists all digital pins; `takeChanges()` returns the last state of
+every pin that changed since the previous call plus the number of changes
+(for the telemetry pin rate) and resets both.
 
 ## Tests
 
