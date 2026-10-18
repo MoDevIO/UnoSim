@@ -1,4 +1,10 @@
-import { describe } from "vitest";
-import { SKIP_CORPUS, shardSuite } from "./corpus-suite";
+import { describe, expect, it } from "vitest";
+import { SKIP_CORPUS, shardCases, shardSuite } from "./corpus-suite";
 
-describe.skipIf(SKIP_CORPUS)("runtime reference corpus: it01-it03", shardSuite("it01-it03"));
+describe("runtime reference corpus: it01-it03", () => {
+  it("has cases", () => {
+    expect(shardCases("it01-it03").length).toBeGreaterThan(0);
+  });
+
+  describe.skipIf(SKIP_CORPUS)("cases", shardSuite("it01-it03"));
+});

@@ -24,14 +24,12 @@ export const SHARDS: Readonly<Record<string, (testCase: CorpusCase) => boolean>>
  * `derived` the match with an independent derivation, `regression` only that
  * nothing changed.
  */
+export const shardCases = (name: string): CorpusCase[] => loadCorpus().filter(SHARDS[name]);
+
 export function shardSuite(name: string): () => void {
-  const cases = loadCorpus().filter(SHARDS[name]);
+  const cases = shardCases(name);
 
   return () => {
-    it("has cases", () => {
-      expect(cases.length).toBeGreaterThan(0);
-    });
-
     describe.each(cases.map((testCase) => [`${testCase.group}/${testCase.id} (${testCase.provenance})`, testCase] as const))("%s", (_name, testCase) => {
       let run: CaseRun;
       beforeAll(() => {
