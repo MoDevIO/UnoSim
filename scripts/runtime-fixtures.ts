@@ -32,7 +32,7 @@ export function listCaseDirs(root = CORPUS_ROOT): string[] {
       if (entry.isDirectory() && existsSync(join(root, group.name, entry.name, "case.json"))) found.push(join(root, group.name, entry.name));
     }
   }
-  return found.sort();
+  return found.sort((a, b) => a.localeCompare(b));
 }
 
 export function readCaseRef(dir: string): CorpusCaseRef {
@@ -52,10 +52,9 @@ export function compileCase(ref: CorpusCaseRef): string {
     const sketch = join(work, ref.id);
     cpSync(ref.dir, sketch, { recursive: true, filter: (source) => !/(case\.json|expected\..*\.txt)$/.test(source) });
     const out = join(work, "out");
-    const result = spawnSync("arduino-cli", ["compile", "--fqbn", CORPUS_FQBN[ref.board], "--output-dir", out, sketch], {
-      encoding: "utf8",
-      timeout: 300_000,
-    });
+    const args = ["compile", "--fqbn", CORPUS_FQBN[ref.board], "--output-dir", out, sketch];
+    // The maintainer tool and the CI toolchain job use the arduino-cli they installed on the PATH.
+    const result = spawnSync("arduino-cli", args, { encoding: "utf8", timeout: 300_000 }); // NOSONAR S4036
     if (result.status !== 0) throw new Error(`arduino-cli failed for ${ref.id}:\n${result.stderr || result.stdout}`);
     return readFileSync(join(out, `${ref.id}.ino.hex`), "utf8");
   } finally {
