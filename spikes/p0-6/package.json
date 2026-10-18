@@ -1,0 +1,9 @@
+{
+  "name": "unosim-spike-p0-6",
+  "private": true,
+  "type": "module",
+  "description": "Spike P0.6 – Mega 2560 with avr8js (not product code)",
+  "dependencies": {
+    "avr8js": "0.21.1"
+  }
+}

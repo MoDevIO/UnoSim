@@ -1,0 +1,31 @@
+{
+  "hex": {
+    "usedBytes": 5006,
+    "recordTypes": [0, 1]
+  },
+  "cpu": {
+    "spAfterReset": 8703,
+    "dataBytes": 8704,
+    "pc22Bits": true,
+    "maxPcByte": 4830
+  },
+  "serial": [
+    "int 32767 + 1 = -32768\nsizeof int/long/double = 2/4/4\ndelay(587) = 586\nA0 = 512\nA15 = 700\ntimer of D44 = 18\nRAMEND = 0x21FF\nSP at setup = 0x21FC\nDONE\n",
+    "S1 hello\n",
+    "S2 hello\n",
+    "S3 hello\n"
+  ],
+  "baud": [117647, 9615, 19230, 58823],
+  "pwm": {
+    "D44 OCR5C": 25,
+    "D45 OCR5B": 128,
+    "D46 OCR5A": 200,
+    "D2 OCR3B": 77,
+    "D9 OCR2B": 99,
+    "D13 OCR0A": 10,
+    "TCCR5A": "10101001",
+    "TCCR3A": "00100001"
+  },
+  "realTimeFactor": 3.93,
+  "timers": 6
+}
