@@ -612,7 +612,9 @@ Für M1 nötig sind aus Phase 2 nur P2.1, P2.2, P2.5, P2.6 und P2.7. P2.3
 4. Mit einem kleinen Test-PR prüfen, dass die erforderlichen CI-Checks laufen.
 5. Danach je Arbeitspaket eine neue Session mit eigenem Arbeitsbranch.
 
-Startauftrag für eine Session (Beispiel):
+Für selbstständige Umsetzungs-Sessions liegt der vollständige Auftrag in
+[browser-emulation-agent-prompt.md](browser-emulation-agent-prompt.md). Für eine
+Session mit nur einem Paket genügt ein kurzer Startauftrag, zum Beispiel:
 
 ```text
 Lies docs/proposals/browser-emulation-plan.md und die Repository-Regeln.
