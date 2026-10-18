@@ -284,12 +284,17 @@ export class Emulator {
   private runUntil(targetMs: number, shouldYield: () => boolean): void {
     const cyclesPerMs = this.machineValue.board.clockHz / 1000;
     while (this.simTimeMs < targetMs) {
-      while (this.actions.length > 0 && this.actions[0].atMs <= this.simTimeMs) this.actions.shift()?.action();
+      this.fireDueActions();
       const nextAction = this.actions[0]?.atMs ?? Number.POSITIVE_INFINITY;
       const stopMs = Math.min(targetMs, nextAction);
       this.runChunk(Math.min(this.machineValue.cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs)));
       if (shouldYield()) return;
     }
+    this.fireDueActions(); // actions at exactly the target time belong to this run
+  }
+
+  private fireDueActions(): void {
+    while (this.actions.length > 0 && this.actions[0].atMs <= this.simTimeMs) this.actions.shift()?.action();
   }
 
   /** Executes instructions up to cycle `end`; a watchdog reset replaces the machine. */

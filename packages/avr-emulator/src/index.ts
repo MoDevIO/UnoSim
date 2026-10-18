@@ -77,3 +77,7 @@ export { WorkerHost } from "./worker/host";
 export type { WorkerHostOptions } from "./worker/host";
 export { installWorker } from "./worker/install";
 export type { WorkerScopeLike } from "./worker/install";
+export { runHeadless, parseStimuli } from "./headless/run-headless";
+export type { HeadlessOptions, HeadlessResult, StateCheck, StateExpectation, StimulusEvent } from "./headless/run-headless";
+export { formatReport, runCli } from "./headless/cli";
+export type { CliIo } from "./headless/cli";
