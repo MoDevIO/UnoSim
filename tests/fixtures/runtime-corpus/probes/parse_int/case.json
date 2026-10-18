@@ -1,0 +1,16 @@
+{
+  "board": "uno",
+  "simMs": 2500,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Stream::parseInt skips non-numeric characters, stops at the first character after the digits and keeps the characters it did not use.",
+  "basis": "Stream::parseInt/peekNextDigit of the pinned core: non-digits are discarded until a digit arrives, a terminating character stays in the buffer, the 1 s timeout starts anew with every character",
+  "events": [
+    [100, "serial", "42\n"],
+    [500, "serial", "-17 x"],
+    [700, "serial", "abc 9z\n"],
+    [1000, "serial", "5"]
+  ],
+  "expectState": [],
+  "tolerances": []
+}
