@@ -1,0 +1,178 @@
+[
+  {
+    "mode": "today",
+    "name": "p_incbin_etc_passwd",
+    "directive": "incbin",
+    "target": "etc-passwd",
+    "path": "/etc/passwd",
+    "exit": 0,
+    "leakedIntoFlash": true,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_incbin_etc_passwd",
+    "directive": "incbin",
+    "target": "etc-passwd",
+    "path": "/etc/passwd",
+    "exit": 0,
+    "leakedIntoFlash": true,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "today",
+    "name": "p_include_etc_passwd",
+    "directive": "include",
+    "target": "etc-passwd",
+    "path": "/etc/passwd",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/etc/passwd:1: Error: junk at end of line, first unrecognized character is `/' | /etc/passwd:2: Error: junk at end of line, first unrecognized character is `/'"
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_include_etc_passwd",
+    "directive": "include",
+    "target": "etc-passwd",
+    "path": "/etc/passwd",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/etc/passwd:1: Error: junk at end of line, first unrecognized character is `/' | /etc/passwd:2: Error: junk at end of line, first unrecognized character is `/'"
+  },
+  {
+    "mode": "today",
+    "name": "p_incbin_app_package_json",
+    "directive": "incbin",
+    "target": "app-package-json",
+    "path": "/app/package.json",
+    "exit": 0,
+    "leakedIntoFlash": true,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_incbin_app_package_json",
+    "directive": "incbin",
+    "target": "app-package-json",
+    "path": "/app/package.json",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/tmp/ccJHfKd3.s:13: Error: file not found: /app/package.json | lto-wrapper: fatal error: /home/compile/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc returned 1 exit status"
+  },
+  {
+    "mode": "today",
+    "name": "p_include_app_package_json",
+    "directive": "include",
+    "target": "app-package-json",
+    "path": "/app/package.json",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/app/package.json:1: Error: junk at end of line, first unrecognized character is `{' | lto-wrapper: fatal error: /home/compile/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc returned 1 exit status"
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_include_app_package_json",
+    "directive": "include",
+    "target": "app-package-json",
+    "path": "/app/package.json",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/tmp/ccDGyMmL.s:11: Error: can't open /app/package.json for reading: No such file or directory | lto-wrapper: fatal error: /home/compile/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc returned 1 exit status"
+  },
+  {
+    "mode": "today",
+    "name": "p_incbin_foreign_sketch",
+    "directive": "incbin",
+    "target": "foreign-sketch",
+    "path": "/sk/victim/victim.ino",
+    "exit": 0,
+    "leakedIntoFlash": true,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_incbin_foreign_sketch",
+    "directive": "incbin",
+    "target": "foreign-sketch",
+    "path": "/sk/victim/victim.ino",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/tmp/ccMEJV57.s:13: Error: file not found: /sk/victim/victim.ino | lto-wrapper: fatal error: /home/compile/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc returned 1 exit status"
+  },
+  {
+    "mode": "today",
+    "name": "p_include_foreign_sketch",
+    "directive": "include",
+    "target": "foreign-sketch",
+    "path": "/sk/victim/victim.ino",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/sk/victim/victim.ino:1: Error: junk at end of line, first unrecognized character is `/' | /sk/victim/victim.ino:2: Error: unknown opcode `void'"
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_include_foreign_sketch",
+    "directive": "include",
+    "target": "foreign-sketch",
+    "path": "/sk/victim/victim.ino",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/tmp/cc7hWEJa.s:11: Error: can't open /sk/victim/victim.ino for reading: No such file or directory | lto-wrapper: fatal error: /home/compile/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/bin/avr-gcc returned 1 exit sta"
+  },
+  {
+    "mode": "today",
+    "name": "p_incbin_proc_self_environ",
+    "directive": "incbin",
+    "target": "proc-self-environ",
+    "path": "/proc/self/environ",
+    "exit": 0,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_incbin_proc_self_environ",
+    "directive": "incbin",
+    "target": "proc-self-environ",
+    "path": "/proc/self/environ",
+    "exit": 0,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": ""
+  },
+  {
+    "mode": "today",
+    "name": "p_include_proc_self_environ",
+    "directive": "include",
+    "target": "proc-self-environ",
+    "path": "/proc/self/environ",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/proc/self/environ:1: Error: bad expression | /proc/self/environ:1: Error: junk at end of line, first unrecognized character is `h'"
+  },
+  {
+    "mode": "sandbox",
+    "name": "p_include_proc_self_environ",
+    "directive": "include",
+    "target": "proc-self-environ",
+    "path": "/proc/self/environ",
+    "exit": 1,
+    "leakedIntoFlash": false,
+    "leakedIntoDiagnostics": false,
+    "diagnosticExcerpt": "/proc/self/environ:1: Error: bad expression | /proc/self/environ:1: Error: junk at end of line, first unrecognized character is `t'"
+  }
+]

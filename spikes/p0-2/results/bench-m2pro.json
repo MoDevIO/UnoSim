@@ -1,0 +1,114 @@
+{
+  "image": "unosim-compile-sandbox-spike:p0-2",
+  "sketches": 51,
+  "results": [
+    {
+      "variant": "today",
+      "concurrency": 1,
+      "n": 20,
+      "failures": 0,
+      "p50": 400,
+      "p95": 420,
+      "max": 422
+    },
+    {
+      "variant": "sandbox-buildpath-cpu2",
+      "concurrency": 1,
+      "n": 20,
+      "failures": 0,
+      "p50": 613,
+      "p95": 650,
+      "max": 686
+    },
+    {
+      "variant": "sandbox-copycache-cpu2",
+      "concurrency": 1,
+      "n": 20,
+      "failures": 0,
+      "p50": 429,
+      "p95": 456,
+      "max": 461
+    },
+    {
+      "variant": "sandbox-copycache-cpu1",
+      "concurrency": 1,
+      "n": 20,
+      "failures": 0,
+      "p50": 444,
+      "p95": 464,
+      "max": 465
+    },
+    {
+      "variant": "today",
+      "concurrency": 8,
+      "n": 24,
+      "failures": 0,
+      "p50": 817,
+      "p95": 918,
+      "max": 926
+    },
+    {
+      "variant": "sandbox-buildpath-cpu2",
+      "concurrency": 8,
+      "n": 24,
+      "failures": 0,
+      "p50": 1425,
+      "p95": 1544,
+      "max": 1548
+    },
+    {
+      "variant": "sandbox-copycache-cpu2",
+      "concurrency": 8,
+      "n": 24,
+      "failures": 0,
+      "p50": 919,
+      "p95": 1113,
+      "max": 1130
+    },
+    {
+      "variant": "sandbox-copycache-cpu1",
+      "concurrency": 8,
+      "n": 24,
+      "failures": 0,
+      "p50": 855,
+      "p95": 928,
+      "max": 929
+    },
+    {
+      "variant": "today",
+      "concurrency": 20,
+      "n": 60,
+      "failures": 0,
+      "p50": 2139,
+      "p95": 3244,
+      "max": 3264
+    },
+    {
+      "variant": "sandbox-buildpath-cpu2",
+      "concurrency": 20,
+      "n": 60,
+      "failures": 0,
+      "p50": 3207,
+      "p95": 3418,
+      "max": 3499
+    },
+    {
+      "variant": "sandbox-copycache-cpu2",
+      "concurrency": 20,
+      "n": 60,
+      "failures": 0,
+      "p50": 1998,
+      "p95": 2164,
+      "max": 2176
+    },
+    {
+      "variant": "sandbox-copycache-cpu1",
+      "concurrency": 20,
+      "n": 60,
+      "failures": 0,
+      "p50": 2209,
+      "p95": 2352,
+      "max": 2364
+    }
+  ]
+}
