@@ -12,6 +12,9 @@ export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from ".
 export { createMachine } from "./machine";
 export { ANALOG_STEPS, AnalogInputs } from "./io/analog-inputs";
 export { PinModel } from "./io/pin-model";
+export { SERIAL_INPUT_LIMITS, SerialPorts } from "./io/serial-ports";
+export type { SerialFrameConfig, SerialOutput } from "./io/serial-ports";
+export { Utf8StreamDecoder, encodeUtf8 } from "./io/utf8";
 export type { Level, PinChanges, PinMode, PinSnapshot } from "./io/pin-model";
 export { pwmDuty, pwmRegisterAddresses } from "./io/pwm";
 export type { PwmChannel, TimerRegisters } from "./io/pwm";

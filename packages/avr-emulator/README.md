@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs (plan packages P1.1–P1.6 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports (plan packages P1.1–P1.7 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -98,6 +98,25 @@ every pin that changed since the previous call plus the number of changes
 returns exactly that value; `setVolts(pin, volts)` sets a voltage directly.
 The internal references (1.1 V on the ATmega328P) come from the datasheet;
 AREF (`analogReference(EXTERNAL)`) is VCC unless `setArefVolts` changes it.
+
+### Serial ports
+
+`new SerialPorts(machine)` owns the hardware serial ports of the board (port
+index 0 = `Serial`, from P5.3 also `Serial1`–`Serial3`):
+
+- `takeOutput()` returns the text each port sent since the previous call,
+  decoded as UTF-8 across byte and packet boundaries; a multi-byte
+  character is delivered only when complete.
+- `send(port, text)` queues UTF-8 bytes for the sketch. The queue hands the
+  USART one byte per frame time once the sketch enabled the receiver
+  (`Serial.begin`); earlier input waits. The core's receive buffer behaves as
+  on the board (64-byte ring buffer, at most 63 unread bytes, the rest is
+  lost). Limits as in UnoSim: 4 KiB per message, 1 MiB pending per port
+  (`SERIAL_INPUT_LIMITS`). The caller appends the line ending.
+- `frameConfig(port)` reports baud rate (from UBRR and U2X), data bits,
+  parity and stop bits.
+
+`Utf8StreamDecoder` and `encodeUtf8` work without platform APIs.
 
 ## Tests
 
