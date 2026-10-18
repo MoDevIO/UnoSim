@@ -1,6 +1,7 @@
 import { avrInstruction } from "avr8js";
 import type { LoadedImage } from "../image/simulation-image";
 import { AnalogInputs } from "../io/analog-inputs";
+import { IoUsageObserver } from "../io/io-usage";
 import { type Level, PinModel } from "../io/pin-model";
 import { type SerialOutput, SerialPorts } from "../io/serial-ports";
 import { type Machine, createMachine } from "../machine";
@@ -57,6 +58,7 @@ export class Emulator {
   private pinsValue: PinModel;
   private analogValue: AnalogInputs;
   private serialValue: SerialPorts;
+  private usageValue: IoUsageObserver;
   private stateValue: RunState = "idle";
   /** Simulated milliseconds of machines replaced by a reset. */
   private simOffsetMs = 0;
@@ -85,6 +87,7 @@ export class Emulator {
     this.pinsValue = new PinModel(this.machineValue);
     this.analogValue = new AnalogInputs(this.machineValue);
     this.serialValue = new SerialPorts(this.machineValue);
+    this.usageValue = new IoUsageObserver(this.machineValue, image.symbols);
   }
 
   get state(): RunState {
@@ -106,6 +109,11 @@ export class Emulator {
 
   get serial(): SerialPorts {
     return this.serialValue;
+  }
+
+  /** Runtime I/O findings of the current machine (plan 4.9); a reset starts a new observer, the registry keeps the findings. */
+  get usage(): IoUsageObserver {
+    return this.usageValue;
   }
 
   /** Simulated time of the run: cycles / clock, resets included. */
@@ -169,6 +177,7 @@ export class Emulator {
     this.pinsValue = new PinModel(this.machineValue);
     this.analogValue = new AnalogInputs(this.machineValue);
     this.serialValue = new SerialPorts(this.machineValue);
+    this.usageValue = new IoUsageObserver(this.machineValue, this.image.symbols);
     for (const [pin, level] of outside) this.pinsValue.setDigital(pin, level);
     for (const [pin, value] of volts) this.analogValue.setVolts(pin, value);
     this.analogValue.setArefVolts(aref);
@@ -243,8 +252,10 @@ export class Emulator {
       const nextAction = this.actions[0]?.atMs ?? Number.POSITIVE_INFINITY;
       const stopMs = Math.min(targetMs, nextAction);
       const { cpu } = this.machineValue;
+      const usage = this.usageValue;
       const end = Math.min(cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs));
       while (cpu.cycles < end) {
+        if (usage.needsStep) usage.step();
         avrInstruction(cpu);
         cpu.tick();
       }

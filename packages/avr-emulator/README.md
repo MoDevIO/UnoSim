@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle (plan packages P1.1–P1.8 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection (plan packages P1.1–P1.9 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -140,6 +140,25 @@ runs headless as fast as possible, without wall clock or timeout.
 `systemClock()` uses `setImmediate` in Node and a `MessageChannel` in Web
 Workers, so a busy emulator never starves timers; tests inject an artificial
 clock (`RuntimeClock`).
+
+### Runtime I/O detection
+
+`emulator.usage` (`IoUsageObserver`, one per machine, also after `reset()`)
+reports which Arduino I/O functions the sketch really used (plan 4.9, spike
+P0.4 level R2). It hooks DDR, PORT, PIN, ADCSRA and the PWM timer registers
+and decodes the accessing instruction; the run loop calls `usage.step()`
+before each instruction only while `needsStep` is set. `takeUsages()` returns
+the findings since the last call, `snapshot()` all of them.
+
+- Only pin-exact findings: `{ pin, fn, mode? }` with `fn` one of `pinMode`
+  (with `INPUT`, `OUTPUT` or `INPUT_PULLUP`), `digitalWrite`, `digitalRead`,
+  `analogRead`, `analogWrite`. Each is reported once per pin and function, a
+  `pinMode` again for a new mode.
+- `analogWrite` does not count its internal `pinMode(OUTPUT)`; `analogWrite(0)`
+  and `analogWrite(255)` are `digitalWrite`, as in the core.
+- `digitalWrite` without level change is not pin-exact from the registers
+  alone (IoRegistry SSOT case 7) and stays unreported, unless the image
+  carries the symbol (`LoadedImage.symbols`, rare after LTO).
 
 ## Tests
 

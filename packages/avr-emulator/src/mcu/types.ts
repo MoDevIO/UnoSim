@@ -19,6 +19,8 @@ export interface McuProfile {
   readonly flashBytes: number;
   readonly memory: MemoryLayout;
   readonly eepromBytes: number;
+  /** ADC registers for the I/O observation; `channel` reads the selected input from the data space. */
+  readonly adcRegisters: { readonly ADCSRA: number; readonly ADMUX: number; channel(data: Uint8Array): number };
   /** Timer registers by timer number, for PWM observation. */
   readonly timerRegisters: readonly TimerRegisters[];
   /**
