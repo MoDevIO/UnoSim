@@ -4,6 +4,7 @@ import type { Machine } from "../machine";
 import {
   bitsOf, ioBitInstructionBit, isSetBitInstruction, isTwoWordInstruction, loadDestination, modifierMask, singleBit, skipBitTest, storeSource,
 } from "./avr-decode";
+import { chainWrite } from "./hooks";
 import type { PinMode } from "./pin-model";
 
 export type IoFunction = "pinMode" | "digitalWrite" | "digitalRead" | "analogRead" | "analogWrite";
@@ -259,14 +260,4 @@ export class IoUsageObserver {
   private updateNeedsStep(): void {
     this.needsStep = this.readWatch !== undefined || this.entries.size > 0;
   }
-}
-
-/** Wraps an existing write hook: the peripheral's hook runs first, then `observe`. */
-function chainWrite(cpu: CPU, address: number, observe: (value: number, old: number) => void): void {
-  const previous = cpu.writeHooks[address];
-  cpu.writeHooks[address] = (value, old, addr, mask) => {
-    const handled = previous?.(value, old, addr, mask);
-    observe(value, old);
-    return handled;
-  };
 }
