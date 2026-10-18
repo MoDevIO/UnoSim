@@ -9,7 +9,10 @@ const runStartPath = path.join(rootDir, ".coverage-run-start.json");
 const requiredSources = [
   "client/src/components/simulator/ExperimentalWorkspace.tsx",
   "server/routes/tutor.routes.ts",
+  "packages/avr-emulator/src/mcu/memory.ts",
 ];
+// Minimum line coverage per package source tree (plan 7.9: at least 90 % in the core).
+const packageThresholds = [{ prefix: "packages/avr-emulator/src/", minimum: 0.9 }];
 
 function fail(message) {
   console.error(`Coverage validation failed: ${message}`);
@@ -28,6 +31,25 @@ async function prepare() {
     "utf8",
   );
   console.log("Coverage directory cleaned before test run.");
+}
+
+/** Aggregated line coverage of all lcov records below `prefix`; false when below `minimum`. */
+function checkPackageThreshold(records, { prefix, minimum }) {
+  let found = 0;
+  let hit = 0;
+  for (const record of records) {
+    const source = normalizeSource(/^SF:(.+)$/m.exec(record)?.[1] ?? "");
+    if (!source.includes(prefix)) continue;
+    found += Number(/^LF:(\d+)$/m.exec(record)?.[1] ?? 0);
+    hit += Number(/^LH:(\d+)$/m.exec(record)?.[1] ?? 0);
+  }
+  const percent = found === 0 ? 0 : (hit / found) * 100;
+  if (percent < minimum * 100) {
+    fail(`line coverage of ${prefix} is ${percent.toFixed(1)} %, below ${minimum * 100} %`);
+    return false;
+  }
+  console.log(`Line coverage of ${prefix}: ${percent.toFixed(1)} % (minimum ${minimum * 100} %).`);
+  return true;
 }
 
 async function validate() {
@@ -85,6 +107,10 @@ async function validate() {
   if (missingSources.length > 0) {
     fail(`representative source entries are missing: ${missingSources.join(", ")}`);
     return;
+  }
+
+  for (const threshold of packageThresholds) {
+    if (!checkPackageThreshold(completeRecords, threshold)) return;
   }
 
   await rm(runStartPath, { force: true });

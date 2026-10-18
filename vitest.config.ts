@@ -77,7 +77,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "json-summary", "html", "lcov"],
       reportsDirectory: "coverage",
-      exclude: ["tests/**", "e2e/**", "**/node_modules/**", "**/dist/**"],
+      exclude: ["tests/**", "packages/*/tests/**", "e2e/**", "**/node_modules/**", "**/dist/**"],
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
     // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert
@@ -133,6 +133,16 @@ export default defineConfig({
           ],
           environment: "node",
           setupFiles: ["./tests/setup.node.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The emulation core is independent of UnoSim: no UnoSim setup files.
+          name: "unit-emulator",
+          pool: unitPool,
+          include: ["packages/avr-emulator/tests/**/*.test.ts"],
+          environment: "node",
         },
       },
       {
