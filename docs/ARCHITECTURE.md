@@ -20,6 +20,11 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
   Course-Content-/Tutor-Vertrag in
   `adr/0006-unified-course-content-and-tutor-strategy.md`.
 - Die mastery-driven didaktische Phasenentscheidung ist in `adr/0007-mastery-driven-tutor-progression.md` normativ ergänzt.
+- Als Entwurf (`Proposed`, noch nicht normativ) liegen
+  `adr/0009-browser-emulation-runtime.md` (Browser-Emulation als Laufzeit,
+  Host-Mock als Rückfallebene) und `adr/0010-compile-sandbox-and-flash-artifact.md`
+  (Compile-Sandbox, Flash-Abbild, Build-Identität). Bis zu ihrer Annahme
+  beschreibt dieses Dokument weiter den Host-Mock als einzige Laufzeit.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.0.0` (`Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Neben normativer Dokumentation enthält der Tree als historisch oder nicht
