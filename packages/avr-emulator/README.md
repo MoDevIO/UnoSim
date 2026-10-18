@@ -212,6 +212,19 @@ stays usable in a Web Worker) and the tests with `tsconfig.test.json`. The
 coverage guard requires
 at least 90 % line coverage for `src/`.
 
+## avr8js 0.21.1: corrections and known differences
+
+- **Receive-complete flag** (`src/mcu/usart.ts`): avr8js clears a pending `RXC`
+  flag on every write to `UCSRnB`; on the chip only reading `UDRn` does. The
+  Arduino core writes `UCSR0B` with every `Serial.write`, so a byte that
+  arrived while the sketch printed lost its interrupt and the next byte
+  replaced it. `createUsart` restores the flag after such a write. Found by the
+  reference corpus (`probes/serial_read_while_printing`).
+- **Receive buffer:** the chip buffers two received bytes plus the shift
+  register, avr8js one. A sketch that keeps interrupts disabled for longer than
+  one frame time can lose a byte that the board would still deliver.
+- **Watchdog reset:** avr8js resets only PC and SP; see the diagnostics section.
+
 ## License
 
 MIT, like UnoSim.

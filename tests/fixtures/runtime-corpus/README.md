@@ -44,6 +44,7 @@ fixtures:runtime -- --check` compares a rebuild with the checked-in files.
 | `pullup_input` | derived | `INPUT_PULLUP`, driven `INPUT`, outside level on an `OUTPUT` | datasheet 14.2.3 |
 | `memory_layout` | derived | RAMEND, E2END, FLASHEND, placement of stack, heap and `.bss`, EEPROM access | datasheet, avr-libc |
 | `memory_values` | regression | SP in `setup()`, end of `.bss`, free RAM of this build | emulator output, reviewed; to be replaced by a hardware recording |
+| `serial_read_while_printing` | derived | serial input arriving while the sketch prints loses no character | datasheet 19.7.3 (RXC is cleared only by reading UDR); found an avr8js defect |
 
 Cases of the class `hardware` are recorded once on a real board by a person
 and are not part of this change; until then no case claims agreement with the
