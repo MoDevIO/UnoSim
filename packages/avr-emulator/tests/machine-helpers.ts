@@ -16,7 +16,7 @@ export function runSerial(machine: Machine, { stopAfter = "DONE\n", maxMs = 2000
     text += String.fromCodePoint(byte);
   };
   const end = (maxMs * board.clockHz) / 1000;
-  while (cpu.cycles < end && !text.includes(stopAfter)) {
+  while (cpu.cycles < end && !text.replaceAll("\r\n", "\n").includes(stopAfter)) {
     for (let i = 0; i < 1000; i++) {
       avrInstruction(cpu);
       cpu.tick();
