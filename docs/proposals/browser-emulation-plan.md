@@ -821,6 +821,11 @@ Befehle und Ereignisse aus 4.5 als versionierte Typen mit `runId`,
 Bestätigungen und `heartbeat`; Prüfung eingehender Befehle; Bündelung auf etwa
 60 Pakete pro Sekunde, Telemetrie einmal pro Sekunde, Grenzen gegen
 Überlastung der UI.
+Umgesetzt unter `packages/avr-emulator/src/protocol/` (`messages.ts`,
+`commands.ts`, `event-batcher.ts`, `run-gate.ts`); `load` trägt zusätzlich
+`sha256`, die Telemetrie die Felder `pinChangesPerSecond`,
+`serialCharsPerSecond` und `serialCharsDropped`. Das Senden des `heartbeat`
+liegt im Worker-Host (P1.12), die Fristen im Hauptthread (P3.2).
 
 **P1.12 Worker-Host (M).**
 Einstieg `@unosim/avr-emulator/worker`: Befehle mit `runId` annehmen, Flash

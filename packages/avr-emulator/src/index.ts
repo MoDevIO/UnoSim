@@ -57,3 +57,18 @@ export { AVR8JS_DATA_SPACE_OFFSET, avr8jsSramParameter, ramEnd } from "./mcu/mem
 export type { MemoryLayout } from "./mcu/memory";
 export { MCU_FLASH_BYTES, MCU_IDS } from "./mcu/mcus";
 export type { McuId } from "./mcu/mcus";
+export { PROTOCOL_VERSION, COMMAND_LIMITS, RUN_STARTING_COMMANDS } from "./protocol/messages";
+export type {
+  Command,
+  CommandType,
+  RunEvent,
+  RunStatus,
+  TelemetrySample,
+  WorkerEvent,
+  WorkerEventType,
+} from "./protocol/messages";
+export { parseCommand } from "./protocol/commands";
+export type { CommandResult } from "./protocol/commands";
+export { EventBatcher } from "./protocol/event-batcher";
+export type { BatcherOptions, FlushContext } from "./protocol/event-batcher";
+export { RunGate } from "./protocol/run-gate";

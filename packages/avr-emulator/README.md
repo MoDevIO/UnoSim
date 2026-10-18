@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics (plan packages P1.1–P1.10 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics, event protocol (plan packages P1.1–P1.11 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -171,6 +171,17 @@ ELF symbol `__bss_end`. Stack and PC are checked at the end of every
 unnoticed (`PUSH`, `CALL` and interrupts change SP without a hook in avr8js).
 A watchdog reset restarts the whole machine like the RESET button. Details
 and limits: [ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
+
+### Event protocol
+
+`protocol/` holds the commands and events between UI and worker (plan 4.5):
+`Command` and `WorkerEvent` types with `PROTOCOL_VERSION`, `parseCommand`
+(validation of incoming messages, limits in `COMMAND_LIMITS`), `EventBatcher`
+(about 60 packet groups per second, pins merged to the last state, serial text
+joined per port, telemetry once per second, bounded memory) and `RunGate`
+(UI side: `runId` per run, events of other runs discarded, state only after the
+confirmation). The worker (P1.12) builds on these. See
+[ssot_function_definition_SimulationRuntime.md](../../ssot/ssot_function_definition_SimulationRuntime.md).
 
 ## Tests
 
