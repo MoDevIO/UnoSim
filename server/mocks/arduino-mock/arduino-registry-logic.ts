@@ -65,11 +65,18 @@ void outputIORegistry() {
 // GPIO Functions with state tracking
 void pinMode(int pin, int mode) {
     if (pin >= 0 && pin < 20) {
+        bool enablesPullup = mode == INPUT_PULLUP && pinModes[pin] != INPUT_PULLUP;
         pinModes[pin] = mode;
         // Send pin state update via stderr (special protocol)
         { std::lock_guard<std::mutex> lock(cerrMutex);
           std::cerr << "[[PIN_MODE:" << pin << ":" << mode << "]]" << std::endl; }
-        
+
+        // The internal pull-up resistor makes an open input read HIGH until it is pulled LOW externally.
+        if (enablesPullup && pinValues[pin].exchange(HIGH, std::memory_order_seq_cst) != HIGH) {
+            std::lock_guard<std::mutex> lock(cerrMutex);
+            std::cerr << "[[PIN_VALUE:" << pin << ":" << HIGH << "]]" << std::endl;
+        }
+
         // Track in I/O Registry - add pinMode as an operation with mode info
         if (ioRegistry.find(pin) != ioRegistry.end()) {
             ioRegistry[pin].defined = true;
