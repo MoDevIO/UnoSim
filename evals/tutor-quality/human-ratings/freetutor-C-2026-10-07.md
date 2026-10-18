@@ -1,6 +1,6 @@
 # Referenzbewertung Punkt C – Freetutor-Nachlauf (verdeckt, mit Kriterienfragen)
 
-- Run: `tq2a-20261007T065450027Z-fb21a25c-ee3f-4904-b610-fcc168665b58` (Corpus v10, Prompt `tutor-prompts-v3`, `openai-gpt5.4-mini`, Judge `openai-gpt5.5`, 5 Samples, 46 Calls; Integrationsbranch `wip/freetutor-rerun-v10-prompts-v3`, lokal)
+- Run: `tq2a-20261007T065450027Z-fb21a25c-ee3f-4904-b610-fcc168665b58` (Corpus v10, Prompt `tutor-prompts-v3`, `openai-gpt5.4-mini`, Judge `openai-gpt5.5`, 5 Samples, 46 Calls; Code-Stand: konfliktfreier Merge von `409aa581f` und `c67187071`, ehemals lokaler Integrationsbranch `wip/freetutor-rerun-v10-prompts-v3`)
 - **Provenienz:** Referenzbewertung durch einen LLM-Evaluator (nach Angabe der Projektleitung GPT-5.6 Sol), von der Projektleitung als Referenz freigegeben. Keine unabhängige menschliche Bewertung.
 - **Blindheit:** bewertet allein anhand des Bewertungsblatts, ohne Judge-Ergebnis, Run-Verdict, Quelle und Schlüssel. Keine Post-hoc-Korrektur. Regeln wie in Punkt A.
 - Kriterienfragen: `ja` = erfüllt, `nein` = verletzt.

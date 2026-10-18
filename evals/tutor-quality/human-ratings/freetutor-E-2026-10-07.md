@@ -1,6 +1,6 @@
 # Referenzbewertung Punkt E – Klärungslauf incorrect-answer-remediation (verdeckt)
 
-- Run: `tq2a-20261007T072914991Z-bde03457-1b9c-43f8-9c04-dcc955bfacf1` (Corpus v12, Prompt `tutor-prompts-v4`, `openai-gpt5.4-mini`, Judge `openai-gpt5.5`, 10 Samples, 31 Calls; Integrationsbranch `wip/freetutor-rerun-v12-prompts-v4`, lokal)
+- Run: `tq2a-20261007T072914991Z-bde03457-1b9c-43f8-9c04-dcc955bfacf1` (Corpus v12, Prompt `tutor-prompts-v4`, `openai-gpt5.4-mini`, Judge `openai-gpt5.5`, 10 Samples, 31 Calls; Code-Stand: konfliktfreier Merge von `ea412790d` und `5c61408b1`, ehemals lokaler Integrationsbranch `wip/freetutor-rerun-v12-prompts-v4`)
 - **Provenienz:** Referenzbewertung durch einen LLM-Evaluator (nach Angabe der Projektleitung GPT-5.6 Sol), von der Projektleitung als Referenz freigegeben. Keine unabhängige menschliche Bewertung.
 - **Blindheit:** bewertet allein anhand des Bewertungsblatts, ohne Judge-Ergebnis, Run-Verdict, Quelle und Schlüssel. Keine Post-hoc-Korrektur. Regeln wie in Punkt A.
 - Kriterienfrage `no-solution-revealed`: `ja` = erfüllt.

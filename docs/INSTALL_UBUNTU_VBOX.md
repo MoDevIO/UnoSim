@@ -111,7 +111,10 @@ Docker zeigt beim Build viele Zwischenschritte und Paketmeldungen an; eine
 lange oder farbige Ausgabe ist für sich genommen kein Fehler. Entscheidend ist,
 ob der Build mit `ERROR` abbricht und das Skript einen Fehler meldet. Schlägt
 der Backend-Build mit Cache fehl, wiederholt das Skript ihn einmal automatisch
-mit `--no-cache`. Nach dem Start wartet es auf Readiness sowohl am Backend als
+mit `--no-cache`. Der erste Build dauert einige Minuten: In einer VBox-VM mit
+Ubuntu 26.04.1 LTS auf ARM64 brauchte der Sandbox-Build etwa 34 Sekunden und
+der Backend-Build etwa 130 Sekunden; Download und VM-Leistung verändern die
+Dauer. Nach dem Start wartet das Skript auf Readiness sowohl am Backend als
 auch über Nginx, bevor es die Installation als erfolgreich meldet.
 
 ### Backend-Build nach einem Abbruch erneut ausführen
