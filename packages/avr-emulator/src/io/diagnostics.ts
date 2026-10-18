@@ -44,7 +44,7 @@ export class Diagnostics {
     const { register, mask } = mcu.sleepEnable;
     chainWrite(cpu, register, (value) => {
       this.needsStep = (value & mask) !== 0;
-      if (!this.needsStep) this.active.delete("sleep-interrupts-disabled");
+      if (!this.needsStep) this.clear("sleep-interrupts-disabled");
     });
     this.observeWatchdog(cpu);
   }
@@ -53,17 +53,15 @@ export class Diagnostics {
   check(): void {
     const { cpu } = this.machine;
     this.checkStack(cpu.SP);
-    this.setActive("pc-out-of-program", cpu.pc >= this.programWords, () => ({
-      kind: "pc-out-of-program", pc: cpu.pc * 2, programBytes: this.image.flashBytes,
-    }));
+    if (cpu.pc >= this.programWords) this.raise({ kind: "pc-out-of-program", pc: cpu.pc * 2, programBytes: this.image.flashBytes });
+    else this.clear("pc-out-of-program");
   }
 
   /** Called before each instruction while `needsStep`: SLEEP with global interrupts disabled. */
   step(): void {
     const { cpu } = this.machine;
-    this.setActive("sleep-interrupts-disabled", cpu.progMem[cpu.pc] === SLEEP_OPCODE && !cpu.interruptsEnabled, () => ({
-      kind: "sleep-interrupts-disabled", pc: cpu.pc * 2,
-    }));
+    if (cpu.progMem[cpu.pc] === SLEEP_OPCODE && !cpu.interruptsEnabled) this.raise({ kind: "sleep-interrupts-disabled", pc: cpu.pc * 2 });
+    else this.clear("sleep-interrupts-disabled");
   }
 
   private checkStack(sp: number): void {
@@ -73,7 +71,8 @@ export class Diagnostics {
     const heapEnd = this.heapEnd(bssEnd);
     const region = sp < bssEnd ? "bss" : "heap";
     const limit = region === "bss" ? bssEnd : heapEnd;
-    this.setActive("stack-overflow", sp < limit, () => ({ kind: "stack-overflow", region, sp, limit }));
+    if (sp < limit) this.raise({ kind: "stack-overflow", region, sp, limit });
+    else this.clear("stack-overflow");
   }
 
   /** `__brkval` is non-zero once malloc has grown the heap; anything outside the SRAM is no heap end. */
@@ -85,13 +84,15 @@ export class Diagnostics {
     return brk > bssEnd && brk <= ramEnd(this.machine.mcu.memory) ? brk : bssEnd;
   }
 
-  private setActive(kind: DiagnosticKind, condition: boolean, make: () => Diagnostic): void {
-    if (!condition) {
-      this.active.delete(kind);
-    } else if (!this.active.has(kind)) {
-      this.active.add(kind);
-      this.report(make());
-    }
+  /** Reports a diagnostic unless its condition was already reported and has not ended since. */
+  private raise(diagnostic: Diagnostic): void {
+    if (this.active.has(diagnostic.kind)) return;
+    this.active.add(diagnostic.kind);
+    this.report(diagnostic);
+  }
+
+  private clear(kind: DiagnosticKind): void {
+    this.active.delete(kind);
   }
 
   private observeWatchdog(cpu: CPU): void {

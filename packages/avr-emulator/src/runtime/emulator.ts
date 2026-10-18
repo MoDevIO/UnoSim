@@ -275,20 +275,24 @@ export class Emulator {
       while (this.actions.length > 0 && this.actions[0].atMs <= this.simTimeMs) this.actions.shift()?.action();
       const nextAction = this.actions[0]?.atMs ?? Number.POSITIVE_INFINITY;
       const stopMs = Math.min(targetMs, nextAction);
-      const { cpu } = this.machineValue;
-      const usage = this.usageValue;
-      const diagnostics = this.diagnosticsValue;
-      const end = Math.min(cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs));
-      while (cpu.cycles < end && !diagnostics.resetPending) {
-        if (usage.needsStep) usage.step();
-        if (diagnostics.needsStep) diagnostics.step();
-        avrInstruction(cpu);
-        cpu.tick();
-      }
-      if (diagnostics.resetPending) this.restartMachine(); // watchdog reset: the whole MCU restarts
-      else diagnostics.check();
+      this.runChunk(Math.min(this.machineValue.cpu.cycles + CHUNK_CYCLES, Math.ceil((stopMs - this.simOffsetMs) * cyclesPerMs)));
       if (shouldYield()) return;
     }
+  }
+
+  /** Executes instructions up to cycle `end`; a watchdog reset replaces the machine. */
+  private runChunk(end: number): void {
+    const { cpu } = this.machineValue;
+    const usage = this.usageValue;
+    const diagnostics = this.diagnosticsValue;
+    while (cpu.cycles < end && !diagnostics.resetPending) {
+      if (usage.needsStep) usage.step();
+      if (diagnostics.needsStep) diagnostics.step();
+      avrInstruction(cpu);
+      cpu.tick();
+    }
+    if (diagnostics.resetPending) this.restartMachine(); // the whole MCU restarts
+    else diagnostics.check();
   }
 
   private createDiagnostics(): Diagnostics {
