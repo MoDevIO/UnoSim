@@ -25,6 +25,7 @@ datasheet, `__bss_end` 0x800210 for `memory_probe` from `avr-nm`, ADC values
 the proposal (section 2). `uno-delay_probe.hex` and `uno-tick_probe.hex` (`sketches/delay_probe`,
 `sketches/tick_probe`) check `delay(587)` against the 586–587 ms measured on a
 real Uno (proposal section 2) and print `<n> <millis>` every 10 ms.
+`uno-ssot_tc01…11.hex` (`sketches/ssot/`) are the IoRegistry-SSOT cases 1–11 of spike P0.4; `uno-ssot_tc07-nolto.hex/.elf` is case 7 without LTO (symbols for pin-exact `digitalWrite`). `uno-io_analog_write.hex` and `uno-io_analog_edges.hex` (`sketches/io_analog_*`) check `analogWrite` against its `digitalWrite` shortcut for 0 and 255 (`derived` from the core).
 `uno-serial_probe.hex` and `uno-serial_overflow.hex` (`sketches/serial_*`)
 expect the 1 s timeout of `Stream::parseInt` and 63 kept bytes from the
 64-byte ring buffer of `HardwareSerial` (`derived` from the core).

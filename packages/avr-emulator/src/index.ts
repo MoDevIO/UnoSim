@@ -15,6 +15,8 @@ export type { RuntimeClock } from "./runtime/clock";
 export { Emulator } from "./runtime/emulator";
 export type { EmulatorOptions, RunState, StopInfo, StopReason } from "./runtime/emulator";
 export { ANALOG_STEPS, AnalogInputs } from "./io/analog-inputs";
+export { IoUsageObserver } from "./io/io-usage";
+export type { IoFunction, IoUsage } from "./io/io-usage";
 export { PinModel } from "./io/pin-model";
 export { SERIAL_INPUT_LIMITS, SerialPorts } from "./io/serial-ports";
 export type { SerialFrameConfig, SerialOutput } from "./io/serial-ports";
