@@ -18,6 +18,8 @@
 | P1.4 | erledigt | #267 | `PinModel`: Modus aus DDR/PORT, Pull-up, äußerer Pegel mit Vorrang bis OUTPUT, Änderungsliste mit Zähler |
 | P1.5 | erledigt | #268 | Tastverhältnis 0–255 je Timerkanal aus COM/WGM/OCR; Abnahme Uno-Pins 3/5/6/9/10/11 × 0/1/25/128/254/255 |
 | P1.6 | erledigt | #270 | Reglerwert → (Wert + 0,5)/1024 · VCC, `analogRead` = Reglerwert; INTERNAL nach Datenblatt, AREF = VCC (neue Modellannahme in 4.8). Emulator-Tests laufen seit #269 in eigenem Coverage-Durchlauf |
-| P1.7 | erledigt | (dieser PR) | UTF-8-Stromdekoder je Port, Eingabe im Rahmentakt erst nach `Serial.begin`, 64-Byte-Puffer des Cores, Grenzen 4 KiB/1 MiB; SerialOutput-SSOT folgt mit dem Worker-Transport (P1.11/P1.12) |
+| P1.7 | erledigt | #271 | UTF-8-Stromdekoder je Port, Eingabe im Rahmentakt erst nach `Serial.begin`, 64-Byte-Puffer des Cores, Grenzen 4 KiB/1 MiB; SerialOutput-SSOT folgt mit dem Worker-Transport (P1.11/P1.12) |
+| P1.8 | erledigt | (dieser PR) | `Emulator`: Scheiben ≤ 8 ms, Neusetzen bei > 100 ms Rückstand, Warten bei Vorauslauf, Echtzeitfaktor, Pause/Resume/Stop/Reset, Timeout ohne Pausen, Headless `advance`/`at`; Abnahme „30 s bei Faktor 0,5“ skaliert getestet (400 ms → 200 ms) |
+| P1.9 | in Arbeit | | Lokal begonnen (Branch `feat/p1-9-runtime-io`, noch nicht gepusht): `io/avr-decode.ts`, `io/io-usage.ts`, Fixtures SSOT 1–11; Tests und Einbau in `Emulator` fehlen |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert
