@@ -22,7 +22,9 @@ for `uno` (`arduino:avr:uno`) and `nano` (`arduino:avr:nano:cpu=atmega328`),
 same toolchain. Derived expectations: RAMEND 0x8FF and E2END 1023 from the
 datasheet, `__bss_end` 0x800210 for `memory_probe` from `avr-nm`, ADC values
 `floor(V / 5 · 1024)`; `int_probe` outputs are those measured on a real Uno in
-the proposal (section 2). `uno-pwm_probe.hex` (`sketches/pwm_probe/`) expects the duty cycle to equal the
+the proposal (section 2). `uno-adc_probe.hex` (`sketches/adc_probe/`) is checked against the datasheet
+formula `floor(V / V_ref · 1024)`, at most 1023 (`derived`).
+`uno-pwm_probe.hex` (`sketches/pwm_probe/`) expects the duty cycle to equal the
 `analogWrite` value on all Uno PWM pins, because the core sets OCR to that
 value in 8-bit PWM modes (derived from `wiring_analog.c`).
 `uno-pin_probe.hex` is `sketches/pin_probe/` for the Uno; its expected outputs
