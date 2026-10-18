@@ -449,7 +449,7 @@ Benutzerhandbuch; die bisherige Tabelle gilt dann nur noch für „Legacy“.
 | Offener Eingang (`INPUT`, nicht gesetzt) | liest LOW; am echten Board ist der Pegel undefiniert |
 | `INPUT_PULLUP` | liest HIGH, bis der Nutzer LOW setzt |
 | vom Nutzer gesetzter Pegel | gilt, bis der Sketch den Pin auf OUTPUT schaltet |
-| analoger Eingang | Regler = Spannung 0 bis VCC in 1024 Stufen; mit Standardreferenz liefert `analogRead()` genau den Reglerwert |
+| analoger Eingang | Regler = Spannung 0 bis VCC in 1024 Stufen; mit Standardreferenz liefert `analogRead()` genau den Reglerwert. Interne Referenzen nach Datenblatt; an AREF (`EXTERNAL`) liegt VCC, weil dort am Board nichts angeschlossen ist (P1.6) |
 | PWM | Tastverhältnis 0–255 aus Timer-Modus und Vergleichsregister, keine Signalform |
 | Serial | Bytes am USART, Text als UTF-8; gesendeter Text endet wie heute mit Code 10; Empfangspuffer 64 Byte wie am Uno, nicht abgeholte Bytes gehen verloren |
 | Zeit | exakt in simulierter Zeit; ist das Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr (Echtzeitfaktor). Der Timeout zählt Wanduhrzeit (4.7) |

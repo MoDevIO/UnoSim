@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM (plan packages P1.1–P1.5 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs (plan packages P1.1–P1.6 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -89,6 +89,15 @@ computes the duty cycle from registers alone.
 `snapshot()` lists all digital pins; `takeChanges()` returns the last state of
 every pin that changed since the previous call plus the number of changes
 (for the telemetry pin rate) and resets both.
+
+### Analog inputs
+
+`new AnalogInputs(machine)` sets the voltages of the analog pins.
+`setAnalog(pin, value)` takes a slider value 0–1023 and applies
+`(value + 0.5) / 1024 · VCC`, so `analogRead()` with the default reference
+returns exactly that value; `setVolts(pin, volts)` sets a voltage directly.
+The internal references (1.1 V on the ATmega328P) come from the datasheet;
+AREF (`analogReference(EXTERNAL)`) is VCC unless `setArefVolts` changes it.
 
 ## Tests
 
