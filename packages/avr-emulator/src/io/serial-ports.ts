@@ -90,8 +90,7 @@ export class SerialPorts {
   /** Frame format the sketch configured (UBRR, U2X, UCSRC). */
   frameConfig(portIndex: number): SerialFrameConfig {
     const { usart } = this.port(portIndex);
-    const parity = usart.parityEnabled ? (usart.parityOdd ? "odd" : "even") : "none";
-    return { baud: usart.baudRate, dataBits: usart.bitsPerChar, parity, stopBits: usart.stopBits };
+    return { baud: usart.baudRate, dataBits: usart.bitsPerChar, parity: parityOf(usart), stopBits: usart.stopBits };
   }
 
   private pump(port: Port): void {
@@ -108,4 +107,9 @@ export class SerialPorts {
     if (!port) throw new RangeError(`serial port ${index} does not exist`);
     return port;
   }
+}
+
+function parityOf(usart: AVRUSART): SerialFrameConfig["parity"] {
+  if (!usart.parityEnabled) return "none";
+  return usart.parityOdd ? "odd" : "even";
 }
