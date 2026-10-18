@@ -33,6 +33,25 @@ async function prepare() {
   console.log("Coverage directory cleaned before test run.");
 }
 
+/** Aggregated line coverage of all lcov records below `prefix`; false when below `minimum`. */
+function checkPackageThreshold(records, { prefix, minimum }) {
+  let found = 0;
+  let hit = 0;
+  for (const record of records) {
+    const source = normalizeSource(/^SF:(.+)$/m.exec(record)?.[1] ?? "");
+    if (!source.includes(prefix)) continue;
+    found += Number(/^LF:(\d+)$/m.exec(record)?.[1] ?? 0);
+    hit += Number(/^LH:(\d+)$/m.exec(record)?.[1] ?? 0);
+  }
+  const percent = found === 0 ? 0 : (hit / found) * 100;
+  if (percent < minimum * 100) {
+    fail(`line coverage of ${prefix} is ${percent.toFixed(1)} %, below ${minimum * 100} %`);
+    return false;
+  }
+  console.log(`Line coverage of ${prefix}: ${percent.toFixed(1)} % (minimum ${minimum * 100} %).`);
+  return true;
+}
+
 async function validate() {
   let runStart;
   try {
@@ -90,21 +109,8 @@ async function validate() {
     return;
   }
 
-  for (const { prefix, minimum } of packageThresholds) {
-    let found = 0;
-    let hit = 0;
-    for (const record of completeRecords) {
-      const source = normalizeSource(/^SF:(.+)$/m.exec(record)?.[1] ?? "");
-      if (!source.includes(prefix)) continue;
-      found += Number(/^LF:(\d+)$/m.exec(record)?.[1] ?? 0);
-      hit += Number(/^LH:(\d+)$/m.exec(record)?.[1] ?? 0);
-    }
-    const ratio = found === 0 ? 0 : hit / found;
-    if (ratio < minimum) {
-      fail(`line coverage of ${prefix} is ${(ratio * 100).toFixed(1)} %, below ${minimum * 100} %`);
-      return;
-    }
-    console.log(`Line coverage of ${prefix}: ${(ratio * 100).toFixed(1)} % (minimum ${minimum * 100} %).`);
+  for (const threshold of packageThresholds) {
+    if (!checkPackageThreshold(completeRecords, threshold)) return;
   }
 
   await rm(runStartPath, { force: true });

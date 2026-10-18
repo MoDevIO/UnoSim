@@ -18,14 +18,14 @@ describe("memory layout", () => {
   it.each(MCUS)("makes avr8js end the data space at RAMEND and reset SP there for the $name", (mcu) => {
     const cpu = new CPU(new Uint16Array(0x100), avr8jsSramParameter(mcu.layout));
 
-    expect(cpu.data.length).toBe(mcu.ramEnd + 1);
+    expect(cpu.data).toHaveLength(mcu.ramEnd + 1);
     expect(cpu.SP).toBe(mcu.ramEnd);
   });
 
   it("documents why the default must not be used: it ends the data space at 0x20FF", () => {
     const cpu = new CPU(new Uint16Array(0x100));
 
-    expect(cpu.data.length).toBe(8192 + AVR8JS_DATA_SPACE_OFFSET);
+    expect(cpu.data).toHaveLength(8192 + AVR8JS_DATA_SPACE_OFFSET);
     expect(cpu.SP).toBe(0x20ff);
   });
 
