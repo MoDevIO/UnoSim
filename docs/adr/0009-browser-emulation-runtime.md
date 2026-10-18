@@ -66,9 +66,13 @@ the server and little for each student's browser.
    match references recorded on a real Uno. An example without such a
    reference is listed in the acceptance and does not count as a hardware
    comparison.
-10. **ATtiny core (E11).** ATTinyCore (SpenceKonde), pinned, `chip=85`, 8 MHz
-    internal; `Serial` is a software UART decoded at the TX pin. Serial input
-    only if a spike shows it is feasible. *Pending spike P0.5.*
+10. **ATtiny core (E11).** ATTinyCore (SpenceKonde) 1.5.2, LGPL 2.1, FQBN
+    `ATTinyCore:avr:attinyx5:chip=85,clock=8internal` with the other menu
+    options at their defaults; same avr-gcc as `arduino:avr@1.8.8`. `Serial`
+    is a software UART decoded at the TX pin (PB0); serial input runs through
+    a model of the analog comparator on PB1. Spike P0.5
+    ([report](../proposals/spike-p0-5-attiny85.md)) matched all derived
+    expectations; risk: no ATTinyCore release since 2021.
 11. **Real time (E12).** The worker paces to the wall clock. A slow device runs
     the simulation slower and shows the real-time factor. A backlog above
     100 ms is not caught up: the wall-clock reference is reset and emulation
