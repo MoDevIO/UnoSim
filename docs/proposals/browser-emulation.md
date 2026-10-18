@@ -4,6 +4,12 @@
 > (Stand 2026-10-18, UnoSim `v1.0.1`). Sie fasst Anlass, ein Prototyp-Ergebnis
 > und offene Entscheidungen zusammen. Entscheidungen gehören danach in einen ADR
 > unter [../adr/](../adr/).
+>
+> **Stand der Entscheidung:** Variante 1 ist beschlossen; Umsetzung nach
+> [browser-emulation-plan.md](browser-emulation-plan.md). Die Entscheidungen
+> stehen als Entwurf in [ADR 0009](../adr/0009-browser-emulation-runtime.md)
+> (Laufzeit) und [ADR 0010](../adr/0010-compile-sandbox-and-flash-artifact.md)
+> (Compile-Sandbox und Artefakt).
 
 ## 1. Anlass
 
