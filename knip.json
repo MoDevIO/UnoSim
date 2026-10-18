@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["sonar-scanner"],
+  "ignoreBinaries": ["sonar-scanner", "arduino-cli"],
   "ignoreExportsUsedInFile": true,
   "ignore": ["spikes/**"],
   "workspaces": {
