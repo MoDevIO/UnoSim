@@ -10,6 +10,7 @@
  */
 
 import { ChildProcess } from "node:child_process";
+import { fqbnAllowlist } from "@shared/boards";
 import { Logger } from "@shared/logger";
 import { config } from "../config";
 
@@ -72,7 +73,6 @@ const ALLOWED_COMMANDS: Record<string, { allowedArgs?: RegExp[] }> = {
       /^compile$/,
       /^--fqbn$/,
       /^--build-path$/,
-      /^arduino:avr:uno$/,
       /^[a-zA-Z0-9._\-/]+$/, // Paths and valid arg values
     ],
   },
@@ -87,6 +87,14 @@ const ALLOWED_COMMANDS: Record<string, { allowedArgs?: RegExp[] }> = {
     // echo for testing - allow any args
   },
 };
+
+/** `arduino-cli compile --fqbn <x>`: x must be the FQBN of a board in the catalog (plan P2.2). */
+function requireCatalogFqbn(args: string[]): void {
+  const index = args.indexOf("--fqbn");
+  if (index === -1) return;
+  const fqbn = args[index + 1] ?? "";
+  if (!fqbnAllowlist().includes(fqbn)) throw new Error(`FQBN is not in the board catalog: ${fqbn}`);
+}
 
 /**
  * Validate that command is in whitelist and arguments don't contain shell metacharacters
@@ -119,6 +127,8 @@ function validateCommand(command: string, args: string[]): void {
       }
     }
   }
+
+  if (command === "arduino-cli") requireCatalogFqbn(args);
 }
 
 export class ProcessExecutor {

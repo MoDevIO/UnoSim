@@ -31,6 +31,7 @@ import { processHeaderIncludes } from "./compiler/header-processor";
 import { findUnsafeIncludes } from "./compiler/include-guard";
 import { compileWithArduinoCli, type CLICompileConfig } from "./compiler/cli-runner";
 import { buildSketchHash } from "./workers/compile-worker-utils";
+import type { BoardId } from "@shared/boards";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -61,6 +62,8 @@ export interface CompilationResult {
 
 export interface CompileRequestOptions {
   entryFile?: string;
+  /** Catalog board the request compiles for; `fqbn` then is its FQBN. */
+  board?: BoardId;
   fqbn?: string;
   libraries?: string[];
   sketchHash?: string;
@@ -188,7 +191,7 @@ export class ArduinoCompiler {
     const buildPath = options?.buildPath ?? resolvePathWithinRoot(baseTempDir, `${sketchId}-build`);
 
     // Pre-compilation validation and parsing
-    const parser = new CodeParser();
+    const parser = new CodeParser(undefined, undefined, options?.board);
     const sourceProject = buildCompileSourceProject(code, headers, options?.entryFile);
     const parserMessages = parser.parseAllProject(sourceProject);
     const reservedNameMessages = reservedNamesValidator.validateReservedNames(code);

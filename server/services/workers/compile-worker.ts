@@ -234,6 +234,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
     try {
       const compileResult = await compiler.compile(task.code, task.headers, WORKER_BUILD_DIR, {
         entryFile: task.entryFile,
+        ...(task.board ? { board: task.board } : {}),
         fqbn,
         libraries: normalizeLibraries(task.libraries),
         sketchHash,

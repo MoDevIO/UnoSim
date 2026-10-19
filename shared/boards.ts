@@ -33,7 +33,7 @@ export interface BoardCatalogEntry {
 const AVR_CORE = { id: "arduino:avr", version: "1.8.8" } as const;
 
 export const BOARD_CATALOG: readonly BoardCatalogEntry[] = [
-  { id: "uno", displayName: "Arduino Uno", fqbn: "arduino:avr:uno", core: AVR_CORE, runtimes: ["browser", "host-mock"], status: "planned" },
+  { id: "uno", displayName: "Arduino UNO", fqbn: "arduino:avr:uno", core: AVR_CORE, runtimes: ["browser", "host-mock"], status: "planned" },
   { id: "nano", displayName: "Arduino Nano", fqbn: "arduino:avr:nano:cpu=atmega328", core: AVR_CORE, runtimes: ["browser"], status: "planned" },
   { id: "mega2560", displayName: "Arduino Mega 2560", fqbn: "arduino:avr:mega:cpu=atmega2560", core: AVR_CORE, runtimes: ["browser"], status: "planned" },
   {
