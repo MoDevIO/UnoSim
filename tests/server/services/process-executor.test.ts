@@ -37,3 +37,44 @@ describe("ProcessExecutor diagnostic logging", () => {
     expect(warn.mock.calls.flat().join(" ")).not.toContain(diagnostic);
   });
 });
+
+describe("ProcessExecutor FQBN allowlist (plan P2.2)", () => {
+  beforeEach(() => {
+    spawnMock.mockReset();
+  });
+
+  it.each(["arduino:avr:uno", "arduino:avr:nano:cpu=atmega328", "arduino:avr:mega:cpu=atmega2560", "ATTinyCore:avr:attinyx5:chip=85,clock=8internal"])(
+    "lets arduino-cli compile for the catalog FQBN %s",
+    async (fqbn) => {
+      const child = new EventEmitter() as ChildProcess;
+      Object.assign(child, { stdout: new EventEmitter(), stderr: new EventEmitter(), pid: 1 });
+      spawnMock.mockImplementation(() => {
+        queueMicrotask(() => child.emit("close", 0));
+        return child;
+      });
+
+      await new ProcessExecutor().execute("arduino-cli", ["compile", "--fqbn", fqbn, "/tmp/sketch"], { timeout: 0 });
+
+      expect(spawnMock).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["esp32:esp32:esp32", "arduino:avr:uno:extra", "arduino:avr:nano", ""])("refuses the FQBN %j without starting a process", async (fqbn) => {
+    await expect(new ProcessExecutor().execute("arduino-cli", ["compile", "--fqbn", fqbn, "/tmp/sketch"], { timeout: 0 })).rejects.toThrow(/FQBN is not in the board catalog/);
+
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("does not look at the FQBN of other commands or of calls without --fqbn", async () => {
+    const child = new EventEmitter() as ChildProcess;
+    Object.assign(child, { stdout: new EventEmitter(), stderr: new EventEmitter(), pid: 1 });
+    spawnMock.mockImplementation(() => {
+      queueMicrotask(() => child.emit("close", 0));
+      return child;
+    });
+
+    await new ProcessExecutor().execute("arduino-cli", ["--version"], { timeout: 0 });
+
+    expect(spawnMock).toHaveBeenCalledOnce();
+  });
+});

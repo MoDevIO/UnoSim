@@ -5,6 +5,7 @@ import { ProcessExecutor, ProcessOutputLimitError } from "../process-executor";
 import type { CompilationError } from "./compiler-output-parser";
 import { limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES, parseCompilerDiagnostics } from "../compiler-diagnostics";
 import { config as appConfig } from "../../config";
+import { findBoardByFqbn } from "@shared/boards";
 
 const logger = new Logger("CLIRunner");
 
@@ -91,7 +92,7 @@ export async function compileWithArduinoCli(
     const diagnosticOutput = selectDiagnosticOutput(output, errors);
 
     if (code === 0) {
-      const parsedOutput = parseCompilerOutput(output);
+      const parsedOutput = parseCompilerOutput(output, config.fqbn);
       const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
         .filter((diagnostic) => diagnostic.type === "warning");
       const binary = await discoverBuildBinary(config.buildPath || sketchDir);
@@ -107,7 +108,7 @@ export async function compileWithArduinoCli(
       const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
       return {
         success: false,
-        output: hasMemoryUsage(diagnosticOutput) ? parseCompilerOutput(diagnosticOutput) : "",
+        output: hasMemoryUsage(diagnosticOutput) ? parseCompilerOutput(diagnosticOutput, config.fqbn) : "",
         errors: cleanedErrors,
         parsedErrors,
       };
@@ -205,7 +206,8 @@ async function discoverBuildBinary(buildOutputDir: string): Promise<Buffer | und
 /**
  * Parses arduino-cli output to extract memory usage and format it.
  */
-function parseCompilerOutput(output: string): string {
+function parseCompilerOutput(output: string, fqbn: string): string {
+  const board = `Board: ${findBoardByFqbn(fqbn)?.displayName ?? fqbn}`;
   const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
   const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
 
@@ -213,23 +215,23 @@ function parseCompilerOutput(output: string): string {
   const ramSizeMatch = ramSizeRegex.exec(output);
 
   if (progSizeMatch && ramSizeMatch) {
-    return `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
+    return `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\n${board}`;
   } else if (progSizeMatch || ramSizeMatch) {
     // Partial memory info
     const parts = [];
     if (progSizeMatch) parts.push(progSizeMatch[0]);
     if (ramSizeMatch) parts.push(ramSizeMatch[0]);
-    return `${parts.join("\n")}\n\nBoard: Arduino UNO`;
+    return `${parts.join("\n")}\n\n${board}`;
   } else {
     // No memory info - check if there's any success output
     const trimmed = output.trim();
     if (trimmed) {
       // If output looks like a generic success message, use (Simulation) suffix
       if (trimmed.toLowerCase().includes("success") || trimmed.toLowerCase().includes("done")) {
-        return `${trimmed}\n\nBoard: Arduino UNO (Simulation)`;
+        return `${trimmed}\n\n${board} (Simulation)`;
       }
-      return `${trimmed}\n\nBoard: Arduino UNO`;
+      return `${trimmed}\n\n${board}`;
     }
-    return `Board: Arduino UNO (Simulation)`;
+    return `${board} (Simulation)`;
   }
 }

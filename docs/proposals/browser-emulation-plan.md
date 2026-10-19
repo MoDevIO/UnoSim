@@ -884,6 +884,10 @@ Cache-Schlüssel erweitert P2.5 zur vollständigen Build-Identität (E15).
 [worker-protocol.ts](../../shared/worker-protocol.ts) und der
 Compile-Worker reichen Board und Artefakt durch. `CodeParser` erhält das Board
 (Grundlage für Phase 4).
+Umgesetzt: Der Prozess-Executor prüft den Wert nach `--fqbn` gegen den Katalog
+(statt Muster für die Uno-FQBN); der Katalogname des Uno lautet „Arduino UNO“,
+damit die bestehende Ausgabe „Board: Arduino UNO“ unverändert bleibt. Das
+Artefakt kommt mit P2.5.
 
 **P2.3 Toolchain für alle Boards (M).**
 `arduino:avr@1.8.8` deckt Uno, Nano und Mega. ATTinyCore bekommt eine eigene

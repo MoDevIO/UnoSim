@@ -11,6 +11,7 @@
  */
 
 import type { CompilationResult } from "../server/services/arduino-compiler";
+import type { BoardId } from "./boards";
 
 /**
  * Commands that can be sent to worker threads.
@@ -32,6 +33,7 @@ export interface CompileRequestPayload {
   headers?: Array<{ name: string; content: string }>;
   entryFile?: string;
   tempRoot?: string;
+  board?: BoardId;
   fqbn?: string;
   libraries?: string[];
   sketchHash?: string;
