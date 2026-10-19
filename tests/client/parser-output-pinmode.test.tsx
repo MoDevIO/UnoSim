@@ -964,3 +964,23 @@ describe("ParserOutput Component", () => {
     expect(button.tabIndex).toBe(0);
   });
 });
+
+describe("ParserOutput - origin of registry findings (plan P3.7)", () => {
+  const merged: IOPinRecord = { pin: "13", defined: true, digitalWriteLines: [9], origin: { digitalWrite: "both" } };
+  const runtimeOnly: IOPinRecord = { pin: "12", defined: true, digitalReadLines: ["runtime"], origin: { digitalRead: "runtime" } };
+
+  it("marks a finding the run confirmed in the compact view", () => {
+    renderRegistry(merged);
+
+    expect(screen.getByTitle("Found in the code and seen while the simulation ran")).toBeInTheDocument();
+  });
+
+  it("shows the static line and the runtime mark in the extended view, and plain runtime findings as runtime", async () => {
+    renderRegistry(merged, runtimeOnly);
+    await userEvent.click(screen.getByTestId("io-registry-detail-toggle"));
+
+    expect(screen.getByText("L9")).toBeInTheDocument();
+    expect(screen.getByText("+ runtime")).toBeInTheDocument();
+    expect(screen.getAllByText("runtime")).toHaveLength(1);
+  });
+});

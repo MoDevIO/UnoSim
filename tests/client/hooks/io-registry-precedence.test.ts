@@ -3,7 +3,7 @@ import type { IOPinRecord } from "@shared/schema";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 
 const staticRegistry: IOPinRecord[] = [
-  { pin: "13", defined: true, pinMode: 1, usedAt: [{ line: 3, operation: "pinMode:1" }] },
+  { pin: "13", defined: true, pinMode: 1, pinModeLines: [3], pinModeModes: ["OUTPUT"], usedAt: [{ line: 3, operation: "pinMode:1" }] },
 ];
 
 const runtimeRegistry: IOPinRecord[] = [
@@ -13,14 +13,19 @@ const runtimeRegistry: IOPinRecord[] = [
   { pin: "7", defined: true, pinMode: 1, usedAt: [{ line: 0, operation: "pinMode:1" }] },
 ];
 
-describe("runtime I/O registry precedence", () => {
-  it("keeps a runtime snapshot when delayed static analysis returns empty", () => {
-    expect(getEffectiveIoRegistry(staticRegistry, runtimeRegistry, "running")).toBe(runtimeRegistry);
-    expect(getEffectiveIoRegistry([], runtimeRegistry, "running")).toBe(runtimeRegistry);
+const pins = (registry: IOPinRecord[]) => registry.map((record) => record.pin);
+
+describe("effective I/O registry (plan 4.9: merge instead of replace)", () => {
+  it("keeps the static entries during a run and adds the pins only the run found", () => {
+    expect(pins(getEffectiveIoRegistry(staticRegistry, runtimeRegistry, "running"))).toEqual(["13", "4", "5", "6", "7"]);
   });
 
-  it("treats an empty runtime snapshot as authoritative", () => {
-    expect(getEffectiveIoRegistry(staticRegistry, [], "running")).toEqual([]);
+  it("keeps the runtime findings when delayed static analysis returns empty", () => {
+    expect(pins(getEffectiveIoRegistry([], runtimeRegistry, "running"))).toEqual(["4", "5", "6", "7"]);
+  });
+
+  it("keeps the static entries when the runtime snapshot is empty", () => {
+    expect(getEffectiveIoRegistry(staticRegistry, [], "running")).toEqual(staticRegistry);
   });
 
   it("uses the static registry before the first runtime snapshot", () => {
@@ -32,6 +37,6 @@ describe("runtime I/O registry precedence", () => {
   });
 
   it("keeps runtime data while paused", () => {
-    expect(getEffectiveIoRegistry(staticRegistry, runtimeRegistry, "paused")).toBe(runtimeRegistry);
+    expect(pins(getEffectiveIoRegistry(staticRegistry, runtimeRegistry, "paused"))).toContain("4");
   });
 });

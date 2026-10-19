@@ -1,10 +1,12 @@
 import type { IOPinRecord } from "@shared/schema";
 import type { SimulationStatus } from "@shared/types/arduino.types";
+import { mergeIoRegistry } from "./io-registry-merge";
 
 /**
- * Runtime snapshots are authoritative while a simulation is running (or
- * paused). Before the first runtime snapshot, and after the run has ended,
- * the current static analysis remains visible.
+ * While a simulation runs (or is paused) the static analysis stays and the
+ * runtime findings are merged into it, with their origin (plan 4.9, P3.7).
+ * Before the first runtime snapshot, and after the run has ended, the current
+ * static analysis alone is shown.
  */
 export function getEffectiveIoRegistry(
   staticIoRegistry: IOPinRecord[],
@@ -15,6 +17,6 @@ export function getEffectiveIoRegistry(
     simulationStatus === "running" || simulationStatus === "paused";
 
   return simulationActive && runtimeIoRegistry !== null
-    ? runtimeIoRegistry
+    ? mergeIoRegistry(staticIoRegistry, runtimeIoRegistry)
     : staticIoRegistry;
 }

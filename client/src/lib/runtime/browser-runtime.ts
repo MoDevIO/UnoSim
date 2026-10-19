@@ -1,5 +1,6 @@
 import { decodeBase64 } from "@unosim/avr-emulator/image";
-import { RunGate, type Command, type PinSnapshot, type RunEvent, type RunStatus, type StopReason, type TelemetrySample } from "@unosim/avr-emulator/protocol";
+import { RunGate, type Command, type IoUsage, type PinSnapshot, type RunEvent, type RunStatus, type StopReason, type TelemetrySample } from "@unosim/avr-emulator/protocol";
+import type { IOPinRecord } from "@shared/schema";
 import { diagnosticLine } from "./diagnostic-lines";
 import type { AnyRuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
 
@@ -61,6 +62,8 @@ export const SYSTEM_LINES = {
   stopped: "--- Simulation stopped ---\n",
 } as const;
 
+/** Pin names as the static analysis writes them: A0–A5 for pins 14–19 (Uno and Nano; other boards follow in phase 4). */
+const pinLabel = (pin: number): string => (pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin));
 const timeoutLine = (seconds: number): string => `--- Simulation timeout (${seconds}s) ---\n`;
 const MODE_NUMBER = { INPUT: 0, OUTPUT: 1, INPUT_PULLUP: 2 } as const;
 /** Largest chunk of serial input sent in one command (the worker accepts 4096 bytes of UTF-8, up to 4 per character). */
@@ -95,6 +98,8 @@ export class BrowserRuntime implements SimulationRuntime {
   private stoppingRunId: number | undefined;
   private lastStatus: RunStatus | undefined;
   private readonly lastPins = new Map<number, string>();
+  /** Runtime findings of the run as records of the I/O registry, by pin. */
+  private readonly registry = new Map<number, IOPinRecord>();
 
   constructor(private readonly options: BrowserRuntimeOptions) {
     this.timers = options.timers ?? systemTimers;
@@ -108,6 +113,7 @@ export class BrowserRuntime implements SimulationRuntime {
     const flash = decodeBase64(artifact.flashBase64);
     const buffer = flash.buffer.slice(flash.byteOffset, flash.byteOffset + flash.byteLength) as ArrayBuffer;
     this.lastPins.clear();
+    this.registry.clear();
     this.pendingStart = { timeoutSec: request.timeoutSec };
     this.timeoutSec = request.timeoutSec;
     this.phase = "loading";
@@ -231,6 +237,7 @@ export class BrowserRuntime implements SimulationRuntime {
         break;
       case "usage":
         this.emit({ type: "runtime_usage", usages: data.usages });
+        this.emit(this.registryWith(data.usages));
         break;
       case "telemetry":
         this.emit({ type: "runtime_telemetry", sample: telemetrySample(data) });
@@ -267,6 +274,21 @@ export class BrowserRuntime implements SimulationRuntime {
     this.emit({ type: "simulation_status", status: state });
     if (state === "paused") this.emit({ type: "serial_output", data: SYSTEM_LINES.paused, isComplete: true });
     else if (wasPaused) this.emit({ type: "serial_output", data: SYSTEM_LINES.resumed, isComplete: true });
+  }
+
+  /** The findings so far as the `io_registry` snapshot the existing handler evaluates; the lines stay 0, only the static analysis knows lines. */
+  private registryWith(usages: readonly IoUsage[]): Extract<AnyRuntimeEvent, { type: "io_registry" }> {
+    for (const { pin, fn, mode } of usages) {
+      const record = this.registry.get(pin) ?? { pin: pinLabel(pin), defined: false, usedAt: [] };
+      const modeNumber = mode === undefined ? undefined : MODE_NUMBER[mode];
+      if (fn === "pinMode" && modeNumber !== undefined) {
+        record.defined = true;
+        record.pinMode = modeNumber;
+      }
+      record.usedAt = [...(record.usedAt ?? []), { line: 0, operation: fn === "pinMode" && modeNumber !== undefined ? `pinMode:${modeNumber}` : fn }];
+      this.registry.set(pin, record);
+    }
+    return { type: "io_registry", registry: [...this.registry.values()].map((record) => ({ ...record })) };
   }
 
   private emitPins(changes: readonly PinSnapshot[]): void {
