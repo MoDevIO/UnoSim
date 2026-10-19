@@ -778,7 +778,11 @@ export function useArduinoSimulatorPage() {
     setCode(nextCode);
   }, [invalidatePendingStart, setCode]);
 
+  // The runtime of the current run, or the one the next start will use while idle (the debug bar names it).
+  const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
+
   const { pendingExternalStart } = useSimulatorExternalControl({
+    ...(boardId ? { getBoardInfo: () => ({ board: boardId, boardName: board, ...(engine ? { runtime: engine } : {}) }) } : {}),
     allowedOrigin: externalAllowedOrigin,
     backendReachable,
     isConnected,
@@ -818,9 +822,6 @@ export function useArduinoSimulatorPage() {
       setShowCompilationOutput(true);
     }
   }, [simulationStatus, setShowCompilationOutput]);
-
-  // The runtime of the current run, or the one the next start will use while idle (the debug bar names it).
-  const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
 
   const state = {
     compile: {

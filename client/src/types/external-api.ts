@@ -6,7 +6,21 @@
  */
 
 /** API Version for backward compatibility and feature negotiation. */
-export const API_VERSION = "1.4.0";
+export const API_VERSION = "1.5.0";
+
+/**
+ * `data` of the GET_STATE response (API 1.5.0): the selected board, the runtime of the current or
+ * next run and the simulation state.
+ */
+export interface ExternalStateData {
+  /** Board id: `uno`, `nano`, … */
+  board: string;
+  boardName: string;
+  /** `browser` (emulation in the page) or `host-mock` (server-side simulation); absent while none is usable. */
+  runtime?: string;
+  /** Same values as GET_SIMULATION_STATE. */
+  state: string;
+}
 
 /**
  * All actions supported by the simulator's remote control interface (inbound).
@@ -38,6 +52,8 @@ export enum SimulatorActionType {
   GET_SIMULATION_STATE = "GET_SIMULATION_STATE",
   /** Query the current server/pool status (triggers a RESPONSE message) */
   GET_SERVER_STATUS = "GET_SERVER_STATUS",
+  /** Query board, runtime and simulation state in one answer (triggers a RESPONSE message). Added in 1.5.0. */
+  GET_STATE = "GET_STATE",
 }
 
 /**
@@ -123,6 +139,7 @@ type PayloadMap = {
   [SimulatorActionType.SET_OUTPUT_TAB]: SetOutputTabPayload;
   [SimulatorActionType.GET_SIMULATION_STATE]: undefined;
   [SimulatorActionType.GET_SERVER_STATUS]: undefined;
+  [SimulatorActionType.GET_STATE]: undefined;
 };
 
 /**

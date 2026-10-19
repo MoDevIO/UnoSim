@@ -746,4 +746,93 @@ describe("emitOperationErrorEvent", () => {
       message: "Too many requests",
     })).not.toThrow();
   });
+
+  // ── API 1.5.0: board and runtime ─────────────────────────────────────────
+
+  describe("API 1.5.0 (plan P4.7)", () => {
+    const boardInfo = (board: "uno" | "nano", runtime?: "browser" | "host-mock") => () => ({
+      board,
+      boardName: board === "nano" ? "Arduino Nano" : "Arduino UNO",
+      ...(runtime ? { runtime } : {}),
+    });
+    const lastResponse = (spy: ReturnType<typeof vi.spyOn>) => spy.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+
+    it("reports version 1.5.0", () => {
+      expect(API_VERSION).toBe("1.5.0");
+    });
+
+    it("GET_STATE answers with the board, the runtime and the simulation state", () => {
+      const params = { ...buildParams(), getBoardInfo: boardInfo("nano", "browser") };
+      const post = vi.spyOn(globalThis, "postMessage");
+      renderHook(() => useExternalApi(params));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.GET_STATE, payload: undefined }));
+
+      expect(lastResponse(post)).toMatchObject({
+        version: "1.5.0",
+        type: SimulatorActionType.GET_STATE,
+        success: true,
+        data: { board: "nano", boardName: "Arduino Nano", runtime: "browser", state: "IDLE" },
+      });
+    });
+
+    it("GET_STATE without board information names the Uno and leaves the runtime out", () => {
+      const post = vi.spyOn(globalThis, "postMessage");
+      renderHook(() => useExternalApi(buildParams()));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.GET_STATE, payload: undefined }));
+
+      expect(lastResponse(post)).toMatchObject({ success: true, data: { board: "uno", boardName: "Arduino UNO", state: "IDLE" } });
+      expect((lastResponse(post).data as Record<string, unknown>).runtime).toBeUndefined();
+    });
+
+    it.each([
+      ["uno", 19, true], ["uno", 20, false], ["nano", 21, true], ["nano", 22, false], ["uno", -1, false],
+    ] as const)("SET_PIN_STATE on %s with pin %i is %s", (board, pin, accepted) => {
+      const params = { ...buildParams(), getBoardInfo: boardInfo(board) };
+      const post = vi.spyOn(globalThis, "postMessage");
+      renderHook(() => useExternalApi(params));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.SET_PIN_STATE, payload: { pin, value: 1 } }));
+
+      expect(params.onSetPinState).toHaveBeenCalledTimes(accepted ? 1 : 0);
+      expect(lastResponse(post)).toMatchObject(accepted ? { success: true } : { success: false, error: `pin ${pin} does not exist on ${board === "nano" ? "Arduino Nano" : "Arduino UNO"}` });
+    });
+
+    it("GET_PIN_STATE refuses a pin the board does not have", () => {
+      const params = { ...buildParams(), getBoardInfo: boardInfo("uno") };
+      const post = vi.spyOn(globalThis, "postMessage");
+      renderHook(() => useExternalApi(params));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.GET_PIN_STATE, payload: { pin: 20 } }));
+
+      expect(lastResponse(post)).toMatchObject({ success: false, error: "pin 20 does not exist on Arduino UNO" });
+      expect(params.getPinState).not.toHaveBeenCalled();
+    });
+
+    it("BATCH_SET_PIN_STATE is all or nothing: one missing pin rejects the batch", () => {
+      const params = { ...buildParams(), getBoardInfo: boardInfo("uno") };
+      const post = vi.spyOn(globalThis, "postMessage");
+      renderHook(() => useExternalApi(params));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.BATCH_SET_PIN_STATE, payload: { pins: [{ pin: 7, value: 1 }, { pin: 21, value: 1 }, { pin: 30, value: 0 }] } }));
+
+      expect(params.onSetPinState).not.toHaveBeenCalled();
+      expect(lastResponse(post)).toMatchObject({ success: false, error: "pin 21 does not exist on Arduino UNO; pin 30 does not exist on Arduino UNO" });
+
+      act(() => dispatchMessage({ type: SimulatorActionType.BATCH_SET_PIN_STATE, payload: { pins: [{ pin: 7, value: 1 }, { pin: 13, value: 0 }] } }));
+
+      expect(params.onSetPinState.mock.calls).toEqual([[7, 1], [13, 0]]);
+      expect(lastResponse(post)).toMatchObject({ success: true });
+    });
+
+    it("does not check pins without board information, as before", () => {
+      const params = buildParams();
+      renderHook(() => useExternalApi(params));
+
+      act(() => dispatchMessage({ type: SimulatorActionType.SET_PIN_STATE, payload: { pin: 40, value: 1 } }));
+
+      expect(params.onSetPinState).toHaveBeenCalledWith(40, 1);
+    });
+  });
 });

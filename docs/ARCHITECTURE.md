@@ -26,7 +26,7 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
   (Compile-Sandbox, Flash-Abbild, Build-Identität). Bis zu ihrer Annahme
   beschreibt dieses Dokument weiter den Host-Mock als einzige Laufzeit.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
-- Versionsverträge: REST `1.1.0` (`1.0.0` weiterhin akzeptiert; `Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.4.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
+- Versionsverträge: REST `1.1.0` (`1.0.0` weiterhin akzeptiert; `Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.5.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Neben normativer Dokumentation enthält der Tree als historisch oder nicht
   normativ gekennzeichnete Analysen, Pläne und Berichte (Kennzeichnung im
   Dokumentkopf). Sie beschreiben einen Stand oder eine Entscheidungsgrundlage,
