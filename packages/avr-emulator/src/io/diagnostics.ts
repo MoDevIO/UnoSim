@@ -9,7 +9,9 @@ export type Diagnostic =
   | { readonly kind: "stack-overflow"; readonly region: "bss" | "heap"; readonly sp: number; readonly limit: number }
   | { readonly kind: "pc-out-of-program"; readonly pc: number; readonly programBytes: number }
   | { readonly kind: "watchdog-reset" }
-  | { readonly kind: "sleep-interrupts-disabled"; readonly pc: number };
+  | { readonly kind: "sleep-interrupts-disabled"; readonly pc: number }
+  /** Serial input that arrived while the receiver was off (before `Serial.begin()`); `bytes` of the first batch of the situation. */
+  | { readonly kind: "serial-input-discarded"; readonly port: number; readonly bytes: number };
 
 export type DiagnosticKind = Diagnostic["kind"];
 

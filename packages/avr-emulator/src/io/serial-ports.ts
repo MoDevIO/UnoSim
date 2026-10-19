@@ -32,13 +32,23 @@ interface Port {
 /**
  * The hardware serial ports of a board. Output: USART bytes decoded as UTF-8
  * across packet boundaries. Input: a queue that hands the USART one byte per
- * frame time once its receiver is enabled; the core's receive buffer behaves
- * as on the board (64 bytes on the Uno, unread bytes are lost).
+ * frame time while its receiver is enabled; the core's receive buffer behaves
+ * as on the board (64 bytes on the Uno, unread bytes are lost). Bytes that
+ * arrive while the receiver is disabled (before `Serial.begin()`, after
+ * `Serial.end()`) are discarded, as on the chip, and reported through
+ * `onDiscard` once per situation: a port reports again only after its
+ * receiver has been enabled in between.
  */
 export class SerialPorts {
   private readonly ports = new Map<number, Port>();
 
-  constructor(machine: Machine) {
+  /** Ports whose discarded input has been reported and whose receiver has not been enabled since. */
+  private readonly reported = new Set<number>();
+
+  constructor(
+    machine: Machine,
+    private readonly onDiscard: (port: number, bytes: number) => void = () => undefined,
+  ) {
     for (const hardware of machine.board.serialPorts) {
       const usart = machine.peripherals.usarts[hardware.usart];
       if (!usart) throw new RangeError(`${machine.mcu.id} has no USART${hardware.usart}`);
@@ -94,12 +104,23 @@ export class SerialPorts {
   }
 
   private pump(port: Port): void {
+    if (port.usart.rxEnable) this.reported.delete(port.hardware.index);
+    else this.discard(port);
     if (port.rxHead >= port.rx.length || port.usart.rxBusy || !port.usart.rxEnable) return;
     if (port.usart.writeByte(port.rx[port.rxHead])) port.rxHead++;
     if (port.rxHead === port.rx.length) {
       port.rx.length = 0;
       port.rxHead = 0;
     }
+  }
+
+  private discard(port: Port): void {
+    const bytes = port.rx.length - port.rxHead;
+    port.rx.length = 0;
+    port.rxHead = 0;
+    if (bytes === 0 || this.reported.has(port.hardware.index)) return;
+    this.reported.add(port.hardware.index);
+    this.onDiscard(port.hardware.index, bytes);
   }
 
   private port(index: number): Port {

@@ -120,24 +120,40 @@ describe("SerialPorts (plan P1.7)", () => {
     expect(serial.pendingBytes(0)).toBe(0);
   });
 
-  it("holds input until the sketch enables the receiver", () => {
+  it("discards input that arrives before the sketch enables the receiver, like the board, and reports it once", () => {
     const machine = machineFromFixture("uno", "uno-serial_probe.hex");
-    const serial = new SerialPorts(machine);
+    const discarded: [number, number][] = [];
+    const serial = new SerialPorts(machine, (port, bytes) => discarded.push([port, bytes]));
     serial.send(0, "7\n"); // before Serial.begin()
+    serial.send(0, "8\n");
 
-    expect(serial.pendingBytes(0)).toBe(2);
-    run(machine, 60);
     expect(serial.pendingBytes(0)).toBe(0);
+    expect(discarded).toEqual([[0, 2]]); // one report for the situation, not one per message or byte
+    run(machine, 60);
+    expect(allOutput(serial)).not.toContain("n=");
+  });
+
+  it("delivers input sent after Serial.begin() unchanged and reports nothing", () => {
+    const machine = machineFromFixture("uno", "uno-serial_probe.hex");
+    const discarded: [number, number][] = [];
+    const serial = new SerialPorts(machine, (port, bytes) => discarded.push([port, bytes]));
+    run(machine, 60);
+    serial.send(0, "7\n");
+    run(machine, 60);
+
     expect(allOutput(serial)).toContain("n=7 after ");
+    expect(discarded).toEqual([]);
   });
 
   it("enforces the input limits of UnoSim", () => {
-    const serial = new SerialPorts(machineFromFixture("uno", "uno-serial_probe.hex"));
+    const machine = machineFromFixture("uno", "uno-serial_probe.hex");
+    const serial = new SerialPorts(machine);
+    run(machine, 60); // receiver enabled by Serial.begin()
     const block = "x".repeat(SERIAL_INPUT_LIMITS.maxMessageBytes);
 
     expect(() => serial.send(0, `${block}x`)).toThrow(/exceeds 4096 bytes/);
     for (let i = 0; i < SERIAL_INPUT_LIMITS.maxPendingBytes / block.length; i++) serial.send(0, block);
-    expect(() => serial.send(0, "x")).toThrow(/pending/);
+    expect(() => serial.send(0, "xx")).toThrow(/pending/); // the first byte of the backlog is already in the USART
     expect(() => serial.send(1, "x")).toThrow(/serial port 1 does not exist/);
   });
 
