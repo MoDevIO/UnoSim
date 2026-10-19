@@ -21,6 +21,10 @@ afterEach(() => {
   while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
 });
 
+/** Marks a chunk as containing the emulator (the two avr8js enum names the check looks for). */
+const AVR8JS = "'PWMPhaseFrequencyCorrect','Internal2V56'";
+const WORKER = { "emulator.worker-w9.js": AVR8JS };
+
 describe("bundle budget initial load path", () => {
   const lazyManifest = {
     "index.html": { file: "assets/index-a1.js", isEntry: true, dynamicImports: ["plotter.tsx"] },
@@ -29,10 +33,11 @@ describe("bundle budget initial load path", () => {
 
   it("passes when Recharts only lives in a lazily imported chunk", () => {
     const result = runBudget(
-      { "index-a1.js": "console.log('app');", "serial-plotter-b2.js": "'recharts-wrapper'" },
+      { "index-a1.js": "console.log('app');", "serial-plotter-b2.js": "'recharts-wrapper'", ...WORKER },
       lazyManifest,
     );
     expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).emulatorChunks).toEqual(["emulator.worker-w9.js"]);
   });
 
   it("fails when Recharts is part of the initial static chunk", () => {
@@ -54,8 +59,33 @@ describe("bundle budget initial load path", () => {
   });
 
   it("still enforces the index size limit", () => {
-    const result = runBudget({ "index-a1.js": "x".repeat(710_001) }, { "index.html": { file: "assets/index-a1.js" } });
+    const result = runBudget({ "index-a1.js": "x".repeat(710_001), ...WORKER }, { "index.html": { file: "assets/index-a1.js" } });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Bundle budget exceeded");
+  });
+
+  it("fails when the emulator is part of the initial load path", () => {
+    const result = runBudget({ "index-a1.js": `console.log(${AVR8JS});`, ...WORKER }, { "index.html": { file: "assets/index-a1.js" } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("emulator (avr8js) is part of the initial load path");
+    expect(result.stderr).toContain("index-a1.js");
+  });
+
+  it("fails when an eagerly imported shared chunk contains the emulator", () => {
+    const result = runBudget(
+      { "index-a1.js": "import './shared-c3.js';", "shared-c3.js": AVR8JS },
+      {
+        "index.html": { file: "assets/index-a1.js", isEntry: true, imports: ["shared.js"] },
+        "shared.js": { file: "assets/shared-c3.js" },
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("shared-c3.js");
+  });
+
+  it("fails when no chunk contains the emulator, because the check would pass for the wrong reason", () => {
+    const result = runBudget({ "index-a1.js": "console.log('app');" }, { "index.html": { file: "assets/index-a1.js" } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("cannot be trusted");
   });
 });
