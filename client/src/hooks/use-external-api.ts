@@ -1,6 +1,10 @@
 import { useEffect } from "react";
-import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData, OperationErrorEventData } from "@/types/external-api";
+import { isBoardPin } from "@shared/board-pins";
+import { type BoardId, DEFAULT_BOARD_ID, type RuntimeKind } from "@shared/boards";
+import {
+  SimulatorActionType, API_VERSION, SimulatorEventType,
+  type ExternalStateData, type SimulatorMessage, type SimulatorResponse, type SimulatorEventMessage, type SimulationStateEventData, type ServerStatusEventData, type OperationErrorEventData,
+} from "@/types/external-api";
 
 interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -27,6 +31,8 @@ interface UseExternalApiParams {
   onSetOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
   /** Returns the current simulation state (used for GET_SIMULATION_STATE responses). */
   getSimulationState: () => string;
+  /** The selected board and runtime (API 1.5.0); without it pins are not checked against a board and GET_STATE answers with the state only. */
+  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind };
   /** Returns the current server status for GET_SERVER_STATUS responses. */
   getServerStatus: () => ServerStatusEventData | null;
 }
@@ -90,6 +96,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
     onSetOutputTab,
     getSimulationState,
     getServerStatus,
+    getBoardInfo,
   } = params;
 
   // Store the allowed origin globally for use by event-sending functions
@@ -107,10 +114,21 @@ export function useExternalApi(params: UseExternalApiParams): void {
     sendMessageToParent({ type: SimulatorActionType.LOAD_CODE, success: true }, allowedOrigin);
   };
 
+  /** An error text when the selected board has no such pin (API 1.5.0); `undefined` if the pin is fine or no board is known. */
+  const pinError = (pin: number): string | undefined => {
+    const info = getBoardInfo?.();
+    return info && !isBoardPin(info.board, pin) ? `pin ${pin} does not exist on ${info.boardName}` : undefined;
+  };
+
   const handlePinState = (payload: unknown): void => {
     const p = payload as { pin?: unknown; value?: unknown };
     if (typeof p?.pin !== "number" || typeof p?.value !== "number") {
       sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: false, error: "payload.pin and payload.value must be numbers" }, allowedOrigin);
+      return;
+    }
+    const error = pinError(p.pin);
+    if (error) {
+      sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: false, error }, allowedOrigin);
       return;
     }
     onSetPinState(p.pin, p.value);
@@ -122,8 +140,13 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: false, error: "payload.pin must be a number" }, allowedOrigin);
       return;
     }
-    const value = getPinState((payload as { pin: number }).pin);
-    sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: true, data: value }, allowedOrigin);
+    const pin = (payload as { pin: number }).pin;
+    const error = pinError(pin);
+    if (error) {
+      sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: false, error }, allowedOrigin);
+      return;
+    }
+    sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: true, data: getPinState(pin) }, allowedOrigin);
   };
 
   const handleBatchSetPinState = (payload: unknown): void => {
@@ -131,11 +154,15 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: false, error: "payload.pins must be an array" }, allowedOrigin);
       return;
     }
-    for (const pinState of (payload as { pins: Array<{ pin?: unknown; value?: unknown }> }).pins) {
-      if (typeof pinState?.pin === "number" && typeof pinState?.value === "number") {
-        onSetPinState(pinState.pin, pinState.value);
-      }
+    const entries = (payload as { pins: Array<{ pin?: unknown; value?: unknown }> }).pins
+      .filter((pinState): pinState is { pin: number; value: number } => typeof pinState?.pin === "number" && typeof pinState?.value === "number");
+    // All or nothing: a pin the board does not have rejects the whole batch (API 1.5.0).
+    const errors = entries.map(({ pin }) => pinError(pin)).filter((error): error is string => error !== undefined);
+    if (errors.length > 0) {
+      sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: false, error: errors.join("; ") }, allowedOrigin);
+      return;
     }
+    for (const { pin, value } of entries) onSetPinState(pin, value);
     sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: true }, allowedOrigin);
   };
 
@@ -170,6 +197,17 @@ export function useExternalApi(params: UseExternalApiParams): void {
   const handleGetState = (): void => {
     const state = getSimulationState();
     sendMessageToParent({ type: SimulatorActionType.GET_SIMULATION_STATE, success: true, data: state }, allowedOrigin);
+  };
+
+  const handleGetFullState = (): void => {
+    const info = getBoardInfo?.();
+    const data: ExternalStateData = {
+      board: info?.board ?? DEFAULT_BOARD_ID,
+      boardName: info?.boardName ?? "Arduino UNO",
+      ...(info?.runtime ? { runtime: info.runtime } : {}),
+      state: getSimulationState(),
+    };
+    sendMessageToParent({ type: SimulatorActionType.GET_STATE, success: true, data }, allowedOrigin);
   };
 
   const handleGetServerStatus = (): void => {
@@ -229,6 +267,9 @@ export function useExternalApi(params: UseExternalApiParams): void {
           break;
         case SimulatorActionType.GET_SERVER_STATUS:
           handleGetServerStatus();
+          break;
+        case SimulatorActionType.GET_STATE:
+          handleGetFullState();
           break;
         // default: silently ignore unknown actions
       }

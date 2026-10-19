@@ -1,3 +1,4 @@
+import { isAnalogPin } from "@/lib/active-board";
 import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useEffect, useCallback, useRef } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -377,7 +378,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       );
       if (hasAnalogOp) {
         const pinNum = pinToNumber(record.pin);
-        if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
+        if (pinNum !== null && isAnalogPin(pinNum)) {
           analogPins.add(pinNum);
         }
       }

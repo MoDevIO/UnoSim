@@ -1,3 +1,4 @@
+import { activePinLabel } from "@/lib/active-board";
 import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import type { RuntimeKind } from "@shared/boards";
 import type { CompilerError } from "@/types/websocket";
@@ -288,7 +289,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
 
   const showPinConflictWarning = (pins: number[]) => {
     const names = pins
-      .map((p) => (p >= 14 && p <= 19 ? `A${p - 14}` : `${p}`))
+      .map((p) => activePinLabel(p))
       .join(", ");
 
     params.setCliOutput(

@@ -279,6 +279,7 @@ export function ArduinoSimulatorPageLayout(
       onAnalogChange={handleAnalogChange}
       capabilities={capabilities}
       isMobile={isMobile}
+      boardId={boardId}
     />
   );
   const experimentalCodeColumn = (

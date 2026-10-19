@@ -4,11 +4,11 @@ Status: current
 
 The Arduino Simulator can be embedded in an `<iframe>` and controlled by its parent page via the [Window.postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
 
-**API Version: 1.4.0**
+**API Version: 1.5.0**
 
 ## Versioning and compatibility
 
-The iframe `postMessage` contract is currently version `1.4.0`. Responses and
+The iframe `postMessage` contract is currently version `1.5.0` (additive over `1.4.0`: board and runtime in `GET_STATE`, pin checks per board; plan decision E14). Responses and
 events always include this version. Additive fields and message types are
 backward-compatible; removing or changing an existing field requires a new
 major API version and a documented migration period. Historical simulation
@@ -143,7 +143,7 @@ iframe.contentWindow.postMessage(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `payload.pin` | `number` | Pin number (digital: 0–13, analog: 14–19 for A0–A5). |
+| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7 (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
 | `payload.value` | `number` | Digital: `0` or `1`. Analog: `0–1023`. PWM: `0–255`. |
 
 ---
@@ -163,7 +163,7 @@ iframe.contentWindow.postMessage(
 
 ### `BATCH_SET_PIN_STATE`
 
-Sets multiple pins in a single operation. *Added in v1.1.0.*
+Sets multiple pins in a single operation. *Added in v1.1.0.* Since 1.5.0 the batch is all or nothing: if any pin does not exist on the selected board, no pin is set and the response is `success: false` with the errors joined by `; `.
 
 ```js
 iframe.contentWindow.postMessage(
@@ -255,6 +255,28 @@ iframe.contentWindow.postMessage(
 
 ---
 
+### `GET_STATE`
+
+Requests the selected board, the runtime and the simulation state in one answer. *Added in v1.5.0.*
+
+```js
+iframe.contentWindow.postMessage(
+  { type: "GET_STATE", payload: undefined },
+  "https://your-site.example.com"
+);
+```
+
+**Response `data`**: `{ board, boardName, runtime?, state }`
+
+| Field | Description |
+|---|---|
+| `board` | Board id: `uno`, `nano` (more with later releases). |
+| `boardName` | Name for display, for example `"Arduino Nano"`. |
+| `runtime` | `"browser"` (emulation in the page) or `"host-mock"` (server-side simulation, "Legacy"): the runtime of the current run, or of the next one while idle. Absent while no runtime is usable. |
+| `state` | Same values as `GET_SIMULATION_STATE`. |
+
+---
+
 ## Outbound Messages (Simulator → Website)
 
 The simulator sends two types of messages back to the parent frame via `window.parent.postMessage`:
@@ -272,7 +294,7 @@ Every inbound action receives a response. This enables the caller to confirm the
 
 ```ts
 interface SimulatorResponse {
-  version: string;    // API version (e.g. "1.4.0")
+  version: string;    // API version (e.g. "1.5.0")
   type: string;       // The action type the response corresponds to
   success: boolean;   // Whether the action was handled successfully
   data?: unknown;     // Optional data (e.g. pin value for GET_PIN_STATE)
@@ -284,19 +306,19 @@ interface SimulatorResponse {
 
 ```js
 // Response to LOAD_CODE:
-{ version: "1.4.0", type: "LOAD_CODE", success: true }
+{ version: "1.5.0", type: "LOAD_CODE", success: true }
 
 // Response to GET_PIN_STATE:
-{ version: "1.4.0", type: "GET_PIN_STATE", success: true, data: 1 }
+{ version: "1.5.0", type: "GET_PIN_STATE", success: true, data: 1 }
 
 // Response to GET_SIMULATION_STATE:
-{ version: "1.4.0", type: "GET_SIMULATION_STATE", success: true, data: "RUNNING" }
+{ version: "1.5.0", type: "GET_SIMULATION_STATE", success: true, data: "RUNNING" }
 ```
 
 #### Example: Error response (payload validation failed)
 
 ```js
-{ version: "1.4.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
+{ version: "1.5.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
 ```
 
 ---
@@ -309,7 +331,7 @@ Event messages are sent **without request** to inform the parent of state change
 
 ```ts
 interface SimulatorEventMessage {
-  version: string;    // API version (e.g. "1.4.0")
+  version: string;    // API version (e.g. "1.5.0")
   type: string;       // Event type
   success: boolean;   // true for state/data events, false for operation errors
   data?: unknown;     // Event-specific payload
@@ -323,7 +345,7 @@ Fired every time the simulator outputs data over the serial interface (Serial.pr
 ```js
 {
   type: "SERIAL_OUTPUT_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: "Hello World\n"
 }
@@ -336,7 +358,7 @@ Fired when a digital or analog pin changes value during simulation.
 ```js
 {
   type: "PIN_STATE_CHANGE_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: { pin: 13, value: 1 }
 }
@@ -349,7 +371,7 @@ Fired when the simulation changes state.
 ```js
 {
   type: "SIMULATION_STATE_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: { state: "RUNNING", message: "Simulation started" }
 }
@@ -370,7 +392,7 @@ for forward-compatible additions; current codes include `RATE_LIMITED`,
 ```js
 {
   type: "OPERATION_ERROR_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: false,
   data: {
     operation: "start_simulation",

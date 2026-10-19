@@ -6,6 +6,9 @@ import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
 import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
+import { DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
+import { activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
+import { type BoardView, boardView } from "@/lib/board-view";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
@@ -98,7 +101,9 @@ interface ArduinoBoardProps {
   readonly rxActive?: number; // RX activity counter (changes trigger blink)
   readonly onReset?: () => void; // Callback when reset button is clicked
   readonly onPinToggle?: (pin: number, newValue: number) => void; // Callback when an INPUT pin is clicked
-  readonly analogPins?: number[]; // array of internal pin numbers for analog pins (14..19)
+  readonly analogPins?: number[]; // array of internal pin numbers for analog pins (14..19 on the Uno, up to 21 on the Nano)
+  /** The board to draw (plan P4.4); the Uno when absent. */
+  readonly boardId?: BoardId;
   readonly onAnalogChange?: (pin: number, value: number) => void;
   readonly controlsDisabled?: boolean;
 }
@@ -117,7 +122,7 @@ function parsePinFromElement(el: Element): number | undefined {
   const digitalMatch = /^pin-(\d+)-click$/.exec(el.id);
   if (digitalMatch) return Number.parseInt(digitalMatch[1], 10);
   const analogMatch = /^pin-A(\d+)-click$/.exec(el.id);
-  if (analogMatch) return 14 + Number.parseInt(analogMatch[1], 10);
+  if (analogMatch) return analogChannelPin(Number.parseInt(analogMatch[1], 10));
   return undefined;
 }
 
@@ -155,9 +160,6 @@ function getCssNumber(prop: string, fallback: number): number {
   }
 }
 
-// SVG viewBox dimensions (from ArduinoUno.svg)
-const VIEWBOX_WIDTH = 285.2;
-const VIEWBOX_HEIGHT = 209;
 
 /**
  * Gets computed spacing token values at runtime
@@ -177,15 +179,17 @@ function getComputedSpacingToken(tokenName: string): number {
 function computeSliderPositionsFromSvg(
   svgEl: SVGSVGElement,
   analogPins: number[],
+  view: Pick<BoardView, "width" | "height">,
 ): SliderPosition[] {
   const positions: SliderPosition[] = [];
+  const { width: VIEWBOX_WIDTH, height: VIEWBOX_HEIGHT } = view;
   for (const pin of analogPins) {
-    if (pin < 14 || pin > 19) continue;
-    const idx = pin - 14;
+    if (!isAnalogPin(pin)) continue;
+    const label = activePinLabel(pin);
     const candidates = [
-      `pin-A${idx}-state`,
-      `pin-A${idx}-frame`,
-      `pin-A${idx}-click`,
+      `pin-${label}-state`,
+      `pin-${label}-frame`,
+      `pin-${label}-click`,
       `pin-${pin}-state`,
       `pin-${pin}-frame`,
       `pin-${pin}-click`,
@@ -234,7 +238,7 @@ function dispatchPinClick(
 ): void {
   const state = pinStates.find((p) => p.pin === pin);
   const usedAsAnalog = analogPins.includes(pin);
-  if (pin >= 14 && pin <= 19 && onAnalogChange != null && usedAsAnalog) {
+  if (isAnalogPin(pin) && onAnalogChange != null && usedAsAnalog) {
     const info = sliderPositions.find((s) => s.pin === pin);
     const val = state?.value ?? 0;
     const leftPct = info?.leftPct ?? 50;
@@ -302,9 +306,13 @@ export function ArduinoBoard({
   onReset,
   onPinToggle,
   analogPins = [],
+  boardId = DEFAULT_BOARD_ID,
   onAnalogChange,
   controlsDisabled = false,
 }: ArduinoBoardProps) {
+  const view = boardView(boardId);
+  const { width: VIEWBOX_WIDTH, height: VIEWBOX_HEIGHT } = view;
+  const boardName = getBoard(boardId).displayName;
   const [svgContent, setSvgContent] = useState<string>("");
   const boardColor = useBoardColor();
   const [overlaySvgContent, setOverlaySvgContent] = useState<string>("");
@@ -383,20 +391,27 @@ export function ArduinoBoard({
     };
   }, []);
 
-  // Load both SVGs once
+  // Load both SVGs of the board; a board change loads the new ones
   useEffect(() => {
+    setSvgContent("");
+    setOverlaySvgContent("");
+    let current = true;
     Promise.all([
-      fetch("/ArduinoUno.svg").then((r) => r.text()),
-      fetch("/ArduinoUno-overlay.svg").then((r) => r.text()),
+      fetch(view.boardSvg).then((r) => r.text()),
+      fetch(view.overlaySvg).then((r) => r.text()),
     ])
       .then(([main, overlay]) => {
+        if (!current) return;
         setSvgContent(main);
         setOverlaySvgContent(overlay);
       })
       .catch(() => {
         // Silently handle SVG loading failure
       });
-  }, []);
+    return () => {
+      current = false;
+    };
+  }, [view]);
 
   // Stable reference to ALL current state for polling - updated on every render
   const stateRef = useRef({
@@ -443,8 +458,8 @@ export function ArduinoBoard({
       setSliderPositions([]);
       return;
     }
-    setSliderPositions(computeSliderPositionsFromSvg(svgEl, analogPins));
-  }, [overlaySvgContent, analogPins]);
+    setSliderPositions(computeSliderPositionsFromSvg(svgEl, analogPins, view));
+  }, [overlaySvgContent, analogPins, view]);
 
   // Update slider values when pinStates changes (without triggering re-calculation of positions)
   useEffect(() => {
@@ -557,7 +572,7 @@ export function ArduinoBoard({
       <div className="bg-muted px-[var(--header-padding-x)] border-b border-border flex items-center justify-between h-[var(--ui-header-height)] overflow-hidden">
         <div className="flex items-center space-x-2 min-w-0 whitespace-nowrap">
           <Cpu className="text-white opacity-95 h-5 w-5" strokeWidth={1.67} />
-          <span className="sr-only">Arduino UNO Board</span>
+          <span className="sr-only">{boardName} Board</span>
           {debugMode && isSimulationRunning && (
             <TelemetryMetrics telemetry={telemetry} />
           )}
@@ -716,7 +731,7 @@ function getAnalogDialogCoordinates(
   left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
   top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
 
-  const pinLabel = dialog.pin >= 14 && dialog.pin <= 19 ? `A${dialog.pin - 14}` : `${dialog.pin}`;
+  const pinLabel = activePinLabel(dialog.pin);
 
   return { left, top, dialogWidth, dialogHeight, pinLabel };
 }

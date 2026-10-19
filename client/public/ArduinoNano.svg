@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 180.8 80">
+  <!-- Arduino Nano, drawn for UnoSim: 172.8 x 72 units (43.2 x 18 mm) -->
+  <rect x="0" y="0" width="172.8" height="72" rx="3" fill="#0f7391"/>
+  <rect x="-3" y="22" width="19" height="28" rx="1.5" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="0.6"/>
+  <rect x="-3" y="26" width="13" height="20" rx="1" fill="#9b9b9b"/>
+  <rect x="68" y="25" width="34" height="22" rx="1" fill="#222222"/>
+  <text x="85" y="37" font-size="3.4" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">ATmega328P</text>
+  <circle cx="70.5" cy="27.5" r="0.9" fill="#555555"/>
+  <rect x="108" y="29" width="10" height="14" rx="1" fill="#c0c0c0"/>
+  <text x="123" y="36.5" font-size="3.4" font-family="Arial, sans-serif" fill="#ffffff">NANO</text>
+  <text x="123" y="42" font-size="2.6" font-family="Arial, sans-serif" fill="#ffffff" fill-opacity="0.8">UnoSim</text>
+  <rect x="38" y="29" width="8" height="8" rx="1" fill="#2a2a2a"/>
+  <rect x="26" y="40" width="3.5" height="2.2" fill="#d8d8d8"/><text x="31" y="41.9" font-size="2.2" font-family="Arial, sans-serif" fill="#ffffff">L</text>
+  <rect x="26" y="45" width="3.5" height="2.2" fill="#d8d8d8"/><text x="31" y="46.9" font-size="2.2" font-family="Arial, sans-serif" fill="#ffffff">TX</text>
+  <rect x="26" y="30" width="3.5" height="2.2" fill="#d8d8d8"/><text x="31" y="31.9" font-size="2.2" font-family="Arial, sans-serif" fill="#ffffff">RX</text>
+  <rect x="26" y="35" width="3.5" height="2.2" fill="#d8d8d8"/><text x="31" y="36.9" font-size="2.2" font-family="Arial, sans-serif" fill="#ffffff">ON</text>
+  <circle cx="21.6" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="21.6" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">TX1</text>
+  <circle cx="31.76" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="31.76" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">RX0</text>
+  <circle cx="41.92" cy="6" r="2.1" fill="#8a8a8a"/>
+  <text x="41.92" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">RST</text>
+  <circle cx="52.08" cy="6" r="2.1" fill="#8a8a8a"/>
+  <text x="52.08" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">GND</text>
+  <circle cx="62.24" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="62.24" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D2</text>
+  <circle cx="72.4" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="72.4" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D3</text>
+  <circle cx="82.56" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="82.56" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D4</text>
+  <circle cx="92.72" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="92.72" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D5</text>
+  <circle cx="102.88" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="102.88" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D6</text>
+  <circle cx="113.04" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="113.04" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D7</text>
+  <circle cx="123.2" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="123.2" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D8</text>
+  <circle cx="133.36" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="133.36" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D9</text>
+  <circle cx="143.52" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="143.52" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D10</text>
+  <circle cx="153.68" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="153.68" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D11</text>
+  <circle cx="163.84" cy="6" r="2.1" fill="#d1c690"/>
+  <text x="163.84" y="13.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D12</text>
+  <circle cx="21.6" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="21.6" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">VIN</text>
+  <circle cx="31.76" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="31.76" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">GND</text>
+  <circle cx="41.92" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="41.92" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">RST</text>
+  <circle cx="52.08" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="52.08" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">5V</text>
+  <circle cx="62.24" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="62.24" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A7</text>
+  <circle cx="72.4" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="72.4" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A6</text>
+  <circle cx="82.56" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="82.56" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A5</text>
+  <circle cx="92.72" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="92.72" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A4</text>
+  <circle cx="102.88" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="102.88" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A3</text>
+  <circle cx="113.04" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="113.04" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A2</text>
+  <circle cx="123.2" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="123.2" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A1</text>
+  <circle cx="133.36" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="133.36" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">A0</text>
+  <circle cx="143.52" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="143.52" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">REF</text>
+  <circle cx="153.68" cy="66" r="2.1" fill="#8a8a8a"/>
+  <text x="153.68" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle" fill-opacity="0.7">3V3</text>
+  <circle cx="163.84" cy="66" r="2.1" fill="#d1c690"/>
+  <text x="163.84" y="60.5" font-size="3" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">D13</text>
+</svg>

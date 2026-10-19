@@ -3,6 +3,7 @@ import { ParserOutput } from "@/components/features/parser-output";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import type { SourceLocation } from "@shared/source-project";
 import userEvent from "@testing-library/user-event";
+import { setActiveBoard } from "@/lib/active-board";
 import { describe, it, expect, vi } from "vitest";
 
 // Registry records of the legacy format carry only `usedAt` operations such as
@@ -982,5 +983,25 @@ describe("ParserOutput - origin of registry findings (plan P3.7)", () => {
     expect(screen.getByText("L9")).toBeInTheDocument();
     expect(screen.getByText("+ runtime")).toBeInTheDocument();
     expect(screen.getAllByText("runtime")).toHaveLength(1);
+  });
+});
+
+describe("ParserOutput - all pins of the active board (plan P4.3)", () => {
+  it("lists the 20 pins of the Uno and the 22 of the Nano, A6 and A7 included, when all pins are shown", async () => {
+    const rows = () => document.querySelectorAll("tbody tr").length;
+    const { unmount } = renderRegistry();
+    await userEvent.click(screen.getByLabelText("Show all pins"));
+    expect(rows()).toBe(20);
+    unmount();
+
+    setActiveBoard("nano");
+    try {
+      renderRegistry();
+      await userEvent.click(screen.getByLabelText("Show all pins"));
+      expect(rows()).toBe(22);
+      expect(screen.getByText("A7")).toBeInTheDocument();
+    } finally {
+      setActiveBoard("uno");
+    }
   });
 });

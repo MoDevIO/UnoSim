@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { PinState } from "@/components/features/arduino-board";
-import { UNO_PWM_PINS, isUnoPwmPin } from "@shared/utils/arduino-utils";
+import { activeAnalogPins, activePwmPins, isActivePwmPin } from "@/lib/active-board";
 
 // Constants
 const VIEWBOX_HEIGHT = 209;
@@ -240,7 +240,7 @@ function pinColorForState(state: PinState, pin: number, brightness: number): str
   if (brightness <= 0) return "var(--color-black)";
   const intensity = Math.round(brightness * 255);
   if (state.type === "digital") return `rgb(${intensity}, 0, 0)`;
-  if (isUnoPwmPin(pin)) {
+  if (isActivePwmPin(pin)) {
     const pwmIntensity = Math.round((state.value / 255) * intensity);
     return `rgb(${pwmIntensity}, 0, 0)`;
   }
@@ -391,15 +391,14 @@ export function usePinPollingEngine({
       return;
     }
 
-    for (const pin of UNO_PWM_PINS) {
+    for (const pin of activePwmPins()) {
       const valStr = getPinState(pin)?.value?.toString() ?? "";
       updateLabelForPin(svgEl, `pin-${pin}-state`, `pin-${pin}-frame`, `pin-${pin}-val`, valStr, showPWMValues);
     }
 
-    for (let i = 0; i <= 5; i++) {
-      const pinNumber = 14 + i;
-      const valStr = getPinState(pinNumber)?.value?.toString() ?? "";
-      updateLabelForPin(svgEl, `pin-A${i}-state`, `pin-A${i}-frame`, `pin-A${i}-val`, valStr, showPWMValues);
+    for (const analog of activeAnalogPins()) {
+      const valStr = getPinState(analog.pin)?.value?.toString() ?? "";
+      updateLabelForPin(svgEl, `pin-${analog.label}-state`, `pin-${analog.label}-frame`, `pin-${analog.label}-val`, valStr, showPWMValues);
     }
   };
 

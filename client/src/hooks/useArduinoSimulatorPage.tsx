@@ -31,6 +31,7 @@ import { buildSourceProject } from "@/lib/source-project";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 import { getServerCapabilities } from "@/lib/server-capabilities";
+import { setActiveBoard } from "@/lib/active-board";
 import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
 import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
@@ -254,6 +255,8 @@ export function useArduinoSimulatorPage() {
   // Selected board (Tools → Board): the server's default until the user chooses another.
   const board = runtimeSelection.board?.displayName ?? "Arduino UNO";
   const boardId = runtimeSelection.board?.id;
+  // The pin helpers outside the page (pin store, labels, registry table) follow the selected board.
+  if (boardId) setActiveBoard(boardId);
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
     if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
@@ -611,7 +614,7 @@ export function useArduinoSimulatorPage() {
     varMap: _varMap,
     detectedPinModes: _detectedPinModes,
     pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(sourceProject);
+  } = useSketchAnalysis(sourceProject, boardId);
 
   // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
@@ -630,12 +633,11 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setStaticIoRegistry(
-        sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
-      );
+      const options = boardId ? { board: boardId } : {};
+      setStaticIoRegistry(sourceProject ? parseStaticIORegistryProject(sourceProject, options) : []);
     }, 300);
     return () => clearTimeout(timer);
-  }, [sourceProject, compilationStatus, setStaticIoRegistry]);
+  }, [sourceProject, boardId, compilationStatus, setStaticIoRegistry]);
 
   // A stopped/reset run must not leak its last runtime snapshot into the next
   // idle view. The static registry becomes authoritative again immediately.
@@ -776,7 +778,11 @@ export function useArduinoSimulatorPage() {
     setCode(nextCode);
   }, [invalidatePendingStart, setCode]);
 
+  // The runtime of the current run, or the one the next start will use while idle (the debug bar names it).
+  const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
+
   const { pendingExternalStart } = useSimulatorExternalControl({
+    ...(boardId ? { getBoardInfo: () => ({ board: boardId, boardName: board, ...(engine ? { runtime: engine } : {}) }) } : {}),
     allowedOrigin: externalAllowedOrigin,
     backendReachable,
     isConnected,
@@ -816,9 +822,6 @@ export function useArduinoSimulatorPage() {
       setShowCompilationOutput(true);
     }
   }, [simulationStatus, setShowCompilationOutput]);
-
-  // The runtime of the current run, or the one the next start will use while idle (the debug bar names it).
-  const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
 
   const state = {
     compile: {

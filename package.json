@@ -49,6 +49,7 @@
     "test:deployment:installer": "tsx scripts/deployment/installer-deployment.ts",
     "capacity:calibrate": "tsx scripts/calibrate-capacity.ts",
     "emulate": "tsx scripts/emulate.ts",
+    "generate:nano-svg": "node scripts/generate-nano-svg.mjs",
     "record:hardware": "tsx scripts/record-hardware.ts",
     "spike:p03": "node spikes/p0-3/build.mjs --serve",
     "fixtures:runtime": "tsx scripts/runtime-fixtures.ts",
