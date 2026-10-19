@@ -64,6 +64,18 @@ describe("bundle budget initial load path", () => {
     expect(result.stderr).toContain("Bundle budget exceeded");
   });
 
+  it("counts the whole initial load path against the limit, not only the index chunk", () => {
+    const result = runBudget(
+      { "index-a1.js": `import './shared-c3.js';${"x".repeat(400_000)}`, "shared-c3.js": "y".repeat(400_000), ...WORKER },
+      {
+        "index.html": { file: "assets/index-a1.js", isEntry: true, imports: ["shared.js"] },
+        "shared.js": { file: "assets/shared-c3.js" },
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Bundle budget exceeded");
+  });
+
   it("fails when the emulator is part of the initial load path", () => {
     const result = runBudget({ "index-a1.js": `console.log(${AVR8JS});`, ...WORKER }, { "index.html": { file: "assets/index-a1.js" } });
     expect(result.status).toBe(1);

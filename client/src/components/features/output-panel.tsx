@@ -3,7 +3,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
-import { ParserOutput } from "@/components/features/parser-output";
+import { lazy, Suspense } from "react";
+
+// The messages and registry tables are not needed before the first compile: they load with their tab (initial bundle budget, plan P3.9).
+const ParserOutput = lazy(() => import("@/components/features/parser-output").then((module) => ({ default: module.ParserOutput })));
 import { X, LayoutGrid, Table, Copy, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
@@ -175,19 +178,23 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       </TabsContent>
 
       <TabsContent value="messages" className="flex-1 overflow-hidden m-0">
-        <ParserOutput
-          messages={parserMessages}
-          ioRegistry={ioRegistry}
-          messagesContainerRef={parserMessagesContainerRef}
-          onClear={onParserMessagesClear}
-          onGoToLine={onParserGoToLine}
-          onInsertSuggestion={onInsertSuggestion}
-          hideHeader={true}
-        />
+        <Suspense fallback={null}>
+          <ParserOutput
+            messages={parserMessages}
+            ioRegistry={ioRegistry}
+            messagesContainerRef={parserMessagesContainerRef}
+            onClear={onParserMessagesClear}
+            onGoToLine={onParserGoToLine}
+            onInsertSuggestion={onInsertSuggestion}
+            hideHeader={true}
+          />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="registry" className="flex-1 overflow-hidden m-0">
-        <ParserOutput messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
+        <Suspense fallback={null}>
+          <ParserOutput messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="debug" className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
