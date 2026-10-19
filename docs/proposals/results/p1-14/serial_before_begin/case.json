@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 5800,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "serial_before_begin",
+  "basis": "probe",
+  "events": [[500, "serial", "ABC"]],
+  "expectState": [],
+  "tolerances": []
+}

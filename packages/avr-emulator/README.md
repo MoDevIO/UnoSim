@@ -223,6 +223,11 @@ at least 90 % line coverage for `src/`.
 - **Receive buffer:** the chip buffers two received bytes plus the shift
   register, avr8js one. A sketch that keeps interrupts disabled for longer than
   one frame time can lose a byte that the board would still deliver.
+- **Input before `Serial.begin()`:** the emulator holds serial input until the
+  sketch enables the receiver and then delivers it. On a real Uno (ATmega16U2
+  bridge, measured with `docs/proposals/results/p1-14/serial_before_begin`)
+  bytes that arrive while `RXEN0` is off are lost: `Serial.available()` is 0
+  where the emulator reports 3.
 - **Watchdog reset:** avr8js resets only PC and SP; see the diagnostics section.
 
 ## License
