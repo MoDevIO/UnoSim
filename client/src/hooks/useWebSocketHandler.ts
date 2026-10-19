@@ -1,4 +1,4 @@
-import type { DebugProtocol } from "@/hooks/use-debug-console";
+import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useEffect, useCallback, useRef } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
@@ -66,7 +66,7 @@ export type UseWebSocketHandlerParams = {
   simulationStatus: SimulationStatus;
 
   // callbacks / setters from parent scope
-  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: DebugProtocol) => void;
+  addDebugMessage: (source: DebugSender, type: string, data: string, protocol?: DebugProtocol) => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
@@ -529,7 +529,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 
     // Log all messages to debug console BEFORE consuming them
     messageQueue.forEach((msg) => {
-      addDebugMessage("server", msg.type || "unknown", JSON.stringify(msg, null, 2), "websocket");
+      // Events of a browser run are fed into this stream by the page itself; they did not come from the server.
+      const fromBrowser = getRuntimeHub().isBrowserEvent(msg);
+      addDebugMessage(fromBrowser ? "browser" : "server", msg.type || "unknown", JSON.stringify(msg, null, 2), fromBrowser ? "worker" : "websocket");
     });
 
     const messages = consumeMessages();

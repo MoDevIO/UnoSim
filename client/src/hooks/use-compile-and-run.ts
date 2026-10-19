@@ -5,7 +5,7 @@ import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
 import type { RuntimeKind } from "@shared/boards";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
-import type { DebugMessage, DebugProtocol } from "@/hooks/use-debug-console";
+import type { DebugMessage, DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
@@ -43,7 +43,7 @@ function determineCodeSource(
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
 export type DebugMessageParams = {
-  source: "frontend" | "server";
+  source: DebugSender;
   type: string;
   data: string;
   protocol?: DebugProtocol;

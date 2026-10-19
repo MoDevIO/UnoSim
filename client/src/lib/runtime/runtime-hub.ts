@@ -13,6 +13,8 @@ export interface RuntimeHubOptions {
 }
 
 const BROWSER_ONLY_EVENTS: ReadonlySet<string> = new Set(["runtime_usage", "runtime_diagnostic", "runtime_telemetry"]);
+/** The messages the browser runtime produces in the form of the server's: the server sends none of these during a browser run. */
+const BROWSER_STREAM_TYPES: ReadonlySet<string> = new Set(["serial_output", "simulation_status", "pin_state_batch", "io_registry"]);
 const isBrowserOnly = (event: AnyRuntimeEvent): event is BrowserRuntimeEvent => BROWSER_ONLY_EVENTS.has(event.type);
 
 /**
@@ -45,6 +47,11 @@ export class RuntimeHub {
   /** True from the start of a browser run until the browser runtime reports it stopped; such a run needs no server connection. */
   get browserRunActive(): boolean {
     return this.browserRun;
+  }
+
+  /** True for a message of the run events the browser runtime feeds into the message stream while a browser run is the current run. */
+  isBrowserEvent(message: { readonly type: string }): boolean {
+    return this.activeValue === "browser" && BROWSER_STREAM_TYPES.has(message.type);
   }
 
   /** Notified when `browserRunActive` changes. */

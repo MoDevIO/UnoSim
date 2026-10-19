@@ -119,3 +119,17 @@ describe("RuntimeHub browser run state (plan P3.5)", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 });
+
+describe("RuntimeHub message origin", () => {
+  it("tells the run events of a browser run from the server's messages", () => {
+    const { hub } = setup();
+
+    expect(hub.isBrowserEvent({ type: "serial_output" })).toBe(false); // no browser run yet
+    hub.setActive("browser");
+
+    expect(["serial_output", "simulation_status", "pin_state_batch", "io_registry"].map((type) => hub.isBrowserEvent({ type }))).toEqual([true, true, true, true]);
+    expect(hub.isBrowserEvent({ type: "compilation_status" })).toBe(false); // the server still reports compiles
+    hub.setActive("host-mock");
+    expect(hub.isBrowserEvent({ type: "serial_output" })).toBe(false);
+  });
+});

@@ -191,6 +191,28 @@ describe("useWebSocketHandler", () => {
     });
   });
 
+  it("logs the run events of a browser run as BROWSER over the worker, and the server's messages as SERVER", () => {
+    const hub = getRuntimeHub();
+    hub.setActive("browser");
+    try {
+      const { rerender } = renderHook(() => useWebSocketHandler(params));
+
+      mockMessageQueue = [
+        { type: "serial_output", data: "hi\n", isComplete: true },
+        { type: "compilation_status", arduinoCliStatus: "success" },
+      ];
+      rerender();
+
+      const logged = (params.addDebugMessage as ReturnType<typeof vi.fn>).mock.calls.map(([source, type, , protocol]) => [source, type, protocol]);
+      expect(logged).toEqual([
+        ["browser", "serial_output", "worker"],
+        ["server", "compilation_status", "websocket"],
+      ]);
+    } finally {
+      hub.setActive(undefined);
+    }
+  });
+
   it("returns sendMessage and isConnected", () => {
     const { result } = renderHook(() => useWebSocketHandler(params));
     expect(result.current.isConnected).toBe(true);

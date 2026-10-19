@@ -4,10 +4,13 @@ import { generateUuidV4 } from "@/lib/uuid";
 /** Transport of a logged message: HTTP, the WebSocket, or the browser emulation's worker. */
 export type DebugProtocol = "websocket" | "http" | "worker";
 
+/** Who sent a logged message: the server, the page itself, or the browser emulation. */
+export type DebugSender = "server" | "frontend" | "browser";
+
 export interface DebugMessage {
   id: string;
   timestamp: Date;
-  sender: "server" | "frontend";
+  sender: DebugSender;
   type: string;
   content: string;
   protocol?: DebugProtocol;
@@ -47,7 +50,7 @@ export function useDebugConsole(activeOutputTab: string) {
 
   const addDebugMessage = useCallback(
     (
-      sender: "server" | "frontend",
+      sender: DebugSender,
       type: string,
       content: string,
       protocol?: DebugProtocol,
