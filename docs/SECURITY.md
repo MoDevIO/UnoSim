@@ -114,7 +114,12 @@ diagnostics:
 - includes that name a file outside the submitted project – absolute paths,
   paths leaving the project, `..` in library includes, computed includes and
   escaped directive names – are rejected before `arduino-cli` runs;
-- the compiled HEX is never returned to the browser.
+- the compiled HEX (`binary`) is never returned to the browser. The response
+  carries the flash image as `artifact` (flash range, SHA-256, symbols; browser
+  emulation, plan P2.5) only in the local profile, which serves one trusted
+  developer. The Docker profile never returns it: an image built in the
+  unsandboxed backend could embed files the backend can read, so delivery
+  waits for the compile sandbox ([ADR 0010](adr/0010-compile-sandbox-and-flash-artifact.md)).
 
 Remaining risk: inline-assembler directives such as `.include` can still make
 the assembler report the first characters of each line of a readable file, and

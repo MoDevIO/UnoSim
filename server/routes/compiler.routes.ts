@@ -27,6 +27,8 @@ type CompilerDeps = {
   logger: Logger;
   compileRateLimiter?: { checkLimit: (identity: string) => RateLimitResult };
   disableRateLimit?: boolean;
+  /** Whether the response may carry the flash image (`artifact`); false when omitted. */
+  artifactDelivery?: boolean;
   /** Boards this deployment offers; the catalog default (plan 4.11) when omitted. */
   offeredBoards?: () => readonly BoardCatalogEntry[];
 };
@@ -74,10 +76,14 @@ function resolveCompileTarget(data: CompileRequestData, offered: readonly BoardC
   return data.board === undefined ? { options: { fqbn: data.fqbn } } : { options: { board, fqbn: getBoard(board).fqbn } };
 }
 
-/** The HEX stays on the server: the client never uses it and it inflates every response. */
-function withoutBinary(result: CompilationResult): CompilationResult {
-  const { binary: _binary, ...clientResult } = result;
-  return clientResult;
+/**
+ * What the client gets: never the HEX (`binary`), and the `artifact` only for
+ * a successful build when the deployment may deliver it (plan 4.10: the local
+ * profile; the Docker profile once the compile sandbox exists).
+ */
+function clientResultOf(result: CompilationResult, deliverArtifact: boolean): CompilationResult {
+  const { binary: _binary, artifact, ...clientResult } = result;
+  return deliverArtifact && result.success && artifact ? { ...clientResult, artifact } : clientResult;
 }
 
 function isTimedOutCompileResult(result: CompilationResult): boolean {
@@ -210,7 +216,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
       recordCompileMetricIfNeeded(compiler, compileStartTime, result);
 
-      const clientResult = withoutBinary(result);
+      const clientResult = clientResultOf(result, deps.artifactDelivery === true);
       if (result.success) {
         if (!cacheDisabled) {
           compilationCache.set(codeHash, { result: clientResult, timestamp: Date.now() });
