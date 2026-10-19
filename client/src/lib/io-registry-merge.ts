@@ -45,31 +45,48 @@ function runtimeFindings(record: IOPinRecord): Map<IOFunction, RuntimeFinding> {
 const hasStatic = (record: IOPinRecord, fn: IOFunction): boolean =>
   ((record[`${fn}Lines` as LineKey]?.length ?? 0) > 0) || ((record[`${fn}Locations` as LocationKey]?.length ?? 0) > 0);
 
+function originOf(fromStatic: boolean, seenInRun: boolean): IOOrigin | undefined {
+  if (fromStatic && seenInRun) return "both";
+  if (fromStatic) return "static";
+  return seenInRun ? "runtime" : undefined;
+}
+
+/** Adds the runtime lines of every function the static analysis has no line for; returns the origin per function. */
+function addRuntimeLines(base: IOPinRecord, staticRecord: IOPinRecord | undefined, findings: Map<IOFunction, RuntimeFinding>): Partial<Record<IOFunction, IOOrigin>> {
+  const origin: Partial<Record<IOFunction, IOOrigin>> = {};
+  const target = base as unknown as Record<string, unknown>;
+  for (const fn of FUNCTIONS) {
+    const fromStatic = staticRecord !== undefined && hasStatic(staticRecord, fn);
+    const finding = findings.get(fn);
+    const found = originOf(fromStatic, finding !== undefined);
+    if (found === undefined) continue;
+    origin[fn] = found;
+    if (found === "runtime" && finding) {
+      target[`${fn}Lines`] = [...((staticRecord?.[`${fn}Lines` as LineKey] as LineMark[] | undefined) ?? []), ...finding.lines];
+    }
+  }
+  return origin;
+}
+
+/** A pin mode the run used that the static analysis did not find is a conflict; both sources are named. */
+function markModeConflict(base: IOPinRecord, staticModes: readonly string[], runtimeModes: readonly string[]): void {
+  base.conflict = true;
+  const note = `Static analysis found ${[...new Set(staticModes)].join("/")}, the running simulation used ${runtimeModes.join("/")}`;
+  base.conflictMessage = base.conflictMessage ? `${base.conflictMessage}; ${note}` : note;
+}
+
 function mergePin(staticRecord: IOPinRecord | undefined, runtimeRecord: IOPinRecord | undefined): IOPinRecord {
   if (!runtimeRecord) return staticRecord as IOPinRecord;
   const findings = runtimeFindings(runtimeRecord);
   const base: IOPinRecord = staticRecord ? { ...staticRecord } : { pin: runtimeRecord.pin, defined: runtimeRecord.defined };
-  const origin: Partial<Record<IOFunction, IOOrigin>> = {};
-  const target = base as unknown as Record<string, unknown>;
-
-  for (const fn of FUNCTIONS) {
-    const fromStatic = staticRecord !== undefined && hasStatic(staticRecord, fn);
-    const finding = findings.get(fn);
-    if (!fromStatic && !finding) continue;
-    origin[fn] = fromStatic && finding ? "both" : fromStatic ? "static" : "runtime";
-    if (!fromStatic && finding) {
-      target[`${fn}Lines`] = [...((staticRecord?.[`${fn}Lines` as LineKey] as LineMark[] | undefined) ?? []), ...finding.lines];
-    }
-  }
+  const origin = addRuntimeLines(base, staticRecord, findings);
 
   const runtimeModes = findings.get("pinMode")?.modes ?? [];
   const staticModes = staticRecord?.pinModeModes ?? [];
   if (origin.pinMode === "runtime") {
     base.pinModeModes = [...staticModes, ...runtimeModes] as NonNullable<IOPinRecord["pinModeModes"]>;
   } else if (origin.pinMode === "both" && runtimeModes.some((mode) => !staticModes.includes(mode as never))) {
-    base.conflict = true;
-    const note = `Static analysis found ${[...new Set(staticModes)].join("/")}, the running simulation used ${runtimeModes.join("/")}`;
-    base.conflictMessage = base.conflictMessage ? `${base.conflictMessage}; ${note}` : note;
+    markModeConflict(base, staticModes, runtimeModes);
   }
 
   base.defined = base.defined || runtimeRecord.defined;
