@@ -1,0 +1,3 @@
+Licht: 0 -> PWM: 0
+Licht: 512 -> PWM: 127
+Licht: 1023 -> PWM: 255

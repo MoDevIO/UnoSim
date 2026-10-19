@@ -1,0 +1,4 @@
+Stelle 14: 0.49 V (0 ms)
+Stelle 15: 2.44 V (0 ms)
+Stelle 16: 4.88 V (0 ms)
+

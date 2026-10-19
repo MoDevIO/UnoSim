@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Arithmetic operators on int and float.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; 13/5 = 2 (integer division), 13.0/5.0 = 2.60",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

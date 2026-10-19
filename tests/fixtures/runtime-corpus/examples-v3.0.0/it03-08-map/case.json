@@ -1,0 +1,11 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "map() with integer arithmetic.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; map(x, a, b, c, d) = (x-a)*(d-c)/(b-a)+c with truncating division: 23*1000/100 = 230, 23*(-1000)/100 + 1000 = 770, 1*10/3 = 3",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

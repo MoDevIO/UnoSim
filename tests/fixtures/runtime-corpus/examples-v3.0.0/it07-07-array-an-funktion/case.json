@@ -1,0 +1,14 @@
+{
+  "board": "uno",
+  "simMs": 600,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Five readings passed to a function that averages them.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; readings at 0, 100, 200, 300, 400 ms: 600, 600, 600, 800, 800 (event at 250 ms), mean 680.0",
+  "events": [
+    [0, "adcVolts", 0, 2.932129],
+    [250, "adcVolts", 0, 3.908691]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

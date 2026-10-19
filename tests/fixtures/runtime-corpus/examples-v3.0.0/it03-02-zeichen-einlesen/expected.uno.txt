@@ -1,0 +1,5 @@
+Text eingeben und senden:
+Empfangen: H  Code: 72
+Empfangen: i  Code: 105
+Empfangen: 
+  Code: 10

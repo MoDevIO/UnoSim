@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { diffOutput, loadCorpus, normalizeOutput, parseCaseFile } from "./corpus-helpers";
+import { SHARDS } from "./corpus-suite";
 
 const valid = {
   board: "uno",
@@ -64,6 +65,14 @@ describe("diffOutput", () => {
     expect(diffOutput("delay(100): 100\n", "delay(100): 99\n", echo)).toEqual([]);
   });
 
+  it("tolerates every captured number of a line", () => {
+    const both = [{ pattern: String.raw`^from (\d+) to (\d+)$`, plusMinus: 2, reason: "granularity" }];
+
+    expect(diffOutput("from 0 to 587\n", "from 1 to 586\n", both)).toEqual([]);
+    expect(diffOutput("from 0 to 587\n", "from 3 to 586\n", both)).toHaveLength(1);
+    expect(diffOutput("from 0 to 587\n", "from 1 to 590\n", both)).toHaveLength(1);
+  });
+
   it("does not apply a tolerance to lines it does not match", () => {
     expect(diffOutput("count 5\n", "count 6\n", tolerance)).toHaveLength(1);
   });
@@ -72,6 +81,14 @@ describe("diffOutput", () => {
 describe("normalizeOutput and loadCorpus", () => {
   it("turns CRLF into LF", () => {
     expect(normalizeOutput("a\r\nb\r\n")).toBe("a\nb\n");
+  });
+
+  it("assigns every case to exactly one test shard", () => {
+    const shards = Object.values(SHARDS);
+
+    for (const testCase of loadCorpus()) {
+      expect(shards.filter((belongs) => belongs(testCase)).length, `${testCase.group}/${testCase.id}`).toBe(1);
+    }
   });
 
   it("loads the checked-in corpus with unique ids per group", () => {

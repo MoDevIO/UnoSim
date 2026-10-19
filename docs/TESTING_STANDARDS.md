@@ -60,6 +60,13 @@ differs from the checked-in bytes, in which case fixtures and core version are
 updated together. Serial output of a case must fit in its `simMs` (at 115200
 baud about 11 characters per simulated millisecond).
 
+The corpus is split into shards (`packages/avr-emulator/tests/runtime-corpus-*.test.ts`)
+so that Vitest spreads it over its workers. It runs in `npm run test:unit`
+but not in the emulator coverage pass (`UNOSIM_SKIP_CORPUS=1` in
+`test:coverage`): it adds no coverage of `src/` and costs minutes under V8
+instrumentation. The toolchain gate rebuilds every fixture; its budget is
+300 s (`test:integration`).
+
 ---
 
 ## Coverage-Hotspots

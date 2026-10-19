@@ -1,0 +1,5 @@
+werte[2] = 7
+zeitpunkte[0] = 0
+zeitpunkte[1] = 200
+zeitpunkte[2] = 400
+zeitpunkte[3] = 600

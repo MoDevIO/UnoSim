@@ -855,6 +855,10 @@ Format, Klassen und Ablage nach Abschnitt 7.4; Proben für Datentypen,
 Pull-up und Speicher; die 51 Beispiele mit Reizskripten und
 Zustandsprüfungen; Referenzen der Klasse `hardware`, einmalig am echten Uno
 aufgenommen.
+Umgesetzt unter `tests/fixtures/runtime-corpus/` in drei PRs (Format und
+Läufer, Proben, Beispiele); die Aufnahmen der Klasse `hardware` stehen aus
+(wartet auf Mensch). Das Korpus läuft in Shards im Unit-Gate, nicht im
+Coverage-Durchlauf (`UNOSIM_SKIP_CORPUS`).
 
 ### Phase 2 – Server
 
