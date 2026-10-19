@@ -32,7 +32,7 @@ import { registerTutorRoutes } from "./routes/tutor.routes";
 import { registerSketchRoutes } from "./routes/sketches.routes";
 import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
 import { ExamplesRepository } from "./services/examples/examples-repository";
-import { config } from "./config";
+import { config, offeredBoards } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
 import { ProcessExecutor } from "./services/process-executor";
@@ -120,7 +120,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Before any sandbox of this process exists: remove those a crashed predecessor left running.
     await removeOrphanedSandboxContainers(new ProcessExecutor(), sandboxOwner(), logger);
   }
-  await initializeSandboxRunnerPool();
+  // Only the host mock runs sketches on the server (plan 4.11): without it there is no sandbox runner pool.
+  if (config.runtime.backends.includes("host-mock")) await initializeSandboxRunnerPool();
 
   // All REST endpoints advertise and negotiate the same additive API contract.
   app.use("/api", apiVersionMiddleware);
@@ -201,6 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     logger,
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
+    offeredBoards,
     // The Docker profile delivers artifacts only with a compile sandbox (plan 4.10, P2.4); it has none yet.
     artifactDelivery: config.serverMode === "local",
   });

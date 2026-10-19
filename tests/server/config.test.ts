@@ -137,7 +137,7 @@ describe("central configuration validation", () => {
 
     expect(clientConfig.defaultBoard).toBe("uno");
     expect(clientConfig.boards).toEqual([{ id: "uno", displayName: "Arduino UNO", status: "planned", runtimes: ["browser", "host-mock"] }]);
-    expect(clientConfig.runtime).toEqual({ backends: ["host-mock"], default: "host-mock" });
+    expect(clientConfig.runtime).toEqual({ backends: ["browser", "host-mock"], default: "host-mock" });
     expect(JSON.stringify(clientConfig.boards)).not.toContain("fqbn");
   });
 

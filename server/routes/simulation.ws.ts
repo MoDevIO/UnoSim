@@ -244,6 +244,8 @@ type SimulationDeps = {
   disableRateLimit: boolean;
   heartbeatIntervalMs?: number;
   inboundMessageLimit?: { perSecond: number; burst: number };
+  /** Backends this server offers (default: the configuration); a start needs `host-mock`. */
+  runtimeBackends?: readonly string[];
 };
 
 // Return type exposes a small API used by other modules (test-reset)
@@ -668,6 +670,10 @@ export function registerSimulationWebSocket(
     data: Extract<ClientToServerWSMessage, { type: "start_simulation" }>,
     clientState: ClientState,
   ): Promise<void> {
+    if (!(deps.runtimeBackends ?? config.runtime.backends).includes("host-mock")) {
+      sendStartError(ws, operationError("RUNTIME_UNAVAILABLE", "Dieser Server bietet die serverseitige Simulation (Host-Mock) nicht an."));
+      return;
+    }
     const admitted = await admitStart(ws, data, clientState);
     if (!admitted) return;
     const { code, reservation } = admitted;

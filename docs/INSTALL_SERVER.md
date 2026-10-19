@@ -217,6 +217,8 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | Variable | Zweck |
 |---|---|
 | `WORKER_COUNT` | Anzahl paralleler Compile-Worker für `/api/compile`; höchstens 8 werden gestartet (ein höherer Wert wird beim Start als Warnung gemeldet) |
+| `UNOSIM_RUNTIME_BACKENDS` | angebotene Laufzeiten: `host-mock` (Standard im Docker-Profil), `browser` verlangt die Compile-Sandbox (Plan P2.4, noch nicht verfügbar; der Start schlägt sonst fehl); ohne `host-mock` startet kein Sandbox-Runner-Pool |
+| `UNOSIM_DEFAULT_RUNTIME`, `UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD` | Vorauswahl der Laufzeit, angebotene Boards und Standard-Board (`uno`); siehe [INSTALL_LOCAL](INSTALL_LOCAL.md) |
 | `COMPILE_MAX_CONCURRENT` | Obergrenze gleichzeitiger Compiles im Hauptprozess (lokaler Modus und Fallback bei ausgefallenem Worker-Pool) |
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen; Standard in Compose `200` |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
