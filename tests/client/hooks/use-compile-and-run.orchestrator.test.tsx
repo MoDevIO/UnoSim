@@ -162,6 +162,25 @@ describe("useCompileAndRun orchestrator", () => {
     expect(simulation.handleStop).not.toHaveBeenCalled();
   });
 
+  it("names the selected board in the compile request", () => {
+    const params = { ...buildParams(), boardId: "nano" as const };
+    const { result } = renderHook(() => useCompileAndRun(params));
+
+    act(() => result.current.handleCompileAndStart());
+
+    expect(compileMutation.mutate).toHaveBeenCalledWith({ code: "void setup() {}", headers: [], board: "nano" }, expect.any(Object));
+  });
+
+  it("drops the build and the compile state when asked to (after a board change)", () => {
+    const params = buildParams();
+    const { result } = renderHook(() => useCompileAndRun(params));
+
+    act(() => result.current.discardBuild());
+
+    expect(simulation.setCompiledArtifact).toHaveBeenCalledWith(undefined);
+    expect(compile.setCompilationStatus).toHaveBeenCalledWith("ready");
+  });
+
   it("keeps simulation idle when compilation fails", () => {
     const params = buildParams();
     const { result } = renderHook(() => useCompileAndRun(params));

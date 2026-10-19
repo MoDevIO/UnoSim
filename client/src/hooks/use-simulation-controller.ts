@@ -8,7 +8,7 @@ import { useSimulationControllerState } from "./use-simulation-controller-state"
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { UseUiFeedbackAdapterResult } from "./use-ui-feedback-adapter";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
-import type { RuntimeKind } from "@shared/boards";
+import type { BoardId, RuntimeKind } from "@shared/boards";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
 import { getRuntimeHub, type RuntimeHub } from "@/lib/runtime/runtime-hub";
 
@@ -22,6 +22,8 @@ export type SimulationControllerParams = {
   runtimeKind?: RuntimeKind;
   /** The host mock can take over when the browser emulation has no image to run. */
   hostMockUsable?: boolean;
+  /** The selected board: the worker refuses an image built for another one. */
+  board?: BoardId;
   /** The runtimes of this tab; the shared hub when not given. */
   runtimeHub?: Pick<RuntimeHub, "load" | "peek" | "active" | "setActive">;
   code: string;
@@ -188,7 +190,7 @@ export function useSimulationController(
         if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
         const runtime = await hub.load("browser");
         // Start first: replacing a run reports the old one stopped, which must not end the new one.
-        runtime.start({ kind: "browser", artifact, timeoutSec: timeout });
+        runtime.start({ kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout });
         hub.setActive("browser");
         return { success: true };
       }

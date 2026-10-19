@@ -214,6 +214,9 @@ export function ArduinoSimulatorPageLayout(
     isDesktop,
     layoutMode,
     board,
+    boards,
+    boardId,
+    onBoardChange,
     isMac,
     openSettings,
     debugMode,
@@ -356,6 +359,9 @@ export function ArduinoSimulatorPageLayout(
         onPause={handlePause}
         onResume={handleResume}
         board={board}
+        boards={boards}
+        boardId={boardId}
+        onBoardChange={onBoardChange}
         baudRate={baudRate}
         simulationTimeout={simulationTimeout}
         onTimeoutChange={setSimulationTimeout}

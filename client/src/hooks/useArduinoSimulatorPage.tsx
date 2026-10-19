@@ -47,6 +47,7 @@ import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { isSourceLocation } from "@/types/source-navigation";
 import type { SourceLocation } from "@shared/source-project";
+import type { BoardId } from "@shared/boards";
 import { holdsServerSimulation } from "@shared/types/arduino.types";
 import { isMac } from "@/lib/platform";
 import {
@@ -166,8 +167,7 @@ export function useArduinoSimulatorPage() {
 
   // Serial view mode state handled by useSerialIO
 
-  // Selected board and baud rate (moved to Tools menu)
-  const [board] = useState<string>("Arduino UNO");
+  // Baud rate (shown in the Tools menu)
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [workerIndex, setWorkerIndex] = useState<number | undefined>(undefined);
   const [workerTotal, setWorkerTotal] = useState<number | undefined>(undefined);
@@ -251,6 +251,9 @@ export function useArduinoSimulatorPage() {
   // everything else shares the offline guard of the WebSocket commands.
   const commandRouter = useMemo(() => createRuntimeCommandRouter(getRuntimeHub()), []);
   const runtimeSelection = useSimulationRuntimeSelection();
+  // Selected board (Tools → Board): the server's default until the user chooses another.
+  const board = runtimeSelection.board?.displayName ?? "Arduino UNO";
+  const boardId = runtimeSelection.board?.id;
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
     if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
@@ -303,10 +306,12 @@ export function useArduinoSimulatorPage() {
     handlePause: controllerHandlePause,
     handleResume: controllerHandleResume,
     handleReset: controllerHandleReset,
+    discardBuild,
     suppressAutoStopOnce,
     invalidatePendingStart,
   } = useCompileAndRun({
     ...(runtimeSelection.runtimeKind ? { runtimeKind: runtimeSelection.runtimeKind } : {}),
+    ...(boardId ? { boardId } : {}),
     hostMockUsable: runtimeSelection.usable.includes("host-mock"),
     editorRef,
     tabs,
@@ -355,6 +360,14 @@ export function useArduinoSimulatorPage() {
     setRuntimeIoRegistry(null);
     controllerHandleStop();
   }, [controllerHandleStop, setRuntimeIoRegistry]);
+
+  // A board change stops the run and drops the build made for the old board (plan P4.5).
+  const handleBoardChange = useCallback((next: BoardId) => {
+    if (next === boardId) return;
+    if (holdsServerSimulation(simulationStatus)) handleStopAndClearRuntime();
+    discardBuild();
+    runtimeSelection.setBoard(next);
+  }, [boardId, simulationStatus, handleStopAndClearRuntime, discardBuild, runtimeSelection]);
 
   const handleResetAndClearRuntime = useCallback(() => {
     setRuntimeIoRegistry(null);
@@ -900,6 +913,9 @@ export function useArduinoSimulatorPage() {
       isDesktop,
       layoutMode,
       board,
+      boards: runtimeSelection.config.boards,
+      boardId,
+      onBoardChange: handleBoardChange,
       isMac,
       toast,
       openSettings,

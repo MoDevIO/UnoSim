@@ -1,11 +1,11 @@
-import { BOARD_IDS, type BoardId, DEFAULT_BOARD_ID, type RuntimeKind } from "@shared/boards";
+import { BOARD_IDS, BOARD_STATUSES, type BoardId, type BoardStatus, DEFAULT_BOARD_ID, type RuntimeKind } from "@shared/boards";
 import { isRuntimeKind } from "./runtime-selection";
 
 /** The part of `GET /api/config` that concerns boards and runtimes (plan 4.11). */
 export interface RuntimeConfig {
   readonly backends: readonly RuntimeKind[];
   readonly defaultRuntime: RuntimeKind;
-  readonly boards: ReadonlyArray<{ readonly id: BoardId; readonly displayName: string; readonly runtimes: readonly RuntimeKind[] }>;
+  readonly boards: ReadonlyArray<{ readonly id: BoardId; readonly displayName: string; readonly status: BoardStatus; readonly runtimes: readonly RuntimeKind[] }>;
   readonly defaultBoard: BoardId;
 }
 
@@ -13,7 +13,7 @@ export interface RuntimeConfig {
 export const FALLBACK_RUNTIME_CONFIG: RuntimeConfig = {
   backends: ["host-mock"],
   defaultRuntime: "host-mock",
-  boards: [{ id: DEFAULT_BOARD_ID, displayName: "Arduino UNO", runtimes: ["host-mock"] }],
+  boards: [{ id: DEFAULT_BOARD_ID, displayName: "Arduino UNO", status: "available", runtimes: ["host-mock"] }],
   defaultBoard: DEFAULT_BOARD_ID,
 };
 
@@ -30,7 +30,13 @@ export function parseRuntimeConfig(json: unknown): RuntimeConfig {
   const boards = (Array.isArray(json.boards) ? json.boards : [])
     .filter(isObject)
     .filter((board) => isBoardId(board.id) && typeof board.displayName === "string")
-    .map((board) => ({ id: board.id as BoardId, displayName: board.displayName as string, runtimes: kinds(board.runtimes) }));
+    .map((board) => ({
+      id: board.id as BoardId,
+      displayName: board.displayName as string,
+      // A server that does not report a status (older version) offers the board as it always did.
+      status: (BOARD_STATUSES as readonly unknown[]).includes(board.status) ? (board.status as BoardStatus) : ("available" as BoardStatus),
+      runtimes: kinds(board.runtimes),
+    }));
   if (boards.length === 0) return { ...FALLBACK_RUNTIME_CONFIG, backends, defaultRuntime, boards: [{ ...FALLBACK_RUNTIME_CONFIG.boards[0], runtimes: backends }] };
   const defaultBoard = isBoardId(json.defaultBoard) && boards.some((board) => board.id === json.defaultBoard) ? json.defaultBoard : boards[0].id;
   return { backends, defaultRuntime, boards, defaultBoard };

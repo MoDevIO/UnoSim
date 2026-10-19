@@ -199,3 +199,22 @@ describe("useSimulationController", () => {
     });
   });
 });
+
+describe("useSimulationController board (plan P4.5)", () => {
+  it("starts the image on the selected board", async () => {
+    const hex = readFileSync(join(__dirname, "../../../packages/avr-emulator/tests/fixtures/uno-serial_probe.hex"), "utf8");
+    const artifact = { ...buildSimulationImage({ board: "uno", hex }), buildId: "d".repeat(64) };
+    const runtime = { start: vi.fn() };
+    const runtimeHub = { load: vi.fn(async () => runtime), peek: vi.fn(() => runtime), active: undefined as RuntimeKind | undefined, setActive: vi.fn() };
+    const params = { ...buildParams(), runtimeKind: "browser" as const, board: "nano" as const, runtimeHub };
+    const { result } = renderHook(() => useSimulationController(params as never), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.setCompiledArtifact(artifact);
+      result.current.handleStart();
+    });
+
+    await waitFor(() => expect(runtime.start).toHaveBeenCalled());
+    expect(runtime.start).toHaveBeenCalledWith({ kind: "browser", artifact, board: "nano", timeoutSec: 60 });
+  });
+});
