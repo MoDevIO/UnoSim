@@ -29,6 +29,8 @@ export interface HeadlessOptions {
   readonly expectState?: readonly StateExpectation[];
   /** EEPROM content to start with. */
   readonly eeprom?: Uint8Array;
+  /** Longest stretch emulated in one go before output is collected (default 1000 ms). */
+  readonly chunkMs?: number;
   /** Wall clock for the speed figure; the default is the system clock. */
   readonly clock?: RuntimeClock;
 }
@@ -52,6 +54,9 @@ export interface HeadlessResult {
   readonly checks: readonly StateCheck[];
   readonly eeprom: Uint8Array;
 }
+
+/** Output is collected after at most this much simulated time, so long runs keep their buffers small. */
+const DEFAULT_CHUNK_MS = 1000;
 
 const isRecord = (value: unknown): value is readonly unknown[] => Array.isArray(value);
 
@@ -94,6 +99,7 @@ const STATE_ARGUMENTS: Record<string, readonly string[]> = {
 export function runHeadless(image: LoadedImage, options: HeadlessOptions): HeadlessResult {
   const { simMs, events = [], expectState = [] } = options;
   if (!Number.isFinite(simMs) || simMs < 0) throw new RangeError(`invalid simMs ${simMs}`);
+  if (options.chunkMs !== undefined && !(options.chunkMs > 0)) throw new RangeError(`invalid chunkMs ${options.chunkMs}`);
   parseStimuli(events, "events");
   parseStimuli(expectState, "expectState");
   const clock = options.clock ?? systemClock();
@@ -113,7 +119,7 @@ export function runHeadless(image: LoadedImage, options: HeadlessOptions): Headl
   const started = clock.now();
   let done = 0;
   do { // chunks keep the buffers small for long runs
-    const step = Math.min(simMs - done, 1000);
+    const step = Math.min(simMs - done, options.chunkMs ?? DEFAULT_CHUNK_MS);
     emulator.advance(step);
     collect();
     done += step;
