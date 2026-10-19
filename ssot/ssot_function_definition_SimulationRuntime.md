@@ -107,3 +107,13 @@ Zustandsprüfungen `expectState`, ausgewertet zur angegebenen Zeit nach den Reiz
 
 Unbekannte Arten, falsche Argumente und ein ADC-Kanal, den das Board nicht hat, sind ein Fehler vor dem Lauf. Das Ergebnis enthält Serial-Text je Port (unverändert, `println` endet mit CRLF), Pins, I/O-Funde, Diagnosen, die Prüfergebnisse und die Geschwindigkeit (simulierte je Wanduhrzeit). Das Werkzeug endet mit Code 1, wenn eine Prüfung fehlschlägt, und mit 2 bei Bedienfehlern.
 
+## 5. Artefakt und Build-Identität
+
+Der Compile (`ArduinoCompiler`, direkt und im Compile-Worker) baut nach einem erfolgreichen Build für jedes Katalogboard ein Artefakt (`artifact` im Compile-Ergebnis; Schema `shared/simulation-artifact.ts`): das Flash-Abbild des Pakets (benutzter Bereich ab Adresse 0 als Base64, Board, `flashBytes`, SHA-256, Symbole aus dem ELF) plus `buildId`. Ein Build für eine FQBN außerhalb des Katalogs oder mit nicht baubarem Abbild liefert kein Artefakt, der Compile gilt trotzdem als erfolgreich.
+
+**Build-Identität (E15).** Sie umfasst das Format des Artefakts, den Sketch-Hash (Code, Header, Entry-File, FQBN), die FQBN mit Optionen, die `arduino-cli`-Version, ID und Version aller installierten Cores, einen Fingerabdruck der installierten Bibliotheken, die angeforderten Bibliotheken und die festen Build-Flags. `buildId` ist das SHA-256 ihrer kanonischen Form.
+
+**Cache.** Der HEX-Cache und der Sofort-Cache behalten ihren Schlüssel (Sketch-Hash). Neben jedem Eintrag liegt `<schlüssel>.artifact.json` mit der Identität und – falls gebaut – dem Artefakt. Ein Treffer gilt nur, wenn der Sidecar existiert, lesbar ist und seine Identität der aktuellen gleicht (und ein enthaltenes Artefakt zur `buildId` passt). Fehlt der Sidecar oder weicht etwas ab (andere `arduino-cli`-, Core- oder Bibliotheksversion, andere angeforderte Bibliotheken oder Build-Flags), wird neu gebaut und der Eintrag überschrieben. Die Eviction entfernt den Sidecar mit dem HEX.
+
+Die Auslieferung an den Client (`artifact` in der REST-Antwort, Gate im Docker-Profil) regelt die Route (Paket P2.5c).
+

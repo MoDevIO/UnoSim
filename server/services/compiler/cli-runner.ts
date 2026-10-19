@@ -21,7 +21,12 @@ export interface CLICompileResult {
   errors?: string;
   parsedErrors?: CompilationError[];
   binary?: Buffer;
+  /** ELF of the same build, for the symbols of the artifact; never part of a response. */
+  elf?: Buffer;
 }
+
+/** `arduino-cli compile` flags that influence the output; part of the build identity (plan E15). */
+export const FIXED_BUILD_FLAGS: readonly string[] = ["--verbose"];
 
 /**
  * Builds arduino-cli compile arguments.
@@ -34,7 +39,7 @@ export function buildCompileArgs(
     "compile",
     "--fqbn",
     config.fqbn,
-    "--verbose",
+    ...FIXED_BUILD_FLAGS,
   ];
 
   if (config.buildPath) {
@@ -92,17 +97,7 @@ export async function compileWithArduinoCli(
     const diagnosticOutput = selectDiagnosticOutput(output, errors);
 
     if (code === 0) {
-      const parsedOutput = parseCompilerOutput(output, config.fqbn);
-      const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
-        .filter((diagnostic) => diagnostic.type === "warning");
-      const binary = await discoverBuildBinary(config.buildPath || sketchDir);
-      return {
-        success: true,
-        output: parsedOutput,
-        errors: "",
-        parsedErrors: parsedWarnings,
-        binary,
-      };
+      return await successResult(output, diagnosticOutput, config, config.buildPath || sketchDir);
     } else {
       const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, sketchFile));
       const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
@@ -183,6 +178,35 @@ function isLibraryScanLine(line: string): boolean {
 
 function hasMemoryUsage(output: string): boolean {
   return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
+}
+
+async function successResult(output: string, diagnosticOutput: string, config: CLICompileConfig, buildOutputDir: string): Promise<CLICompileResult> {
+  const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0).filter((diagnostic) => diagnostic.type === "warning");
+  const { binary, elf } = await discoverBuildOutputs(buildOutputDir);
+  return {
+    success: true,
+    output: parseCompilerOutput(output, config.fqbn),
+    errors: "",
+    parsedErrors: parsedWarnings,
+    binary,
+    ...(elf ? { elf } : {}),
+  };
+}
+
+/** HEX of the build and, if there is a HEX, the ELF next to it. */
+async function discoverBuildOutputs(buildOutputDir: string): Promise<{ binary?: Buffer; elf?: Buffer }> {
+  const binary = await discoverBuildBinary(buildOutputDir);
+  return { binary, elf: binary ? await discoverBuildElf(buildOutputDir) : undefined };
+}
+
+/** The ELF next to the HEX (`<sketch>.ino.elf`), if the build produced one. */
+async function discoverBuildElf(buildOutputDir: string): Promise<Buffer | undefined> {
+  try {
+    const candidates = (await readdir(buildOutputDir)).filter((entry) => entry.endsWith(".ino.elf")).sort((a, b) => a.localeCompare(b));
+    return candidates.length > 0 ? await readFile(join(buildOutputDir, candidates[0])) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

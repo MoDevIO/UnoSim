@@ -11,7 +11,12 @@ import { describe, expect, it } from "vitest";
 const scripts = (JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
 
 describe("workspace packages in the server bundles", () => {
-  it.each(["build:server", "build:worker"])("%s bundles @unosim/avr-emulator/boards", (name) => {
-    expect(scripts[name]).toContain("--alias:@unosim/avr-emulator/boards=./packages/avr-emulator/src/boards/index.ts");
+  it.each([
+    ["build:server", "boards"],
+    ["build:server", "image"],
+    ["build:worker", "boards"],
+    ["build:worker", "image"],
+  ])("%s bundles @unosim/avr-emulator/%s", (name, entry) => {
+    expect(scripts[name]).toContain(`--alias:@unosim/avr-emulator/${entry}=./packages/avr-emulator/src/${entry}/index.ts`);
   });
 });

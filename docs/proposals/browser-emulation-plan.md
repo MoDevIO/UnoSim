@@ -926,6 +926,11 @@ Readiness nach 4.11; `check-leaks.sh` prüft auch Compile-Container. Danach
 - Die Route gibt `artifact` nur bei Erfolg und nur bei erlaubter Auslieferung
   aus; der In-Memory-Ergebniscache hält das Artefakt nicht doppelt. Schema in
   `shared/simulation-artifact.ts`, REST-Version `1.1.0`.
+  Umgesetzt in drei PRs (Schema und Identität; Bau und Sidecar; Route). Der
+  Cache-Schlüssel bleibt der Sketch-Hash; die übrigen Teile der Identität
+  (Toolchain, Bibliotheken, Flags, Format) prüft der Sidecar beim Treffer, und
+  ein Eintrag ohne passenden Sidecar wird neu gebaut. So bleiben Worker und
+  direkter Compiler beim gemeinsamen Schlüssel.
 
 *Abnahme:* Tests zeigen, dass bei gleicher Quelle eine geänderte Core-,
 `arduino-cli`- oder Bibliotheksversion oder eine geänderte Boardoption einen
