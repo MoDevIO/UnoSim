@@ -38,6 +38,8 @@
     "scripts/capacity-mixed-load.ts",
     "scripts/emulate.ts",
     "scripts/runtime-fixtures.ts",
+    "scripts/record-hardware.ts",
+    "scripts/record-hardware-lib.ts",
     "scripts/tutor-catalog-eval.ts"
   ],
   "exclude": ["node_modules", "dist"]
