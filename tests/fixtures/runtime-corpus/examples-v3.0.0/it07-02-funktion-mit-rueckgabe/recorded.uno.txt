@@ -1,0 +1,2 @@
+Mittelwert von 4 und 8: 6.00
+Mittelwert von 4 und 7: 5.50

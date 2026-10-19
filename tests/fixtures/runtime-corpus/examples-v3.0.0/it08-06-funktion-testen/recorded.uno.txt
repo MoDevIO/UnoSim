@@ -1,0 +1,3 @@
+mittelwert(4, 8): OK
+mittelwert(4, 7): FEHLER, ist 5.00, soll 5.50
+mittelwert(-3, 3): OK

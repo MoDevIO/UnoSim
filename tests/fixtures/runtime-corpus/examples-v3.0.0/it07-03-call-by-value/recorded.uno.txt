@@ -1,0 +1,3 @@
+Start:                     0
+Rueckgabe nicht verwendet: 0
+Rueckgabe zugewiesen:      100
