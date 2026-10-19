@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type BoardHardwareId, boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
+import { boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
 
 /**
  * Board catalog of UnoSim (plan 4.3, P2.1): the product side of a board. The
@@ -10,9 +10,9 @@ export const BOARD_IDS = ["uno", "nano", "mega2560", "attiny85"] as const;
 export type BoardId = (typeof BOARD_IDS)[number];
 export const boardIdSchema = z.enum(BOARD_IDS);
 
-// Every catalog id is a board of the emulation package (checked at compile time).
-type SameIds<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-export const BOARD_IDS_MATCH_PACKAGE: SameIds<BoardId, BoardHardwareId> = true;
+// Every catalog id is a board of the emulation package: `boardPinAliases` hands a `BoardId` to a
+// function that takes a `BoardHardwareId`, which compiles only if the first is a subset. The test
+// `tests/shared/boards.test.ts` checks the other direction.
 
 export const RUNTIME_KINDS = ["browser", "host-mock"] as const;
 export type RuntimeKind = (typeof RUNTIME_KINDS)[number];
