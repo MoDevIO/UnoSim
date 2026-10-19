@@ -5,9 +5,9 @@ import {
 } from "../../shared/boards";
 
 describe("board catalog (plan 4.3, P2.1)", () => {
-  it("lists the four boards of the plan, all planned for now", () => {
+  it("lists the four boards of the plan: the Uno is available since M1, the others are planned", () => {
     expect(BOARD_CATALOG.map((board) => board.id)).toEqual(["uno", "nano", "mega2560", "attiny85"]);
-    expect(BOARD_CATALOG.every((board) => board.status === "planned")).toBe(true);
+    expect(BOARD_CATALOG.map((board) => board.status)).toEqual(["available", "planned", "planned", "planned"]);
   });
 
   it("has exactly the boards of the emulation package", () => {
@@ -58,7 +58,7 @@ describe("board catalog (plan 4.3, P2.1)", () => {
   });
 
   describe("enabledBoards", () => {
-    it("offers only the default board while every board is planned", () => {
+    it("offers only the Uno (available, and the default board) while the other boards are planned", () => {
       expect(enabledBoards().map((board) => board.id)).toEqual([DEFAULT_BOARD_ID]);
     });
 

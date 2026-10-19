@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -156,6 +156,28 @@ describe("useSimulationController", () => {
       await waitFor(() => expect(hook.result.current.simulationStatus).toBe("idle"));
 
       expect(params.ensureBackendConnected).not.toHaveBeenCalled();
+    });
+
+    it("still stops, pauses and resumes a browser run while the browser reports being offline", async () => {
+      const { params, hook } = browserSetup();
+      act(() => {
+        hook.result.current.setCompiledArtifact(artifact);
+        hook.result.current.handleStart();
+      });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+
+      onlineManager.setOnline(false);
+      try {
+        act(() => { hook.result.current.handlePause(); });
+        await waitFor(() => expect(hook.result.current.simulationStatus).toBe("paused"));
+        act(() => { hook.result.current.handleResume(); });
+        await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+        act(() => { hook.result.current.handleStop(); });
+        await waitFor(() => expect(hook.result.current.simulationStatus).toBe("idle"));
+        expect(params.sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
+      } finally {
+        onlineManager.setOnline(true);
+      }
     });
 
     it("resets a running browser emulation without compiling again", async () => {

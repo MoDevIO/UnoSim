@@ -67,6 +67,17 @@ but not in the emulator coverage pass (`UNOSIM_SKIP_CORPUS=1` in
 instrumentation. The toolchain gate rebuilds every fixture; its budget is
 300 s (`test:integration`).
 
+### Browser emulation (M1)
+
+`e2e/browser-emulation.spec.ts` runs the whole path in a real browser against a
+real compile: Uno in the Web Worker, serial output and input, pause, resume
+and stop with their system lines, the diagnostic for input before
+`Serial.begin()`, reset without compiling again, a run that continues while the
+connection is lost, and the host-mock fallback. The engine is chosen with the
+`localStorage` key of File → Settings → "Simulation engine" (`unoSimulationEngine`).
+The client build is the pre-built `dist/public` (see above): run
+`npm run build:client` before running this spec locally.
+
 ---
 
 ## Coverage-Hotspots

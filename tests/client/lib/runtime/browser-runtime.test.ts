@@ -150,9 +150,9 @@ describe("BrowserRuntime (plan P3.2)", () => {
     worker().emit(ev(runId, { type: "pins", changeCount: 2, changes: [{ pin: 13, mode: "OUTPUT", level: 1 }, { pin: 9, mode: "OUTPUT", level: 1, pwm: 128 }] }));
     worker().emit(ev(runId, { type: "usage", usages: [{ pin: 13, fn: "pinMode", mode: "OUTPUT" }] }));
 
-    expect(events).toContainEqual({ type: "serial_output", data: "Hello\r\n", isComplete: true });
+    expect(events).toContainEqual({ type: "serial_output", data: "Hello\n", isComplete: true });
     expect(events).toEqual([
-      { type: "serial_output", data: "Hello\r\n", isComplete: true },
+      { type: "serial_output", data: "Hello\n", isComplete: true },
       {
         type: "pin_state_batch",
         timestamp: 1234,
@@ -192,6 +192,26 @@ describe("BrowserRuntime (plan P3.2)", () => {
     expect(events.filter((event) => event.type === "io_registry")).toEqual([
       { type: "io_registry", registry: [{ pin: "4", defined: false, usedAt: [{ line: 0, operation: "digitalWrite" }] }] },
     ]);
+  });
+
+  it("sends serial text like the server: lines end with LF, a partial line is not complete, a CR waits for its LF", () => {
+    const { startRunning, worker, ev, events } = setup();
+    const runId = startRunning();
+    events.length = 0;
+    const serialEvents = () => events.filter((event) => event.type === "serial_output");
+
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "count " }));
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "7\r" }));
+    expect(serialEvents()).toEqual([
+      { type: "serial_output", data: "count ", isComplete: false },
+      { type: "serial_output", data: "7", isComplete: false },
+    ]);
+
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "\ncount 8\r\nrest" }));
+    expect(serialEvents().slice(2)).toEqual([{ type: "serial_output", data: "\ncount 8\nrest", isComplete: false }]);
+
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "\r\n" }));
+    expect(serialEvents().at(-1)).toEqual({ type: "serial_output", data: "\n", isComplete: true });
   });
 
   it("does not repeat a pin state that did not change", () => {
@@ -261,6 +281,23 @@ describe("BrowserRuntime (plan P3.2)", () => {
     worker().emit(ev(reset.runId, { type: "status", state: "running" }));
 
     expect(statuses()).toEqual(["running", "running"]);
+  });
+
+  it("starts the I/O findings of the run anew with a reset, because the new machine reports its first uses again", () => {
+    const { runtime, startRunning, worker, ev, events } = setup();
+    const runId = startRunning();
+    worker().emit(ev(runId, { type: "usage", usages: [{ pin: 4, fn: "digitalWrite" }] }));
+
+    runtime.reset();
+    const reset = worker().last("reset");
+    worker().emit(ev(reset.runId, { type: "status", state: "running" }));
+    events.length = 0;
+    worker().emit(ev(reset.runId, { type: "usage", usages: [{ pin: 4, fn: "digitalWrite" }] }));
+
+    expect(events.find((event) => event.type === "io_registry")).toEqual({
+      type: "io_registry",
+      registry: [{ pin: "4", defined: false, usedAt: [{ line: 0, operation: "digitalWrite" }] }],
+    });
   });
 
   it("sends serial input to port 0 in chunks, only while running", () => {

@@ -97,9 +97,11 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 ❌ **Kompilations-Status wird geändert** (bleibt "success")  
 ❌ **Prozess wird terminiert** (nur suspendiert)
 
-### 4.3 Bekannte Einschränkung: `millis()` läuft weiter
+### 4.3 Bekannte Einschränkung: `millis()` läuft weiter (nur Host-Mock)
 
-⚠️ **WICHTIG:** Die Arduino-Funktion `millis()` gibt die Zeit seit Programmstart zurück, basierend auf der realen Systemzeit. Während der Pause:
+> **Browser-Emulation (Standard lokal ab M1):** Die Pause hält die **simulierte Zeit** an, also auch `millis()` und `micros()`. Es laufen keine Rechenscheiben mehr; beim Fortsetzen wird der Bezug zur Wanduhr neu gesetzt. Pins dürfen in der Pause gesetzt werden und wirken beim Fortsetzen, serielle Eingabe ist in der Pause gesperrt. Ein Pausenbudget gibt es nicht; der Timeout zählt Wanduhrzeit ohne Pausen. Der Abschnitt unten beschreibt nur die Host-Mock-Simulation („Legacy“).
+
+⚠️ **WICHTIG (Host-Mock):** Die Arduino-Funktion `millis()` gibt die Zeit seit Programmstart zurück, basierend auf der realen Systemzeit. Während der Pause:
 
 - **Prozess wird eingefroren** (SIGSTOP) → Code-Ausführung stoppt ✓
 - **Systemzeit läuft weiter** → `millis()` erhöht sich weiterhin ✗
@@ -201,6 +203,8 @@ Das Budget gehört zum Lauf, nicht zur einzelnen Pause; ein neuer Start beginnt 
 ---
 
 ## 8. Backend-Implementierung
+
+> Gilt für den Host-Mock. Die Browser-Emulation hat keinen Server-Runner: Pause und Fortsetzen sind Befehle an den Worker (`BrowserRuntime`, SSOT SimulationRuntime Abschnitt 3a); die Systemzeilen „--- Simulation paused ---“ und „--- Simulation resumed ---“ erzeugt die Laufzeit selbst, die Bestätigung des Workers setzt den Zustand.
 
 ### 8.1 SandboxRunner Klasse
 

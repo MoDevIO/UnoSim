@@ -111,12 +111,53 @@ Unter **File → Settings** findest du außerdem:
 ## Grenzen der Simulation
 
 UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für den Uno.
-Was hier kompiliert, kompiliert also auch auf der Hardware. Ausgeführt wird der
-Sketch danach aber nicht als Uno-Programm, sondern als Programm für den
-UnoSim-Server. Dadurch weicht die Simulation in einigen Punkten vom echten
-Arduino Uno ab:
+Was hier kompiliert, kompiliert also auch auf der Hardware. Danach läuft das
+fertige Programm in der **Emulation**: ein Nachbau des ATmega328P im Browser,
+der den Maschinencode des Sketches ausführt, nicht ein Programm für den
+UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
+deshalb wie auf dem Uno. Wer die frühere Art der Simulation braucht, wählt
+unter **File → Settings → Simulation engine** „Legacy“ (siehe unten).
 
-| Thema | Arduino Uno | UnoSim |
+Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
+
+| Thema | Modell in UnoSim |
+|---|---|
+| Offener Eingang (`INPUT`, nicht gesetzt) | liest LOW; am echten Board ist der Pegel undefiniert |
+| `INPUT_PULLUP` | liest HIGH, bis du den Pin auf LOW setzt |
+| Pegel, den du am Board setzt | gilt, bis der Sketch den Pin auf `OUTPUT` schaltet |
+| Analoger Eingang | Der Regler ist eine Spannung von 0 bis 5 V in 1024 Stufen; mit der Standardreferenz liefert `analogRead()` genau den Reglerwert. Am Pin `AREF` (`EXTERNAL`) liegen 5 V, weil dort am Board nichts angeschlossen ist |
+| PWM | UnoSim zeigt das Tastverhältnis (0 bis 255), keine Signalform |
+| Serial | Der Empfangspuffer hat 64 Byte wie am Uno; was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
+| Zeit | exakt in simulierter Zeit. Ist dein Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr; die Kopfzeile zeigt dann einen Echtzeitfaktor unter 1. Der Timeout zählt Wanduhrzeit: Bei Faktor 0,5 endet ein 30-Sekunden-Lauf nach etwa 15 simulierten Sekunden |
+| Pause | hält auch `millis()` an |
+| Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
+| EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
+| I²C, SPI | Die Bausteine sind vorhanden, aber es hängt kein Gerät am Bus |
+| Speicher | Größen und Adressen wie am Board (2 KB SRAM). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
+| `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
+
+Was das für deine Programme bedeutet:
+
+- Programme, die von Wertebereichen oder Rechenzeit abhängen, verhalten sich in
+  der Emulation wie auf dem Uno. Prüfe sie bei Timing auf dem Mikrosekundenbereich
+  trotzdem auf einem echten Board: Die Zeit stimmt in der Emulation, aber
+  Bauteile, Leitungen und Störungen gibt es nicht.
+- Unverbundene Eingänge zeigen im Board eine zufällige Spannung; in UnoSim
+  liest ein offener Eingang immer LOW. Schalte Eingänge mit `INPUT_PULLUP`
+  oder einem Widerstand, damit sich dein Programm auf dem Board gleich verhält.
+- Die Emulation läuft im Browser. Reißt die Verbindung zum Server ab, läuft ein
+  gestarteter Lauf weiter; Kompilieren, Beispiele und der Tutor brauchen den
+  Server.
+
+Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10).
+
+### Legacy: Simulation auf dem Server
+
+Wählst du „Legacy“ oder bietet der Server die Emulation nicht an, läuft der
+Sketch als Programm für den UnoSim-Server. Dann gelten die früheren
+Abweichungen:
+
+| Thema | Arduino Uno | UnoSim (Legacy) |
 |---|---|---|
 | Größe von `int` und `unsigned int` | 16 Bit: `int` reicht von −32768 bis 32767 | 32 Bit: `32767 + 1` ergibt 32768 statt −32768 |
 | Größe von `long` | 32 Bit | 64 Bit |
@@ -128,17 +169,8 @@ Arduino Uno ab:
 | Arbeitsspeicher | 2 KB | praktisch unbegrenzt: Ein großes Array kann hier laufen und auf dem Uno abstürzen |
 | `random()` | feste Zahlenfolge des Uno | andere Zahlenfolge |
 
-Was das für deine Programme bedeutet:
-
-- Überläufe beobachtest du zuverlässig mit `byte` (0 bis 255); bei `int`
-  und `long` zeigt UnoSim die Grenzen des Uno nicht.
-- Gib Kommazahlen immer mit Stellenzahl aus, z. B. `Serial.println(wert, 2)`;
-  dann ist die Ausgabe auf Uno und UnoSim gleich.
-- Prüfe Programme, die von Wertebereichen, Speicher oder genauer Rechenzeit
-  abhängen, zusätzlich auf einem echten Board.
-
-Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10),
-wie im Serial Monitor der Arduino IDE mit der Einstellung „New Line“.
+Überläufe beobachtest du in Legacy zuverlässig nur mit `byte` (0 bis 255), und
+Kommazahlen gibst du mit Stellenzahl aus, z. B. `Serial.println(wert, 2)`.
 
 ## Wenn etwas nicht klappt
 

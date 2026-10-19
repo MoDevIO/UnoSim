@@ -4,7 +4,7 @@ import { FALLBACK_RUNTIME_CONFIG, loadRuntimeConfig, parseRuntimeConfig, resetRu
 const full = {
   healthPollIntervalMs: 15000,
   boards: [
-    { id: "uno", displayName: "Arduino UNO", status: "planned", runtimes: ["browser", "host-mock"] },
+    { id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] },
     { id: "nano", displayName: "Arduino Nano", status: "preview", runtimes: ["browser"] },
   ],
   defaultBoard: "uno",

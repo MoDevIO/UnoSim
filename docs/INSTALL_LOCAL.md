@@ -73,7 +73,7 @@ Häufig verwendete optionale Werte:
 | `UNOSIM_DEFAULT_BOARD` | `uno` | Standard-Board (`uno`, `nano`, `mega2560`, `attiny85`) |
 | `UNOSIM_BOARDS` | alle Boards mit Status `preview` oder `available`, dazu das Standard-Board | angebotene Boards |
 | `UNOSIM_RUNTIME_BACKENDS` | `browser,host-mock` | angebotene Laufzeiten (`browser` = Emulation, `host-mock` = Legacy); ohne `host-mock` startet kein Sandbox-Runner-Pool |
-| `UNOSIM_DEFAULT_RUNTIME` | `host-mock` | Vorauswahl im Client; Standard wird `browser`, sobald die Emulation Standard ist (Plan P3.10) |
+| `UNOSIM_DEFAULT_RUNTIME` | `browser` (lokal), `host-mock` (Docker) | Vorauswahl im Client; Nutzer wählen unter File → Settings → „Simulation engine“ selbst. Fehlt einem Build das Abbild der Emulation, startet der Host-Mock, sofern angeboten |
 | `ARDUINO_FQBN` | – | veraltet, Alias für `UNOSIM_DEFAULT_BOARD`: nur die FQBN eines Katalogboards, und nur gemeinsam mit einem passenden `UNOSIM_DEFAULT_BOARD` |
 | `ARDUINO_CACHE_DIR` | projektlokal | Arduino-Cache |
 | `WORKER_COUNT` | CPU-abhängig | Compile-Worker |

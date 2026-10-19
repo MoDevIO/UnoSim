@@ -2,6 +2,9 @@ import { test, expect, type WebSocketRoute } from '@playwright/test';
 
 // A dropped simulation socket must not leave the UI on "running": the server
 // ends that connection's run, so the client returns to idle and can start again.
+// This is the behaviour of the server-side simulation (Legacy engine). A run of
+// the browser emulation does not depend on the connection and goes on; that case
+// is covered in browser-emulation.spec.ts.
 
 const code = `void setup() {
   Serial.begin(115200);
@@ -11,7 +14,7 @@ void loop() {
   delay(100);
 }`;
 
-test('connection loss during a run returns the UI to idle and a new run works after reconnect', async ({ page }) => {
+test('connection loss during a server-side run returns the UI to idle and a new run works after reconnect', async ({ page }) => {
   const sockets: Array<{ page: WebSocketRoute; server: WebSocketRoute }> = [];
   // While the "network" is down, reconnect attempts fail like an unreachable server.
   let networkDown = false;
@@ -23,6 +26,7 @@ test('connection loss during a run returns the UI to idle and a new run works af
     sockets.push({ page: ws, server: ws.connectToServer() });
   });
 
+  await page.addInitScript(() => globalThis.localStorage.setItem('unoSimulationEngine', 'host-mock'));
   await page.goto('/');
   await page.waitForFunction(() => Boolean((globalThis as unknown as Record<string, unknown>)['__MONACO_EDITOR__']), { timeout: 15000 });
   await page.evaluate((sketch: string) => {
