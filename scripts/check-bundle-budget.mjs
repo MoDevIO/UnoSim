@@ -41,6 +41,14 @@ const initialChunks = await Promise.all(
 const eagerRecharts = initialChunks
   .filter(({ source }) => source.includes("recharts-wrapper"))
   .map(({ file }) => file);
+// The emulator (avr8js) belongs to the worker chunk only (plan P3.9). These enum names exist only in avr8js;
+// the sanity check keeps the test from passing for the wrong reason if the marker ever disappears.
+const AVR8JS_MARKERS = ["PWMPhaseFrequencyCorrect", "Internal2V56"];
+const hasAvr8js = (source) => AVR8JS_MARKERS.every((marker) => source.includes(marker));
+const eagerEmulator = initialChunks.filter(({ source }) => hasAvr8js(source)).map(({ file }) => file);
+const emulatorChunks = (
+  await Promise.all(files.map(async (name) => ({ name, source: await readFile(join(dir, name), "utf8") })))
+).filter(({ source }) => hasAvr8js(source));
 const initialPathBytes = (
   await Promise.all(
     [...initialFiles].map((file) => stat(join(publicDir, file))),
@@ -56,6 +64,7 @@ console.log(
       initialPathJsBytes: initialPathBytes,
       initialPathChunks: initialFiles.size,
       files: sizes.length,
+      emulatorChunks: emulatorChunks.map(({ name }) => name),
     },
     null,
     2,
@@ -65,6 +74,14 @@ if (eagerRecharts.length > 0) {
   console.error(
     `Recharts is part of the initial load path (should be lazy): ${eagerRecharts.join(", ")}`,
   );
+  process.exit(1);
+}
+if (eagerEmulator.length > 0) {
+  console.error(`The emulator (avr8js) is part of the initial load path (should be in the worker chunk): ${eagerEmulator.join(", ")}`);
+  process.exit(1);
+}
+if (emulatorChunks.length === 0) {
+  console.error(`No chunk contains avr8js (markers ${AVR8JS_MARKERS.join(", ")}): the emulator check cannot be trusted`);
   process.exit(1);
 }
 if (

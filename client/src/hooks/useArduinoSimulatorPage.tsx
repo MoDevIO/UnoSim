@@ -31,6 +31,9 @@ import { buildSourceProject } from "@/lib/source-project";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 import { getServerCapabilities } from "@/lib/server-capabilities";
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
+import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
+import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
 
 import type {
   Sketch,
@@ -241,15 +244,23 @@ export function useArduinoSimulatorPage() {
     [backendReachable],
   );
 
-  // All outgoing WebSocket commands share this offline guard.
+  // Run commands of a browser run go to the browser runtime (it needs no connection);
+  // everything else shares the offline guard of the WebSocket commands.
+  const commandRouter = useMemo(() => createRuntimeCommandRouter(getRuntimeHub()), []);
+  const runtimeSelection = useSimulationRuntimeSelection();
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
+    if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
     sendMessageRaw(message);
-  }, [capabilities, sendMessageRaw]);
+  }, [capabilities, sendMessageRaw, commandRouter]);
   const sendMessageImmediateGuarded = useCallback((message: IncomingArduinoMessage) => {
+    if (commandRouter.route(message)) return true;
     if (!capabilities.canUseRealtimeControls) return false;
     return sendMessageImmediate(message);
-  }, [capabilities, sendMessageImmediate]);
+  }, [capabilities, sendMessageImmediate, commandRouter]);
+  const sendAnalogValue = useCallback((pin: number, value: number) => {
+    if (!commandRouter.setAnalog(pin, value)) sendMessage({ type: "set_pin_value", pin, value });
+  }, [commandRouter, sendMessage]);
 
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
@@ -292,6 +303,8 @@ export function useArduinoSimulatorPage() {
     suppressAutoStopOnce,
     invalidatePendingStart,
   } = useCompileAndRun({
+    ...(runtimeSelection.runtimeKind ? { runtimeKind: runtimeSelection.runtimeKind } : {}),
+    hostMockUsable: runtimeSelection.usable.includes("host-mock"),
     editorRef,
     tabs,
     activeTabId,
@@ -659,6 +672,7 @@ export function useArduinoSimulatorPage() {
   // Pin control handlers are extracted into a dedicated hook for better separation of concerns.
   const { handlePinToggle, handleAnalogChange } = useSimulatorPinControls({
     sendMessage,
+    sendAnalogValue,
     capabilities,
     simulationStatus,
     toast,

@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { buildSimulationImage } from "@unosim/avr-emulator/image";
+import type { RuntimeKind } from "@shared/boards";
 import { useSimulationController } from "../../../client/src/hooks/use-simulation-controller";
 
 const createWrapper = () => {
@@ -79,5 +83,97 @@ describe("useSimulationController", () => {
     expect(params.serialEventQueueRef.current).toEqual([]);
     expect(params.resetPinUI).toHaveBeenCalledWith({ keepDetected: true });
     expect(result.current.simulationStatus).toBe("idle");
+  });
+
+  describe("browser emulation (plan P3.4)", () => {
+    const hex = readFileSync(join(__dirname, "../../../packages/avr-emulator/tests/fixtures/uno-serial_probe.hex"), "utf8");
+    const artifact = { ...buildSimulationImage({ board: "uno", hex }), buildId: "c".repeat(64) };
+
+    function browserSetup(overrides: { hostMockUsable?: boolean } = {}) {
+      const runtime = { start: vi.fn(), pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), reset: vi.fn() };
+      let active: RuntimeKind | undefined;
+      const runtimeHub = { load: vi.fn(async () => runtime), peek: vi.fn(() => runtime), setActive: vi.fn((kind) => { active = kind; }), get active() { return active; } };
+      const params = { ...buildParams(), runtimeKind: "browser" as const, runtimeHub, ...overrides };
+      const hook = renderHook(() => useSimulationController(params as never), { wrapper: createWrapper() });
+      return { params, runtime, runtimeHub, hook };
+    }
+
+    it("starts the artifact in the browser runtime, without any server message and without the connection check", async () => {
+      const { params, runtime, hook } = browserSetup();
+
+      act(() => {
+        hook.result.current.setCompiledArtifact(artifact);
+        hook.result.current.handleStart();
+      });
+
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      expect(runtime.start).toHaveBeenCalledWith({ kind: "browser", artifact, timeoutSec: 60 });
+      expect(params.sendMessage).not.toHaveBeenCalled();
+      expect(params.sendMessageImmediate).not.toHaveBeenCalled();
+      expect(params.ensureBackendConnected).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the host mock when the build has no image and the server offers it", async () => {
+      const { params, runtime, runtimeHub, hook } = browserSetup({ hostMockUsable: true });
+
+      act(() => {
+        hook.result.current.setCompiledCode("compiled sketch");
+        hook.result.current.setCompiledArtifact({ not: "an artifact" });
+        hook.result.current.handleStart();
+      });
+
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      expect(runtime.start).not.toHaveBeenCalled();
+      expect(runtimeHub.setActive).toHaveBeenLastCalledWith("host-mock");
+      expect(params.sendMessageImmediate).toHaveBeenCalledWith(expect.objectContaining({ type: "start_simulation", code: "compiled sketch" }));
+    });
+
+    it("reports a start without an image when the host mock is not available either", async () => {
+      const { params, runtime, hook } = browserSetup({ hostMockUsable: false });
+
+      act(() => {
+        hook.result.current.handleStart();
+      });
+
+      await waitFor(() => expect(params.uiFeedback.showStartFailedToast).toHaveBeenCalled());
+      expect(runtime.start).not.toHaveBeenCalled();
+      expect(hook.result.current.simulationStatus).toBe("idle");
+    });
+
+    it("pauses, resumes and stops a browser run without the connection check", async () => {
+      const { params, hook } = browserSetup();
+      act(() => {
+        hook.result.current.setCompiledArtifact(artifact);
+        hook.result.current.handleStart();
+      });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+
+      act(() => { hook.result.current.handlePause(); });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("paused"));
+      act(() => { hook.result.current.handleResume(); });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      act(() => { hook.result.current.handleStop(); });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("idle"));
+
+      expect(params.ensureBackendConnected).not.toHaveBeenCalled();
+    });
+
+    it("resets a running browser emulation without compiling again", async () => {
+      const { params, runtime, hook } = browserSetup();
+      expect(hook.result.current.resetWithoutCompile()).toBe(false); // nothing running
+      act(() => {
+        hook.result.current.setCompiledArtifact(artifact);
+        hook.result.current.handleStart();
+      });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+
+      let done = false;
+      act(() => { done = hook.result.current.resetWithoutCompile(); });
+
+      expect(done).toBe(true);
+      expect(runtime.reset).toHaveBeenCalledOnce();
+      expect(params.clearOutputs).toHaveBeenCalled();
+      expect(params.resetPinUI).toHaveBeenCalledWith({ keepDetected: true });
+    });
   });
 });

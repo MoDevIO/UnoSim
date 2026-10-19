@@ -377,3 +377,10 @@ function isRunEvent(value: unknown): value is RunEvent {
   const { type, runId } = value as { type?: unknown; runId?: unknown };
   return typeof type === "string" && typeof runId === "number";
 }
+
+/** The browser runtime on a module worker; the emulator loads only inside the worker chunk (plan P3.9). */
+export function createBrowserRuntime(): BrowserRuntime {
+  return new BrowserRuntime({
+    createWorker: () => new Worker(new URL("./emulator.worker.ts", import.meta.url), { type: "module" }) as unknown as EmulatorWorker,
+  });
+}
