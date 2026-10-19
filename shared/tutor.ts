@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
 
@@ -109,6 +110,8 @@ export function calculateNextTutorDifficulty(
 export const tutorQuestionRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    /** Board the sketch is written for; the Tutor's context then names it and the sizes of the data types. */
+    board: boardIdSchema.optional(),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
@@ -162,6 +165,7 @@ export type TutorDialogTurn = z.infer<typeof tutorDialogTurnSchema>;
 export const tutorDialogRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    board: boardIdSchema.optional(),
     history: z.array(tutorDialogTurnSchema).max(INPUT_LIMITS.tutor.maxHistoryEntries),
     question: z.string().trim().min(1).max(2_000),
     answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),

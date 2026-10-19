@@ -152,6 +152,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.difficulty,
         content?.content,
         signal,
+        ...(parsed.data.board ? [parsed.data.board] as const : []),
       );
       if (signal.aborted) return;
       const session = commitTutorSession(content, sessionStore);
@@ -223,6 +224,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.difficulty,
         content?.content,
         signal,
+        ...(parsed.data.board ? [parsed.data.board] as const : []),
       );
       if (signal.aborted) return;
       // A provider-free fallback verified no credential: it may use an existing session but not create one.

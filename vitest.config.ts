@@ -45,6 +45,7 @@ const serializedHttpUnitTests = [
   "tests/server/routes/shutdown-websocket.test.ts",
   "tests/server/routes/test-reset.routes.test.ts",
   "tests/server/routes/tutor.routes.test.ts",
+  "tests/server/routes/tutor-board.routes.test.ts",
   "tests/server/routes/websocket-lifecycle-handlers.test.ts",
   "tests/server/security/access-control.test.ts",
   "tests/server/services/protocol-version.test.ts",
