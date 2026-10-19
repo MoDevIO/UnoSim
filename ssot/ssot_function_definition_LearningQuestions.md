@@ -844,7 +844,8 @@ Bevorzugte Quellen sind:
 - Parser-Messages,
 - erkannte Arduino-/Programmstrukturen,
 - Serial-Konfiguration,
-- einfache Schleifen und Konstanten.
+- einfache Schleifen und Konstanten,
+- das Board, für das der Sketch geschrieben ist (`board` im Request, eine Board-ID des Katalogs): Der Kontext nennt dann Board, MCU und die Größen der C++-Datentypen (`int` 16 Bit, `long` 32 Bit, `double` wie `float` 32 Bit, Zeiger 16 Bit). Ohne `board` fehlt dieser Eintrag; die Systemvorgabe weist das Modell an, Aussagen über Wertebereiche, Überläufe und Speicher nur auf diese Angaben zu stützen.
 
 Dabei gelten die bestehenden Parser- und I/O-Verträge von UnoSim.
 

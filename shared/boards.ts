@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
+import { BOARD_MCU, boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
 
 /**
  * Board catalog of UnoSim (plan 4.3, P2.1): the product side of a board. The
@@ -73,6 +73,17 @@ export function enabledBoards(requested?: readonly BoardId[], defaultBoard: Boar
 /** The FQBNs `arduino-cli compile` may receive: exactly those of the given catalog entries. */
 export function fqbnAllowlist(entries: readonly BoardCatalogEntry[] = BOARD_CATALOG): string[] {
   return entries.map((board) => board.fqbn);
+}
+
+/**
+ * Sizes in bytes of the C++ types on every AVR board of the catalog (avr-gcc
+ * ABI: `int` has 16 bit, `double` is the 32-bit `float`, pointers have 16 bit).
+ */
+export const AVR_DATA_TYPE_BYTES = { char: 1, short: 2, int: 2, long: 4, longLong: 8, float: 4, double: 4, pointer: 2 } as const;
+
+/** What the Tutor's deterministic context says about the board a sketch is written for (plan P2.7). */
+export function boardTutorFacts(id: BoardId): { id: BoardId; displayName: string; mcu: string; dataTypeBytes: typeof AVR_DATA_TYPE_BYTES } {
+  return { id, displayName: getBoard(id).displayName, mcu: BOARD_MCU[id], dataTypeBytes: AVR_DATA_TYPE_BYTES };
 }
 
 /**

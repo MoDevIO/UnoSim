@@ -1,3 +1,4 @@
+import { type BoardId, boardTutorFacts } from "@shared/boards";
 import { analyzeStaticIO } from "@shared/io-registry-parser";
 import {
   tutorContentResultSchema,
@@ -68,6 +69,7 @@ type TutorDialogArguments = [
   difficulty?: TutorDifficulty,
   courseContent?: TutorPlanningContentContext,
   signal?: AbortSignal,
+  board?: BoardId,
 ];
 
 function throwIfTutorRequestAborted(signal: AbortSignal | undefined): void {
@@ -98,6 +100,7 @@ export const TUTOR_SYSTEM_PROMPT = [
   "Erzeuge genau eine kurze Lern-, Verständnis-, Vorhersage- oder Reflexionsfrage.",
   "Beziehe dich ausschließlich auf den übergebenen Sketch und den deterministischen UnoSim-Kontext.",
   "Erfinde keine Hardware, Pins, Variablen, Werte oder Programmstrukturen.",
+  "Nennt der deterministische Kontext ein Board, gelten dessen Datentypgrößen (zum Beispiel ist int 16 Bit breit); stütze Aussagen über Wertebereiche, Überläufe und Speicher nur darauf.",
   "Gib keine vollständige Lösung, keinen vollständigen Ersatzcode und keine Codeänderung aus.",
   "Die Frage soll die eigene Analyse des Studierenden fördern und nicht die Denkarbeit ersetzen.",
   TUTOR_CONCRETE_REFERENCE_GUIDANCE,
@@ -119,9 +122,10 @@ export const TUTOR_SYSTEM_PROMPT = [
 
 type TutorContext = ReturnType<typeof buildTutorContext>;
 
-function buildTutorContext(code: string) {
+function buildTutorContext(code: string, board?: BoardId) {
   const analysis = analyzeStaticIO(code);
   return {
+    ...(board ? { board: boardTutorFacts(board) } : {}),
     staticIO: {
       pins: analysis.pins.map(({ pinId, calls }) => ({
         pinId,
@@ -699,10 +703,11 @@ export class TutorService {
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
+    board?: BoardId,
   ): Promise<TutorServiceResponse> {
     return this.inSessionOrder(
       courseContent,
-      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal),
+      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal, board),
       signal,
     );
   }
@@ -714,10 +719,11 @@ export class TutorService {
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
+    board?: BoardId,
   ): Promise<TutorServiceResponse> {
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
-    const context = buildTutorContext(code);
+    const context = buildTutorContext(code, board);
     const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
       ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
@@ -763,7 +769,7 @@ export class TutorService {
   }
 
   private async generateDialogResponseInSession(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
-    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal] = args;
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal, board] = args;
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
@@ -778,7 +784,7 @@ export class TutorService {
         withoutProvider: true,
       };
     }
-    const context = buildTutorContext(code);
+    const context = buildTutorContext(code, board);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
     const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent, signal);
