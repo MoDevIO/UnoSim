@@ -33,7 +33,8 @@ if (!args.includes("--no-upload")) {
   try {
     cpSync(caseDir, join(work, id), { recursive: true, filter: (source) => !/(case\.json|expected\..*\.txt|recorded\..*\.txt)$/.test(source) });
     console.log(`uploading ${id} to ${port} …`);
-    const upload = spawnSync("arduino-cli", ["compile", "--upload", "--fqbn", fqbn, "--port", port, join(work, id)], { stdio: "inherit" });
+    // Maintainer tool: uses the arduino-cli the maintainer installed on the PATH.
+    const upload = spawnSync("arduino-cli", ["compile", "--upload", "--fqbn", fqbn, "--port", port, join(work, id)], { stdio: "inherit" }); // NOSONAR S4036
     if (upload.status !== 0) process.exit(1);
   } finally {
     rmSync(work, { recursive: true, force: true });
@@ -47,7 +48,8 @@ for (const step of steps) if (step.instruction) console.log(`  at +${step.atMs} 
 console.log("starting in 3 s …");
 await new Promise((resolveStart) => setTimeout(resolveStart, 3000));
 
-const monitor = spawn("arduino-cli", ["monitor", "--quiet", "--raw", "--port", port, "--config", `baudrate=${baud ?? 9600}`], { stdio: ["pipe", "pipe", "inherit"] });
+const monitorArgs = ["monitor", "--quiet", "--raw", "--port", port, "--config", `baudrate=${baud ?? 9600}`];
+const monitor = spawn("arduino-cli", monitorArgs, { stdio: ["pipe", "pipe", "inherit"] }); // NOSONAR S4036
 let recorded = "";
 monitor.stdout.on("data", (chunk: Buffer) => { recorded += chunk.toString("latin1"); });
 const started = Date.now();
