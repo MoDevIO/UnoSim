@@ -220,4 +220,39 @@ describe("installWorker", () => {
 
     expect(posted).toEqual([{ type: "ready", protocolVersion: PROTOCOL_VERSION, board: "uno", buildId: "b", runId: 1 }]);
   });
+
+  describe("EEPROM between runs (plan 4.8)", () => {
+    const counter = (name = "uno-eeprom_counter") => name;
+
+    function runOnce(ctx: ReturnType<typeof setup>, runId: number): string {
+      const { load, send, take, clock } = ctx;
+      take();
+      load(runId, {}, counter());
+      send({ type: "start", runId: runId + 1, timeoutMs: 60_000 });
+      clock.runUntil(clock.now() + 200);
+      send({ type: "stop", runId: runId + 1 });
+      return serialText(take()).trim();
+    }
+
+    it("keeps the EEPROM per board while the worker lives: a run sees what the run before wrote", () => {
+      const ctx = setup();
+
+      expect([runOnce(ctx, 1), runOnce(ctx, 3), runOnce(ctx, 5)]).toEqual(["255", "1", "2"]);
+    });
+
+    it("keeps it when a new load replaces a run that is still going", () => {
+      const ctx = setup();
+      ctx.load(1, {}, counter());
+      ctx.send({ type: "start", runId: 2, timeoutMs: 60_000 });
+      ctx.clock.runUntil(ctx.clock.now() + 200);
+
+      expect(runOnce(ctx, 3)).toBe("1");
+    });
+
+    it("starts erased with a new worker", () => {
+      runOnce(setup(), 1);
+
+      expect(runOnce(setup(), 1)).toBe("255");
+    });
+  });
 });

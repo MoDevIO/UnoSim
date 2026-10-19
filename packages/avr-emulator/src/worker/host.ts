@@ -1,3 +1,4 @@
+import type { BoardHardwareId } from "../boards/ids";
 import { loadFlashImage } from "../image/simulation-image";
 import type { RuntimeClock } from "../runtime/clock";
 import { Emulator, type EmulatorOptions, type StopInfo } from "../runtime/emulator";
@@ -33,6 +34,9 @@ const DEFAULT_TIMEOUT_MS = 300_000;
 export class WorkerHost {
   private runId: number | undefined;
   private emulator: Emulator | undefined;
+  private board: BoardHardwareId | undefined;
+  /** EEPROM content by board: stays with the worker, so a run sees what the run before wrote; a new worker starts erased (plan 4.8). */
+  private readonly eeproms = new Map<BoardHardwareId, Uint8Array>();
   private cancelPump: (() => void) | undefined;
   private lastHeartbeat = 0;
   private readonly batcher: EventBatcher;
@@ -118,8 +122,11 @@ export class WorkerHost {
       throw new Error(`the artifact is built for ${command.artifactBoard}, the selected board is ${command.board}`);
     }
     const image = loadFlashImage(command.board, new Uint8Array(command.flash), command.sha256, command.symbols);
+    this.board = command.board;
+    const eeprom = this.eeproms.get(command.board);
     const emulator: Emulator = new Emulator(image, {
       ...this.options.emulator,
+      ...(eeprom ? { eeprom } : {}),
       clock: this.options.clock,
       timeoutMs: DEFAULT_TIMEOUT_MS,
       onStop: (info) => this.onStop(emulator, info),
@@ -187,6 +194,7 @@ export class WorkerHost {
   private dispose(): void {
     this.cancelPump?.();
     this.cancelPump = undefined;
+    if (this.emulator && this.board) this.eeproms.set(this.board, this.emulator.machine.eeprom.slice());
     this.emulator = undefined;
     this.batcher.discard();
   }
