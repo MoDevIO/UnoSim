@@ -34,7 +34,7 @@ import { buildSketchHash } from "./workers/compile-worker-utils";
 import { type BoardId, findBoardByFqbn } from "@shared/boards";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
 import { type BuildRecord, buildArtifact, readBuildRecord, writeBuildRecord } from "./compiler/artifact-builder";
-import { createBuildIdentity } from "./compiler/build-identity";
+import { type BuildIdentity, createBuildIdentity } from "./compiler/build-identity";
 import { readToolchainInfo } from "./compiler/toolchain-info";
 
 // Re-export for backwards compatibility
@@ -248,29 +248,16 @@ export class ArduinoCompiler {
         buildOptions: FIXED_BUILD_FLAGS,
       });
 
-      // 2. Check both instant and hex caches.
-      // Only use the cache when the output sidecar (.output.txt) also exists so
-      // the full "Sketch uses X bytes … Board: Arduino UNO" message is returned.
-      // If cachedOutput is null (e.g. old cache entry written before the sidecar
-      // was introduced) we fall through to a fresh compile so the sidecar gets
-      // written and the user always sees the complete output.
-      const cacheResult = await checkCacheHits(sketchHash, {
-        binaryStorageDir: this.defaultBinaryStorageDir,
-        hexCacheDir,
-      }, compileStartedAt);
-      // An entry is only as good as the identity it was built under: without a sidecar (older
-      // entry) or under another toolchain, library set or build option it is built again.
-      const cachedDir = cacheResult.cacheType === "instant" ? this.defaultBinaryStorageDir : hexCacheDir;
-      const cachedRecord = cacheResult.cached ? await readBuildRecord(cachedDir, sketchHash, identity) : null;
-      const cachedArtifact = cachedRecord?.artifact;
-      if (cacheResult.cached && cacheResult.binary && cacheResult.cachedOutput !== null && cachedRecord) {
+      // 2. Answer from the instant or HEX cache when an entry exists under the current identity.
+      const cached = await this.lookupCachedBuild(sketchHash, hexCacheDir, compileStartedAt, identity);
+      if (cached) {
         return {
           success: true,
-          output: cacheResult.cachedOutput,
+          output: cached.output,
           stderr: undefined,
           errors: [],
-          binary: cacheResult.binary,
-          ...(cachedArtifact ? { artifact: cachedArtifact } : {}),
+          binary: cached.binary,
+          ...(cached.artifact ? { artifact: cached.artifact } : {}),
           arduinoCliStatus: "success",
           parserMessages: allParserMessages,
           ioRegistry,
@@ -358,6 +345,27 @@ export class ArduinoCompiler {
   }
 
 
+
+  /**
+   * Checks both instant and hex caches. An entry is used only when the output
+   * sidecar (.output.txt) exists too, so the full "Sketch uses X bytes … Board:
+   * Arduino UNO" message is returned, and when its artifact sidecar was written
+   * under the current identity: an older entry (no sidecar) or one built under
+   * another toolchain, library set or build option is built again, which also
+   * rewrites its sidecars.
+   */
+  private async lookupCachedBuild(
+    sketchHash: string,
+    hexCacheDir: string,
+    compileStartedAt: bigint,
+    identity: BuildIdentity,
+  ): Promise<{ output: string; binary: Buffer; artifact?: SimulationArtifact } | undefined> {
+    const hit = await checkCacheHits(sketchHash, { binaryStorageDir: this.defaultBinaryStorageDir, hexCacheDir }, compileStartedAt);
+    if (!hit.cached || !hit.binary || hit.cachedOutput === null) return undefined;
+    const record = await readBuildRecord(hit.cacheType === "instant" ? this.defaultBinaryStorageDir : hexCacheDir, sketchHash, identity);
+    if (!record) return undefined;
+    return { output: hit.cachedOutput, binary: hit.binary, ...(record.artifact ? { artifact: record.artifact } : {}) };
+  }
 
   /**
    * Handles successful compilation: writes caches and formats output.

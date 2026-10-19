@@ -100,8 +100,7 @@ export async function compileWithArduinoCli(
       const parsedOutput = parseCompilerOutput(output, config.fqbn);
       const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
         .filter((diagnostic) => diagnostic.type === "warning");
-      const binary = await discoverBuildBinary(config.buildPath || sketchDir);
-      const elf = binary ? await discoverBuildElf(config.buildPath || sketchDir) : undefined;
+      const { binary, elf } = await discoverBuildOutputs(config.buildPath || sketchDir);
       return {
         success: true,
         output: parsedOutput,
@@ -190,6 +189,12 @@ function isLibraryScanLine(line: string): boolean {
 
 function hasMemoryUsage(output: string): boolean {
   return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
+}
+
+/** HEX of the build and, if there is a HEX, the ELF next to it. */
+async function discoverBuildOutputs(buildOutputDir: string): Promise<{ binary?: Buffer; elf?: Buffer }> {
+  const binary = await discoverBuildBinary(buildOutputDir);
+  return { binary, elf: binary ? await discoverBuildElf(buildOutputDir) : undefined };
 }
 
 /** The ELF next to the HEX (`<sketch>.ino.elf`), if the build produced one. */

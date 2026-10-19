@@ -62,7 +62,7 @@ export async function readBuildRecord(dir: string, sketchHash: string, current: 
     if (!sameBuildIdentity(stored.identity, current)) return null;
     if (stored.artifact === undefined) return { identity: current };
     const artifact = parseSimulationArtifact(stored.artifact);
-    return artifact && artifact.buildId === buildIdOf(current) ? { identity: current, artifact } : null;
+    return artifact?.buildId === buildIdOf(current) ? { identity: current, artifact } : null;
   } catch {
     return null;
   }
