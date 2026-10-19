@@ -32,7 +32,7 @@ import { registerTutorRoutes } from "./routes/tutor.routes";
 import { registerSketchRoutes } from "./routes/sketches.routes";
 import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
 import { ExamplesRepository } from "./services/examples/examples-repository";
-import { config } from "./config";
+import { config, offeredBoards } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
 import { ProcessExecutor } from "./services/process-executor";
@@ -201,6 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     logger,
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
+    offeredBoards,
   });
 
   // --- WebSocket handler (moved to modular WS file) ---

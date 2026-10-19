@@ -70,7 +70,11 @@ Häufig verwendete optionale Werte:
 | Variable | Default | Zweck |
 |---|---:|---|
 | `PORT` | `3000` | Backend-Port |
-| `ARDUINO_FQBN` | `arduino:avr:uno` | Arduino-Zielplattform |
+| `UNOSIM_DEFAULT_BOARD` | `uno` | Standard-Board (`uno`, `nano`, `mega2560`, `attiny85`) |
+| `UNOSIM_BOARDS` | alle Boards mit Status `preview` oder `available`, dazu das Standard-Board | angebotene Boards |
+| `UNOSIM_RUNTIME_BACKENDS` | `browser,host-mock` | angebotene Laufzeiten (`browser` = Emulation, `host-mock` = Legacy); ohne `host-mock` startet kein Sandbox-Runner-Pool |
+| `UNOSIM_DEFAULT_RUNTIME` | `host-mock` | Vorauswahl im Client; Standard wird `browser`, sobald die Emulation Standard ist (Plan P3.10) |
+| `ARDUINO_FQBN` | – | veraltet, Alias für `UNOSIM_DEFAULT_BOARD`: nur die FQBN eines Katalogboards, und nur gemeinsam mit einem passenden `UNOSIM_DEFAULT_BOARD` |
 | `ARDUINO_CACHE_DIR` | projektlokal | Arduino-Cache |
 | `WORKER_COUNT` | CPU-abhängig | Compile-Worker |
 | `COMPILE_MAX_CONCURRENT` | CPU-abhängig | maximale parallele Compiles |

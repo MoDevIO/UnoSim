@@ -935,6 +935,9 @@ Neubau auslöst und dass ein unveränderter Build weiter aus dem Cache kommt.
 Variablen und Startprüfungen nach 4.11; Runner-Pool nur bei Host-Mock;
 `start_simulation` ohne Host-Mock → `operation_error` mit `RUNTIME_UNAVAILABLE`;
 Status und Readiness nach Backends.
+Umgesetzt in zwei PRs (Einstellungen und `/api/config`; Verhalten des Servers).
+Bis P3.10 bleibt die Vorauswahl `host-mock`, auch lokal; die Variable
+`UNOSIM_DEFAULT_RUNTIME` stellt sie um.
 
 **P2.7 Board-Kontext für den Tutor (S).**
 Die Tutor-Anfrage trägt die Board-ID; die anwendungseigene Systemvorgabe nennt

@@ -9,11 +9,12 @@
  *   • "local":  server and simulations run on the development host
  *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
-import { DEFAULT_BOARD_ID, type RuntimeKind, enabledBoards } from "../shared/boards";
+import { enabledBoards, getBoard } from "../shared/boards";
 import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
+import { parseRuntimeSettings } from "./runtime-settings";
 import { examplesRefSchema } from "@shared/examples";
 import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { normalizeRepositoryInput } from "./services/examples/source-selection";
@@ -231,6 +232,7 @@ function envList(key: string, fallback: string[]): string[] {
 
 rejectObsoleteTutorCurriculumEnv(process.env);
 const runtimeProfile = parseRuntimeProfile(process.env);
+const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode);
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
   runtimeProfile.nodeEnv,
@@ -430,6 +432,9 @@ export const config = {
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
   serverMode: runtimeProfile.serverMode,
+
+  /** Runtime backends, default runtime, offered boards and default board (plan 4.11). */
+  runtime: runtimeSettings,
 
   /** Test-only gateway bypass for Docker integration tests. */
   dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
@@ -636,7 +641,7 @@ export const config = {
     /** arduino-cli timeout for one REST compile (ms) */
     timeoutMs: 60_000,
     /** Arduino Fully Qualified Board Name */
-    fqbn: envStr("ARDUINO_FQBN", "arduino:avr:uno"),
+    fqbn: getBoard(runtimeSettings.defaultBoard).fqbn,
     /** Arduino CLI core/library cache directory */
     cacheDir: envStr(
       "ARDUINO_CACHE_DIR",
@@ -712,6 +717,11 @@ export const config = {
   },
 };
 
+/** The boards this deployment offers (plan 4.11). */
+export function offeredBoards() {
+  return enabledBoards(config.runtime.boards, config.runtime.defaultBoard);
+}
+
 /** Subset of config safe to expose to the browser via GET /api/config */
 export function getClientConfig() {
   return {
@@ -720,10 +730,9 @@ export function getClientConfig() {
     tutor: {
       provider: config.tutor.provider,
     },
-    boards: enabledBoards().map(({ id, displayName, status, runtimes }) => ({ id, displayName, status, runtimes })),
-    defaultBoard: DEFAULT_BOARD_ID,
-    // Until the browser backend exists (P3.2) and the variables of plan 4.11 arrive (P2.6) the server offers the host mock only.
-    runtime: { backends: ["host-mock"] as RuntimeKind[], default: "host-mock" as RuntimeKind },
+    boards: offeredBoards().map(({ id, displayName, status, runtimes }) => ({ id, displayName, status, runtimes })),
+    defaultBoard: config.runtime.defaultBoard,
+    runtime: { backends: [...config.runtime.backends], default: config.runtime.defaultRuntime },
   };
 }
 
