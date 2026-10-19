@@ -22,6 +22,13 @@ let cached: { info: ToolchainInfo; expiresAt: number } | undefined;
 const asRecord = (value: unknown): Record<string, unknown> => (typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {});
 const text = (value: unknown): string => (typeof value === "string" && value.length > 0 ? value : UNKNOWN);
 
+/** The array of a CLI answer: the answer itself (older releases) or its member `key`; undefined when there is none. */
+function listOf(json: unknown, key: string): unknown[] | undefined {
+  if (Array.isArray(json)) return json;
+  const member = asRecord(json)[key];
+  return Array.isArray(member) ? member : undefined;
+}
+
 /** `arduino-cli version --format json`: `VersionString` (1.x), older releases used `version_string`. */
 export function parseCliVersion(json: unknown): string {
   const record = asRecord(json);
@@ -30,9 +37,7 @@ export function parseCliVersion(json: unknown): string {
 
 /** `arduino-cli core list --format json`: `{ platforms: [{ id, installed_version }] }`. */
 export function parseCores(json: unknown): ToolchainInfo["cores"] {
-  const record = asRecord(json);
-  const platforms = Array.isArray(json) ? json : Array.isArray(record.platforms) ? (record.platforms as unknown[]) : [];
-  return platforms
+  return (listOf(json, "platforms") ?? [])
     .map((entry) => asRecord(entry))
     .map((platform) => ({ id: text(platform.id), version: text(platform.installed_version ?? platform.installed) }))
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -40,8 +45,7 @@ export function parseCores(json: unknown): ToolchainInfo["cores"] {
 
 /** `arduino-cli lib list --format json`: `{ installed_libraries: [{ library: { name, version } }] }`. */
 export function librariesFingerprint(json: unknown): string {
-  const record = asRecord(json);
-  const entries = Array.isArray(json) ? json : Array.isArray(record.installed_libraries) ? (record.installed_libraries as unknown[]) : undefined;
+  const entries = listOf(json, "installed_libraries");
   if (!entries) return UNKNOWN;
   const names = entries
     .map((entry) => asRecord(asRecord(entry).library ?? entry))
