@@ -38,9 +38,22 @@ Der Host-Mock gilt nur für den Uno.
 
 Alle vier Boards stehen mit `planned` im Katalog. Das Statuswort entscheidet über die Freischaltung, nicht über die Funktion des Uno: Der Standard-Board (`uno`) ist immer angeboten, weil Anfragen ohne Board ihn meinen.
 
-## 3. Angebotene Boards
+## 3. Angebotene Boards und Laufzeiten
 
-`enabledBoards(requested?, defaultBoard?)` liefert die Boards, die ein Betrieb anbietet: die angeforderten IDs, ohne Angabe alle Boards mit Status `preview` oder `available`, dazu immer das Standard-Board; Reihenfolge wie im Katalog. `GET /api/config` meldet sie als `boards` (`id`, `displayName`, `status`, `runtimes`; keine FQBN), außerdem `defaultBoard` und `runtime` (`backends`, `default`). Bis zum Browser-Backend (P3.2) und den Variablen aus Plan 4.11 (P2.6) ist `runtime` fest `host-mock`.
+`enabledBoards(requested?, defaultBoard?)` liefert die Boards, die ein Betrieb anbietet: die angeforderten IDs, ohne Angabe alle Boards mit Status `preview` oder `available`, dazu immer das Standard-Board; Reihenfolge wie im Katalog.
+
+Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, geprüft beim Start; ungültige Werte verhindern den Start):
+
+| Variable | Werte | Standard |
+|---|---|---|
+| `UNOSIM_RUNTIME_BACKENDS` | Liste aus `browser`, `host-mock` | lokal `browser,host-mock`; Docker `host-mock`. Im Docker-Profil ist `browser` ohne Compile-Sandbox (Plan P2.4) unzulässig |
+| `UNOSIM_DEFAULT_RUNTIME` | eines der angebotenen Backends | `host-mock`, sonst `browser`; wird mit P3.10 lokal `browser` |
+| `UNOSIM_BOARDS` | Liste von Board-IDs | siehe oben |
+| `UNOSIM_DEFAULT_BOARD` | Board-ID | `uno` |
+
+`ARDUINO_FQBN` gilt als veralteter Alias für das Standard-Board: Sein Wert muss die FQBN eines Katalogboards sein und darf `UNOSIM_DEFAULT_BOARD` nicht widersprechen. Jedes angebotene Board (auch das Standard-Board) braucht mindestens eine angebotene Laufzeit, die es kann (`runtimes` im Katalog); sonst startet der Server nicht.
+
+`GET /api/config` meldet `boards` (`id`, `displayName`, `status`, `runtimes`; keine FQBN), `defaultBoard` und `runtime` (`backends`, `default`).
 
 ## 4. FQBN-Allowlist
 
