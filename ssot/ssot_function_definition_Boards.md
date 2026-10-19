@@ -47,7 +47,7 @@ Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, gep
 | Variable | Werte | Standard |
 |---|---|---|
 | `UNOSIM_RUNTIME_BACKENDS` | Liste aus `browser`, `host-mock` | lokal `browser,host-mock`; Docker `host-mock`. Im Docker-Profil ist `browser` ohne Compile-Sandbox (Plan P2.4) unzulässig |
-| `UNOSIM_DEFAULT_RUNTIME` | eines der angebotenen Backends | `host-mock`, sonst `browser`; wird mit P3.10 lokal `browser` |
+| `UNOSIM_DEFAULT_RUNTIME` | eines der angebotenen Backends | lokal `browser` (seit M1), Docker `host-mock`; ohne Host-Mock `browser` |
 | `UNOSIM_BOARDS` | Liste von Board-IDs | siehe oben |
 | `UNOSIM_DEFAULT_BOARD` | Board-ID | `uno` |
 
@@ -62,6 +62,21 @@ Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, gep
 ## 5. Pin-Aliasse
 
 `boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Boards ohne Hardwareprofil im Paket (Mega 2560 bis P5.1, ATtiny85 bis P6.2) haben keine Aliasse.
+
+### 5.1 Pin-Modell (`shared/board-pins.ts`, P4.1)
+
+Die Pinlisten, Labels und Fähigkeiten eines Boards stammen aus der Pinbelegung des Pakets; es gibt keine zweite Liste.
+
+| Funktion | Ergebnis |
+|---|---|
+| `boardPins(id)` | alle Pins in Nummernfolge (`pin`, `label`, `name`, `digital`, `analog`, `adcChannel`, `pwm`, `role`); `undefined` ohne Hardwareprofil |
+| `findBoardPin`, `isBoardPin(id, pin)` | Pinprüfung je Board (Uno 0–19, Nano 0–21) |
+| `boardPwmPins`, `boardAnalogPins` | PWM-Pins (`~`) und Analogeingänge in Bauteilfolge |
+| `boardPinLabel(id, pin)` | Name wie im Sketch (`14` → `A0`) |
+| `resolveBoardPin(id, name)` | `13`, `A0`, `LED_BUILTIN` → Pinnummer; `A6` gibt es nur am Nano |
+| `maxBoardPin(id)` | höchste Pinnummer des Boards |
+
+Am Nano sind A6 und A7 (Pins 20 und 21) reine Analogeingänge ohne digitale Funktion (`digital: false`). Die WebSocket-Grenze `maxPin: 19` gilt weiter für den Host-Mock; die Eingabe an den Worker prüft den Pin gegen das Board (`isBoardPin`, siehe SimulationRuntime).
 
 ## 6. Board im Compile-Request
 
