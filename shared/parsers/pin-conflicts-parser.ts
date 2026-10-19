@@ -1,5 +1,7 @@
 import type { ParserMessage } from "../schema";
 import { randomUUID } from "node:crypto";
+import type { BoardId } from "../boards";
+import { type PinContext, pinContext } from "./pin-context";
 import {
   type StaticIOAnalysis,
   type StaticIOCall,
@@ -20,10 +22,6 @@ function compareDigitalCallOrder(
     Math.min(...bCalls.map(({ line }) => line));
 }
 
-function pinLabel(pinId: number): string {
-  return pinId >= 14 ? `A${pinId - 14}` : String(pinId);
-}
-
 /**
  * Parser for pin conflicts (same pin used as digital and analog)
  * 
@@ -33,7 +31,11 @@ function pinLabel(pinId: number): string {
  * 3. Numeric pin notation
  */
 export class PinConflictsParser {
-  constructor(private readonly analysis: StaticIOAnalysis) {}
+  private readonly pins: PinContext;
+
+  constructor(private readonly analysis: StaticIOAnalysis, board?: BoardId) {
+    this.pins = pinContext(board);
+  }
 
   parse(): ParserMessage[] {
     return this.analysis.pins
@@ -62,7 +64,7 @@ export class PinConflictsParser {
           type: "warning" as const,
           category: "hardware" as const,
           severity: 2 as const,
-          message: `Pin ${pinLabel(pinId)} used as both digital and analog. This may be unintended.`,
+          message: `Pin ${this.pins.label(pinId)} used as both digital and analog. This may be unintended.`,
           suggestion: "// Use separate pins for digital and analog",
         };
       });

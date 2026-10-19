@@ -9,19 +9,20 @@ import {
   analyzeStaticIO,
   analyzeStaticIOProject,
   type StaticIOAnalysis,
+  type StaticIOOptions,
   type StaticIOProjectAnalysis,
 } from "./io-registry-parser";
 import type { SourceProject } from "./source-project";
 import { type BoardId, DEFAULT_BOARD_ID } from "./boards";
 
-type StaticIOAnalyzer = (code: string) => StaticIOAnalysis;
-type StaticIOProjectAnalyzer = (project: SourceProject) => StaticIOProjectAnalysis;
+type StaticIOAnalyzer = (code: string, options?: StaticIOOptions) => StaticIOAnalysis;
+type StaticIOProjectAnalyzer = (project: SourceProject, options?: StaticIOOptions) => StaticIOProjectAnalysis;
 
 export class CodeParser {
   constructor(
     private readonly analyzeIO: StaticIOAnalyzer = analyzeStaticIO,
     private readonly analyzeIOProject: StaticIOProjectAnalyzer = analyzeStaticIOProject,
-    /** Board the sketch is parsed for; the board-specific rules of phase 4 build on it. */
+    /** Board the sketch is parsed for: its pins, names and rules (plan P4.2). */
     readonly board: BoardId = DEFAULT_BOARD_ID,
   ) {}
 
@@ -46,9 +47,9 @@ export class CodeParser {
    */
   parseHardwareCompatibility(
     code: string,
-    analysis: StaticIOAnalysis = this.analyzeIO(code),
+    analysis: StaticIOAnalysis = this.analyzeIO(code, { board: this.board }),
   ): ParserMessage[] {
-    const parser = new HardwareCompatibilityParser(analysis);
+    const parser = new HardwareCompatibilityParser(analysis, this.board);
     return parser.parse();
   }
 
@@ -57,9 +58,9 @@ export class CodeParser {
    */
   parsePinConflicts(
     code: string,
-    analysis: StaticIOAnalysis = this.analyzeIO(code),
+    analysis: StaticIOAnalysis = this.analyzeIO(code, { board: this.board }),
   ): ParserMessage[] {
-    const parser = new PinConflictsParser(analysis);
+    const parser = new PinConflictsParser(analysis, this.board);
     return parser.parse();
   }
 
@@ -80,7 +81,7 @@ export class CodeParser {
    * Parse all categories and combine results
    */
   parseAll(code: string): ParserMessage[] {
-    const analysis = this.analyzeIO(code);
+    const analysis = this.analyzeIO(code, { board: this.board });
     return [
       ...this.parseSerialConfiguration(code),
       ...this.parseStructure(code),
@@ -96,7 +97,7 @@ export class CodeParser {
    */
   parseAllProject(project: SourceProject): ParserMessage[] {
     const entryCode = project.files[project.entryFile] ?? "";
-    const analysis = this.analyzeIOProject(project);
+    const analysis = this.analyzeIOProject(project, { board: this.board });
     return [
       ...this.parseSerialConfiguration(entryCode),
       ...this.parseStructure(entryCode),

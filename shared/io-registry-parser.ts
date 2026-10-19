@@ -20,6 +20,8 @@
  */
 
 import type { IOPinRecord } from "./schema";
+import type { BoardId } from "./boards";
+import { type PinContext, pinContext } from "./parsers/pin-context";
 import type { PinMode } from "@shared/types/arduino.types";
 import {
   resolveSourceProject,
@@ -39,11 +41,28 @@ import {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Built-in Arduino pin-name constants mapped to numeric IDs (0-19). */
-const BUILTIN_CONSTANTS: Record<string, number> = {
-  LED_BUILTIN: 13,
-  A0: 14, A1: 15, A2: 16, A3: 17, A4: 18, A5: 19,
-};
+/**
+ * The board the analysis currently runs for. The analysis is synchronous, so
+ * the public entry points set it for their duration (`withBoard`) instead of
+ * passing it through every helper; without a board it is the Uno.
+ */
+let activeContext: PinContext = pinContext();
+
+/** Runs `analysis` for `board` (the Uno when omitted) and restores the previous board afterwards. */
+function withBoard<T>(board: BoardId | undefined, analysis: () => T): T {
+  const previous = activeContext;
+  activeContext = pinContext(board);
+  try {
+    return analysis();
+  } finally {
+    activeContext = previous;
+  }
+}
+
+/** Options of the static analysis: the board whose pins and names apply (default Uno). */
+export interface StaticIOOptions {
+  readonly board?: BoardId;
+}
 
 /** Canonical mode name table. */
 const MODE_MAP: Record<string, PinMode> = {
@@ -128,14 +147,14 @@ export interface StaticIOProjectPinRecord extends IOPinRecord {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Build symbol table: name → pin ID (0-19).
+ * Build symbol table: name → pin number.
  * Handles: built-in constants, #define, const int/byte, plain int/byte.
  */
 function buildSymbols(clean: string): {
   values: Map<string, number>;
   userSymbols: Set<string>;
 } {
-  const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
+  const syms = new Map<string, number>(Object.entries(activeContext.builtinConstants()));
   const userSymbols = new Set<string>();
 
   // #define NAME VALUE
@@ -178,8 +197,7 @@ function resolveToken(
   if (/^\d+$/.test(token)) return Number.parseInt(token, 10);
   const analogMatch = /^A(\d+)$/.exec(token);
   if (analogMatch) {
-    const n = Number.parseInt(analogMatch[1], 10);
-    return n >= 0 && n <= 5 ? 14 + n : undefined;
+    return activeContext.analogPin(Number.parseInt(analogMatch[1], 10));
   }
   return syms.get(token);
 }
@@ -206,7 +224,7 @@ function buildArrays(
 }
 
 /**
- * Resolve a pin expression (literal, symbol, or array-index) to a pin ID 0-19.
+ * Resolve a pin expression (literal, symbol, or array-index) to a pin number of the active board.
  * Returns undefined if the expression is not statically resolvable (→ TC 8).
  */
 function resolvePin(
@@ -222,12 +240,12 @@ function resolvePin(
     const idx = Number.parseInt(arrM[2], 10);
     if (arr && idx < arr.length) {
       const id = arr[idx];
-      return id >= 0 && id <= 19 ? id : undefined;
+      return activeContext.has(id) ? id : undefined;
     }
     return undefined;
   }
   const n = resolveToken(t, syms);
-  return n !== undefined && n >= 0 && n <= 19 ? n : undefined;
+  return n !== undefined && activeContext.has(n) ? n : undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -438,7 +456,7 @@ function processLoopExpansion(
   entries: StaticIOCall[],
 ): void {
   for (const pinId of loop.values) {
-    if (pinId < 0 || pinId > 19) continue;
+    if (!activeContext.has(pinId)) continue;
     processStaticPin(
       pinId,
       op,
@@ -494,7 +512,7 @@ function processStaticPin(
   loopBody?: "braced" | "braceless",
 ): void {
   const resolvedPinId =
-    op === "analogRead" && pinId >= 0 && pinId <= 5 ? pinId + 14 : pinId;
+    op === "analogRead" ? (activeContext.analogPin(pinId) ?? pinId) : pinId;
   const loopContext = loopBody === undefined ? {} : { loopBody };
   if (op === "pinMode") {
     const mode = MODE_MAP[secondArg];
@@ -689,7 +707,7 @@ function buildPinRecord(
   arCalls: StaticIOCall[],
   awCalls: StaticIOCall[],
 ): IOPinRecord {
-  const label = pinId >= 14 ? `A${pinId - 14}` : String(pinId);
+  const label = activeContext.label(pinId);
 
   const conflicts = detectPinConflicts(
     pmCalls,
@@ -727,7 +745,11 @@ function buildPinRecord(
 }
 
 /** Analyze statically resolvable Arduino I/O usage without applying a UI projection. */
-export function analyzeStaticIO(code: string): StaticIOAnalysis {
+export function analyzeStaticIO(code: string, options: StaticIOOptions = {}): StaticIOAnalysis {
+  return withBoard(options.board, () => analyzeStaticIOForActiveBoard(code));
+}
+
+function analyzeStaticIOForActiveBoard(code: string): StaticIOAnalysis {
   const clean = stripComments(code);
   const { values: syms, userSymbols } = buildSymbols(clean);
   const arrays = buildArrays(clean, syms);
@@ -821,8 +843,8 @@ function buildStaticIORegistry(analysis: StaticIOAnalysis): IOPinRecord[] {
  * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
  *   compatibility with the existing UI and runtime registry manager.
  */
-export function parseStaticIORegistry(code: string): IOPinRecord[] {
-  return buildStaticIORegistry(analyzeStaticIO(code));
+export function parseStaticIORegistry(code: string, options: StaticIOOptions = {}): IOPinRecord[] {
+  return withBoard(options.board, () => buildStaticIORegistry(analyzeStaticIOForActiveBoard(code)));
 }
 
 const PROJECT_DEFINE_PATTERN = /^\s*#define\s+([A-Za-z_]\w*)\s+(\w+)/;
@@ -1002,7 +1024,7 @@ function analyzeResolvedStaticIOProject(
   resolved: ResolvedSourceProject,
 ): StaticIOProjectAnalysis {
   const cleanLines = stripComments(resolved.source).split("\n");
-  const syms = new Map<string, number>(Object.entries(BUILTIN_CONSTANTS));
+  const syms = new Map<string, number>(Object.entries(activeContext.builtinConstants()));
   const userSymbols = new Set<string>();
   const arrays = new Map<string, number[]>();
   const entries: StaticIOCall[] = [];
@@ -1076,8 +1098,9 @@ function analyzeResolvedStaticIOProject(
 /** Analyze only the entry-reachable local source files in include order. */
 export function analyzeStaticIOProject(
   project: SourceProject,
+  options: StaticIOOptions = {},
 ): StaticIOProjectAnalysis {
-  return analyzeResolvedStaticIOProject(resolveSourceProject(project));
+  return withBoard(options.board, () => analyzeResolvedStaticIOProject(resolveSourceProject(project)));
 }
 
 function locationsFor(
@@ -1093,8 +1116,13 @@ function locationsFor(
 /** Project-aware registry projection with additive file/line locations. */
 export function parseStaticIORegistryProject(
   project: SourceProject,
+  options: StaticIOOptions = {},
 ): StaticIOProjectPinRecord[] {
-  const analysis = analyzeStaticIOProject(project);
+  return withBoard(options.board, () => projectRegistryForActiveBoard(project));
+}
+
+function projectRegistryForActiveBoard(project: SourceProject): StaticIOProjectPinRecord[] {
+  const analysis = analyzeStaticIOProject(project, { board: activeContext.board });
   const records = buildStaticIORegistry(analysis) as StaticIOProjectPinRecord[];
   for (const record of records) {
     const calls = analysis.pins.find(({ pinId }) => pinId === record.pinId)?.calls ?? [];
