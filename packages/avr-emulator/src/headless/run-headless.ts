@@ -99,7 +99,7 @@ const STATE_ARGUMENTS: Record<string, readonly string[]> = {
 export function runHeadless(image: LoadedImage, options: HeadlessOptions): HeadlessResult {
   const { simMs, events = [], expectState = [] } = options;
   if (!Number.isFinite(simMs) || simMs < 0) throw new RangeError(`invalid simMs ${simMs}`);
-  if (options.chunkMs !== undefined && !(options.chunkMs > 0)) throw new RangeError(`invalid chunkMs ${options.chunkMs}`);
+  if (options.chunkMs !== undefined && (Number.isNaN(options.chunkMs) || options.chunkMs <= 0)) throw new RangeError(`invalid chunkMs ${options.chunkMs}`);
   parseStimuli(events, "events");
   parseStimuli(expectState, "expectState");
   const clock = options.clock ?? systemClock();
