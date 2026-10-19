@@ -15,7 +15,7 @@ Ziel-SSOT für den Board-Katalog von UnoSim: welche Boards es gibt, welche FQBN 
 | Feld | Bedeutung |
 |---|---|
 | `id` | `uno`, `nano`, `mega2560`, `attiny85` (zugleich Board-ID des Pakets; ein Compile-Zeit-Test hält beide gleich) |
-| `displayName` | Anzeigename („Arduino Uno“) |
+| `displayName` | Anzeigename („Arduino UNO“, so steht es in der Compile-Ausgabe) |
 | `fqbn` | FQBN für `arduino-cli`, einschließlich der Menüoptionen |
 | `core` | gepinnte Core-ID und Version |
 | `runtimes` | angebotene Laufzeiten: `browser` (Emulation), `host-mock` (Legacy) |
@@ -44,8 +44,20 @@ Alle vier Boards stehen mit `planned` im Katalog. Das Statuswort entscheidet üb
 
 ## 4. FQBN-Allowlist
 
-`fqbnAllowlist()` liefert genau die FQBNs der übergebenen Katalogeinträge. `arduino-cli compile` darf keine andere FQBN erhalten; die Anbindung an die Argumentprüfung des Prozess-Executors folgt mit P2.2.
+`fqbnAllowlist()` liefert genau die FQBNs der übergebenen Katalogeinträge. Der Prozess-Executor lässt `arduino-cli --fqbn <x>` nur zu, wenn `<x>` die FQBN eines Katalogboards ist; jede andere Angabe lehnt er ab, ohne einen Prozess zu starten. Ob ein Board angeboten wird, entscheidet die Route (Abschnitt 6).
 
 ## 5. Pin-Aliasse
 
 `boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Boards ohne Hardwareprofil im Paket (Mega 2560 bis P5.1, ATtiny85 bis P6.2) haben keine Aliasse.
+
+## 6. Board im Compile-Request
+
+`POST /api/compile` nimmt das optionale Feld `board` (eine Katalog-ID). Das Feld `fqbn` ist veraltet:
+
+- Mit `board` kompiliert die Route für die FQBN dieses Boards; ein zusätzlich angegebenes `fqbn` muss die FQBN desselben Boards sein.
+- Ohne `board` bedeutet ein `fqbn` das Board, zu dem er gehört; ein `fqbn` außerhalb des Katalogs ist ungültig. Die Optionen an den Compiler bleiben dann wie bisher (`fqbn` wie angegeben, kein `board`).
+- Ohne beides kompiliert der Server für sein Standard-Board.
+- Ein Board, das der Betrieb nicht anbietet (Abschnitt 3), lehnt die Route mit 400 und „Board <id> is not available“ ab. Ein ungültiges Board oder ein unpassender `fqbn` ergibt 400 „Invalid compile request“.
+
+Die Compile-Ausgabe nennt das Board mit dem Anzeigenamen des Katalogs („Board: Arduino UNO“); für eine FQBN außerhalb des Katalogs steht die FQBN selbst dort. Das Board läuft als `board` durch Compiler-Optionen und Worker-Auftrag; `CodeParser` bekommt es als letzten Konstruktorparameter (Standard `uno`), Grundlage für die boardabhängigen Regeln der Phase 4.
+

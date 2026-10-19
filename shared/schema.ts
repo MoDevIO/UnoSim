@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
+import { boardIdSchema, findBoardByFqbn } from "./boards";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 
@@ -45,6 +46,17 @@ function rejectEntryHeaderCollision(
   });
 }
 
+/** The deprecated `fqbn` must be the FQBN of a catalog board and, with a `board`, the FQBN of that board. */
+function rejectFqbnOfAnotherBoard(data: { board?: string; fqbn?: string }, ctx: z.RefinementCtx): void {
+  if (data.fqbn === undefined) return;
+  const owner = findBoardByFqbn(data.fqbn);
+  if (!owner) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fqbn"], message: "fqbn is not the FQBN of a known board" });
+  } else if (data.board !== undefined && owner.id !== data.board) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fqbn"], message: "fqbn does not belong to the selected board" });
+  }
+}
+
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
@@ -63,6 +75,8 @@ export const compileRequestSchema = z
         "Header names must be unique",
       )
       .optional(),
+    board: boardIdSchema.optional(),
+    /** Deprecated: allowed only together with (or instead of) the board it belongs to. */
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
     libraries: z
       .array(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars))
@@ -70,7 +84,8 @@ export const compileRequestSchema = z
       .optional(),
   })
   .strict()
-  .superRefine(rejectEntryHeaderCollision);
+  .superRefine(rejectEntryHeaderCollision)
+  .superRefine(rejectFqbnOfAnotherBoard);
 
 /**
  * Canonical WebSocket message type identifiers.

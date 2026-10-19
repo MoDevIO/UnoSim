@@ -56,7 +56,12 @@ describe("runHeadless (plan P1.13)", () => {
 
   it("runs zero time and long times in chunks", () => {
     expect(run("uno-tick_probe.hex", { simMs: 0, expectState: [[0, "pin", 13, "INPUT", 0]] }).checks).toHaveLength(1);
-    expect(run("uno-ssot_tc01.hex", { simMs: 2500 }).simTimeMs).toBeGreaterThanOrEqual(2500);
+    const chunked = run("uno-serial_probe.hex", { simMs: 25, chunkMs: 10 });
+    const whole = run("uno-serial_probe.hex", { simMs: 25 });
+
+    expect(chunked.simTimeMs).toBeGreaterThanOrEqual(25);
+    expect(chunked.serial.get(0)).toBe(whole.serial.get(0));
+    expect(() => run("uno-tick_probe.hex", { simMs: 5, chunkMs: 0 })).toThrow(RangeError);
   });
 
   it("starts from a given EEPROM content", () => {

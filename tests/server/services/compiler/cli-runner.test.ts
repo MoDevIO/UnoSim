@@ -104,3 +104,26 @@ describe("compileWithArduinoCli", () => {
     expect(result.parsedErrors?.[0]?.file).toBe("system");
   });
 });
+
+describe("compiler output board name (plan P2.2)", () => {
+  const success = (stdout = "Sketch uses 100 bytes (1%) of program storage space.\nGlobal variables use 9 bytes (0%) of dynamic memory.") => ({
+    execute: vi.fn().mockResolvedValue({ code: 0, stdout, stderr: "" }),
+  }) as unknown as ProcessExecutor;
+
+  it.each([
+    ["arduino:avr:uno", "Board: Arduino UNO"],
+    ["arduino:avr:nano:cpu=atmega328", "Board: Arduino Nano"],
+    ["arduino:avr:mega:cpu=atmega2560", "Board: Arduino Mega 2560"],
+    ["ATTinyCore:avr:attinyx5:chip=85,clock=8internal", "Board: ATtiny85"],
+  ])("names the catalog board of %s", async (fqbn, line) => {
+    const result = await compileWithArduinoCli("/tmp/unosim/sketch.ino", { fqbn }, success());
+
+    expect(result.output.endsWith(line)).toBe(true);
+  });
+
+  it("falls back to the FQBN for a board outside the catalog", async () => {
+    const result = await compileWithArduinoCli("/tmp/unosim/sketch.ino", { fqbn: "vendor:arch:board" }, success());
+
+    expect(result.output.endsWith("Board: vendor:arch:board")).toBe(true);
+  });
+});

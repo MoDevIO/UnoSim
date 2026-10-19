@@ -12,6 +12,7 @@ import {
   type StaticIOProjectAnalysis,
 } from "./io-registry-parser";
 import type { SourceProject } from "./source-project";
+import { type BoardId, DEFAULT_BOARD_ID } from "./boards";
 
 type StaticIOAnalyzer = (code: string) => StaticIOAnalysis;
 type StaticIOProjectAnalyzer = (project: SourceProject) => StaticIOProjectAnalysis;
@@ -20,6 +21,8 @@ export class CodeParser {
   constructor(
     private readonly analyzeIO: StaticIOAnalyzer = analyzeStaticIO,
     private readonly analyzeIOProject: StaticIOProjectAnalyzer = analyzeStaticIOProject,
+    /** Board the sketch is parsed for; the board-specific rules of phase 4 build on it. */
+    readonly board: BoardId = DEFAULT_BOARD_ID,
   ) {}
 
   /**
