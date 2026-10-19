@@ -65,7 +65,7 @@ export function parseRuntimeSettings(env: NodeJS.ProcessEnv, serverMode: "local"
   const boards = listedBoards?.map((item) => parseChoice("UNOSIM_BOARDS", item, BOARD_IDS));
   const defaultBoard = parseDefaultBoard(env);
 
-  for (const board of enabledBoards(boards, defaultBoard)) {
+  for (const board of enabledBoards(boards, defaultBoard, boards === undefined ? backends : undefined)) {
     if (!board.runtimes.some((runtime) => backends.includes(runtime))) {
       throw new Error(`board ${board.id} needs one of the runtime backends ${getBoard(board.id).runtimes.join(", ")}, but UNOSIM_RUNTIME_BACKENDS offers ${backends.join(", ")}`);
     }
