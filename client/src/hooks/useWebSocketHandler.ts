@@ -9,6 +9,7 @@ import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
 import { emitPinStateChange, emitSimulationStateEvent, emitOperationErrorEvent } from "@/hooks/use-external-api";
 import type { DockerGccPhase } from "@/hooks/use-compile-and-run";
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import type {
   IncomingArduinoMessage,
   SerialPayload,
@@ -547,6 +548,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     const connectionLost = wasConnectedRef.current && !isConnected;
     wasConnectedRef.current = isConnected;
     if (!connectionLost) return;
+    // A browser run does not depend on the connection and continues (plan P3.5).
+    if (getRuntimeHub().browserRunActive) return;
     lastServerReportedStatusRef.current = null;
     if (simulationStatusRef.current === "idle") return;
     // Rendered before the reset stops the serial renderer, like a server-side stop notice.

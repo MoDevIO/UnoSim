@@ -177,7 +177,7 @@ describe("BrowserRuntime (plan P3.2)", () => {
     expect(events.filter((event) => event.type === "pin_state_batch")).toHaveLength(2);
   });
 
-  it("carries diagnostics and telemetry as events of their own, never as serial output", () => {
+  it("words diagnostics as a system line and also carries them, and telemetry, as events of their own", () => {
     const { startRunning, worker, ev, events } = setup();
     const runId = startRunning();
     events.length = 0;
@@ -187,6 +187,7 @@ describe("BrowserRuntime (plan P3.2)", () => {
     worker().emit(ev(runId, { type: "telemetry", simTimeMs: 1000, realTimeFactor: 1, pinChangesPerSecond: 4, serialCharsPerSecond: 9, serialCharsDropped: 0 }));
 
     expect(events).toEqual([
+      { type: "serial_output", data: "--- Serial input discarded because the receiver was not enabled yet (Serial.begin() has not run) ---\n", isComplete: true },
       { type: "runtime_diagnostic", diagnostic },
       { type: "runtime_telemetry", sample: { simTimeMs: 1000, realTimeFactor: 1, pinChangesPerSecond: 4, serialCharsPerSecond: 9, serialCharsDropped: 0 } },
     ]);

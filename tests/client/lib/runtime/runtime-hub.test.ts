@@ -80,3 +80,42 @@ describe("RuntimeHub (plan P3.4)", () => {
     expect(hostMock.runtime.dispose).toHaveBeenCalled();
   });
 });
+
+describe("RuntimeHub browser run state (plan P3.5)", () => {
+  it("tracks a browser run from its start until the browser runtime reports it stopped, and notifies", async () => {
+    const { hub, browser } = setup();
+    await hub.load("browser");
+    const changes: boolean[] = [];
+    hub.onChange(() => changes.push(hub.browserRunActive));
+
+    hub.setActive("browser");
+    expect(hub.browserRunActive).toBe(true);
+    browser.emit({ type: "simulation_status", status: "running" });
+    expect(hub.browserRunActive).toBe(true);
+    browser.emit({ type: "simulation_status", status: "stopped" });
+
+    expect(hub.browserRunActive).toBe(false);
+    expect(hub.active).toBe("browser"); // the runtime of the latest run
+    expect(changes).toEqual([true, false]);
+  });
+
+  it("does not count a host-mock run as a browser run, and ignores a stop of the browser runtime during one", async () => {
+    const { hub, browser } = setup();
+    await hub.load("browser");
+
+    hub.setActive("host-mock");
+    browser.emit({ type: "simulation_status", status: "stopped" });
+
+    expect(hub.browserRunActive).toBe(false);
+  });
+
+  it("stops notifying an unsubscribed listener", () => {
+    const { hub } = setup();
+    const listener = vi.fn();
+    hub.onChange(listener)();
+
+    hub.setActive("browser");
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});

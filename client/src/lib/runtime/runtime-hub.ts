@@ -27,6 +27,8 @@ export class RuntimeHub {
   private readonly browserListeners = new Set<(event: BrowserRuntimeEvent) => void>();
   private activeValue: RuntimeKind | undefined;
   private pendingBrowser: Promise<SimulationRuntime> | undefined;
+  private browserRun = false;
+  private readonly changeListeners = new Set<() => void>();
 
   constructor(private readonly options: RuntimeHubOptions) {}
 
@@ -37,6 +39,26 @@ export class RuntimeHub {
 
   setActive(kind: RuntimeKind | undefined): void {
     this.activeValue = kind;
+    this.setBrowserRun(kind === "browser");
+  }
+
+  /** True from the start of a browser run until the browser runtime reports it stopped; such a run needs no server connection. */
+  get browserRunActive(): boolean {
+    return this.browserRun;
+  }
+
+  /** Notified when `browserRunActive` changes. */
+  onChange(listener: () => void): () => void {
+    this.changeListeners.add(listener);
+    return () => {
+      this.changeListeners.delete(listener);
+    };
+  }
+
+  private setBrowserRun(value: boolean): void {
+    if (this.browserRun === value) return;
+    this.browserRun = value;
+    for (const listener of this.changeListeners) listener();
   }
 
   /** The runtime if it exists; the browser runtime exists after `load("browser")`. */
@@ -51,6 +73,7 @@ export class RuntimeHub {
     if (existing) return existing;
     this.pendingBrowser ??= this.options.createBrowser().then((runtime) => {
       runtime.subscribe((event) => {
+        if (event.type === "simulation_status" && event.status === "stopped" && this.activeValue === "browser") this.setBrowserRun(false);
         if (isBrowserOnly(event)) for (const listener of this.browserListeners) listener(event);
         else this.options.deliver(event);
       });
@@ -74,6 +97,7 @@ export class RuntimeHub {
     this.browserListeners.clear();
     this.activeValue = undefined;
     this.pendingBrowser = undefined;
+    this.changeListeners.clear();
   }
 }
 

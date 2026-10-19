@@ -204,6 +204,7 @@ export function ArduinoSimulatorPageLayout(
     wsHasEverConnected,
     workerIndex,
     workerTotal,
+    browserRun,
   } = connection;
   const {
     showErrorGlitch,
@@ -399,6 +400,7 @@ export function ArduinoSimulatorPageLayout(
           <SimCockpit
             workerIndex={workerIndex}
             workerTotal={workerTotal}
+            browserRun={browserRun}
             batchStats={batchStats}
             simulationStatus={simulationStatus}
             compilationStatus={compilationStatus}

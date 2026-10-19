@@ -1,5 +1,6 @@
 import { decodeBase64 } from "@unosim/avr-emulator/image";
 import { RunGate, type Command, type PinSnapshot, type RunEvent, type RunStatus, type StopReason, type TelemetrySample } from "@unosim/avr-emulator/protocol";
+import { diagnosticLine } from "./diagnostic-lines";
 import type { AnyRuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
 
 /** The part of a `Worker` the runtime uses (a fake in tests). */
@@ -235,6 +236,7 @@ export class BrowserRuntime implements SimulationRuntime {
         this.emit({ type: "runtime_telemetry", sample: telemetrySample(data) });
         break;
       case "diagnostic":
+        this.emit({ type: "serial_output", data: diagnosticLine(data.diagnostic), isComplete: true });
         this.emit({ type: "runtime_diagnostic", diagnostic: data.diagnostic });
         break;
       case "fault":
