@@ -56,8 +56,9 @@ function parseDefaultBoard(env: NodeJS.ProcessEnv): BoardId {
 export function parseRuntimeSettings(env: NodeJS.ProcessEnv, serverMode: "local" | "docker", options: RuntimeSettingsOptions = {}): RuntimeSettings {
   const backends = parseBackends(env, serverMode, options);
   const requestedDefault = env.UNOSIM_DEFAULT_RUNTIME === undefined ? undefined : parseChoice("UNOSIM_DEFAULT_RUNTIME", env.UNOSIM_DEFAULT_RUNTIME.trim(), RUNTIME_KINDS);
-  // The local default becomes `browser` with the end of milestone M1 (plan P3.10).
-  const defaultRuntime = requestedDefault ?? (backends.includes("host-mock") ? "host-mock" : "browser");
+  // Milestone M1 (plan P3.10): locally the browser emulation is the default; the Docker profile keeps the host mock until M4.
+  const preferBrowser = serverMode === "local" && backends.includes("browser");
+  const defaultRuntime = requestedDefault ?? (preferBrowser || !backends.includes("host-mock") ? "browser" : "host-mock");
   if (!backends.includes(defaultRuntime)) throw new Error(`UNOSIM_DEFAULT_RUNTIME (${defaultRuntime}) is not among UNOSIM_RUNTIME_BACKENDS (${backends.join(", ")})`);
 
   const listedBoards = parseList("UNOSIM_BOARDS", env.UNOSIM_BOARDS);

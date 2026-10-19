@@ -5,8 +5,8 @@ const local = (env: Record<string, string> = {}) => parseRuntimeSettings(env, "l
 const docker = (env: Record<string, string> = {}, options = {}) => parseRuntimeSettings(env, "docker", options);
 
 describe("runtime settings (plan 4.11, P2.6)", () => {
-  it("offers browser and host mock locally, the host mock alone in Docker, and starts with the host mock", () => {
-    expect(local()).toEqual({ backends: ["browser", "host-mock"], defaultRuntime: "host-mock", boards: undefined, defaultBoard: "uno" });
+  it("offers browser and host mock locally, the host mock alone in Docker, and starts with the browser locally and the host mock in Docker", () => {
+    expect(local()).toEqual({ backends: ["browser", "host-mock"], defaultRuntime: "browser", boards: undefined, defaultBoard: "uno" });
     expect(docker()).toEqual({ backends: ["host-mock"], defaultRuntime: "host-mock", boards: undefined, defaultBoard: "uno" });
   });
 
@@ -21,6 +21,12 @@ describe("runtime settings (plan 4.11, P2.6)", () => {
 
     it("lets the default runtime be chosen among the offered backends", () => {
       expect(local({ UNOSIM_DEFAULT_RUNTIME: "browser" }).defaultRuntime).toBe("browser");
+      expect(local({ UNOSIM_DEFAULT_RUNTIME: "host-mock" }).defaultRuntime).toBe("host-mock");
+    });
+
+    it("defaults to the host mock locally when the browser backend is not offered, and in Docker with the compile sandbox", () => {
+      expect(local({ UNOSIM_RUNTIME_BACKENDS: "host-mock" }).defaultRuntime).toBe("host-mock");
+      expect(docker({ UNOSIM_RUNTIME_BACKENDS: "host-mock,browser" }, { compileSandboxAvailable: true }).defaultRuntime).toBe("host-mock");
     });
 
     it.each<[string, Record<string, string>, RegExp]>([
