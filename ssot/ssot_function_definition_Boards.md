@@ -36,11 +36,11 @@ Der Host-Mock gilt nur für den Uno.
 - `preview`: wählbar mit Hinweis, sobald die Phase des Boards abgeschlossen ist.
 - `available`: nach Review und Unterrichtseinsatz; ein Board wird erst `available`, wenn seine Proben Fälle der Klasse `hardware` im Korpus haben (TESTING_STANDARDS).
 
-Der Uno steht seit M1 mit `available` im Katalog (seine Proben haben Fälle der Klasse `hardware` im Korpus), Nano, Mega 2560 und ATtiny85 mit `planned`. Das Statuswort entscheidet über die Freischaltung: Der Standard-Board (`uno`) ist immer angeboten, weil Anfragen ohne Board ihn meinen.
+Der Uno steht seit M1 mit `available` im Katalog (seine Proben haben Fälle der Klasse `hardware` im Korpus), der Nano seit P4.8 mit `preview` (Hardware und Proben im Paket, Smoke-E2E), Mega 2560 und ATtiny85 mit `planned`. Das Statuswort entscheidet über die Freischaltung: Der Standard-Board (`uno`) ist immer angeboten, weil Anfragen ohne Board ihn meinen.
 
 ## 3. Angebotene Boards und Laufzeiten
 
-`enabledBoards(requested?, defaultBoard?)` liefert die Boards, die ein Betrieb anbietet: die angeforderten IDs, ohne Angabe alle Boards mit Status `preview` oder `available`, dazu immer das Standard-Board; Reihenfolge wie im Katalog.
+`enabledBoards(requested?, defaultBoard?, backends?)` liefert die Boards, die ein Betrieb anbietet: die angeforderten IDs, ohne Angabe alle Boards mit Status `preview` oder `available`, die ein angebotenes Backend ausführen kann (das Docker-Profil ohne Browser-Backend bietet so nur den Uno an), dazu immer das Standard-Board; Reihenfolge wie im Katalog. Eine ausdrückliche Liste wird nicht gefiltert: ein Board, das kein angebotenes Backend kann, verhindert den Start.
 
 Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, geprüft beim Start; ungültige Werte verhindern den Start):
 

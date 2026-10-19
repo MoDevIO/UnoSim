@@ -76,4 +76,19 @@ describe("runtime settings (plan 4.11, P2.6)", () => {
       expect(local({ UNOSIM_RUNTIME_BACKENDS: "browser" }).defaultBoard).toBe("uno");
     });
   });
+
+  describe("boards that need the browser backend (plan P4.8)", () => {
+    it("starts the Docker profile without the Nano: the default list leaves out boards no offered backend can run", () => {
+      expect(() => docker()).not.toThrow();
+      expect(docker().boards).toBeUndefined();
+    });
+
+    it("refuses a Docker profile that asks for the Nano explicitly", () => {
+      expect(() => docker({ UNOSIM_BOARDS: "uno,nano" })).toThrow(/board nano needs one of the runtime backends browser/);
+    });
+
+    it("accepts the Nano locally, where the browser backend is offered", () => {
+      expect(() => local({ UNOSIM_BOARDS: "uno,nano" })).not.toThrow();
+    });
+  });
 });

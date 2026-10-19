@@ -34,7 +34,7 @@ const AVR_CORE = { id: "arduino:avr", version: "1.8.8" } as const;
 
 export const BOARD_CATALOG: readonly BoardCatalogEntry[] = [
   { id: "uno", displayName: "Arduino UNO", fqbn: "arduino:avr:uno", core: AVR_CORE, runtimes: ["browser", "host-mock"], status: "available" },
-  { id: "nano", displayName: "Arduino Nano", fqbn: "arduino:avr:nano:cpu=atmega328", core: AVR_CORE, runtimes: ["browser"], status: "planned" },
+  { id: "nano", displayName: "Arduino Nano", fqbn: "arduino:avr:nano:cpu=atmega328", core: AVR_CORE, runtimes: ["browser"], status: "preview" },
   { id: "mega2560", displayName: "Arduino Mega 2560", fqbn: "arduino:avr:mega:cpu=atmega2560", core: AVR_CORE, runtimes: ["browser"], status: "planned" },
   {
     id: "attiny85",
@@ -61,11 +61,17 @@ export function findBoardByFqbn(fqbn: string): BoardCatalogEntry | undefined {
 
 /**
  * The boards a deployment offers: the requested ids, or by default every board
- * with status `preview` or `available`; the default board is always included,
- * because requests without a board mean it.
+ * with status `preview` or `available` that one of the offered backends can run
+ * (a Docker deployment without the browser backend offers the Uno only); the
+ * default board is always included, because requests without a board mean it.
  */
-export function enabledBoards(requested?: readonly BoardId[], defaultBoard: BoardId = DEFAULT_BOARD_ID): BoardCatalogEntry[] {
-  const wanted = new Set<BoardId>(requested ?? BOARD_CATALOG.filter((board) => board.status !== "planned").map((board) => board.id));
+export function enabledBoards(
+  requested?: readonly BoardId[],
+  defaultBoard: BoardId = DEFAULT_BOARD_ID,
+  backends?: readonly RuntimeKind[],
+): BoardCatalogEntry[] {
+  const runnable = (board: BoardCatalogEntry): boolean => backends === undefined || board.runtimes.some((runtime) => backends.includes(runtime));
+  const wanted = new Set<BoardId>(requested ?? BOARD_CATALOG.filter((board) => board.status !== "planned" && runnable(board)).map((board) => board.id));
   wanted.add(defaultBoard);
   return BOARD_CATALOG.filter((board) => wanted.has(board.id));
 }

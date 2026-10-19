@@ -719,7 +719,7 @@ export const config = {
 
 /** The boards this deployment offers (plan 4.11). */
 export function offeredBoards() {
-  return enabledBoards(config.runtime.boards, config.runtime.defaultBoard);
+  return enabledBoards(config.runtime.boards, config.runtime.defaultBoard, config.runtime.backends);
 }
 
 /** Subset of config safe to expose to the browser via GET /api/config */
