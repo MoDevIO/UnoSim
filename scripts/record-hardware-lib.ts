@@ -53,3 +53,21 @@ export function acceptedCase(caseFile: Record<string, unknown>, recordedOn: stri
     basis: `Recorded once on ${recordedOn} (serial output, ${toolchain}). Previous basis: ${previous}`,
   };
 }
+
+const NON_TEXT = /[^\u0020-\u007e\t\r\n]/;
+
+/**
+ * The USB bridge sometimes emits a few noise bytes when it resets the board, ahead of the sketch's first line.
+ * Strips up to `maxBytes` leading bytes of a raw (latin1) recording if, and only if, the first line then matches
+ * (per `matchesFirstLine`) and the stripped bytes contain at least one non-text byte. Returns what was stripped
+ * so that the caller can report it.
+ */
+export function stripLeadingNoise(raw: string, matchesFirstLine: (line: string) => boolean, maxBytes = 8): { text: string; stripped: string } {
+  const firstLine = (text: string): string => text.split(/\r?\n/, 1)[0] ?? "";
+  if (matchesFirstLine(firstLine(raw))) return { text: raw, stripped: "" };
+  for (let count = 1; count <= maxBytes && count < raw.length; count++) {
+    const noise = raw.slice(0, count);
+    if (NON_TEXT.test(noise) && !noise.includes("\n") && matchesFirstLine(firstLine(raw.slice(count)))) return { text: raw.slice(count), stripped: noise };
+  }
+  return { text: raw, stripped: "" };
+}
