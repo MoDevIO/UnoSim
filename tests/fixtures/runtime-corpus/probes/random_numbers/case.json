@@ -1,11 +1,12 @@
 {
   "board": "uno",
   "simMs": 40,
-  "provenance": "derived",
+  "provenance": "hardware",
   "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
   "description": "randomSeed(42) selects a fixed random() sequence; reseeding restarts it.",
-  "basis": "Park-Miller minimal standard generator of avr-libc (x = 16807*(x mod 127773) - 2836*(x div 127773), + 2^31-1 if negative; seed 0 would use 123459876) with random(max) = random() % max and random(a, b) = a + random(b - a), computed independently in Python",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: Park-Miller minimal standard generator of avr-libc (x = 16807*(x mod 127773) - 2836*(x div 127773), + 2^31-1 if negative; seed 0 would use 123459876) with random(max) = random() % max and random(a, b) = a + random(b - a), computed independently in Python",
   "events": [],
   "expectState": [],
-  "tolerances": []
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
 }

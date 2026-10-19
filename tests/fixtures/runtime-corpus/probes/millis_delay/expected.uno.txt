@@ -1,4 +1,4 @@
-delay(100): 100
-delayMicroseconds(1000): 1000
-10 x delay(50): 500
+delay(100): 99
+delayMicroseconds(1000): 1008
+10 x delay(50): 501
 DONE

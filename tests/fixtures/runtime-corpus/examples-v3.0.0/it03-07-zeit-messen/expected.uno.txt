@@ -1,1 +1,1 @@
-Startzeit: 0 ms, Dauer: 587 ms
+Startzeit: 0 ms, Dauer: 586 ms

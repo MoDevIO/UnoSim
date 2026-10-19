@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptedCase, baudOf, lineDiff, normalizeRecording, stepsOf } from "../../scripts/record-hardware-lib";
+import { acceptedCase, baudOf, lineDiff, normalizeRecording, stepsOf, stripLeadingNoise } from "../../scripts/record-hardware-lib";
 
 describe("hardware recording tool (plan 7.4)", () => {
   it("finds the baud rate of the sketch, ignoring comments", () => {
@@ -39,5 +39,27 @@ describe("hardware recording tool (plan 7.4)", () => {
 
     expect(result).toMatchObject({ provenance: "hardware", recordedOn: "Arduino Uno R3", toolchain: "arduino-cli 1.5.1, arduino:avr@1.8.8", simMs: 100 });
     expect(result.basis).toBe("Recorded once on Arduino Uno R3 (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: datasheet");
+  });
+
+  describe("bridge noise ahead of the first line", () => {
+    const matches = (line: string): boolean => line === "bool 1";
+
+    it("leaves a clean recording alone", () => {
+      expect(stripLeadingNoise("bool 1\r\nchar 1\r\n", matches)).toEqual({ text: "bool 1\r\nchar 1\r\n", stripped: "" });
+    });
+
+    it("strips a few leading bytes that are not text and reports them", () => {
+      expect(stripLeadingNoise("\u0000\u00efbool 1\r\nchar 1\r\n", matches)).toEqual({ text: "bool 1\r\nchar 1\r\n", stripped: "\u0000\u00ef" });
+    });
+
+    it("does not strip printable text: that would be a real deviation of the sketch", () => {
+      expect(stripLeadingNoise("xxbool 1\r\n", matches)).toEqual({ text: "xxbool 1\r\n", stripped: "" });
+    });
+
+    it("does not strip more than the limit, nor across a line break", () => {
+      const noisy = `${"\u0001".repeat(9)}bool 1\r\n`;
+      expect(stripLeadingNoise(noisy, matches).stripped).toBe("");
+      expect(stripLeadingNoise("\u0001\nbool 1\r\n", matches).stripped).toBe("");
+    });
   });
 });

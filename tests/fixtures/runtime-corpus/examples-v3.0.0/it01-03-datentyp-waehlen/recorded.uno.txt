@@ -1,0 +1,2 @@
+Als unsigned int gespeichert: 1023
+Als byte gespeichert:         255

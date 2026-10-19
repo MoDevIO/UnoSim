@@ -1,0 +1,6 @@
+1 = LED an, 2 = LED aus, 3 = Zustand
+LED an
+LED-Zustand: 1
+LED aus
+LED-Zustand: 0
+Unbekannte Auswahl

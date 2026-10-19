@@ -1,0 +1,13 @@
+bool 1
+char 1
+short 2
+int 2
+long 4
+long long 8
+float 4
+double 4
+pointer 2
+max uint 65535
+max ulong 4294967295
+max int 32767
+DONE

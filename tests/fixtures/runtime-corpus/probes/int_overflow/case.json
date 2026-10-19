@@ -1,11 +1,12 @@
 {
   "board": "uno",
   "simMs": 100,
-  "provenance": "derived",
+  "provenance": "hardware",
   "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
   "description": "Wrap-around of 16- and 32-bit integer arithmetic, truncating division and remainder, shifts into the sign bit.",
-  "basis": "Two's complement arithmetic on 16- and 32-bit operands as avr-gcc generates it for volatile operands (computed by hand: 32767+1 = -32768, 200*200 = 40000 mod 65536 = -25536, -7/2 = -3, -7%3 = -1); signed results describe this toolchain, not the C++ standard",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: Two's complement arithmetic on 16- and 32-bit operands as avr-gcc generates it for volatile operands (computed by hand: 32767+1 = -32768, 200*200 = 40000 mod 65536 = -25536, -7/2 = -3, -7%3 = -1); signed results describe this toolchain, not the C++ standard",
   "events": [],
   "expectState": [],
-  "tolerances": []
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
 }

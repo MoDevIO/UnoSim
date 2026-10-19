@@ -1,0 +1,4 @@
+wert vorher:  101001
+Bit 2 gesetzt? 0
+wert nachher: 101101
+Bit 2 gesetzt? 1

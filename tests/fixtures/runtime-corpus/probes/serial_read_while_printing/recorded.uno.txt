@@ -1,0 +1,6 @@
+got 72 while the transmitter is busy with a longer text
+got 105 while the transmitter is busy with a longer text
+got 10 while the transmitter is busy with a longer text
+got 120 while the transmitter is busy with a longer text
+got 121 while the transmitter is busy with a longer text
+got 122 while the transmitter is busy with a longer text

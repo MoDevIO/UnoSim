@@ -1,11 +1,12 @@
 {
   "board": "uno",
   "simMs": 1000,
-  "provenance": "derived",
+  "provenance": "hardware",
   "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
   "description": "A byte counter incremented every 300 ms.",
-  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; prints at about 0, 300, 600 and 900 ms",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; prints at about 0, 300, 600 and 900 ms",
   "events": [],
   "expectState": [],
-  "tolerances": []
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
 }

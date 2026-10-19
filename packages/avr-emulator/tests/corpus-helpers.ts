@@ -1,5 +1,7 @@
+/// <reference lib="es2022.regexp" />
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type BoardHardwareId,
   type HeadlessResult,
@@ -13,7 +15,7 @@ import {
 } from "../src/index";
 
 /** The reference corpus of plan 7.4. */
-export const CORPUS_ROOT = join(__dirname, "../../../tests/fixtures/runtime-corpus");
+export const CORPUS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../tests/fixtures/runtime-corpus");
 
 export const PROVENANCES = ["hardware", "derived", "regression"] as const;
 export type Provenance = (typeof PROVENANCES)[number];
