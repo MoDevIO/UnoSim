@@ -86,6 +86,17 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - **Pins, die das Board nicht hat,** und Analogwerte für Pins ohne ADC-Kanal werden wie ungültige Befehle verworfen.
 
 
+## 3a. Browser-Backend und Überwachung (Hauptthread)
+
+`BrowserRuntime` (`client/src/lib/runtime/browser-runtime.ts`) setzt `SimulationRuntime` auf den Worker um. Der Worker entsteht beim ersten Start und bleibt zwischen Läufen; nach einem Abbruch (Fehler, Frist, Stille) wird er beendet und beim nächsten Start neu erzeugt.
+
+- **Ablauf:** `start` sendet `load` (Flash übertragen, nicht kopiert), wartet auf `ready` und sendet erst dann `start` (der zweite Befehl beginnt eine neue `runId`; `ready` des Ladelaufs würde sonst verworfen). Der Zustand `running` gilt mit der Bestätigung. `pause`/`resume` wirken nur im Zustand `running`/`paused`; `reset` (neue `runId`) nur in einem der beiden. `stop` beendet den Lauf in der UI sofort (`RunGate.end`), die Antwort des Workers fällt weg.
+- **Ereignisse:** `serial` → `serial_output`; `pins` → `pin_state_batch` (je Pin `mode` 0/1/2, `value`, bei PWM `pwm`; unveränderte Zustände entfallen); `status` → `simulation_status`; `fault` → `operation_error` (`RUNTIME_FAILED`). Zusätzlich nur im Browser: `runtime_usage`, `runtime_diagnostic`, `runtime_telemetry` (der bestehende Handler ignoriert sie).
+- **Systemzeilen** wie beim Server: `--- Simulation paused ---`, `--- Simulation resumed ---`, `--- Simulation stopped ---`, `--- Simulation timeout (Ns) ---`, jeweils mit Zeilenende, als `serial_output`.
+- **Fristen** (`SupervisionLimits`): `ready` 15 s nach `load`; Bestätigung von `start`/`pause`/`resume`/`reset` 5 s; `stop` 2 s (danach `terminate()`); Heartbeat höchstens 3 s Stille, sobald die Maschine geladen ist (der Worker sendet etwa alle 500 ms, auch in der Pause). Wer eine Frist reißt, wird beendet; die UI bekommt `operation_error`, eine Fehlerzeile und `stopped`.
+- `error` und `messageerror` des Workers enden den Lauf auf dieselbe Weise.
+- Serielle Eingabe geht in Stücken zu höchstens 1024 Zeichen an Port 0, nur im Zustand `running`.
+
 ## 4. Headless-Lauf
 
 `runHeadless(image, { simMs, events, expectState, eeprom? })` (`packages/avr-emulator/src/headless/`) führt ein Abbild so schnell wie möglich ohne Wanduhr, Pacing und Timeout aus; das Ergebnis ist deterministisch. Das Werkzeug `npm run emulate -- <sketch.hex> [--elf …] [--ms …] [--events …] [--case …] [--repeat n] [--json]` ruft ihn auf.
@@ -116,5 +127,5 @@ Der Compile (`ArduinoCompiler`, direkt und im Compile-Worker) baut nach einem er
 
 **Cache.** Der HEX-Cache und der Sofort-Cache behalten ihren Schlüssel (Sketch-Hash). Neben jedem Eintrag liegt `<schlüssel>.artifact.json` mit der Identität und – falls gebaut – dem Artefakt. Ein Treffer gilt nur, wenn der Sidecar existiert, lesbar ist und seine Identität der aktuellen gleicht (und ein enthaltenes Artefakt zur `buildId` passt). Fehlt der Sidecar oder weicht etwas ab (andere `arduino-cli`-, Core- oder Bibliotheksversion, andere angeforderte Bibliotheken oder Build-Flags), wird neu gebaut und der Eintrag überschrieben. Die Eviction entfernt den Sidecar mit dem HEX.
 
-**Auslieferung.** `POST /api/compile` nimmt `artifact` nur in eine erfolgreiche Antwort auf und nur, wenn der Betrieb es ausliefern darf: im lokalen Profil ja, im Docker-Profil nein, bis es die Compile-Sandbox gibt (Plan P2.4, `docs/SECURITY.md`). Das Feld `binary` gibt es nie. Der In-Memory-Ergebniscache der Route hält das Ergebnis ohne `binary` und mit höchstens einem `artifact`; wo die Auslieferung verboten ist, steht es auch nicht im Cache. Die REST-Version bleibt vorerst `1.0.0`: Das Feld ist additiv, die Anhebung auf `1.1.0` (Entscheidung E14) braucht die Freigabe, eine Zeile in `tests/server/services/protocol-version.test.ts` zu ändern (Statusdatei).
+**Auslieferung.** `POST /api/compile` nimmt `artifact` nur in eine erfolgreiche Antwort auf und nur, wenn der Betrieb es ausliefern darf: im lokalen Profil ja, im Docker-Profil nein, bis es die Compile-Sandbox gibt (Plan P2.4, `docs/SECURITY.md`). Das Feld `binary` gibt es nie. Der In-Memory-Ergebniscache der Route hält das Ergebnis ohne `binary` und mit höchstens einem `artifact`; wo die Auslieferung verboten ist, steht es auch nicht im Cache. Die REST-Version ist `1.1.0` (Entscheidung E14; `1.0.0` bleibt akzeptiert), das Feld ist additiv.
 

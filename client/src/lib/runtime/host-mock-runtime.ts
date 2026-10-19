@@ -1,6 +1,6 @@
 import { wsMessageSchema, type WSMessage } from "@shared/schema";
 import { getWebSocketManager } from "@/lib/websocket-manager";
-import type { RuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
+import type { AnyRuntimeEvent, RuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
 
 /** The WebSocket connection as the adapter needs it (the singleton manager in the app, a fake in tests). */
 export interface HostMockTransport {
@@ -40,7 +40,7 @@ export const HOST_MOCK_FEATURES: RuntimeFeatures = {
 export class HostMockRuntime implements SimulationRuntime {
   readonly kind = "host-mock" as const;
   readonly features = HOST_MOCK_FEATURES;
-  private readonly listeners = new Set<(event: RuntimeEvent) => void>();
+  private readonly listeners = new Set<(event: AnyRuntimeEvent) => void>();
   private readonly unsubscribe: () => void;
   private lastStart: Extract<StartRequest, { kind: "host-mock" }> | undefined;
 
@@ -88,7 +88,11 @@ export class HostMockRuntime implements SimulationRuntime {
     this.transport.send({ type: "set_pin_value", pin, value });
   }
 
-  subscribe(listener: (event: RuntimeEvent) => void): () => void {
+  setAnalog(pin: number, value: number): void {
+    this.transport.send({ type: "set_pin_value", pin, value });
+  }
+
+  subscribe(listener: (event: AnyRuntimeEvent) => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);

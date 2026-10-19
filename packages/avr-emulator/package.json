@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./boards": "./src/boards/index.ts",
     "./image": "./src/image/index.ts",
-    "./worker": "./src/worker/entry.ts"
+    "./worker": "./src/worker/entry.ts",
+    "./protocol": "./src/protocol/index.ts"
   },
   "dependencies": {
     "avr8js": "0.21.1"
