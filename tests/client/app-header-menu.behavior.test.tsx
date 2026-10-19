@@ -284,3 +284,45 @@ describe("offline server-dependent controls", () => {
     expect(screen.getByRole("menuitem", { name: /New File/ })).toBeEnabled();
   });
 });
+
+describe("Tools → Board (plan P4.5)", () => {
+  const boards = [
+    { id: "uno", displayName: "Arduino UNO", status: "available" },
+    { id: "nano", displayName: "Arduino Nano", status: "preview" },
+    { id: "mega2560", displayName: "Arduino Mega 2560", status: "planned" },
+  ] as const;
+
+  async function openBoardMenu(onBoardChange = vi.fn()) {
+    renderMenuBar({ board: "Arduino UNO", boards, boardId: "uno", onBoardChange });
+    await openMenu("Tools");
+    const trigger = screen.getByTestId("menu-board");
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    fireEvent.click(trigger);
+    await screen.findByRole("menuitemradio", { name: /Arduino UNO/ });
+    return onBoardChange;
+  }
+
+  it("lists the boards, marks preview and planned ones, and disables the planned ones", async () => {
+    await openBoardMenu();
+
+    expect(screen.getByRole("menuitemradio", { name: /Arduino UNO/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemradio", { name: /Arduino Nano.*\(preview\)/ })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitemradio", { name: /Mega 2560.*\(planned\)/ })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("reports the chosen board", async () => {
+    const onBoardChange = await openBoardMenu();
+
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Arduino Nano/ }));
+
+    expect(onBoardChange).toHaveBeenCalledWith("nano");
+  });
+
+  it("shows the board name as plain text when no board list is given", async () => {
+    renderMenuBar({ board: "Arduino UNO" });
+    await openMenu("Tools");
+
+    expect(screen.getByText("Board:")).toBeInTheDocument();
+    expect(screen.queryByTestId("menu-board")).toBeNull();
+  });
+});

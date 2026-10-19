@@ -3,7 +3,7 @@ import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
-import type { RuntimeKind } from "@shared/boards";
+import type { BoardId, RuntimeKind } from "@shared/boards";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import type { DebugMessage, DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
@@ -89,6 +89,8 @@ export type CompileAndRunParams = {
   handleCompileAndStart?: () => void; // used by reset
   /** The runtime of the next run (plan P3.1 selection); the host mock when not given. */
   runtimeKind?: RuntimeKind;
+  /** The selected board (Tools → Board): compiled for and started on. */
+  boardId?: BoardId;
   /** The host mock can take over when the browser emulation has no image to run. */
   hostMockUsable?: boolean;
   startSimulationRef?: MutableRefObject<(() => void) | null>;
@@ -173,6 +175,8 @@ interface UseCompileAndRunResult {
   handlePause: () => void;
   handleResume: () => void;
   handleReset: () => void;
+  /** Drops the latest build (its flash image) and the compile state: after a board change nothing built for the old board may run. */
+  discardBuild: () => void;
 
   /* compatibility helpers */
   startSimulation: () => void;
@@ -249,6 +253,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   } = useCompileController({
     ...controllerState,
     capabilities: params.capabilities,
+    ...(params.boardId ? { boardId: params.boardId } : {}),
     isCompileResultCurrent,
     onCompileResult: (data) => artifactSinkRef.current?.(data.success ? data.artifact : undefined),
     // Callbacks
@@ -289,6 +294,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const simulation = useSimulationController({
     onStartOrStop: invalidatePendingStart,
     ...(params.runtimeKind ? { runtimeKind: params.runtimeKind } : {}),
+    ...(params.boardId ? { board: params.boardId } : {}),
     ...(params.hostMockUsable === undefined ? {} : { hostMockUsable: params.hostMockUsable }),
     code: params.code,
     hasCompilationErrors,
@@ -369,7 +375,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setCompilationStatus("compiling");
 
     // Compile with custom handlers for compile + start flow
-    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) };
+    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) };
     compileOwners.current.set(compilePayload, generation);
     pendingCompileStart.current = true;
     compileMutation.mutate(compilePayload, {
@@ -404,6 +410,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       },
     });
   }, [params, clearOutputs, compileMutation, simulation, uiFeedback, invalidatePendingStart]);
+
+  const discardBuild = useCallback(() => {
+    invalidatePendingStart();
+    simulation.setCompiledArtifact(undefined);
+    setCompilationStatus("ready");
+    setArduinoCliStatus("idle");
+  }, [invalidatePendingStart, simulation, setCompilationStatus, setArduinoCliStatus]);
 
   const handleReset = useCallback(() => {
     invalidatePendingStart();
@@ -494,6 +507,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     handlePause: simulation.handlePause,
     handleResume: simulation.handleResume,
     handleReset,
+    discardBuild,
 
     startSimulation: simulation.startSimulation,
     startSimulationRef: simulation.startSimulationRef,

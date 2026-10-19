@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import { useCallback } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,6 +39,8 @@ export type CompilationErrors = CompilerError[] | string | undefined;
 
 export interface UseCompileControllerParams {
   readonly capabilities?: ServerCapabilities;
+  /** The selected board; the compile request names it (plan P4.5). */
+  readonly boardId?: BoardId;
   /** Ignore completions whose compile-to-start owner was invalidated. */
   isCompileResultCurrent?: (payload: CompileConfig) => boolean;
   /** Every current compile result, success or not: the browser emulation takes its flash image from it. */
@@ -228,7 +231,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     }
 
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    compileMutation.mutate({ code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) });
+    compileMutation.mutate({ code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) });
   }, [
     params.activeTabId,
     clearOutputs,

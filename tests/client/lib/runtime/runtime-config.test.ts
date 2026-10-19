@@ -17,8 +17,8 @@ describe("parseRuntimeConfig (plan 4.11)", () => {
       backends: ["browser", "host-mock"],
       defaultRuntime: "host-mock",
       boards: [
-        { id: "uno", displayName: "Arduino UNO", runtimes: ["browser", "host-mock"] },
-        { id: "nano", displayName: "Arduino Nano", runtimes: ["browser"] },
+        { id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] },
+        { id: "nano", displayName: "Arduino Nano", status: "preview", runtimes: ["browser"] },
       ],
       defaultBoard: "uno",
     });
@@ -44,7 +44,7 @@ describe("parseRuntimeConfig (plan 4.11)", () => {
     expect(parsed).toEqual({
       backends: ["browser"],
       defaultRuntime: "browser",
-      boards: [{ id: "nano", displayName: "Arduino Nano", runtimes: ["browser"] }],
+      boards: [{ id: "nano", displayName: "Arduino Nano", status: "available", runtimes: ["browser"] }], // no status reported: offered as before
       defaultBoard: "nano",
     });
   });
@@ -52,7 +52,7 @@ describe("parseRuntimeConfig (plan 4.11)", () => {
   it("gives the Uno the offered backends when the server lists no boards", () => {
     const parsed = parseRuntimeConfig({ runtime: { backends: ["browser", "host-mock"], default: "browser" } });
 
-    expect(parsed.boards).toEqual([{ id: "uno", displayName: "Arduino UNO", runtimes: ["browser", "host-mock"] }]);
+    expect(parsed.boards).toEqual([{ id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] }]);
     expect(parsed.defaultRuntime).toBe("browser");
   });
 });

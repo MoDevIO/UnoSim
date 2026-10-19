@@ -1,5 +1,6 @@
 import React from "react";
-import { AppHeader } from "@/components/features/app-header";
+import type { BoardId } from "@shared/boards";
+import { AppHeader, type BoardMenuEntry } from "@/components/features/app-header";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { CompilationStatus } from "@/types/compilation.types";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
@@ -23,6 +24,9 @@ interface SimulationControlsProps {
   readonly onPause: () => void;
   readonly onResume: () => void;
   readonly board: string;
+  readonly boards?: ReadonlyArray<BoardMenuEntry>;
+  readonly boardId?: BoardId;
+  readonly onBoardChange?: (board: BoardId) => void;
   readonly baudRate: number;
   readonly simulationTimeout: number;
   readonly onTimeoutChange: (timeout: number) => void;
