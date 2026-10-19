@@ -21,6 +21,9 @@ einfache Indexschleifen werden unterstützt. Komplexe oder dynamische Ausdrücke
 werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
 ist für tatsächlich ausgeführte Zugriffe maßgeblich.
 
+## Pins je Board (P4.2)
+`analyzeStaticIO`, `analyzeStaticIOProject`, `parseStaticIORegistry` und `parseStaticIORegistryProject` nehmen `{ board }` (Standard `uno`); `CodeParser` reicht sein Board weiter. Pinbereich, `A0…An`, `LED_BUILTIN` und die Schreibweise der Pins in den Registry-Zeilen kommen aus dem Pin-Modell des Boards (`shared/board-pins.ts`, `shared/parsers/pin-context.ts`). Für den Uno bleiben alle Ergebnisse gleich; am Nano lösen `A6` und `A7` zu den Pins 20 und 21 auf, und `analogRead(6)`/`analogRead(7)` meinen diese Eingänge. Die Hardware-Regeln nennen das Board (PWM-Pins) und warnen, wenn ein reiner Analogeingang (A6, A7) digital genutzt wird. Boards ohne Hardwareprofil (Mega 2560, ATtiny85) werden bis P5.2 bzw. P6.4 wie der Uno geparst; `Serial1`–`Serial3` und „kein Hardware-Serial“ folgen mit P5.3 und P6.4.
+
 ## Zusammenführung von Statik und Laufzeit (beide Backends)
 Während eines Laufs (laufend oder pausiert) ersetzt der Laufzeit-Snapshot die
 statische Analyse nicht mehr, sondern wird mit ihr zusammengeführt

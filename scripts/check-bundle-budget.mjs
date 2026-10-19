@@ -12,8 +12,10 @@ const sizes = await Promise.all(
 );
 const total = sizes.reduce((sum, file) => sum + file.bytes, 0);
 const largest = Math.max(...sizes.map((file) => file.bytes), 0);
-// Index limit: Vite 8/Rolldown places react-dom (~129 kB) in the index chunk; the former
-// 700 kB limit reflected Vite 5 chunk placement. Recalibrated together with the initial-path check below.
+// Initial limit: Vite 8/Rolldown places react-dom (~129 kB) in the index chunk; the former
+// 700 kB limit reflected Vite 5 chunk placement. It applies to the whole initial load path (every chunk the
+// entry loads statically), not to the index chunk alone: splitting shared code into further initial chunks
+// must not hide bytes from the budget.
 const limits = { total: 6_000_000, largest: 4_500_000, initial: 710_000 };
 const initial = sizes
   .filter((file) => file.name.startsWith("index-"))
@@ -87,7 +89,7 @@ if (emulatorChunks.length === 0) {
 if (
   total > limits.total ||
   largest > limits.largest ||
-  initial > limits.initial
+  initialPathBytes > limits.initial
 ) {
   console.error(`Bundle budget exceeded (limits: ${JSON.stringify(limits)})`);
   process.exit(1);

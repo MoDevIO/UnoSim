@@ -6,7 +6,8 @@ import {
   type StaticIOOperation,
   type UnresolvedStaticIOCall,
 } from "@shared/io-registry-parser";
-import { UNO_PWM_PINS, isUnoPwmPin } from "@shared/utils/arduino-utils";
+import type { BoardId } from "../boards";
+import { type PinContext, pinContext } from "./pin-context";
 
 const DIGITAL_OPERATIONS = new Set<StaticIOOperation>([
   "digitalRead",
@@ -19,10 +20,6 @@ function sourceLocation(call: StaticIOCall | UnresolvedStaticIOCall): Pick<Parse
     line: call.line,
     ...(call.file ? { file: call.file } : {}),
   };
-}
-
-function pinLabel(pinId: number): string {
-  return pinId >= 14 ? `A${pinId - 14}` : String(pinId);
 }
 
 function resolvedCalls(
@@ -80,11 +77,16 @@ function createVariableMissingPinModeMessage(
 
 /** Derives hardware compatibility messages from canonical static I/O facts. */
 export class HardwareCompatibilityParser {
-  constructor(private readonly analysis: StaticIOAnalysis) {}
+  private readonly pins: PinContext;
+
+  constructor(private readonly analysis: StaticIOAnalysis, board?: BoardId) {
+    this.pins = pinContext(board);
+  }
 
   parse(): ParserMessage[] {
     return [
       ...this.checkAnalogWritePWM(),
+      ...this.checkAnalogOnlyPins(),
       ...this.checkPinModeConflicts(),
       ...this.checkMissingPinModes(),
       ...this.checkOutputPinsReadAsInput(),
@@ -93,16 +95,35 @@ export class HardwareCompatibilityParser {
 
   private checkAnalogWritePWM(): ParserMessage[] {
     return resolvedCalls(this.analysis, "analogWrite")
-      .filter(({ pinId }) => !isUnoPwmPin(pinId))
+      .filter(({ pinId }) => !this.pins.pwmPins().includes(pinId))
       .map((call) => ({
         id: randomUUID(),
         type: "warning" as const,
         category: "hardware" as const,
         severity: 2 as const,
-        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on Arduino UNO. PWM pins: ${UNO_PWM_PINS.join(", ")}.`,
+        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on ${this.pins.displayName}. PWM pins: ${this.pins.pwmPins().join(", ")}.`,
         suggestion: "// Use PWM pin instead: analogWrite(3, value);",
         ...sourceLocation(call),
       }));
+  }
+
+  /** Inputs without a digital function (A6, A7 of the Nano) cannot be used with pinMode(), digitalRead() or digitalWrite(). */
+  private checkAnalogOnlyPins(): ParserMessage[] {
+    return this.analysis.pins
+      .filter(({ pinId }) => this.pins.analogOnly(pinId))
+      .flatMap(({ pinId, calls }) =>
+        calls
+          .filter(({ op }) => op === "pinMode" || op === "digitalRead" || op === "digitalWrite")
+          .map((call) => ({
+            id: randomUUID(),
+            type: "warning" as const,
+            category: "hardware" as const,
+            severity: 2 as const,
+            message: `${call.op}(${call.sourceExpression}, ...) used on ${this.pins.label(pinId)}, which is an analog-only input on ${this.pins.displayName} and has no digital function.`,
+            suggestion: `// Read it with analogRead(${this.pins.label(pinId)}) instead`,
+            ...sourceLocation(call),
+          })),
+      );
   }
 
   private checkPinModeConflicts(): ParserMessage[] {
@@ -117,7 +138,7 @@ export class HardwareCompatibilityParser {
       const pin =
         firstExpression && LITERAL_PIN_EXPRESSION.test(firstExpression)
           ? firstExpression
-          : pinLabel(pinId);
+          : this.pins.label(pinId);
       const conflictCall = pinModeCalls[1];
 
       if (uniqueModes.length > 1) {
@@ -192,7 +213,7 @@ export class HardwareCompatibilityParser {
       const readCall = calls.find(({ op }) => op === "digitalRead");
       if (!isOutput || !readCall) continue;
 
-      const pin = pinLabel(pinId);
+      const pin = this.pins.label(pinId);
       messages.push({
         id: randomUUID(),
         type: "warning",
