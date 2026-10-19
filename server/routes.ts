@@ -120,7 +120,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Before any sandbox of this process exists: remove those a crashed predecessor left running.
     await removeOrphanedSandboxContainers(new ProcessExecutor(), sandboxOwner(), logger);
   }
-  await initializeSandboxRunnerPool();
+  // Only the host mock runs sketches on the server (plan 4.11): without it there is no sandbox runner pool.
+  if (config.runtime.backends.includes("host-mock")) await initializeSandboxRunnerPool();
 
   // All REST endpoints advertise and negotiate the same additive API contract.
   app.use("/api", apiVersionMiddleware);

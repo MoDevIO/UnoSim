@@ -365,7 +365,7 @@ Fired when the server rejects or fails an operation after the corresponding
 WebSocket request has been accepted. The server-provided error data is passed
 through unchanged, including `retryAfter` when present. Error codes are open
 for forward-compatible additions; current codes include `RATE_LIMITED`,
-`SIMULATION_ALREADY_ACTIVE`, and `SYSTEM_BUSY`.
+`SIMULATION_ALREADY_ACTIVE`, `SYSTEM_BUSY`, and `RUNTIME_UNAVAILABLE` (the server does not offer the server-side simulation, see `UNOSIM_RUNTIME_BACKENDS`).
 
 ```js
 {

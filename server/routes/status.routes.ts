@@ -12,11 +12,21 @@ import { getSimulationAdmissionController } from "../services/simulation-admissi
 
 export const statusRouter = Router();
 
+/**
+ * Ready when every configured backend is: the host mock needs its runner pool
+ * and, in Docker, the sandbox; the browser backend runs in the client and only
+ * needs the compile path, which is on demand (plan 4.11).
+ */
+function backendsReady(): boolean {
+  if (!config.runtime.backends.includes("host-mock")) return true;
+  const stats = getSandboxRunnerPool().getStats();
+  return stats.initialized && stats.sandboxReady;
+}
+
 export function registerStatusRoutes(app: Express): void {
   app.use("/", statusRouter);
   app.get("/api/readiness", (_req, res) => {
-    const stats = getSandboxRunnerPool().getStats();
-    const ready = stats.initialized && stats.sandboxReady;
+    const ready = backendsReady();
     res.status(ready ? 200 : 503).json({ status: ready ? "ready" : "starting" });
   });
 }
@@ -48,6 +58,11 @@ statusRouter.get("/api/status", (_req, res) => {
     apiVersion: REST_API_VERSION,
     timestamp: new Date().toISOString(),
     serverMode: config.serverMode,
+    runtime: {
+      backends: [...config.runtime.backends],
+      default: config.runtime.defaultRuntime,
+      hostMock: config.runtime.backends.includes("host-mock") ? { ready: backendsReady() } : null,
+    },
     capacity: {
       simulation: {
         maxConcurrent: config.capacity.simulationMaxConcurrent,
