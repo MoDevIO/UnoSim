@@ -1,4 +1,4 @@
-import type { DebugProtocol } from "@/hooks/use-debug-console";
+import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -82,7 +82,7 @@ interface UseSimulatorUIStateParams {
   debugMessages: Array<{
     id: string;
     timestamp: Date;
-    sender: "server" | "frontend";
+    sender: DebugSender;
     type: string;
     content: string;
     protocol?: DebugProtocol;
@@ -90,7 +90,7 @@ interface UseSimulatorUIStateParams {
   setDebugMessages: React.Dispatch<React.SetStateAction<Array<{
     id: string;
     timestamp: Date;
-    sender: "server" | "frontend";
+    sender: DebugSender;
     type: string;
     content: string;
     protocol?: DebugProtocol;
@@ -101,7 +101,7 @@ interface UseSimulatorUIStateParams {
   setDebugViewMode: (mode: "table" | "tiles") => void;
   debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
   addDebugMessage: (
-    sender: "server" | "frontend",
+    sender: DebugSender,
     type: string,
     content: string,
     protocol?: DebugProtocol,

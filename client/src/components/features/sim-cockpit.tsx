@@ -1,3 +1,4 @@
+import type { RuntimeKind } from "@shared/boards";
 import React, { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import { CircleCheck, CircleX } from "lucide-react";
@@ -129,6 +130,8 @@ interface SimCockpitProps {
   workerTotal?: number;
   /** A browser emulation run: the header shows the engine and the real-time factor instead of a runner slot. */
   browserRun?: { readonly active: boolean; readonly realTimeFactor?: number };
+  /** The runtime of the current run, or of the next one while idle; the debug bar names it (plan P3.6). */
+  engine?: RuntimeKind;
   backendReachable?: boolean;
   isConnected?: boolean;
   wsConnectionState?: ConnectionState;
@@ -154,6 +157,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   workerIndex,
   workerTotal,
   browserRun,
+  engine,
   debugMode = false,
   pendingExternalStart = false,
 }) => {
@@ -225,6 +229,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
       ? `#${workerIndex + 1}/${workerTotal}`
       : null;
 
+    const showsBrowserEngine = browserRun?.active === true || engine === "browser";
     return (
       <div
         className="hidden lg:flex items-center gap-2 text-[10px] font-medium"
@@ -263,14 +268,15 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
 
         <ColSep />
 
-        {/* GROUP 3: SIMULATION — a browser run shows engine and real-time factor, otherwise WS dot + runner */}
+        {/* GROUP 3: SIMULATION — the engine always; a browser run adds the real-time factor, the server-side
+            simulation (Legacy) adds the WS dot and the runner slot */}
         <StatCell
           label="SIMULATION"
-          value={browserRun?.active ? (
+          value={showsBrowserEngine ? (
             <span className="flex items-center gap-1" data-testid="browser-run-info">
               <span className="text-white/50">ENGINE:</span>
               <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">BROWSER</span>
-              {browserRun.realTimeFactor !== undefined && (
+              {browserRun?.realTimeFactor !== undefined && (
                 <>
                   <span className="text-white/30">|</span>
                   <span className="text-cyan-300 font-bold font-mono whitespace-nowrap" data-testid="real-time-factor">
@@ -281,6 +287,13 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
             </span>
           ) : (
             <span className="flex items-center gap-1">
+              {engine === "host-mock" && (
+                <>
+                  <span className="text-white/50">ENGINE:</span>
+                  <span className="text-amber-300 font-bold font-mono whitespace-nowrap" data-testid="legacy-engine-info">LEGACY</span>
+                  <span className="text-white/30">|</span>
+                </>
+              )}
               <span className="text-white/50">WS:</span>
               <StatusDot
                 status={wsStatusTone(wsConnectionState, wsHasEverConnected)}

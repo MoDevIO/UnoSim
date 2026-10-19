@@ -72,6 +72,15 @@ interface OutputPanelProps {
   readonly onClearDebugMessages: () => void;
 }
 
+const SENDER_TEXT: Record<string, string> = { server: "text-blue-400", browser: "text-cyan-400", frontend: "text-green-400" };
+const SENDER_BADGE: Record<string, string> = {
+  server: "bg-blue-600/20 text-blue-400",
+  browser: "bg-cyan-600/20 text-cyan-400",
+  frontend: "bg-green-600/20 text-green-400",
+};
+const senderTextClass = (sender: string): string => SENDER_TEXT[sender] ?? SENDER_TEXT.frontend;
+const senderBadgeClass = (sender: string): string => SENDER_BADGE[sender] ?? SENDER_BADGE.frontend;
+
 /** Colour of the protocol column: HTTP orange, WebSocket purple, the browser emulation (worker) cyan. */
 function protocolClass(protocol: string | undefined): string {
   if (protocol === "http") return "text-orange-400";
@@ -232,7 +241,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                     {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-100).map((msg, idx) => (
                       <tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : ""} transition-colors`}>
                         <td className="px-2 py-1 text-cyan-400 border-r font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={msg.sender === "server" ? "text-blue-400" : "text-green-400"}>{msg.sender.toUpperCase()}</span></td>
+                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={senderTextClass(msg.sender)}>{msg.sender.toUpperCase()}</span></td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className={protocolClass(msg.protocol)}>{msg.protocol?.toUpperCase() || "?"}</span></td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className="text-yellow-400 font-mono">{msg.type}</span></td>
                         <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>{msg.content}</td>
@@ -256,7 +265,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                       <div key={msg.id} className="border rounded p-3 transition-colors">
                         <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b">
                           <div className="flex items-center gap-3">
-                            <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${msg.sender === "server" ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}>{msg.sender.toUpperCase()}</span>
+                            <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${senderBadgeClass(msg.sender)}`}>{msg.sender.toUpperCase()}</span>
                             <span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded">{msg.type}</span>
                           </div>
                           <span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</span>

@@ -205,6 +205,7 @@ export function ArduinoSimulatorPageLayout(
     workerIndex,
     workerTotal,
     browserRun,
+    engine,
   } = connection;
   const {
     showErrorGlitch,
@@ -401,6 +402,7 @@ export function ArduinoSimulatorPageLayout(
             workerIndex={workerIndex}
             workerTotal={workerTotal}
             browserRun={browserRun}
+            engine={engine}
             batchStats={batchStats}
             simulationStatus={simulationStatus}
             compilationStatus={compilationStatus}
