@@ -20,7 +20,7 @@ export interface RuntimeSelectionInput {
   /** Runtimes the selected board supports (board catalog). */
   readonly boardRuntimes: readonly RuntimeKind[];
   /** The user's stored choice, if any. */
-  readonly userChoice?: RuntimeKind | undefined;
+  readonly userChoice?: RuntimeKind;
   /** The server's default (`runtime.default`). */
   readonly serverDefault: RuntimeKind;
 }

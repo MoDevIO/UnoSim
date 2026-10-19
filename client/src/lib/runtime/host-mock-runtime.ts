@@ -107,7 +107,7 @@ export class HostMockRuntime implements SimulationRuntime {
   private receive(raw: unknown): void {
     const parsed = wsMessageSchema.safeParse(raw);
     if (!parsed.success || !isRuntimeEvent(parsed.data)) return;
-    for (const listener of [...this.listeners]) listener(parsed.data);
+    for (const listener of this.listeners) listener(parsed.data);
   }
 }
 

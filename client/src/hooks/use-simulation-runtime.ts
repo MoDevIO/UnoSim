@@ -28,7 +28,7 @@ export interface SimulationRuntimeSelection {
  */
 export function useSimulationRuntimeSelection(boardId?: BoardId): SimulationRuntimeSelection {
   const [config, setConfig] = useState<RuntimeConfig>(FALLBACK_RUNTIME_CONFIG);
-  const [userChoice, setUserChoiceState] = useState<RuntimeKind | undefined>(() => readEnginePreference());
+  const [userChoice, setUserChoice] = useState<RuntimeKind | undefined>(() => readEnginePreference());
 
   useEffect(() => {
     let cancelled = false;
@@ -41,14 +41,19 @@ export function useSimulationRuntimeSelection(boardId?: BoardId): SimulationRunt
   useEffect(() => {
     const onChange = (event: Event) => {
       const value = (event as CustomEvent<{ value: unknown }>).detail?.value;
-      setUserChoiceState(isRuntimeKind(value) ? value : undefined);
+      setUserChoice(isRuntimeKind(value) ? value : undefined);
     };
     document.addEventListener(ENGINE_PREFERENCE_EVENT, onChange);
     return () => document.removeEventListener(ENGINE_PREFERENCE_EVENT, onChange);
   }, []);
 
   const board = config.boards.find((entry) => entry.id === (boardId ?? config.defaultBoard));
-  const selection = { offered: config.backends, boardRuntimes: board?.runtimes ?? [], userChoice, serverDefault: config.defaultRuntime };
+  const selection = {
+    offered: config.backends,
+    boardRuntimes: board?.runtimes ?? [],
+    serverDefault: config.defaultRuntime,
+    ...(userChoice ? { userChoice } : {}),
+  };
   return {
     runtimeKind: selectRuntime(selection),
     usable: usableRuntimes(selection),
