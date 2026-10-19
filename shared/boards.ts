@@ -11,8 +11,8 @@ export type BoardId = (typeof BOARD_IDS)[number];
 export const boardIdSchema = z.enum(BOARD_IDS);
 
 // Every catalog id is a board of the emulation package (checked at compile time).
-const _idsMatchPackage: BoardId extends BoardHardwareId ? (BoardHardwareId extends BoardId ? true : never) : never = true;
-void _idsMatchPackage;
+type SameIds<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+export const BOARD_IDS_MATCH_PACKAGE: SameIds<BoardId, BoardHardwareId> = true;
 
 export const RUNTIME_KINDS = ["browser", "host-mock"] as const;
 export type RuntimeKind = (typeof RUNTIME_KINDS)[number];
