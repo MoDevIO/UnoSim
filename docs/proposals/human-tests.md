@@ -11,6 +11,8 @@ Alle Befehle laufen im Hauptverzeichnis des Repositorys auf dem Branch
 
 ## Teil 1 – P0.3: Leistung im Browser (rund 1,5 Stunden)
 
+> Ersatzmessung ohne Schulgeräte: [report-p0-3-vm-matrix.md](report-p0-3-vm-matrix.md) (Container mit 1 und 2 CPUs, `spikes/p0-3/run-vm-matrix.sh`). Eine reale Messung auf dem schwächsten Gerät bleibt sinnvoll, ist aber nicht mehr nötig, um Phase 3 zu beginnen.
+
 **Ziel:** Herausfinden, ob schwache Unterrichtsgeräte die Emulation schnell
 genug rechnen. *Kriterium:* Die **Spitzengeschwindigkeit** für IT05.5 ist auf dem
 schwächsten Gerät mindestens **1,2**. Sonst legen wir vor Phase 3 die

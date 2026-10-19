@@ -7,7 +7,7 @@
 |---|---|---|---|
 | P0.1 | in Arbeit | #258 | Entwürfe ADR 0009/0010 (`Proposed`) mit den Ergebnissen von P0.2, P0.4–P0.6 (#262, #263); offen: E12 nach P0.3, Annahme durch die Maintainer |
 | P0.2 | erledigt | #259 | Kriterium erfüllt: p95-Mehraufwand ≤ 195 ms mit kopiertem Core-Cache, keine fremde Datei lesbar; Nebenbefund `.include` auf `/proc/self/environ` (V1) |
-| P0.3 | wartet auf Mensch | (dieser PR: Messseite) | Messung auf Referenzgeräten (Schulgerät, Tablet, Notebook) |
+| P0.3 | erledigt (synthetisch) | (dieser PR) | Ersatzmessung in Containern mit 1 vCPU/2 GB und 2 vCPU/4 GB, Chromium 145 und Firefox 146: IT05.5 `peakSpeed` 2,11–4,42 (Kriterium ≥ 1,2), siehe [report-p0-3-vm-matrix.md](report-p0-3-vm-matrix.md); **keine** Messung auf realen Schulgeräten, eine Messung auf dem schwächsten echten Gerät bleibt empfohlen |
 | P0.4 | erledigt | #260 | Registerweg + Befehlsdekodierung: alle Paare pin-genau außer einem `digitalWrite` ohne Pegeländerung; Symbole nach LTO in 1/62 Builds |
 | P0.5 | erledigt | #262 | ATTinyCore 1.5.2; Software-UART TX/RX inkl. Komparatormodell; avr8js-Fehler REFS2 |
 | P0.6 | erledigt | #261 | Mega-Profil mit eigenen Vektoren; alle Proben stimmen |

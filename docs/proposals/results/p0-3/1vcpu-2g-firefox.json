@@ -1,0 +1,120 @@
+{
+  "synthetic": "VM/container measurement, not real school devices",
+  "environment": {
+    "node": "v24.13.0",
+    "os": "linux 7.0.14-linuxkit arm64",
+    "osRelease": "Ubuntu 24.04.3 LTS",
+    "visibleCpus": 10,
+    "cpuModel": "unknown",
+    "visibleMemoryMiB": 24246,
+    "cgroupCpuMax": "max 100000",
+    "cgroupMemoryMax": "2147483648",
+    "cpuset": "0"
+  },
+  "summary": {
+    "browser": "firefox",
+    "browserVersion": "146.0.1",
+    "it055PeakSpeeds": [2.14, 2.14, 2.11],
+    "it055PeakSpeedMin": 2.11,
+    "criterionPeakSpeed": 1.2,
+    "criterionMet": true
+  },
+  "runs": [
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
+      "cores": 10,
+      "memoryGb": null,
+      "measuredAt": "2026-10-19T09:59:50.207Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 2.38,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 6
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 2.14,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 4,
+          "uiLagMaxMs": 5
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 3.07,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 8
+        }
+      ]
+    },
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
+      "cores": 10,
+      "memoryGb": null,
+      "measuredAt": "2026-10-19T10:00:22.929Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 2.97,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 5
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 2.14,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 4,
+          "uiLagMaxMs": 6
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 3.09,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 5
+        }
+      ]
+    },
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
+      "cores": 10,
+      "memoryGb": null,
+      "measuredAt": "2026-10-19T10:00:55.773Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 2.94,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 8
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 2.11,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 4,
+          "uiLagMaxMs": 6
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 2.93,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 3,
+          "uiLagMaxMs": 10
+        }
+      ]
+    }
+  ]
+}
