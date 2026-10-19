@@ -19,8 +19,8 @@ export interface RuntimeCommandRouter {
   setAnalog(pin: number, value: number): boolean;
 }
 
-export function createRuntimeCommandRouter(hub: Pick<RuntimeHub, "active" | "get">): RuntimeCommandRouter {
-  const browser = () => (hub.active === "browser" ? hub.get("browser") : undefined);
+export function createRuntimeCommandRouter(hub: Pick<RuntimeHub, "active" | "peek">): RuntimeCommandRouter {
+  const browser = () => (hub.active === "browser" ? hub.peek("browser") : undefined);
   return {
     route(message) {
       const runtime = browser();

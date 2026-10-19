@@ -92,7 +92,7 @@ describe("useSimulationController", () => {
     function browserSetup(overrides: { hostMockUsable?: boolean } = {}) {
       const runtime = { start: vi.fn(), pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), reset: vi.fn() };
       let active: RuntimeKind | undefined;
-      const runtimeHub = { get: vi.fn(() => runtime), setActive: vi.fn((kind) => { active = kind; }), get active() { return active; } };
+      const runtimeHub = { load: vi.fn(async () => runtime), peek: vi.fn(() => runtime), setActive: vi.fn((kind) => { active = kind; }), get active() { return active; } };
       const params = { ...buildParams(), runtimeKind: "browser" as const, runtimeHub, ...overrides };
       const hook = renderHook(() => useSimulationController(params as never), { wrapper: createWrapper() });
       return { params, runtime, runtimeHub, hook };

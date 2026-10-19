@@ -5,9 +5,9 @@ import type { RuntimeHub } from "../../../../client/src/lib/runtime/runtime-hub"
 
 function setup(active: "browser" | "host-mock" | undefined) {
   const runtime = { pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), sendSerial: vi.fn(), setPin: vi.fn(), setAnalog: vi.fn() };
-  const get = vi.fn(() => runtime);
-  const router = createRuntimeCommandRouter({ active, get } as unknown as Pick<RuntimeHub, "active" | "get">);
-  return { router, runtime, get };
+  const peek = vi.fn(() => runtime);
+  const router = createRuntimeCommandRouter({ active, peek } as unknown as Pick<RuntimeHub, "active" | "peek">);
+  return { router, runtime, get: peek };
 }
 
 describe("runtime command router (plan P3.4)", () => {

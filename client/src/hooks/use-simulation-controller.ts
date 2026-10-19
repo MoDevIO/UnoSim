@@ -9,7 +9,7 @@ import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { UseUiFeedbackAdapterResult } from "./use-ui-feedback-adapter";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
 import type { RuntimeKind } from "@shared/boards";
-import { parseSimulationArtifact, type SimulationArtifact } from "@shared/simulation-artifact";
+import type { SimulationArtifact } from "@shared/simulation-artifact";
 import { getRuntimeHub, type RuntimeHub } from "@/lib/runtime/runtime-hub";
 
 const logger = new Logger("useSimulationController");
@@ -23,7 +23,7 @@ export type SimulationControllerParams = {
   /** The host mock can take over when the browser emulation has no image to run. */
   hostMockUsable?: boolean;
   /** The runtimes of this tab; the shared hub when not given. */
-  runtimeHub?: Pick<RuntimeHub, "get" | "active" | "setActive">;
+  runtimeHub?: Pick<RuntimeHub, "load" | "peek" | "active" | "setActive">;
   code: string;
   hasCompilationErrors: boolean;
   isModified?: boolean;
@@ -84,6 +84,13 @@ export type SimulationControllerResult = {
   suppressAutoStopOnce: () => void;
 };
 
+/** Cheap shape check of a compile result's `artifact`; the schema validates it when the run starts. */
+function looksLikeArtifact(value: unknown): value is SimulationArtifact {
+  if (typeof value !== "object" || value === null) return false;
+  const { flashBase64, sha256, buildId } = value as Record<string, unknown>;
+  return typeof flashBase64 === "string" && typeof sha256 === "string" && typeof buildId === "string";
+}
+
 export function useSimulationController(
   params: SimulationControllerParams,
 ): SimulationControllerResult {
@@ -98,7 +105,7 @@ export function useSimulationController(
   const compiledCodeRef = useRef<string | null>(null);
   const compiledHeadersRef = useRef<Array<{ name: string; content: string }>>([]);
   const compiledEntryFileRef = useRef<string | undefined>(undefined);
-  const compiledArtifactRef = useRef<SimulationArtifact | undefined>(undefined);
+  const compiledArtifactRef = useRef<unknown>(undefined);
   const hub = params.runtimeHub ?? getRuntimeHub();
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
@@ -107,7 +114,7 @@ export function useSimulationController(
   /** Browser runs do not need the server: stop, pause and resume work without the connection. */
   const browserRunActive = () => hub.active === "browser";
   /** True if the next start runs in the browser: selected, and the latest build has an image. */
-  const startsInBrowser = () => params.runtimeKind === "browser" && (compiledArtifactRef.current !== undefined || params.hostMockUsable === false);
+  const startsInBrowser = () => params.runtimeKind === "browser" && (looksLikeArtifact(compiledArtifactRef.current) || params.hostMockUsable === false);
 
   const stopSimulationImmediately = useCallback(() => {
     if (!canSimulate) return;
@@ -161,10 +168,13 @@ export function useSimulationController(
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current);
       if (startsInBrowser()) {
-        const artifact = compiledArtifactRef.current;
+        // The schema and the runtime load on demand: they stay out of the initial bundle.
+        const { parseSimulationArtifact } = await import("@shared/simulation-artifact");
+        const artifact = parseSimulationArtifact(compiledArtifactRef.current);
         if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
+        const runtime = await hub.load("browser");
         hub.setActive("browser");
-        hub.get("browser").start({ kind: "browser", artifact, timeoutSec: timeout });
+        runtime.start({ kind: "browser", artifact, timeoutSec: timeout });
         return { success: true };
       }
       hub.setActive("host-mock");
@@ -229,7 +239,7 @@ export function useSimulationController(
   }, [canSimulate, params.ensureBackendConnected, resumeMutation]);
 
   const setCompiledArtifact = useCallback((artifact: unknown) => {
-    compiledArtifactRef.current = parseSimulationArtifact(artifact);
+    compiledArtifactRef.current = looksLikeArtifact(artifact) ? artifact : undefined;
   }, []);
   const canResetWithoutCompile = useCallback(() => browserRunActive() && (simulationStatus === "running" || simulationStatus === "paused"), [simulationStatus, hub]);
   const resetWithoutCompile = useCallback(() => {
@@ -237,7 +247,7 @@ export function useSimulationController(
     params.serialEventQueueRef.current = [];
     params.clearOutputs();
     params.resetPinUI({ keepDetected: true });
-    hub.get("browser").reset();
+    hub.peek("browser")?.reset();
     return true;
   }, [canResetWithoutCompile, hub, params]);
 

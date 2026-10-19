@@ -1,13 +1,13 @@
 import type { WSMessage } from "@shared/schema";
 import type { RuntimeKind } from "@shared/boards";
 import { getWebSocketManager } from "@/lib/websocket-manager";
-import { createBrowserRuntime } from "./browser-runtime";
 import { createHostMockRuntime } from "./host-mock-runtime";
 import type { AnyRuntimeEvent, BrowserRuntimeEvent, RuntimeEvent, SimulationRuntime } from "./simulation-runtime";
 
 export interface RuntimeHubOptions {
   createHostMock(): SimulationRuntime;
-  createBrowser(): SimulationRuntime;
+  /** Loads the browser runtime on demand, so the emulation code stays out of the initial bundle (plan P3.9). */
+  createBrowser(): Promise<SimulationRuntime>;
   /** Where the browser runtime's events in the form of server messages go: the app's single message stream. */
   deliver(message: RuntimeEvent): void;
 }
@@ -26,6 +26,7 @@ export class RuntimeHub {
   private readonly runtimes = new Map<RuntimeKind, SimulationRuntime>();
   private readonly browserListeners = new Set<(event: BrowserRuntimeEvent) => void>();
   private activeValue: RuntimeKind | undefined;
+  private pendingBrowser: Promise<SimulationRuntime> | undefined;
 
   constructor(private readonly options: RuntimeHubOptions) {}
 
@@ -38,18 +39,25 @@ export class RuntimeHub {
     this.activeValue = kind;
   }
 
-  get(kind: RuntimeKind): SimulationRuntime {
-    const existing = this.runtimes.get(kind);
+  /** The runtime if it exists; the browser runtime exists after `load("browser")`. */
+  peek(kind: RuntimeKind): SimulationRuntime | undefined {
+    if (kind === "host-mock" && !this.runtimes.has(kind)) this.runtimes.set(kind, this.options.createHostMock());
+    return this.runtimes.get(kind);
+  }
+
+  /** The runtime, created (and for the browser, loaded) on first use. */
+  async load(kind: RuntimeKind): Promise<SimulationRuntime> {
+    const existing = this.peek(kind);
     if (existing) return existing;
-    const runtime = kind === "browser" ? this.options.createBrowser() : this.options.createHostMock();
-    if (kind === "browser") {
+    this.pendingBrowser ??= this.options.createBrowser().then((runtime) => {
       runtime.subscribe((event) => {
         if (isBrowserOnly(event)) for (const listener of this.browserListeners) listener(event);
         else this.options.deliver(event);
       });
-    }
-    this.runtimes.set(kind, runtime);
-    return runtime;
+      this.runtimes.set("browser", runtime);
+      return runtime;
+    });
+    return this.pendingBrowser;
   }
 
   /** Events only the browser runtime has: findings, diagnostics, telemetry. */
@@ -65,6 +73,7 @@ export class RuntimeHub {
     this.runtimes.clear();
     this.browserListeners.clear();
     this.activeValue = undefined;
+    this.pendingBrowser = undefined;
   }
 }
 
@@ -74,7 +83,7 @@ let hub: RuntimeHub | undefined;
 export function getRuntimeHub(): RuntimeHub {
   hub ??= new RuntimeHub({
     createHostMock: createHostMockRuntime,
-    createBrowser: createBrowserRuntime,
+    createBrowser: async () => (await import("./browser-runtime")).createBrowserRuntime(),
     deliver: (message) => getWebSocketManager().injectMessage(message as WSMessage),
   });
   return hub;
