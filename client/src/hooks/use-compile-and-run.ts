@@ -1,4 +1,3 @@
-import type { DebugProtocol } from "@/hooks/use-debug-console";
 import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
@@ -6,7 +5,7 @@ import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
 import type { RuntimeKind } from "@shared/boards";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
-import type { DebugMessage } from "@/hooks/use-debug-console";
+import type { DebugMessage, DebugProtocol } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
