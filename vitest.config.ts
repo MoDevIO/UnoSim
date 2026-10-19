@@ -115,6 +115,7 @@ export default defineConfig({
             "tests/integration/serial-flow.test.ts",
             "tests/integration/avr-emulator-board-pinmap.test.ts",
             "tests/integration/runtime-corpus-fixtures.test.ts",
+            "tests/integration/compile-artifact.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",
@@ -169,6 +170,7 @@ export default defineConfig({
           include: [
             "tests/integration/avr-emulator-board-pinmap.test.ts",
             "tests/integration/runtime-corpus-fixtures.test.ts",
+            "tests/integration/compile-artifact.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",

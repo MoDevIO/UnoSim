@@ -127,3 +127,35 @@ describe("compiler output board name (plan P2.2)", () => {
     expect(result.output.endsWith("Board: vendor:arch:board")).toBe(true);
   });
 });
+
+describe("build outputs next to the HEX (plan P2.5)", () => {
+  it("returns the ELF of the build, passes the fixed build flags and ignores bootloader images", async () => {
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { FIXED_BUILD_FLAGS } = await import("../../../../server/services/compiler/cli-runner");
+    const buildPath = await mkdtemp(join(tmpdir(), "unosim-cli-elf-"));
+    try {
+      await writeFile(join(buildPath, "sketch.ino.hex"), ":00000001FF\n");
+      await writeFile(join(buildPath, "sketch.ino.with_bootloader.hex"), "bootloader");
+      await writeFile(join(buildPath, "sketch.ino.elf"), Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+      const execute = vi.fn().mockResolvedValue({ code: 0, stdout: "Sketch uses 1 bytes.", stderr: "" });
+
+      const result = await compileWithArduinoCli("/tmp/unosim/sketch.ino", { fqbn: "arduino:avr:uno", buildPath }, { execute } as unknown as ProcessExecutor);
+
+      expect(result.elf).toEqual(Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+      expect(result.binary?.toString()).toBe(":00000001FF\n");
+      expect(execute.mock.calls[0][1]).toEqual(expect.arrayContaining([...FIXED_BUILD_FLAGS]));
+    } finally {
+      await rm(buildPath, { recursive: true, force: true });
+    }
+  });
+
+  it("returns no ELF when the build produced none", async () => {
+    const execute = vi.fn().mockResolvedValue({ code: 0, stdout: "Sketch uses 1 bytes.", stderr: "" });
+
+    const result = await compileWithArduinoCli("/tmp/unosim/sketch.ino", { fqbn: "arduino:avr:uno", buildPath: "/nonexistent/path" }, { execute } as unknown as ProcessExecutor);
+
+    expect(result.elf).toBeUndefined();
+  });
+});

@@ -153,6 +153,7 @@ export async function runHexCacheCleanup(
       await rm(file.path, { force: true });
       // The output sidecar is useless without its binary and must not outlive it.
       await rm(file.sidecarPath, { force: true });
+      await rm(file.sidecarPath.replace(/\.output\.txt$/, ".artifact.json"), { force: true });
       totalSize -= file.size;
     }
   } catch (error) {
