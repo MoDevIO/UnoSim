@@ -1,3 +1,4 @@
+import type { DebugProtocol } from "@/hooks/use-debug-console";
 import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -84,7 +85,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend";
     type: string;
     content: string;
-    protocol?: "websocket" | "http" | "worker";
+    protocol?: DebugProtocol;
   }>;
   setDebugMessages: React.Dispatch<React.SetStateAction<Array<{
     id: string;
@@ -92,7 +93,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend";
     type: string;
     content: string;
-    protocol?: "websocket" | "http" | "worker";
+    protocol?: DebugProtocol;
   }>>>;
   debugMessageFilter: string;
   setDebugMessageFilter: (value: string) => void;
@@ -103,7 +104,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend",
     type: string,
     content: string,
-    protocol?: "websocket" | "http" | "worker",
+    protocol?: DebugProtocol,
   ) => void;
 }
 

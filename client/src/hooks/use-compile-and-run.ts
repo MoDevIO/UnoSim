@@ -1,3 +1,4 @@
+import type { DebugProtocol } from "@/hooks/use-debug-console";
 import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
@@ -46,7 +47,7 @@ export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
-  protocol?: "websocket" | "http" | "worker";
+  protocol?: DebugProtocol;
 };
 
 // parameters for compile portion (same as old UseCompilationParams)

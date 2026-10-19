@@ -1,3 +1,4 @@
+import type { DebugProtocol } from "@/hooks/use-debug-console";
 import type { RuntimeKind } from "@shared/boards";
 import type { CompilerError } from "@/types/websocket";
 
@@ -5,7 +6,7 @@ export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
-  protocol?: "websocket" | "http" | "worker";
+  protocol?: DebugProtocol;
 };
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -125,7 +126,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
   /**
    * Helper: Debug-Message erzeugen
    */
-  const logDebug = (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http" | "worker") => {
+  const logDebug = (source: "frontend" | "server", type: string, data: string, protocol?: DebugProtocol) => {
     params.addDebugMessage({ source, type, data, protocol: protocol ?? "http" });
   };
 
