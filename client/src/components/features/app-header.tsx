@@ -324,6 +324,51 @@ interface DesktopMenuBarProps {
   readonly onTimeoutChange: (timeout: number) => void;
 }
 
+/** Tools → Board: a radio list of the offered boards, or the plain name while the page gives no list. */
+function BoardMenu({ board, boards, boardId, onBoardChange }: {
+  readonly board: string;
+  readonly boards?: ReadonlyArray<BoardMenuEntry>;
+  readonly boardId?: BoardId;
+  readonly onBoardChange?: (board: BoardId) => void;
+}) {
+  if (!boards || boards.length === 0 || !boardId || !onBoardChange) {
+    return (
+      <MenubarItem className="cursor-default" onSelect={(e) => e.preventDefault()}>
+        <div className="flex items-center justify-between w-full">
+          <span>Board:</span>
+          <span className="ui-type-menu-item text-muted-foreground">{board}</span>
+        </div>
+      </MenubarItem>
+    );
+  }
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger className="w-full text-left" data-testid="menu-board">
+        <span className="flex items-center justify-between w-full gap-3">
+          <span>Board</span>
+          <span className="ui-type-menu-item text-muted-foreground">{board}</span>
+        </span>
+      </MenubarSubTrigger>
+      <MenubarSubContent>
+        <MenubarRadioGroup value={boardId} onValueChange={(value) => onBoardChange(value as BoardId)}>
+          {boards.map((entry) => (
+            <MenubarRadioItem
+              key={entry.id}
+              value={entry.id}
+              disabled={entry.status === "planned"}
+              title={entry.status === "planned" ? "Not available yet" : undefined}
+            >
+              {entry.displayName}
+              {entry.status === "preview" && <span className="ml-2 text-muted-foreground">(preview)</span>}
+              {entry.status === "planned" && <span className="ml-2 text-muted-foreground">(planned)</span>}
+            </MenubarRadioItem>
+          ))}
+        </MenubarRadioGroup>
+      </MenubarSubContent>
+    </MenubarSub>
+  );
+}
+
 export function DesktopMenuBar({
   canCompile = true,
   isMac,
@@ -585,44 +630,7 @@ export function DesktopMenuBar({
         <MenubarContent
           onKeyDown={(event) => event.key === "Escape" && clearMenuSwitchPending()}
         >
-          {boards && boards.length > 0 && boardId && onBoardChange ? (
-            <MenubarSub>
-              <MenubarSubTrigger className="w-full text-left" data-testid="menu-board">
-                <span className="flex items-center justify-between w-full gap-3">
-                  <span>Board</span>
-                  <span className="ui-type-menu-item text-muted-foreground">{board}</span>
-                </span>
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                <MenubarRadioGroup value={boardId} onValueChange={(value) => onBoardChange(value as BoardId)}>
-                  {boards.map((entry) => (
-                    <MenubarRadioItem
-                      key={entry.id}
-                      value={entry.id}
-                      disabled={entry.status === "planned"}
-                      title={entry.status === "planned" ? "Not available yet" : undefined}
-                    >
-                      {entry.displayName}
-                      {entry.status === "preview" && <span className="ml-2 text-muted-foreground">(preview)</span>}
-                      {entry.status === "planned" && <span className="ml-2 text-muted-foreground">(planned)</span>}
-                    </MenubarRadioItem>
-                  ))}
-                </MenubarRadioGroup>
-              </MenubarSubContent>
-            </MenubarSub>
-          ) : (
-            <MenubarItem
-              className="cursor-default"
-              onSelect={(e) => e.preventDefault()}
-            >
-              <div className="flex items-center justify-between w-full">
-                <span>Board:</span>
-                <span className="ui-type-menu-item text-muted-foreground">
-                  {board}
-                </span>
-              </div>
-            </MenubarItem>
-          )}
+          <BoardMenu board={board} boards={boards} boardId={boardId} onBoardChange={onBoardChange} />
           <MenubarItem
             className="cursor-default"
             onSelect={(e) => e.preventDefault()}
