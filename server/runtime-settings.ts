@@ -35,9 +35,8 @@ function parseChoice<T extends string>(name: string, value: string, allowed: rea
 
 function parseBackends(env: NodeJS.ProcessEnv, serverMode: "local" | "docker", options: RuntimeSettingsOptions): RuntimeKind[] {
   const listed = parseList("UNOSIM_RUNTIME_BACKENDS", env.UNOSIM_RUNTIME_BACKENDS);
-  const backends = listed
-    ? listed.map((item) => parseChoice("UNOSIM_RUNTIME_BACKENDS", item, RUNTIME_KINDS))
-    : serverMode === "local" ? (["browser", "host-mock"] as RuntimeKind[]) : (["host-mock"] as RuntimeKind[]);
+  const defaults: RuntimeKind[] = serverMode === "local" ? ["browser", "host-mock"] : ["host-mock"];
+  const backends = listed ? listed.map((item) => parseChoice("UNOSIM_RUNTIME_BACKENDS", item, RUNTIME_KINDS)) : defaults;
   if (serverMode === "docker" && backends.includes("browser") && !options.compileSandboxAvailable) {
     throw new Error("UNOSIM_RUNTIME_BACKENDS: the browser backend needs the compile sandbox in the Docker profile (plan P2.4); it is not available yet");
   }
