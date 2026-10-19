@@ -35,6 +35,8 @@ Der Simulator bildet das Verhalten der Arduino-`Print`-Bibliothek ab. Die Konver
 - **`Serial.print()`**: Konvertiert Werte in ASCII-Darstellung und sendet diese.
 
 ## 3. Transport-Protokoll
+
+> **Browser-Emulation:** Hier gibt es weder `SERIAL_EVENT` noch stderr. Der Emulator liefert die Bytes des USART; der Worker dekodiert sie als UTF-8 (je Port, auch über Paketgrenzen), bündelt sie mit höchstens 60 Paketen je Sekunde und sendet sie als Ereignis `serial`. `BrowserRuntime` macht daraus dieselben `serial_output`-Nachrichten wie der Server (Zeilen enden mit LF, CRLF wird zu LF, `isComplete` sagt, ob der Text eine Zeile beendet). Eingabe vor `Serial.begin()` geht verloren wie am Board und erscheint als Systemzeile. Details: SSOT SimulationRuntime.
 Alle Ausgaben (print, println, write) werden über **stderr** als base64-kodierte `SERIAL_EVENT`-Nachrichten gesendet:
 ```
 [[SERIAL_EVENT:<millis_timestamp>:<base64_data>]]

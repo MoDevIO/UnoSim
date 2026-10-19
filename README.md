@@ -37,7 +37,8 @@ and an interactive Arduino Preview for sketches.
 
 - **Code Editor**: Monaco editor integration for writing Arduino sketches with syntax highlighting
 - **Compilation**: Compile Arduino code through the UnoSim backend
-- **Serial Monitor**: Real-time output display from simulated Arduino execution
+- **Browser emulation of the Arduino Uno**: the ATmega328P runs in your browser (avr8js in a Web Worker) and executes the machine code of the compiled sketch, so data types, overflow and timing behave like the board; the server only compiles. "Legacy" (File → Settings → Simulation engine) keeps the server-side simulation
+- **Serial Monitor**: Real-time output display from the simulated Arduino
 - **Pause/Resume Simulation**: Pause running sketches to inspect state, change pin values, and resume execution
 - **Arduino Preview**: A preview of analog/digital inputs and outputs directly in the Arduino SVG
 - **Web-based UI**: Use the simulator in a browser; local/server installation runs the backend
@@ -50,6 +51,7 @@ and an interactive Arduino Preview for sketches.
 
 - **Frontend**: React, TypeScript, Vite, TailwindCSS, Radix UI
 - **Backend**: Node.js (TypeScript), Express, WebSocket support
+- **Emulation**: avr8js (ATmega328P) in a Web Worker
 - **Editor**: Monaco Editor
 - **Testing**: Vitest with React Testing Library
 - **Build Tools**: Vite, esbuild

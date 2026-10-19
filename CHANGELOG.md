@@ -2,6 +2,28 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased (integration branch `feature/browser-emulation`)
+
+### Changed
+
+- **The Arduino Uno now runs in the browser by default** (local profile). The
+  compiled sketch is executed by an emulator of the ATmega328P in a Web Worker;
+  `int` is 16 bit, `32767 + 1` is −32768, `sizeof`, `millis()` and `delay()`
+  behave like the board, and a running sketch keeps going when the connection to
+  the server is lost. Pause halts the simulated time. File → Settings →
+  "Simulation engine" switches to "Legacy" (the former server-side
+  simulation). The user guide section "Grenzen der Simulation" describes the
+  model.
+- Serial input that arrives before `Serial.begin()` is discarded like on the
+  board and reported with a system line.
+- REST API `1.1.0` (additive: `board` and `artifact` in `POST /api/compile`);
+  `1.0.0` clients stay supported. WebSocket `1.0.0` and the embedding API
+  `1.4.0` are unchanged.
+
+### Fixed
+
+- The serial input field could not be typed into while it was empty.
+
 ## v1.0.1 – 2026-10-18
 
 Bug-fix release covering #239–#252. The REST API and the WebSocket protocol
