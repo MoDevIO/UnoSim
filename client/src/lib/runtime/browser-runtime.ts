@@ -1,6 +1,5 @@
 import { decodeBase64 } from "@unosim/avr-emulator/image";
-import { RunGate, type Command, type RunEvent, type RunStatus, type StopReason } from "@unosim/avr-emulator/protocol";
-import type { PinSnapshot, TelemetrySample } from "@unosim/avr-emulator/protocol";
+import { RunGate, type Command, type PinSnapshot, type RunEvent, type RunStatus, type StopReason, type TelemetrySample } from "@unosim/avr-emulator/protocol";
 import type { AnyRuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
 
 /** The part of a `Worker` the runtime uses (a fake in tests). */
@@ -195,7 +194,8 @@ export class BrowserRuntime implements SimulationRuntime {
       if (this.worker === worker) this.receive(event.data);
     });
     worker.addEventListener("error", (event) => {
-      if (this.worker === worker) this.fail(`the emulator worker failed${event.message ? `: ${event.message}` : ""}`);
+      const detail = event.message ? `: ${event.message}` : "";
+      if (this.worker === worker) this.fail(`the emulator worker failed${detail}`);
     });
     worker.addEventListener("messageerror", () => {
       if (this.worker === worker) this.fail("the emulator worker sent a message that could not be read");
@@ -273,9 +273,11 @@ export class BrowserRuntime implements SimulationRuntime {
       const key = `${change.mode}:${change.level}:${change.pwm ?? ""}`;
       if (this.lastPins.get(change.pin) === key) continue;
       this.lastPins.set(change.pin, key);
-      states.push({ pin: change.pin, stateType: "mode", value: MODE_NUMBER[change.mode] });
-      states.push({ pin: change.pin, stateType: "value", value: change.level });
-      if (change.pwm !== undefined) states.push({ pin: change.pin, stateType: "pwm", value: change.pwm });
+      states.push(
+        { pin: change.pin, stateType: "mode", value: MODE_NUMBER[change.mode] },
+        { pin: change.pin, stateType: "value", value: change.level },
+        ...(change.pwm === undefined ? [] : [{ pin: change.pin, stateType: "pwm" as const, value: change.pwm }]),
+      );
     }
     if (states.length > 0) this.emit({ type: "pin_state_batch", states, timestamp: this.timers.now() });
   }
