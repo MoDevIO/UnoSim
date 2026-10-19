@@ -869,6 +869,10 @@ Board-Hardware des Pakets. `getClientConfig()` liefert Boards und Backends
 (4.11). Neue SSOT `ssot_function_definition_Boards.md`.
 *Abnahme:* Konsistenztest: jede Board-ID hat Hardware im Paket und eine FQBN
 in der Allowlist.
+Umgesetzt mit dem Paket-Einstieg `@unosim/avr-emulator/boards` (nur Pins, kein
+avr8js). Der Konsistenztest verlangt Hardware im Paket für jedes Board, das
+nicht `planned` ist; für Mega 2560 und ATtiny85 entsteht sie mit P5.2 und P6.4.
+Bis P2.6 meldet `/api/config` die Backends fest als `host-mock`.
 
 **P2.2 Board im Compile-Request (M).**
 `compileRequestSchema` erhält `board` (optional, Default aus der

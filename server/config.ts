@@ -9,6 +9,7 @@
  *   • "local":  server and simulations run on the development host
  *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
+import { DEFAULT_BOARD_ID, type RuntimeKind, enabledBoards } from "../shared/boards";
 import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -719,6 +720,10 @@ export function getClientConfig() {
     tutor: {
       provider: config.tutor.provider,
     },
+    boards: enabledBoards().map(({ id, displayName, status, runtimes }) => ({ id, displayName, status, runtimes })),
+    defaultBoard: DEFAULT_BOARD_ID,
+    // Until the browser backend exists (P3.2) and the variables of plan 4.11 arrive (P2.6) the server offers the host mock only.
+    runtime: { backends: ["host-mock"] as RuntimeKind[], default: "host-mock" as RuntimeKind },
   };
 }
 
