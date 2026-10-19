@@ -633,9 +633,8 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setStaticIoRegistry(
-        sourceProject ? parseStaticIORegistryProject(sourceProject, boardId ? { board: boardId } : {}) : [],
-      );
+      const options = boardId ? { board: boardId } : {};
+      setStaticIoRegistry(sourceProject ? parseStaticIORegistryProject(sourceProject, options) : []);
     }, 300);
     return () => clearTimeout(timer);
   }, [sourceProject, boardId, compilationStatus, setStaticIoRegistry]);
