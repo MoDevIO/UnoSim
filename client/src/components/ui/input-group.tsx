@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 interface InputGroupProps extends React.InputHTMLAttributes<HTMLInputElement> {
   readonly onSubmit?: () => void;
+  /** Disables only the send button and Enter (for example while the field is empty); the field stays editable. */
+  readonly submitDisabled?: boolean;
   readonly inputTestId?: string;
   readonly buttonTestId?: string;
 }
@@ -14,6 +16,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
     {
       className,
       onSubmit,
+      submitDisabled,
       inputTestId,
       buttonTestId,
       disabled,
@@ -22,11 +25,12 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
     },
     ref,
   ) => {
+    const sendDisabled = Boolean(disabled) || Boolean(submitDisabled);
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (onKeyDown) onKeyDown(e);
       if (e.key === "Enter") {
         e.preventDefault();
-        if (!disabled && onSubmit) onSubmit();
+        if (!sendDisabled && onSubmit) onSubmit();
       }
     };
 
@@ -54,11 +58,11 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
             type="button"
             onClick={onSubmit}
             size="sm"
-            disabled={disabled}
+            disabled={sendDisabled}
             data-testid={buttonTestId}
             className={cn(
               "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none",
-              disabled
+              sendDisabled
                 ? "bg-background text-muted-foreground"
                 : "bg-green-600 hover:bg-green-700 text-white",
               // remove default border so edges flush

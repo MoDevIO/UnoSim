@@ -319,8 +319,8 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             onKeyDown={handleSerialInputKeyDown}
             onSubmit={handleSerialInputSend}
             title={capabilities && !capabilities.canUseRealtimeControls ? "Server connection required" : undefined}
+            submitDisabled={!serialInputValue.trim()}
             disabled={
-              !serialInputValue.trim() ||
               simulationStatus !== "running" ||
               (capabilities !== undefined && !capabilities.canUseRealtimeControls)
             }

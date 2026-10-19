@@ -40,6 +40,9 @@ const simulation = {
   stopSimulationImmediately: vi.fn(),
   startSimulation: vi.fn(),
   setCompiledCode: vi.fn(),
+  setCompiledArtifact: vi.fn(),
+  willStartInBrowser: vi.fn(() => false),
+  resetWithoutCompile: vi.fn(() => false),
   startSimulationRef: { current: null },
   suppressAutoStopOnce: vi.fn(),
 };
@@ -132,6 +135,31 @@ describe("useCompileAndRun orchestrator", () => {
     expect(compile.setCompilationStatus).not.toHaveBeenCalledWith("success");
     expect(simulation.setHasCompiledOnce).toHaveBeenCalledWith(true);
     expect(params.setIsModified).toHaveBeenCalledWith(false);
+  });
+
+  it("marks the compile as successful itself when the run starts in the browser: no server message follows", () => {
+    simulation.willStartInBrowser.mockReturnValueOnce(true);
+    const params = buildParams();
+    const { result } = renderHook(() => useCompileAndRun(params));
+    act(() => result.current.handleCompileAndStart());
+
+    const callbacks = compileMutation.mutate.mock.calls[0][1];
+    act(() => callbacks.onSuccess({ success: true, artifact: { flashBase64: "AA==" } }));
+
+    expect(compile.setCompilationStatus).toHaveBeenCalledWith("success");
+    expect(simulation.startSimulation).toHaveBeenCalled();
+  });
+
+  it("resets a running browser emulation without compiling when the code is unchanged", () => {
+    simulation.resetWithoutCompile.mockReturnValueOnce(true);
+    const params = { ...buildParams(), isModified: false };
+    const { result } = renderHook(() => useCompileAndRun(params));
+
+    act(() => result.current.handleReset());
+
+    expect(simulation.resetWithoutCompile).toHaveBeenCalled();
+    expect(compileMutation.mutate).not.toHaveBeenCalled();
+    expect(simulation.handleStop).not.toHaveBeenCalled();
   });
 
   it("keeps simulation idle when compilation fails", () => {

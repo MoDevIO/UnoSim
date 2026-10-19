@@ -382,6 +382,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           simulation.setCompiledCode(mainSketchCode);
           simulation.setCompiledHeaders?.(headers);
           simulation.setCompiledEntryFile?.(entryFile);
+          // The server reports the end of the compile through the simulation start; a browser run has no such message.
+          if (simulation.willStartInBrowser()) setCompilationStatus("success");
           simulation.startSimulation();
           simulation.setHasCompiledOnce(true);
           params.setIsModified(false);

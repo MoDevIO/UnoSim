@@ -76,6 +76,8 @@ export type SimulationControllerResult = {
   setCompiledEntryFile?: (entryFile: string | undefined) => void;
   /** The flash image of the latest build, from the compile result (anything that is not an artifact clears it). */
   setCompiledArtifact: (artifact: unknown) => void;
+  /** True if the next start runs in the browser (selected, and the latest build has an image). */
+  willStartInBrowser: () => boolean;
   /** True while a browser run is active and can be reset without compiling again. */
   canResetWithoutCompile: () => boolean;
   /** CPU reset of the running browser emulation; false if there is none. */
@@ -127,6 +129,9 @@ export function useSimulationController(
   }, [canSimulate, params, setSimulationStatus]);
 
   const stopMutation = useMutation({
+    // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
+    // stay controllable when the browser reports being offline (networkMode "online" would pause them).
+    networkMode: "always",
     mutationFn: async () => {
       stopSimulationImmediately();
       return { success: true };
@@ -134,6 +139,9 @@ export function useSimulationController(
   });
 
   const pauseMutation = useMutation({
+    // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
+    // stay controllable when the browser reports being offline (networkMode "online" would pause them).
+    networkMode: "always",
     mutationFn: async () => {
       params.uiFeedback.logPauseSimulation();
       params.sendMessage({ type: "pause_simulation" });
@@ -144,6 +152,9 @@ export function useSimulationController(
   });
 
   const resumeMutation = useMutation({
+    // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
+    // stay controllable when the browser reports being offline (networkMode "online" would pause them).
+    networkMode: "always",
     mutationFn: async () => {
       params.uiFeedback.logResumeSimulation();
       params.sendMessage({ type: "resume_simulation" });
@@ -154,6 +165,9 @@ export function useSimulationController(
   });
 
   const startMutation = useMutation({
+    // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
+    // stay controllable when the browser reports being offline (networkMode "online" would pause them).
+    networkMode: "always",
     mutationFn: async () => {
       const timeout = normalizeSimulationTimeout(simulationTimeout);
       logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
@@ -287,6 +301,7 @@ export function useSimulationController(
     setCompiledHeaders,
     setCompiledEntryFile,
     setCompiledArtifact,
+    willStartInBrowser: startsInBrowser,
     canResetWithoutCompile,
     resetWithoutCompile,
     startSimulationRef,

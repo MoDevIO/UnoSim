@@ -97,6 +97,7 @@ export class BrowserRuntime implements SimulationRuntime {
   private lastHeard = 0;
   private stoppingRunId: number | undefined;
   private lastStatus: RunStatus | undefined;
+  private heldCarriageReturn = false;
   private readonly lastPins = new Map<number, string>();
   /** Runtime findings of the run as records of the I/O registry, by pin. */
   private readonly registry = new Map<number, IOPinRecord>();
@@ -114,6 +115,7 @@ export class BrowserRuntime implements SimulationRuntime {
     const buffer = flash.buffer.slice(flash.byteOffset, flash.byteOffset + flash.byteLength) as ArrayBuffer;
     this.lastPins.clear();
     this.registry.clear();
+    this.heldCarriageReturn = false;
     this.pendingStart = { timeoutSec: request.timeoutSec };
     this.timeoutSec = request.timeoutSec;
     this.phase = "loading";
@@ -155,6 +157,7 @@ export class BrowserRuntime implements SimulationRuntime {
   reset(): void {
     if (this.gate.state !== "running" && this.gate.state !== "paused") return;
     this.lastPins.clear();
+    this.registry.clear(); // the new machine reports its first uses again
     this.command("reset");
   }
 
@@ -230,7 +233,7 @@ export class BrowserRuntime implements SimulationRuntime {
         this.onStatus(data.state, data.reason);
         break;
       case "serial":
-        this.emit({ type: "serial_output", data: data.text, isComplete: true });
+        this.emitSerial(data.text);
         break;
       case "pins":
         this.emitPins(data.changes);
@@ -274,6 +277,19 @@ export class BrowserRuntime implements SimulationRuntime {
     this.emit({ type: "simulation_status", status: state });
     if (state === "paused") this.emit({ type: "serial_output", data: SYSTEM_LINES.paused, isComplete: true });
     else if (wasPaused) this.emit({ type: "serial_output", data: SYSTEM_LINES.resumed, isComplete: true });
+  }
+
+  /**
+   * Serial text in the form of the server's messages: lines end with "\n" (CRLF becomes LF), `isComplete` says
+   * whether the text ends a line. A CR at the end of a chunk waits for the LF that may follow in the next one.
+   */
+  private emitSerial(chunk: string): void {
+    let text = this.heldCarriageReturn ? `\r${chunk}` : chunk;
+    this.heldCarriageReturn = text.endsWith("\r");
+    if (this.heldCarriageReturn) text = text.slice(0, -1);
+    text = text.replaceAll("\r\n", "\n");
+    if (text.length === 0) return;
+    this.emit({ type: "serial_output", data: text, isComplete: text.endsWith("\n") });
   }
 
   /** The findings so far as the `io_registry` snapshot the existing handler evaluates; the lines stay 0, only the static analysis knows lines. */
