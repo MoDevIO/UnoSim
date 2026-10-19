@@ -97,18 +97,7 @@ export async function compileWithArduinoCli(
     const diagnosticOutput = selectDiagnosticOutput(output, errors);
 
     if (code === 0) {
-      const parsedOutput = parseCompilerOutput(output, config.fqbn);
-      const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
-        .filter((diagnostic) => diagnostic.type === "warning");
-      const { binary, elf } = await discoverBuildOutputs(config.buildPath || sketchDir);
-      return {
-        success: true,
-        output: parsedOutput,
-        errors: "",
-        parsedErrors: parsedWarnings,
-        binary,
-        ...(elf ? { elf } : {}),
-      };
+      return await successResult(output, diagnosticOutput, config, config.buildPath || sketchDir);
     } else {
       const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, sketchFile));
       const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
@@ -189,6 +178,19 @@ function isLibraryScanLine(line: string): boolean {
 
 function hasMemoryUsage(output: string): boolean {
   return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
+}
+
+async function successResult(output: string, diagnosticOutput: string, config: CLICompileConfig, buildOutputDir: string): Promise<CLICompileResult> {
+  const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0).filter((diagnostic) => diagnostic.type === "warning");
+  const { binary, elf } = await discoverBuildOutputs(buildOutputDir);
+  return {
+    success: true,
+    output: parseCompilerOutput(output, config.fqbn),
+    errors: "",
+    parsedErrors: parsedWarnings,
+    binary,
+    ...(elf ? { elf } : {}),
+  };
 }
 
 /** HEX of the build and, if there is a HEX, the ELF next to it. */

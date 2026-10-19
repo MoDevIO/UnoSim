@@ -237,16 +237,7 @@ export class ArduinoCompiler {
         };
       }
 
-      // The identity of this build (plan E15): what a cache entry must have been built under.
-      const fqbn = options?.fqbn || this.defaultFqbn;
-      const board = options?.board ?? findBoardByFqbn(fqbn)?.id;
-      const identity = createBuildIdentity({
-        sketchHash,
-        fqbn,
-        toolchain: await readToolchainInfo(),
-        requestedLibraries: options?.libraries,
-        buildOptions: FIXED_BUILD_FLAGS,
-      });
+      const { fqbn, board, identity } = await this.identityOf(sketchHash, options);
 
       // 2. Answer from the instant or HEX cache when an entry exists under the current identity.
       const cached = await this.lookupCachedBuild(sketchHash, hexCacheDir, compileStartedAt, identity);
@@ -288,43 +279,16 @@ export class ArduinoCompiler {
       const cliResult = await compileWithArduinoCli(sketchFile, cliConfig, this.processExecutor);
 
       // 5. Handle result (success or error)
-      let cliOutput = "";
-      let cliErrors = "";
-      let parsedErrors: CompilationError[] = [];
-      let arduinoCliStatus: "success" | "error" = "error";
-
-      let artifact: SimulationArtifact | undefined;
-      if (cliResult.success) {
-        arduinoCliStatus = "success";
-        artifact = board && cliResult.binary ? buildArtifact({ board, hex: cliResult.binary, elf: cliResult.elf, identity }) : undefined;
-        const successResult = await this.handleCompilationSuccess(
-          sketchHash,
-          hexCacheDir,
-          cliResult,
-          { identity, ...(artifact ? { artifact } : {}) },
-        );
-        cliOutput = successResult.cliOutput;
-        cliErrors = successResult.cliErrors;
-        parsedErrors = successResult.parsedErrors;
-      } else {
-        const errorResult = this.handleCompilationError(
-          cliResult.errors || "Compilation failed",
-          lineOffset,
-          cliResult,
-        );
-        cliOutput = errorResult.cliOutput;
-        cliErrors = errorResult.cliErrors;
-        parsedErrors = errorResult.parsedErrors;
-      }
+      const settled = await this.settleCliResult(cliResult, { sketchHash, hexCacheDir, lineOffset, board, identity });
 
       return {
         success: cliResult.success,
-        output: cliOutput,
-        stderr: cliErrors || undefined,
-        errors: parsedErrors,
+        output: settled.cliOutput,
+        stderr: settled.cliErrors || undefined,
+        errors: settled.parsedErrors,
         binary: cliResult.binary,
-        ...(artifact ? { artifact } : {}),
-        arduinoCliStatus,
+        ...(settled.artifact ? { artifact: settled.artifact } : {}),
+        arduinoCliStatus: cliResult.success ? "success" : "error",
         parserMessages: allParserMessages,
         ioRegistry,
       };
@@ -345,6 +309,33 @@ export class ArduinoCompiler {
   }
 
 
+
+  /** Turns the CLI result into output, errors and, on success, the cached build with its artifact. */
+  private async settleCliResult(
+    cliResult: Awaited<ReturnType<typeof compileWithArduinoCli>>,
+    context: { sketchHash: string; hexCacheDir: string; lineOffset: number; board?: BoardId; identity: BuildIdentity },
+  ): Promise<{ cliOutput: string; cliErrors: string; parsedErrors: CompilationError[]; artifact?: SimulationArtifact }> {
+    if (!cliResult.success) {
+      return this.handleCompilationError(cliResult.errors || "Compilation failed", context.lineOffset, cliResult);
+    }
+    const { board, identity } = context;
+    const artifact = board && cliResult.binary ? buildArtifact({ board, hex: cliResult.binary, elf: cliResult.elf, identity }) : undefined;
+    const successResult = await this.handleCompilationSuccess(context.sketchHash, context.hexCacheDir, cliResult, { identity, ...(artifact ? { artifact } : {}) });
+    return { ...successResult, ...(artifact ? { artifact } : {}) };
+  }
+
+  /** The board and the identity of this build (plan E15): what a cache entry must have been built under. */
+  private async identityOf(sketchHash: string, options?: CompileRequestOptions): Promise<{ fqbn: string; board?: BoardId; identity: BuildIdentity }> {
+    const fqbn = options?.fqbn || this.defaultFqbn;
+    const identity = createBuildIdentity({
+      sketchHash,
+      fqbn,
+      toolchain: await readToolchainInfo(),
+      requestedLibraries: options?.libraries,
+      buildOptions: FIXED_BUILD_FLAGS,
+    });
+    return { fqbn, board: options?.board ?? findBoardByFqbn(fqbn)?.id, identity };
+  }
 
   /**
    * Checks both instant and hex caches. An entry is used only when the output
