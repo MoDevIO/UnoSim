@@ -30,8 +30,9 @@ if (process.argv.includes("--serve")) {
   createServer((request, response) => {
     const name = request.url === "/" || request.url === undefined ? "/index.html" : request.url.split("?")[0];
     try {
+      const body = readFileSync(join(dist, name.replace(/\.\./g, "")));
       response.writeHead(200, { "content-type": types[extname(name)] ?? "application/octet-stream" });
-      response.end(readFileSync(join(dist, name.replace(/\.\./g, ""))));
+      response.end(body);
     } catch {
       response.writeHead(404).end();
     }

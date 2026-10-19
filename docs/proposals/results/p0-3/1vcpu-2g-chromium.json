@@ -1,0 +1,120 @@
+{
+  "synthetic": "VM/container measurement, not real school devices",
+  "environment": {
+    "node": "v24.13.0",
+    "os": "linux 7.0.14-linuxkit arm64",
+    "osRelease": "Ubuntu 24.04.3 LTS",
+    "visibleCpus": 10,
+    "cpuModel": "unknown",
+    "visibleMemoryMiB": 24246,
+    "cgroupCpuMax": "max 100000",
+    "cgroupMemoryMax": "2147483648",
+    "cpuset": "0"
+  },
+  "summary": {
+    "browser": "chromium",
+    "browserVersion": "145.0.7632.0",
+    "it055PeakSpeeds": [3.9, 3.98, 3.89],
+    "it055PeakSpeedMin": 3.89,
+    "criterionPeakSpeed": 1.2,
+    "criterionMet": true
+  },
+  "runs": [
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.0 Safari/537.36",
+      "cores": 1,
+      "memoryGb": 8,
+      "measuredAt": "2026-10-19T09:58:12.485Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 5.3,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1.4,
+          "uiLagMaxMs": 13.5
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 3.9,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 0.9,
+          "uiLagMaxMs": 7.7
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 5.41,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1.1,
+          "uiLagMaxMs": 5.9
+        }
+      ]
+    },
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.0 Safari/537.36",
+      "cores": 1,
+      "memoryGb": 8,
+      "measuredAt": "2026-10-19T09:58:43.967Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 5.33,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 0.9,
+          "uiLagMaxMs": 10.4
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 3.98,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 0.8,
+          "uiLagMaxMs": 3.6
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 5.59,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1.2,
+          "uiLagMaxMs": 4.4
+        }
+      ]
+    },
+    {
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.0 Safari/537.36",
+      "cores": 1,
+      "memoryGb": 8,
+      "measuredAt": "2026-10-19T09:59:15.434Z",
+      "rows": [
+        {
+          "sketch": "int-probe",
+          "peakSpeed": 5.53,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1.7,
+          "uiLagMaxMs": 24.4
+        },
+        {
+          "sketch": "IT05.5 intervall-ohne-delay",
+          "peakSpeed": 3.89,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1,
+          "uiLagMaxMs": 3.6
+        },
+        {
+          "sketch": "IT11.5 matrizen-multiplizieren",
+          "peakSpeed": 5.55,
+          "realTimeFactorMedian": 1,
+          "realTimeFactorMin": 1,
+          "uiLagP95Ms": 1.6,
+          "uiLagMaxMs": 4.7
+        }
+      ]
+    }
+  ]
+}
