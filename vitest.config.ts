@@ -25,6 +25,7 @@ const serializedHttpUnitTests = [
   "tests/server/ubuntu-vbox-installer-readiness.test.ts",
   "tests/server/routes/compiler.routes.test.ts",
   "tests/server/routes/compiler-binary-payload.test.ts",
+  "tests/server/routes/compiler-artifact.routes.test.ts",
   "tests/server/routes/api-rate-limit-key.test.ts",
   "tests/server/routes/simulation-connection-lifecycle.test.ts",
   "tests/server/routes/compiler-capacity.test.ts",
