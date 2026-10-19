@@ -132,6 +132,15 @@ describe("central configuration validation", () => {
     expect(clientConfig.tutor).not.toHaveProperty("managedApiKey");
   });
 
+  it("offers the boards and runtime backends of the catalog (plan 4.11, P2.1)", () => {
+    const clientConfig = getClientConfig();
+
+    expect(clientConfig.defaultBoard).toBe("uno");
+    expect(clientConfig.boards).toEqual([{ id: "uno", displayName: "Arduino Uno", status: "planned", runtimes: ["browser", "host-mock"] }]);
+    expect(clientConfig.runtime).toEqual({ backends: ["host-mock"], default: "host-mock" });
+    expect(JSON.stringify(clientConfig.boards)).not.toContain("fqbn");
+  });
+
   it.each([
     "UNOSIM_TUTOR_CURRICULUM_SOURCE",
     "UNOSIM_TUTOR_CURRICULUM_COMMIT",
