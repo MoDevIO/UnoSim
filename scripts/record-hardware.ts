@@ -92,7 +92,9 @@ for (let attempt = 1; attempt <= attempts; attempt++) {
   differences = diffOutput(expectedText, window, caseFile.tolerances ?? []);
   const exact = lineDiff(expectedText, window).length === 0;
   text = window;
-  console.log(`attempt ${attempt}/${attempts}: ${differences.length === 0 ? (exact ? "equals the current expectation" : "equals the expectation within the case tolerances") : `${differences.length} differing line(s)`}`);
+  let verdict = `${differences.length} differing line(s)`;
+  if (differences.length === 0) verdict = exact ? "equals the current expectation" : "equals the expectation within the case tolerances";
+  console.log(`attempt ${attempt}/${attempts}: ${verdict}`);
   if (differences.length === 0) break;
   console.log(`  ${differences.slice(0, 20).join("\n  ")}`);
 }
