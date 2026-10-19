@@ -10,12 +10,14 @@ import { apiVersionMiddleware } from "../../../server/services/protocol-version"
 
 describe("protocol version contract", () => {
   it("declares stable REST and WebSocket versions", () => {
-    expect(REST_API_VERSION).toBe("1.0.0");
+    expect(REST_API_VERSION).toBe("1.1.0");
     expect(WEBSOCKET_PROTOCOL_VERSION).toBe("1.0.0");
   });
 
   it("accepts exact and compatible major/minor REST versions", () => {
-    expect(isSupportedRestApiVersion("1.0.0")).toBe(true);
+    expect(isSupportedRestApiVersion("1.1.0")).toBe(true);
+    expect(isSupportedRestApiVersion("1.1")).toBe(true);
+    expect(isSupportedRestApiVersion("1.0.0")).toBe(true); // older clients stay supported: 1.1.0 is additive
     expect(isSupportedRestApiVersion("1.0")).toBe(true);
     expect(isSupportedRestApiVersion("1")).toBe(true);
     expect(isSupportedRestApiVersion("2.0.0")).toBe(false);
@@ -37,7 +39,7 @@ describe("protocol version contract", () => {
     expect(response.headers.get("x-unosim-api-version")).toBe(REST_API_VERSION);
     await expect(response.json()).resolves.toMatchObject({
       error: "unsupported_api_version",
-      supportedVersions: [REST_API_VERSION],
+      supportedVersions: [REST_API_VERSION, "1.0.0"],
     });
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });

@@ -1,8 +1,10 @@
 /** Canonical versions for the server-facing HTTP and WebSocket contracts. */
-export const REST_API_VERSION = "1.0.0";
+/** 1.1.0 adds `board` and `artifact` to `POST /api/compile` (additive; plan decision E14). */
+export const REST_API_VERSION = "1.1.0";
 export const WEBSOCKET_PROTOCOL_VERSION = "1.0.0";
 
-export const SUPPORTED_REST_API_VERSIONS = [REST_API_VERSION] as const;
+/** The current version first; 1.0.0 stays accepted, because 1.1.0 only adds fields. */
+export const SUPPORTED_REST_API_VERSIONS = [REST_API_VERSION, "1.0.0"] as const;
 
 /** Accept exact versions and major/minor-compatible shorthand (e.g. `1` or `1.0`). */
 export function isSupportedRestApiVersion(requested: string): boolean {
