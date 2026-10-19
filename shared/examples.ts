@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { BoardId } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 
 const OWNER_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
@@ -89,6 +90,8 @@ export interface ExampleCatalogItem {
   title: string;
   category: string;
   description?: string;
+  /** The board the example is written for; absent for examples that fit every board. */
+  board?: BoardId;
   main: string;
   source: "builtin" | "external";
   files: Array<Omit<ExampleFile, "content">>;

@@ -20,6 +20,20 @@ describe("external examples manifest validation", () => {
     expect(() => validateManifestReferences(manifest)).not.toThrow();
   });
 
+  it("takes an optional board and ignores an id this version does not know (plan P4.6)", () => {
+    const example = (board?: unknown) => ({
+      id: "pins", title: "Pins", category: "IT03", main: "pins.ino",
+      files: [{ name: "pins.ino", path: "pins/pins.ino" }],
+      ...(board === undefined ? {} : { board }),
+    });
+    const parse = (board?: unknown) => examplesManifestSchema.parse({ schemaVersion: 1, examples: [example(board)] }).examples[0];
+
+    expect(parse("nano").board).toBe("nano");
+    expect(parse().board).toBeUndefined();
+    expect(parse("esp32").board).toBeUndefined(); // a newer manifest must not break an older server
+    expect(parse(42).board).toBeUndefined();
+  });
+
   it("rejects traversal, absolute and unsupported paths", () => {
     expect(isSafeRelativePath("../escape.ino")).toBe(false);
     expect(isSafeRelativePath("/absolute.ino")).toBe(false);

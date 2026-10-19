@@ -364,13 +364,17 @@ export function useArduinoSimulatorPage() {
     controllerHandleStop();
   }, [controllerHandleStop, setRuntimeIoRegistry]);
 
-  // A board change stops the run and drops the build made for the old board (plan P4.5).
-  const handleBoardChange = useCallback((next: BoardId) => {
-    if (next === boardId) return;
+  // A board change, from whichever place (Tools → Board, an example for another board), stops the run and
+  // drops the build made for the old board (plan P4.5, P4.6).
+  const handleBoardChange = useCallback((next: BoardId) => runtimeSelection.setBoard(next), [runtimeSelection]);
+  const previousBoardRef = useRef(boardId);
+  useEffect(() => {
+    const previous = previousBoardRef.current;
+    previousBoardRef.current = boardId;
+    if (previous === undefined || previous === boardId) return;
     if (holdsServerSimulation(simulationStatus)) handleStopAndClearRuntime();
     discardBuild();
-    runtimeSelection.setBoard(next);
-  }, [boardId, simulationStatus, handleStopAndClearRuntime, discardBuild, runtimeSelection]);
+  }, [boardId, simulationStatus, handleStopAndClearRuntime, discardBuild]);
 
   const handleResetAndClearRuntime = useCallback(() => {
     setRuntimeIoRegistry(null);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { boardIdSchema } from "@shared/boards";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
@@ -14,6 +15,8 @@ export const manifestExampleSchema = z.object({
   title: z.string().min(1).max(160),
   category: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
+  /** The board the example is written for (plan P4.6); optional, and an id this version does not know counts as none. */
+  board: boardIdSchema.optional().catch(undefined),
   files: z.array(manifestFileSchema).min(1).max(100),
   main: z.string().regex(SAFE_FILE_NAME),
 });
