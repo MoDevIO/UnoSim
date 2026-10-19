@@ -41,3 +41,4 @@ until a hardware recording exists). A comparison of `memory_probe` with a real U
 still open (hardware).
 
 The reproducible fixture set of the runtime corpus (plan 7.4) is separate.
+`uno-eeprom_counter.hex` (`sketches/eeprom_counter`) prints EEPROM cell 0 and stores the next value; the worker keeps the EEPROM per board between runs (a run sees what the run before wrote, 255 on the first).

@@ -81,6 +81,7 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - **`load`:** Wegen `artifactBoard ≠ board` (Artefakt für ein anderes Board als das gewählte) oder bei ungültigem Abbild (Größe, SHA-256) antwortet der Host mit `fault` und `status stopped` (Grund `fault`). Sonst baut er die Maschine auf und sendet `ready`. Das Timeout gilt ab `start`.
 - **Bestätigungen:** `start` und `resume` → `status running`; `pause` → `status paused`; `stop` → `status stopped` (Grund `stop`); `reset` → `status running` bzw. `paused`; Timeout und interne Fehler enden mit `status stopped` (Grund `timeout` bzw. `fault`, bei `fault` zusätzlich das Ereignis `fault`). Bestätigungen gehen sofort hinaus, `serialIn`, `setDigital` und `setAnalog` warten auf das reguläre Paketintervall.
 - **Ende eines Laufs:** Vor `status stopped` werden alle noch wartenden Ausgaben gesendet; danach wird der Zustand verworfen. Ein ersetzter Lauf (`load`) meldet kein `stopped`.
+- **EEPROM:** Der Host behält den EEPROM-Inhalt je Board, solange der Worker lebt: Ein Lauf sieht, was der Lauf davor geschrieben hat (`load` ersetzt nur die Maschine); ein neuer Worker, also ein neu geladener Tab oder ein beendeter Worker, beginnt gelöscht (255).
 - **Heartbeat:** etwa alle 500 ms, solange eine Maschine geladen ist, auch in der Pause.
 - **Sammeln:** Alle 1/60 s holt der Host Pins, Serial-Ausgabe, `usage` und Diagnosen aus dem Emulator und gibt sie an den `EventBatcher`.
 - **Pins, die das Board nicht hat,** und Analogwerte für Pins ohne ADC-Kanal werden wie ungültige Befehle verworfen.
