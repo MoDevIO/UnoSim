@@ -36,7 +36,7 @@ Der Host-Mock gilt nur für den Uno.
 - `preview`: wählbar mit Hinweis, sobald die Phase des Boards abgeschlossen ist.
 - `available`: nach Review und Unterrichtseinsatz; ein Board wird erst `available`, wenn seine Proben Fälle der Klasse `hardware` im Korpus haben (TESTING_STANDARDS).
 
-Alle vier Boards stehen mit `planned` im Katalog. Das Statuswort entscheidet über die Freischaltung, nicht über die Funktion des Uno: Der Standard-Board (`uno`) ist immer angeboten, weil Anfragen ohne Board ihn meinen.
+Der Uno steht seit M1 mit `available` im Katalog (seine Proben haben Fälle der Klasse `hardware` im Korpus), Nano, Mega 2560 und ATtiny85 mit `planned`. Das Statuswort entscheidet über die Freischaltung: Der Standard-Board (`uno`) ist immer angeboten, weil Anfragen ohne Board ihn meinen.
 
 ## 3. Angebotene Boards und Laufzeiten
 
