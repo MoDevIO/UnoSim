@@ -1,5 +1,7 @@
 import { decodeBase64 } from "@unosim/avr-emulator/image";
 import { RunGate, type Command, type IoUsage, type PinSnapshot, type RunEvent, type RunStatus, type StopReason, type TelemetrySample } from "@unosim/avr-emulator/protocol";
+import { boardPinLabel } from "@shared/board-pins";
+import type { BoardId } from "@shared/boards";
 import type { IOPinRecord } from "@shared/schema";
 import { diagnosticLine } from "./diagnostic-lines";
 import type { AnyRuntimeEvent, RuntimeFeatures, SimulationRuntime, StartRequest } from "./simulation-runtime";
@@ -62,8 +64,6 @@ export const SYSTEM_LINES = {
   stopped: "--- Simulation stopped ---\n",
 } as const;
 
-/** Pin names as the static analysis writes them: A0–A5 for pins 14–19 (Uno and Nano; other boards follow in phase 4). */
-const pinLabel = (pin: number): string => (pin >= 14 && pin <= 19 ? `A${pin - 14}` : String(pin));
 const timeoutLine = (seconds: number): string => `--- Simulation timeout (${seconds}s) ---\n`;
 const MODE_NUMBER = { INPUT: 0, OUTPUT: 1, INPUT_PULLUP: 2 } as const;
 /** Largest chunk of serial input sent in one command (the worker accepts 4096 bytes of UTF-8, up to 4 per character). */
@@ -97,6 +97,8 @@ export class BrowserRuntime implements SimulationRuntime {
   private lastHeard = 0;
   private stoppingRunId: number | undefined;
   private lastStatus: RunStatus | undefined;
+  /** The board of the current run: pin names in the registry follow it (A6/A7 of the Nano). */
+  private board: BoardId = "uno";
   private heldCarriageReturn = false;
   private readonly lastPins = new Map<number, string>();
   /** Runtime findings of the run as records of the I/O registry, by pin. */
@@ -115,6 +117,7 @@ export class BrowserRuntime implements SimulationRuntime {
     const buffer = flash.buffer.slice(flash.byteOffset, flash.byteOffset + flash.byteLength) as ArrayBuffer;
     this.lastPins.clear();
     this.registry.clear();
+    this.board = artifact.board;
     this.heldCarriageReturn = false;
     this.pendingStart = { timeoutSec: request.timeoutSec };
     this.timeoutSec = request.timeoutSec;
@@ -295,7 +298,7 @@ export class BrowserRuntime implements SimulationRuntime {
   /** The findings so far as the `io_registry` snapshot the existing handler evaluates; the lines stay 0, only the static analysis knows lines. */
   private registryWith(usages: readonly IoUsage[]): Extract<AnyRuntimeEvent, { type: "io_registry" }> {
     for (const { pin, fn, mode } of usages) {
-      const record = this.registry.get(pin) ?? { pin: pinLabel(pin), defined: false, usedAt: [] };
+      const record = this.registry.get(pin) ?? { pin: boardPinLabel(this.board, pin), defined: false, usedAt: [] };
       const modeNumber = mode === undefined ? undefined : MODE_NUMBER[mode];
       if (fn === "pinMode" && modeNumber !== undefined) {
         record.defined = true;

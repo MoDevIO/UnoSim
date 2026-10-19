@@ -300,6 +300,26 @@ describe("BrowserRuntime (plan P3.2)", () => {
     });
   });
 
+  it("names the pins of the run's board in the registry: A6 on the Nano", () => {
+    const { runtime, worker, ev, events } = setup();
+    runtime.start({ kind: "browser", artifact: { ...artifact, board: "nano" }, timeoutSec: 5 });
+    const load = worker().last("load");
+    worker().emit(ev(load.runId, { type: "ready", protocolVersion: 1, board: "nano", buildId: artifact.buildId }));
+    const start = worker().last("start");
+    worker().emit(ev(start.runId, { type: "status", state: "running" }));
+    events.length = 0;
+
+    worker().emit(ev(start.runId, { type: "usage", usages: [{ pin: 20, fn: "analogRead" }, { pin: 14, fn: "analogRead" }] }));
+
+    expect(events.find((event) => event.type === "io_registry")).toEqual({
+      type: "io_registry",
+      registry: [
+        { pin: "A6", defined: false, usedAt: [{ line: 0, operation: "analogRead" }] },
+        { pin: "A0", defined: false, usedAt: [{ line: 0, operation: "analogRead" }] },
+      ],
+    });
+  });
+
   it("sends serial input to port 0 in chunks, only while running", () => {
     const { runtime, worker, startRunning } = setup();
     runtime.sendSerial("too early");

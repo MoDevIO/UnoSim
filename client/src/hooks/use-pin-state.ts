@@ -1,3 +1,4 @@
+import { analogChannelPin } from "@/lib/active-board";
 import { useState, useEffect, useCallback } from "react";
 import type { PinMode } from "@shared/types/arduino.types";
 
@@ -60,16 +61,13 @@ export function usePinState({ resetPinStates }: UsePinStateParams) {
     [resetPinStates],
   );
 
-  // Helper function to convert pin strings to numbers (A0-A5 → 14-19, digital → as-is)
+  // Helper function to convert pin strings to numbers (A0 → 14 …, digital → as-is; the analog inputs of the active board)
   const pinToNumber = (pinStr: string): number | null => {
     if (/^\d+$/.test(pinStr)) {
       return Number.parseInt(pinStr, 10);
     }
     if (/^A\d+$/i.test(pinStr)) {
-      const analogIndex = Number.parseInt(pinStr.slice(1), 10);
-      if (analogIndex >= 0 && analogIndex <= 5) {
-        return 14 + analogIndex; // A0->14, A1->15, ..., A5->19
-      }
+      return analogChannelPin(Number.parseInt(pinStr.slice(1), 10)) ?? null;
     }
     return null;
   };

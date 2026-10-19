@@ -31,6 +31,7 @@ import { buildSourceProject } from "@/lib/source-project";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 import { getServerCapabilities } from "@/lib/server-capabilities";
+import { setActiveBoard } from "@/lib/active-board";
 import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
 import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
@@ -254,6 +255,8 @@ export function useArduinoSimulatorPage() {
   // Selected board (Tools → Board): the server's default until the user chooses another.
   const board = runtimeSelection.board?.displayName ?? "Arduino UNO";
   const boardId = runtimeSelection.board?.id;
+  // The pin helpers outside the page (pin store, labels, registry table) follow the selected board.
+  if (boardId) setActiveBoard(boardId);
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
     if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
@@ -611,7 +614,7 @@ export function useArduinoSimulatorPage() {
     varMap: _varMap,
     detectedPinModes: _detectedPinModes,
     pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(sourceProject);
+  } = useSketchAnalysis(sourceProject, boardId);
 
   // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
@@ -631,11 +634,11 @@ export function useArduinoSimulatorPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setStaticIoRegistry(
-        sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
+        sourceProject ? parseStaticIORegistryProject(sourceProject, boardId ? { board: boardId } : {}) : [],
       );
     }, 300);
     return () => clearTimeout(timer);
-  }, [sourceProject, compilationStatus, setStaticIoRegistry]);
+  }, [sourceProject, boardId, compilationStatus, setStaticIoRegistry]);
 
   // A stopped/reset run must not leak its last runtime snapshot into the next
   // idle view. The static registry becomes authoritative again immediately.

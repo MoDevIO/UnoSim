@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useSimulationStore } from "../../../client/src/hooks/use-simulation-store";
+import { setActiveBoard } from "../../../client/src/lib/active-board";
 
 describe("useSimulationStore", () => {
   beforeEach(() => {
@@ -229,5 +230,26 @@ describe("useSimulationStore", () => {
       vi.advanceTimersByTime(20);
     });
     expect(result.current.pinStates[0]?.mode).toBe("INPUT");
+  });
+
+  it("types the Nano's A6 and A7 as analog pins and pin 20 on the Uno as digital (plan P4.3)", () => {
+    const { result } = renderHook(() => useSimulationStore());
+    const typeOf = (pin: number) => {
+      act(() => {
+        result.current.enqueuePinEvent(pin, "value", 5);
+        vi.advanceTimersByTime(50);
+      });
+      return result.current.pinStates.find((state) => state.pin === pin)?.type;
+    };
+
+    expect(typeOf(20)).toBe("digital");
+    setActiveBoard("nano");
+    try {
+      act(() => result.current.resetPinStates());
+      expect(typeOf(20)).toBe("analog");
+      expect(typeOf(21)).toBe("analog");
+    } finally {
+      setActiveBoard("uno");
+    }
   });
 });

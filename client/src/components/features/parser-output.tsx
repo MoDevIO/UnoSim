@@ -17,7 +17,7 @@ import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
-import { isUnoPwmPin } from "@shared/utils/arduino-utils";
+import { activePins, analogChannelPin, isActivePwmPin } from "@/lib/active-board";
 import {
   formatSourceNavigationTarget,
   isSourceLocation,
@@ -28,19 +28,16 @@ import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
 
-// Module-level constants (not re-created on every render)
-const ALL_PIN_RECORDS: IOPinRecord[] = Array.from({ length: 20 }, (_, pinId) => ({
-  pin: pinId >= 14 ? `A${pinId - 14}` : String(pinId),
-  pinId,
-  defined: false,
-  usedAt: [],
-}));
+/** One empty row per pin of the active board, for "show all pins". */
+function allPinRecords(): IOPinRecord[] {
+  return activePins().map((pin) => ({ pin: pin.name, pinId: pin.pin, defined: false, usedAt: [] }));
+}
 
 function getPinId(record: IOPinRecord): number | undefined {
   if (record.pinId !== undefined) return record.pinId;
   if (/^\d+$/.test(record.pin)) return Number.parseInt(record.pin, 10);
-  const analogMatch = /^A([0-5])$/.exec(record.pin);
-  return analogMatch ? 14 + Number.parseInt(analogMatch[1], 10) : undefined;
+  const analogMatch = /^A(\d+)$/.exec(record.pin);
+  return analogMatch ? analogChannelPin(Number.parseInt(analogMatch[1], 10)) : undefined;
 }
 
 // Module-level pure helpers — fix S6481 (no re-creation on render)
@@ -80,7 +77,7 @@ function getRxTxBadge(pin: string): JSX.Element | null {
 /** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
 function getPwmTilde(pin: string): JSX.Element | null {
   const n = Number.parseInt(pin, 10);
-  return !Number.isNaN(n) && isUnoPwmPin(n)
+  return !Number.isNaN(n) && isActivePwmPin(n)
     ? <span className="text-yellow-400">~</span>
     : null;
 }
@@ -302,7 +299,7 @@ function filterIoRegistry(
 ): IOPinRecord[] {
   if (!showAllPins) return ioRegistry.filter(isPinProgrammed);
 
-  const pinsById = new Map(ALL_PIN_RECORDS.map((record) => [record.pinId, record]));
+  const pinsById = new Map(allPinRecords().map((record) => [record.pinId, record]));
   for (const record of ioRegistry) {
     const pinId = getPinId(record);
     if (pinId !== undefined) pinsById.set(pinId, record);
