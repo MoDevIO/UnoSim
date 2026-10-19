@@ -1,3 +1,4 @@
+import type { DebugProtocol } from "@/hooks/use-debug-console";
 import { useEffect, useCallback, useRef } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
@@ -65,7 +66,7 @@ export type UseWebSocketHandlerParams = {
   simulationStatus: SimulationStatus;
 
   // callbacks / setters from parent scope
-  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
+  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: DebugProtocol) => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;

@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateUuidV4 } from "@/lib/uuid";
 
+/** Transport of a logged message: HTTP, the WebSocket, or the browser emulation's worker. */
+export type DebugProtocol = "websocket" | "http" | "worker";
+
 export interface DebugMessage {
   id: string;
   timestamp: Date;
   sender: "server" | "frontend";
   type: string;
   content: string;
-  protocol?: "websocket" | "http";
+  protocol?: DebugProtocol;
 }
 
 export function useDebugConsole(activeOutputTab: string) {
@@ -47,7 +50,7 @@ export function useDebugConsole(activeOutputTab: string) {
       sender: "server" | "frontend",
       type: string,
       content: string,
-      protocol?: "websocket" | "http",
+      protocol?: DebugProtocol,
     ) => {
       // Only collect debug messages if debug mode is enabled
       if (!debugMode) return;

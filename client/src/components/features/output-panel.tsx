@@ -72,6 +72,12 @@ interface OutputPanelProps {
   readonly onClearDebugMessages: () => void;
 }
 
+/** Colour of the protocol column: HTTP orange, WebSocket purple, the browser emulation (worker) cyan. */
+function protocolClass(protocol: string | undefined): string {
+  if (protocol === "http") return "text-orange-400";
+  return protocol === "worker" ? "text-cyan-400" : "text-purple-400";
+}
+
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
   const {
     activeOutputTab,
@@ -227,7 +233,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                       <tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : ""} transition-colors`}>
                         <td className="px-2 py-1 text-cyan-400 border-r font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className={msg.sender === "server" ? "text-blue-400" : "text-green-400"}>{msg.sender.toUpperCase()}</span></td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={msg.protocol === "http" ? "text-orange-400" : "text-purple-400"}>{msg.protocol?.toUpperCase() || "?"}</span></td>
+                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={protocolClass(msg.protocol)}>{msg.protocol?.toUpperCase() || "?"}</span></td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className="text-yellow-400 font-mono">{msg.type}</span></td>
                         <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>{msg.content}</td>
                       </tr>

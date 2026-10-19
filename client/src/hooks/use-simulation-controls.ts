@@ -1,3 +1,4 @@
+import type { DebugProtocol } from "@/hooks/use-debug-console";
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -14,7 +15,7 @@ export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
-  protocol?: "websocket" | "http";
+  protocol?: DebugProtocol;
 };
 
 export type UseSimulationControlsParams = {
