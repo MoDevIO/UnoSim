@@ -21,7 +21,12 @@ export interface CLICompileResult {
   errors?: string;
   parsedErrors?: CompilationError[];
   binary?: Buffer;
+  /** ELF of the same build, for the symbols of the artifact; never part of a response. */
+  elf?: Buffer;
 }
+
+/** `arduino-cli compile` flags that influence the output; part of the build identity (plan E15). */
+export const FIXED_BUILD_FLAGS: readonly string[] = ["--verbose"];
 
 /**
  * Builds arduino-cli compile arguments.
@@ -34,7 +39,7 @@ export function buildCompileArgs(
     "compile",
     "--fqbn",
     config.fqbn,
-    "--verbose",
+    ...FIXED_BUILD_FLAGS,
   ];
 
   if (config.buildPath) {
@@ -96,12 +101,14 @@ export async function compileWithArduinoCli(
       const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
         .filter((diagnostic) => diagnostic.type === "warning");
       const binary = await discoverBuildBinary(config.buildPath || sketchDir);
+      const elf = binary ? await discoverBuildElf(config.buildPath || sketchDir) : undefined;
       return {
         success: true,
         output: parsedOutput,
         errors: "",
         parsedErrors: parsedWarnings,
         binary,
+        ...(elf ? { elf } : {}),
       };
     } else {
       const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, sketchFile));
@@ -183,6 +190,16 @@ function isLibraryScanLine(line: string): boolean {
 
 function hasMemoryUsage(output: string): boolean {
   return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
+}
+
+/** The ELF next to the HEX (`<sketch>.ino.elf`), if the build produced one. */
+async function discoverBuildElf(buildOutputDir: string): Promise<Buffer | undefined> {
+  try {
+    const candidates = (await readdir(buildOutputDir)).filter((entry) => entry.endsWith(".ino.elf")).sort((a, b) => a.localeCompare(b));
+    return candidates.length > 0 ? await readFile(join(buildOutputDir, candidates[0])) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

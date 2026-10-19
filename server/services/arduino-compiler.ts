@@ -29,9 +29,13 @@ import {
 } from "./compiler/cache-manager";
 import { processHeaderIncludes } from "./compiler/header-processor";
 import { findUnsafeIncludes } from "./compiler/include-guard";
-import { compileWithArduinoCli, type CLICompileConfig } from "./compiler/cli-runner";
+import { compileWithArduinoCli, FIXED_BUILD_FLAGS, type CLICompileConfig } from "./compiler/cli-runner";
 import { buildSketchHash } from "./workers/compile-worker-utils";
-import type { BoardId } from "@shared/boards";
+import { type BoardId, findBoardByFqbn } from "@shared/boards";
+import type { SimulationArtifact } from "@shared/simulation-artifact";
+import { type BuildRecord, buildArtifact, readBuildRecord, writeBuildRecord } from "./compiler/artifact-builder";
+import { createBuildIdentity } from "./compiler/build-identity";
+import { readToolchainInfo } from "./compiler/toolchain-info";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -58,6 +62,8 @@ export interface CompilationResult {
   // gccStatus removed – it was deprecated and is no longer populated
   parserMessages?: ParserMessage[]; // Parser validation messages
   ioRegistry?: IOPinRecord[]; // I/O Registry for visualization
+  /** Flash image of a successful build for a catalog board (plan E5); the route decides whether it is delivered. */
+  artifact?: SimulationArtifact;
 }
 
 export interface CompileRequestOptions {
@@ -231,6 +237,17 @@ export class ArduinoCompiler {
         };
       }
 
+      // The identity of this build (plan E15): what a cache entry must have been built under.
+      const fqbn = options?.fqbn || this.defaultFqbn;
+      const board = options?.board ?? findBoardByFqbn(fqbn)?.id;
+      const identity = createBuildIdentity({
+        sketchHash,
+        fqbn,
+        toolchain: await readToolchainInfo(),
+        requestedLibraries: options?.libraries,
+        buildOptions: FIXED_BUILD_FLAGS,
+      });
+
       // 2. Check both instant and hex caches.
       // Only use the cache when the output sidecar (.output.txt) also exists so
       // the full "Sketch uses X bytes … Board: Arduino UNO" message is returned.
@@ -241,13 +258,19 @@ export class ArduinoCompiler {
         binaryStorageDir: this.defaultBinaryStorageDir,
         hexCacheDir,
       }, compileStartedAt);
-      if (cacheResult.cached && cacheResult.binary && cacheResult.cachedOutput !== null) {
+      // An entry is only as good as the identity it was built under: without a sidecar (older
+      // entry) or under another toolchain, library set or build option it is built again.
+      const cachedDir = cacheResult.cacheType === "instant" ? this.defaultBinaryStorageDir : hexCacheDir;
+      const cachedRecord = cacheResult.cached ? await readBuildRecord(cachedDir, sketchHash, identity) : null;
+      const cachedArtifact = cachedRecord?.artifact;
+      if (cacheResult.cached && cacheResult.binary && cacheResult.cachedOutput !== null && cachedRecord) {
         return {
           success: true,
           output: cacheResult.cachedOutput,
           stderr: undefined,
           errors: [],
           binary: cacheResult.binary,
+          ...(cachedArtifact ? { artifact: cachedArtifact } : {}),
           arduinoCliStatus: "success",
           parserMessages: allParserMessages,
           ioRegistry,
@@ -271,7 +294,7 @@ export class ArduinoCompiler {
 
       // 4. Run Arduino CLI compilation
       const cliConfig: CLICompileConfig = {
-        fqbn: options?.fqbn || this.defaultFqbn,
+        fqbn,
         buildPath,
         buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
       };
@@ -283,12 +306,15 @@ export class ArduinoCompiler {
       let parsedErrors: CompilationError[] = [];
       let arduinoCliStatus: "success" | "error" = "error";
 
+      let artifact: SimulationArtifact | undefined;
       if (cliResult.success) {
         arduinoCliStatus = "success";
+        artifact = board && cliResult.binary ? buildArtifact({ board, hex: cliResult.binary, elf: cliResult.elf, identity }) : undefined;
         const successResult = await this.handleCompilationSuccess(
           sketchHash,
           hexCacheDir,
           cliResult,
+          { identity, ...(artifact ? { artifact } : {}) },
         );
         cliOutput = successResult.cliOutput;
         cliErrors = successResult.cliErrors;
@@ -310,6 +336,7 @@ export class ArduinoCompiler {
         stderr: cliErrors || undefined,
         errors: parsedErrors,
         binary: cliResult.binary,
+        ...(artifact ? { artifact } : {}),
         arduinoCliStatus,
         parserMessages: allParserMessages,
         ioRegistry,
@@ -345,6 +372,7 @@ export class ArduinoCompiler {
       parsedErrors?: CompilationError[];
       binary?: Buffer;
     },
+    buildRecord?: BuildRecord,
   ): Promise<{ cliOutput: string; cliErrors: string; parsedErrors: CompilationError[] }> {
     const cliOutput = cliResult.output || "";
     let cliErrors = cliResult.errors || "";
@@ -367,6 +395,13 @@ export class ArduinoCompiler {
       if (cliOutput) {
         await writeOutputToCache(hexCacheDir, sketchHash, cliOutput).catch(() => undefined);
         await writeOutputToCache(this.defaultBinaryStorageDir, sketchHash, cliOutput).catch(() => undefined);
+      }
+      if (buildRecord) {
+        for (const dir of [hexCacheDir, this.defaultBinaryStorageDir]) {
+          await writeBuildRecord(dir, sketchHash, buildRecord).catch((error) => {
+            this.logger.debug(`[CompileCache] failed to write artifact sidecar: ${error instanceof Error ? error.message : String(error)}`);
+          });
+        }
       }
       await runHexCacheCleanup(hexCacheDir);
       await runHexCacheCleanup(this.defaultBinaryStorageDir);
