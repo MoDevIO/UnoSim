@@ -1,12 +1,19 @@
-import type { RuntimeKind } from "@shared/boards";
+import type { BoardId, RuntimeKind } from "@shared/boards";
 import type { ServerToClientWSMessage } from "@shared/schema";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
+import type { DiagnosticEvent, IoUsage, TelemetrySample } from "@unosim/avr-emulator/protocol";
 
 export type SourceHeader = { readonly name: string; readonly content: string };
 
 /** What starting a run needs: the browser takes the compiled artifact, the host mock the source (plan 4.4). */
 export type StartRequest =
-  | { readonly kind: "browser"; readonly artifact: SimulationArtifact; readonly timeoutSec: number }
+  | {
+      readonly kind: "browser";
+      readonly artifact: SimulationArtifact;
+      /** The board selected in the UI; the worker refuses an artifact built for another board. Defaults to the artifact's board. */
+      readonly board?: BoardId;
+      readonly timeoutSec: number;
+    }
   | {
       readonly kind: "host-mock";
       readonly code: string;
@@ -42,6 +49,18 @@ export type RuntimeEvent = Extract<
 >;
 
 /**
+ * Events only the browser runtime produces; the existing handler ignores them
+ * until the packages that evaluate them (diagnostics and telemetry display,
+ * I/O registry merge) are in place.
+ */
+export type BrowserRuntimeEvent =
+  | { readonly type: "runtime_usage"; readonly usages: readonly IoUsage[] }
+  | { readonly type: "runtime_diagnostic"; readonly diagnostic: DiagnosticEvent }
+  | { readonly type: "runtime_telemetry"; readonly sample: TelemetrySample };
+
+export type AnyRuntimeEvent = RuntimeEvent | BrowserRuntimeEvent;
+
+/**
  * A simulation backend as the client sees it. A tab has exactly one active
  * runtime and changes it only while idle. Events of a stopped, reset or
  * replaced run never reach `subscribe` listeners.
@@ -56,8 +75,10 @@ export interface SimulationRuntime {
   /** Browser: CPU reset without compiling again; host mock: stop and start again. */
   reset(): void;
   sendSerial(text: string): void;
-  /** Digital 0 or 1, analog 0–1023. */
+  /** Drives a digital input: 0 or 1 (the host mock also takes analog values here, as the controllers send them today). */
   setPin(pin: number, value: number): void;
-  subscribe(listener: (event: RuntimeEvent) => void): () => void;
+  /** Analog input value 0–1023 on an analog pin. */
+  setAnalog(pin: number, value: number): void;
+  subscribe(listener: (event: AnyRuntimeEvent) => void): () => void;
   dispose(): void;
 }
