@@ -43,6 +43,8 @@ export interface CorpusCase {
   readonly events: readonly StimulusEvent[];
   readonly expectState: readonly StateExpectation[];
   readonly tolerances: readonly Tolerance[];
+  /** Kinds of the diagnostics the case must produce, in order; none by default (a case that triggers one says so). */
+  readonly expectDiagnostics: readonly string[];
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -84,6 +86,7 @@ export function parseCaseFile(raw: unknown, id: string, group: string, dir: stri
     events: events as StimulusEvent[],
     expectState: expectState as StateExpectation[],
     tolerances: tolerances as Tolerance[],
+    expectDiagnostics: (raw.expectDiagnostics ?? []) as string[],
   };
 }
 

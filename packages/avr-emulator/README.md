@@ -108,8 +108,9 @@ index 0 = `Serial`, from P5.3 also `Serial1`–`Serial3`):
   decoded as UTF-8 across byte and packet boundaries; a multi-byte
   character is delivered only when complete.
 - `send(port, text)` queues UTF-8 bytes for the sketch. The queue hands the
-  USART one byte per frame time once the sketch enabled the receiver
-  (`Serial.begin`); earlier input waits. The core's receive buffer behaves as
+  USART one byte per frame time while the sketch has the receiver enabled
+  (`Serial.begin`); input that arrives while it is off is discarded, as on the
+  chip, and reported as the diagnostic `serial-input-discarded`. The core's receive buffer behaves as
   on the board (64-byte ring buffer, at most 63 unread bytes, the rest is
   lost). Limits as in UnoSim: 4 KiB per message, 1 MiB pending per port
   (`SERIAL_INPUT_LIMITS`). The caller appends the line ending.
@@ -165,7 +166,12 @@ the findings since the last call, `snapshot()` all of them.
 `emulator.takeDiagnostics()` returns the cases of plan P1.10 since the last
 call, each with `simTimeMs`: `stack-overflow` (SP below `__bss_end`, or below
 `__brkval` once `malloc` grew the heap), `pc-out-of-program` (erased flash),
-`watchdog-reset` and `sleep-interrupts-disabled`. The stack check needs the
+`watchdog-reset`, `sleep-interrupts-disabled` and `serial-input-discarded`
+(`{ port, bytes }`: serial input arrived while the receiver was off, i.e.
+before `Serial.begin()`; sinngemäß for the UI: "Serial input discarded because
+the receiver was not enabled yet (Serial.begin() has not run)"; reported once
+per situation, again only after the receiver was enabled in between, never as
+serial output). The stack check needs the
 ELF symbol `__bss_end`. Stack and PC are checked at the end of every
 4000-cycle chunk and on SPL writes; an overflow that returns in between goes
 unnoticed (`PUSH`, `CALL` and interrupts change SP without a hook in avr8js).
@@ -223,11 +229,12 @@ at least 90 % line coverage for `src/`.
 - **Receive buffer:** the chip buffers two received bytes plus the shift
   register, avr8js one. A sketch that keeps interrupts disabled for longer than
   one frame time can lose a byte that the board would still deliver.
-- **Input before `Serial.begin()`:** the emulator holds serial input until the
-  sketch enables the receiver and then delivers it. On a real Uno (ATmega16U2
-  bridge, measured with `docs/proposals/results/p1-14/serial_before_begin`)
-  bytes that arrive while `RXEN0` is off are lost: `Serial.available()` is 0
-  where the emulator reports 3.
+- **Input before `Serial.begin()`** (resolved): the emulator used to hold
+  such input and deliver it later, where a real Uno loses it
+  (`docs/proposals/results/p1-14/serial_before_begin`: `Serial.available()` 0
+  on the board, 3 in the emulator). It now discards it like the chip and
+  reports the diagnostic `serial-input-discarded`; the corpus case
+  `probes/serial_before_begin` is recorded on the board.
 - **Watchdog reset:** avr8js resets only PC and SP; see the diagnostics section.
 
 ## License

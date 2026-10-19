@@ -46,8 +46,8 @@ export function shardSuite(name: string): () => void {
         expect(run.result.checks).toHaveLength(testCase.expectState.length);
       });
 
-      it("runs without diagnostics", () => {
-        expect(run.result.diagnostics).toEqual([]);
+      it(testCase.expectDiagnostics.length > 0 ? "produces the expected diagnostics" : "runs without diagnostics", () => {
+        expect(run.result.diagnostics.map((diagnostic) => diagnostic.kind)).toEqual(testCase.expectDiagnostics);
       });
     });
   };

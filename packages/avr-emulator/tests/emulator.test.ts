@@ -156,6 +156,20 @@ describe("Emulator lifecycle", () => {
     expect(emulator.sendSerial(0, "x")).toBe(false);
   });
 
+  it("reports serial input before Serial.begin() as a diagnostic, not as output, and still accepts input afterwards", () => {
+    const { emulator, output } = setup("uno-serial_probe.hex");
+    expect(emulator.sendSerial(0, "ABC")).toBe(true);
+    expect(emulator.sendSerial(0, "DEF")).toBe(true);
+
+    expect(emulator.takeDiagnostics()).toEqual([{ kind: "serial-input-discarded", port: 0, bytes: 3, simTimeMs: 0 }]);
+    emulator.advance(60);
+    emulator.sendSerial(0, "7\n");
+    emulator.advance(60);
+    expect(output()).toContain("n=7 after ");
+    expect(output()).not.toContain("ABC");
+    expect(emulator.takeDiagnostics()).toEqual([]);
+  });
+
   it("runs headless to a simulated time and fires timed actions at their simulated time", () => {
     const { emulator, output } = setup("uno-tick_probe.hex");
     const fired: number[] = [];

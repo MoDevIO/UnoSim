@@ -350,7 +350,7 @@ Ereignisse vom Worker an die UI (alle mit `runId`):
 | `pins` | geänderte Pins seit dem letzten Bild (Modus, Pegel, PWM), Zähler | `pin_state_batch` |
 | `usage` | Pin, Funktion, Modus | Laufzeitanteil von `io_registry` |
 | `telemetry` | simulierte Zeit, Echtzeitfaktor, Pin- und Serial-Raten | `sim_telemetry` mit optionalen Feldern `simTimeMs`, `realTimeFactor` |
-| `diagnostic` | die Fälle aus P1.10: Stack ragt in `.bss` oder Heap, PC außerhalb des Programms, Watchdog-Reset, `sleep` bei gesperrten Interrupts | Systemzeile im Serial Monitor, Debug-Konsole |
+| `diagnostic` | die Fälle aus P1.10: Stack ragt in `.bss` oder Heap, PC außerhalb des Programms, Watchdog-Reset, `sleep` bei gesperrten Interrupts, verworfene serielle Eingabe vor `Serial.begin()` | Systemzeile im Serial Monitor, Debug-Konsole |
 | `fault` | interner Fehler des Emulators | `operation_error` mit `SIMULATION_START_FAILED` bzw. `SIMULATION_FAULT` |
 
 Der Worker sendet höchstens etwa 60 Pakete pro Sekunde: Pins zusammengefasst
@@ -806,6 +806,10 @@ Gemeldet werden als Ereignis `diagnostic`:
   die Maschine wie bei der RESET-Taste neu auf.
 - `sleep` bei gesperrten Interrupts: geprüft wird je Befehl, aber nur, solange
   das SE-Bit gesetzt ist.
+- `serial-input-discarded` (Port, Anzahl Bytes): serielle Eingabe traf ein,
+  während der Empfänger aus war (vor `Serial.begin()`); der echte Uno verwirft
+  sie ebenso (Messung P1.14). Einmal je Lage gemeldet, erneut erst nachdem der
+  Empfänger zwischendurch aktiv war; nie als Serial-Ausgabe.
 
 Dieselbe Diagnose erscheint höchstens einmal je simulierter Sekunde; eine
 Bedingung wird erst wieder gemeldet, nachdem sie geendet hat.

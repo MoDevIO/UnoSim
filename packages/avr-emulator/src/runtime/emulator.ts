@@ -96,7 +96,7 @@ export class Emulator {
     this.machineValue = createMachine(image, options.eeprom ? { eeprom: options.eeprom } : {});
     this.pinsValue = new PinModel(this.machineValue);
     this.analogValue = new AnalogInputs(this.machineValue);
-    this.serialValue = new SerialPorts(this.machineValue);
+    this.serialValue = this.createSerial();
     this.usageValue = new IoUsageObserver(this.machineValue, image.symbols);
     this.diagnosticsValue = this.createDiagnostics();
   }
@@ -202,7 +202,7 @@ export class Emulator {
     this.machineValue = createMachine(this.image, { eeprom: this.machineValue.eeprom });
     this.pinsValue = new PinModel(this.machineValue);
     this.analogValue = new AnalogInputs(this.machineValue);
-    this.serialValue = new SerialPorts(this.machineValue);
+    this.serialValue = this.createSerial();
     this.usageValue = new IoUsageObserver(this.machineValue, this.image.symbols);
     this.diagnosticsValue = this.createDiagnostics();
     for (const [pin, level] of outside) this.pinsValue.setDigital(pin, level);
@@ -310,6 +310,13 @@ export class Emulator {
     }
     if (diagnostics.resetPending) this.restartMachine(); // the whole MCU restarts
     else diagnostics.check();
+  }
+
+  /** Input discarded for a disabled receiver is a diagnostic of its own, never serial output. */
+  private createSerial(): SerialPorts {
+    return new SerialPorts(this.machineValue, (port, bytes) => {
+      this.diagnosticLog.push({ kind: "serial-input-discarded", port, bytes, simTimeMs: this.simTimeMs });
+    });
   }
 
   private createDiagnostics(): Diagnostics {

@@ -12,7 +12,7 @@ Ziel-SSOT für die Laufzeit des Emulationskerns `@unosim/avr-emulator`: Diagnose
 
 ## 1. Diagnosen
 
-Der Emulator meldet genau vier Fälle. Abruf: `emulator.takeDiagnostics()` liefert die Ereignisse seit dem letzten Aufruf, jedes mit `kind`, den Angaben des Falls und `simTimeMs`.
+Der Emulator meldet genau fünf Fälle. Abruf: `emulator.takeDiagnostics()` liefert die Ereignisse seit dem letzten Aufruf, jedes mit `kind`, den Angaben des Falls und `simTimeMs`.
 
 | `kind` | Bedingung | Angaben |
 |---|---|---|
@@ -20,6 +20,7 @@ Der Emulator meldet genau vier Fälle. Abruf: `emulator.takeDiagnostics()` liefe
 | `pc-out-of-program` | PC liegt hinter dem letzten programmierten Wort des Abbilds (gelöschter Flash) | `pc`, `programBytes` (Byteadressen) |
 | `watchdog-reset` | Der Watchdog löst einen Reset aus (WDE gesetzt, WDIE nicht) | – |
 | `sleep-interrupts-disabled` | `SLEEP` wird bei gesetztem SE-Bit und gelöschtem globalem Interrupt-Flag ausgeführt | `pc` (Byteadresse) |
+| `serial-input-discarded` | Serielle Eingabe traf ein, während der USART-Empfänger aus war (vor `Serial.begin()` oder nach `Serial.end()`); die Bytes sind verloren, wie am echten Uno | `port`, `bytes` (Anzahl der verworfenen Bytes der Lage) |
 
 ### 1.1 Zeitpunkt der Prüfung
 
@@ -30,7 +31,7 @@ Der Emulator meldet genau vier Fälle. Abruf: `emulator.takeDiagnostics()` liefe
 
 ### 1.2 Wiederholung
 
-Eine Bedingung wird einmal gemeldet und erst wieder, nachdem sie geendet hat (Stack über der Grenze, PC im Programm, SE gelöscht). Ein Watchdog-Reset wird bei jedem Reset erkannt. Gleiche Diagnosen desselben Laufs erscheinen höchstens einmal je simulierter Sekunde.
+Eine Bedingung wird einmal gemeldet und erst wieder, nachdem sie geendet hat (Stack über der Grenze, PC im Programm, SE gelöscht). Ein Watchdog-Reset wird bei jedem Reset erkannt. Gleiche Diagnosen desselben Laufs erscheinen höchstens einmal je simulierter Sekunde. Ausnahme `serial-input-discarded`: einmal je Lage und Port, erneut erst nachdem der Empfänger zwischendurch aktiv war (nie je Byte, nie als Serial-Ausgabe). Sinngemäße Anzeige: „Serielle Eingabe verworfen, weil der Empfänger noch nicht aktiv war (`Serial.begin()` ist noch nicht gelaufen).“
 
 ### 1.3 Watchdog-Reset
 
