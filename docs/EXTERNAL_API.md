@@ -15,9 +15,9 @@ major API version and a documented migration period. Historical simulation
 states (`STOPPED` and `QUEUED`) remain accepted for older consumers but are no
 longer emitted by the current contract.
 
-The server REST contract is `1.0.0` (the additive `1.1.0` with `board` and `artifact` in `POST /api/compile` is planned, see plan decision E14), advertised through the `apiVersion` field
+The server REST contract is `1.1.0` (additive over `1.0.0`: `board` and `artifact` in `POST /api/compile`, plan decision E14; `1.0.0` clients stay supported), advertised through the `apiVersion` field
 and the `X-UnoSim-API-Version` response header. Clients may send
-`Accept-Version: 1`, `1.0`, or `1.0.0`; unsupported versions receive HTTP 406
+`Accept-Version: 1`, `1.0`, `1.0.0`, `1.1` or `1.1.0`; unsupported versions receive HTTP 406
 with `error: "unsupported_api_version"` and the supported version list.
 
 The WebSocket contract is `1.0.0`. The server's initial `handshake` message
