@@ -1,9 +1,8 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
-import { lazy, Suspense } from "react";
 
 // The messages and registry tables are not needed before the first compile: they load with their tab (initial bundle budget, plan P3.9).
 const ParserOutput = lazy(() => import("@/components/features/parser-output").then((module) => ({ default: module.ParserOutput })));
