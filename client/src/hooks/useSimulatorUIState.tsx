@@ -84,7 +84,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend";
     type: string;
     content: string;
-    protocol?: "websocket" | "http";
+    protocol?: "websocket" | "http" | "worker";
   }>;
   setDebugMessages: React.Dispatch<React.SetStateAction<Array<{
     id: string;
@@ -92,7 +92,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend";
     type: string;
     content: string;
-    protocol?: "websocket" | "http";
+    protocol?: "websocket" | "http" | "worker";
   }>>>;
   debugMessageFilter: string;
   setDebugMessageFilter: (value: string) => void;
@@ -103,7 +103,7 @@ interface UseSimulatorUIStateParams {
     sender: "server" | "frontend",
     type: string,
     content: string,
-    protocol?: "websocket" | "http",
+    protocol?: "websocket" | "http" | "worker",
   ) => void;
 }
 

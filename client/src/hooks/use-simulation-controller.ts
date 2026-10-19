@@ -120,7 +120,7 @@ export function useSimulationController(
 
   const stopSimulationImmediately = useCallback(() => {
     if (!canSimulate) return;
-    params.uiFeedback.logStopSimulation();
+    params.uiFeedback.logStopSimulation(hub.active);
     const message = { type: "stop_simulation" } as const;
     if (!(params.sendMessageImmediate?.(message) ?? false)) params.sendMessage(message);
     setSimulationStatus("idle");
@@ -143,7 +143,7 @@ export function useSimulationController(
     // stay controllable when the browser reports being offline (networkMode "online" would pause them).
     networkMode: "always",
     mutationFn: async () => {
-      params.uiFeedback.logPauseSimulation();
+      params.uiFeedback.logPauseSimulation(hub.active);
       params.sendMessage({ type: "pause_simulation" });
       return { success: true };
     },
@@ -156,7 +156,7 @@ export function useSimulationController(
     // stay controllable when the browser reports being offline (networkMode "online" would pause them).
     networkMode: "always",
     mutationFn: async () => {
-      params.uiFeedback.logResumeSimulation();
+      params.uiFeedback.logResumeSimulation(hub.active);
       params.sendMessage({ type: "resume_simulation" });
       return { success: true };
     },
@@ -180,7 +180,7 @@ export function useSimulationController(
       if (compiledHeadersRef.current.length > 0) message.headers = compiledHeadersRef.current;
       if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
-      params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current);
+      params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current, startsInBrowser() ? "browser" : "host-mock");
       if (startsInBrowser()) {
         // The schema and the runtime load on demand: they stay out of the initial bundle.
         const { parseSimulationArtifact } = await import("@shared/simulation-artifact");

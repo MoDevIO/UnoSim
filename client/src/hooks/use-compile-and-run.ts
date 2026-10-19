@@ -46,7 +46,7 @@ export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
-  protocol?: "websocket" | "http";
+  protocol?: "websocket" | "http" | "worker";
 };
 
 // parameters for compile portion (same as old UseCompilationParams)

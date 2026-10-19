@@ -7,7 +7,7 @@ export interface DebugMessage {
   sender: "server" | "frontend";
   type: string;
   content: string;
-  protocol?: "websocket" | "http";
+  protocol?: "websocket" | "http" | "worker";
 }
 
 export function useDebugConsole(activeOutputTab: string) {
@@ -47,7 +47,7 @@ export function useDebugConsole(activeOutputTab: string) {
       sender: "server" | "frontend",
       type: string,
       content: string,
-      protocol?: "websocket" | "http",
+      protocol?: "websocket" | "http" | "worker",
     ) => {
       // Only collect debug messages if debug mode is enabled
       if (!debugMode) return;

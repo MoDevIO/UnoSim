@@ -1,10 +1,11 @@
+import type { RuntimeKind } from "@shared/boards";
 import type { CompilerError } from "@/types/websocket";
 
 export type DebugMessageParams = {
   source: "frontend" | "server";
   type: string;
   data: string;
-  protocol?: "websocket" | "http";
+  protocol?: "websocket" | "http" | "worker";
 };
 
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
@@ -78,10 +79,11 @@ export interface UseUiFeedbackAdapterResult {
   logCompileRequest: (codeLength: number) => void;
   logCompilationSuccess: () => void;
   logCompilationError: (errors: CompilationErrors) => void;
-  logStopSimulation: () => void;
-  logPauseSimulation: () => void;
-  logResumeSimulation: () => void;
-  logStartSimulation: (timeout: number, hasCode: boolean) => void;
+  /** `runtime` names where the command goes: the WebSocket (host mock, default) or the browser emulation's worker. */
+  logStopSimulation: (runtime?: RuntimeKind) => void;
+  logPauseSimulation: (runtime?: RuntimeKind) => void;
+  logResumeSimulation: (runtime?: RuntimeKind) => void;
+  logStartSimulation: (timeout: number, hasCode: boolean, runtime?: RuntimeKind) => void;
   logStartSimulationFallback: () => void;
 
   // Error handling
@@ -123,7 +125,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
   /**
    * Helper: Debug-Message erzeugen
    */
-  const logDebug = (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => {
+  const logDebug = (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http" | "worker") => {
     params.addDebugMessage({ source, type, data, protocol: protocol ?? "http" });
   };
 
@@ -221,19 +223,17 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
     logDebug("server", "compile_response", JSON.stringify({ success: false }, null, 2));
   };
 
-  const logStopSimulation = () => {
-    logDebug("frontend", "stop_simulation", JSON.stringify({ type: "stop_simulation" }, null, 2), "websocket");
+  /** A run command: over the WebSocket for the host mock, as a call to the worker for the browser emulation. */
+  const logRunCommand = (command: string, message: object, runtime?: RuntimeKind) => {
+    if (runtime === "browser") logDebug("frontend", `browser: ${command}`, JSON.stringify({ command, runtime: "browser emulation (Web Worker)", ...message }, null, 2), "worker");
+    else logDebug("frontend", `${command}_simulation`, JSON.stringify({ type: `${command}_simulation`, ...message }, null, 2), "websocket");
   };
 
-  const logPauseSimulation = () => {
-    logDebug("frontend", "pause_simulation", JSON.stringify({ type: "pause_simulation" }, null, 2), "websocket");
-  };
+  const logStopSimulation = (runtime?: RuntimeKind) => logRunCommand("stop", {}, runtime);
+  const logPauseSimulation = (runtime?: RuntimeKind) => logRunCommand("pause", {}, runtime);
+  const logResumeSimulation = (runtime?: RuntimeKind) => logRunCommand("resume", {}, runtime);
 
-  const logResumeSimulation = () => {
-    logDebug("frontend", "resume_simulation", JSON.stringify({ type: "resume_simulation" }, null, 2), "websocket");
-  };
-
-  const logStartSimulation = (timeout: number, hasCode: boolean) => {
+  const logStartSimulation = (timeout: number, hasCode: boolean, runtime?: RuntimeKind) => {
     const startMsg: { type: "start_simulation"; timeout: number; code?: string } = {
       type: "start_simulation",
       timeout,
@@ -242,7 +242,8 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
       startMsg.code = "<code present>";
     }
 
-    logDebug("frontend", "start_simulation", JSON.stringify(startMsg, null, 2), "websocket");
+    if (runtime === "browser") logRunCommand("start", { timeout, image: "from the compile result" }, runtime);
+    else logDebug("frontend", "start_simulation", JSON.stringify(startMsg, null, 2), "websocket");
   };
 
   const logStartSimulationFallback = () => {

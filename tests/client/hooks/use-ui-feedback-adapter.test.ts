@@ -203,6 +203,36 @@ describe("useUiFeedbackAdapter", () => {
       });
     });
 
+    it("names the worker, not the WebSocket, for the commands of a browser run", () => {
+      const { result } = renderAdapter();
+
+      result.current.logStartSimulation(60, true, "browser");
+      result.current.logPauseSimulation("browser");
+      result.current.logResumeSimulation("browser");
+      result.current.logStopSimulation("browser");
+
+      const calls = mockAddDebugMessage.mock.calls.map(([entry]) => entry);
+      expect(calls.map((entry) => [entry.type, entry.protocol])).toEqual([
+        ["browser: start", "worker"],
+        ["browser: pause", "worker"],
+        ["browser: resume", "worker"],
+        ["browser: stop", "worker"],
+      ]);
+      expect(JSON.parse(calls[0].data)).toEqual({ command: "start", runtime: "browser emulation (Web Worker)", timeout: 60, image: "from the compile result" });
+    });
+
+    it("still logs the WebSocket messages for the host mock", () => {
+      const { result } = renderAdapter();
+
+      result.current.logStopSimulation("host-mock");
+      result.current.logStartSimulation(60, false, "host-mock");
+
+      expect(mockAddDebugMessage.mock.calls.map(([entry]) => [entry.type, entry.protocol])).toEqual([
+        ["stop_simulation", "websocket"],
+        ["start_simulation", "websocket"],
+      ]);
+    });
+
     it("logs pause simulation", () => {
       const { result } = renderAdapter();
 

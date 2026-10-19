@@ -65,7 +65,7 @@ export type UseWebSocketHandlerParams = {
   simulationStatus: SimulationStatus;
 
   // callbacks / setters from parent scope
-  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
+  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http" | "worker") => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
   appendSerialOutput: (text: string) => void;
   appendRenderedText: (text: string) => void;
