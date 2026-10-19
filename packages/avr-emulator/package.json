@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./boards": "./src/boards/index.ts",
+    "./image": "./src/image/index.ts",
     "./worker": "./src/worker/entry.ts"
   },
   "dependencies": {
