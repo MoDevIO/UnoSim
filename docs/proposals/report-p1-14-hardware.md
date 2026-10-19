@@ -60,7 +60,7 @@ Sketch und Aufnahmen: [results/p1-14/serial_before_begin/](results/p1-14/serial_
 | Emulator | **3**, `SerialPorts` hält die Bytes bis zur Freigabe des Empfängers zurück (P1.7) |
 
 Einordnung: **Emulatorabweichung** (kein Werkzeugfehler: das Senden nach `begin()` funktioniert in den fünf Eingabefällen). Der Plan enthält keine Entscheidung dazu.
-Es wurde **nichts geändert**; als Hinweis steht der Unterschied jetzt im README des Pakets („known differences“).
+**Entschieden und behoben** (Option B, boardgetreu): der Emulator verwirft die Bytes und meldet die Diagnose `serial-input-discarded`; der Fall `probes/serial_before_begin` ist am Board aufgenommen (Klasse `hardware`, vor `begin` 0, danach geliefert).
 
 Vorschlag (zur Entscheidung):
 
