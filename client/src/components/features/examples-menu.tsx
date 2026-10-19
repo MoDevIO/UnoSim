@@ -6,6 +6,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ChevronRight } from "lucide-react";
+import type { BoardId } from "@shared/boards";
+import { getActiveBoard } from "@/lib/active-board";
+import { storeBoardPreference } from "@/lib/runtime/board-selection";
+import { loadRuntimeConfig } from "@/lib/runtime/runtime-config";
+import { type ExampleBoardPrompt, exampleBoardPrompt } from "@/lib/example-board";
+import { ExampleBoardPromptDialog } from "@/components/features/example-board-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   ExternalExamplesError,
@@ -19,6 +25,7 @@ interface Example {
   id: string;
   title: string;
   category: string;
+  board?: BoardId;
   source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
   repository?: string;
@@ -46,6 +53,7 @@ export function ExamplesMenu({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [boardQuestion, setBoardQuestion] = useState<{ example: Example; prompt: ExampleBoardPrompt } | undefined>();
   const [keyboardNavActive, setKeyboardNavActive] = useState(false);
   const focusedIndexRef = useRef<number>(-1);
   const { toast } = useToast();
@@ -257,9 +265,18 @@ export function ExamplesMenu({
     };
   }, [open]);
 
-  const handleLoadExample = async (example: Example) => {
+  const handleLoadExample = async (example: Example, boardConfirmed = false) => {
     if (!capabilitiesRef.current.canUseServerExamples) return;
     if (loadingExampleId) return;
+    // An example for another board asks first: switch the board, load anyway, or cancel (plan P4.6).
+    if (!boardConfirmed && example.board && example.board !== getActiveBoard()) {
+      const { boards } = await loadRuntimeConfig();
+      const prompt = exampleBoardPrompt(example.board, boards.find((board) => board.id === getActiveBoard()), boards);
+      if (prompt) {
+        setBoardQuestion({ example, prompt });
+        return;
+      }
+    }
     setLoadingExampleId(example.id);
     try {
       let query = "";
@@ -301,7 +318,22 @@ export function ExamplesMenu({
     }
   };
 
+  const answerBoardQuestion = (action: "switch" | "anyway" | "cancel") => {
+    const question = boardQuestion;
+    setBoardQuestion(undefined);
+    if (!question || action === "cancel") return;
+    if (action === "switch") storeBoardPreference(question.prompt.exampleBoard);
+    void handleLoadExample(question.example, true);
+  };
+
   return (
+    <>
+    <ExampleBoardPromptDialog
+      prompt={boardQuestion?.prompt}
+      onSwitch={() => answerBoardQuestion("switch")}
+      onLoadAnyway={() => answerBoardQuestion("anyway")}
+      onCancel={() => answerBoardQuestion("cancel")}
+    />
     <DropdownMenu open={open} onOpenChange={(v) => setOpen(!!v)}>
       <DropdownMenuTrigger asChild>
         <Button
@@ -356,6 +388,7 @@ export function ExamplesMenu({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    </>
   );
 }
 

@@ -231,6 +231,22 @@ als informative Legacy-Metadaten:
 Damit bleibt das vorhandene Manifest-Schema kompatibel. Es wird kein neues
 Pflichtfeld und keine unnötige Breaking-Change eingeführt.
 
+### 7.1 Optionales Feld `board` je Beispiel (P4.6)
+
+Ein Beispiel DARF `board` tragen, die ID des Boards, für das es geschrieben ist
+(`uno`, `nano`, `mega2560`, `attiny85`). Das Feld ist optional und
+abwärtskompatibel: Ein Beispiel ohne `board` passt zu jedem Board, und eine ID,
+die diese UnoSim-Version nicht kennt, gilt als nicht angegeben (ein neueres
+Manifest macht einen älteren Server nicht ungültig). Der Katalog
+(`GET /api/examples`) liefert `board` je Beispiel mit; die Details brauchen es
+nicht.
+
+Lädt jemand ein Beispiel für ein anderes Board als das gewählte, fragt die
+Oberfläche nach: „Switch to <Board>“ (stoppt einen laufenden Lauf, wählt das
+Board, lädt das Beispiel), „Load anyway“ (Board bleibt) oder „Cancel“. Ein
+Board, das der Server nicht anbietet oder das nur `planned` ist, lässt sich
+nicht wählen; dann bleiben „Load anyway“ und „Cancel“.
+
 ## 8. Cache- und Multi-Browser-Semantik
 
 Der Cache unterscheidet genau:

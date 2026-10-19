@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import { useSyncExternalStore } from "react";
 
 export const EXTERNAL_EXAMPLES_STORAGE_KEY = "unoExternalExamplesSelection";
@@ -25,6 +26,8 @@ export interface ExternalExampleCatalogItem {
   title: string;
   category: string;
   description?: string;
+  /** The board the example is written for (plan P4.6). */
+  board?: BoardId;
   main: string;
   source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
