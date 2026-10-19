@@ -43,6 +43,8 @@ export interface CompileResult {
   ioRegistry?: IOPinRecord[];
   arduinoCliStatus?: "idle" | "compiling" | "success" | "error";
   cached?: boolean;
+  /** Flash image of the build for the browser emulation; the server sends it only where it may (plan E5). */
+  artifact?: unknown;
 }
 
 export function isArduinoMessage(value: unknown): value is WSMessage {

@@ -8,6 +8,9 @@ import { useSimulationControllerState } from "./use-simulation-controller-state"
 import { useSimulationLifecycle } from "./use-simulation-lifecycle";
 import type { UseUiFeedbackAdapterResult } from "./use-ui-feedback-adapter";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
+import type { RuntimeKind } from "@shared/boards";
+import { parseSimulationArtifact, type SimulationArtifact } from "@shared/simulation-artifact";
+import { getRuntimeHub, type RuntimeHub } from "@/lib/runtime/runtime-hub";
 
 const logger = new Logger("useSimulationController");
 
@@ -15,6 +18,12 @@ export type SimulationControllerParams = {
   readonly capabilities?: ServerCapabilities;
   /** Synchronously relinquish pending REST compile-to-start ownership. */
   onStartOrStop?: () => void;
+  /** The runtime of the next run (plan P3.1 selection); the host mock when not given. */
+  runtimeKind?: RuntimeKind;
+  /** The host mock can take over when the browser emulation has no image to run. */
+  hostMockUsable?: boolean;
+  /** The runtimes of this tab; the shared hub when not given. */
+  runtimeHub?: Pick<RuntimeHub, "get" | "active" | "setActive">;
   code: string;
   hasCompilationErrors: boolean;
   isModified?: boolean;
@@ -65,6 +74,12 @@ export type SimulationControllerResult = {
   setCompiledCode: (code: string) => void;
   setCompiledHeaders?: (headers: Array<{ name: string; content: string }>) => void;
   setCompiledEntryFile?: (entryFile: string | undefined) => void;
+  /** The flash image of the latest build, from the compile result (anything that is not an artifact clears it). */
+  setCompiledArtifact: (artifact: unknown) => void;
+  /** True while a browser run is active and can be reset without compiling again. */
+  canResetWithoutCompile: () => boolean;
+  /** CPU reset of the running browser emulation; false if there is none. */
+  resetWithoutCompile: () => boolean;
   startSimulationRef: React.MutableRefObject<(() => void) | null>;
   suppressAutoStopOnce: () => void;
 };
@@ -83,9 +98,16 @@ export function useSimulationController(
   const compiledCodeRef = useRef<string | null>(null);
   const compiledHeadersRef = useRef<Array<{ name: string; content: string }>>([]);
   const compiledEntryFileRef = useRef<string | undefined>(undefined);
+  const compiledArtifactRef = useRef<SimulationArtifact | undefined>(undefined);
+  const hub = params.runtimeHub ?? getRuntimeHub();
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
   const canSimulate = params.capabilities?.canSimulate ?? true;
+
+  /** Browser runs do not need the server: stop, pause and resume work without the connection. */
+  const browserRunActive = () => hub.active === "browser";
+  /** True if the next start runs in the browser: selected, and the latest build has an image. */
+  const startsInBrowser = () => params.runtimeKind === "browser" && (compiledArtifactRef.current !== undefined || params.hostMockUsable === false);
 
   const stopSimulationImmediately = useCallback(() => {
     if (!canSimulate) return;
@@ -138,6 +160,14 @@ export function useSimulationController(
       if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current);
+      if (startsInBrowser()) {
+        const artifact = compiledArtifactRef.current;
+        if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
+        hub.setActive("browser");
+        hub.get("browser").start({ kind: "browser", artifact, timeoutSec: timeout });
+        return { success: true };
+      }
+      hub.setActive("host-mock");
       if (params.sendMessageImmediate) {
         const sent = params.sendMessageImmediate(message);
         logger.debug(`[CLIENT] sendMessageImmediate returned ${String(sent)}`);
@@ -178,25 +208,38 @@ export function useSimulationController(
   const handleStart = useCallback(() => {
     params.onStartOrStop?.();
     if (!canSimulate) return;
-    if (!params.ensureBackendConnected("Simulation starten")) return;
+    if (!startsInBrowser() && !params.ensureBackendConnected("Simulation starten")) return;
     startSimulation();
   }, [canSimulate, params.ensureBackendConnected, startSimulation, params.onStartOrStop]);
   const handleStop = useCallback(() => {
     params.onStartOrStop?.();
     if (!canSimulate) return;
-    if (!params.ensureBackendConnected("Simulation stoppen")) return;
+    if (!browserRunActive() && !params.ensureBackendConnected("Simulation stoppen")) return;
     stopMutation.mutate();
   }, [canSimulate, params.ensureBackendConnected, stopMutation, params.onStartOrStop]);
   const handlePause = useCallback(() => {
     if (!canSimulate) return;
-    if (!params.ensureBackendConnected("Simulation pausieren")) return;
+    if (!browserRunActive() && !params.ensureBackendConnected("Simulation pausieren")) return;
     pauseMutation.mutate();
   }, [canSimulate, params.ensureBackendConnected, pauseMutation]);
   const handleResume = useCallback(() => {
     if (!canSimulate) return;
-    if (!params.ensureBackendConnected("Simulation fortsetzen")) return;
+    if (!browserRunActive() && !params.ensureBackendConnected("Simulation fortsetzen")) return;
     resumeMutation.mutate();
   }, [canSimulate, params.ensureBackendConnected, resumeMutation]);
+
+  const setCompiledArtifact = useCallback((artifact: unknown) => {
+    compiledArtifactRef.current = parseSimulationArtifact(artifact);
+  }, []);
+  const canResetWithoutCompile = useCallback(() => browserRunActive() && (simulationStatus === "running" || simulationStatus === "paused"), [simulationStatus, hub]);
+  const resetWithoutCompile = useCallback(() => {
+    if (!canResetWithoutCompile()) return false;
+    params.serialEventQueueRef.current = [];
+    params.clearOutputs();
+    params.resetPinUI({ keepDetected: true });
+    hub.get("browser").reset();
+    return true;
+  }, [canResetWithoutCompile, hub, params]);
 
   startSimulationRef.current = startSimulation;
 
@@ -232,6 +275,9 @@ export function useSimulationController(
     setCompiledCode,
     setCompiledHeaders,
     setCompiledEntryFile,
+    setCompiledArtifact,
+    canResetWithoutCompile,
+    resetWithoutCompile,
     startSimulationRef,
     suppressAutoStopOnce: lifecycle.suppressAutoStopOnce,
   };

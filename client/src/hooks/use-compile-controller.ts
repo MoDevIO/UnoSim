@@ -40,6 +40,8 @@ export interface UseCompileControllerParams {
   readonly capabilities?: ServerCapabilities;
   /** Ignore completions whose compile-to-start owner was invalidated. */
   isCompileResultCurrent?: (payload: CompileConfig) => boolean;
+  /** Every current compile result, success or not: the browser emulation takes its flash image from it. */
+  onCompileResult?: (data: CompileResult) => void;
   // State
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;
@@ -132,6 +134,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     },
     onSuccess: (data, payload) => {
       if (params.isCompileResultCurrent?.(payload) === false) return;
+      params.onCompileResult?.(data);
       if (data.success) {
         handleCompileSuccess(data);
       } else {

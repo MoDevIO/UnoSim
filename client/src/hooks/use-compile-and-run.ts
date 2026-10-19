@@ -3,6 +3,7 @@ import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
+import type { RuntimeKind } from "@shared/boards";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
 import type { DebugMessage } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
@@ -86,6 +87,10 @@ export type CompileAndRunParams = {
   setPendingPinConflicts: SetState<number[]>;
   isModified?: boolean; // duplicated with compile side
   handleCompileAndStart?: () => void; // used by reset
+  /** The runtime of the next run (plan P3.1 selection); the host mock when not given. */
+  runtimeKind?: RuntimeKind;
+  /** The host mock can take over when the browser emulation has no image to run. */
+  hostMockUsable?: boolean;
   startSimulationRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -179,6 +184,7 @@ interface UseCompileAndRunResult {
 
 export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunResult {
   const controllerState = useSimulatorControllerState();
+  const artifactSinkRef = useRef<((artifact: unknown) => void) | undefined>(undefined);
   const startGeneration = useRef(0);
   const compileOwners = useRef(new WeakMap<CompileConfig, number>());
   const pendingCompileStart = useRef(false);
@@ -244,6 +250,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     ...controllerState,
     capabilities: params.capabilities,
     isCompileResultCurrent,
+    onCompileResult: (data) => artifactSinkRef.current?.(data.success ? data.artifact : undefined),
     // Callbacks
     setParserMessages: params.setParserMessages,
     setParserPanelDismissed: params.setParserPanelDismissed,
@@ -281,6 +288,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const simulation = useSimulationController({
     onStartOrStop: invalidatePendingStart,
+    ...(params.runtimeKind ? { runtimeKind: params.runtimeKind } : {}),
+    ...(params.hostMockUsable === undefined ? {} : { hostMockUsable: params.hostMockUsable }),
     code: params.code,
     hasCompilationErrors,
     isModified: params.isModified,
@@ -295,6 +304,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     startSimulationRef: params.startSimulationRef,
     uiFeedback,
   });
+
+  artifactSinkRef.current = simulation.setCompiledArtifact;
 
   // Expose a test-only setter so E2E tests can inject the REST-compiled code
   // into the simulation controller before starting a simulation.
@@ -389,6 +400,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
 
   const handleReset = useCallback(() => {
     invalidatePendingStart();
+    // Browser emulation: a CPU reset, no compiling again, when code and board are unchanged.
+    if (!params.isModified && simulation.resetWithoutCompile()) {
+      uiFeedback.showResettingToast();
+      return;
+    }
     if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (holdsServerSimulation(simulation.simulationStatus)) simulation.handleStop();

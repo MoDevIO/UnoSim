@@ -317,6 +317,14 @@ class WebSocketManager {
   }
   
   /**
+   * Hands a message of a local runtime (the browser emulation) to the same
+   * subscribers that receive the server's messages, so one handler evaluates both.
+   */
+  public injectMessage(message: WSMessage): void {
+    this.emit("message", message);
+  }
+
+  /**
    * Subscribe to events
    */
   public on<K extends keyof WSManagerEvents>(event: K, callback: WSManagerEvents[K]): () => void {

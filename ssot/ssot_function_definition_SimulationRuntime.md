@@ -97,6 +97,13 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - `error` und `messageerror` des Workers enden den Lauf auf dieselbe Weise.
 - Serielle Eingabe geht in Stücken zu höchstens 1024 Zeichen an Port 0, nur im Zustand `running`.
 
+### Anbindung an die Controller (P3.4)
+
+- `RuntimeHub` (`client/src/lib/runtime/runtime-hub.ts`) hält die Laufzeiten eines Tabs und merkt sich die des laufenden (oder letzten) Laufs. Die Ereignisse des Browser-Backends in der Form der Servernachrichten gehen über `WebSocketManager.injectMessage` in denselben Nachrichtenstrom wie die des Servers; der bestehende Handler wertet beide aus. Die Ereignisse des Host-Mocks kommen weiter über die Verbindung. Nur-Browser-Ereignisse gehen an `onBrowserEvent`.
+- Die Controller senden weiter die Nachrichten von heute. `createRuntimeCommandRouter` setzt sie bei einem Browser-Lauf in Laufzeitaufrufe um (`pause_simulation`, `resume_simulation`, `stop_simulation`, `code_changed` → `stop`, `serial_input`, `set_pin_value`; Analogregler über `sendAnalogValue`, von außen gesetzte Werte über 1 an A0–A5 gelten als Analogwert). `start_simulation` und alles andere gehen den alten Weg.
+- Start: Die Auswahl der Laufzeit (P3.1) gilt für den nächsten Start. Liegt dem letzten Build kein Abbild (`artifact`) bei und bietet der Server den Host-Mock an, startet der Host-Mock (Rückfallebene); sonst meldet der Start einen Fehler. Stop, Pause und Fortsetzen eines Browser-Laufs brauchen keine Serververbindung.
+- Reset: Ist der Code unverändert und läuft ein Browser-Lauf, setzt der Reset die CPU zurück, ohne neu zu kompilieren.
+
 ## 4. Headless-Lauf
 
 `runHeadless(image, { simMs, events, expectState, eeprom? })` (`packages/avr-emulator/src/headless/`) führt ein Abbild so schnell wie möglich ohne Wanduhr, Pacing und Timeout aus; das Ergebnis ist deterministisch. Das Werkzeug `npm run emulate -- <sketch.hex> [--elf …] [--ms …] [--events …] [--case …] [--repeat n] [--json]` ruft ihn auf.
