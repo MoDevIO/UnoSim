@@ -28,6 +28,7 @@ const serializedHttpUnitTests = [
   "tests/server/routes/compiler-board.routes.test.ts",
   "tests/server/routes/simulation-runtime-unavailable.test.ts",
   "tests/server/routes/runtime-readiness.test.ts",
+  "tests/server/routes/compiler-artifact.routes.test.ts",
   "tests/server/routes/api-rate-limit-key.test.ts",
   "tests/server/routes/simulation-connection-lifecycle.test.ts",
   "tests/server/routes/compiler-capacity.test.ts",

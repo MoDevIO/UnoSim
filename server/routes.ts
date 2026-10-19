@@ -203,6 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
     offeredBoards,
+    // The Docker profile delivers artifacts only with a compile sandbox (plan 4.10, P2.4); it has none yet.
+    artifactDelivery: config.serverMode === "local",
   });
 
   // --- WebSocket handler (moved to modular WS file) ---
