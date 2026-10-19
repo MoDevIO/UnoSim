@@ -315,11 +315,16 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         simulation.setCompiledCode(code);
         simulation.setCompiledHeaders?.(headers);
       };
+      // Same for the flash image of the browser emulation (the `artifact` field of a compile result).
+      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_ARTIFACT__ = (artifact: unknown) => {
+        simulation.setCompiledArtifact(artifact);
+      };
       return () => {
         delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
+        delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_ARTIFACT__;
       };
     }
-  }, [simulation.setCompiledCode]);
+  }, [simulation.setCompiledCode, simulation.setCompiledArtifact]);
 
   const handleCompileAndStart = useCallback(() => {
     invalidatePendingStart();

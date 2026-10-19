@@ -150,6 +150,7 @@ describe("BrowserRuntime (plan P3.2)", () => {
     worker().emit(ev(runId, { type: "pins", changeCount: 2, changes: [{ pin: 13, mode: "OUTPUT", level: 1 }, { pin: 9, mode: "OUTPUT", level: 1, pwm: 128 }] }));
     worker().emit(ev(runId, { type: "usage", usages: [{ pin: 13, fn: "pinMode", mode: "OUTPUT" }] }));
 
+    expect(events).toContainEqual({ type: "serial_output", data: "Hello\r\n", isComplete: true });
     expect(events).toEqual([
       { type: "serial_output", data: "Hello\r\n", isComplete: true },
       {
@@ -161,6 +162,35 @@ describe("BrowserRuntime (plan P3.2)", () => {
         ],
       },
       { type: "runtime_usage", usages: [{ pin: 13, fn: "pinMode", mode: "OUTPUT" }] },
+      { type: "io_registry", registry: [{ pin: "13", defined: true, pinMode: 1, usedAt: [{ line: 0, operation: "pinMode:1" }] }] },
+    ]);
+  });
+
+  it("builds the I/O registry snapshot of the run from the findings, with analog pin names, and starts anew with each run", () => {
+    const { startRunning, worker, ev, events, runtime } = setup();
+    const runId = startRunning();
+    events.length = 0;
+
+    worker().emit(ev(runId, { type: "usage", usages: [{ pin: 9, fn: "pinMode", mode: "INPUT_PULLUP" }, { pin: 14, fn: "analogRead" }] }));
+    worker().emit(ev(runId, { type: "usage", usages: [{ pin: 9, fn: "digitalRead" }] }));
+
+    const snapshots = events.filter((event) => event.type === "io_registry");
+    expect(snapshots.at(-1)).toEqual({
+      type: "io_registry",
+      registry: [
+        { pin: "9", defined: true, pinMode: 2, usedAt: [{ line: 0, operation: "pinMode:2" }, { line: 0, operation: "digitalRead" }] },
+        { pin: "A0", defined: false, usedAt: [{ line: 0, operation: "analogRead" }] },
+      ],
+    });
+
+    runtime.start({ kind: "browser", artifact, timeoutSec: 5 });
+    const second = worker().last("load");
+    worker().emit(ev(second.runId, { type: "ready", protocolVersion: 1, board: "uno", buildId: artifact.buildId }));
+    worker().emit(ev(worker().last("start").runId, { type: "status", state: "running" }));
+    events.length = 0;
+    worker().emit(ev(worker().last("start").runId, { type: "usage", usages: [{ pin: 4, fn: "digitalWrite" }] }));
+    expect(events.filter((event) => event.type === "io_registry")).toEqual([
+      { type: "io_registry", registry: [{ pin: "4", defined: false, usedAt: [{ line: 0, operation: "digitalWrite" }] }] },
     ]);
   });
 
@@ -177,7 +207,7 @@ describe("BrowserRuntime (plan P3.2)", () => {
     expect(events.filter((event) => event.type === "pin_state_batch")).toHaveLength(2);
   });
 
-  it("carries diagnostics and telemetry as events of their own, never as serial output", () => {
+  it("words diagnostics as a system line and also carries them, and telemetry, as events of their own", () => {
     const { startRunning, worker, ev, events } = setup();
     const runId = startRunning();
     events.length = 0;
@@ -187,6 +217,7 @@ describe("BrowserRuntime (plan P3.2)", () => {
     worker().emit(ev(runId, { type: "telemetry", simTimeMs: 1000, realTimeFactor: 1, pinChangesPerSecond: 4, serialCharsPerSecond: 9, serialCharsDropped: 0 }));
 
     expect(events).toEqual([
+      { type: "serial_output", data: "--- Serial input discarded because the receiver was not enabled yet (Serial.begin() has not run) ---\n", isComplete: true },
       { type: "runtime_diagnostic", diagnostic },
       { type: "runtime_telemetry", sample: { simTimeMs: 1000, realTimeFactor: 1, pinChangesPerSecond: 4, serialCharsPerSecond: 9, serialCharsDropped: 0 } },
     ]);

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import type { ParserMessage, IOPinRecord, IOOrigin } from "@shared/schema";
 import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
@@ -406,6 +406,8 @@ function ParserMessagesList({
 type RegistryOperation = NonNullable<IOPinRecord["usedAt"]>[number];
 
 interface RegistryOperationCellProps {
+  /** Where the finding comes from (plan 4.9); a finding seen by both gets a mark. */
+  readonly origin?: IOOrigin;
   readonly lines: Array<number | "runtime"> | undefined;
   readonly locations: SourceLocation[] | undefined;
   readonly legacyOperations: RegistryOperation[];
@@ -414,6 +416,7 @@ interface RegistryOperationCellProps {
 }
 
 function renderRegistryOperationCell({
+  origin,
   lines,
   locations,
   legacyOperations,
@@ -423,7 +426,14 @@ function renderRegistryOperationCell({
   const hasNew = (lines?.length ?? 0) > 0 || (locations?.length ?? 0) > 0;
   const isUsed = hasNew || legacyOperations.length > 0;
   if (!isUsed) return <span className="text-gray-400">—</span>;
-  if (!detailView) return <span className="text-green-500 font-bold">✓</span>;
+  const seenInRun = origin === "both";
+  if (!detailView) {
+    return (
+      <span className="text-green-500 font-bold" title={seenInRun ? "Found in the code and seen while the simulation ran" : undefined}>
+        ✓{seenInRun && <span className="text-yellow-400 italic text-ui-xs font-normal"> ▶</span>}
+      </span>
+    );
+  }
 
   const sourceLocations = locations && locations.length > 0 ? locations : undefined;
   const visibleLines: Array<number | "runtime"> = hasNew
@@ -452,6 +462,7 @@ function renderRegistryOperationCell({
               )}
             </div>
           ))}
+      {seenInRun && <div className="text-ui-xs text-yellow-400 italic" title="Seen while the simulation ran">+ runtime</div>}
     </div>
   );
 }
@@ -486,6 +497,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     (hasInputMode && hasRuntimeWrite)
   );
   const digitalReadCell = renderRegistryOperationCell({
+    origin: record.origin?.digitalRead,
     lines: record.digitalReadLines,
     locations: record.digitalReadLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("digitalRead")),
@@ -493,6 +505,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const digitalWriteCell = renderRegistryOperationCell({
+    origin: record.origin?.digitalWrite,
     lines: record.digitalWriteLines,
     locations: record.digitalWriteLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("digitalWrite")),
@@ -500,6 +513,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const analogReadCell = renderRegistryOperationCell({
+    origin: record.origin?.analogRead,
     lines: record.analogReadLines,
     locations: record.analogReadLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("analogRead")),
@@ -507,6 +521,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const analogWriteCell = renderRegistryOperationCell({
+    origin: record.origin?.analogWrite,
     lines: record.analogWriteLines,
     locations: record.analogWriteLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("analogWrite")),

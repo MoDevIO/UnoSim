@@ -102,6 +102,7 @@ function createMockParams() {
   };
 }
 
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { emitOperationErrorEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
 
@@ -116,6 +117,23 @@ describe("useWebSocketHandler", () => {
   });
 
   describe("connection loss", () => {
+    it("lets a browser run continue when the socket drops (plan P3.5)", () => {
+      const hub = getRuntimeHub();
+      hub.setActive("browser");
+      try {
+        const { rerender } = renderHook(() => useWebSocketHandler(params));
+
+        mockIsConnected = false;
+        rerender();
+
+        expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
+        expect(params.appendRenderedText).not.toHaveBeenCalled();
+        expect(params.resetPinUI).not.toHaveBeenCalled();
+      } finally {
+        hub.setActive(undefined);
+      }
+    });
+
     it("returns a running simulation to idle with cleared pins when the socket drops", () => {
       const { rerender } = renderHook(() => useWebSocketHandler(params));
 

@@ -173,8 +173,9 @@ export function useSimulationController(
         const artifact = parseSimulationArtifact(compiledArtifactRef.current);
         if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
         const runtime = await hub.load("browser");
-        hub.setActive("browser");
+        // Start first: replacing a run reports the old one stopped, which must not end the new one.
         runtime.start({ kind: "browser", artifact, timeoutSec: timeout });
+        hub.setActive("browser");
         return { success: true };
       }
       hub.setActive("host-mock");

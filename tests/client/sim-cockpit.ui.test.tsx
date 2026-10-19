@@ -43,3 +43,32 @@ describe("SimCockpit UI", () => {
     expect(screen.queryByText("SERVER")).not.toBeInTheDocument();
   });
 });
+
+describe("SimCockpit browser run (plan P3.6)", () => {
+  it("shows engine and real-time factor instead of the runner slot, in debug mode", () => {
+    render(
+      <SimCockpit
+        debugMode
+        simulationStatus="running"
+        wsConnectionState="connected"
+        wsHasEverConnected
+        workerIndex={1}
+        workerTotal={4}
+        browserRun={{ active: true, realTimeFactor: 1.5 }}
+      />,
+    );
+
+    expect(screen.getByTestId("browser-run-info")).toHaveTextContent("ENGINE:BROWSER|×1.50");
+    expect(screen.queryByText("#2/4")).toBeNull();
+  });
+
+  it("shows the engine without a factor until telemetry arrives, and the runner slot for other runs", () => {
+    const { rerender } = render(<SimCockpit debugMode simulationStatus="running" browserRun={{ active: true }} />);
+    expect(screen.getByTestId("browser-run-info")).toHaveTextContent("ENGINE:BROWSER");
+    expect(screen.queryByTestId("real-time-factor")).toBeNull();
+
+    rerender(<SimCockpit debugMode simulationStatus="running" wsConnectionState="connected" wsHasEverConnected workerIndex={1} workerTotal={4} browserRun={{ active: false }} />);
+    expect(screen.queryByTestId("browser-run-info")).toBeNull();
+    expect(screen.getByText("#2/4")).toBeInTheDocument();
+  });
+});

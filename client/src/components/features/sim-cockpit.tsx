@@ -127,6 +127,8 @@ interface SimCockpitProps {
   compilationStatus?: CompilationStatus;
   workerIndex?: number;
   workerTotal?: number;
+  /** A browser emulation run: the header shows the engine and the real-time factor instead of a runner slot. */
+  browserRun?: { readonly active: boolean; readonly realTimeFactor?: number };
   backendReachable?: boolean;
   isConnected?: boolean;
   wsConnectionState?: ConnectionState;
@@ -151,6 +153,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
   wsHasEverConnected = false,
   workerIndex,
   workerTotal,
+  browserRun,
   debugMode = false,
   pendingExternalStart = false,
 }) => {
@@ -260,10 +263,23 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
 
         <ColSep />
 
-        {/* GROUP 3: SIMULATION — WS dot + mode + runner (mode/runner only while active) */}
+        {/* GROUP 3: SIMULATION — a browser run shows engine and real-time factor, otherwise WS dot + runner */}
         <StatCell
           label="SIMULATION"
-          value={(
+          value={browserRun?.active ? (
+            <span className="flex items-center gap-1" data-testid="browser-run-info">
+              <span className="text-white/50">ENGINE:</span>
+              <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">BROWSER</span>
+              {browserRun.realTimeFactor !== undefined && (
+                <>
+                  <span className="text-white/30">|</span>
+                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap" data-testid="real-time-factor">
+                    {`×${browserRun.realTimeFactor.toFixed(2)}`}
+                  </span>
+                </>
+              )}
+            </span>
+          ) : (
             <span className="flex items-center gap-1">
               <span className="text-white/50">WS:</span>
               <StatusDot

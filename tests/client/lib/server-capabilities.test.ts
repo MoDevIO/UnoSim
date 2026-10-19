@@ -23,4 +23,19 @@ describe("server capabilities", () => {
       canUseRealtimeControls: false,
     });
   });
+
+  it("keeps the controls of a running browser emulation while the backend is offline, and nothing else", () => {
+    expect(getServerCapabilities(false, true)).toEqual({
+      canCompile: false,
+      canSimulate: true,
+      canUseTutor: false,
+      canConfigureTutor: false,
+      canUseServerExamples: false,
+      canUseRealtimeControls: true,
+    });
+  });
+
+  it("is unchanged by a browser run while the backend is reachable", () => {
+    expect(getServerCapabilities(true, true)).toEqual(getServerCapabilities(true));
+  });
 });

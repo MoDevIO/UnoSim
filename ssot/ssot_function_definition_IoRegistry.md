@@ -21,6 +21,27 @@ einfache Indexschleifen werden unterstützt. Komplexe oder dynamische Ausdrücke
 werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
 ist für tatsächlich ausgeführte Zugriffe maßgeblich.
 
+## Zusammenführung von Statik und Laufzeit (beide Backends)
+Während eines Laufs (laufend oder pausiert) ersetzt der Laufzeit-Snapshot die
+statische Analyse nicht mehr, sondern wird mit ihr zusammengeführt
+(`mergeIoRegistry`, `getEffectiveIoRegistry`):
+
+* Alle statischen Einträge und ihre Zeilen bleiben sichtbar, auch bei leerem
+  Laufzeit-Snapshot.
+* Laufzeitfunde ergänzen je Pin und Funktion. Jede Funktion trägt ihre Herkunft
+  `origin`: `static`, `runtime` oder `both`. Ein Fund ohne statische Zeile
+  erscheint wie bisher als „runtime“ (Browser-Emulation: immer ohne Zeile,
+  Host-Mock: mit der Zeile der Instrumentierung).
+* Ein Fund, den beide Quellen haben, bleibt mit seinen statischen Zeilen stehen
+  und trägt die Marke „+ runtime“ (kompakt: ▶ hinter dem Haken).
+* Ein Pin, den nur der Lauf gesehen hat, wird als Laufzeiteintrag angehängt.
+* Widerspricht der beobachtete pinMode den statischen Modi (statisch `INPUT`,
+  zur Laufzeit `INPUT_PULLUP`), markiert die Konfliktlogik den Pin; die Meldung
+  nennt beide Quellen.
+* Vor dem ersten Snapshot und nach dem Lauf gilt allein die aktuelle statische
+  Analyse.
+* `A0` und `14` bezeichnen denselben Pin.
+
 
 # Übermittlung via Telemetry-Messages.
 Die Übermittlung der Daten für die Tabelle (Backend->Frontend) soll soweit wie möglich gebündelt werden. Der Nutzer möchte in Echtzeit Einträge aus seiner programmierung sehen. Aber wenn ein Programm geladen wird, dann sollen die Telegramme mehrere Pinverwendungen gleichzeitig übermitteln.

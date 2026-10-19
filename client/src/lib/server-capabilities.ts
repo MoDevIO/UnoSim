@@ -25,9 +25,22 @@ const OFFLINE_CAPABILITIES: ServerCapabilities = Object.freeze({
   canUseRealtimeControls: false,
 });
 
-/** Derives every server-dependent UI capability from backendReachable. */
+/** Only the controls of a running browser emulation, which needs no server (plan P3.5). */
+const BROWSER_RUN_OFFLINE_CAPABILITIES: ServerCapabilities = Object.freeze({
+  ...OFFLINE_CAPABILITIES,
+  canSimulate: true,
+  canUseRealtimeControls: true,
+});
+
+/**
+ * Derives every server-dependent UI capability from backendReachable. A
+ * running browser emulation keeps its own controls (pause, stop, serial input,
+ * pins) while the server is gone; compile, examples and the tutor stay offline.
+ */
 export function getServerCapabilities(
   backendReachable: boolean,
+  browserRunActive = false,
 ): ServerCapabilities {
-  return backendReachable ? AVAILABLE_CAPABILITIES : OFFLINE_CAPABILITIES;
+  if (backendReachable) return AVAILABLE_CAPABILITIES;
+  return browserRunActive ? BROWSER_RUN_OFFLINE_CAPABILITIES : OFFLINE_CAPABILITIES;
 }

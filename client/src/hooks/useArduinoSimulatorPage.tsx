@@ -34,6 +34,7 @@ import { getServerCapabilities } from "@/lib/server-capabilities";
 import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
 import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
+import { useBrowserRunInfo } from "@/hooks/use-browser-run-info";
 
 import type {
   Sketch,
@@ -239,9 +240,11 @@ export function useArduinoSimulatorPage() {
     triggerErrorGlitch,
     serverStatus,
   } = useBackendHealth(queryClient);
+  // A running browser emulation keeps its controls while the server is gone.
+  const browserRun = useBrowserRunInfo();
   const capabilities = useMemo(
-    () => getServerCapabilities(backendReachable),
-    [backendReachable],
+    () => getServerCapabilities(backendReachable, browserRun.active),
+    [backendReachable, browserRun.active],
   );
 
   // Run commands of a browser run go to the browser runtime (it needs no connection);
@@ -884,6 +887,7 @@ export function useArduinoSimulatorPage() {
       workerIndex,
       workerTotal,
       serverStatus,
+      browserRun,
     },
     layout: {
       showErrorGlitch,

@@ -352,8 +352,14 @@ export type ParserMessage = {
   suggestion?: string;
 };
 
+/** Where a finding of the I/O registry comes from: the static analysis, the running simulation, or both (plan 4.9). */
+export type IOOrigin = "static" | "runtime" | "both";
+export type IOFunction = "pinMode" | "digitalRead" | "digitalWrite" | "analogRead" | "analogWrite";
+
 // I/O Pin Record for Registry Display
 export interface IOPinRecord {
+  /** Origin per function, set where static and runtime findings are merged. */
+  origin?: Partial<Record<IOFunction, IOOrigin>>;
   pin: string;
   defined: boolean;
   // ── Numeric pin id (0-13 digital, 14-19 = A0-A5). Optional for compat. ──
