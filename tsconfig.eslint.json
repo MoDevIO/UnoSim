@@ -10,6 +10,7 @@
     "scripts/deployment",
     "scripts/capacity-mixed-load.ts",
     "e2e",
+    "spikes/p0-3/*.ts",
     "*.config.ts"
   ]
 }

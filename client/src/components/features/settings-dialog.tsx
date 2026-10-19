@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
+import { ENGINE_LABELS, isRuntimeKind } from "@/lib/runtime/runtime-selection";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
   EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
@@ -327,6 +329,8 @@ export default function SettingsDialog({
             </SettingsRow>
           </SettingsSection>
 
+          <SimulationEngineSection />
+
           <SettingsSection
             title="Feedback & Diagnostics"
             description="Control notification timing and optional diagnostic information."
@@ -385,6 +389,32 @@ export default function SettingsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** "Simulation engine" (plan P3.1): shown only when the server offers more than one runtime the board can use. */
+function SimulationEngineSection() {
+  const { usable, userChoice, setUserChoice, config } = useSimulationRuntimeSelection();
+  if (usable.length < 2) return null;
+  return (
+    <SettingsSection title="Simulation" description="Choose how sketches run.">
+      <SettingsRow
+        label="Simulation engine"
+        description="Emulation runs the sketch in this browser; Legacy runs it on the server. The choice applies at the next start."
+      >
+        <select
+          aria-label="simulation engine"
+          value={userChoice ?? ""}
+          onChange={(event) => setUserChoice(isRuntimeKind(event.target.value) ? event.target.value : undefined)}
+          className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground"
+        >
+          <option value="">Server default ({ENGINE_LABELS[config.defaultRuntime]})</option>
+          {usable.map((kind) => (
+            <option key={kind} value={kind}>{ENGINE_LABELS[kind]}</option>
+          ))}
+        </select>
+      </SettingsRow>
+    </SettingsSection>
   );
 }
 
