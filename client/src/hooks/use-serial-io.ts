@@ -1,3 +1,4 @@
+import { limitSerialText } from "@/utils/serial-text-limit";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { OutputLine } from "@shared/schema";
 import { SerialCharacterRenderer } from "@/utils/serial-character-renderer";
@@ -29,7 +30,7 @@ export function useSerialIO() {
   // Initialize renderer once and cleanup on unmount
   useEffect(() => {
     const renderer = new SerialCharacterRenderer((char: string) => {
-      setRenderedSerialText((prev) => prev + char);
+      setRenderedSerialText((prev) => limitSerialText(prev + char));
     });
     rendererRef.current = renderer;
 
@@ -81,7 +82,7 @@ export function useSerialIO() {
       globalThis.window !== undefined && (globalThis as any).__PLAYWRIGHT_TEST__;
     if (isTestMode) {
       // in tests we bypass baudrate rendering to make output appear instantly
-      setRenderedSerialText((prev) => prev + text);
+      setRenderedSerialText((prev) => limitSerialText(prev + text));
     } else {
       rendererRef.current?.enqueue(text);
     }
@@ -134,9 +135,9 @@ export function useSerialIO() {
       // Ensure injected text starts on a new line if current output
       // doesn't end with one (e.g., partial serial line was rendering)
       if (prev.length > 0 && !prev.endsWith('\n')) {
-        return prev + '\n' + text;
+        return limitSerialText(prev + '\n' + text);
       }
-      return prev + text;
+      return limitSerialText(prev + text);
     });
   }, []);
 
