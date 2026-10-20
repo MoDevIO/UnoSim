@@ -39,7 +39,7 @@ export const arduinoLanguageConfiguration: monaco.languages.LanguageConfiguratio
       action: { indentAction: 0, appendText: " * " }, // IndentAction.None
     },
     {
-      beforeText: /^(\t| )* \*( ([^*]|\*(?!\/))*)?$/,
+      beforeText: /^[\t ]* \*( ([^*]|\*(?!\/))*)?$/,
       previousLineText: /(?=^(\s*(\/\*\*|\*)).*)(?=(?!(\s*\*\/)))/,
       action: { indentAction: 0, appendText: "* " }, // IndentAction.None
     },
