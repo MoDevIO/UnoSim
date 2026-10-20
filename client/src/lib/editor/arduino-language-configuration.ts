@@ -27,6 +27,12 @@ export const arduinoLanguageConfiguration: monaco.languages.LanguageConfiguratio
     { open: '"', close: '"' },
     { open: "'", close: "'" },
   ],
+  indentationRules: {
+    increaseIndentPattern: /^.*\{[^}"']*$/,
+    decreaseIndentPattern: /^\s*\}/,
+    // `if (...)`, `else`, `for (...)`, `while (...)`, `do` without a brace: only the next line is indented.
+    indentNextLinePattern: /^\s*(?:(?:if|for|while)\b\s*\(.*\)|else(?:\s+if\s*\(.*\))?|do)\s*(?:\/\/.*)?$/,
+  },
   onEnterRules: [
     {
       // /** … : continue a block comment with " * "

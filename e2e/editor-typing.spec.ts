@@ -64,6 +64,30 @@ test.describe("editor typing comfort", () => {
     expect(await text(page)).toBe("void f() {\n  // note\n  a();\n}");
   });
 
+  test("a brace-less if / else / for / while indents only its next line", async ({ page }) => {
+    await freshEditor(page);
+    const lines = ["a();", "if (x)", "b();", "else", "c();", "for (;;)", "d();", "while (y)", "e();", "f();"];
+    for (const [index, line] of lines.entries()) {
+      await page.keyboard.type(line, { delay: 25 });
+      if (index < lines.length - 1) await page.keyboard.press("Enter");
+    }
+
+    expect(await text(page)).toBe(
+      "a();\nif (x)\n  b();\nelse\n  c();\nfor (;;)\n  d();\nwhile (y)\n  e();\nf();",
+    );
+  });
+
+  test("an else if chain of brace-less statements", async ({ page }) => {
+    await freshEditor(page);
+    const lines = ["if (a)", "x();", "else if (b)", "y();", "else", "z();", "w();"];
+    for (const [index, line] of lines.entries()) {
+      await page.keyboard.type(line, { delay: 25 });
+      if (index < lines.length - 1) await page.keyboard.press("Enter");
+    }
+
+    expect(await text(page)).toBe("if (a)\n  x();\nelse if (b)\n  y();\nelse\n  z();\nw();");
+  });
+
   test("parentheses and quotes close themselves, typing the closer steps over it", async ({ page }) => {
     await freshEditor(page);
     await page.keyboard.type('Serial.println("hi");', { delay: 25 });
