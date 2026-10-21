@@ -28,7 +28,11 @@ budget (`unit-emulator-coverage`, warning 60 s, hard fail 120 s) and report
 directory `coverage/emulator/`. V8 block coverage instruments the avr8js
 interpreter as well and slows emulation down by an order of magnitude, which
 would otherwise consume the shared unit-coverage budget. `npm run test:unit`
-still runs every project in one pass without coverage. The coverage guard
+runs the same split without coverage: `test:unit:app` (budget `unit`, warning
+75 s, hard fail 120 s) and `test:unit:emulator` (budget `unit-emulator`,
+warning 45 s, hard fail 90 s). The emulator corpus grows with every board and
+must not eat the budget of the application tests; the combined unit pass had
+only 0.8 s of headroom before the Mega corpus was added. The coverage guard
 validates both `lcov` files and requires at least 90 % line coverage for
 `packages/avr-emulator/src/`; Sonar reads both reports.
 
