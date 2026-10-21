@@ -10,10 +10,11 @@ import { fileURLToPath } from "node:url";
 
 export const CORPUS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../tests/fixtures/runtime-corpus");
 
-/** Boards of the corpus and their FQBN (plan 4.3: Nano with the ATmega328P option). */
+/** Boards of the corpus and their FQBN (plan 4.3: Nano with the ATmega328P option, Mega with the ATmega2560 option). */
 export const CORPUS_FQBN: Readonly<Record<string, string>> = {
   uno: "arduino:avr:uno",
   nano: "arduino:avr:nano:cpu=atmega328",
+  mega2560: "arduino:avr:mega:cpu=atmega2560",
 };
 
 export interface CorpusCaseRef {

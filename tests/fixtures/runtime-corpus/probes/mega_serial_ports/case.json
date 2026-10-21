@@ -1,0 +1,15 @@
+{
+  "board": "mega2560",
+  "simMs": 300,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Serial, Serial1, Serial2 and Serial3 of the Mega 2560: greeting of every port, input to each port, echo in upper case.",
+  "basis": "HardwareSerial of arduino:avr@1.8.8 on USART0 to USART3 (Serial = USART0, Serial1 = USART1, ...): every port keeps its own receive buffer and sends over its own pins; the input of one port reaches that port only; the sketch prints the greeting and echoes in upper case; Serial1 at 9600, Serial2 at 19200 and Serial3 at 57600 baud deliver their bytes in the order of the stimuli, 20 ms apart",
+  "events": [
+    [50, "serial", "ab", 1],
+    [70, "serial", "c", 2],
+    [90, "serial", "d", 3]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

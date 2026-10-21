@@ -75,15 +75,15 @@ describe("compiler.routes - board selection", () => {
   });
 
   it("refuses a board the deployment does not offer", async () => {
-    const result = await postCompile(baseUrl, { code: "x", board: "mega2560" });
+    const result = await postCompile(baseUrl, { code: "x", board: "attiny85" });
 
     expect(result.status).toBe(400);
-    expect(result.body.error).toBe("Board mega2560 is not available");
+    expect(result.body.error).toBe("Board attiny85 is not available");
     expect(compile).not.toHaveBeenCalled();
   });
 
   it("refuses the deprecated fqbn of a board that is not offered", async () => {
-    const result = await postCompile(baseUrl, { code: "x", fqbn: "arduino:avr:mega:cpu=atmega2560" });
+    const result = await postCompile(baseUrl, { code: "x", fqbn: "ATTinyCore:avr:attinyx5:chip=85,clock=8internal" });
 
     expect(result.status).toBe(400);
     expect(compile).not.toHaveBeenCalled();

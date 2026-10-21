@@ -139,6 +139,7 @@ describe("central configuration validation", () => {
     expect(clientConfig.boards).toEqual([
       { id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] },
       { id: "nano", displayName: "Arduino Nano", status: "preview", runtimes: ["browser"] },
+      { id: "mega2560", displayName: "Arduino Mega 2560", status: "preview", runtimes: ["browser"] },
     ]);
     expect(clientConfig.runtime).toEqual({ backends: ["browser", "host-mock"], default: "browser" });
     expect(JSON.stringify(clientConfig.boards)).not.toContain("fqbn");

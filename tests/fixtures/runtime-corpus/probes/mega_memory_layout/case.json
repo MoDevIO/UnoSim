@@ -1,0 +1,11 @@
+{
+  "board": "mega2560",
+  "simMs": 80,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Memory facts of the ATmega2560: RAMEND, EEPROM size, flash size, stack and heap placement, EEPROM access.",
+  "basis": "ATmega2560 datasheet and avr-libc iom2560.h/iomxx0_1.h: RAMEND 0x21FF = 8703, E2END 0x0FFF = 4095, FLASHEND 0x3FFFF = 262143, erased EEPROM reads 0xFF = 255; the stack starts at RAMEND, .bss starts above the 512-byte register and extended I/O space (0x200), malloc allocates between .bss and the stack",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

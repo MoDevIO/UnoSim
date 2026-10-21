@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 414.4 221.2">
+  <defs>
+    <style>
+      .pin-stroke { fill: none; stroke: #9a916c; stroke-miterlimit: 5; stroke-width: 1px; }
+      .click-area { fill: transparent; cursor: pointer; }
+      .state-circle { fill-opacity: 0.8; }
+      .input-frame { fill: none; stroke: #ffff00; stroke-width: 1; }
+    </style>
+    <filter id="glow-yellow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g id="board-outline" opacity="0">
+    <rect x="0" y="0" width="406.4" height="213.2" rx="3" fill="none" stroke="#0f7391" stroke-width="1"/>
+  </g>
+  <g id="pin-13" data-pin="13">
+    <rect id="pin-13-frame" class="input-frame" x="86.82" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-13-state" cx="90.32" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-13-click" class="click-area" x="86.32" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-12" data-pin="12">
+    <rect id="pin-12-frame" class="input-frame" x="96.98" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-12-state" cx="100.48" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-12-click" class="click-area" x="96.48" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-11" data-pin="11">
+    <rect id="pin-11-frame" class="input-frame" x="107.14" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-11-state" cx="110.64" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-11-click" class="click-area" x="106.64" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-10" data-pin="10">
+    <rect id="pin-10-frame" class="input-frame" x="117.3" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-10-state" cx="120.8" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-10-click" class="click-area" x="116.8" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-9" data-pin="9">
+    <rect id="pin-9-frame" class="input-frame" x="127.46" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-9-state" cx="130.96" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-9-click" class="click-area" x="126.96" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-8" data-pin="8">
+    <rect id="pin-8-frame" class="input-frame" x="137.62" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-8-state" cx="141.12" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-8-click" class="click-area" x="137.12" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-7" data-pin="7">
+    <rect id="pin-7-frame" class="input-frame" x="155.78" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-7-state" cx="159.28" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-7-click" class="click-area" x="155.28" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-6" data-pin="6">
+    <rect id="pin-6-frame" class="input-frame" x="165.94" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-6-state" cx="169.44" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-6-click" class="click-area" x="165.44" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-5" data-pin="5">
+    <rect id="pin-5-frame" class="input-frame" x="176.1" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-5-state" cx="179.6" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-5-click" class="click-area" x="175.6" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-4" data-pin="4">
+    <rect id="pin-4-frame" class="input-frame" x="186.26" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-4-state" cx="189.76" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-4-click" class="click-area" x="185.76" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-3" data-pin="3">
+    <rect id="pin-3-frame" class="input-frame" x="196.42" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-3-state" cx="199.92" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-3-click" class="click-area" x="195.92" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-2" data-pin="2">
+    <rect id="pin-2-frame" class="input-frame" x="206.58" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-2-state" cx="210.08" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-2-click" class="click-area" x="206.08" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-1" data-pin="1">
+    <rect id="pin-1-frame" class="input-frame" x="216.74" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-1-state" cx="220.24" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-1-click" class="click-area" x="216.24" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-0" data-pin="0">
+    <rect id="pin-0-frame" class="input-frame" x="226.9" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-0-state" cx="230.4" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-0-click" class="click-area" x="226.4" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-14" data-pin="14">
+    <rect id="pin-14-frame" class="input-frame" x="245.06" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-14-state" cx="248.56" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-14-click" class="click-area" x="244.56" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-15" data-pin="15">
+    <rect id="pin-15-frame" class="input-frame" x="255.22" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-15-state" cx="258.72" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-15-click" class="click-area" x="254.72" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-16" data-pin="16">
+    <rect id="pin-16-frame" class="input-frame" x="265.38" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-16-state" cx="268.88" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-16-click" class="click-area" x="264.88" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-17" data-pin="17">
+    <rect id="pin-17-frame" class="input-frame" x="275.54" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-17-state" cx="279.04" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-17-click" class="click-area" x="275.04" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-18" data-pin="18">
+    <rect id="pin-18-frame" class="input-frame" x="285.7" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-18-state" cx="289.2" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-18-click" class="click-area" x="285.2" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-19" data-pin="19">
+    <rect id="pin-19-frame" class="input-frame" x="295.86" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-19-state" cx="299.36" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-19-click" class="click-area" x="295.36" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-20" data-pin="20">
+    <rect id="pin-20-frame" class="input-frame" x="306.02" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-20-state" cx="309.52" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-20-click" class="click-area" x="305.52" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-21" data-pin="21">
+    <rect id="pin-21-frame" class="input-frame" x="316.18" y="4.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-21-state" cx="319.68" cy="8" r="2.5" fill="#000000"/>
+    <rect id="pin-21-click" class="click-area" x="315.68" y="3.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A0" data-pin="A0">
+    <rect id="pin-A0-frame" class="input-frame" x="155.78" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A0-state" cx="159.28" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A0-click" class="click-area" x="155.28" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A1" data-pin="A1">
+    <rect id="pin-A1-frame" class="input-frame" x="165.94" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A1-state" cx="169.44" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A1-click" class="click-area" x="165.44" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A2" data-pin="A2">
+    <rect id="pin-A2-frame" class="input-frame" x="176.1" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A2-state" cx="179.6" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A2-click" class="click-area" x="175.6" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A3" data-pin="A3">
+    <rect id="pin-A3-frame" class="input-frame" x="186.26" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A3-state" cx="189.76" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A3-click" class="click-area" x="185.76" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A4" data-pin="A4">
+    <rect id="pin-A4-frame" class="input-frame" x="196.42" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A4-state" cx="199.92" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A4-click" class="click-area" x="195.92" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A5" data-pin="A5">
+    <rect id="pin-A5-frame" class="input-frame" x="206.58" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A5-state" cx="210.08" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A5-click" class="click-area" x="206.08" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A6" data-pin="A6">
+    <rect id="pin-A6-frame" class="input-frame" x="216.74" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A6-state" cx="220.24" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A6-click" class="click-area" x="216.24" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A7" data-pin="A7">
+    <rect id="pin-A7-frame" class="input-frame" x="226.9" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A7-state" cx="230.4" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A7-click" class="click-area" x="226.4" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A8" data-pin="A8">
+    <rect id="pin-A8-frame" class="input-frame" x="245.06" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A8-state" cx="248.56" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A8-click" class="click-area" x="244.56" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A9" data-pin="A9">
+    <rect id="pin-A9-frame" class="input-frame" x="255.22" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A9-state" cx="258.72" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A9-click" class="click-area" x="254.72" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A10" data-pin="A10">
+    <rect id="pin-A10-frame" class="input-frame" x="265.38" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A10-state" cx="268.88" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A10-click" class="click-area" x="264.88" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A11" data-pin="A11">
+    <rect id="pin-A11-frame" class="input-frame" x="275.54" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A11-state" cx="279.04" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A11-click" class="click-area" x="275.04" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A12" data-pin="A12">
+    <rect id="pin-A12-frame" class="input-frame" x="285.7" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A12-state" cx="289.2" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A12-click" class="click-area" x="285.2" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A13" data-pin="A13">
+    <rect id="pin-A13-frame" class="input-frame" x="295.86" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A13-state" cx="299.36" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A13-click" class="click-area" x="295.36" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A14" data-pin="A14">
+    <rect id="pin-A14-frame" class="input-frame" x="306.02" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A14-state" cx="309.52" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A14-click" class="click-area" x="305.52" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-A15" data-pin="A15">
+    <rect id="pin-A15-frame" class="input-frame" x="316.18" y="201.7" width="7" height="7" style="display:none"/>
+    <circle id="pin-A15-state" cx="319.68" cy="205.2" r="2.5" fill="#000000"/>
+    <rect id="pin-A15-click" class="click-area" x="315.68" y="200.6" width="8" height="9.2"/>
+  </g>
+  <g id="pin-22" data-pin="22">
+    <rect id="pin-22-frame" class="input-frame" x="382.9" y="36.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-22-state" cx="386.4" cy="40" r="2.5" fill="#000000"/>
+    <rect id="pin-22-click" class="click-area" x="382.4" y="35.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-23" data-pin="23">
+    <rect id="pin-23-frame" class="input-frame" x="393.06" y="36.5" width="7" height="7" style="display:none"/>
+    <circle id="pin-23-state" cx="396.56" cy="40" r="2.5" fill="#000000"/>
+    <rect id="pin-23-click" class="click-area" x="392.56" y="35.4" width="8" height="9.2"/>
+  </g>
+  <g id="pin-24" data-pin="24">
+    <rect id="pin-24-frame" class="input-frame" x="382.9" y="46.66" width="7" height="7" style="display:none"/>
+    <circle id="pin-24-state" cx="386.4" cy="50.16" r="2.5" fill="#000000"/>
+    <rect id="pin-24-click" class="click-area" x="382.4" y="45.56" width="8" height="9.2"/>
+  </g>
+  <g id="pin-25" data-pin="25">
+    <rect id="pin-25-frame" class="input-frame" x="393.06" y="46.66" width="7" height="7" style="display:none"/>
+    <circle id="pin-25-state" cx="396.56" cy="50.16" r="2.5" fill="#000000"/>
+    <rect id="pin-25-click" class="click-area" x="392.56" y="45.56" width="8" height="9.2"/>
+  </g>
+  <g id="pin-26" data-pin="26">
+    <rect id="pin-26-frame" class="input-frame" x="382.9" y="56.82" width="7" height="7" style="display:none"/>
+    <circle id="pin-26-state" cx="386.4" cy="60.32" r="2.5" fill="#000000"/>
+    <rect id="pin-26-click" class="click-area" x="382.4" y="55.72" width="8" height="9.2"/>
+  </g>
+  <g id="pin-27" data-pin="27">
+    <rect id="pin-27-frame" class="input-frame" x="393.06" y="56.82" width="7" height="7" style="display:none"/>
+    <circle id="pin-27-state" cx="396.56" cy="60.32" r="2.5" fill="#000000"/>
+    <rect id="pin-27-click" class="click-area" x="392.56" y="55.72" width="8" height="9.2"/>
+  </g>
+  <g id="pin-28" data-pin="28">
+    <rect id="pin-28-frame" class="input-frame" x="382.9" y="66.98" width="7" height="7" style="display:none"/>
+    <circle id="pin-28-state" cx="386.4" cy="70.48" r="2.5" fill="#000000"/>
+    <rect id="pin-28-click" class="click-area" x="382.4" y="65.88" width="8" height="9.2"/>
+  </g>
+  <g id="pin-29" data-pin="29">
+    <rect id="pin-29-frame" class="input-frame" x="393.06" y="66.98" width="7" height="7" style="display:none"/>
+    <circle id="pin-29-state" cx="396.56" cy="70.48" r="2.5" fill="#000000"/>
+    <rect id="pin-29-click" class="click-area" x="392.56" y="65.88" width="8" height="9.2"/>
+  </g>
+  <g id="pin-30" data-pin="30">
+    <rect id="pin-30-frame" class="input-frame" x="382.9" y="77.14" width="7" height="7" style="display:none"/>
+    <circle id="pin-30-state" cx="386.4" cy="80.64" r="2.5" fill="#000000"/>
+    <rect id="pin-30-click" class="click-area" x="382.4" y="76.04" width="8" height="9.2"/>
+  </g>
+  <g id="pin-31" data-pin="31">
+    <rect id="pin-31-frame" class="input-frame" x="393.06" y="77.14" width="7" height="7" style="display:none"/>
+    <circle id="pin-31-state" cx="396.56" cy="80.64" r="2.5" fill="#000000"/>
+    <rect id="pin-31-click" class="click-area" x="392.56" y="76.04" width="8" height="9.2"/>
+  </g>
+  <g id="pin-32" data-pin="32">
+    <rect id="pin-32-frame" class="input-frame" x="382.9" y="87.3" width="7" height="7" style="display:none"/>
+    <circle id="pin-32-state" cx="386.4" cy="90.8" r="2.5" fill="#000000"/>
+    <rect id="pin-32-click" class="click-area" x="382.4" y="86.2" width="8" height="9.2"/>
+  </g>
+  <g id="pin-33" data-pin="33">
+    <rect id="pin-33-frame" class="input-frame" x="393.06" y="87.3" width="7" height="7" style="display:none"/>
+    <circle id="pin-33-state" cx="396.56" cy="90.8" r="2.5" fill="#000000"/>
+    <rect id="pin-33-click" class="click-area" x="392.56" y="86.2" width="8" height="9.2"/>
+  </g>
+  <g id="pin-34" data-pin="34">
+    <rect id="pin-34-frame" class="input-frame" x="382.9" y="97.46" width="7" height="7" style="display:none"/>
+    <circle id="pin-34-state" cx="386.4" cy="100.96" r="2.5" fill="#000000"/>
+    <rect id="pin-34-click" class="click-area" x="382.4" y="96.36" width="8" height="9.2"/>
+  </g>
+  <g id="pin-35" data-pin="35">
+    <rect id="pin-35-frame" class="input-frame" x="393.06" y="97.46" width="7" height="7" style="display:none"/>
+    <circle id="pin-35-state" cx="396.56" cy="100.96" r="2.5" fill="#000000"/>
+    <rect id="pin-35-click" class="click-area" x="392.56" y="96.36" width="8" height="9.2"/>
+  </g>
+  <g id="pin-36" data-pin="36">
+    <rect id="pin-36-frame" class="input-frame" x="382.9" y="107.62" width="7" height="7" style="display:none"/>
+    <circle id="pin-36-state" cx="386.4" cy="111.12" r="2.5" fill="#000000"/>
+    <rect id="pin-36-click" class="click-area" x="382.4" y="106.52" width="8" height="9.2"/>
+  </g>
+  <g id="pin-37" data-pin="37">
+    <rect id="pin-37-frame" class="input-frame" x="393.06" y="107.62" width="7" height="7" style="display:none"/>
+    <circle id="pin-37-state" cx="396.56" cy="111.12" r="2.5" fill="#000000"/>
+    <rect id="pin-37-click" class="click-area" x="392.56" y="106.52" width="8" height="9.2"/>
+  </g>
+  <g id="pin-38" data-pin="38">
+    <rect id="pin-38-frame" class="input-frame" x="382.9" y="117.78" width="7" height="7" style="display:none"/>
+    <circle id="pin-38-state" cx="386.4" cy="121.28" r="2.5" fill="#000000"/>
+    <rect id="pin-38-click" class="click-area" x="382.4" y="116.68" width="8" height="9.2"/>
+  </g>
+  <g id="pin-39" data-pin="39">
+    <rect id="pin-39-frame" class="input-frame" x="393.06" y="117.78" width="7" height="7" style="display:none"/>
+    <circle id="pin-39-state" cx="396.56" cy="121.28" r="2.5" fill="#000000"/>
+    <rect id="pin-39-click" class="click-area" x="392.56" y="116.68" width="8" height="9.2"/>
+  </g>
+  <g id="pin-40" data-pin="40">
+    <rect id="pin-40-frame" class="input-frame" x="382.9" y="127.94" width="7" height="7" style="display:none"/>
+    <circle id="pin-40-state" cx="386.4" cy="131.44" r="2.5" fill="#000000"/>
+    <rect id="pin-40-click" class="click-area" x="382.4" y="126.84" width="8" height="9.2"/>
+  </g>
+  <g id="pin-41" data-pin="41">
+    <rect id="pin-41-frame" class="input-frame" x="393.06" y="127.94" width="7" height="7" style="display:none"/>
+    <circle id="pin-41-state" cx="396.56" cy="131.44" r="2.5" fill="#000000"/>
+    <rect id="pin-41-click" class="click-area" x="392.56" y="126.84" width="8" height="9.2"/>
+  </g>
+  <g id="pin-42" data-pin="42">
+    <rect id="pin-42-frame" class="input-frame" x="382.9" y="138.1" width="7" height="7" style="display:none"/>
+    <circle id="pin-42-state" cx="386.4" cy="141.6" r="2.5" fill="#000000"/>
+    <rect id="pin-42-click" class="click-area" x="382.4" y="137" width="8" height="9.2"/>
+  </g>
+  <g id="pin-43" data-pin="43">
+    <rect id="pin-43-frame" class="input-frame" x="393.06" y="138.1" width="7" height="7" style="display:none"/>
+    <circle id="pin-43-state" cx="396.56" cy="141.6" r="2.5" fill="#000000"/>
+    <rect id="pin-43-click" class="click-area" x="392.56" y="137" width="8" height="9.2"/>
+  </g>
+  <g id="pin-44" data-pin="44">
+    <rect id="pin-44-frame" class="input-frame" x="382.9" y="148.26" width="7" height="7" style="display:none"/>
+    <circle id="pin-44-state" cx="386.4" cy="151.76" r="2.5" fill="#000000"/>
+    <rect id="pin-44-click" class="click-area" x="382.4" y="147.16" width="8" height="9.2"/>
+  </g>
+  <g id="pin-45" data-pin="45">
+    <rect id="pin-45-frame" class="input-frame" x="393.06" y="148.26" width="7" height="7" style="display:none"/>
+    <circle id="pin-45-state" cx="396.56" cy="151.76" r="2.5" fill="#000000"/>
+    <rect id="pin-45-click" class="click-area" x="392.56" y="147.16" width="8" height="9.2"/>
+  </g>
+  <g id="pin-46" data-pin="46">
+    <rect id="pin-46-frame" class="input-frame" x="382.9" y="158.42" width="7" height="7" style="display:none"/>
+    <circle id="pin-46-state" cx="386.4" cy="161.92" r="2.5" fill="#000000"/>
+    <rect id="pin-46-click" class="click-area" x="382.4" y="157.32" width="8" height="9.2"/>
+  </g>
+  <g id="pin-47" data-pin="47">
+    <rect id="pin-47-frame" class="input-frame" x="393.06" y="158.42" width="7" height="7" style="display:none"/>
+    <circle id="pin-47-state" cx="396.56" cy="161.92" r="2.5" fill="#000000"/>
+    <rect id="pin-47-click" class="click-area" x="392.56" y="157.32" width="8" height="9.2"/>
+  </g>
+  <g id="pin-48" data-pin="48">
+    <rect id="pin-48-frame" class="input-frame" x="382.9" y="168.58" width="7" height="7" style="display:none"/>
+    <circle id="pin-48-state" cx="386.4" cy="172.08" r="2.5" fill="#000000"/>
+    <rect id="pin-48-click" class="click-area" x="382.4" y="167.48" width="8" height="9.2"/>
+  </g>
+  <g id="pin-49" data-pin="49">
+    <rect id="pin-49-frame" class="input-frame" x="393.06" y="168.58" width="7" height="7" style="display:none"/>
+    <circle id="pin-49-state" cx="396.56" cy="172.08" r="2.5" fill="#000000"/>
+    <rect id="pin-49-click" class="click-area" x="392.56" y="167.48" width="8" height="9.2"/>
+  </g>
+  <g id="pin-50" data-pin="50">
+    <rect id="pin-50-frame" class="input-frame" x="382.9" y="178.74" width="7" height="7" style="display:none"/>
+    <circle id="pin-50-state" cx="386.4" cy="182.24" r="2.5" fill="#000000"/>
+    <rect id="pin-50-click" class="click-area" x="382.4" y="177.64" width="8" height="9.2"/>
+  </g>
+  <g id="pin-51" data-pin="51">
+    <rect id="pin-51-frame" class="input-frame" x="393.06" y="178.74" width="7" height="7" style="display:none"/>
+    <circle id="pin-51-state" cx="396.56" cy="182.24" r="2.5" fill="#000000"/>
+    <rect id="pin-51-click" class="click-area" x="392.56" y="177.64" width="8" height="9.2"/>
+  </g>
+  <g id="pin-52" data-pin="52">
+    <rect id="pin-52-frame" class="input-frame" x="382.9" y="188.9" width="7" height="7" style="display:none"/>
+    <circle id="pin-52-state" cx="386.4" cy="192.4" r="2.5" fill="#000000"/>
+    <rect id="pin-52-click" class="click-area" x="382.4" y="187.8" width="8" height="9.2"/>
+  </g>
+  <g id="pin-53" data-pin="53">
+    <rect id="pin-53-frame" class="input-frame" x="393.06" y="188.9" width="7" height="7" style="display:none"/>
+    <circle id="pin-53-state" cx="396.56" cy="192.4" r="2.5" fill="#000000"/>
+    <rect id="pin-53-click" class="click-area" x="392.56" y="187.8" width="8" height="9.2"/>
+  </g>
+  <rect id="led-tx" x="40" y="66" width="5" height="2.6" rx="1" ry="1" fill="transparent" fill-opacity="0"/>
+  <rect id="led-rx" x="40" y="72" width="5" height="2.6" rx="1" ry="1" fill="transparent" fill-opacity="0"/>
+  <rect id="led-l" x="40" y="78" width="5" height="2.6" rx="1" ry="1" fill="transparent" fill-opacity="0"/>
+  <rect id="led-on" x="40" y="84" width="5" height="2.6" rx="1" ry="1" fill="transparent" fill-opacity="0"/>
+  <g id="reset-button">
+    <circle id="reset-click" class="click-area" cx="52" cy="104" r="7"/>
+  </g>
+</svg>

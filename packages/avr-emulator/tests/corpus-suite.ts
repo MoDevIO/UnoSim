@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { type CaseRun, type CorpusCase, diffOutput, expectedOf, loadCorpus, runCase } from "./corpus-helpers";
+import { type CaseRun, type CorpusCase, diffOutput, expectedOf, expectedPortsOf, loadCorpus, runCase } from "./corpus-helpers";
 
 /** A case emulates up to several seconds of sketch time. */
 const CASE_TIMEOUT_MS = 120_000;
@@ -15,6 +15,7 @@ export const SHARDS: Readonly<Record<string, (testCase: CorpusCase) => boolean>>
   "it01-it03": (testCase) => testCase.group === "examples-v3.0.0" && /^it0[1-3]-/.test(testCase.id),
   "it04-it05": (testCase) => testCase.group === "examples-v3.0.0" && /^it0[45]-/.test(testCase.id),
   "it06-it11": (testCase) => testCase.group === "examples-v3.0.0" && /^it(0[678]|11)-/.test(testCase.id),
+  mega: (testCase) => testCase.group === "examples-v3.0.0-mega",
 };
 
 /**
@@ -39,6 +40,13 @@ export function shardSuite(name: string): () => void {
       it("reproduces the expected output", () => {
         expect(diffOutput(expectedOf(testCase), run.output, testCase.tolerances)).toEqual([]);
       });
+
+      const ports = [...expectedPortsOf(testCase)];
+      if (ports.length > 0) {
+        it(`reproduces the expected output of ${ports.map(([port]) => `Serial${port}`).join(", ")}`, () => {
+          for (const [port, expected] of ports) expect(diffOutput(expected, run.portOutput(port), testCase.tolerances), `Serial${port}`).toEqual([]);
+        });
+      }
 
       it("satisfies its state checks", () => {
         const failed = run.result.checks.filter((check) => !check.ok).map((check) => `${JSON.stringify(check.expectation)} actual ${check.actual}`);

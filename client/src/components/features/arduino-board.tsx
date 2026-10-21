@@ -8,7 +8,7 @@ import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
 import { DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
 import { activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
-import { type BoardView, boardView } from "@/lib/board-view";
+import { type BoardView, DEFAULT_LOGO_PLACEMENT, boardView } from "@/lib/board-view";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
@@ -628,10 +628,10 @@ export function ArduinoBoard({
                   aria-hidden="true"
                   className="absolute"
                   style={{
-                    left: "70%",
-                    top: "66%",
-                    width: "24%",
-                    height: "8%",
+                    left: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).left}%`,
+                    top: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).top}%`,
+                    width: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).width}%`,
+                    height: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).height}%`,
                     objectFit: "contain",
                     transform: "translate(-50%, -50%)",
                   }}
@@ -710,9 +710,9 @@ function getAnalogDialogCoordinates(
   const svgEl = overlayRef.current.querySelector("svg");
   if (!svgEl) return null;
 
-  const idx = dialog.pin - 14;
+  // The state dot of the pin: `pin-A15-state` for an analog input of the board (its label), else `pin-<n>-state`.
   const el =
-    svgEl.querySelector<SVGGraphicsElement>(`#pin-A${idx}-state`) ||
+    svgEl.querySelector<SVGGraphicsElement>(`#pin-${activePinLabel(dialog.pin)}-state`) ||
     svgEl.querySelector<SVGGraphicsElement>(`#pin-${dialog.pin}-state`);
   if (!el) return null;
 

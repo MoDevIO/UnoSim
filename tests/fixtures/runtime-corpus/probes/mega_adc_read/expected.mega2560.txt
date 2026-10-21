@@ -1,0 +1,9 @@
+A0 514
+A7 1023
+A8 225
+A15 125
+A15 internal 1.1 V 569
+A15 internal 2.56 V 244
+A15 default again 125
+analogRead(15) = 125
+DONE

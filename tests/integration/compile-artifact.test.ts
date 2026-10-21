@@ -30,6 +30,7 @@ describe("compile artifact (real toolchain)", () => {
   it.each([
     ["uno", "arduino:avr:uno"],
     ["nano", "arduino:avr:nano:cpu=atmega328"],
+    ["mega2560", "arduino:avr:mega:cpu=atmega2560"],
   ] as const)("builds a valid artifact for %s that the emulator package accepts", async (board, fqbn) => {
     const options = { board, fqbn, buildPath: join(root, `build-${board}`), hexCacheDir: join(root, "hex-cache") };
     const code = SKETCH(randomUUID());
@@ -40,10 +41,11 @@ describe("compile artifact (real toolchain)", () => {
     expect(first.success).toBe(true);
     expect(artifact?.board).toBe(board);
     expect(decodeBase64(artifact?.flashBase64 ?? "")).toHaveLength(artifact?.flashBytes ?? -1);
-    expect(artifact?.symbols.data.__bss_end).toBeGreaterThanOrEqual(0x100);
+    expect(artifact?.symbols.data.__bss_end).toBeGreaterThanOrEqual(board === "mega2560" ? 0x200 : 0x100); // where the SRAM of the MCU starts
     const loaded = loadSimulationImage(artifact);
     expect(loaded.board).toBe(board);
     expect(loaded.flashBytes).toBe(artifact?.flashBytes);
+    expect(loaded.progMem.length * 2).toBe(board === "mega2560" ? 256 * 1024 : 32 * 1024); // the image fills the flash of the MCU
 
     const second = await compiler.compile(code, undefined, undefined, { ...options, buildPath: join(root, `again-${board}`) });
     expect(second.artifact).toEqual(first.artifact);
