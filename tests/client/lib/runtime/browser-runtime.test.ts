@@ -214,6 +214,40 @@ describe("BrowserRuntime (plan P3.2)", () => {
     expect(serialEvents().at(-1)).toEqual({ type: "serial_output", data: "\n", isComplete: true });
   });
 
+  it("names the port of serial output from Serial1 to Serial3 and keeps a waiting CR per port", () => {
+    const { startRunning, worker, ev, events } = setup();
+    const runId = startRunning();
+    events.length = 0;
+    const serialEvents = () => events.filter((event) => event.type === "serial_output");
+
+    worker().emit(ev(runId, { type: "serial", port: 1, text: "S1 hello\r\n" }));
+    worker().emit(ev(runId, { type: "serial", port: 2, text: "part\r" }));
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "zero\r" }));
+    worker().emit(ev(runId, { type: "serial", port: 2, text: "\nrest" }));
+    worker().emit(ev(runId, { type: "serial", port: 0, text: "\n" }));
+
+    expect(serialEvents()).toEqual([
+      { type: "serial_output", data: "S1 hello\n", isComplete: true, port: 1 },
+      { type: "serial_output", data: "part", isComplete: false, port: 2 },
+      { type: "serial_output", data: "zero", isComplete: false },
+      { type: "serial_output", data: "\nrest", isComplete: false, port: 2 },
+      { type: "serial_output", data: "\n", isComplete: true },
+    ]);
+  });
+
+  it("sends serial input to the given port", () => {
+    const { runtime, worker, startRunning } = setup();
+    const runId = startRunning();
+
+    runtime.sendSerial("to Serial2", 2);
+    runtime.sendSerial("to Serial");
+
+    expect(worker().sent.filter((command) => command.type === "serialIn")).toEqual([
+      { type: "serialIn", runId, port: 2, text: "to Serial2" },
+      { type: "serialIn", runId, port: 0, text: "to Serial" },
+    ]);
+  });
+
   it("does not repeat a pin state that did not change", () => {
     const { startRunning, worker, ev, events } = setup();
     const runId = startRunning();

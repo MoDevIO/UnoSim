@@ -14,6 +14,6 @@ export function diagnosticLine(event: DiagnosticEvent): string {
     case "sleep-interrupts-disabled":
       return `--- Warning: sleep with interrupts disabled, the board would never wake up (address ${hex(event.pc)}) ---\n`;
     case "serial-input-discarded":
-      return "--- Serial input discarded because the receiver was not enabled yet (Serial.begin() has not run) ---\n";
+      return `--- Serial input discarded because the receiver was not enabled yet (${event.port === 0 ? "Serial" : `Serial${event.port}`}.begin() has not run) ---\n`;
   }
 }

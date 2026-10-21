@@ -69,7 +69,7 @@ export type UseWebSocketHandlerParams = {
   // callbacks / setters from parent scope
   addDebugMessage: (source: DebugSender, type: string, data: string, protocol?: DebugProtocol) => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
-  appendSerialOutput: (text: string) => void;
+  appendSerialOutput: (text: string, port?: number) => void;
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
   setArduinoCliStatus: React.Dispatch<React.SetStateAction<"idle" | "compiling" | "success" | "error">>;
@@ -172,6 +172,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const handleSerialOutput = (message: SerialPayload) => {
     let text = (message.data ?? "").toString();
     const isComplete = message.isComplete ?? true;
+    const port = message.port ?? 0;
 
     // Skip timing control messages
     if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
@@ -205,8 +206,11 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       } else {
         textForRenderer = text;
       }
-      appendSerialOutput(textForRenderer);
+      appendSerialOutput(textForRenderer, port);
     }
+
+    // The plotter and the line list belong to `Serial`; the other ports have their text only.
+    if (port !== 0) return;
 
     setSerialOutput((prev) => {
       const newLines = [...prev];

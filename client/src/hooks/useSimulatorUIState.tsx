@@ -71,6 +71,10 @@ interface UseSimulatorUIStateParams {
   setAutoScrollEnabled: (enabled: boolean) => void;
   serialInputValue: string;
   setSerialInputValue: (value: string) => void;
+  /** The port the monitor shows and the number of ports the board has (the selector appears above 1). */
+  serialPort?: number;
+  setSerialPort?: (port: number) => void;
+  serialPortCount?: number;
   handleSerialInputKeyDown: (event: React.KeyboardEvent) => void;
   handleSerialInputSend: () => void;
   baudRate: number;
@@ -161,6 +165,9 @@ export function useSimulatorUIState({
   setAutoScrollEnabled,
   serialInputValue,
   setSerialInputValue,
+  serialPort = 0,
+  setSerialPort,
+  serialPortCount = 1,
   handleSerialInputKeyDown,
   handleSerialInputSend,
   baudRate,
@@ -364,6 +371,9 @@ export function useSimulatorUIState({
           setAutoScrollEnabled={setAutoScrollEnabled}
           serialInputValue={serialInputValue}
           setSerialInputValue={setSerialInputValue}
+          serialPort={serialPort}
+          {...(setSerialPort ? { setSerialPort } : {})}
+          serialPortCount={serialPortCount}
           handleSerialInputKeyDown={handleSerialInputKeyDown}
           handleSerialInputSend={handleSerialInputSend}
           debugMode={debugMode}
@@ -388,6 +398,9 @@ export function useSimulatorUIState({
       setAutoScrollEnabled,
       serialInputValue,
       setSerialInputValue,
+      serialPort,
+      setSerialPort,
+      serialPortCount,
       handleSerialInputKeyDown,
       handleSerialInputSend,
       debugMode,

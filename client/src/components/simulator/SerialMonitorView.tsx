@@ -42,6 +42,37 @@ const getSerialViewIcon = (mode: SerialViewMode) => {
   }
 };
 
+const serialPortName = (port: number): string => (port === 0 ? "Serial" : `Serial${port}`);
+
+/** Selector for the hardware serial port the monitor shows (boards with more than one: Mega 2560). */
+function SerialPortSelector(props: {
+  readonly count: number;
+  readonly selected: number;
+  readonly onSelect: (port: number) => void;
+}) {
+  const { count, selected, onSelect } = props;
+  return (
+    <div role="tablist" aria-label="Serial port" className="flex items-center gap-0.5 rounded-md bg-background/60 p-0.5" data-testid="serial-port-selector">
+      {Array.from({ length: count }, (_, port) => (
+        <button
+          key={port}
+          type="button"
+          role="tab"
+          aria-selected={port === selected}
+          className={clsx(
+            "rounded px-2 py-0.5 font-mono text-ui-xs transition-colors",
+            port === selected ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => onSelect(port)}
+          data-testid={`serial-port-${port}`}
+        >
+          {serialPortName(port)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 interface SerialContentAreaProps {
   showSerialMonitor: boolean;
   showSerialPlotter: boolean;
@@ -146,6 +177,10 @@ interface SerialMonitorViewProps {
   readonly setAutoScrollEnabled: (value: boolean) => void;
   readonly serialInputValue: string;
   readonly setSerialInputValue: (value: string) => void;
+  /** The port the monitor shows, the ports of the board (the selector appears above 1) and the setter. */
+  readonly serialPort?: number;
+  readonly serialPortCount?: number;
+  readonly setSerialPort?: (port: number) => void;
   readonly handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
   readonly handleSerialInputSend: () => void;
   readonly debugMode: boolean;
@@ -176,6 +211,8 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
     telemetryData,
     baudRate,
   } = props;
+  const serialPort = props.serialPort ?? 0;
+  const serialPortCount = props.serialPortCount ?? 1;
 
   const lastTelemetry = telemetryData?.last;
   const serialTelegramsPerSecond = lastTelemetry?.serialOutputPerSecond ?? 0;
@@ -263,6 +300,9 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 </div>
               </div>
             ) : undefined}
+            {...(serialPortCount > 1 && props.setSerialPort
+              ? { centerAction: <SerialPortSelector count={serialPortCount} selected={serialPort} onSelect={props.setSerialPort} /> }
+              : {})}
             actions={
               <>
               <ToolbarIconButton
@@ -313,7 +353,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
         <div className="w-full">
           <InputGroup
             type="text"
-            placeholder="Send to Arduino..."
+            placeholder={serialPort === 0 ? "Send to Arduino..." : `Send to ${serialPortName(serialPort)}...`}
             value={serialInputValue}
             onChange={(e) => setSerialInputValue(e.target.value)}
             onKeyDown={handleSerialInputKeyDown}

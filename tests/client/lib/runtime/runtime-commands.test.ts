@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WSMessage } from "@shared/schema";
+import { setActiveBoard } from "../../../../client/src/lib/active-board";
 import { createRuntimeCommandRouter } from "../../../../client/src/lib/runtime/runtime-commands";
 import type { RuntimeHub } from "../../../../client/src/lib/runtime/runtime-hub";
 
@@ -36,6 +37,31 @@ describe("runtime command router (plan P3.4)", () => {
 
     expect(runtime.setPin.mock.calls).toEqual([[2, 1], [14, 1], [5, 600]]);
     expect(runtime.setAnalog.mock.calls).toEqual([[14, 600]]);
+  });
+
+  it("passes the port of serial input on", () => {
+    const { router, runtime } = setup("browser");
+
+    router.route({ type: "serial_input", data: "a", port: 2 });
+    router.route({ type: "serial_input", data: "b", port: 0 });
+
+    expect(runtime.sendSerial.mock.calls).toEqual([["a", 2], ["b", 0]]);
+  });
+
+  it("takes a value above 1 on every analog input of the selected board as an analog value", () => {
+    const { router, runtime } = setup("browser");
+    setActiveBoard("mega2560");
+    try {
+      router.route({ type: "set_pin_value", pin: 54, value: 700 }); // A0
+      router.route({ type: "set_pin_value", pin: 69, value: 1 }); // A15 driven digitally
+      router.route({ type: "set_pin_value", pin: 69, value: 300 });
+      router.route({ type: "set_pin_value", pin: 14, value: 300 }); // TX3 on the Mega, no analog input
+    } finally {
+      setActiveBoard("uno");
+    }
+
+    expect(runtime.setAnalog.mock.calls).toEqual([[54, 700], [69, 300]]);
+    expect(runtime.setPin.mock.calls).toEqual([[69, 1], [14, 300]]); // the runtime clamps a digital pin to 0 or 1
   });
 
   it("leaves start, compile-time messages and everything else to the connection", () => {

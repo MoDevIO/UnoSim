@@ -1,9 +1,6 @@
 import type { WSMessage } from "@shared/schema";
+import { isAnalogPin } from "@/lib/active-board";
 import type { RuntimeHub } from "./runtime-hub";
-
-/** Pins A0–A5 of the Uno; an external value above 1 on one of them is an analog value. */
-const FIRST_ANALOG_PIN = 14;
-const LAST_ANALOG_PIN = 19;
 
 /**
  * The boundary between the controllers and the active runtime (plan P3.4).
@@ -37,10 +34,12 @@ export function createRuntimeCommandRouter(hub: Pick<RuntimeHub, "active" | "pee
           runtime.stop();
           return true;
         case "serial_input":
-          runtime.sendSerial(message.data);
+          if (message.port === undefined) runtime.sendSerial(message.data);
+          else runtime.sendSerial(message.data, message.port);
           return true;
         case "set_pin_value":
-          if (message.pin >= FIRST_ANALOG_PIN && message.pin <= LAST_ANALOG_PIN && message.value > 1) runtime.setAnalog(message.pin, message.value);
+          // An external value above 1 on an analog input of the selected board (A0–A5 Uno, A0–A7 Nano, A0–A15 Mega) is an analog value.
+          if (isAnalogPin(message.pin) && message.value > 1) runtime.setAnalog(message.pin, message.value);
           else runtime.setPin(message.pin, message.value);
           return true;
         default:

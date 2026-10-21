@@ -211,6 +211,15 @@ describe("WebSocket lifecycle through the production route", () => {
     expect(runner.sendSerialInput).toHaveBeenCalledWith("hello Uno\n");
   });
 
+  it("forwards serial input for Serial and drops input for a port the host mock does not have", async () => {
+    client.send(JSON.stringify({ type: "serial_input", data: "to Serial1", port: 1 }));
+    client.send(JSON.stringify({ type: "serial_input", data: "to Serial", port: 0 }));
+
+    await waitFor(() => runner.sendSerialInput.mock.calls.length === 1, "serial input forwarding");
+
+    expect(runner.sendSerialInput.mock.calls).toEqual([["to Serial"]]);
+  });
+
   it("forwards a pin value to the active runner", async () => {
     client.send(JSON.stringify({ type: "set_pin_value", pin: 13, value: 1 }));
 

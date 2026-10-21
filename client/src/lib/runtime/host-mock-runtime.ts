@@ -80,7 +80,8 @@ export class HostMockRuntime implements SimulationRuntime {
     if (request) this.start(request);
   }
 
-  sendSerial(text: string): void {
+  sendSerial(text: string, port = 0): void {
+    if (port !== 0) return; // the server's sketch has the one `Serial`
     this.transport.send({ type: "serial_input", data: text });
   }
 

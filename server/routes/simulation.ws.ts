@@ -201,6 +201,8 @@ function handleSerialInput(
   data: Extract<ClientToServerWSMessage, { type: "serial_input" }>,
   clientState: ClientState,
 ): void {
+  // The host mock has the one `Serial`; the other ports exist only in the browser emulation.
+  if ((data.port ?? 0) !== 0) return;
   if (
     clientState?.runner &&
     clientState?.isRunning &&

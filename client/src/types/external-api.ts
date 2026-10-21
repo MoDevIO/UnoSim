@@ -20,6 +20,8 @@ export interface ExternalStateData {
   runtime?: string;
   /** Same values as GET_SIMULATION_STATE. */
   state: string;
+  /** Number of hardware serial ports of the board: 1 (`Serial`), 4 on the Mega 2560 (`Serial` to `Serial3`). */
+  serialPorts: number;
 }
 
 /**
@@ -108,6 +110,8 @@ export interface BatchSetPinStatePayload {
  */
 export interface SerialInputPayload {
   data: string;
+  /** Serial port: 0 = `Serial` (the default), 1–3 = `Serial1`–`Serial3` on the Mega 2560. */
+  port?: number;
 }
 
 /**
@@ -258,6 +262,8 @@ export interface SimulatorResponse {
 export type SimulatorEventMessage<T extends SimulatorEventType = SimulatorEventType> = {
   version: string;
   type: T;
+  /** SERIAL_OUTPUT_EVENT from `Serial1`–`Serial3`: the port (absent for `Serial`). */
+  port?: number;
   success: T extends SimulatorEventType.OPERATION_ERROR_EVENT ? false : true;
   data: T extends SimulatorEventType.PIN_STATE_CHANGE_EVENT
     ? PinStateChangeEventData

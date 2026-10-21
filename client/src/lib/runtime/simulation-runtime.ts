@@ -74,7 +74,8 @@ export interface SimulationRuntime {
   stop(): void;
   /** Browser: CPU reset without compiling again; host mock: stop and start again. */
   reset(): void;
-  sendSerial(text: string): void;
+  /** Serial input to a hardware serial port (0 = `Serial`, 1–3 = `Serial1`–`Serial3`); the host mock has port 0 only. */
+  sendSerial(text: string, port?: number): void;
   /** Drives a digital input: 0 or 1 (the host mock also takes analog values here, as the controllers send them today). */
   setPin(pin: number, value: number): void;
   /** Analog input value 0–1023 on an analog pin. */
