@@ -34,6 +34,8 @@ export const INPUT_LIMITS = {
   webSocket: {
     maxPayloadBytes: 256 * 1024,
     maxSerialInputChars: 4 * 1024,
+    /** Highest hardware serial port index: `Serial3` of the Mega 2560. */
+    maxSerialPort: 3,
     maxTestRunIdChars: 64,
   },
   simulation: {

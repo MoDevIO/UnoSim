@@ -256,3 +256,63 @@ describe("installWorker", () => {
     });
   });
 });
+
+describe("WorkerHost with the Mega 2560 (plan P5.3)", () => {
+  const megaSetup = () => {
+    const context = setup();
+    const load = (runId: number) =>
+      context.send({ type: "load", runId, board: "mega2560", artifactBoard: "mega2560", buildId: "mega-1", ...artifact("mega2560-mega_serial_ports", "mega2560") });
+    return { ...context, load };
+  };
+  const textOf = (events: RunEvent[], port: number) =>
+    byType(events, "serial")
+      .filter((e) => (e as { port: number }).port === port)
+      .map((e) => (e as { text: string }).text)
+      .join("")
+      .replaceAll("\r\n", "\n");
+
+  it("loads a Mega image and reports the output of each port under its index", () => {
+    const { load, send, take, clock } = megaSetup();
+    load(1);
+    send({ type: "start", runId: 2, timeoutMs: 60_000 });
+    clock.runUntil(300);
+    const events = take();
+
+    expect(byType(events, "ready")).toEqual([{ type: "ready", protocolVersion: PROTOCOL_VERSION, board: "mega2560", buildId: "mega-1", runId: 1 }]);
+    expect(textOf(events, 0)).toBe("READY\n");
+    expect(textOf(events, 1)).toBe("hello 1\n");
+    expect(textOf(events, 2)).toBe("hello 2\n");
+    expect(textOf(events, 3)).toBe("hello 3\n");
+  });
+
+  it("delivers serial input to the port it names", () => {
+    const { load, send, take, clock } = megaSetup();
+    load(1);
+    send({ type: "start", runId: 2, timeoutMs: 60_000 });
+    clock.runUntil(300);
+    take();
+
+    send({ type: "serialIn", runId: 2, port: 2, text: "ab" });
+    send({ type: "serialIn", runId: 2, port: 3, text: "z" });
+    clock.runUntil(600);
+    const events = take();
+
+    expect(textOf(events, 2)).toBe("AB");
+    expect(textOf(events, 3)).toBe("Z");
+    expect(textOf(events, 1)).toBe("");
+    // Serial3 runs at 57600 baud and delivers its byte before Serial2 (19200 baud) delivers the first of its two.
+    expect(textOf(events, 0)).toBe("3:z\n2:a\n2:b\n");
+  });
+
+  it("refuses a port the Uno does not have", () => {
+    const { load, send, take, clock } = setup();
+    load(1);
+    send({ type: "start", runId: 2, timeoutMs: 60_000 });
+    clock.runUntil(100);
+    take();
+
+    expect(() => send({ type: "serialIn", runId: 2, port: 1, text: "x" })).not.toThrow();
+    clock.runUntil(200);
+    expect(byType(take(), "serial").filter((e) => (e as { port: number }).port === 1)).toEqual([]);
+  });
+});

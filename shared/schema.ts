@@ -14,6 +14,8 @@ export interface Sketch {
   updatedAt: Date;
 }
 
+const serialPortSchema = z.number().int().min(0).max(INPUT_LIMITS.webSocket.maxSerialPort);
+
 const compilerHeaderSchema = z
   .object({
     name: z.string().refine(
@@ -122,10 +124,13 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("serial_output"),
     data: z.string(),
     isComplete: z.boolean().optional(),
+    /** Hardware serial port: 0 = `Serial` (the default), 1–3 = `Serial1`–`Serial3` (Mega 2560). */
+    port: serialPortSchema.optional(),
   }),
   z.object({
     type: z.literal("serial_input"),
     data: z.string().max(INPUT_LIMITS.webSocket.maxSerialInputChars),
+    port: serialPortSchema.optional(),
   }).strict(),
   z.object({
     type: z.literal("start_simulation"),

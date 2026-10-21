@@ -88,6 +88,9 @@ export function resolveBoardPin(board: BoardId, name: string): number | undefine
   return pins.find((candidate) => candidate.analog && candidate.label === name.toUpperCase())?.pin;
 }
 
+/** Number of hardware serial ports (`Serial`, `Serial1`, …); a board without hardware profile counts as the Uno with one. */
+export const boardSerialPortCount = (board: BoardId): number => (hasBoardHardware(board) ? boardHardware(board).serialPorts.length : 1);
+
 /** Highest pin number of the board; the host mock keeps its own limit of 19 (WebSocket boundary). */
 export function maxBoardPin(board: BoardId): number | undefined {
   const pins = boardPins(board);

@@ -13,7 +13,6 @@ import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
 import type { TutorPanelState } from "@/hooks/use-tutor";
-import { renderMermaidSubset } from "@/lib/tutor-mermaid";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import {
@@ -280,9 +279,19 @@ function TutorPlaceholder({
   );
 }
 
+/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
 function MermaidPreview({ source }: { readonly source: string }) {
   const renderId = useId().replaceAll(":", "");
-  const renderedSvg = renderMermaidSubset(source, `tutor-diagram-${renderId}`);
+  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
+  useEffect(() => {
+    let current = true;
+    void import("@/lib/tutor-mermaid").then(({ renderMermaidSubset }) => {
+      if (current) setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));
+    });
+    return () => {
+      current = false;
+    };
+  }, [source, renderId]);
   if (!renderedSvg) return null;
   return <div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} />;
 }

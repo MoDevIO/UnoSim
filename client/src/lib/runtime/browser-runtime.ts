@@ -99,7 +99,8 @@ export class BrowserRuntime implements SimulationRuntime {
   private lastStatus: RunStatus | undefined;
   /** The board of the current run: pin names in the registry follow it (A6/A7 of the Nano). */
   private board: BoardId = "uno";
-  private heldCarriageReturn = false;
+  /** Ports whose last chunk ended in a CR that waits for a possible LF. */
+  private readonly heldCarriageReturn = new Set<number>();
   private readonly lastPins = new Map<number, string>();
   /** Runtime findings of the run as records of the I/O registry, by pin. */
   private readonly registry = new Map<number, IOPinRecord>();
@@ -118,7 +119,7 @@ export class BrowserRuntime implements SimulationRuntime {
     this.lastPins.clear();
     this.registry.clear();
     this.board = artifact.board;
-    this.heldCarriageReturn = false;
+    this.heldCarriageReturn.clear();
     this.pendingStart = { timeoutSec: request.timeoutSec };
     this.timeoutSec = request.timeoutSec;
     this.phase = "loading";
@@ -164,12 +165,12 @@ export class BrowserRuntime implements SimulationRuntime {
     this.command("reset");
   }
 
-  sendSerial(text: string): void {
+  sendSerial(text: string, port = 0): void {
     if (this.gate.state !== "running") return;
     const runId = this.gate.runId;
     if (runId === undefined) return;
     for (let at = 0; at < text.length; at += SERIAL_CHUNK_CHARS) {
-      this.post({ type: "serialIn", runId, port: 0, text: text.slice(at, at + SERIAL_CHUNK_CHARS) });
+      this.post({ type: "serialIn", runId, port, text: text.slice(at, at + SERIAL_CHUNK_CHARS) });
     }
   }
 
@@ -236,7 +237,7 @@ export class BrowserRuntime implements SimulationRuntime {
         this.onStatus(data.state, data.reason);
         break;
       case "serial":
-        this.emitSerial(data.text);
+        this.emitSerial(data.text, data.port);
         break;
       case "pins":
         this.emitPins(data.changes);
@@ -286,13 +287,17 @@ export class BrowserRuntime implements SimulationRuntime {
    * Serial text in the form of the server's messages: lines end with "\n" (CRLF becomes LF), `isComplete` says
    * whether the text ends a line. A CR at the end of a chunk waits for the LF that may follow in the next one.
    */
-  private emitSerial(chunk: string): void {
-    let text = this.heldCarriageReturn ? `\r${chunk}` : chunk;
-    this.heldCarriageReturn = text.endsWith("\r");
-    if (this.heldCarriageReturn) text = text.slice(0, -1);
+  private emitSerial(chunk: string, port: number): void {
+    let text = this.heldCarriageReturn.has(port) ? `\r${chunk}` : chunk;
+    if (text.endsWith("\r")) {
+      this.heldCarriageReturn.add(port);
+      text = text.slice(0, -1);
+    } else {
+      this.heldCarriageReturn.delete(port);
+    }
     text = text.replaceAll("\r\n", "\n");
     if (text.length === 0) return;
-    this.emit({ type: "serial_output", data: text, isComplete: text.endsWith("\n") });
+    this.emit({ type: "serial_output", data: text, isComplete: text.endsWith("\n"), ...(port === 0 ? {} : { port }) });
   }
 
   /** The findings so far as the `io_registry` snapshot the existing handler evaluates; the lines stay 0, only the static analysis knows lines. */

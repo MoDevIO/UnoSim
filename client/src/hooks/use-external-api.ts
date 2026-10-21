@@ -24,7 +24,7 @@ interface UseExternalApiParams {
   /** Returns the current value of a pin (used for GET_PIN_STATE responses). */
   getPinState: (pin: number) => number;
   /** Called when a SERIAL_INPUT message is received. */
-  onSerialInput: (data: string) => void;
+  onSerialInput: (data: string, port?: number) => void;
   /** Called when a SET_SIMULATION_TIMEOUT message is received. */
   onSetSimulationTimeout: (timeout: number) => void;
   /** Called when a SET_OUTPUT_TAB message is received. */
@@ -32,7 +32,7 @@ interface UseExternalApiParams {
   /** Returns the current simulation state (used for GET_SIMULATION_STATE responses). */
   getSimulationState: () => string;
   /** The selected board and runtime (API 1.5.0); without it pins are not checked against a board and GET_STATE answers with the state only. */
-  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind };
+  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind; serialPorts?: number };
   /** Returns the current server status for GET_SERVER_STATUS responses. */
   getServerStatus: () => ServerStatusEventData | null;
 }
@@ -171,7 +171,17 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: false, error: "payload.data must be a string" }, allowedOrigin);
       return;
     }
-    onSerialInput((payload as { data: string }).data);
+    const { data, port } = payload as { data: string; port?: unknown };
+    if (port === undefined || port === 0) {
+      onSerialInput(data);
+    } else {
+      const ports = getBoardInfo?.()?.serialPorts ?? 1;
+      if (!Number.isInteger(port) || (port as number) < 0 || (port as number) >= ports) {
+        sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: false, error: `payload.port must be an integer from 0 to ${ports - 1}` }, allowedOrigin);
+        return;
+      }
+      onSerialInput(data, port as number);
+    }
     sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: true }, allowedOrigin);
   };
 
@@ -206,6 +216,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
       boardName: info?.boardName ?? "Arduino UNO",
       ...(info?.runtime ? { runtime: info.runtime } : {}),
       state: getSimulationState(),
+      serialPorts: info?.serialPorts ?? 1,
     };
     sendMessageToParent({ type: SimulatorActionType.GET_STATE, success: true, data }, allowedOrigin);
   };
@@ -300,12 +311,14 @@ function getAllowedOrigin(): string {
  * Automatically uses the configured allowed origin and includes API version.
  * Safely handles errors to prevent serial output from blocking the simulator.
  * @param output - The serial output string to send.
+ * @param port - The serial port (`Serial1`–`Serial3` on the Mega 2560); the event carries it only when it is not 0.
  */
-export function emitSerialOutput(output: string): void {
+export function emitSerialOutput(output: string, port = 0): void {
   try {
     const event: SimulatorEventMessage<typeof SimulatorEventType.SERIAL_OUTPUT_EVENT> = {
       version: API_VERSION,
       type: SimulatorEventType.SERIAL_OUTPUT_EVENT,
+      ...(port === 0 ? {} : { port }),
       success: true,
       data: output,
     };

@@ -25,14 +25,14 @@ interface UseSimulatorExternalControlParams {
   setSimulationStatus: StateSetter<SimulationStatus>;
   sendMessage: (message: IncomingArduinoMessage) => void;
   pinStates: Array<{ pin: number; value?: number }>;
-  handleSerialSend: (data: string) => void;
+  handleSerialSend: (data: string, port?: number) => void;
   setSimulationTimeout: (timeout: number) => void;
   setActiveOutputTab: (tab: OutputTab) => void;
   simulationStatus: SimulationStatus;
   compilationStatus: string;
   serverStatus: InternalServerStatus | null;
   /** The selected board and runtime, for GET_STATE and the pin checks of API 1.5.0. */
-  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind };
+  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind; serialPorts?: number };
 }
 
 /** Atomically claims a queued external start once its prerequisites are ready. */

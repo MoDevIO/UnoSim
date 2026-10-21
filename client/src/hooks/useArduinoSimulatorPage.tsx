@@ -32,6 +32,7 @@ import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 import { getServerCapabilities } from "@/lib/server-capabilities";
 import { setActiveBoard } from "@/lib/active-board";
+import { boardSerialPortCount } from "@shared/board-pins";
 import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
 import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
@@ -96,6 +97,10 @@ export function useArduinoSimulatorPage() {
     showSerialPlotter,
     cycleSerialViewMode,
     clearSerialOutput,
+    serialPort,
+    setSerialPort,
+    serialPortCount,
+    setSerialPortCount,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
     appendSerialOutput,
@@ -257,6 +262,10 @@ export function useArduinoSimulatorPage() {
   const boardId = runtimeSelection.board?.id;
   // The pin helpers outside the page (pin store, labels, registry table) follow the selected board.
   if (boardId) setActiveBoard(boardId);
+  const boardSerialPorts = boardId ? boardSerialPortCount(boardId) : 1;
+  useEffect(() => {
+    setSerialPortCount(boardSerialPorts);
+  }, [boardSerialPorts, setSerialPortCount]);
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
     if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
@@ -663,13 +672,14 @@ export function useArduinoSimulatorPage() {
       serialInputValue,
       setSerialInputValue,
       clearSerialOutput,
+      serialPort,
       ensureBackendConnected,
       capabilities,
     });
 
   const handleSerialInputSend = () => {
     if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue);
+    handleSerialSend(serialInputValue, serialPort);
   };
 
   const closeMobilePanel = useCallback(() => {
@@ -740,6 +750,9 @@ export function useArduinoSimulatorPage() {
     onNavigateToSource: navigateToSourceLocation,
     renderedSerialOutput,
     serialOutput,
+    serialPort,
+    setSerialPort,
+    serialPortCount,
     isConnected,
     simulationStatus,
     handleSerialSend,
@@ -786,7 +799,7 @@ export function useArduinoSimulatorPage() {
   const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
 
   const { pendingExternalStart } = useSimulatorExternalControl({
-    ...(boardId ? { getBoardInfo: () => ({ board: boardId, boardName: board, ...(engine ? { runtime: engine } : {}) }) } : {}),
+    ...(boardId ? { getBoardInfo: () => ({ board: boardId, boardName: board, serialPorts: boardSerialPorts, ...(engine ? { runtime: engine } : {}) }) } : {}),
     allowedOrigin: externalAllowedOrigin,
     backendReachable,
     isConnected,

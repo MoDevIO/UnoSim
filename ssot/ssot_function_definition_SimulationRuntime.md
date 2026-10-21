@@ -96,7 +96,7 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 - **Systemzeilen** wie beim Server: `--- Simulation paused ---`, `--- Simulation resumed ---`, `--- Simulation stopped ---`, `--- Simulation timeout (Ns) ---`, jeweils mit Zeilenende, als `serial_output`.
 - **Fristen** (`SupervisionLimits`): `ready` 15 s nach `load`; Bestätigung von `start`/`pause`/`resume`/`reset` 5 s; `stop` 2 s (danach `terminate()`); Heartbeat höchstens 3 s Stille, sobald die Maschine geladen ist (der Worker sendet etwa alle 500 ms, auch in der Pause). Wer eine Frist reißt, wird beendet; die UI bekommt `operation_error`, eine Fehlerzeile und `stopped`.
 - `error` und `messageerror` des Workers enden den Lauf auf dieselbe Weise.
-- Serielle Eingabe geht in Stücken zu höchstens 1024 Zeichen an Port 0, nur im Zustand `running`.
+- Serielle Eingabe geht in Stücken zu höchstens 1024 Zeichen an den genannten Port (`sendSerial(text, port = 0)`, Port 0–3; der Host-Mock kennt nur Port 0 und ignoriert andere), nur im Zustand `running`. Ein `serial`-Ereignis eines Ports 1–3 wird zu `serial_output` mit `port`.
 
 ### Anbindung an die Controller (P3.4)
 

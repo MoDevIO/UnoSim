@@ -8,7 +8,7 @@ The Arduino Simulator can be embedded in an `<iframe>` and controlled by its par
 
 ## Versioning and compatibility
 
-The iframe `postMessage` contract is currently version `1.5.0` (additive over `1.4.0`: board and runtime in `GET_STATE`, pin checks per board; plan decision E14). Responses and
+The iframe `postMessage` contract is currently version `1.5.0` (additive over `1.4.0`: board and runtime in `GET_STATE`, pin checks per board, serial ports of the Mega 2560; plan decision E14). Responses and
 events always include this version. Additive fields and message types are
 backward-compatible; removing or changing an existing field requires a new
 major API version and a documented migration period. Historical simulation
@@ -143,7 +143,7 @@ iframe.contentWindow.postMessage(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7 (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
+| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7; Mega 2560 0–53 digital and 54–69 for A0–A15 (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
 | `payload.value` | `number` | Digital: `0` or `1`. Analog: `0–1023`. PWM: `0–255`. |
 
 ---
@@ -201,6 +201,7 @@ iframe.contentWindow.postMessage(
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `payload.data` | `string` | ✅ | Serial data to send to the sketch. |
+| `payload.port` | `number` | – | Hardware serial port: `0` = `Serial` (default), `1`–`3` = `Serial1`–`Serial3` on the Mega 2560 (see `serialPorts` in `GET_STATE`). A port the board does not have is refused with `success: false` and `error: "payload.port must be an integer from 0 to <n>"`. |
 
 ---
 
@@ -266,14 +267,15 @@ iframe.contentWindow.postMessage(
 );
 ```
 
-**Response `data`**: `{ board, boardName, runtime?, state }`
+**Response `data`**: `{ board, boardName, runtime?, state, serialPorts }`
 
 | Field | Description |
 |---|---|
-| `board` | Board id: `uno`, `nano` (more with later releases). |
+| `board` | Board id: `uno`, `nano`, `mega2560` (more with later releases). |
 | `boardName` | Name for display, for example `"Arduino Nano"`. |
 | `runtime` | `"browser"` (emulation in the page) or `"host-mock"` (server-side simulation, "Legacy"): the runtime of the current run, or of the next one while idle. Absent while no runtime is usable. |
 | `state` | Same values as `GET_SIMULATION_STATE`. |
+| `serialPorts` | Number of hardware serial ports of the board: `1`, on the Mega 2560 `4` (`Serial`, `Serial1`–`Serial3`). |
 
 ---
 
@@ -348,6 +350,18 @@ Fired every time the simulator outputs data over the serial interface (Serial.pr
   version: "1.5.0",
   success: true,
   data: "Hello World\n"
+}
+```
+
+Output of `Serial1`–`Serial3` (Mega 2560) carries the port; events of `Serial` have no `port` field:
+
+```js
+{
+  type: "SERIAL_OUTPUT_EVENT",
+  version: "1.5.0",
+  success: true,
+  port: 1,
+  data: "hello from Serial1\n"
 }
 ```
 
