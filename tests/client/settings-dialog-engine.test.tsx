@@ -6,13 +6,13 @@ import { ENGINE_PREFERENCE_KEY } from "@/lib/runtime/runtime-selection";
 
 vi.mock("@/components/features/external-examples-settings", () => ({ ExternalExamplesSettings: () => <section aria-label="External Examples settings" /> }));
 
-function serve(backends: string[], defaultRuntime: string) {
+function serve(backends: string[], defaultRuntime: string, board = { id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] }) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
     json: async () => ({
-      boards: [{ id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser", "host-mock"] }],
-      defaultBoard: "uno",
+      boards: [board],
+      defaultBoard: board.id,
       runtime: { backends, default: defaultRuntime },
     }),
   }));
@@ -61,13 +61,29 @@ describe("SettingsDialog: Simulation engine (plan P3.1)", () => {
     expect(select.value).toBe("host-mock");
   });
 
-  it("hides the setting when the server offers a single engine", async () => {
+  it("shows the setting fixed when the server offers a single engine", async () => {
     serve(["host-mock"], "host-mock");
 
     render(<SettingsDialog open onOpenChange={vi.fn()} />);
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    const select = (await screen.findByLabelText("simulation engine")) as HTMLSelectElement;
 
-    expect(screen.queryByLabelText("simulation engine")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Simulation" })).not.toBeInTheDocument();
+    expect(select).toBeDisabled();
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual(["Legacy (only option)"]);
+    expect(screen.getByText(/Emulation is not offered by this server\./)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["nano", "Arduino Nano"],
+    ["mega2560", "Arduino Mega 2560"],
+  ])("shows the setting fixed to Emulation for %s and says why Legacy is missing", async (id, displayName) => {
+    serve(["browser", "host-mock"], "browser", { id, displayName, status: "preview", runtimes: ["browser"] });
+    localStorage.setItem("unoSelectedBoard", id);
+
+    render(<SettingsDialog open onOpenChange={vi.fn()} />);
+    const select = (await screen.findByLabelText("simulation engine")) as HTMLSelectElement;
+
+    await waitFor(() => expect(select).toBeDisabled());
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual(["Emulation (only option)"]);
+    expect(screen.getByText(new RegExp(String.raw`Legacy is not implemented for ${displayName}\.`))).toBeInTheDocument();
   });
 });

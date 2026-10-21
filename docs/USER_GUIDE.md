@@ -153,7 +153,7 @@ des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560) im Browser,
 der den Maschinencode des Sketches ausführt, nicht ein Programm für den
 UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
 deshalb wie auf dem Uno. Wer die frühere Art der Simulation braucht, wählt
-unter **File → Settings → Simulation engine** „Legacy“ (siehe unten).
+unter **File → Settings → Simulation engine** „Legacy“ (siehe unten). Das gibt es nur für den Uno; bei Nano und Mega 2560 ist die Einstellung sichtbar, aber fest auf „Emulation“ gesetzt und nennt den Grund.
 
 Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 
