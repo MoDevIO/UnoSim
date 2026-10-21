@@ -11,7 +11,7 @@ import { emitSerialOutput } from "./use-external-api";
  */
 export function useSerialIO() {
   const [serialOutput, setSerialOutput] = useState<OutputLine[]>([]);
-  const [portCount, setSerialPortCount] = useState(1);
+  const [portCount, setPortCount] = useState(1);
   const [selectedPort, setSelectedPort] = useState(0);
   const [extraPortTexts, setExtraPortTexts] = useState<Readonly<Record<number, string>>>({});
   const serialPort = selectedPort < portCount ? selectedPort : 0;
@@ -188,7 +188,7 @@ export function useSerialIO() {
     serialPort,
     setSerialPort: setSelectedPort,
     serialPortCount: portCount,
-    setSerialPortCount,
+    setSerialPortCount: setPortCount,
     
     // New baudrate rendering API
     renderedSerialText,
