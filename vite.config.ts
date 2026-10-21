@@ -32,6 +32,12 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, "client"),
+  optimizeDeps: {
+    // The emulator worker is created with `new Worker(new URL(...))`, which the
+    // dependency scan does not follow. Without this entry Vite finds avr8js at
+    // the first simulation start, re-optimizes and reloads the page.
+    include: ["avr8js"],
+  },
   build: {
     outDir: path.resolve(__dirname, "dist", "public"),
     emptyOutDir: true,
