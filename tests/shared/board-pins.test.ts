@@ -25,6 +25,21 @@ describe("board pins (plan P4.1)", () => {
     expect(maxBoardPin("uno")).toBe(19);
   });
 
+  it("describes the Mega 2560 with 70 pins, 16 analog inputs and PWM on 2–13 and 44–46", () => {
+    expect(boardPins("mega2560")).toHaveLength(70);
+    expect(maxBoardPin("mega2560")).toBe(69);
+    expect(boardPwmPins("mega2560")).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 44, 45, 46]);
+    expect(boardAnalogPins("mega2560").map((pin) => pin.label)).toEqual(Array.from({ length: 16 }, (_, channel) => `A${channel}`));
+    expect(findBoardPin("mega2560", 69)).toMatchObject({ name: "A15", digital: true, analog: true, adcChannel: 15 });
+    expect(resolveBoardPin("mega2560", "A15")).toBe(69);
+    expect(resolveBoardPin("mega2560", "53")).toBe(53);
+    expect(resolveBoardPin("mega2560", "70")).toBeUndefined();
+    expect(boardPinLabel("mega2560", 54)).toBe("A0");
+    expect(boardPinLabel("mega2560", 14)).toBe("14");
+    expect(isBoardPin("mega2560", 69)).toBe(true);
+    expect(isBoardPin("mega2560", 70)).toBe(false);
+  });
+
   it("checks whether a board has a pin", () => {
     expect(isBoardPin("uno", 19)).toBe(true);
     expect(isBoardPin("uno", 20)).toBe(false);
@@ -53,12 +68,11 @@ describe("board pins (plan P4.1)", () => {
   });
 
   it("has no pins for a board without a hardware profile yet", () => {
-    expect(boardPins("mega2560")).toBeUndefined();
     expect(boardPins("attiny85")).toBeUndefined();
-    expect(isBoardPin("mega2560", 2)).toBe(false);
+    expect(isBoardPin("attiny85", 2)).toBe(false);
     expect(resolveBoardPin("attiny85", "0")).toBeUndefined();
-    expect(maxBoardPin("mega2560")).toBeUndefined();
-    expect(boardPwmPins("mega2560")).toEqual([]);
+    expect(maxBoardPin("attiny85")).toBeUndefined();
+    expect(boardPwmPins("attiny85")).toEqual([]);
     expect(boardPinLabel("attiny85", 3)).toBe("3");
   });
 });

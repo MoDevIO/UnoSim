@@ -36,9 +36,9 @@ describe("board hardware Uno and Nano", () => {
   it("knows the boards with a profile and refuses the others for now", () => {
     expect(boardHardware("nano")).toBe(NANO);
     expect(hasBoardHardware("uno")).toBe(true);
-    expect(hasBoardHardware("mega2560")).toBe(false);
+    expect(hasBoardHardware("attiny85")).toBe(false);
     expect(() => boardHardware("attiny85")).toThrow(/no hardware profile yet/);
-    expect(() => mcuProfile("atmega2560")).toThrow(/no profile yet/);
+    expect(() => mcuProfile("attiny85")).toThrow(/no profile yet/);
   });
 });
 

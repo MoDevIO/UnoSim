@@ -40,5 +40,13 @@ follow from the sketch and the model assumptions of plan 4.8 (`regression`
 until a hardware recording exists). A comparison of `memory_probe` with a real Uno is
 still open (hardware).
 
+`mega2560-mega_probe.hex`, `mega2560-mega_interrupts.hex` and `mega2560-mega_io.hex`
+(`sketches/mega_*`, `arduino:avr:mega:cpu=atmega2560`, same toolchain) check the
+ATmega2560 profile. `mega_probe` is the sketch of spike P0.6 (four serial ports,
+PWM on timers 0/2/3/5, `analogRead` of A0 and A15 through MUX5, RAMEND 0x21FF;
+expectations `derived` from the core and the datasheet); `mega_interrupts`
+counts the edges delivered to INT0–INT5 and PCINT0–2; `mega_io` uses pins on
+the ports with extended I/O addresses (H, J, K, L).
+
 The reproducible fixture set of the runtime corpus (plan 7.4) is separate.
 `uno-eeprom_counter.hex` (`sketches/eeprom_counter`) prints EEPROM cell 0 and stores the next value; the worker keeps the EEPROM per board between runs (a run sees what the run before wrote, 255 on the first).

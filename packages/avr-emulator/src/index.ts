@@ -7,6 +7,7 @@
 export { BOARD_HARDWARE_IDS, BOARD_MCU, isBoardHardwareId } from "./boards/ids";
 export type { BoardHardwareId } from "./boards/ids";
 export { NANO, UNO } from "./boards/atmega328p-boards";
+export { MEGA2560 } from "./boards/mega2560-board";
 export { boardHardware, hasBoardHardware } from "./boards/registry";
 export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./boards/types";
 export { createMachine } from "./machine";
@@ -28,6 +29,7 @@ export { pwmDuty, pwmRegisterAddresses } from "./io/pwm";
 export type { PwmChannel, TimerRegisters } from "./io/pwm";
 export type { Machine, MachineOptions } from "./machine";
 export { ArrayEepromBackend, erasedEeprom } from "./mcu/eeprom";
+export { ATMEGA2560 } from "./mcu/atmega2560";
 export { ATMEGA328P } from "./mcu/atmega328p";
 export { mcuProfile } from "./mcu/registry";
 export type { McuPeripherals, McuProfile } from "./mcu/types";
