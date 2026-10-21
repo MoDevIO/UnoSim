@@ -5,7 +5,7 @@ AVR emulation core of UnoSim, built on [avr8js](https://github.com/wokwi/avr8js)
 `arduino-cli` builds for a board: MCU profiles, board pin maps, peripherals,
 timing and the event protocol to the UI.
 
-Status: scaffold, simulation image, ATmega328P with Uno and Nano, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics, event protocol, worker host (plan packages P1.1–P1.12 of
+Status: scaffold, simulation image, ATmega328P with Uno and Nano, ATmega2560 with Mega 2560, pin model with PWM, analog inputs, serial ports, timing and lifecycle, runtime I/O detection, diagnostics, event protocol, worker host (plan packages P1.1–P1.12, P5.1 and P5.2 of
 [browser-emulation-plan.md](../../docs/proposals/browser-emulation-plan.md)).
 The package is `private` and lives in the UnoSim npm workspace; moving it to
 its own repository is an optional follow-up (F1).
@@ -53,17 +53,21 @@ Board hardware IDs: `uno`, `nano`, `mega2560`, `attiny85`, mapped to the MCUs
 
 | Export | Purpose |
 |---|---|
-| `UNO`, `NANO`, `boardHardware(id)` | board pin maps as the pinned core numbers them: Arduino pin, label, port/bit, ADC channel, PWM timer channel, serial role; serial ports; `LED_BUILTIN`; clock and VCC |
+| `UNO`, `NANO`, `MEGA2560`, `boardHardware(id)` | board pin maps as the pinned core numbers them: Arduino pin, label, port/bit, ADC channel, PWM timer channel, serial role; serial ports; `LED_BUILTIN`; clock and VCC |
 | `ATMEGA328P`, `mcuProfile(id)` | flash, SRAM layout, EEPROM and the avr8js peripherals: ports B/C/D, timers 0–2, USART0, ADC (8 channels), EEPROM, watchdog, clock prescaler |
+| `ATMEGA2560` | flash (256 KiB, 22-bit PC), SRAM 0x0200–0x21FF, 4 KiB EEPROM, ports A–L (without I) with INT0–INT7 and PCINT0–2, timers 0–5, USART0–3, ADC with 16 channels (MUX5), watchdog, clock prescaler; every peripheral has the vectors of the Mega, see below |
 | `createMachine(loadedImage)` | CPU with the data space of the MCU (plan 4.3), its peripherals and the board |
 
 | Board | MCU | Pins | PWM | Analog |
 |---|---|---|---|---|
 | `uno` | ATmega328P, 16 MHz | 0–19 (A0–A5 = 14–19) | 3, 5, 6, 9, 10, 11 | A0–A5 |
 | `nano` | ATmega328P, 16 MHz | as Uno plus A6/A7 = 20/21, analog only | as Uno | A0–A7 |
+| `mega2560` | ATmega2560, 16 MHz | 0–53 digital, A0–A15 = 54–69 | 2–13, 44–46 | A0–A15 |
 
-On the Uno the ADC channels 6 and 7 have no pin and read 0 V. Mega 2560 and
-ATtiny85 have IDs but no profile yet (`boardHardware` throws).
+On the Uno the ADC channels 6 and 7 have no pin and read 0 V. The Mega has
+four hardware serial ports (`Serial` on pins 0/1, `Serial1` on 19/18,
+`Serial2` on 17/16, `Serial3` on 15/14). ATtiny85 has an ID but no profile yet
+(`boardHardware` throws).
 `tests/integration/avr-emulator-board-pinmap.test.ts` (toolchain gate) checks
 the pin maps against `pins_arduino.h` of `arduino:avr@1.8.8`.
 
@@ -236,6 +240,32 @@ at least 90 % line coverage for `src/`.
   reports the diagnostic `serial-input-discarded`; the corpus case
   `probes/serial_before_begin` is recorded on the board.
 - **Watchdog reset:** avr8js resets only PC and SP; see the diagnostics section.
+
+## ATmega2560 profile
+
+avr8js ships configurations for the ATmega328P only (spike P0.6: with them the
+Mega prints nothing, its timer and USART interrupts jump to wrong vectors).
+`src/mcu/atmega2560.ts` therefore takes only register addresses from avr8js
+and sets its own vectors for every peripheral (two words per entry, vector
+number n at word 2·n, from `avr/iomxx0_1.h` of the pinned toolchain):
+
+- **Data space:** `new CPU(progMem, 0x2200 − 0x100)` so that SP starts at
+  RAMEND 0x21FF; the avr8js default (8192) would put the stack outside.
+- **Ports** A–L: avr8js' port configurations B, C and D carry the pin-change
+  wiring of the 328P; the profile drops it (it would raise pin-change
+  interrupts on the vectors of INT3 and INT4) and wires INT0–INT3 to PD0–PD3,
+  INT4–INT7 to PE4–PE7, PCINT0 to port B, PCINT1 to PE0 and PJ0–PJ6 (offset 1
+  in PCMSK1) and PCINT2 to port K.
+- **Timers 0–2** with Mega vectors and comparator pins, **timers 3–5** as
+  16-bit timers with channel C (`OCFnC`/`OCIEnC` at bit 3).
+- **USART0–3**, each through `createUsart`; **ADC** with the vector 29, 16
+  channels, `MUX5` (ADCSRB bit 3) for ADC8–15 and the reference selection
+  AREF / AVCC / 1.1 V / 2.56 V; **EEPROM** ready and **watchdog** vectors.
+
+Known differences (not modelled by avr8js): compare-match C interrupts of the
+16-bit timers cannot be enabled through `TIMSKn` (the Arduino core never uses
+them); sketches above 64 KB of PROGMEM may push the core's pin tables out of
+the `lpm` range, as on the board (spike P0.6).
 
 ## License
 

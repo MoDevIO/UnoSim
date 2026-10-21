@@ -92,8 +92,14 @@ describe("board catalog (plan 4.3, P2.1)", () => {
       expect(boardPinAliases("nano")).toMatchObject({ A6: 20, A7: 21 });
     });
 
+    it("derives A0..A15 at pins 54..69 for the Mega 2560", () => {
+      const mega = boardPinAliases("mega2560");
+
+      expect(mega).toMatchObject({ A0: 54, A8: 62, A15: 69, LED_BUILTIN: 13 });
+      expect(Object.keys(mega ?? {})).toHaveLength(17);
+    });
+
     it("has none for boards without a hardware profile yet", () => {
-      expect(boardPinAliases("mega2560")).toBeUndefined();
       expect(boardPinAliases("attiny85")).toBeUndefined();
     });
   });

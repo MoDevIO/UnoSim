@@ -187,7 +187,7 @@ export class IoUsageObserver {
     this.insideCallSp = cpu.SP; // calls made inside this function do not count
     const pin = cpu.data[24];
     if (fn === "pinMode") this.record(fn, pin, MODES[cpu.data[22]]);
-    else if (fn === "analogRead") this.record(fn, this.analogPin(pin < 14 ? pin : pin - 14));
+    else if (fn === "analogRead") this.record(fn, this.analogPin(this.channelOfArgument(pin)));
     else this.record(fn, pin);
   }
 
@@ -197,6 +197,11 @@ export class IoUsageObserver {
     chainWrite(cpu, ADCSRA, (value) => {
       if (value & ADSC) this.record("analogRead", this.analogPin(channel(cpu.data)));
     });
+  }
+
+  /** `analogRead(x)` takes a channel number or the pin number of an analog input (A0 = 14 on the Uno, 54 on the Mega). */
+  private channelOfArgument(argument: number): number {
+    return this.machine.board.pins.find((pin) => pin.pin === argument)?.adcChannel ?? argument;
   }
 
   private analogPin(channel: number): number | undefined {

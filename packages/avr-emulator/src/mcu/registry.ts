@@ -1,9 +1,10 @@
+import { ATMEGA2560 } from "./atmega2560";
 import { ATMEGA328P } from "./atmega328p";
 import type { McuId } from "./mcus";
 import type { McuProfile } from "./types";
 
-/** ATmega2560 (P5.1) and ATtiny85 (P6.2) follow. */
-const PROFILES: Partial<Record<McuId, McuProfile>> = { atmega328p: ATMEGA328P };
+/** ATtiny85 (P6.2) follows. */
+const PROFILES: Partial<Record<McuId, McuProfile>> = { atmega328p: ATMEGA328P, atmega2560: ATMEGA2560 };
 
 export function mcuProfile(id: McuId): McuProfile {
   const profile = PROFILES[id];

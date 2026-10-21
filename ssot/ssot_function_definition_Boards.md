@@ -61,7 +61,7 @@ Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, gep
 
 ## 5. Pin-Aliasse
 
-`boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Boards ohne Hardwareprofil im Paket (Mega 2560 bis P5.1, ATtiny85 bis P6.2) haben keine Aliasse.
+`boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Der Mega 2560 hat `A0`–`A15` auf den Pins 54–69 und `LED_BUILTIN` 13 (seit P5.2). Boards ohne Hardwareprofil im Paket (ATtiny85 bis P6.2) haben keine Aliasse.
 
 ### 5.1 Pin-Modell (`shared/board-pins.ts`, P4.1)
 
@@ -70,7 +70,7 @@ Die Pinlisten, Labels und Fähigkeiten eines Boards stammen aus der Pinbelegung 
 | Funktion | Ergebnis |
 |---|---|
 | `boardPins(id)` | alle Pins in Nummernfolge (`pin`, `label`, `name`, `digital`, `analog`, `adcChannel`, `pwm`, `role`); `undefined` ohne Hardwareprofil |
-| `findBoardPin`, `isBoardPin(id, pin)` | Pinprüfung je Board (Uno 0–19, Nano 0–21) |
+| `findBoardPin`, `isBoardPin(id, pin)` | Pinprüfung je Board (Uno 0–19, Nano 0–21, Mega 0–69) |
 | `boardPwmPins`, `boardAnalogPins` | PWM-Pins (`~`) und Analogeingänge in Bauteilfolge |
 | `boardPinLabel(id, pin)` | Name wie im Sketch (`14` → `A0`) |
 | `resolveBoardPin(id, name)` | `13`, `A0`, `LED_BUILTIN` → Pinnummer; `A6` gibt es nur am Nano |

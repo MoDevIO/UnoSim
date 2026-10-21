@@ -49,7 +49,7 @@ describe("static I/O analysis per board (plan P4.2)", () => {
   });
 
   it("falls back to the Uno for a board without hardware profile yet", () => {
-    expect(pinContext("mega2560").board).toBe("uno");
+    expect(pinContext("attiny85").board).toBe("uno");
     expect(pinContext("attiny85").maxPin).toBe(19);
   });
 });

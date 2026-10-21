@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { NANO, UNO, type BoardHardware } from "@unosim/avr-emulator";
+import { MEGA2560, NANO, UNO, type BoardHardware } from "@unosim/avr-emulator";
 
 /**
  * Plan P1.3: the board pin maps of the emulation core must match
@@ -14,8 +14,11 @@ const work = mkdtempSync(join(tmpdir(), "unosim-pinmap-"));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
 
 // Arduino.h of arduino:avr@1.8.8
-const PORT_NUMBER: Readonly<Record<string, number>> = { B: 2, C: 3, D: 4 };
-const TIMER_NUMBER: Readonly<Record<string, number>> = { "0A": 1, "0B": 2, "1A": 3, "1B": 4, "1C": 5, "2A": 7, "2B": 8 };
+const PORT_NUMBER: Readonly<Record<string, number>> = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, J: 10, K: 11, L: 12 };
+const TIMER_NUMBER: Readonly<Record<string, number>> = {
+  "0A": 1, "0B": 2, "1A": 3, "1B": 4, "1C": 5, "2A": 7, "2B": 8,
+  "3A": 9, "3B": 10, "3C": 11, "4A": 12, "4B": 13, "4C": 14, "5A": 16, "5B": 17, "5C": 18,
+};
 
 /** Runs the core's own preprocessor (paths from `arduino-cli --show-properties`) over pins_arduino.h. */
 function preprocessedTables(fqbn: string): string {
@@ -57,6 +60,7 @@ const scalar = (source: string, name: string) => Number(new RegExp(String.raw`${
 describe.each([
   ["arduino:avr:uno", UNO],
   ["arduino:avr:nano:cpu=atmega328", NANO],
+  ["arduino:avr:mega:cpu=atmega2560", MEGA2560],
 ] as Array<[string, BoardHardware]>)("pin map of %s", (fqbn, board) => {
   const source = preprocessedTables(fqbn);
   const ports = table(source, "digital_pin_to_port_PGM");

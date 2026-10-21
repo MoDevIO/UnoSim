@@ -29,7 +29,7 @@ describe("active board (plan P4.3)", () => {
   });
 
   it("uses the Uno's pins for a board without a hardware profile yet", () => {
-    setActiveBoard("mega2560");
+    setActiveBoard("attiny85");
 
     expect(activePins()).toHaveLength(20);
     expect(isAnalogPin(20)).toBe(false);
