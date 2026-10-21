@@ -50,12 +50,13 @@ export class SerialConfigurationParser {
       const use = new RegExp(String.raw`\b${name}\s*\.\s*(?!begin\b|end\b)\w+`);
       if (!use.test(uncommentedCode) || this.declaresOwn(uncommentedCode, name)) return [];
       if (port >= portCount) {
+        const available = portCount === 1 ? "only Serial" : "Serial to Serial" + (portCount - 1);
         return [{
           id: randomUUID(),
           type: "warning",
           category: "serial",
           severity: 2,
-          message: `${name} does not exist on ${this.board.displayName}, which has ${portCount === 1 ? "only Serial" : `Serial to Serial${portCount - 1}`}.`,
+          message: `${name} does not exist on ${this.board.displayName}, which has ${available}.`,
           suggestion: portCount === 1 ? "// Use Serial, or choose Tools → Board → Arduino Mega 2560" : "// Use one of the serial ports of this board",
           line: findLineNumber(this.code, use),
         }];
