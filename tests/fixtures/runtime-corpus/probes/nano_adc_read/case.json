@@ -1,0 +1,16 @@
+{
+  "board": "nano",
+  "simMs": 150,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "analogRead on A0, A5, A6 and A7 of the Nano (A6 and A7 are analog-only inputs), with the default and the internal reference.",
+  "basis": "ATmega328P datasheet 24.7: ADC = floor(Vin * 1024 / Vref) limited to 1023, Vref = VCC (5 V) for DEFAULT and 1.1 V for INTERNAL; the eightanaloginputs variant of the core has eight analog inputs (A6 = 20, A7 = 21, ADC channels 6 and 7); computed by hand: 2.51 V -> 514, 4 V -> 819, 0.612 V -> 125 (DEFAULT) and 569 (INTERNAL), 1.5 V -> 307",
+  "events": [
+    [0, "adcVolts", 0, 2.51],
+    [0, "adcVolts", 5, 4],
+    [0, "adcVolts", 6, 0.612],
+    [0, "adcVolts", 7, 1.5]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

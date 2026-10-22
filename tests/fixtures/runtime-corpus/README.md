@@ -7,6 +7,7 @@ Rules, classes and gates: [TESTING_STANDARDS.md](../../../docs/TESTING_STANDARDS
 ```text
 probes/<case>/            <case>.ino, case.json, expected.<board>.txt (+ expected.<board>.serial<N>.txt for Serial1–3)
 examples-v3.0.0/<id>/     copy of an example of UnoSim-Examples (tag v3.0.0), case.json, expected.uno.txt
+examples-v3.0.0-nano/<id>/ extract of the same examples for the Nano: unchanged copies, case.json, expected.nano.txt
 examples-v3.0.0-mega/<id>/ extract of the same examples for the Mega 2560: unchanged copies, case.json, expected.mega2560.txt
 hex/<board>/<case>.hex    precompiled for the unit gate
 ```
@@ -67,13 +68,20 @@ headers next to it (`messung.h`, `mat_func.h`). The sketches are unchanged
 copies; `case.json` and `expected.uno.txt` are new. On a new version of
 UnoSim-Examples the directory is replaced together with its cases.
 
+`examples-v3.0.0-nano/` holds 6 of these examples as the extract for the Nano
+(plan M2): a variable, serial input, a digital input, `analogRead` on A0,
+`analogWrite` and the matrix product. The Nano has the ATmega328P of the Uno, so
+the expectation is the Uno recording (class `derived`, the basis says why it holds
+for the Nano; `recordedOn` names the Uno). `analogRead(A6/A7)` is covered by the
+probe `nano_adc_read`. `board-examples.test.ts` checks that the sketches are
+unchanged copies of the Uno originals.
+
 `examples-v3.0.0-mega/` holds 14 of these examples as the extract for the
 Mega 2560 (plan M2: "Korpus-Auszug je Board"): serial output, types and overflow,
 `millis()`, a digital input with `INPUT_PULLUP`, `analogRead` on A0, `analogWrite`
 on pin 11 (timer 1 on the Mega), serial input, random numbers, arrays, a header
 file and the matrix product. The sketches and headers are unchanged copies
-(`packages/avr-emulator/tests/mega-examples.test.ts` compares them with the
-originals); the expectation is the Mega's own and always class `derived`: no
+(`board-examples.test.ts` compares them with the originals); the expectation is the Mega's own and always class `derived`: no
 recording on a Mega exists, and the basis names the Uno result it follows from
 and every difference (`it08-05` prints the pin numbers of A0 to A2, 54 to 56 on
 the Mega instead of 14 to 16).
