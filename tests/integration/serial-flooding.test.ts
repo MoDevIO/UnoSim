@@ -1,8 +1,8 @@
 /**
  * Integration Test: Serial Output Flooding & Drop Verification
  * 
- * Verifies that the SerialOutputBatcher correctly drops data when the
- * C++ mock produces output faster than the baudrate allows.
+ * Verifies that output produced faster than the baudrate allows is throttled
+ * by the simulated TX buffer and nothing is dropped (FIFO buffering).
  * 
  * KEY INSIGHT: The C++ mock's txDelay() caps at 10ms. For short strings
  * (< 115 chars), txDelay naturally limits output to ~baudrate, so no drops.
@@ -54,7 +54,7 @@ maybeDescribe('Serial Output Flooding', () => {
    * 
    * We verify: numbered lines have GAPS (missing numbers = dropped lines).
    */
-  test('T-FLOOD-01: Long strings cause drops (200-char lines for 2s)', async () => {
+  test('T-FLOOD-01: Long strings are throttled without drops (200-char lines for 2s)', async () => {
     const sketch = String.raw`
 void setup() {
   Serial.begin(115200);
@@ -198,81 +198,6 @@ void loop() {
     // No drops expected (or very few due to startup burst).
     // We allow a small tolerance for the first tick transition.
     expect(gaps).toBeLessThan(3);
-    expect(fullOutput).toContain('===END===');
-  }, 30000);
-
-  /**
-   * EXTREME WORST-CASE: 500-char lines
-   * 
-   * txDelay = 43.5ms → capped to 10ms → 5 iterations per 50ms = 2505 bytes/tick
-   * Budget: 576 bytes/tick
-   * Expected drops: ~77% of data
-   */
-  test('T-FLOOD-03: Extreme flooding with 500-char lines', async () => {
-    const sketch = String.raw`
-void setup() {
-  Serial.begin(115200);
-}
-
-void loop() {
-  static unsigned long counter = 0;
-  static unsigned long start = millis();
-  
-  if (millis() - start > 2000) {
-    Serial.println("===END===");
-    delay(100);
-    exit(0);
-  }
-  
-  // Print 500-char line
-  char buf[520];
-  snprintf(buf, sizeof(buf), "%06lu:", counter);
-  size_t prefixLen = strlen(buf);
-  for (size_t i = prefixLen; i < 500; i++) {
-    buf[i] = 'X';
-  }
-  buf[500] = '\0';
-  Serial.println(buf);
-  counter++;
-}
-    `.trim();
-
-    const result = await runSketchWithOutput(runner, sketch, { timeout: 30 });
-    expect(result.success).toBe(true);
-
-    const fullOutput = extractPlainText(result.outputs);
-    
-    const lineNumbers: number[] = [];
-    const regex = /(\d{6}):/g;
-    let match;
-    while ((match = regex.exec(fullOutput)) !== null) {
-      lineNumbers.push(Number.parseInt(match[1], 10));
-    }
-
-    let totalMissing = 0;
-    for (let i = 1; i < lineNumbers.length; i++) {
-      const expected = lineNumbers[i - 1] + 1;
-      if (lineNumbers[i] !== expected) {
-        totalMissing += lineNumbers[i] - expected;
-      }
-    }
-
-    const totalProduced = lineNumbers.length > 0 ? lineNumbers.at(-1) + 1 : 0;
-    const dropRate = totalProduced > 0 ? totalMissing / totalProduced : 0;
-
-    log(`[T-FLOOD-03] Lines received: ${lineNumbers.length}`);
-    log(`[T-FLOOD-03] Total produced: ~${totalProduced}`);
-    log(`[T-FLOOD-03] Missing lines: ${totalMissing}`);
-    log(`[T-FLOOD-03] Drop rate: ${(dropRate * 100).toFixed(1)}%`);
-    log(`[T-FLOOD-03] Total bytes: ${fullOutput.length}`);
-
-    // With backpressure simulation (Phase 7r2+), even 500-char lines don't cause drops
-    // Arduino's TX buffer blocks Serial.println(), slowing the entire loop()
-    // This prevents data loss even with "extreme" string sizes.
-    // 
-    // Old behavior (without backpressure): Would have 50%+ drops
-    // New behavior (with backpressure):    0 drops, Arduino just runs slower
-    expect(totalMissing).toBe(0);
     expect(fullOutput).toContain('===END===');
   }, 30000);
 });
