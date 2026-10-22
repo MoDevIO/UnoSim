@@ -1,0 +1,4 @@
+Stelle 54: 0.49 V (0 ms)
+Stelle 55: 2.44 V (0 ms)
+Stelle 56: 4.88 V (0 ms)
+

@@ -30,7 +30,7 @@ export class CodeParser {
    * Parse Serial configuration issues
    */
   parseSerialConfiguration(code: string): ParserMessage[] {
-    const parser = new SerialConfigurationParser(code);
+    const parser = new SerialConfigurationParser(code, this.board);
     return parser.parse();
   }
 

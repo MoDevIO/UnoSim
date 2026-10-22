@@ -1,0 +1,2 @@
+Neuer Zustand: 0
+Neuer Zustand: 1

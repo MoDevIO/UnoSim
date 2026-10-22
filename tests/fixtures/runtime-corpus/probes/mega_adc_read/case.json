@@ -1,0 +1,16 @@
+{
+  "board": "mega2560",
+  "simMs": 150,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "analogRead on A0, A7, A8 and A15 of the Mega 2560 with the default, the 1.1 V and the 2.56 V reference.",
+  "basis": "ATmega2560 datasheet 26.8: ADC = floor(Vin * 1024 / Vref) limited to 1023, Vref = VCC (5 V) for DEFAULT, 1.1 V for INTERNAL1V1, 2.56 V for INTERNAL2V56; channels 8-15 are selected with MUX5 (ADCSRB) and MUX2:0; computed by hand: 2.51 V -> 514, 5 V -> 1023, 1.1 V -> 225, 0.612 V -> 125 (DEFAULT), 569 (1.1 V), 244 (2.56 V); analogRead(15) names the channel as the core allows channel or pin numbers",
+  "events": [
+    [0, "adcVolts", 0, 2.51],
+    [0, "adcVolts", 7, 5],
+    [0, "adcVolts", 8, 1.1],
+    [0, "adcVolts", 15, 0.612]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

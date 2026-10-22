@@ -1,0 +1,2 @@
+Bitte eine Zahl eingeben:
+Zahl: 21, doppelt: 42

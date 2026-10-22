@@ -1,0 +1,21 @@
+{
+  "board": "mega2560",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "The same as it08-03, with the functions in a header file (the same example on the Mega 2560).",
+  "basis": "the output of the example on the Uno (class derived: derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; A0..A2 are pins 14..16) holds for the Mega 2560 except for the pin numbers the sketch prints: A0, A1 and A2 are the Arduino pins 54, 55 and 56 there (pins_arduino.h of the mega variant: A0 = 54) instead of 14, 15 and 16, so 'Stelle 14/15/16' becomes 'Stelle 54/55/56'; nothing else differs (16 MHz, 16-bit int, same core 1.8.8); no recording on a Mega exists",
+  "events": [
+    [0, "adcVolts", 0, 0.490723],
+    [0, "adcVolts", 1, 2.443848],
+    [0, "adcVolts", 2, 4.885254]
+  ],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "\\((\\d+) ms\\)$",
+      "plusMinus": 1,
+      "reason": "millis() granularity at the first loop() pass"
+    }
+  ]
+}

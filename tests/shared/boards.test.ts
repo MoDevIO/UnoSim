@@ -5,9 +5,9 @@ import {
 } from "../../shared/boards";
 
 describe("board catalog (plan 4.3, P2.1)", () => {
-  it("lists the four boards of the plan: the Uno is available since M1, the Nano is in preview, the others are planned", () => {
+  it("lists the four boards of the plan: the Uno is available since M1, the Nano and the Mega are in preview, the ATtiny85 is planned", () => {
     expect(BOARD_CATALOG.map((board) => board.id)).toEqual(["uno", "nano", "mega2560", "attiny85"]);
-    expect(BOARD_CATALOG.map((board) => board.status)).toEqual(["available", "preview", "planned", "planned"]);
+    expect(BOARD_CATALOG.map((board) => board.status)).toEqual(["available", "preview", "preview", "planned"]);
   });
 
   it("has exactly the boards of the emulation package", () => {
@@ -58,13 +58,13 @@ describe("board catalog (plan 4.3, P2.1)", () => {
   });
 
   describe("enabledBoards", () => {
-    it("offers the Uno and the Nano (preview) by default, not the planned boards", () => {
-      expect(enabledBoards().map((board) => board.id)).toEqual([DEFAULT_BOARD_ID, "nano"]);
+    it("offers the Uno, the Nano and the Mega (preview) by default, not the planned boards", () => {
+      expect(enabledBoards().map((board) => board.id)).toEqual([DEFAULT_BOARD_ID, "nano", "mega2560"]);
     });
 
     it("offers only the boards the offered backends can run: the Uno alone without the browser backend", () => {
       expect(enabledBoards(undefined, "uno", ["host-mock"]).map((board) => board.id)).toEqual(["uno"]);
-      expect(enabledBoards(undefined, "uno", ["browser", "host-mock"]).map((board) => board.id)).toEqual(["uno", "nano"]);
+      expect(enabledBoards(undefined, "uno", ["browser", "host-mock"]).map((board) => board.id)).toEqual(["uno", "nano", "mega2560"]);
     });
 
     it("does not filter an explicit list by backend (the startup check rejects an impossible one)", () => {

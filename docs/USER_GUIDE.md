@@ -53,6 +53,42 @@ des Servers. Wie man eine eigene Sammlung samt Tutor-Inhalten aufbaut,
 beschreibt das
 [README von UnoSim-Examples](https://github.com/ttbombadil/UnoSim-Examples#course-content-and-tutor-authoring).
 
+## Board wählen
+
+Unter **Tools → Board** wählst du das Board, für das UnoSim kompiliert und das
+es darstellt: **Arduino UNO**, **Arduino Nano** oder **Arduino Mega 2560**. Die
+Wahl bleibt im Browser gespeichert; ein Wechsel stoppt einen laufenden Sketch.
+Nano und Mega tragen den Hinweis „preview“: Sie laufen in der Emulation, aber
+UnoSim hat ihre Ergebnisse noch nicht mit einem echten Board verglichen.
+
+| Board | Pins | PWM (`analogWrite`) | Analogeingänge | Serielle Schnittstellen |
+|---|---|---|---|---|
+| Uno | 0 bis 13, A0 bis A5 | 3, 5, 6, 9, 10, 11 | A0 bis A5 | `Serial` |
+| Nano | wie der Uno, dazu A6 und A7 (nur analog) | wie der Uno | A0 bis A7 | `Serial` |
+| Mega 2560 | 0 bis 53, A0 bis A15 | 2 bis 13 und 44 bis 46 | A0 bis A15 | `Serial`, `Serial1`, `Serial2`, `Serial3` |
+
+Beim **Mega 2560** gilt:
+
+- Die Pinnummern sind die des Boards: `A0` ist Pin 54, `A15` ist Pin 69. Ein
+  Sketch, der die Pinnummer eines Analogeingangs ausgibt, zeigt hier 54 bis 69
+  statt 14 bis 19.
+- Der Mega hat vier serielle Schnittstellen. Der Serial Monitor zeigt eine
+  davon; oben wählst du **Serial**, **Serial1**, **Serial2** oder **Serial3**.
+  Das Eingabefeld sendet an die gezeigte Schnittstelle, „Clear“ leert sie. Der
+  Plotter zeigt immer `Serial`. Systemzeilen wie „Simulation stopped“ erscheinen
+  in jeder Schnittstelle.
+- Die externen Interrupts `INT0` bis `INT5` (Pins 21, 20, 19, 18, 2, 3) und die
+  Pin-Change-Interrupts gibt es; `attachInterrupt()` funktioniert wie am Board.
+- Speicher: 256 KB Flash, 8 KB SRAM, 4 KB EEPROM. Wer mehr als 64 KB
+  Programmdaten im Flash ablegt, liest sie mit den „far“-Funktionen
+  (`pgm_read_byte_far`), wie am Board. Liegen die Pin-Tabellen des Arduino-Cores
+  durch große Datenmengen oberhalb von 64 KB, findet der Core sie nicht mehr;
+  das passiert am echten Mega ebenso.
+- Die frühere Simulation auf dem Server (Legacy) gibt es nur für den Uno.
+- Beispiele, die für den Uno geschrieben sind, laufen auf dem Mega, solange sie
+  keine Pinnummer über 13 voraussetzen (`A0` bis `A5` heißen dort anders
+  nummeriert, siehe oben).
+
 ## Der Tutor
 
 Der Tutor stellt Lernfragen zu deinem aktuellen Sketch und gibt Rückmeldung auf
@@ -110,9 +146,10 @@ Unter **File → Settings** findest du außerdem:
 
 ## Grenzen der Simulation
 
-UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für den Uno.
-Was hier kompiliert, kompiliert also auch auf der Hardware. Danach läuft das
-fertige Programm in der **Emulation**: ein Nachbau des ATmega328P im Browser,
+UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für das
+gewählte Board (Standard: Uno). Was hier kompiliert, kompiliert also auch auf der
+Hardware. Danach läuft das fertige Programm in der **Emulation**: ein Nachbau
+des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560) im Browser,
 der den Maschinencode des Sketches ausführt, nicht ein Programm für den
 UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
 deshalb wie auf dem Uno. Wer die frühere Art der Simulation braucht, wählt
@@ -127,13 +164,13 @@ Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 | Pegel, den du am Board setzt | gilt, bis der Sketch den Pin auf `OUTPUT` schaltet |
 | Analoger Eingang | Der Regler ist eine Spannung von 0 bis 5 V in 1024 Stufen; mit der Standardreferenz liefert `analogRead()` genau den Reglerwert. Am Pin `AREF` (`EXTERNAL`) liegen 5 V, weil dort am Board nichts angeschlossen ist |
 | PWM | UnoSim zeigt das Tastverhältnis (0 bis 255), keine Signalform |
-| Serial | Der Empfangspuffer hat 64 Byte wie am Uno; was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
+| Serial | Der Empfangspuffer hat 64 Byte wie am Uno (beim Mega je Schnittstelle); was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
 | Zeit | exakt in simulierter Zeit. Ist dein Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr; die Kopfzeile zeigt dann einen Echtzeitfaktor unter 1. Der Timeout zählt Wanduhrzeit: Bei Faktor 0,5 endet ein 30-Sekunden-Lauf nach etwa 15 simulierten Sekunden |
 | Pause | hält auch `millis()` an |
 | Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
 | EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
 | I²C, SPI | Die Bausteine sind vorhanden, aber es hängt kein Gerät am Bus |
-| Speicher | Größen und Adressen wie am Board (2 KB SRAM). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
+| Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
 | `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
 
 Was das für deine Programme bedeutet:

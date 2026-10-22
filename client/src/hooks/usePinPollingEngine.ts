@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import type { PinState } from "@/components/features/arduino-board";
-import { activeAnalogPins, activePwmPins, isActivePwmPin } from "@/lib/active-board";
+import type { BoardPin } from "@shared/board-pins";
+import { activeAnalogPins, activePins, activePwmPins, isActivePwmPin } from "@/lib/active-board";
 
 // Constants
+/** Height of the Uno drawing; the fallback where the SVG names no view box. */
 const VIEWBOX_HEIGHT = 209;
 const FADE_OUT_MS = 200;
 
@@ -55,6 +57,22 @@ function getComputedSpacingToken(tokenName: string): number {
 }
 
 // ─── Pure module-level helpers (no hook state needed) ───────────────────────
+
+/**
+ * An element of the board overlay by id. The overlay SVG does not change while it is shown, and the polling
+ * loop looks up three elements per pin every 10 ms (the Mega has 70 pins), so the lookups are remembered per SVG.
+ */
+const overlayElements = new WeakMap<SVGSVGElement, Map<string, Element | null>>();
+
+function pinElement<T extends Element>(svgEl: SVGSVGElement, id: string): T | null {
+  let known = overlayElements.get(svgEl);
+  if (!known) {
+    known = new Map();
+    overlayElements.set(svgEl, known);
+  }
+  if (!known.has(id)) known.set(id, svgEl.querySelector(`#${id}`));
+  return known.get(id) as T | null;
+}
 
 type LabelRotateOpts = { translateY: number; localX: number; anchor: string };
 
@@ -131,10 +149,17 @@ function applyLedVisual(
   }
 }
 
-function computeLabelPosition(bb: DOMRect, cy: number): LabelRotateOpts {
+/** Middle of the drawing: a pin above it gets its label above, a pin below it gets it below. */
+function drawingMiddle(svgEl: SVGSVGElement): number {
+  const box = svgEl.viewBox?.baseVal;
+  // the view box of a board SVG has a safe margin of 4 units on every side
+  return box && box.height > 0 ? box.y + box.height / 2 : VIEWBOX_HEIGHT / 2;
+}
+
+function computeLabelPosition(bb: DOMRect, cy: number, middle: number): LabelRotateOpts {
   const padding = getComputedSpacingToken("--svg-label-padding");
   const fontSize = Number.parseFloat(getComputedTokenValue("--fs-label-sm"));
-  if (cy < VIEWBOX_HEIGHT / 2) {
+  if (cy < middle) {
     return {
       translateY: cy - bb.height / 2 - fontSize / 2 - padding,
       localX: -bb.width / 2 + padding,
@@ -220,7 +245,7 @@ function updateLabelForPin(
       textValue: pinValue,
       fill: "var(--color-white)",
       showPWMValues,
-      rotate: computeLabelPosition(bb, cy),
+      rotate: computeLabelPosition(bb, cy, drawingMiddle(svgEl)),
     });
   } catch {
     // ignore bbox errors
@@ -311,9 +336,9 @@ export function usePinPollingEngine({
 
   /** Update a single digital pin element. */
   const updateDigitalPin = (svgEl: SVGSVGElement, pin: number) => {
-    const frame = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-frame`);
-    const state = svgEl.querySelector<SVGCircleElement>(`#pin-${pin}-state`);
-    const click = svgEl.querySelector<SVGRectElement>(`#pin-${pin}-click`);
+    const frame = pinElement<SVGRectElement>(svgEl, `pin-${pin}-frame`);
+    const state = pinElement<SVGCircleElement>(svgEl, `pin-${pin}-state`);
+    const click = pinElement<SVGRectElement>(svgEl, `pin-${pin}-click`);
     const isInput = isPinInputLocal(pin);
     const pinState = getPinState(pin);
     trackPinFadeState(pin, !!(pinState && pinState.value > 0));
@@ -329,20 +354,19 @@ export function usePinPollingEngine({
   };
 
   /**
-   * Update digital pins 0-13 visual representation
+   * Update the digital pins of the board (the Uno's 0-13, the Mega's 0-53); an analog input, which the SVG names `A<k>`, is updated with the analog pins
    */
   const updateDigitalPins = (svgEl: SVGSVGElement) => {
-    for (let pin = 0; pin <= 13; pin++) {
-      updateDigitalPin(svgEl, pin);
+    for (const { pin, analog } of activePins()) {
+      if (!analog) updateDigitalPin(svgEl, pin);
     }
   };
 
-  /** Update a single analog pin element. */
-  const updateAnalogPin = (svgEl: SVGSVGElement, pinIndex: number) => {
-    const pinNumber = 14 + pinIndex;
-    const frame = svgEl.querySelector<SVGRectElement>(`#pin-A${pinIndex}-frame`);
-    const state = svgEl.querySelector<SVGCircleElement>(`#pin-A${pinIndex}-state`);
-    const click = svgEl.querySelector<SVGRectElement>(`#pin-A${pinIndex}-click`);
+  /** Update a single analog pin element: the SVG names it by its label (`A0`…`A15`). */
+  const updateAnalogPin = (svgEl: SVGSVGElement, { pin: pinNumber, name }: BoardPin) => {
+    const frame = pinElement<SVGRectElement>(svgEl, `pin-${name}-frame`);
+    const state = pinElement<SVGCircleElement>(svgEl, `pin-${name}-state`);
+    const click = pinElement<SVGRectElement>(svgEl, `pin-${name}-click`);
     const isInput = isPinInputLocal(pinNumber);
     const pinState = getPinState(pinNumber);
     trackPinFadeState(pinNumber, !!(pinState && pinState.value > 0));
@@ -356,11 +380,11 @@ export function usePinPollingEngine({
   };
 
   /**
-   * Update analog pins A0-A5 visual representation
+   * Update the analog inputs of the board (A0-A5 of the Uno, A0-A7 of the Nano, A0-A15 of the Mega)
    */
   const updateAnalogPins = (svgEl: SVGSVGElement) => {
-    for (let i = 0; i <= 5; i++) {
-      updateAnalogPin(svgEl, i);
+    for (const analog of activeAnalogPins()) {
+      updateAnalogPin(svgEl, analog);
     }
   };
 

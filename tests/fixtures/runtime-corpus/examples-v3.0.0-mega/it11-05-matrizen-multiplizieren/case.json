@@ -1,0 +1,12 @@
+{
+  "board": "mega2560",
+  "simMs": 250,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Multiplying matrices and testing for the identity matrix (the same example on the Mega 2560).",
+  "basis": "the output of the example on the Uno (recorded on a real Uno R3, class hardware) holds for the Mega 2560: the sketch uses no feature in which the ATmega328P and the ATmega2560 differ (no pin above 13, A0 as ADC channel 0, 16 MHz, 16-bit int, same core 1.8.8); no recording on a Mega exists",
+  "events": [],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

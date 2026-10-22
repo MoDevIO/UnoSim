@@ -108,6 +108,19 @@ export function loadCorpus(root = CORPUS_ROOT): CorpusCase[] {
 export const hexOf = (testCase: CorpusCase, root = CORPUS_ROOT): string => readFileSync(join(root, "hex", testCase.board, `${testCase.id}.hex`), "utf8");
 export const expectedOf = (testCase: CorpusCase): string => readFileSync(join(testCase.dir, `expected.${testCase.board}.txt`), "utf8");
 
+/**
+ * Expected text of `Serial1`–`Serial3` (boards with more than one serial port): `expected.<board>.serial<N>.txt`
+ * next to the case; the case checks exactly the ports that have a file. Port 0 is `expected.<board>.txt`.
+ */
+export function expectedPortsOf(testCase: CorpusCase): Map<number, string> {
+  const ports = new Map<number, string>();
+  for (const port of [1, 2, 3]) {
+    const file = join(testCase.dir, `expected.${testCase.board}.serial${port}.txt`);
+    if (existsSync(file)) ports.set(port, readFileSync(file, "utf8"));
+  }
+  return ports;
+}
+
 /** Line ending and trailing-newline normalisation used for expectations: CRLF → LF. */
 export const normalizeOutput = (text: string): string => text.replaceAll("\r\n", "\n");
 
@@ -156,11 +169,13 @@ export interface CaseRun {
   readonly result: HeadlessResult;
   /** Serial port 0, normalised. */
   readonly output: string;
+  /** Serial text of port `n`, normalised (empty when the sketch printed nothing there). */
+  portOutput(port: number): string;
 }
 
 /** Runs a case headless from its checked-in HEX. */
 export function runCase(testCase: CorpusCase, hex = hexOf(testCase)): CaseRun {
   const image = loadSimulationImage(buildSimulationImage({ board: testCase.board, hex }));
   const result = runHeadless(image, { simMs: testCase.simMs, events: testCase.events, expectState: testCase.expectState });
-  return { result, output: normalizeOutput(result.serial.get(0) ?? "") };
+  return { result, output: normalizeOutput(result.serial.get(0) ?? ""), portOutput: (port) => normalizeOutput(result.serial.get(port) ?? "") };
 }

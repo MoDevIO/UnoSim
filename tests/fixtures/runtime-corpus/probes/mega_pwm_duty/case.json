@@ -1,0 +1,32 @@
+{
+  "board": "mega2560",
+  "simMs": 80,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "analogWrite on the 15 PWM pins of the Mega 2560 (timers 0 to 5) and the switch from PWM back to digital.",
+  "basis": "wiring_analog.c of arduino:avr@1.8.8 with digital_pin_to_timer_PGM of the mega variant (2:3B 3:3C 4:0B 5:3A 6:4A 7:4B 8:4C 9:2B 10:2A 11:1A 12:1B 13:0A 44:5C 45:5B 46:5A): analogWrite(0) and analogWrite(255) are digitalWrite(LOW/HIGH), other values set OCRnx; wiring.c runs timers 0 to 5 in 8-bit PWM modes, so the duty cycle equals the value; digitalWrite on a PWM pin clears its COM bits (turnOffPWM)",
+  "expectState": [
+    [10, "pwm", 2, 20],
+    [10, "pwm", 3, 30],
+    [10, "pwm", 4, 40],
+    [10, "pwm", 5, 50],
+    [10, "pwm", 6, 60],
+    [10, "pwm", 7, 70],
+    [10, "pwm", 8, 80],
+    [10, "pwm", 9, 90],
+    [10, "pwm", 10, 100],
+    [10, "pwm", 11, 110],
+    [10, "pwm", 12, 120],
+    [10, "pwm", 13, 130],
+    [10, "pwm", 44, 144],
+    [10, "pwm", 45, 145],
+    [10, "pwm", 46, 146],
+    [60, "pin", 13, "OUTPUT", 0],
+    [60, "pin", 12, "OUTPUT", 0],
+    [60, "pin", 11, "OUTPUT", 1],
+    [60, "pwm", 44, 1],
+    [60, "pwm", 46, 146]
+  ],
+  "events": [],
+  "tolerances": []
+}

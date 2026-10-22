@@ -1,0 +1,22 @@
+{
+  "board": "mega2560",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Pins on ports A, H, J, K and L of the Mega 2560 (extended I/O addresses), PWM on timer 4 and 5, ADC channels above 7.",
+  "basis": "digital_pin_to_port_PGM of the mega variant (22 = PA0, 42 = PL7, 7 = PH4, 15 = PJ0, 62 = PK0) and the datasheet: an OUTPUT keeps its level, INPUT_PULLUP reads HIGH, an open INPUT reads LOW (model assumption of plan 4.8); analogWrite sets OCR4C (pin 8) and OCR5A (pin 46) to the value; ADC = floor(Vin * 1024 / 5 V): 1.5 V on A8 -> 307, 4 V on channel 3 -> 819",
+  "events": [
+    [0, "adcVolts", 8, 1.5],
+    [0, "adcVolts", 3, 4]
+  ],
+  "expectState": [
+    [90, "pin", 22, "OUTPUT", 1],
+    [90, "pin", 42, "OUTPUT", 1],
+    [90, "pin", 7, "OUTPUT", 0],
+    [90, "pin", 15, "INPUT_PULLUP", 1],
+    [90, "pin", 62, "INPUT", 0],
+    [90, "pwm", 8, 100],
+    [90, "pwm", 46, 200]
+  ],
+  "tolerances": []
+}

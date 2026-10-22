@@ -1,0 +1,6 @@
+Hallo Arduino!
+dezimal:     42
+binaer:      101010
+hexadezimal: 2A
+2 Stellen:   3.14
+4 Stellen:   3.1416

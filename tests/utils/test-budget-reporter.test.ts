@@ -86,15 +86,29 @@ describe("TestBudgetReporter", () => {
     expect(coverageScript).toContain("TEST_BUDGET_FAIL_MS=120000");
   });
 
-  it("configures unit tests with a 75-second warning and a 90-second hard-fail budget", () => {
+  it("configures unit tests with a 75-second warning and a 120-second hard-fail budget", () => {
     const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
       scripts: Record<string, string>;
     };
-    const unitScript = packageJson.scripts["test:unit"];
+    const unitScript = packageJson.scripts["test:unit:app"];
 
     expect(unitScript).toContain("TEST_BUDGET_SUITE=unit");
     expect(unitScript).toContain("TEST_BUDGET_WARN_MS=75000");
     expect(unitScript).toContain("TEST_BUDGET_FAIL_MS=120000");
+    expect(unitScript).not.toContain("--project=unit-emulator");
+  });
+
+  it("runs the emulator tests in their own unit pass with their own budget", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const emulatorScript = packageJson.scripts["test:unit:emulator"];
+
+    expect(packageJson.scripts["test:unit"]).toBe("npm run test:unit:app && npm run test:unit:emulator");
+    expect(emulatorScript).toContain("TEST_BUDGET_SUITE=unit-emulator");
+    expect(emulatorScript).toContain("TEST_BUDGET_WARN_MS=45000");
+    expect(emulatorScript).toContain("TEST_BUDGET_FAIL_MS=90000");
+    expect(emulatorScript).toContain("--project=unit-emulator");
   });
 
   it("preserves the legacy pass behavior under budget", () => {
