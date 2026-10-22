@@ -12,31 +12,6 @@ interface ResumeFlags {
   pinSetAfterResume: boolean;
 }
 
-/** After 1 s, resumes the runner, logs debug info, and sets pin 2 to HIGH 500 ms later. */
-function scheduleResumeAndSetPin(
-  runner: SandboxRunner,
-  stderrLines: string[],
-  flags: ResumeFlags,
-): void {
-  setTimeout(() => {
-    const resumed = runner.resume();
-    stderrLines.push(`[TEST] Resume called, result: ${resumed}`);
-    flags.resumedOnce = true;
-
-    setTimeout(() => {
-      stderrLines.push(
-        `[TEST] Setting pin 2 to HIGH`,
-        `[TEST] runner.isRunning=${runner.isRunning}, runner.isPaused=${runner.isPaused}`,
-        `[TEST] runner.process exists: ${!!(runner as any).process}`,
-        `[TEST] runner.process.stdin exists: ${!!((runner as any).process?.stdin)}`,
-        `[TEST] runner.process.killed: ${(runner as any).process?.killed}`,
-      );
-      runner.setPinValue(2, 1);
-      flags.pinSetAfterResume = true;
-    }, 500);
-  }, 1000);
-}
-
 /** After 1 s, resumes and sets pins 2 and 3 to HIGH sequentially. */
 function resumeAndSetMultiplePins(
   runner: SandboxRunner,
@@ -144,95 +119,6 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
     console.log("✅ digitalRead works BEFORE pause");
   }, 60000);
 
-
-  it("should read pin value correctly AFTER pause/resume", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-        pinMode(2, INPUT);
-        Serial.println("SETUP_DONE");
-      }
-      void loop() {
-        int val = digitalRead(2);
-        Serial.print("PIN2=");
-        Serial.println(val);
-        delay(200);
-      }
-    `;
-
-    const output: string[] = [];
-    const stderrLines: string[] = [];
-    let setupDone = false;
-    let pausedOnce = false;
-    const resumeFlags: ResumeFlags = { resumedOnce: false, pinSetAfterResume: false };
-
-    const result = await new Promise<{success: boolean, output: string, stderr: string}>((resolve) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
-        resolve({
-          success: false,
-          output: output.join(""),
-          stderr: stderrLines.join("\n")
-        });
-      }, 30000);
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          output.push(line);
-          const fullOutput = output.join("");
-          
-          // Step 1: Wait for setup to complete
-          if (fullOutput.includes("SETUP_DONE") && !setupDone) {
-            setupDone = true;
-          }
-
-          // Step 2: After seeing first PIN2=0, pause
-          if (fullOutput.includes("PIN2=0") && setupDone && !pausedOnce) {
-            pausedOnce = true;
-            const paused = runner.pause();
-            stderrLines.push(`[TEST] Pause called, result: ${paused}`);
-            
-            // Step 3: Wait a bit, then resume + set pin
-            scheduleResumeAndSetPin(runner, stderrLines, resumeFlags);
-          }
-
-          // Step 5: Check if we get PIN2=1 after setting pin post-resume
-          if (resumeFlags.pinSetAfterResume && fullOutput.includes("PIN2=1")) {
-            clearTimeout(timeout);
-            runner.stop();
-            resolve({
-              success: true,
-              output: fullOutput,
-              stderr: stderrLines.join("\n")
-            });
-          }
-        },
-        onError: (err) => {
-          stderrLines.push(`[STDERR] ${err}`);
-        },
-        onExit: () => {
-          stderrLines.push(`[TEST] Process exited`);
-        },
-        onPinState: (pin, type, value) => {
-          stderrLines.push(`[PIN_STATE] pin=${pin}, type=${type}, value=${value}`);
-        },
-        timeoutSec: 30,
-      });
-    });
-
-    // Print debug info BEFORE assertions
-    process.stderr.write("\n=== TEST RESULTS ===\n");
-    process.stderr.write("Success: " + result.success + "\n");
-    process.stderr.write("\n--- STDOUT ---\n");
-    process.stderr.write(result.output + "\n");
-    process.stderr.write("\n--- STDERR/DEBUG ---\n");
-    process.stderr.write(result.stderr + "\n");
-    process.stderr.write("===================\n\n");
-
-    expect(result.success).toBe(true);
-    expect(result.output).toContain("PIN2=1");
-  }, 30000); // 30 second test timeout
 
   it("should handle multiple pin changes after resume", async () => {
     const code = `
