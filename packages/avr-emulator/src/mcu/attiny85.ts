@@ -173,8 +173,17 @@ export const ATTINY85: McuProfile = {
     channel: (data) => data[ADMUX] & 0x0f,
   },
   sleepEnable: { register: MCUCR, mask: 0x20 }, // MCUCR.SE
-  // Timer 1 of the ATtiny85 has its own register set (TCCR1, GTCCR, OCR1A–C); its PWM observation follows with the board (P6.4).
-  timerRegisters: [timerRegisters(timer0)],
+  timerRegisters: [
+    timerRegisters(timer0),
+    {
+      kind: "attiny-timer1",
+      TCCR1: attinyTimer1Config.TCCR1,
+      GTCCR: attinyTimer1Config.GTCCR,
+      OCR1A: attinyTimer1Config.OCR1A,
+      OCR1B: attinyTimer1Config.OCR1B,
+      OCR1C: attinyTimer1Config.OCR1C,
+    },
+  ],
   createPeripherals(cpu, clockHz, eeprom) {
     const clock = new AVRClock(cpu, clockHz, { CLKPR });
     const port = new AVRIOPort(cpu, portB);

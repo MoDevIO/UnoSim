@@ -1,10 +1,10 @@
 import { ATMEGA2560 } from "./atmega2560";
 import { ATMEGA328P } from "./atmega328p";
+import { ATTINY85 } from "./attiny85";
 import type { McuId } from "./mcus";
 import type { McuProfile } from "./types";
 
-/** The ATtiny85 profile (mcu/attiny85.ts, P6.2) is registered with its board hardware (P6.4). */
-const PROFILES: Partial<Record<McuId, McuProfile>> = { atmega328p: ATMEGA328P, atmega2560: ATMEGA2560 };
+const PROFILES: Partial<Record<McuId, McuProfile>> = { atmega328p: ATMEGA328P, atmega2560: ATMEGA2560, attiny85: ATTINY85 };
 
 export function mcuProfile(id: McuId): McuProfile {
   const profile = PROFILES[id];

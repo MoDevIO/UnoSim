@@ -5,6 +5,7 @@ import {
   bitsOf, ioBitInstructionBit, isSetBitInstruction, isTwoWordInstruction, loadDestination, modifierMask, singleBit, skipBitTest, storeSource,
 } from "./avr-decode";
 import { chainWrite } from "./hooks";
+import { pwmChannelRegisters } from "./pwm";
 import type { PinMode } from "./pin-model";
 
 export type IoFunction = "pinMode" | "digitalWrite" | "digitalRead" | "analogRead" | "analogWrite";
@@ -212,18 +213,16 @@ export class IoUsageObserver {
     const { cpu, board, mcu } = this.machine;
     for (const pin of board.pins) {
       if (!pin.pwm) continue;
-      const timer = mcu.timerRegisters[pin.pwm.timer];
-      const comBit = { A: 7, B: 5, C: 3 }[pin.pwm.channel];
-      const ocr = { A: timer.OCRA, B: timer.OCRB, C: timer.OCRC }[pin.pwm.channel];
+      const { control, comHighBit: comBit, ocr } = pwmChannelRegisters(mcu.timerRegisters[pin.pwm.timer], pin.pwm.channel);
       const onAnalogWrite = () => {
         this.pendingOutputs = this.pendingOutputs.filter((p) => p.pin !== pin.pin);
         this.record("analogWrite", pin.pin);
       };
-      chainWrite(cpu, timer.TCCRA, (value, old) => {
+      chainWrite(cpu, control, (value, old) => {
         if (value & ~old & (1 << comBit)) onAnalogWrite();
       });
       chainWrite(cpu, ocr, () => {
-        if (cpu.data[timer.TCCRA] & (1 << comBit)) onAnalogWrite();
+        if (cpu.data[control] & (1 << comBit)) onAnalogWrite();
       });
     }
   }

@@ -3,6 +3,8 @@ import {
   activeAnalogPins, activePinLabel, activePins, activePwmPins, analogChannelPin, getActiveBoard, isActivePwmPin, isAnalogPin, setActiveBoard,
 } from "../../../client/src/lib/active-board";
 
+import type { BoardId } from "@shared/boards";
+
 afterEach(() => setActiveBoard("uno"));
 
 describe("active board (plan P4.3)", () => {
@@ -29,7 +31,8 @@ describe("active board (plan P4.3)", () => {
   });
 
   it("uses the Uno's pins for a board without a hardware profile yet", () => {
-    setActiveBoard("attiny85");
+    // Every catalog board has hardware since P6.4; an id without it falls back to the Uno.
+    setActiveBoard("no-hardware" as BoardId);
 
     expect(activePins()).toHaveLength(20);
     expect(isAnalogPin(20)).toBe(false);

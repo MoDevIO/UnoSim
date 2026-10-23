@@ -197,7 +197,7 @@ function resolveToken(
   if (/^\d+$/.test(token)) return Number.parseInt(token, 10);
   const analogMatch = /^A(\d+)$/.exec(token);
   if (analogMatch) {
-    return activeContext.analogPin(Number.parseInt(analogMatch[1], 10));
+    return activeContext.analogValue(Number.parseInt(analogMatch[1], 10));
   }
   return syms.get(token);
 }
@@ -240,12 +240,12 @@ function resolvePin(
     const idx = Number.parseInt(arrM[2], 10);
     if (arr && idx < arr.length) {
       const id = arr[idx];
-      return activeContext.has(id) ? id : undefined;
+      return activeContext.isPinValue(id) ? id : undefined;
     }
     return undefined;
   }
   const n = resolveToken(t, syms);
-  return n !== undefined && activeContext.has(n) ? n : undefined;
+  return n !== undefined && activeContext.isPinValue(n) ? n : undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -511,8 +511,8 @@ function processStaticPin(
   entries: StaticIOCall[],
   loopBody?: "braced" | "braceless",
 ): void {
-  const resolvedPinId =
-    op === "analogRead" ? (activeContext.analogPin(pinId) ?? pinId) : pinId;
+  const resolvedPinId = activeContext.callPin(pinId, op);
+  if (resolvedPinId === undefined) return;
   const loopContext = loopBody === undefined ? {} : { loopBody };
   if (op === "pinMode") {
     const mode = MODE_MAP[secondArg];

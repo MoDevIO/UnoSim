@@ -6,6 +6,7 @@
 export { BOARD_HARDWARE_IDS, BOARD_MCU, isBoardHardwareId } from "./ids";
 export type { BoardHardwareId } from "./ids";
 export { NANO, UNO } from "./atmega328p-boards";
+export { ATTINY85_BOARD } from "./attiny85-board";
 export { MEGA2560 } from "./mega2560-board";
 export { boardHardware, hasBoardHardware } from "./registry";
 export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./types";

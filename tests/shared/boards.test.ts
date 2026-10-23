@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BOARD_HARDWARE_IDS, boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
+import type { BoardId } from "../../shared/boards";
 import {
   BOARD_CATALOG, BOARD_IDS, BOARD_STATUSES, DEFAULT_BOARD_ID, RUNTIME_KINDS, boardIdSchema, boardPinAliases, enabledBoards, findBoardByFqbn, fqbnAllowlist, getBoard,
 } from "../../shared/boards";
@@ -100,7 +101,8 @@ describe("board catalog (plan 4.3, P2.1)", () => {
     });
 
     it("has none for boards without a hardware profile yet", () => {
-      expect(boardPinAliases("attiny85")).toBeUndefined();
+      // Every catalog board has hardware since P6.4; an id without it has no aliases.
+      expect(boardPinAliases("no-hardware" as BoardId)).toBeUndefined();
     });
   });
 });

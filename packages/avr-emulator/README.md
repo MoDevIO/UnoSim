@@ -289,10 +289,17 @@ own registers and vectors, avr8js' `ATtinyTimer1`, a 4-channel ADC (ADC0–3 on
 PB5, PB2, PB4, PB3; references VCC, AREF, 1.1 V, 2.56 V), 512 bytes EEPROM
 with write times for 8 MHz, watchdog and clock prescaler; no USART (the core's
 `Serial` is a software UART). Vectors have one word each (RJMP), vector n at
-word n. Data space up to RAMEND 0x25F (`new CPU(progMem, 0x160)`). The
-profile is exported as `ATTINY85`; `mcuProfile("attiny85")` returns it once
-the board hardware exists (P6.4). Tests: `tests/attiny85-profile.test.ts` with
-the fixtures `attiny85-tiny_*.hex`.
+word n. Data space up to RAMEND 0x25F (`new CPU(progMem, 0x160)`). Tests:
+`tests/attiny85-profile.test.ts` with the fixtures `attiny85-tiny_*.hex`.
+
+Board hardware `ATTINY85_BOARD` (`src/boards/attiny85-board.ts`, P6.4): pins
+0–5 = PB0–PB5, 8 MHz, `LED_BUILTIN` 1; A0–A3 are second names of pins 5, 2, 4,
+3 (`analogName`); PWM on 0 (timer 0 A), 1 (timer 1 A) and 4 (timer 1 B), the
+duty cycle of timer 1 read from TCCR1/GTCCR/OCR1x/OCR1C (`pwm.ts`); PB5 is
+RESET; `Serial` is a serial port of kind `software` on 0 (TX) and 1 (RX), for
+which `SerialPorts` creates a `SoftwareUart` (`setFallbackBaud` sets the rate
+it uses until the line reveals the sketch's). Checked against
+`variants/tinyX5/pins_arduino.h` in the toolchain gate.
 
 ## Software UART (ATtiny85)
 

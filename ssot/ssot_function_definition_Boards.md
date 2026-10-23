@@ -61,7 +61,7 @@ Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, gep
 
 ## 5. Pin-Aliasse
 
-`boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Der Mega 2560 hat `A0`–`A15` auf den Pins 54–69 und `LED_BUILTIN` 13 (seit P5.2). Boards ohne Hardwareprofil im Paket (ATtiny85 bis P6.2) haben keine Aliasse.
+`boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Der Mega 2560 hat `A0`–`A15` auf den Pins 54–69 und `LED_BUILTIN` 13 (seit P5.2), der ATtiny85 `A0`–`A3` auf den Pins 5, 2, 4, 3 und `LED_BUILTIN` 1 (seit P6.4). Eine ID ohne Hardwareprofil hat keine Aliasse.
 
 ### 5.1 Pin-Modell (`shared/board-pins.ts`, P4.1)
 
@@ -69,14 +69,16 @@ Die Pinlisten, Labels und Fähigkeiten eines Boards stammen aus der Pinbelegung 
 
 | Funktion | Ergebnis |
 |---|---|
-| `boardPins(id)` | alle Pins in Nummernfolge (`pin`, `label`, `name`, `digital`, `analog`, `adcChannel`, `pwm`, `role`); `undefined` ohne Hardwareprofil |
-| `findBoardPin`, `isBoardPin(id, pin)` | Pinprüfung je Board (Uno 0–19, Nano 0–21, Mega 0–69) |
+| `boardPins(id)` | alle Pins in Nummernfolge (`pin`, `label`, `name`, `analogName`, `digital`, `analog`, `adcChannel`, `pwm`, `role`); `undefined` ohne Hardwareprofil |
+| `findBoardPin`, `isBoardPin(id, pin)` | Pinprüfung je Board (Uno 0–19, Nano 0–21, Mega 0–69, ATtiny85 0–5) |
 | `boardPwmPins`, `boardAnalogPins` | PWM-Pins (`~`) und Analogeingänge in Bauteilfolge |
 | `boardPinLabel(id, pin)` | Name wie im Sketch (`14` → `A0`) |
-| `resolveBoardPin(id, name)` | `13`, `A0`, `LED_BUILTIN` → Pinnummer; `A6` gibt es nur am Nano |
+| `resolveBoardPin(id, name)` | `13`, `A0`, `LED_BUILTIN` → Pinnummer; `A6` gibt es nur am Nano; am ATtiny85 `A1` → 2 |
 | `maxBoardPin(id)` | höchste Pinnummer des Boards |
 
-Am Nano sind A6 und A7 (Pins 20 und 21) reine Analogeingänge ohne digitale Funktion (`digital: false`). Die WebSocket-Grenze `maxPin: 19` gilt weiter für den Host-Mock; die Eingabe an den Worker prüft den Pin gegen das Board (`isBoardPin`, siehe SimulationRuntime).
+Am Nano sind A6 und A7 (Pins 20 und 21) reine Analogeingänge ohne digitale Funktion (`digital: false`).
+
+Am ATtiny85 (ATTinyCore 1.5.2) sind die Pins 0–5 die Bits PB0–PB5 (`label` `PB0`…). Die Analognamen sind zweite Namen von Digitalpins (`analogName`: `A0` = 5, `A1` = 2, `A2` = 4, `A3` = 3); `name` bleibt die Nummer. Im Core ist `A<n>` der Wert `0x80 | n`, den jede Pinfunktion auf den Pin abbildet, und `analogRead(n)` nimmt den Kanal n; die Sketch-Parser rechnen ebenso (`pinContext(id).analogValue`, `callPin`). PB5 ist RESET (`role: "reset"`), PB0/PB1 tragen `Serial` als Software-UART (`role: "serial"`, Port der Art `software`). Regeln der Parser: Warnung bei digitaler Nutzung von PB5 (`analogRead(A0)` erlaubt) und bei anderer Nutzung von PB0/PB1, wenn der Sketch `Serial` verwendet; `Serial1`–`Serial3` gibt es nicht. Die WebSocket-Grenze `maxPin: 19` gilt weiter für den Host-Mock; die Eingabe an den Worker prüft den Pin gegen das Board (`isBoardPin`, siehe SimulationRuntime).
 
 ## 6. Board im Compile-Request
 

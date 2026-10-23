@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   boardAnalogPins, boardPinLabel, boardPins, boardPwmPins, findBoardPin, isBoardPin, maxBoardPin, resolveBoardPin,
 } from "@shared/board-pins";
+import type { BoardId } from "@shared/boards";
+
+const NO_HARDWARE = "no-hardware" as BoardId;
 
 describe("board pins (plan P4.1)", () => {
   it("lists the 20 pins of the Uno: D0–D13 and A0–A5 as 14–19, PWM on 3 5 6 9 10 11", () => {
@@ -68,11 +71,12 @@ describe("board pins (plan P4.1)", () => {
   });
 
   it("has no pins for a board without a hardware profile yet", () => {
-    expect(boardPins("attiny85")).toBeUndefined();
-    expect(isBoardPin("attiny85", 2)).toBe(false);
-    expect(resolveBoardPin("attiny85", "0")).toBeUndefined();
-    expect(maxBoardPin("attiny85")).toBeUndefined();
-    expect(boardPwmPins("attiny85")).toEqual([]);
-    expect(boardPinLabel("attiny85", 3)).toBe("3");
+    // Every catalog board has hardware since P6.4; an id without it has no pins.
+    expect(boardPins(NO_HARDWARE)).toBeUndefined();
+    expect(isBoardPin(NO_HARDWARE, 2)).toBe(false);
+    expect(resolveBoardPin(NO_HARDWARE, "0")).toBeUndefined();
+    expect(maxBoardPin(NO_HARDWARE)).toBeUndefined();
+    expect(boardPwmPins(NO_HARDWARE)).toEqual([]);
+    expect(boardPinLabel(NO_HARDWARE, 3)).toBe("3");
   });
 });

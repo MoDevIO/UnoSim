@@ -4,16 +4,18 @@ import type { BoardId } from "./boards";
 /**
  * The pins of a board as the UI, the sketch parsers and the input checks see
  * them (plan 4.3, P4.1): derived from the pin map of the emulation package, the
- * single definition of the hardware. Boards without a hardware profile yet
- * (Mega 2560 until P5.2, ATtiny85 until P6.4) have none.
+ * single definition of the hardware. A board without a hardware profile has
+ * none.
  */
 export interface BoardPin {
   /** Arduino pin number of the core (Uno: A0 = 14). */
   readonly pin: number;
   /** `D13`, `A0`: how the board names it. */
   readonly label: string;
-  /** The name a sketch writes: `13`, `A0`. */
+  /** The name a sketch writes: `13`, `A0`; for a digital pin with an analog second name (ATtiny85 `2`/`A1`) its number. */
   readonly name: string;
+  /** The analog second name of a digital pin (ATtiny85: `A1` for pin 2). */
+  readonly analogName?: string;
   /** Usable as a digital pin: it has a port bit (A6/A7 of the Nano have none). */
   readonly digital: boolean;
   /** Has an ADC channel. */
@@ -30,7 +32,8 @@ function toBoardPin(pin: PinHardware): BoardPin {
   return {
     pin: pin.pin,
     label: pin.label,
-    name: analog ? pin.label : String(pin.pin),
+    name: analog && !pin.analogName ? pin.label : String(pin.pin),
+    ...(pin.analogName ? { analogName: pin.analogName } : {}),
     digital: pin.port !== undefined,
     analog,
     ...(pin.adcChannel === undefined ? {} : { adcChannel: pin.adcChannel }),
@@ -85,7 +88,8 @@ export function resolveBoardPin(board: BoardId, name: string): number | undefine
     const pin = Number(name);
     return pins.some((candidate) => candidate.pin === pin) ? pin : undefined;
   }
-  return pins.find((candidate) => candidate.analog && candidate.label === name.toUpperCase())?.pin;
+  const analog = name.toUpperCase();
+  return pins.find((candidate) => candidate.analog && (candidate.analogName ?? candidate.label) === analog)?.pin;
 }
 
 /** Number of hardware serial ports (`Serial`, `Serial1`, …); a board without hardware profile counts as the Uno with one. */

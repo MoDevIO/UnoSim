@@ -11,18 +11,27 @@ export interface PinHardware {
   /** Missing for analog-only inputs such as A6/A7 on the Nano. */
   readonly port?: { readonly port: PortName; readonly bit: number };
   readonly adcChannel?: number;
+  /**
+   * Analog name when it is a second name of a digital pin (ATtiny85: pin 2 is
+   * also `A1`); boards with separate analog pin numbers (Uno: A0 = 14) carry
+   * it in `label`.
+   */
+  readonly analogName?: string;
   readonly pwm?: { readonly timer: number; readonly channel: "A" | "B" | "C" };
   readonly role?: "reset" | "serial";
 }
 
-export interface SerialPortHardware {
+interface SerialPortPins {
   /** Port index in the protocol: 0 = `Serial`, 1 = `Serial1`, … */
   readonly index: number;
-  readonly kind: "usart";
-  readonly usart: number;
   readonly rxPin: number;
   readonly txPin: number;
 }
+
+/** A hardware USART, or the core's software UART on a board without one (ATtiny85, `io/software-uart.ts`). */
+export type SerialPortHardware =
+  | (SerialPortPins & { readonly kind: "usart"; readonly usart: number })
+  | (SerialPortPins & { readonly kind: "software"; readonly usart?: undefined });
 
 export interface BoardHardware {
   readonly id: BoardHardwareId;

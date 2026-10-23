@@ -7,6 +7,7 @@
 export { BOARD_HARDWARE_IDS, BOARD_MCU, isBoardHardwareId } from "./boards/ids";
 export type { BoardHardwareId } from "./boards/ids";
 export { NANO, UNO } from "./boards/atmega328p-boards";
+export { ATTINY85_BOARD } from "./boards/attiny85-board";
 export { MEGA2560 } from "./boards/mega2560-board";
 export { boardHardware, hasBoardHardware } from "./boards/registry";
 export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./boards/types";
@@ -27,7 +28,7 @@ export type { SoftwareUartPins } from "./io/software-uart";
 export type { SerialFrameConfig, SerialOutput } from "./io/serial-ports";
 export { Utf8StreamDecoder, encodeUtf8 } from "./io/utf8";
 export type { Level, PinChanges, PinMode, PinSnapshot } from "./io/pin-model";
-export { pwmDuty, pwmRegisterAddresses } from "./io/pwm";
+export { pwmChannelRegisters, pwmDuty, pwmRegisterAddresses } from "./io/pwm";
 export type { PwmChannel, TimerRegisters } from "./io/pwm";
 export type { Machine, MachineOptions } from "./machine";
 export { ArrayEepromBackend, erasedEeprom } from "./mcu/eeprom";
