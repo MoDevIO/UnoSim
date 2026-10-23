@@ -932,6 +932,9 @@ liefert das Artefakt aus und erlaubt `browser` in `UNOSIM_RUNTIME_BACKENDS`
 (Standard bleibt `host-mock` bis M4); der `ProcessExecutor` verweigert
 Compile-Container ohne Isolation; `check-leaks.sh`, Deployment-Tests,
 Installer, Compose und Kapazitätsskripte kennen das Image.
+Teil c: Das Backend-Image enthält keinen Compiler mehr (`arduino-cli` und, da
+im Docker-Profil ebenfalls ungenutzt, `g++`; 1,62 GB → 726 MB); die CI prüft
+die Lage der Toolchain (keine im Server-Image, gepinnte im Compile-Image).
 
 **P2.5 Artefakt und Build-Identität (L).**
 - Build-Identität nach E15 als eigener Typ. Die Schlüssel des HEX-Caches, des
