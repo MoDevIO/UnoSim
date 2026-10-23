@@ -105,6 +105,8 @@ maybeDescribe("Compile sandbox contract", () => {
   it.each([
     ["uno", "arduino:avr:uno", "Board: Arduino UNO"],
     ["mega", "arduino:avr:mega:cpu=atmega2560", "Board: Arduino Mega 2560"],
+    // ATTinyCore (P2.3): its post-build hooks would write into the read-only core and sketch.
+    ["attiny85", "ATTinyCore:avr:attinyx5:chip=85,clock=8internal", "Board: ATtiny85"],
   ])("compiles a sketch for the %s to HEX and ELF", async (name, fqbn, board) => {
     const file = sketch(`blink_${name}`, "void setup(){ pinMode(13, OUTPUT); }\nvoid loop(){ digitalWrite(13, !digitalRead(13)); delay(100); }\n");
     const result = await compileInSandbox(file, { fqbn }, undefined, SETTINGS);
@@ -188,7 +190,9 @@ maybeDescribe("Compile sandbox contract", () => {
 
   it("reads the toolchain of the image for the build identity", async () => {
     expect(parseCliVersion(await runCliJsonInSandbox(["version", "--format", "json"], undefined, SETTINGS))).toBe("1.5.1");
-    expect(parseCores(await runCliJsonInSandbox(["core", "list", "--format", "json"], undefined, SETTINGS))).toContainEqual({ id: "arduino:avr", version: "1.8.8" });
+    const cores = parseCores(await runCliJsonInSandbox(["core", "list", "--format", "json"], undefined, SETTINGS));
+    expect(cores).toContainEqual({ id: "arduino:avr", version: "1.8.8" });
+    expect(cores).toContainEqual({ id: "ATTinyCore:avr", version: "1.5.2" });
   });
 
   it("compiles a REST compile of the Docker profile in the sandbox and delivers its artifact", async () => {

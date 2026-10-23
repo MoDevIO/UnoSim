@@ -154,7 +154,14 @@ Testing conventions and timing budgets are maintained in
 MIT License - See [LICENSE](LICENSE) for details
 
 This project uses third-party open-source dependencies under their respective
-licenses.
+licenses. The browser emulation uses [avr8js](https://github.com/wokwi/avr8js)
+(MIT). A compiled sketch contains code of the board's Arduino core: the
+[Arduino AVR core](https://github.com/arduino/ArduinoCore-avr) or, for the
+ATtiny85, [ATTinyCore](https://github.com/SpenceKonde/ATTinyCore) 1.5.2, both
+LGPL 2.1. The compile sandbox image (`Dockerfile.compile-sandbox`) contains
+both cores unmodified, as published (pinned in `scripts/arduino-avr-core-version`
+and `scripts/attinycore-version`); UnoSim only adds a `platform.local.txt` that
+turns off ATTinyCore's post-build hooks.
 
 ## Contact & Support
 

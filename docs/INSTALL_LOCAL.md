@@ -10,7 +10,7 @@ Benutzer bestimmt und lauscht standardmäßig nur auf `127.0.0.1`.
 - Linux oder macOS
 - Node.js gemäß `.nvmrc`
 - `npm`
-- Arduino CLI mit `arduino:avr` Core
+- Arduino CLI mit `arduino:avr` Core und ATTinyCore (für den ATtiny85)
 
 Docker ist für lokale Entwicklung nicht erforderlich.
 
@@ -20,9 +20,19 @@ Docker ist für lokale Entwicklung nicht erforderlich.
 git clone https://github.com/MoDevIO/UnoSim.git
 cd UnoSim
 npm ci
-arduino-cli core update-index
-arduino-cli core install arduino:avr
+sh scripts/install-arduino-avr-core.sh
+sh scripts/install-attinycore.sh
 ```
+
+Beide Skripte installieren die gepinnten Versionen (`scripts/arduino-avr-core-version`,
+`scripts/attinycore-version`) und prüfen sie; sie lassen eine passende
+Installation unverändert. ATTinyCore kommt nicht über den Board-Manager,
+sondern als Release-Archiv mit geprüfter SHA-256 in das Sketchbook
+(`<directories.user>/hardware/ATTinyCore/avr`, siehe
+`arduino-cli config get directories.user`) und nutzt den avr-gcc von
+`arduino:avr`. Eine `platform.local.txt` schaltet die Post-Build-Hooks des
+Cores ab (Disassembler-Liste, Kopie in den Sketch-Ordner); das HEX ändert sich
+dadurch nicht. Entfernen: diesen Ordner löschen.
 
 Das Repository ist ein npm-Workspace: `npm ci` im Wurzelverzeichnis
 installiert auch die Pakete unter `packages/` (derzeit der Emulationskern

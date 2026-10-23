@@ -1,0 +1,6 @@
+# ATTinyCore (SpenceKonde) for the ATtiny85 (ADR 0009, E11; spike P0.5). LGPL 2.1.
+# Installed from the release archive, checked against this SHA-256 (the value of
+# the board-manager index); update all three only after the toolchain gates pass.
+ATTINYCORE_VERSION=1.5.2
+ATTINYCORE_ARCHIVE_URL=https://SpenceKonde.github.io/ATTinyCore/ATTinyCore-1.5.2.tar.bz2
+ATTINYCORE_ARCHIVE_SHA256=35bb47dc378daea53524eca3fa3838a350a6cf3dde0f12f0117ce636a11f8eb3
