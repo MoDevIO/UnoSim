@@ -106,28 +106,55 @@ start's owner sweep.
 
 ## Compile boundary
 
-`POST /api/compile` runs `arduino-cli` inside the backend container, not in a
-sandbox (the simulation compiles again inside its sandbox). It therefore reads
-files with the backend's permissions. To keep file contents out of compiler
-diagnostics:
+In the Docker profile `POST /api/compile` runs `arduino-cli` in a compile
+sandbox ([ADR 0010](adr/0010-compile-sandbox-and-flash-artifact.md), plan
+P2.4): one short-lived container of the image `unosim-compile-sandbox` per
+compile, started by the backend over the Docker socket like the simulation
+sandboxes.
 
-- includes that name a file outside the submitted project – absolute paths,
-  paths leaving the project, `..` in library includes, computed includes and
-  escaped directive names – are rejected before `arduino-cli` runs;
-- the compiled HEX (`binary`) is never returned to the browser. The response
-  carries the flash image as `artifact` (flash range, SHA-256, symbols; browser
-  emulation, plan P2.5) only in the local profile, which serves one trusted
-  developer. The Docker profile never returns it: an image built in the
-  unsandboxed backend could embed files the backend can read, so delivery
-  waits for the compile sandbox ([ADR 0010](adr/0010-compile-sandbox-and-flash-artifact.md)).
+- No network, read-only root filesystem, all capabilities dropped,
+  `no-new-privileges`, memory without swap, CPU and PID limits
+  (`COMPILE_SANDBOX_MEMORY_MB` 512, `COMPILE_SANDBOX_CPU_LIMIT` 1,
+  `COMPILE_SANDBOX_PIDS_LIMIT` 128), one 256 MiB tmpfs without exec for the
+  core cache copy, the build and its outputs.
+- The sketch directory is the only bind mount, read-only. No other project,
+  no backend file and no Docker socket is visible. HEX, ELF and the CLI's
+  standard output leave the container framed on stdout; the container cannot
+  write to the host.
+- The environment is set explicitly (`HOME`, `PATH`); nothing of the
+  backend's environment reaches the toolchain, also not through
+  `.include "/proc/self/environ"`.
+- A time limit of 60 s applies inside the container (`timeout --signal=KILL`)
+  and at the backend; a container whose client was stopped is removed. Every
+  compile container carries the owner label and is removed by the startup
+  sweep like a simulation sandbox.
+- The process executor refuses to start a container of the compile image
+  without these isolation flags or with a writable mount.
+- The backend does not start in the Docker profile without the image.
 
-Remaining risk: inline-assembler directives such as `.include` can still make
-the assembler report the first characters of each line of a readable file, and
-string concatenation defeats a textual filter. Do not place secrets as files in
-the backend container. A sandboxed REST compile is an open decision
-([open points](OPEN_POINTS.md), S1-ASM). The process environment
-is not reachable this way: `/proc/*/environ` reads as empty for both compilers
-in use.
+The contract test `tests/integration/compile-sandbox-contract.test.ts` (Docker
+gate) checks isolation, the disclosure attempts below and the limits.
+
+Includes that name a file outside the submitted project – absolute paths,
+paths leaving the project, `..` in library includes, computed includes and
+escaped directive names – are still rejected before `arduino-cli` runs, as an
+additional layer in the Docker profile and as the boundary in the local
+profile.
+
+The compiled HEX (`binary`) is never returned to the browser. The response
+carries the flash image as `artifact` (flash range, SHA-256, symbols; browser
+emulation, plan P2.5): in the Docker profile because it was built where no
+backend file was readable, in the local profile because that profile serves
+one trusted developer.
+
+Remaining risk in the local profile: `arduino-cli` runs in the backend process.
+Inline-assembler directives such as `.include` can make the assembler report
+the first characters of each line of a readable file, and `.include
+"/proc/self/environ"` the first characters of environment entries (spike
+P0.2); string concatenation defeats a textual filter. The local profile binds
+to loopback and serves one developer; do not run it for others. In the
+compile sandbox the same directives only reach the files of the public
+image.
 
 ## Test-only gateway bypass
 

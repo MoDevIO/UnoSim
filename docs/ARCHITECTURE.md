@@ -73,7 +73,7 @@ graph TD
 
 ### 3. Arduino Compiler
 - **Verantwortung:** Sketch-Kompilierung, Header-Verarbeitung, Cache-Management
-- **Technologie:** arduino-cli (Docker-basiert oder lokal)
+- **Technologie:** arduino-cli, im Docker-Profil in der Compile-Sandbox, lokal im Backend
 - **Hauptkomponenten:**
   - `services/arduino-compiler.ts` – Haupt-Compiler-Logik
   - `services/compiler-with-fallback.ts` – Fallback-Mechanismus für Compilation
@@ -81,10 +81,16 @@ graph TD
     Festplatten-Cache für HEX und Compiler-Ausgabe. Beide sind über die
     Sketch-Identität aus Code, Headern, Entry-File und FQBN adressiert;
     Worker-Pool und direkter Compiler teilen dieselben Einträge.
-  - Der REST-Compile läuft mit `arduino-cli` im Backend, nicht in einer
-    Sandbox. Includes außerhalb des eingereichten Projekts (absolut, `..`,
-    berechnet) werden vor dem Compile abgewiesen; das HEX verlässt den Server
-    nicht.
+  - Wo `arduino-cli` läuft, wählt `services/compiler/toolchain.ts` je Profil:
+    lokal im Backend (`compiler/cli-runner.ts`), im Docker-Profil je Compile
+    in einem Container des Images `unosim-compile-sandbox`
+    (`compiler/sandboxed-cli-runner.ts`, `Dockerfile.compile-sandbox`; ohne
+    Netz, Sketch read-only, Ergebnis gerahmt über stdout). Compile und
+    Toolchain-Abfragen der Build-Identität gehen über denselben Weg. Beide Wege
+    teilen die Auswertung der CLI-Ausgabe (`interpretCliRun`). Includes
+    außerhalb des eingereichten Projekts (absolut, `..`, berechnet) werden vor
+    dem Compile abgewiesen; das HEX verlässt den Server nicht, das Artefakt
+    (Flash-Abbild) geht an den anfragenden Browser. Siehe [SECURITY.md](SECURITY.md).
   - Kapazität: Im Docker-Betrieb begrenzt der Worker-Pool (höchstens 8 Worker,
     höchstens 500 wartende Compiles, 30 s Wartezeit) und antwortet bei
     Erschöpfung mit `503 SYSTEM_BUSY`; abgestürzte Worker werden mit Backoff neu

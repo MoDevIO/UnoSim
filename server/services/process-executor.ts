@@ -41,6 +41,14 @@ export class ProcessOutputLimitError extends Error {
   }
 }
 
+/** The process was killed because it ran longer than `timeout`. */
+export class ProcessTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`Process timeout after ${timeoutMs}ms`);
+    this.name = "ProcessTimeoutError";
+  }
+}
+
 interface ExecutionResult {
   code: number;
   stdout?: string;
@@ -96,6 +104,24 @@ function requireCatalogFqbn(args: string[]): void {
   if (!fqbnAllowlist().includes(fqbn)) throw new Error(`FQBN is not in the board catalog: ${fqbn}`);
 }
 
+const valueAfter = (args: string[], flag: string) => args.filter((_, index) => args[index - 1] === flag);
+
+/**
+ * `docker run` of the compile sandbox image (plan P2.4, 4.10) must be isolated:
+ * no network, immutable root, no capabilities, no privilege gain, and only
+ * read-only bind mounts. Defense in depth behind DockerCommandBuilder.
+ */
+function requireIsolatedCompileContainer(args: string[]): void {
+  if (args[0] !== "run" || !args.includes(config.compilation.sandbox.image)) return;
+  const isolated = valueAfter(args, "--network").join(",") === "none"
+    && args.includes("--read-only")
+    && valueAfter(args, "--cap-drop").includes("ALL")
+    && valueAfter(args, "--security-opt").includes("no-new-privileges")
+    && valueAfter(args, "-v").every((mount) => mount.endsWith(":ro"))
+    && !args.some((arg) => arg === "--privileged" || arg.startsWith("--volume") || arg.startsWith("--mount") || arg.includes("docker.sock"));
+  if (!isolated) throw new Error("Compile sandbox container is not isolated");
+}
+
 /**
  * Validate that command is in whitelist and arguments don't contain shell metacharacters
  */
@@ -129,6 +155,7 @@ function validateCommand(command: string, args: string[]): void {
   }
 
   if (command === "arduino-cli") requireCatalogFqbn(args);
+  if (command === "docker") requireIsolatedCompileContainer(args);
 }
 
 export class ProcessExecutor {
@@ -255,7 +282,7 @@ export class ProcessExecutor {
           result.error = outputError;
           this.logger.warn(`${command} exceeded its output limit (${maxOutputBytes} bytes)`);
         } else if (timedOut) {
-          result.error = new Error(`Process timeout after ${timeout}ms`);
+          result.error = new ProcessTimeoutError(timeout);
           this.logger.warn(`${command} timed out: ${result.error.message}`);
         } else if (code !== 0) {
           result.error = new Error(`${command} exit code ${code}`);

@@ -86,7 +86,8 @@ cd /opt/unosim
 Ersetze `192.168.178.82` durch die IPv4-Adresse deiner VM. Das Skript prüft,
 dass sie auf diesem Rechner konfiguriert ist. Es installiert Docker Engine,
 Compose v2, Buildx, Nginx, OpenSSL und curl, erzeugt die lokalen
-Konfigurationsdateien, baut die Sandbox und startet den UnoSim-Backenddienst.
+Konfigurationsdateien, baut die Sandbox und die Compile-Sandbox und startet
+den UnoSim-Backenddienst.
 Wenn bereits eine `.env`-Datei, eine UnoSim-Nginx-Site, das Gateway-Secret-
 Snippet oder ein TLS-Ziel existiert, bricht das Skript ab, damit nichts
 überschrieben wird. Zeigt `sites-enabled/default` auf

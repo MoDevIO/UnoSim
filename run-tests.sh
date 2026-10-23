@@ -38,9 +38,10 @@ export UNOSIM_SERVER_MODE=local
 # unix:// + absolute path = 3 slashes total; $HOME already starts with /
 DOCKER_HOST="${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock}"
 DOCKER_SANDBOX_IMAGE="${DOCKER_SANDBOX_IMAGE:-unosim-sandbox:latest}"
+COMPILE_SANDBOX_IMAGE="${COMPILE_SANDBOX_IMAGE:-unosim-compile-sandbox:latest}"
 # Temp-Verzeichnis unter /Users/… damit Docker Desktop es per default mounten kann
 UNOSIM_SHARED_TEMP_DIR="${UNOSIM_SHARED_TEMP_DIR:-$(pwd)/temp}"
-export DOCKER_HOST DOCKER_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR
+export DOCKER_HOST DOCKER_SANDBOX_IMAGE COMPILE_SANDBOX_IMAGE UNOSIM_SHARED_TEMP_DIR
 
 # Farben & Icons
 G="\033[32m"; Y="\033[33m"; R="\033[31m"; C="\033[36m"; B="\033[1m"; D="\033[2m"; RS="\033[0m"
@@ -54,6 +55,7 @@ find_sandbox_containers() {
     local filter="${1:---filter status=exited}"  # default: nur beendete
     {
         docker ps -aq $filter --filter "name=unosim-sandbox" 2>/dev/null
+        docker ps -aq $filter --filter "name=unosim-compile-" 2>/dev/null
         docker ps -a  $filter --format '{{.ID}} {{.Command}}' 2>/dev/null \
             | grep 'g++ /sandbox' | awk '{print $1}'
     } | sort -u
@@ -478,13 +480,14 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ] && ! docker info >/dev/null 2>&1; then
 fi
 
 if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
-    # Build sandbox image only if it does not exist yet
+    # Build the sandbox image only if it does not exist yet. The compile sandbox
+    # is always built: its layers are cached, and its entry script and cores
+    # must match the checkout.
+    COMPILE_SANDBOX_BUILD="docker build -f Dockerfile.compile-sandbox -t $COMPILE_SANDBOX_IMAGE ."
     if ! docker image inspect "$DOCKER_SANDBOX_IMAGE" > /dev/null 2>&1; then
-        run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE ."
+        run_task "Sandbox Image Build" "docker build -f Dockerfile.sandbox -t $DOCKER_SANDBOX_IMAGE . && $COMPILE_SANDBOX_BUILD"
     else
-        STEP=$((STEP+1))
-        echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Sandbox Image Build${RS}"
-        echo -e "  ${OK} Sandbox image already present – skipping build"
+        run_task "Sandbox Image Build (compile sandbox; sandbox image present)" "$COMPILE_SANDBOX_BUILD"
     fi
 
     run_task "Docker Tests (Timing/Pause/Sandbox/Flow)" \

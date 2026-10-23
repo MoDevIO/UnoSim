@@ -9,6 +9,7 @@ services:
     container_name: ${DEPLOYMENT_BACKEND_CONTAINER:?DEPLOYMENT_BACKEND_CONTAINER is required}
     environment:
       DOCKER_SANDBOX_IMAGE: ${DEPLOYMENT_SANDBOX_IMAGE:?DEPLOYMENT_SANDBOX_IMAGE is required}
+      COMPILE_SANDBOX_IMAGE: ${DEPLOYMENT_COMPILE_SANDBOX_IMAGE:?DEPLOYMENT_COMPILE_SANDBOX_IMAGE is required}
       # Never the production default: the startup sweep must not touch the
       # sandboxes of a real deployment on the same Docker host.
       UNOSIM_INSTANCE_ID: ${DEPLOYMENT_INSTANCE_ID:?DEPLOYMENT_INSTANCE_ID is required}

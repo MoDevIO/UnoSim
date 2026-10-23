@@ -25,7 +25,82 @@ interface DockerRunOptions {
   labels?: string[];
 }
 
+interface IsolationOptions {
+  memoryMB: number;
+  cpuLimit: string;
+  pidsLimit: number;
+  user?: string;
+}
+
+/** Docker Desktop on macOS needs the real path of a bind mount (e.g. /private/tmp, not /tmp). */
+function realPath(path: string): string {
+  try { return realpathSync(path); } catch { return path; }
+}
+
+/** No network, bounded memory/CPU/PIDs, no privileges, immutable root filesystem: every UnoSim container. */
+function isolationFlags(options: IsolationOptions): string[] {
+  return [
+    "--network",
+    "none", // No network access
+    "--memory",
+    `${options.memoryMB}m`, // Memory limit
+    "--memory-swap",
+    `${options.memoryMB}m`, // Disable swap
+    "--cpus",
+    options.cpuLimit, // CPU limit (e.g., "0.5" for 50%)
+    "--pids-limit",
+    String(options.pidsLimit), // Limit number of processes
+    ...(options.user ? ["--user", options.user] : []),
+    "--security-opt",
+    "no-new-privileges", // Prevent privilege escalation
+    "--cap-drop",
+    "ALL", // Drop all Linux capabilities
+    "--read-only", // Keep the container root filesystem immutable
+  ];
+}
+
+/** Environment of a compile container: set explicitly, never inherited from the backend (spike P0.2). */
+export const COMPILE_SANDBOX_ENV: readonly string[] = [
+  "HOME=/home/compile",
+  "PATH=/usr/local/bin:/usr/bin:/bin",
+];
+
+interface CompileSandboxRunOptions extends IsolationOptions {
+  /** Host directory of the sketch, mounted read-only at `target`; a toolchain query has none. */
+  sketch?: { dir: string; target: string };
+  tmpfsMB: number;
+  imageName: string;
+  containerName: string;
+  labels: string[];
+  command: string[];
+}
+
 export class DockerCommandBuilder {
+  /**
+   * `docker run` of one compile container (plan P2.4, 4.10): the isolation of
+   * every sandbox, the sketch as the only bind mount (read-only), one bounded
+   * tmpfs without exec for cache copy, build and outputs, and an explicit
+   * environment. Nothing in it can write to the host; the result leaves on stdout.
+   */
+  static buildCompileSandboxCommand(options: CompileSandboxRunOptions): string[] {
+    const mount = options.sketch ? ["-v", `${realPath(options.sketch.dir)}:${options.sketch.target}:ro`] : [];
+    return [
+      "run",
+      "--rm",
+      "--name",
+      options.containerName,
+      ...options.labels.flatMap((label) => ["--label", label]),
+      ...isolationFlags(options),
+      "--tmpfs",
+      `/tmp:rw,nosuid,nodev,noexec,mode=1777,size=${options.tmpfsMB}m`,
+      ...mount,
+      ...COMPILE_SANDBOX_ENV.flatMap((entry) => ["--env", entry]),
+      options.imageName,
+      ...options.command,
+    ];
+  }
+
+
   /**
    * Builds a secure Docker run command with all security constraints
    * 
@@ -42,22 +117,7 @@ export class DockerCommandBuilder {
       ...(options.containerName ? ["--name", options.containerName] : []),
       ...(options.labels ?? []).flatMap((label) => ["--label", label]),
       "-i", // Interactive mode for stdin
-      "--network",
-      "none", // No network access
-      "--memory",
-      `${options.memoryMB}m`, // Memory limit
-      "--memory-swap",
-      `${options.memoryMB}m`, // Disable swap
-      "--cpus",
-      options.cpuLimit, // CPU limit (e.g., "0.5" for 50%)
-      "--pids-limit",
-      String(options.pidsLimit), // Limit number of processes
-      ...(options.user ? ["--user", options.user] : []),
-      "--security-opt",
-      "no-new-privileges", // Prevent privilege escalation
-      "--cap-drop",
-      "ALL", // Drop all Linux capabilities
-      "--read-only", // Keep the container root filesystem immutable
+      ...isolationFlags(options),
       "--tmpfs",
       "/tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m", // Only bounded transient runtime storage
       "--tmpfs",

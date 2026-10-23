@@ -91,6 +91,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || fail 'Das Skript muss aus einer UnoSim-Git-Arbeitskopie ausgeführt werden.'
 [[ -f "$PROJECT_DIR/Dockerfile" ]] || fail 'Dockerfile fehlt in der UnoSim-Arbeitskopie.'
 [[ -f "$PROJECT_DIR/Dockerfile.sandbox" ]] || fail 'Dockerfile.sandbox fehlt in der UnoSim-Arbeitskopie.'
+[[ -f "$PROJECT_DIR/Dockerfile.compile-sandbox" ]] || fail 'Dockerfile.compile-sandbox fehlt in der UnoSim-Arbeitskopie.'
 [[ -f "$PROJECT_DIR/docker-compose.yml" ]] || fail 'docker-compose.yml fehlt in der UnoSim-Arbeitskopie.'
 RENDER="$SCRIPT_DIR/ubuntu-vbox-render.sh"
 [[ -f "$RENDER" ]] || fail 'scripts/ubuntu-vbox-render.sh fehlt in der UnoSim-Arbeitskopie.'
@@ -160,8 +161,10 @@ sudo bash "$PREPARE_RUNTIME_DIRS" --project-dir "$PROJECT_DIR"
 cd "$PROJECT_DIR"
 printf 'Baue das UnoSim-Sandbox-Image …\n'
 sudo docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
+printf 'Baue das Compile-Sandbox-Image …\n'
+sudo docker build -f Dockerfile.compile-sandbox -t unosim-compile-sandbox:latest .
 
-# Generate the runtime environment only after the independent sandbox build
+# Generate the runtime environment only after the independent sandbox builds
 # succeeds. That avoids leaving a partial .env behind if that build fails.
 DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
 GATEWAY_SECRET="$(openssl rand -hex 32)"
