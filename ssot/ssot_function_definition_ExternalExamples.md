@@ -197,6 +197,8 @@ Retry lädt nur die betroffene Gruppe; es gibt keine automatische Retry-Schleife
 
 Katalogabrufe, Fehler und Retry dürfen weder Editorinhalt noch Browser-Auswahl
 ändern. Überholte/abgebrochene Antworten dürfen keine neuere Auswahl überschreiben.
+Auch ein bereits gestarteter Detailabruf aus einer früheren Auswahl darf
+nach einem Quellenwechsel weder Editor noch aktiven Tutor-Beispielkontext setzen.
 Der eingebaute Abruf hat einen eigenen AbortController und verändert weder den
 globalen externen Katalogzustand noch dessen Tutor-/Revisionskontext. Eingebaute
 Details setzen beim tatsächlichen Laden den externen Beispielkontext wie bisher

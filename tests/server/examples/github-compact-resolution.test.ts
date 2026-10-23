@@ -6,6 +6,17 @@ const sha = "a".repeat(40);
 const context = { identity: "user", requestId: "diagnostic-request" };
 
 describe("compact GitHub revision resolution", () => {
+  it("logs invalid SHA responses without leaking their contents", async () => {
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
+    try {
+      const fetchText = vi.fn(async () => "private-upstream-body");
+      await expect(new GitHubRevisionResolver({ fetchText }).resolve("owner/repo", "main", context)).rejects.toMatchObject({ code: "SOURCE_UNAVAILABLE" });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("invalid-sha"));
+      expect(warn.mock.calls.flat().join(" ")).toContain(context.requestId);
+      expect(warn.mock.calls.flat().join(" ")).not.toContain("private-upstream-body");
+    } finally { warn.mockRestore(); }
+  });
+
   it.each(["main", "v1.2.3", sha])("requests a bounded SHA representation for %s", async (ref) => {
     const fetchText = vi.fn(async () => `${sha}\n`);
     await expect(new GitHubRevisionResolver({ fetchText }).resolve("owner/repo", ref, context)).resolves.toBe(sha);

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExamplesMenu } from "../../client/src/components/features/examples-menu";
-import { normalizeSelection, setExternalExamplesOverride } from "../../client/src/lib/external-examples";
+import { getExternalExamplesState, normalizeSelection, setExternalExamplesOverride } from "../../client/src/lib/external-examples";
 
 vi.mock("@/components/ui/dropdown-menu", async () => {
   const React = await import("react");
@@ -23,6 +23,25 @@ const open = () => fireEvent.click(screen.getByRole("button", { name: "Examples"
 afterEach(() => { vi.restoreAllMocks(); setExternalExamplesOverride(null); });
 
 describe("independent examples menu availability", () => {
+  it("does not write editor or Tutor context from a detail requested before a source change", async () => {
+    const detail = deferred<Response>(); const onLoad = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
+      const url = String(input);
+      if (url.endsWith("/builtin/catalog")) return response([local]);
+      if (url.includes("/api/examples/remote?")) return detail.promise;
+      return response([remote], true);
+    });
+    render(<ExamplesMenu onLoadExample={onLoad} />); open();
+    fireEvent.click(await screen.findByRole("button", { name: "External" }));
+    fireEvent.click(screen.getByRole("button", { name: "Basics" }));
+    fireEvent.click(screen.getByRole("button", { name: /Remote example/ }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/examples/remote?"))).toBe(true));
+    act(() => setExternalExamplesOverride(normalizeSelection("other/repo", "main")));
+    await act(async () => detail.resolve(new Response(JSON.stringify({ files: [{ name: "remote.ino", content: "old selection" }] }))));
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(getExternalExamplesState().activeCourseContent).toBeNull();
+  });
+
   it("settles a superseded shared request so the external group can be retried", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
       if (String(input).endsWith("/builtin/catalog")) return response([local]);

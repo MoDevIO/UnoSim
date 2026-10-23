@@ -40,6 +40,7 @@ export class GitHubRevisionResolver implements RevisionResolver {
     }
     const parsed = fullCommitShaSchema.safeParse(text.trim());
     if (!parsed.success) {
+      this.logger.warn(`resolve-ref request=${JSON.stringify(context.requestId)}: invalid-sha`);
       throw new ExamplesError("SOURCE_UNAVAILABLE", "External examples ref response is invalid");
     }
     return parsed.data;

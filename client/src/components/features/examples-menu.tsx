@@ -67,6 +67,8 @@ export function ExamplesMenu({
   const focusedIndexRef = useRef<number>(-1);
   const { toast } = useToast();
   const { override } = useExternalExamples();
+  const selectionRef = useRef(override);
+  selectionRef.current = override;
   const loadGeneration = useRef(0);
   const capabilitiesRef = useRef(capabilities);
   const controllers = useRef<Partial<Record<ExampleSource, AbortController>>>({});
@@ -254,11 +256,13 @@ export function ExamplesMenu({
   }, [open]);
 
   const handleLoadExample = async (example: Example, boardConfirmed = false) => {
+    const selection = selectionRef.current;
     if (!capabilitiesRef.current.canUseServerExamples) return;
     if (loadingExampleId) return;
     // An example for another board asks first: switch the board, load anyway, or cancel (plan P4.6).
     if (!boardConfirmed && example.board && example.board !== getActiveBoard()) {
       const { boards } = await loadRuntimeConfig();
+      if (selection !== selectionRef.current) return;
       const prompt = exampleBoardPrompt(example.board, boards.find((board) => board.id === getActiveBoard()), boards);
       if (prompt) {
         setBoardQuestion({ example, prompt });
@@ -279,7 +283,7 @@ export function ExamplesMenu({
       );
       if (!response.ok) throw new Error("Failed to fetch example");
       const detail = (await response.json()) as ExampleDetail;
-      if (!capabilitiesRef.current.canUseServerExamples) return;
+      if (!capabilitiesRef.current.canUseServerExamples || selection !== selectionRef.current) return;
       if (!Array.isArray(detail.files) || detail.files.length === 0) {
         throw new Error("Example contains no files");
       }
@@ -295,6 +299,7 @@ export function ExamplesMenu({
 
       setOpen(false);
     } catch (error) {
+      if (selection !== selectionRef.current) return;
       console.error(`Failed to load example ${example.id}:`, error);
       toast({
         title: "Failed to Load Example",
