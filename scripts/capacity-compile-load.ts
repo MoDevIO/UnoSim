@@ -103,6 +103,9 @@ export function renderCompileLoadTable(measurements: readonly CompileLoadMeasure
   return [
     "| Step | Sketch | Requests × concurrency | OK / 503 / failed | p50 / p95 / max (ms) | Compiles/min | Compile containers (peak) | CPU peak |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
-    ...measurements.map((m) => `| ${m.step} | ${m.sketch} | ${m.requested} × ${m.concurrency} | ${m.successful} / ${m.serviceUnavailable} / ${m.failed - m.serviceUnavailable} | ${m.p50LatencyMs} / ${m.p95LatencyMs} / ${m.maxLatencyMs} | ${m.successfulPerMinute} | ${m.compileContainerPeak} | ${m.cpuPeakPercent === null ? "—" : `${Math.round(m.cpuPeakPercent)} %`} |`),
+    ...measurements.map((m) => {
+      const cpu = m.cpuPeakPercent === null ? "—" : `${Math.round(m.cpuPeakPercent)} %`;
+      return `| ${m.step} | ${m.sketch} | ${m.requested} × ${m.concurrency} | ${m.successful} / ${m.serviceUnavailable} / ${m.failed - m.serviceUnavailable} | ${m.p50LatencyMs} / ${m.p95LatencyMs} / ${m.maxLatencyMs} | ${m.successfulPerMinute} | ${m.compileContainerPeak} | ${cpu} |`;
+    }),
   ];
 }

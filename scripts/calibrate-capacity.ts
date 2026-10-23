@@ -362,7 +362,7 @@ function stopProcess(child: ChildProcess): Promise<void> {
 
 /** Compile sandbox containers of a capacity run that exist right now. */
 function compileContainerCount(runId: string): number {
-  return execFileSync("docker", ["ps", "-q", "--filter", `label=unosim.capacity-test-run-id=${runId}`, "--filter", "name=unosim-compile-"], { encoding: "utf8" })
+  return execFileSync("docker", ["ps", "-q", "--filter", `label=unosim.capacity-test-run-id=${runId}`, "--filter", "name=unosim-compile-"], { encoding: "utf8" }) // NOSONAR S4036
     .trim().split("\n").filter(Boolean).length;
 }
 
