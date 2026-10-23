@@ -31,6 +31,7 @@ export type { Machine, MachineOptions } from "./machine";
 export { ArrayEepromBackend, erasedEeprom } from "./mcu/eeprom";
 export { ATMEGA2560 } from "./mcu/atmega2560";
 export { ATMEGA328P } from "./mcu/atmega328p";
+export { ATTINY85 } from "./mcu/attiny85";
 export { mcuProfile } from "./mcu/registry";
 export type { McuPeripherals, McuProfile } from "./mcu/types";
 export { encodeBase64, decodeBase64 } from "./image/base64";

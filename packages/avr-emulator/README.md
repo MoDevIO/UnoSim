@@ -240,6 +240,21 @@ at least 90 % line coverage for `src/`.
   reports the diagnostic `serial-input-discarded`; the corpus case
   `probes/serial_before_begin` is recorded on the board.
 - **Watchdog reset:** avr8js resets only PC and SP; see the diagnostics section.
+- **ADC reference on the ATtiny85** (`src/mcu/attiny85.ts`): avr8js reads
+  REFS2 at bit 3 of ADMUX, the ATtiny85 has it at bit 4 (bit 3 is MUX3). With
+  `analogReference(INTERNAL2V56)` avr8js would measure against VCC (spike
+  P0.5: 102 instead of 200 for 0.5 V). The profile reads REFS2 itself.
+- **Shared interrupt registers on the ATtiny85:** INT0 and the pin-change
+  interrupt share GIMSK and GIFR. avr8js hooks GIMSK only for INT0 and gives
+  GIFR to the pin-change interrupt alone, so enabling PCIE did not raise a
+  pending pin change and writing 1 to INTF0 did not clear INT0. The profile
+  wraps both hooks.
+- **Timer 1 PWM on the ATtiny85 (open):** `ATtinyTimer1` models PWM mode as
+  phase-correct counting and drives no OC1A/OC1B waveform when CTC1 is set,
+  which is how ATTinyCore configures it for `analogWrite` on PB1/PB4. On the
+  chip the counter runs from 0 to OCR1C, OC1x is set at 0 and cleared at OCR1x
+  (COM1x = 10). The registers are right, so a duty cycle derived from them is
+  right; a sketch that reads the pin level of a timer-1 PWM pin sees LOW.
 
 ## ATmega2560 profile
 
@@ -266,6 +281,18 @@ Known differences (not modelled by avr8js): compare-match C interrupts of the
 16-bit timers cannot be enabled through `TIMSKn` (the Arduino core never uses
 them); sketches above 64 KB of PROGMEM may push the core's pin tables out of
 the `lpm` range, as on the board (spike P0.6).
+
+## ATtiny85 profile
+
+`src/mcu/attiny85.ts` (plan P6.2, spike P0.5): one port (B), timer 0 with its
+own registers and vectors, avr8js' `ATtinyTimer1`, a 4-channel ADC (ADC0–3 on
+PB5, PB2, PB4, PB3; references VCC, AREF, 1.1 V, 2.56 V), 512 bytes EEPROM
+with write times for 8 MHz, watchdog and clock prescaler; no USART (the core's
+`Serial` is a software UART). Vectors have one word each (RJMP), vector n at
+word n. Data space up to RAMEND 0x25F (`new CPU(progMem, 0x160)`). The
+profile is exported as `ATTINY85`; `mcuProfile("attiny85")` returns it once
+the board hardware exists (P6.4). Tests: `tests/attiny85-profile.test.ts` with
+the fixtures `attiny85-tiny_*.hex`.
 
 ## License
 

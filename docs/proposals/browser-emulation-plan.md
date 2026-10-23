@@ -1136,6 +1136,12 @@ PB2, PB4, PB3; Referenzen VCC, 1,1 V, 2,56 V), Watchdog, Ein-Wort-Vektoren,
 8 MHz; kein USART. Die Referenzauswahl des ADC liest `REFS2` selbst an Bit 4,
 weil avr8js 0.21.1 es an Bit 3 erwartet (P0.5: sonst 102 statt 200 bei
 2,56 V); der Fehler wird upstream gemeldet.
+Umgesetzt (`mcu/attiny85.ts`, exportiert als `ATTINY85`; registriert erst mit
+der Board-Hardware in P6.4). Weitere Funde: INT0 und PCINT teilen GIMSK/GIFR,
+avr8js verdrahtet das nur für je einen (das Profil umhüllt die Hooks);
+`ATtinyTimer1` erzeugt in der PWM-Konfiguration von ATTinyCore kein Signal an
+OC1x (Register stimmen, das Tastverhältnis kommt aus ihnen; offen, siehe
+README des Pakets). Die Meldungen an avr8js macht ein Mensch.
 
 **P6.3 Software-UART (M).**
 TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite (größte
