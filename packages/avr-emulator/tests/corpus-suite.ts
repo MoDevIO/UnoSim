@@ -15,6 +15,7 @@ export const SHARDS: Readonly<Record<string, (testCase: CorpusCase) => boolean>>
   "it01-it03": (testCase) => testCase.group === "examples-v3.0.0" && /^it0[1-3]-/.test(testCase.id),
   "it04-it05": (testCase) => testCase.group === "examples-v3.0.0" && /^it0[45]-/.test(testCase.id),
   "it06-it11": (testCase) => testCase.group === "examples-v3.0.0" && /^it(0[678]|11)-/.test(testCase.id),
+  nano: (testCase) => testCase.group === "examples-v3.0.0-nano",
   mega: (testCase) => testCase.group === "examples-v3.0.0-mega",
 };
 

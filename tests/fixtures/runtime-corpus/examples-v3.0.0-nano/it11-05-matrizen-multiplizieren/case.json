@@ -1,0 +1,12 @@
+{
+  "board": "nano",
+  "simMs": 250,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Multiplying matrices and testing for the identity matrix (the same example on the Nano).",
+  "basis": "the output of the example on the Uno (recorded on a real Uno R3, class hardware) holds for the Nano: it has the ATmega328P of the Uno at 16 MHz, the pins 0 to 19 are numbered alike (A0 = 14, pins_arduino.h of the eightanaloginputs variant) and the sketch uses neither A6 nor A7; no recording on a Nano exists",
+  "events": [],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}
