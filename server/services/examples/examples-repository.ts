@@ -84,15 +84,19 @@ export class ExamplesRepository implements TutorCourseContentResolver {
     };
   }
 
+  async getBuiltInCatalog(): Promise<ExamplesCatalogResponse> {
+    return this.catalog({
+      selection: "default", mode: "builtin", repository: null, ref: null,
+      revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
+    }, await this.builtInProvider.getExamples());
+  }
+
   async getCatalog(selection: ExamplesRequestSelection, context: RequestContext): Promise<ExamplesCatalogResponse> {
     const resolved = resolveExamplesSelection(selection, this.examplesConfig);
-    const builtins = await this.builtInProvider.getExamples();
     if (resolved.mode === "builtin") {
-      return this.catalog({
-        selection: "default", mode: "builtin", repository: null, ref: null,
-        revision: null, status: "builtin", stale: false, tutor: { status: "absent" },
-      }, builtins);
+      return this.getBuiltInCatalog();
     }
+    const builtins = await this.builtInProvider.getExamples();
     const remote = await this.sourceProvider.resolve(resolved.repository, resolved.ref, this.withPriority(context, resolved), false);
     return this.catalog({
       selection: resolved.selection,

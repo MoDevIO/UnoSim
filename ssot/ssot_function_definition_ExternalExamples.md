@@ -122,11 +122,18 @@ Der Browser kontaktiert ausschließlich UnoSim:
 
 ```http
 POST /api/examples/validate
+GET /api/examples/builtin/catalog
 GET /api/examples
 GET /api/examples?repository=owner%2Frepository&ref=main
 GET /api/examples/:id?repository=owner%2Frepository&revision=<full-commit-sha>
 ```
 
+- `GET /api/examples/builtin/catalog` liefert ausschließlich eingebaute Beispiele
+  mit `mode: builtin`, `status: builtin`, `revision: null` und `stale: false`.
+  Der Endpoint akzeptiert keine Query-Parameter, verwendet nur den lokalen
+  Provider und benötigt weder Ref-Auflösung noch externe Load-/GitHub-Kontingente.
+  Es gelten dieselben anonymen Default-Leserechte wie beim gemeinsamen Katalog.
+  Die unabhängige Verfügbarkeit ist kein Wechsel der externen Source.
 - Fehlende Auswahlparameter beim Katalog bedeuten Server-Default.
 - Ein Override MUSS `repository` und `ref` gemeinsam übertragen.
 - Partielle, doppelte und unbekannte Parameter werden abgelehnt.

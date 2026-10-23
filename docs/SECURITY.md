@@ -227,3 +227,9 @@ development startup reject the flag.
 
 Report security vulnerabilities privately to the instance operators before
 public disclosure.
+
+The read-only `/api/examples/builtin/catalog` endpoint serves only the local
+BuiltInProvider catalog with the same anonymous default-read policy as
+`/api/examples`. It accepts no selection parameters and does not start outbound
+requests or spend source-load/GitHub quotas. External selection and revision
+checks remain on their existing endpoints.

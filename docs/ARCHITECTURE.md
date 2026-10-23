@@ -455,3 +455,14 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
 - [`../ssot/ssot_function_definition_ExternalExamples.md`](../ssot/ssot_function_definition_ExternalExamples.md) – Fachlicher Examples-Vertrag
 - [`CAPACITY_HISTORICAL_PHASE_3_4.md`](CAPACITY_HISTORICAL_PHASE_3_4.md) – historische Kapazitätsmessung; aktuelle Werte in [`CAPACITY_MODEL.md`](CAPACITY_MODEL.md)
 - [`TESTING_STANDARDS.md`](TESTING_STANDARDS.md) – Teststrategie und -konventionen
+
+### Unabhängige Katalogwege für Beispiele
+
+Das Beispiele-Menü lädt parallel `/api/examples/builtin/catalog` (lokale
+Dateien aus `public/examples`, BuiltInProvider) und `/api/examples` (bisheriger
+gemeinsamer Katalog mit externer Source-Auflösung). Es übernimmt aus dem zweiten
+Ergebnis nur externe Einträge. Jede Gruppe hat eigene Lade-, Fehler- und
+Retry-Zustände; lokale Beispiele warten nicht auf GitHub. Die lokale Antwort
+verändert weder die externe Auswahl noch den Tutor-Kontext. Externe
+Ref-Auflösung verwendet die begrenzte SHA-Repräsentation von GitHub, nicht
+die vollständige Commit-Antwort.

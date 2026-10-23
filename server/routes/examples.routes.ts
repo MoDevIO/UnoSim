@@ -25,7 +25,7 @@ export interface ExamplesRoutesOptions {
 
 export function registerExamplesRoutes(
   app: Express,
-  repository: Pick<ExamplesRepository, "validate" | "getCatalog" | "getExample">,
+  repository: Pick<ExamplesRepository, "validate" | "getCatalog" | "getExample" | "getBuiltInCatalog">,
   options: ExamplesRoutesOptions = {},
 ): void {
   const trust = options.trust ?? config.trust;
@@ -72,6 +72,17 @@ export function registerExamplesRoutes(
     }
     try {
       res.json(await repository.getCatalog(selection, requestContext(req, identity)));
+    } catch (error) {
+      sendError(res, asExamplesError(error));
+    }
+  });
+
+  app.get("/api/examples/builtin/catalog", async (req, res) => {
+    if (Object.keys(req.query).length) {
+      return sendError(res, new ExamplesError("INVALID_SELECTION", "Built-in catalog accepts no query parameters"));
+    }
+    try {
+      res.json(await repository.getBuiltInCatalog());
     } catch (error) {
       sendError(res, asExamplesError(error));
     }
