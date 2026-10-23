@@ -29,14 +29,16 @@ Dieses Runbook definiert das verbindliche Release-Gate für UnoSim. Es stellt si
 | --- | --- | --- |
 | `SONAR_TOKEN` | SonarQube-Analyse | `sqp_...` |
 | `DOCKER_HOST` | Docker-Host (optional) | `unix:///Users/to/.docker/run/docker.sock` |
-| `DOCKER_SANDBOX_IMAGE` | Sandbox-Image | `unosim-sandbox:latest` |
+| `DOCKER_SANDBOX_IMAGE` | Sandbox-Image (Host-Mock) | `unosim-sandbox:latest` |
+| `COMPILE_SANDBOX_IMAGE` | Compile-Sandbox-Image | `unosim-compile-sandbox:latest` |
 | `RUN_HEAVY_TESTS` | Heavy-Tests aktivieren | `1` oder `true` |
 | `REQUIRE_RELEASE_GATE` | Release-Gates einschließlich Docker/E2E/Sonar erzwingen | `1` |
 
 ### Systemvoraussetzungen
 
 - Node.js: `24.20.0` (oder gemäß `.nvmrc`)
-- Docker: für einen vollständigen Release-Gate-Lauf erforderlich
+- Docker: für einen vollständigen Release-Gate-Lauf erforderlich; beide
+  Sandbox-Images aus dem Release-Stand (`npm run build:sandbox` baut sie)
 - SonarQube: lokal (`http://localhost:9000`) oder remote
 
 ---
@@ -82,10 +84,32 @@ npm run test:integration
 npm run test:docker
 ```
 
-**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract. Im normalen
+**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract, Vertrag der
+Compile-Sandbox (`tests/integration/compile-sandbox-contract.test.ts`: kein
+Netz, keine fremden Dateien, explizite Umgebung, Zeitlimit, REST-Compile des
+Docker-Profils mit Artefakt). Im normalen
 Entwicklerlauf kann dieser Gate bei fehlendem Docker übersprungen werden; im
 Release-Gate ist Docker zwingend.
 **Abbruch bei:** Fehlern oder Cleanup-Problemen im ausgeführten Gate.
+
+---
+
+### 4a. Deployment-Tests
+
+```bash
+npm run test:deployment            # Produktions-Image hinter Nginx, Pilot-Konfiguration der Browser-Emulation
+npm run test:deployment:installer  # Compose und .env des Ubuntu/VBox-Installers (Linux)
+```
+
+**Erwartung:** Beide Läufe bauen Server-, Sandbox- und Compile-Sandbox-Image
+aus dem Release-Stand (oder nutzen die Images der CI über
+`DEPLOYMENT_PREBUILT_*_IMAGE`). Der Gateway-Lauf prüft unter anderem:
+`/api/config` mit `browser` als Standard, einen Nano-Compile mit Artefakt aus
+der Compile-Sandbox, Simulationen im Host-Mock, keinen zurückgelassenen
+Sandbox- oder Compile-Container.
+**Abbruch bei:** Fehlern; der Installer-Lauf braucht das Host-Netzwerk eines
+Linux-Docker-Hosts (unter Docker Desktop erreicht das Nginx im Host-Netz den
+Port nicht), er läuft in der CI.
 
 ---
 
@@ -269,6 +293,7 @@ Folgende Artefakte müssen pro Release vorhanden sein:
 | Coverage-Bericht | `coverage/` | Testabdeckung |
 | SonarQube-Report | SonarQube-Projekt `unosim` | Quality Gate |
 | Build-Artefakte | `dist/` | Auslieferbares Paket |
+| Images | `unosim-server`, `unosim-sandbox`, `unosim-compile-sandbox` aus demselben Commit | Auslieferung im Docker-Profil |
 | Security-Audit | `npm audit`-Output | Sicherheitsstatus |
 | Release-Notes | `CHANGELOG.md` (falls vorhanden) | Änderungen dokumentieren |
 
@@ -315,6 +340,19 @@ git push origin vX.Y.Z
 3. **Beheben:** Fix implementieren und testen
 4. **Retest:** Nur betroffene Gates wiederholen
 5. **Dokumentieren:** Incident im Release-Log festhalten
+
+### Rückfall der Laufzeit im Betrieb
+
+Ohne neues Image, mit Neustart des Backends:
+
+1. `UNOSIM_DEFAULT_RUNTIME=host-mock` in `.env`: neue Läufe starten im
+   Host-Mock („Legacy“), die Emulation bleibt wählbar.
+2. `UNOSIM_RUNTIME_BACKENDS=host-mock` in `.env`: nur noch Host-Mock und Uno.
+3. Ganze Rückkehr auf das V1-Image (v1.0.1): ohne Änderung an `.env` und
+   `storage/` (siehe [INSTALL_SERVER.md, Update und Rollback](INSTALL_SERVER.md#update-und-rollback)).
+
+Rolle und Grenzen des Host-Mocks: [ARCHITECTURE.md, Host-Mock als
+Rückfallebene](ARCHITECTURE.md#host-mock-als-rückfallebene).
 
 ### Bei Security-Vulnerability
 

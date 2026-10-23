@@ -381,6 +381,22 @@ meldet, melde dich einmal ab und wieder an. Bis dahin kannst du Docker-Befehle
 mit `sudo` ausführen. Die Mitgliedschaft in der Gruppe `docker` verleiht
 weitreichende Rechte auf dem Host.
 
+## Browser-Emulation einschalten (Pilot)
+
+Der Installer richtet das Docker-Profil mit dem Host-Mock ein. Für eine
+Pilot-Instanz mit Emulation im Browser die beiden Zeilen in
+`/opt/unosim/.env` ergänzen und den Dienst neu erstellen:
+
+```bash
+cd /opt/unosim
+printf '%s\n' 'UNOSIM_RUNTIME_BACKENDS=browser,host-mock' 'UNOSIM_DEFAULT_RUNTIME=browser' | sudo tee -a .env >/dev/null
+sudo docker compose up -d
+```
+
+Das Compile-Sandbox-Image hat der Installer bereits gebaut. Zurück: die beiden
+Zeilen entfernen und `sudo docker compose up -d`. Einzelheiten:
+[INSTALL_SERVER.md](INSTALL_SERVER.md#browser-emulation-im-docker-profil-pilot).
+
 ## Identität und Limits
 
 Das Gateway-Secret, die Rolle `user`, der Subject und die genaue
