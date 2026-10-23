@@ -28,10 +28,25 @@ export interface CompileSandboxSettings {
   readonly tmpfsMB: number;
   readonly timeoutMs: number;
   readonly owner: string;
+  /** Test profile only: the capacity run that counts this container (like the simulation sandboxes). */
+  readonly capacityTestRunId?: string;
 }
 
 export function compileSandboxSettings(): CompileSandboxSettings {
-  return { ...appConfig.compilation.sandbox, timeoutMs: appConfig.compilation.timeoutMs, owner: sandboxOwner() };
+  const capacityTestRunId = appConfig.nodeEnv === "test" ? appConfig.capacityTestRunId : undefined;
+  return {
+    ...appConfig.compilation.sandbox,
+    timeoutMs: appConfig.compilation.timeoutMs,
+    owner: sandboxOwner(),
+    ...(capacityTestRunId ? { capacityTestRunId } : {}),
+  };
+}
+
+function containerLabels(settings: CompileSandboxSettings): string[] {
+  return [
+    `${SANDBOX_OWNER_LABEL}=${settings.owner}`,
+    ...(settings.capacityTestRunId ? [`unosim.capacity-test-run-id=${settings.capacityTestRunId}`] : []),
+  ];
 }
 
 /** What the container's entry point (`scripts/compile-sandbox-entry.sh`) printed on stdout. */
@@ -92,7 +107,7 @@ export async function compileInSandbox(
     tmpfsMB: settings.tmpfsMB,
     imageName: settings.image,
     containerName,
-    labels: [`${SANDBOX_OWNER_LABEL}=${settings.owner}`],
+    labels: containerLabels(settings),
     // The build path is the container's own; only FQBN and sketch matter here.
     command: ["unosim-compile", String(timeoutSeconds), ...buildCompileArgs({ fqbn: config.fqbn }, mountTarget)],
   });
@@ -157,7 +172,7 @@ export async function runCliJsonInSandbox(
     tmpfsMB: settings.tmpfsMB,
     imageName: settings.image,
     containerName,
-    labels: [`${SANDBOX_OWNER_LABEL}=${settings.owner}`],
+    labels: containerLabels(settings),
     command: ["arduino-cli", ...args],
   });
   const result = await runContainer(processExecutor, command, containerName, { timeout: CONTAINER_GRACE_MS, maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES });

@@ -43,6 +43,8 @@ import {
   type EffectiveCapacityConfiguration,
 } from "./capacity-scenario-runner";
 import { writeCalibrationArtifacts } from "./capacity-calibration-report";
+import { createDefaultHostSampler } from "./capacity-scenario-runner";
+import { type CompileLoadMeasurement, type CompileLoadStep, measureCompileLoad, planCompileLoad } from "./capacity-compile-load";
 
 const DEFAULT_IMAGE = "unosim-sandbox:latest";
 const DOCKER_CONTROL_DEFAULT_MS = 2_000;
@@ -55,7 +57,7 @@ const BUILT_CLIENT_INDEX = fileURLToPath(new URL("../dist/public/index.html", im
 
 export type SafetyEvent = {
   atMs: number;
-  phase: "preflight" | "control" | "active" | "startup" | "classroom" | "cleanup";
+  phase: "preflight" | "control" | "active" | "startup" | "classroom" | "compile" | "cleanup";
   kind: "cpu" | "memory" | "iowait" | "oom" | "docker" | "backend" | "configuration" | "deadline" | "cleanup";
   message: string;
   immediate: boolean;
@@ -65,6 +67,8 @@ export type CalibrationCliConfig = CalibrationOptions & {
   outputDir: string;
   skipClassroom: boolean;
   skipStartupTuning: boolean;
+  /** Compile load phase (plan P7.1); the CLI measures it unless --skip-compile. Omitted: not measured. */
+  compilePhase?: "measure" | "skip";
   dryRun: boolean;
   verbose: boolean;
 };
@@ -106,8 +110,15 @@ export type CalibrationRunResult = {
   policyVersion: string;
   policy: CalibrationOptions;
   fingerprint: { gitSha: string; gitDirty: boolean; host: HostProbe; docker: DockerProbe; effectiveCapacity: EffectiveCapacityConfiguration; measurementQueueTimeoutMs: number };
-  plan: { activeCandidates: number[]; startupCandidates: number[]; classroomDurationSec: 60 };
-  phases: { dockerControl: ControlLatencySample[]; active: ActiveMeasurement[]; startup: StartupMeasurement[]; classroom: ClassroomMeasurement | null };
+  plan: { activeCandidates: number[]; startupCandidates: number[]; classroomDurationSec: 60; compileSteps?: CompileLoadStep[] };
+  phases: {
+    dockerControl: ControlLatencySample[];
+    active: ActiveMeasurement[];
+    startup: StartupMeasurement[];
+    classroom: ClassroomMeasurement | null;
+    /** Compile load of the browser emulation; absent when the phase did not run. */
+    compile?: CompileLoadMeasurement[];
+  };
   recommendations: CalibrationRecommendations;
   safetyEvents: SafetyEvent[];
   partial: boolean;
@@ -124,6 +135,7 @@ export type CalibrationDependencies = {
   startBackend?: (capacity: EffectiveCapacityConfiguration, runId: string) => Promise<{ baseUrl: string; stop: () => Promise<void> }>;
   ownedContainerCount?: (runId: string, includeStopped?: boolean) => number;
   verifyBuildArtifacts?: () => void;
+  measureCompileLoad?: (target: { baseUrl: string; runId: string }, steps: CompileLoadStep[]) => Promise<CompileLoadMeasurement[]>;
 };
 
 /** Fails early when the built client that the owned backend serves is missing. */
@@ -162,6 +174,7 @@ export async function parseCalibrationArgs(argv: string[]): Promise<CalibrationC
   let outputDir = timestampOutputDir();
   let skipClassroom = false;
   let skipStartupTuning = false;
+  let compilePhase: "measure" | "skip" = "measure";
   let dryRun = false;
   let verbose = false;
   let index = 0;
@@ -176,6 +189,7 @@ export async function parseCalibrationArgs(argv: string[]): Promise<CalibrationC
       case "--output-dir": outputDir = requireValue(argv, index, argument); index += 2; continue;
       case "--skip-classroom": skipClassroom = true; break;
       case "--skip-startup-tuning": skipStartupTuning = true; break;
+      case "--skip-compile": compilePhase = "skip"; break;
       case "--dry-run": dryRun = true; break;
       case "--verbose": verbose = true; break;
       default: throw new Error(`Unknown option: ${argument}`);
@@ -187,6 +201,7 @@ export async function parseCalibrationArgs(argv: string[]): Promise<CalibrationC
     outputDir,
     skipClassroom,
     skipStartupTuning,
+    compilePhase,
     dryRun,
     verbose,
   };
@@ -343,6 +358,16 @@ function stopProcess(child: ChildProcess): Promise<void> {
     child.once("close", () => { clearTimeout(timer); resolve(); });
     child.kill("SIGTERM");
   });
+}
+
+/** Compile sandbox containers of a capacity run that exist right now. */
+function compileContainerCount(runId: string): number {
+  return execFileSync("docker", ["ps", "-q", "--filter", `label=unosim.capacity-test-run-id=${runId}`, "--filter", "name=unosim-compile-"], { encoding: "utf8" })
+    .trim().split("\n").filter(Boolean).length;
+}
+
+function defaultMeasureCompileLoad(target: { baseUrl: string; runId: string }, steps: CompileLoadStep[]): Promise<CompileLoadMeasurement[]> {
+  return measureCompileLoad(target, steps, { countCompileContainers: () => compileContainerCount(target.runId), sampleHost: createDefaultHostSampler() });
 }
 
 function ownedContainerCount(runId: string): number {
@@ -533,6 +558,8 @@ type CalibrationPhaseContext = {
   runScenario: (options: CapacityScenarioOptions) => Promise<CapacityScenarioMeasurement>;
   startBackend: NonNullable<CalibrationDependencies["startBackend"]>;
   countOwnedContainers: (runId: string, includeStopped?: boolean) => number;
+  measureCompile: NonNullable<CalibrationDependencies["measureCompileLoad"]>;
+  compileSteps: CompileLoadStep[];
   safetyEvents: SafetyEvent[];
   lastCleanup: CleanupResult;
 };
@@ -583,6 +610,26 @@ async function measureCalibrationCandidate(context: CalibrationPhaseContext, pha
   context.lastCleanup = measurement.cleanup;
   context.safetyEvents.push(...safetyEventsForMeasurement(phase, measurement, context.config.maxCpuPercent, context.minimumMemory, context.now));
   return measurement;
+}
+
+/**
+ * The compile load of the browser emulation (plan 4.12, P7.1) on a backend
+ * with the effective capacity: browser runs cost the server nothing, so this
+ * is its limit when the emulation is the default.
+ */
+async function runCompilePhase(context: CalibrationPhaseContext): Promise<CompileLoadMeasurement[]> {
+  if (context.now() >= context.deadline) throw new Error("calibration deadline reached before the compile phase");
+  const runId = createCalibrationRunId();
+  const backend = await context.startBackend(context.baseCapacity, runId);
+  try {
+    return await context.measureCompile({ baseUrl: backend.baseUrl, runId }, context.compileSteps);
+  } finally {
+    await backend.stop();
+    const remaining = context.countOwnedContainers(runId, true);
+    if (remaining > 0) {
+      context.safetyEvents.push({ atMs: context.now(), phase: "compile", kind: "cleanup", message: `${remaining} container(s) of the compile phase remained`, immediate: false });
+    }
+  }
 }
 
 function phaseError(context: CalibrationPhaseContext, phase: SafetyEvent["phase"], error: unknown): string {
@@ -681,6 +728,14 @@ async function runCalibrationPhases(context: CalibrationPhaseContext): Promise<P
       stopReason = phaseError(context, "classroom", error);
     }
   }
+  if (context.config.compilePhase === "measure") {
+    try {
+      phases.compile = await runCompilePhase(context);
+    } catch (error) {
+      partial = true;
+      stopReason = phaseError(context, "compile", error);
+    }
+  }
   return { phases, partial, stopReason, cleanup: finalCleanup, startupSlotWaitP99Ms: startup.p99, startupSlotWaitMaxMs: startup.max };
 }
 
@@ -776,6 +831,7 @@ export async function runCalibration(
   const startBackend = dependencies.startBackend ?? defaultStartBackend;
   const countOwnedContainers = dependencies.ownedContainerCount ?? ownedContainerCount;
   const verifyBuildArtifacts = dependencies.verifyBuildArtifacts ?? (() => assertCalibrationBuildArtifacts());
+  const measureCompile = dependencies.measureCompileLoad ?? defaultMeasureCompileLoad;
   const image = process.env.DOCKER_SANDBOX_IMAGE ?? DEFAULT_IMAGE;
   const startedAt = now();
   const deadline = startedAt + config.maxDurationMin * 60_000;
@@ -805,7 +861,12 @@ export async function runCalibration(
   );
   const activeCandidates = planActiveCandidates(config, host.required.logicalCpus);
   const startupCandidates = [...new Set([8, 12, 16, 20, 24, 32].filter((value) => value <= Math.max(activeCandidates.at(-1) ?? 1, 1)))];
-  const plan = { activeCandidates, startupCandidates, classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC as 60 };
+  // The worker pool starts at most 8 workers (compilation-worker-pool.ts).
+  const compileSteps = config.compilePhase === "measure" ? planCompileLoad(config.expectedUsers, Math.min(8, integerEnv("WORKER_COUNT", 8))) : [];
+  const plan = {
+    activeCandidates, startupCandidates, classroomDurationSec: FIXED_CLASSROOM_DURATION_SEC as 60,
+    ...(compileSteps.length > 0 ? { compileSteps } : {}),
+  };
 
   const minimumMemory = Math.max(2 * 1024 ** 3, (host.optional.physicalMemoryBytes ?? 0) * 0.1);
   let phases: CalibrationRunResult["phases"] = { dockerControl: [], active: [], startup: [], classroom: null };
@@ -817,7 +878,8 @@ export async function runCalibration(
   if (!config.dryRun) {
     const phaseResult = await runCalibrationPhases({
       config, baseCapacity, classroomQueueTimeoutMs, deadline, now, image, host, minimumMemory,
-      activeCandidates, startupCandidates, measureControl, runScenario, startBackend, countOwnedContainers, safetyEvents,
+      activeCandidates, startupCandidates, measureControl, runScenario, startBackend, countOwnedContainers,
+      measureCompile, compileSteps, safetyEvents,
       lastCleanup: emptyCleanup(),
     });
     phases = phaseResult.phases;

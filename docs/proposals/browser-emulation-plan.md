@@ -1147,6 +1147,11 @@ SVG (DIP-8), Proben, E2E; Status `preview`.
 **P7.1 Kapazität (M).**
 Compile-Szenario mit Sandbox in `scripts/calibrate-capacity.ts` und den
 Kapazitätsskripten; Messung auf dem Referenz-Host; Kapazitätsmodell neu.
+Umgesetzt: Compile-Phase der Kalibrierung (`scripts/capacity-compile-load.ts`;
+einzeln, Pool-Breite, Klassen-Burst neu und unverändert; `--skip-compile`),
+Compile-Container im Testprofil mit dem Label des Kapazitätslaufs,
+CAPACITY_MODEL „Compile capacity“ mit Messung auf dem Mac. Die Messung auf
+dem Referenz-Host wartet auf einen Menschen ([Anleitung](human-tests.md)).
 
 **P7.2 Deployment (M).**
 `docker-compose.yml` (Image-Variable, Build), Installer, Deployment-Tests

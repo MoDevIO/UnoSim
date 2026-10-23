@@ -1,3 +1,4 @@
+import { renderCompileLoadTable } from "./capacity-compile-load";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { CalibrationRunResult } from "./calibrate-capacity";
@@ -73,6 +74,10 @@ export function renderCalibrationMarkdown(result: CalibrationRunResult): string 
     ] : []),
     `- Safety events: ${result.safetyEvents.length}`,
     `- Remaining owned containers: ${result.cleanup.remainingCapacityContainers}`,
+    "",
+    "## Compile load (browser emulation)",
+    "",
+    ...(result.phases.compile ? renderCompileLoadTable(result.phases.compile) : ["Compile load: not measured (--skip-compile or not reached)."]),
     "",
     "## Safety and cleanup",
     "",

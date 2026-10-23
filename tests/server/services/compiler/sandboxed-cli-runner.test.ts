@@ -167,3 +167,11 @@ describe("runCliJsonInSandbox", () => {
     expect(await runCliJsonInSandbox(["version"], executor({ code: 0, stdout: "not json", stderr: "" }), SETTINGS)).toBeNull();
   });
 });
+
+describe("compile containers in capacity runs", () => {
+  it("carry the capacity run label next to the owner label, like the simulation sandboxes", async () => {
+    const processExecutor = executor({ code: 0, stdout: frame({ exit: 1 }), stderr: "" });
+    await compileInSandbox(SKETCH, { fqbn: "arduino:avr:uno" }, processExecutor, { ...SETTINGS, capacityTestRunId: "cap-run-1" });
+    expect(valueAfter(processExecutor.execute.mock.calls[0][1], "--label")).toEqual(["unosim.owner=test-host:42", "unosim.capacity-test-run-id=cap-run-1"]);
+  });
+});

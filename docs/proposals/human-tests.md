@@ -158,3 +158,39 @@ abweichenden Zeilen.
 **Danach:** Geänderte Dateien (`case.json`, `expected.uno.txt` der
 übernommenen Fälle) per Pull Request gegen `feature/browser-emulation` geben
 oder dem Agenten übergeben. Fälle mit Abweichung getrennt melden.
+
+## Teil 3 – P7.1: Compile-Kapazität auf dem Referenz-Host (rund 30 Minuten)
+
+**Wozu:** Mit der Browser-Emulation ist der Compile die Grenze des Servers
+([CAPACITY_MODEL.md, Compile capacity](../CAPACITY_MODEL.md#compile-capacity-browser-emulation)).
+Gemessen ist bisher nur auf einem Mac; der Referenz-Host ist die
+Ubuntu/VBox-VM des Installers (8 vCPU, 11 GiB RAM, kein Swap).
+
+**Vorbereitung** auf der VM, im Repository-Checkout des zu prüfenden Stands
+(nicht in der laufenden Installation unter `/opt/unosim`; deren Dienst vorher
+mit `sudo docker compose stop` anhalten):
+
+```bash
+npm ci
+npm run build
+npm run build:sandbox
+```
+
+**Messung:**
+
+```bash
+npm run capacity:calibrate -- --expected-users 30 --skip-classroom --skip-startup-tuning --max-duration 20 --output-dir capacity-test-results/p7-1-reference
+```
+
+**Ergebnis:** Der Abschnitt „Compile load (browser emulation)“ in
+`capacity-test-results/p7-1-reference/capacity-calibration.md` (Tabelle mit
+vier Zeilen). Datei an den Agenten geben oder die Tabelle mit Datum, Commit
+und `nproc`/`free -g` in CAPACITY_MODEL.md unter „Compile capacity“ eintragen.
+
+**Wenn etwas hakt**
+
+| Symptom | Ursache und Abhilfe |
+|---|---|
+| Abbruch „requires a built application“ | `npm run build` fehlt |
+| Backend startet nicht, Meldung nennt `unosim-compile-sandbox` | `npm run build:sandbox` fehlt oder ist fehlgeschlagen |
+| Zeilen mit 503 | der Pool war länger als 30 s voll; Wert notieren, das ist ein Befund |
