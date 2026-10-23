@@ -3,6 +3,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { enabledBoards } from "../../shared/boards";
 import { simulationArtifactSchema } from "../../shared/simulation-artifact";
 import {
   blinkSketch,
@@ -192,7 +193,10 @@ async function teardown(run: {
 async function verifyBrowserEmulationPilot(gateway: { port: number; ca: Buffer }): Promise<void> {
   const config = parseJson((await httpsRequest(gateway, "/api/config")).body);
   assert.deepEqual(config.runtime, { backends: ["browser", "host-mock"], default: "browser" });
-  assert.deepEqual(config.boards.map((board: { id: string }) => board.id), ["uno", "nano", "mega2560"]);
+  // The boards the catalog offers with the browser backend (every `preview` and `available` board).
+  const expectedBoards = enabledBoards(undefined, "uno", ["browser", "host-mock"]).map((board) => board.id);
+  assert.deepEqual(config.boards.map((board: { id: string }) => board.id), expectedBoards);
+  assert.ok(expectedBoards.includes("nano"), "the pilot must offer a board that only the browser runs");
 
   const compileResponse = await httpsRequest(gateway, "/api/compile", {
     method: "POST",
