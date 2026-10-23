@@ -60,3 +60,8 @@ profile tests need no software-UART decoder. Derived expectations: RAMEND
 (each reading lags by up to one timer-0 overflow, 2.048 ms at 8 MHz and
 prescaler 64); ADC `floor(V / V_ref · 1024)`; timer-0 fast PWM duty
 `(OCR0A + 1) / 256`; boots counted after 15 ms watchdog resets with WDRF in MCUSR.
+`attiny85-tiny_serial.hex` (the `Serial` probe of spike P0.5), `attiny85-tiny_echo.hex`,
+`attiny85-tiny_serial_19200.hex` and `attiny85-tiny_serial_ff.hex` (`sketches/tiny_*`,
+same toolchain) check the software UART: outputs as measured in the spike,
+`parseInt` echo, baud detection at 19200 and the fallback rate for a byte
+0xFF (`derived`).

@@ -22,6 +22,8 @@ export { IoUsageObserver } from "./io/io-usage";
 export type { IoFunction, IoUsage } from "./io/io-usage";
 export { PinModel } from "./io/pin-model";
 export { SERIAL_INPUT_LIMITS, SerialPorts } from "./io/serial-ports";
+export { SoftwareUart } from "./io/software-uart";
+export type { SoftwareUartPins } from "./io/software-uart";
 export type { SerialFrameConfig, SerialOutput } from "./io/serial-ports";
 export { Utf8StreamDecoder, encodeUtf8 } from "./io/utf8";
 export type { Level, PinChanges, PinMode, PinSnapshot } from "./io/pin-model";

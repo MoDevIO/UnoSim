@@ -294,6 +294,36 @@ profile is exported as `ATTINY85`; `mcuProfile("attiny85")` returns it once
 the board hardware exists (P6.4). Tests: `tests/attiny85-profile.test.ts` with
 the fixtures `attiny85-tiny_*.hex`.
 
+## Software UART (ATtiny85)
+
+`src/io/software-uart.ts` (plan P6.3): the ATtiny85 has no USART; ATTinyCore's
+`Serial` (`TinySoftwareSerial`) sends on PB0 and receives on PB1 through the
+analog comparator. `SoftwareUart` offers the members of `AVRUSART` that
+`SerialPorts` uses (`onByteTransmit`, `writeByte`, `rxEnable`, `rxBusy`,
+`baudRate`, …), so the ATtiny85 board can use the same serial port (P6.4).
+
+- **TX:** edges of PB0 while it is an output and timer 0 does not drive it
+  (OC0A). The baud rate is the largest standard rate of which at least 90 % of
+  at least 8 in-frame edge distances are whole bit multiples (±20 %); the bit
+  width is then averaged from them (the core's delay loop runs a few percent
+  slow: 863 cycles per bit at 9600 baud and 8 MHz instead of 833). A start bit
+  must still be low at its middle, so the pulses of the pin set-up are no
+  bytes. Until the rate is found, an idle line (12 bit times) is decoded with
+  `configuredBaud` (the Serial Monitor's).
+- **RX:** `writeByte` drives PB1 bit by bit in simulated time; the comparator
+  compares it with the bandgap (`ACBG`, as the core sets it) or AIN0 and
+  raises its interrupt (vector 7) on the configured edge. The receiver counts
+  as enabled while the comparator interrupt is enabled (`Serial.begin()`).
+  ACME (ADC multiplexer as negative input) is not modelled.
+- **Limits of the board, not of the model:** half duplex (the core disables
+  interrupts while it sends, so input during output is lost); no reception
+  when the sketch uses PB1 otherwise; no output on PB0 while it is PWM.
+
+Tests: `tests/software-uart.test.ts` (9600 and 19200 baud, UTF-8, the
+fallback rate, echo over the comparator, input refused before `Serial.begin()`,
+synthetic waveforms) with the fixtures `attiny85-tiny_serial*.hex` and
+`attiny85-tiny_echo.hex`.
+
 ## License
 
 MIT, like UnoSim.
