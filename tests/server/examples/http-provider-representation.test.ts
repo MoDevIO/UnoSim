@@ -28,7 +28,7 @@ describe("GitHub SHA HTTP representation", () => {
   });
 
   it.each(["https://raw.githubusercontent.com/owner/repo/main/file.ino", "https://api.github.com/rate_limit"])("refuses the SHA representation outside a commit URL: %s", async (input) => {
-    const fetchMock = vi.fn(async () => new Response(sha));
+    const fetchMock = vi.fn(async (_url: URL, _init?: RequestInit) => new Response(sha));
     vi.stubGlobal("fetch", fetchMock);
     await expect(new SecureExamplesFetcher().fetchText(new URL(input), 256, undefined, options)).rejects.toThrow(/representation/i);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -36,7 +36,7 @@ describe("GitHub SHA HTTP representation", () => {
 
   it("combines the SHA header with the API token without forwarding either to raw content", async () => {
     config.examples.githubToken = "test-token";
-    const fetchMock = vi.fn(async () => new Response(sha));
+    const fetchMock = vi.fn(async (_url: URL, _init?: RequestInit) => new Response(sha));
     vi.stubGlobal("fetch", fetchMock);
     const fetcher = new SecureExamplesFetcher();
     await fetcher.fetchText(url, 256, undefined, options);
@@ -54,7 +54,7 @@ describe("GitHub SHA HTTP representation", () => {
 
   it("does not send an already-aborted SHA request", async () => {
     const controller = new AbortController(); controller.abort();
-    const fetchMock = vi.fn(async () => new Response(sha)); vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = vi.fn(async (_url: URL, _init?: RequestInit) => new Response(sha)); vi.stubGlobal("fetch", fetchMock);
     await expect(new SecureExamplesFetcher().fetchText(url, 256, controller.signal, options)).rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
