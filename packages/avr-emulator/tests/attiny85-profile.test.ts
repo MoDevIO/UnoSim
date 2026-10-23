@@ -64,15 +64,15 @@ describe("ATtiny85 profile (plan P6.2)", () => {
     const { cpu } = tiny();
     expect(ATTINY85.flashBytes).toBe(8192);
     expect(ramEnd(ATTINY85.memory)).toBe(0x25f);
-    expect(cpu.data.length).toBe(0x260);
+    expect(cpu.data).toHaveLength(0x260);
     expect(cpu.SP).toBe(0x25f);
     expect(ATTINY85.eepromBytes).toBe(512);
   });
 
-  it("has one port, timer 0, no hardware USART", () => {
+  it("has one port, timers 0 and 1, no hardware USART", () => {
     const { peripherals } = tiny();
     expect([...peripherals.ports.keys()]).toEqual(["B"]);
-    expect(peripherals.timers).toHaveLength(1);
+    expect(peripherals.timers).toHaveLength(2);
     expect(peripherals.usarts).toEqual([]);
   });
 

@@ -179,10 +179,9 @@ export const ATTINY85: McuProfile = {
     const clock = new AVRClock(cpu, clockHz, { CLKPR });
     const port = new AVRIOPort(cpu, portB);
     shareInterruptRegisters(cpu);
-    new ATtinyTimer1(cpu, attinyTimer1Config);
     return {
       ports: new Map([["B", port]]),
-      timers: [new AVRTimer(cpu, timer0)],
+      timers: [new AVRTimer(cpu, timer0), new ATtinyTimer1(cpu, attinyTimer1Config)],
       usarts: [],
       adc: new Attiny85ADC(cpu, adc),
       eeprom: new AVREEPROM(cpu, new ArrayEepromBackend(eeprom), {
