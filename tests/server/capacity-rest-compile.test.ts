@@ -63,3 +63,18 @@ describe("REST compile capacity workload", () => {
     }, fetcher as typeof fetch)).rejects.toThrow(/concurrency/);
   });
 });
+
+describe("REST compile sketches", () => {
+  it("differ per request and per seed, and repeat for a shared batch", async () => {
+    const bodies: string[] = [];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)).code);
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as typeof fetch;
+    await runRestCompileBatch({ baseUrl: "http://127.0.0.1:1", runId: "run-1", requestCount: 2, concurrency: 1, sketchSeed: "a" }, fetcher);
+    await runRestCompileBatch({ baseUrl: "http://127.0.0.1:1", runId: "run-1", requestCount: 2, concurrency: 1, sketchSeed: "b" }, fetcher);
+    await runRestCompileBatch({ baseUrl: "http://127.0.0.1:1", runId: "run-1", requestCount: 2, concurrency: 1, sketch: "shared" }, fetcher);
+    expect(new Set(bodies.slice(0, 4)).size).toBe(4);
+    expect(bodies[4]).toBe(bodies[5]);
+  });
+});

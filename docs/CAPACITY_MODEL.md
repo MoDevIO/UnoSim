@@ -4,6 +4,12 @@ This is the authoritative description of UnoSim's simulation capacity model,
 its timeout boundaries, and the validation evidence. Validation profiles are
 test inputs; they do not silently change production sizing.
 
+Two runtimes share a server (ADR 0009). A run of the **browser emulation**
+costs the server nothing: the sketch runs in the student's browser, and the
+server's limit is the compile (see [Compile capacity](#compile-capacity-browser-emulation)).
+The **host mock** runs every sketch in a server sandbox; the simulation model
+below applies to it only.
+
 ## Operator model
 
 The request lifecycle is:
@@ -76,6 +82,57 @@ capacity receipts record the effective simulation, sandbox-start, admission,
 queue, and compile values plus the test run ID. Legacy runner and compile-slot
 fields remain diagnostic compatibility fields; they are not the operator
 capacity model.
+
+## Compile capacity (browser emulation)
+
+With the browser emulation every Compile is one short-lived container of the
+compile sandbox (`COMPILE_SANDBOX_*`, one CPU and 512 MiB each). Its load
+model:
+
+- **Width.** The compile worker pool runs at most `WORKER_COUNT` compiles at
+  once (at most 8 workers; the application default is
+  `min(8, max(2, floor(CPU count / 2)))`, Compose sets 8). Further requests wait
+  in the pool (at most 500 or 30 s, then `503 SYSTEM_BUSY`). The direct
+  compiler outside the pool is limited by `COMPILE_MAX_CONCURRENT`.
+- **Cost per compile.** One container start plus `arduino-cli` with the
+  precompiled core; the pool bounds the host to `WORKER_COUNT` CPUs and
+  `WORKER_COUNT × 512 MiB` for compiles.
+- **Class pattern.** A class compiles in bursts (lesson start, a new task) and
+  often an unchanged example. An unchanged sketch is answered from the
+  result cache of the route or the HEX cache without a container.
+- **Key figures** (plan 4.12): compiles per minute in a burst, compile
+  containers in parallel, latency p50/p95, cache hits.
+
+`npm run capacity:calibrate` measures this after the simulation phases
+(`--skip-compile` leaves it out) on its own backend with the effective
+capacity, in four steps: 5 single compiles; the pool width (`WORKER_COUNT`)
+with 16 requests; a class burst of `min(expected users, 64)` new sketches at
+once; and the same burst on one unchanged sketch after a warm compile. The
+report lists OK/503/failed, p50/p95/max, compiles per minute, the peak of
+compile containers of the run and the CPU peak. The phase gives no
+recommendation; `WORKER_COUNT` and the `COMPILE_SANDBOX_*` limits stay
+reviewed values.
+
+Measurement on the secondary Mac (not the reference host), 23.10.2026,
+Apple M2 Pro (10 cores, 32 GB), Docker Desktop 29.9.1 with 10 CPUs and 24 GiB,
+`WORKER_COUNT` 8, compile sandbox with default limits, commit `7cd8e1768`
+with this change uncommitted:
+
+    npm run capacity:calibrate -- --expected-users 30 --skip-classroom --skip-startup-tuning --max-duration 20
+
+| Step | Requests × concurrency | OK / 503 / failed | p50 / p95 / max (ms) | Compiles/min | Compile containers (peak) | CPU peak |
+| --- | --- | --- | --- | ---: | ---: | ---: |
+| single | 5 × 1 | 5 / 0 / 0 | 764 / 938 / 938 | 75 | 1 | 43 % |
+| pool width | 16 × 8 | 16 / 0 / 0 | 1564 / 2082 / 2082 | 272 | 8 | 93 % |
+| class burst, new sketches | 30 × 30 | 30 / 0 / 0 | 4195 / 6261 / 6479 | 278 | 9 | 95 % |
+| class burst, unchanged sketch | 30 × 30 | 30 / 0 / 0 | 6 / 8 / 8 | (cache) | 0 | — |
+
+Reading: a class of 30 that compiles new sketches at the same moment waits at
+most about 6.5 s on this host, because the pool runs eight at a time (about
+275 compiles per minute, CPU near saturation while it does). The peak of
+nine containers is one container of the previous wave still being removed.
+An unchanged example costs nothing measurable. On the reference host
+(Ubuntu/VBox VM below) the measurement is still open; it needs that host.
 
 ## Production defaults from the implementation
 
@@ -501,8 +558,10 @@ control latency, directly measured active-simulation candidates, startup
 concurrency candidates, and (unless `--skip-classroom` is supplied) a
 controlled expected-users arrival phase. Classroom simulations have a fixed
 60-second active duration so results remain comparable between hosts. The
-optional compile-concurrency phase is not run in version 1; its result is
-reported as `not calibrated` and the existing derived value is preserved.
+compile phase (see [Compile capacity](#compile-capacity-browser-emulation))
+runs last unless `--skip-compile` is supplied; it measures but does not
+recommend, so `COMPILE_MAX_CONCURRENT` is still reported as `not calibrated`
+and the existing derived value is preserved.
 
 Before load, the tool records the Git SHA and dirty state, Node and host
 architecture/CPU information, Docker health/version/architecture/visible

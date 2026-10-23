@@ -6,6 +6,10 @@ export type RestCompileBatchOptions = {
   requestCount: number;
   concurrency: number;
   timeoutMs?: number;
+  /** "unique" (default) compiles a new sketch per request; "shared" sends one sketch, as a class compiling an unchanged example. */
+  sketch?: "unique" | "shared";
+  /** Part of every sketch text, so batches of one run never answer each other from the cache. */
+  sketchSeed?: string;
 };
 
 export type RestCompileRequestResult = {
@@ -71,7 +75,9 @@ export async function runRestCompileBatch(
       if (request >= options.requestCount) return;
 
       const startedAt = now();
-      const code = `// REST_COMPILE_REQUEST_${request} run=${options.runId}\nvoid setup() {}\nvoid loop() { delay(1); }\n`;
+      const variant = options.sketch === "shared" ? "shared" : String(request);
+      const seed = options.sketchSeed ? ` seed=${options.sketchSeed}` : "";
+      const code = `// REST_COMPILE_REQUEST_${variant} run=${options.runId}${seed}\nvoid setup() {}\nvoid loop() { delay(1); }\n`;
       let statusCode = 0;
       let success = false;
       try {
