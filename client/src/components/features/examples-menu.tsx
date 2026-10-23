@@ -93,8 +93,10 @@ export function ExamplesMenu({
         } : {}),
       }));
       setGroups(current => ({ ...current, [source]: { items, loading: false, error: false, loaded: true } }));
-    } catch (error) {
-      if (!isCurrent() || (error instanceof DOMException && error.name === "AbortError")) return;
+    } catch {
+      // Our own cancellation is handled by isCurrent; another shared-catalog consumer
+      // may cancel its transport while this menu is still open, which needs Retry.
+      if (!isCurrent()) return;
       setGroups(current => ({ ...current, [source]: { ...emptyGroup(), error: true } }));
     }
   }, []);

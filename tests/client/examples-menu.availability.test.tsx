@@ -23,6 +23,32 @@ const open = () => fireEvent.click(screen.getByRole("button", { name: "Examples"
 afterEach(() => { vi.restoreAllMocks(); setExternalExamplesOverride(null); });
 
 describe("independent examples menu availability", () => {
+  it("settles a superseded shared request so the external group can be retried", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
+      if (String(input).endsWith("/builtin/catalog")) return response([local]);
+      throw new DOMException("Superseded by another external catalog consumer", "AbortError");
+    });
+    render(<ExamplesMenu onLoadExample={vi.fn()} />); open();
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading external examples...")).not.toBeInTheDocument();
+  });
+
+  it("aborts both requests on close and ignores their late failures", async () => {
+    const external = deferred<Response>();
+    const signals: AbortSignal[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      signals.push(init!.signal!);
+      return String(input).endsWith("/builtin/catalog") ? response([local]) : external.promise;
+    });
+    render(<ExamplesMenu onLoadExample={vi.fn()} />); open();
+    await screen.findByRole("button", { name: "Built-in" });
+    open();
+    expect(signals).toHaveLength(2);
+    expect(signals.every(signal => signal.aborted)).toBe(true);
+    await act(async () => external.resolve(new Response("", { status: 503 })));
+    expect(screen.queryByText(/currently unavailable/)).not.toBeInTheDocument();
+  });
+
   it("loads a local example while the external request is still pending", async () => {
     const pending = deferred<Response>(); const onLoad = vi.fn();
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
