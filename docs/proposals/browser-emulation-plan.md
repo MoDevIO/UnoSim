@@ -902,6 +902,16 @@ Dockerfile, CI-Cache-Schlüssel, `scripts/install-ubuntu-vbox.sh`,
 INSTALL_LOCAL. Der Core-Fingerprint stützt sich auf die gepinnten
 Versionsdateien und geht in die Build-Identität ein (E15). Vorkompilierte
 Core-Caches je FQBN halten den ersten Compile kurz.
+Umgesetzt mit Abweichung: ATTinyCore 1.5.2 kommt nicht über den
+Board-Manager, sondern als Release-Archiv von `SpenceKonde.github.io` mit
+gepinnter SHA-256 (`scripts/attinycore-version`, `install-attinycore.sh`,
+`check-attinycore-version.sh`) als Plattform ins Sketchbook. Grund: Der Index
+(`drazzy.com`) und die Werkzeugabhängigkeit `micronucleus` (`azduino.com`)
+liefern seit dem 20.10.2026 abgelaufene TLS-Zertifikate, und der Board-Manager
+installiert Werkzeuge, die UnoSim nicht braucht; der Core nutzt den avr-gcc von
+`arduino:avr`. Eine `platform.local.txt` schaltet die Post-Build-Hooks ab, die
+in Core und Sketch schreiben (in der Compile-Sandbox read-only); das HEX bleibt
+gleich. Die Build-Identität enthält den Core über `arduino-cli core list`.
 
 **P2.4 Compile-Sandbox (L, Voraussetzung für M4).**
 Image `Dockerfile.compile-sandbox` (`arduino-cli` 1.5.1, gepinnte Cores,
@@ -1118,6 +1128,7 @@ SVG, Parserregeln, Proben, E2E, Leistung mit 256-KB-Flash; Status `preview`.
 
 **P6.1 Toolchain (S).** ATTinyCore aus P2.3 im Compile-Sandbox-Image und,
 solange P2.4 nicht abgeschlossen ist, im Backend-Image.
+Umgesetzt mit P2.3 (nur Compile-Sandbox-Image; P2.4 ist abgeschlossen).
 
 **P6.2 MCU-Profil ATtiny85 (L).**
 Port B, Timer0 mit eigener Konfiguration, ATtinyTimer1, ADC (ADC0–3 an PB5,

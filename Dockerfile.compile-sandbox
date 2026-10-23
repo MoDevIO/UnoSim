@@ -4,26 +4,29 @@
 # Build: npm run build:compile-sandbox
 FROM debian:bookworm-slim
 ARG DEBIAN_FRONTEND=noninteractive
-COPY scripts/install-arduino-cli.sh scripts/arduino-avr-core-version scripts/check-arduino-avr-core-version.sh scripts/install-arduino-avr-core.sh /usr/local/bin/
-# curl only fetches the pinned CLI and core; it does not stay in the image.
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates tar xz-utils \
+COPY scripts/install-arduino-cli.sh scripts/arduino-avr-core-version scripts/check-arduino-avr-core-version.sh scripts/install-arduino-avr-core.sh \
+     scripts/attinycore-version scripts/check-attinycore-version.sh scripts/install-attinycore.sh /usr/local/bin/
+# curl only fetches the pinned CLI and cores; it does not stay in the image.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates tar xz-utils bzip2 \
     && sh /usr/local/bin/install-arduino-cli.sh \
     && arduino-cli version | grep -F "Version: 1.5.1 " \
     && useradd -m -u 1000 -s /usr/sbin/nologin compile \
     && su compile -s /bin/sh -c 'arduino-cli config init' \
     && su compile -s /bin/sh -c 'sh /usr/local/bin/install-arduino-avr-core.sh' \
-    && rm /usr/local/bin/install-arduino-cli.sh /usr/local/bin/install-arduino-avr-core.sh \
-    && apt-get purge -y curl && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && su compile -s /bin/sh -c 'sh /usr/local/bin/install-attinycore.sh' \
+    && rm /usr/local/bin/install-arduino-cli.sh /usr/local/bin/install-arduino-avr-core.sh /usr/local/bin/install-attinycore.sh \
+    && apt-get purge -y curl bzip2 && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --chmod=755 scripts/compile-sandbox-entry.sh /usr/local/bin/unosim-compile
 USER compile
 WORKDIR /home/compile
-# Precompile the core of every catalog board with an arduino:avr FQBN (shared/boards.ts).
+# Precompile the core of every catalog board (shared/boards.ts).
 # arduino-cli 1.5.1 archives a core under build_cache.path only for builds without --build-path;
 # the sketch part of that cache is dropped again (spike P0.2).
 RUN mkdir -p /home/compile/warm \
     && printf '%s\n' 'void setup(){Serial.begin(9600);pinMode(13,OUTPUT);analogWrite(3,1);analogRead(A0);}' \
        'void loop(){digitalWrite(13,!digitalRead(13));delay(10);Serial.println(millis());}' > /home/compile/warm/warm.ino \
-    && for fqbn in arduino:avr:uno arduino:avr:nano:cpu=atmega328 arduino:avr:mega:cpu=atmega2560; do \
+    && for fqbn in arduino:avr:uno arduino:avr:nano:cpu=atmega328 arduino:avr:mega:cpu=atmega2560 \
+                   ATTinyCore:avr:attinyx5:chip=85,clock=8internal; do \
          arduino-cli compile --fqbn "$fqbn" /home/compile/warm >/dev/null || exit 1; \
        done \
     && rm -rf /home/compile/warm /home/compile/.cache/arduino/sketches \

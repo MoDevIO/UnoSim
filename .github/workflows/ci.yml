@@ -126,7 +126,7 @@ jobs:
             ~/.cache/ms-playwright
             server/arduino-cache
             storage/binaries
-          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
+          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version', 'scripts/attinycore-version') }}-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
           restore-keys: |
             ${{ runner.os }}-e2e-turbo-
 
@@ -135,6 +135,7 @@ jobs:
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
           sh scripts/install-arduino-avr-core.sh
+          sh scripts/install-attinycore.sh
 
       # Without --with-deps: the runner image already has the system libraries Chromium needs, and
       # --with-deps runs apt-get update and installs CJK fonts, which took 12 s to 14 min depending on the mirror.
@@ -187,13 +188,14 @@ jobs:
         with:
           path: |
             ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version', 'scripts/attinycore-version') }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install pinned Arduino CLI and AVR core
         run: |
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
           sh scripts/install-arduino-avr-core.sh
+          sh scripts/install-attinycore.sh
 
       - name: Run toolchain integration tests
         env:
@@ -318,6 +320,7 @@ jobs:
           docker run --rm --entrypoint sh unosim-server:deployment-ci -c '! command -v arduino-cli && ! command -v g++'
           docker run --rm --entrypoint arduino-cli unosim-compile-sandbox:deployment-ci version | grep -F "Version: 1.5.1 "
           docker run --rm --entrypoint sh unosim-compile-sandbox:deployment-ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
+          docker run --rm --entrypoint sh unosim-compile-sandbox:deployment-ci -c 'sh /usr/local/bin/check-attinycore-version.sh'
 
       - name: Containerised gateway deployment
         timeout-minutes: 15
