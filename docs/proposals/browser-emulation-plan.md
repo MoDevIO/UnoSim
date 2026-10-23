@@ -916,6 +916,15 @@ Profil → direkt. Parallelität über die bestehenden Compile-Grenzen
 Readiness nach 4.11; `check-leaks.sh` prüft auch Compile-Container. Danach
 `arduino-cli` aus dem Backend-Image entfernen.
 *Abnahme:* Sandbox-Vertragstest im Docker-Gate (Abschnitt 7.8).
+Umgesetzt in mehreren PRs. Teil a: Image mit Einstiegsskript
+`scripts/compile-sandbox-entry.sh` (Core-Cache je arduino:avr-FQBN im Image,
+Kopie in den tmpfs, `--output-dir` im Container), `compileInSandbox` und
+`runCliJsonInSandbox` in `sandboxed-cli-runner.ts`, Vertragstest
+`tests/integration/compile-sandbox-contract.test.ts`. Abweichend vom Spike
+schreibt der Container nichts auf den Host: HEX, ELF und die Standardausgabe
+von `arduino-cli` kommen gerahmt (Base64) über stdout zurück, das einzige
+Bind-Mount (Sketch) bleibt read-only; der tmpfs hat `noexec`. Die Auswertung
+der CLI-Ausgabe teilen sich lokaler und Sandbox-Weg (`interpretCliRun`).
 
 **P2.5 Artefakt und Build-Identität (L).**
 - Build-Identität nach E15 als eigener Typ. Die Schlüssel des HEX-Caches, des

@@ -238,6 +238,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Compile Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.compile-sandbox
+          load: true
+          tags: unosim-compile-sandbox:latest
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
+
       - name: Run Docker sandbox tests
         run: npm run test:docker
 

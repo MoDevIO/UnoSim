@@ -41,6 +41,14 @@ export class ProcessOutputLimitError extends Error {
   }
 }
 
+/** The process was killed because it ran longer than `timeout`. */
+export class ProcessTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`Process timeout after ${timeoutMs}ms`);
+    this.name = "ProcessTimeoutError";
+  }
+}
+
 interface ExecutionResult {
   code: number;
   stdout?: string;
@@ -255,7 +263,7 @@ export class ProcessExecutor {
           result.error = outputError;
           this.logger.warn(`${command} exceeded its output limit (${maxOutputBytes} bytes)`);
         } else if (timedOut) {
-          result.error = new Error(`Process timeout after ${timeout}ms`);
+          result.error = new ProcessTimeoutError(timeout);
           this.logger.warn(`${command} timed out: ${result.error.message}`);
         } else if (code !== 0) {
           result.error = new Error(`${command} exit code ${code}`);
