@@ -25,8 +25,7 @@ export interface RuntimeSettingsOptions {
  * passes an unset `.env` entry as `NAME=` (P7.2), which means "default".
  */
 function setting(env: NodeJS.ProcessEnv, name: string): string | undefined {
-  const raw = env[name]?.trim();
-  return raw ? raw : undefined;
+  return env[name]?.trim() || undefined;
 }
 
 function parseList(name: string, raw: string | undefined): string[] | undefined {
