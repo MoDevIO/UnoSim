@@ -271,22 +271,8 @@ export function ExamplesMenu({
     }
     setLoadingExampleId(example.id);
     try {
-      let query = "";
-      if (example.source === "external") {
-        if (!example.repository || !example.revision) {
-          throw new Error("Example catalog has no revision context");
-        }
-        query = `?repository=${encodeURIComponent(example.repository)}&revision=${encodeURIComponent(example.revision)}`;
-      }
-      const response = await fetch(
-        `/api/examples/${encodeURIComponent(example.id)}${query}`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch example");
-      const detail = (await response.json()) as ExampleDetail;
+      const detail = await loadExampleDetail(example);
       if (!capabilitiesRef.current.canUseServerExamples || selection !== selectionRef.current) return;
-      if (!Array.isArray(detail.files) || detail.files.length === 0) {
-        throw new Error("Example contains no files");
-      }
       const displayName = getExampleDisplayName(example);
       setActiveExternalExampleContext(example.source === "external" && example.repository && example.ref && example.revision
         ? { repository: example.repository, ref: example.ref, revision: example.revision, exampleId: example.id }
@@ -363,15 +349,15 @@ export function ExamplesMenu({
         {(["builtin", "external"] as const).map(source => (
           <div key={source}>
             {groups[source].loading && (
-              <div role="status" className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
+              <output className="block px-2 py-1.5 ui-type-menu-item text-muted-foreground">
                 Loading {source === "builtin" ? "built-in" : "external"} examples...
-              </div>
+              </output>
             )}
             {groups[source].error && (
-              <div role="status" className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
-                <p>{source === "builtin" ? "Built-in" : "External"} examples are currently unavailable.
+              <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
+                <output className="block">{source === "builtin" ? "Built-in" : "External"} examples are currently unavailable.
                   {source === "external" && groups.builtin.items.length > 0 ? " Built-in examples are still available." : ""}
-                </p>
+                </output>
                 <Button variant="ghost" size="sm" data-role="example-retry" onClick={() => void loadGroup(source)}>Retry</Button>
               </div>
             )}
@@ -426,6 +412,23 @@ function getExampleDisplayName(example: Example): string {
     example.files.find((file) => file.name.toLowerCase().endsWith(".ino"))
       ?.name ?? example.title
   );
+}
+
+async function loadExampleDetail(example: Example): Promise<ExampleDetail> {
+  let query = "";
+  if (example.source === "external") {
+    if (!example.repository || !example.revision) {
+      throw new Error("Example catalog has no revision context");
+    }
+    query = `?repository=${encodeURIComponent(example.repository)}&revision=${encodeURIComponent(example.revision)}`;
+  }
+  const response = await fetch(`/api/examples/${encodeURIComponent(example.id)}${query}`);
+  if (!response.ok) throw new Error("Failed to fetch example");
+  const detail = (await response.json()) as ExampleDetail;
+  if (!Array.isArray(detail.files) || detail.files.length === 0) {
+    throw new Error("Example contains no files");
+  }
+  return detail;
 }
 
 interface ExampleItemProps {

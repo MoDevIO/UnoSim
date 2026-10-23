@@ -153,13 +153,14 @@
 - Der im Review benannte bereits bestehende Detail-/Quellenwechsel-Race wurde wegen möglichem Überschreiben von Editor/Tutor mit behoben. Eine alte Auswahl wird verworfen, sobald die Quelle gewechselt wurde.
 - Der Diagnosehinweis aus dem Review wurde als ausdrücklich geplante Funktion vollständig umgesetzt: Auch fehlerhafter SHA-Text erhält einen sicheren Logeintrag.
 - Unabhängiges Code-Review und ein anschließender Red-Green-Fixdurchlauf sind erfolgt; es wurden keine Befunde zurückgestellt.
+- Das erste Pre-Push-Sonar-Gate meldete drei Befunde im Menü: kognitive Komplexität und zwei Statusrollen. Der Detailabruf ist dafür in eine eigene Funktion ausgelagert, die Statusmeldungen verwenden natives `output`; die vorhandenen Verhaltensprüfungen bleiben unverändert. Hooks und Gate bleiben aktiv.
 
 ## Verifizierter Abschluss
 
 - Node.js 24.20.0; TypeScript, ESLint, Dokumentationsprüfung und Build bestanden.
 - 3.594 App-Unit-Tests und 635 Emulator-Unit-Tests bestanden; ein vorhandener Test übersprungen.
 - 126 Toolchain-Integrationstests bestanden; ein vorhandener schwerer Test übersprungen.
-- 53 Browser-Tests bestanden; isolierter Lauf auf Port 3100.
-- Initialer JavaScript-Ladepfad: 690.529 Bytes bei unverändertem Limit 710.000 Bytes.
+- 53 Browser-Tests bestanden; isolierter Lauf auf Port 3100. Im letzten Lauf nach dem Sonar-Refactoring benötigte ein vorhandener Monaco-Starttest den konfigurierten Retry; alle Beispieltests bestanden direkt.
+- Initialer JavaScript-Ladepfad: 690.578 Bytes bei unverändertem Limit 710.000 Bytes.
 - Reale Quelle mit Standardlimit: zehn eingebaute und 51 externe Beispiele, Tutor-Daten gültig.
 - Beide abschließenden Review-Korrekturen durch Red-Green-Regressionstests und erneute vollständige Läufe geprüft.
