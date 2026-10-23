@@ -130,8 +130,10 @@ jobs:
           arduino-cli version | grep -F "Version: 1.5.1 "
           sh scripts/install-arduino-avr-core.sh
 
+      # Without --with-deps: the runner image already has the system libraries Chromium needs, and
+      # --with-deps runs apt-get update and installs CJK fonts, which took 12 s to 14 min depending on the mirror.
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Run E2E Tests
         env:
