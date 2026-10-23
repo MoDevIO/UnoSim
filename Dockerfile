@@ -30,22 +30,13 @@ ENV ARDUINO_CACHE_DIR=/app/server/arduino-cache
 
 # 1. Copy Docker CLI binary from official image (no apt repo setup needed)
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
-COPY scripts/install-arduino-cli.sh /usr/local/bin/install-arduino-cli.sh
-COPY scripts/arduino-avr-core-version scripts/check-arduino-avr-core-version.sh scripts/install-arduino-avr-core.sh /usr/local/bin/
 
-# 2. Install system tools and Arduino CLI
+# 2. System tools. No compiler: the Docker profile compiles every sketch in a
+# container of Dockerfile.compile-sandbox (arduino-cli, plan P2.4) and runs the
+# host mock in Dockerfile.sandbox (g++); this image only starts them.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
-    tar \
-    xz-utils \
-    g++ \
-    && sh /usr/local/bin/install-arduino-cli.sh \
-    && arduino-cli version | grep -F "Version: 1.5.1 " \
-    && mkdir -p /home/node/.arduino15 \
-    && chown -R node:node /home/node/.arduino15 \
-    && su node -c 'HOME=/home/node arduino-cli config init' \
-    && su node -c 'HOME=/home/node sh /usr/local/bin/install-arduino-avr-core.sh' \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp

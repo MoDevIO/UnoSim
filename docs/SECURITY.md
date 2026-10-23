@@ -130,7 +130,10 @@ sandboxes.
   sweep like a simulation sandbox.
 - The process executor refuses to start a container of the compile image
   without these isolation flags or with a writable mount.
-- The backend does not start in the Docker profile without the image.
+- The backend does not start in the Docker profile without the image. The
+  backend image itself contains no compiler (no `arduino-cli`, no `g++`); a
+  sketch is compiled only in the compile sandbox and, for the host mock, in the
+  simulation sandbox.
 
 The contract test `tests/integration/compile-sandbox-contract.test.ts` (Docker
 gate) checks isolation, the disclosure attempts below and the limits.
