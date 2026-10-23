@@ -55,7 +55,10 @@ function createContext(board: BoardId): PinContext {
   const channelPin = new Map(analog.map((pin) => [pin.adcChannel as number, pin.pin]));
   const encodedAnalog = analog.some((pin) => pin.analogName !== undefined);
   const decode = (value: number) => (encodedAnalog && value & 0x80 ? channelPin.get(value & 0x7f) : undefined);
-  const analogValue = (channel: number) => (channelPin.has(channel) ? (encodedAnalog ? 0x80 | channel : channelPin.get(channel)) : undefined);
+  const analogValue = (channel: number): number | undefined => {
+    if (!channelPin.has(channel)) return undefined;
+    return encodedAnalog ? 0x80 | channel : channelPin.get(channel);
+  };
   return {
     board,
     displayName: getBoard(board).displayName,

@@ -10,6 +10,9 @@ const PWM: Readonly<Record<number, PinHardware["pwm"]>> = {
   4: { timer: 1, channel: "B" },
 };
 
+// PB5 is RESET (the fuse that would free it is not set by the core); PB0/PB1 carry `Serial`.
+const ROLE: Readonly<Record<number, PinHardware["role"]>> = { 0: "serial", 1: "serial", 5: "reset" };
+
 function pin(number: number): PinHardware {
   const channel = ANALOG[number];
   return {
@@ -18,8 +21,7 @@ function pin(number: number): PinHardware {
     port: { port: "B", bit: number },
     ...(channel === undefined ? {} : { adcChannel: channel, analogName: `A${channel}` }),
     ...(PWM[number] ? { pwm: PWM[number] } : {}),
-    // PB5 is RESET (the fuse that would free it is not set by the core); PB0/PB1 carry `Serial`.
-    ...(number === 5 ? { role: "reset" as const } : number <= 1 ? { role: "serial" as const } : {}),
+    ...(ROLE[number] ? { role: ROLE[number] } : {}),
   };
 }
 
