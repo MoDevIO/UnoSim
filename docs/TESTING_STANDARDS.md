@@ -154,3 +154,17 @@ security defaults, or open public host bindings.
   1. `npm run check`
   2. `npm run test:fast`
   3. `./run-tests.sh`
+
+## Verfügbarkeit von Beispielen
+
+Regressionstests für Beispiele simulieren ausgehende GitHub-Antworten
+deterministisch. Die Commit-Auflösung prüft die SHA-Repräsentation, das separate
+256-Byte-Limit, Header-/Token-Grenzen, Abbruch und bestehende Quota-Regeln.
+API-Tests prüfen den eingebauten Katalog ohne externe Provideraufrufe.
+`e2e/examples-availability.spec.ts` hält nur den gemeinsamen Katalog zurück oder
+antwortet dort mit HTTP 503. Der lokale Katalog und die Blink-Datei werden vom
+echten Testbackend geladen; anschließend wird der Code im Monaco-Editor geprüft.
+Ein weiteres Szenario prüft Retry und Wiederherstellung ohne Editorwechsel oder
+doppelten lokalen Abruf. Unit-Tests decken außerdem HTTP 429, leere Teilergebnisse,
+den umgekehrten Teilausfall und verspätete Antworten nach Auswahlwechsel ab.
+Ein echter GitHub-Ausfall ist keine Voraussetzung für diese Tests.

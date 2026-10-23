@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +14,8 @@ import { type ExampleBoardPrompt, exampleBoardPrompt } from "@/lib/example-board
 import { ExampleBoardPromptDialog } from "@/components/features/example-board-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ExternalExamplesError,
   refreshExternalExamplesCatalog,
+  loadBuiltInExamplesCatalog,
   setActiveExternalExampleContext,
   useExternalExamples,
 } from "@/lib/external-examples";
@@ -33,6 +33,15 @@ interface Example {
   revision?: string;
 }
 
+interface CatalogGroup {
+  items: Example[];
+  loading: boolean;
+  error: boolean;
+  loaded: boolean;
+}
+
+const emptyGroup = (): CatalogGroup => ({ items: [], loading: false, error: false, loaded: false });
+
 interface ExampleDetail {
   files: Array<{ name: string; path?: string; content: string }>;
 }
@@ -49,8 +58,8 @@ export function ExamplesMenu({
   onLoadExample,
   capabilities = getServerCapabilities(true),
 }: ExamplesMenuProps) {
-  const [examples, setExamples] = useState<Example[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [groups, setGroups] = useState<Record<ExampleSource, CatalogGroup>>({ builtin: emptyGroup(), external: emptyGroup() });
+  const examples = [...groups.builtin.items, ...groups.external.items];
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [boardQuestion, setBoardQuestion] = useState<{ example: Example; prompt: ExampleBoardPrompt } | undefined>();
@@ -60,69 +69,46 @@ export function ExamplesMenu({
   const { override } = useExternalExamples();
   const loadGeneration = useRef(0);
   const capabilitiesRef = useRef(capabilities);
-  const previousOpenRef = useRef(false);
-  const previousOverrideRef = useRef(override);
+  const controllers = useRef<Partial<Record<ExampleSource, AbortController>>>({});
   capabilitiesRef.current = capabilities;
 
-  useEffect(() => {
-    const opened = open && !previousOpenRef.current;
-    const overrideChanged = previousOverrideRef.current !== override;
-    previousOpenRef.current = open;
-    previousOverrideRef.current = override;
-    if (!open || (!opened && !overrideChanged)) return;
+  const loadGroup = useCallback(async (source: ExampleSource) => {
     if (!capabilitiesRef.current.canUseServerExamples) return;
-    const generation = ++loadGeneration.current;
-    let cancelled = false;
-    const loadExamples = async () => {
-      try {
-        setIsLoading(true);
-        const payload = await refreshExternalExamplesCatalog();
-        if (
-          cancelled ||
-          generation !== loadGeneration.current ||
-          !capabilitiesRef.current.canUseServerExamples
-        ) return;
-        const loadedExamples = payload.examples
-          .map((example) => ({
-            ...example,
-            ...(example.source === "external" &&
-            payload.source.mode === "repository-ref"
-              ? {
-                  repository: payload.source.repository!,
-                  ref: payload.source.ref!,
-                  revision: payload.source.revision!,
-                }
-              : {}),
-          }))
-          .toSorted((a, b) =>
-            `${a.source}/${a.category}/${a.title}`.localeCompare(
-              `${b.source}/${b.category}/${b.title}`,
-            ),
-          );
-        setExamples(loadedExamples);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        console.error("Failed to load examples:", error);
-        toast({
-          title: "Failed to Load Examples",
-          description:
-            error instanceof ExternalExamplesError
-              ? error.message
-              : "Could not load example files",
-          variant: "destructive",
-        });
-      } finally {
-        if (!cancelled && generation === loadGeneration.current)
-          setIsLoading(false);
-      }
-    };
+    controllers.current[source]?.abort();
+    const controller = new AbortController();
+    controllers.current[source] = controller;
+    const generation = loadGeneration.current;
+    const isCurrent = () => !controller.signal.aborted && generation === loadGeneration.current
+      && capabilitiesRef.current.canUseServerExamples;
+    setGroups(current => ({ ...current, [source]: { ...emptyGroup(), loading: true } }));
+    try {
+      const payload = await (source === "builtin"
+        ? loadBuiltInExamplesCatalog(controller.signal)
+        : refreshExternalExamplesCatalog(controller.signal));
+      if (!isCurrent()) return;
+      const items = payload.examples.filter(example => example.source === source).map(example => ({
+        ...example,
+        ...(source === "external" && payload.source.mode === "repository-ref" ? {
+          repository: payload.source.repository!, ref: payload.source.ref!, revision: payload.source.revision!,
+        } : {}),
+      }));
+      setGroups(current => ({ ...current, [source]: { items, loading: false, error: false, loaded: true } }));
+    } catch (error) {
+      if (!isCurrent() || (error instanceof DOMException && error.name === "AbortError")) return;
+      setGroups(current => ({ ...current, [source]: { ...emptyGroup(), error: true } }));
+    }
+  }, []);
 
-    loadExamples();
+  useEffect(() => {
+    if (!open || !capabilitiesRef.current.canUseServerExamples) return;
+    ++loadGeneration.current;
+    void loadGroup("builtin");
+    void loadGroup("external");
     return () => {
-      cancelled = true;
+      controllers.current.builtin?.abort();
+      controllers.current.external?.abort();
     };
-  }, [open, override, toast]);
+  }, [open, override, loadGroup]);
 
   // Global shortcut Meta+E to toggle examples menu
   useEffect(() => {
@@ -157,7 +143,7 @@ export function ExamplesMenu({
     const getVisibleItems = () => {
       const all = Array.from<HTMLElement>(
         document.querySelectorAll<HTMLElement>(
-          '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
+          '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"], [data-role="example-retry"]',
         ),
       );
       return all.filter(
@@ -169,7 +155,7 @@ export function ExamplesMenu({
     const clearHighlight = () => {
       // Clear from all items including those not currently visible
       const allItems = document.querySelectorAll<HTMLElement>(
-        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
+        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"], [data-role="example-retry"]',
       );
       allItems.forEach((it) => {
         it.classList.remove(
@@ -198,7 +184,7 @@ export function ExamplesMenu({
     // Handle mouse movement - clear keyboard highlight and re-enable hover
     const onMouseMove = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>(
-        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"]',
+        '[data-role="example-source"], [data-role="example-folder"], [data-role="example-item"], [data-role="example-retry"]',
       );
       if (target?.dataset.keyboardFocused === "true") {
         clearHighlight();
@@ -367,24 +353,28 @@ export function ExamplesMenu({
         </div>
         <div className="border-t" />
 
-        {examples.length === 0 && !isLoading && (
-          <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
-            No examples available
+        {(["builtin", "external"] as const).map(source => (
+          <div key={source}>
+            {groups[source].loading && (
+              <div role="status" className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
+                Loading {source === "builtin" ? "built-in" : "external"} examples...
+              </div>
+            )}
+            {groups[source].error && (
+              <div role="status" className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
+                <p>{source === "builtin" ? "Built-in" : "External"} examples are currently unavailable.
+                  {source === "external" && groups.builtin.items.length > 0 ? " Built-in examples are still available." : ""}
+                </p>
+                <Button variant="ghost" size="sm" data-role="example-retry" onClick={() => void loadGroup(source)}>Retry</Button>
+              </div>
+            )}
           </div>
+        ))}
+        {examples.length === 0 && groups.builtin.loaded && groups.external.loaded && (
+          <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">No examples available</div>
         )}
-
-        {isLoading && (
-          <div className="px-2 py-1.5 ui-type-menu-item text-muted-foreground">
-            Loading examples...
-          </div>
-        )}
-
-        {!isLoading && examples.length > 0 && (
-          <ExamplesTree
-            examples={examples}
-            onLoadExample={handleLoadExample}
-            canUseServerExamples={capabilities.canUseServerExamples}
-          />
+        {examples.length > 0 && (
+          <ExamplesTree examples={examples} onLoadExample={handleLoadExample} canUseServerExamples={capabilities.canUseServerExamples} />
         )}
       </DropdownMenuContent>
     </DropdownMenu>

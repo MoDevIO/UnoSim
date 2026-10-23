@@ -184,6 +184,25 @@ sind Repository, Ref und Revision null, der Status ist `builtin`. `stale=true`
 bedeutet, dass ausschließlich der LKG derselben Repository-/Ref-Auswahl
 geliefert wird.
 
+### 5.1 Unabhängige Verfügbarkeit im Beispiele-Menü
+
+Beim Öffnen MUSS der Client den eingebauten Katalog und den bisherigen
+Katalog parallel anfragen und ihre Ergebnisse getrennt verarbeiten. Eingebaute
+Einträge kommen ausschließlich aus `/api/examples/builtin/catalog`; aus dem
+gemeinsamen Katalog übernimmt das Menü ausschließlich externe Einträge.
+Ein erfolgreicher Teil bleibt während Ladezeit oder Fehler des anderen bedienbar.
+Bei Fehler MUSS ein dauerhafter gruppenbezogener Hinweis mit `Retry` erscheinen.
+Retry lädt nur die betroffene Gruppe; es gibt keine automatische Retry-Schleife.
+`No examples available` gilt nur, wenn beide Gruppen erfolgreich leer sind.
+
+Katalogabrufe, Fehler und Retry dürfen weder Editorinhalt noch Browser-Auswahl
+ändern. Überholte/abgebrochene Antworten dürfen keine neuere Auswahl überschreiben.
+Der eingebaute Abruf hat einen eigenen AbortController und verändert weder den
+globalen externen Katalogzustand noch dessen Tutor-/Revisionskontext. Eingebaute
+Details setzen beim tatsächlichen Laden den externen Beispielkontext wie bisher
+zurück. Ein Backend-Ausfall verwendet weiter das bestehende Offline-Verhalten;
+es gibt keinen persistenten Browsercache für Beispielinhalte.
+
 ## 6. Ref-Auflösung und atomare Aktivierung
 
 Für öffentliche GitHub-Repositories löst der Server den validierten Ref über

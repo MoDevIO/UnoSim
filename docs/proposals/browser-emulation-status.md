@@ -71,3 +71,11 @@
 | Anleitung | bereit | (dieser PR) | [human-tests.md](human-tests.md): P0.3 mit `npm run spike:p03` (Messseite für Browser auf Geräten), P1.14-Aufnahmen mit `npm run record:hardware`, P7.1 Compile-Kapazität auf dem Referenz-Host |
 
 Status: offen · in Arbeit · erledigt · wartet auf Mensch · blockiert
+
+### Nachtrag: Verfügbarkeit der Beispiele
+
+GitHub-Ref-Auflösung nutzt die kleine SHA-Repräsentation mit eigenem 256-Byte-Limit;
+große Commit-Diffs überschreiten nicht mehr das Manifestbudget. Der lokale
+Katalog `/api/examples/builtin/catalog` lädt unabhängig vom externen Katalog.
+Das Menü hat getrennte Lade-/Fehlerzustände und Retry; Regressionstests decken
+Ausfälle, langsame Antworten, Quellwechsel und Wiederherstellung ab.

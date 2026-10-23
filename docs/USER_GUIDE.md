@@ -37,7 +37,14 @@ Der Server speichert keine Sketches. Sichere deine Dateien mit
 ## Beispiele laden
 
 **Examples** in der Kopfzeile (oder `Cmd/Ctrl+E`) öffnet die Beispielsammlung.
-Ein Beispiel ersetzt nach Rückfrage den aktuellen Sketch.
+Ein Beispiel ersetzt den aktuellen Sketch.
+
+**Built-in** enthält die eingebauten Beispiele. Diese Liste wird unabhängig
+von **External** geladen und bleibt bedienbar, wenn die externe Quelle langsam
+oder nicht erreichbar ist. Eine Statusmeldung erklärt den Ausfall; **Retry**
+lädt nur die betroffene Liste neu. Ein erneuter Abruf verändert deinen Sketch
+erst, wenn du ein Beispiel auswählst. Beide Listen benötigen die Verbindung
+zum UnoSim-Server.
 
 Lehrkräfte können für ihren Browser eine eigene Beispielsammlung wählen:
 

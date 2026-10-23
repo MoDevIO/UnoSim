@@ -435,3 +435,11 @@ eine für tatsächlich größere Manifeste benötigte Einstellung bleibt bestehe
 Konfigurationsänderungen erfordern einen Serverneustart bzw. die Neuerzeugung
 des Backend-Containers. Bei Quellfehlern die sichere `resolve-ref`-Diagnose im
 Backend-Log und die Erreichbarkeit von GitHub prüfen.
+
+Der Diagnoseabruf `GET /api/examples/builtin/catalog` muss bei erreichbarem
+Backend auch dann erfolgreich sein, wenn `/api/examples` wegen der externen
+Quelle fehlschlägt. Er liest `public/examples` und akzeptiert keine Query-Parameter.
+Das Menü lädt beide Gruppen getrennt und bietet bei Fehlern **Retry** an.
+Das Hinzufügen eines Beispiel-Repositories zum IDE-Workspace stellt die Quelle
+des laufenden Servers nicht um; maßgeblich bleiben Serverkonfiguration und
+validierter Browser-Override.
