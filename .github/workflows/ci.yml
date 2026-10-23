@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR cancels the superseded run; runs on main and feature/browser-emulation always finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   clean-room:
     name: Clean-room reproducibility
@@ -95,7 +100,8 @@ jobs:
   # JOB 2: Browser-End-to-End-Tests
   e2e-tests:
     name: Playwright E2E
-    needs: build-and-test
+    # No `needs: build-and-test`: the job builds the client itself, and waiting for the unit job put
+    # about 220 s on the critical path of every run.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -232,21 +238,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build Production Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          load: true
-          tags: unosim:ci
-          cache-from: type=gha,scope=unosim-production
-          cache-to: type=gha,scope=unosim-production,mode=max
-
-      - name: Verify Arduino CLI in Production Image
-        run: |
-          docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
-          docker run --rm --entrypoint sh unosim:ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
-
       - name: Run Docker sandbox tests
         run: npm run test:docker
 
@@ -299,6 +290,12 @@ jobs:
           tags: unosim-server:deployment-ci
           cache-from: type=gha,scope=unosim-production
           cache-to: type=gha,scope=unosim-production,mode=max
+
+      # Moved here from the Docker sandbox job, which built this image only for these two checks.
+      - name: Verify Arduino CLI in Production Image
+        run: |
+          docker run --rm --entrypoint arduino-cli unosim-server:deployment-ci version | grep -F "Version: 1.5.1 "
+          docker run --rm --entrypoint sh unosim-server:deployment-ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
 
       - name: Containerised gateway deployment
         timeout-minutes: 15
