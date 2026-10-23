@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-// run-tests.sh must clear every runtime variable that server/config.ts rejects as removed. A variable
-// exported in the caller's terminal otherwise fails the pipeline at the first Unit Tests step.
+// run-tests.sh and the local development launcher must clear every runtime variable that server/config.ts
+// rejects as removed. A variable exported in the caller's terminal (or inherited by a restored VS Code
+// terminal) otherwise fails the pipeline at the first Unit Tests step or the server at startup.
 
 const repository = process.cwd();
 
@@ -42,5 +43,15 @@ describe("run-tests.sh environment hygiene", () => {
     expect(result.status).toBe(0);
     const remaining = variables.filter((name) => new RegExp(`^${name}=`, "m").test(result.stdout));
     expect(remaining).toEqual([]);
+  });
+});
+
+describe("local development launcher environment hygiene", () => {
+  it("clears every removed runtime variable before it starts the server", () => {
+    const launcher = readFileSync(path.join(repository, "scripts", "start-local-dev.mjs"), "utf8");
+    const block = /const removedRuntimeSelectors = \[([^\]]*)\]/.exec(launcher)?.[1] ?? "";
+    const cleared = [...block.matchAll(/"([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1] as string);
+
+    expect(removedRuntimeVariables().filter((name) => !cleared.includes(name))).toEqual([]);
   });
 });

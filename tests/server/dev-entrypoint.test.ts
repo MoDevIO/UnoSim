@@ -8,6 +8,9 @@ const removedRuntimeSelectors = [
   "FORCE_DOCKER",
   "UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL",
   "UNOSIM_DOCKER_TEST_BYPASS_GATEWAY",
+  "SANDBOX_POOL_MIN_RUNNERS",
+  "SANDBOX_POOL_MAX_RUNNERS",
+  "DOCKER_COMPILE_CONCURRENT",
 ];
 
 async function reservePort(): Promise<number> {
@@ -188,6 +191,9 @@ describe("local development entrypoint", () => {
       FORCE_DOCKER: "1",
       UNOSIM_ALLOW_INSECURE_PRODUCTION_LOCAL: "1",
       UNOSIM_DOCKER_TEST_BYPASS_GATEWAY: "1",
+      SANDBOX_POOL_MIN_RUNNERS: "2",
+      SANDBOX_POOL_MAX_RUNNERS: "8",
+      DOCKER_COMPILE_CONCURRENT: "4",
       WORKER_COUNT: "3",
       COMPILE_MAX_CONCURRENT: "4",
     });
