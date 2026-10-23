@@ -16,6 +16,7 @@ import {
   openWebSocket,
   parseJson,
   prepareImages,
+  isBackendSandboxContainer,
   removeLeakedSandboxes,
   resolveDockerGid,
   runAsScript,
@@ -48,7 +49,7 @@ async function sandboxIds(owner: string): Promise<string[]> {
 
 /** Sandbox containers this run's backends started, independent of any label. */
 async function startedSandboxes(baseline: Set<string>): Promise<string[]> {
-  return [...await listContainerNames()].filter((name) => name.startsWith("unosim-sandbox-") && !baseline.has(name));
+  return [...await listContainerNames()].filter((name) => isBackendSandboxContainer(name) && !baseline.has(name));
 }
 
 type Lifecycle = {
@@ -268,6 +269,7 @@ async function main(): Promise<void> {
     images = await prepareImages(runId);
     env.DEPLOYMENT_SERVER_IMAGE = images.server;
     env.DEPLOYMENT_SANDBOX_IMAGE = images.sandbox;
+    env.DEPLOYMENT_COMPILE_SANDBOX_IMAGE = images.compileSandbox;
 
     await mkdir(tlsDir, { recursive: true });
     await mkdir(tempDir, { recursive: true });
@@ -312,7 +314,7 @@ async function main(): Promise<void> {
     socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
     await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "running", 180_000);
     const activeContainers = await listContainerNames();
-    const newSandboxContainers = [...activeContainers].filter((name) => name.startsWith("unosim-sandbox-") && !baselineContainers.has(name));
+    const newSandboxContainers = [...activeContainers].filter((name) => isBackendSandboxContainer(name) && !baselineContainers.has(name));
     assert.ok(newSandboxContainers.length > 0, "running simulation must use a Docker sandbox container");
 
     socket.send(JSON.stringify({ type: "stop_simulation" }));

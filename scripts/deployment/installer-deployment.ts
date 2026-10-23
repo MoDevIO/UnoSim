@@ -16,6 +16,7 @@ import {
   openWebSocket,
   parseJson,
   prepareImages,
+  isBackendSandboxContainer,
   removeLeakedSandboxes,
   resolveDockerGid,
   runAsScript,
@@ -269,7 +270,7 @@ async function verifyWebSocketAndSimulation(
 
   socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
   await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "running", 180_000);
-  const running = [...await listContainerNames()].filter((name) => name.startsWith("unosim-sandbox-") && !baselineContainers.has(name));
+  const running = [...await listContainerNames()].filter((name) => isBackendSandboxContainer(name) && !baselineContainers.has(name));
   assert.ok(running.length > 0, "simulation must run in a Docker sandbox started through the installer compose setup");
   socket.send(JSON.stringify({ type: "stop_simulation" }));
   await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "stopped", 60_000);
@@ -374,6 +375,7 @@ async function main(): Promise<void> {
       UNOSIM_EXAMPLES_REF: "",
       DEPLOYMENT_SERVER_IMAGE: images.server,
       DEPLOYMENT_SANDBOX_IMAGE: images.sandbox,
+      DEPLOYMENT_COMPILE_SANDBOX_IMAGE: images.compileSandbox,
       DEPLOYMENT_BACKEND_CONTAINER: backendContainer,
       DEPLOYMENT_INSTANCE_ID: `installer-test-${runId}`,
       DEPLOYMENT_NGINX_SITE: join(nginxDir, "site.conf"),

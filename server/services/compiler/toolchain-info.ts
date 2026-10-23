@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execArduinoCliJson } from "../workers/compile-worker-utils";
+import { arduinoToolchain } from "./toolchain";
 
 /** What the toolchain contributes to a build besides the sketch (plan E15). */
 export interface ToolchainInfo {
@@ -63,7 +63,7 @@ export function librariesFingerprint(json: unknown): string {
 export async function readToolchainInfo(run?: JsonRunner, now: () => number = Date.now): Promise<ToolchainInfo> {
   if (!run && process.env.NODE_ENV === "test") return TEST_INFO;
   if (cached && cached.expiresAt > now()) return cached.info;
-  const runner = run ?? execArduinoCliJson;
+  const runner = run ?? arduinoToolchain().queryJson;
   const [version, cores, libraries] = await Promise.all([
     runner(["version", "--format", "json"]),
     runner(["core", "list", "--format", "json"]),

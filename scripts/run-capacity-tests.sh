@@ -70,6 +70,10 @@ if ! docker image inspect unosim-sandbox:latest >/dev/null 2>&1; then
   echo "Required image unosim-sandbox:latest is missing; build it with npm run build:sandbox" >&2
   exit 1
 fi
+if ! docker image inspect unosim-compile-sandbox:latest >/dev/null 2>&1; then
+  echo "Required image unosim-compile-sandbox:latest is missing; build it with npm run build:sandbox (builds both sandbox images)" >&2
+  exit 1
+fi
 if [[ ! -x ./node_modules/.bin/tsx || ! -x ./node_modules/.bin/vitest ]]; then
   echo "Dependencies are missing; run npm install first" >&2
   exit 1

@@ -232,7 +232,10 @@ function envList(key: string, fallback: string[]): string[] {
 
 rejectObsoleteTutorCurriculumEnv(process.env);
 const runtimeProfile = parseRuntimeProfile(process.env);
-const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode);
+// Since P2.4 the Docker profile compiles in the compile sandbox; its image is a startup check (server/routes.ts).
+const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode, {
+  compileSandboxAvailable: runtimeProfile.serverMode === "docker",
+});
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
   runtimeProfile.nodeEnv,
@@ -659,6 +662,19 @@ export const config = {
     lastCompiledCodeMaxSubjects: 1000,
     /** Max queued compile requests in the unified gatekeeper */
     gatekeeperMaxQueueSize: 500,
+    /**
+     * Compile sandbox of the Docker profile (plan P2.4, 4.10): one container per
+     * compile. Start values from spike P0.2; P7.1 confirms them on the reference host.
+     */
+    sandbox: {
+      image: envStr("COMPILE_SANDBOX_IMAGE", "unosim-compile-sandbox:latest"),
+      memoryMB: envInt("COMPILE_SANDBOX_MEMORY_MB", 512, { min: 256, max: 65_536 }),
+      /** Docker --cpus flag. */
+      cpuLimit: envFloat("COMPILE_SANDBOX_CPU_LIMIT", "1"),
+      pidsLimit: envInt("COMPILE_SANDBOX_PIDS_LIMIT", 128, { min: 32, max: 4_096 }),
+      /** tmpfs for the core cache copy, the build and the outputs. */
+      tmpfsMB: 256,
+    },
   },
 
   // ── Examples ─────────────────────────────────────────────────────

@@ -73,7 +73,7 @@ graph TD
 
 ### 3. Arduino Compiler
 - **Verantwortung:** Sketch-Kompilierung, Header-Verarbeitung, Cache-Management
-- **Technologie:** arduino-cli (Docker-basiert oder lokal)
+- **Technologie:** arduino-cli, im Docker-Profil in der Compile-Sandbox, lokal im Backend
 - **Hauptkomponenten:**
   - `services/arduino-compiler.ts` – Haupt-Compiler-Logik
   - `services/compiler-with-fallback.ts` – Fallback-Mechanismus für Compilation
@@ -81,10 +81,16 @@ graph TD
     Festplatten-Cache für HEX und Compiler-Ausgabe. Beide sind über die
     Sketch-Identität aus Code, Headern, Entry-File und FQBN adressiert;
     Worker-Pool und direkter Compiler teilen dieselben Einträge.
-  - Der REST-Compile läuft mit `arduino-cli` im Backend, nicht in einer
-    Sandbox. Includes außerhalb des eingereichten Projekts (absolut, `..`,
-    berechnet) werden vor dem Compile abgewiesen; das HEX verlässt den Server
-    nicht.
+  - Wo `arduino-cli` läuft, wählt `services/compiler/toolchain.ts` je Profil:
+    lokal im Backend (`compiler/cli-runner.ts`), im Docker-Profil je Compile
+    in einem Container des Images `unosim-compile-sandbox`
+    (`compiler/sandboxed-cli-runner.ts`, `Dockerfile.compile-sandbox`; ohne
+    Netz, Sketch read-only, Ergebnis gerahmt über stdout). Compile und
+    Toolchain-Abfragen der Build-Identität gehen über denselben Weg. Beide Wege
+    teilen die Auswertung der CLI-Ausgabe (`interpretCliRun`). Includes
+    außerhalb des eingereichten Projekts (absolut, `..`, berechnet) werden vor
+    dem Compile abgewiesen; das HEX verlässt den Server nicht, das Artefakt
+    (Flash-Abbild) geht an den anfragenden Browser. Siehe [SECURITY.md](SECURITY.md).
   - Kapazität: Im Docker-Betrieb begrenzt der Worker-Pool (höchstens 8 Worker,
     höchstens 500 wartende Compiles, 30 s Wartezeit) und antwortet bei
     Erschöpfung mit `503 SYSTEM_BUSY`; abgestürzte Worker werden mit Backoff neu
@@ -342,17 +348,65 @@ Architektur-Zusammenfassung und ersetzen die ADRs nicht.
 
 ### Runtime-Profile
 
-- **Lokale Entwicklung (`UNOSIM_SERVER_MODE=local`):** Backend, Kompilierung
-  und Sketch-Ausführung laufen auf der Entwicklungsmaschine. Eine lokale
-  Session identifiziert den einzelnen vertrauenswürdigen Entwickler. Docker
-  wird nicht verwendet.
-- **Docker (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container und jede
-  Simulation in einer kurzlebigen Docker-Sandbox. Ein vertrauenswürdiges
-  Gateway ist verpflichtend; Benutzeranmeldung ist optional. Dockerfehler
-  führen nicht zu lokaler Ausführung.
+- **Lokale Entwicklung (`UNOSIM_SERVER_MODE=local`):** Backend und
+  Kompilierung laufen auf der Entwicklungsmaschine; Sketches laufen
+  standardmäßig im Emulator im Browser, der Host-Mock als Rückfall als
+  nativer Prozess. Eine lokale Session identifiziert den einzelnen
+  vertrauenswürdigen Entwickler. Docker wird nicht verwendet.
+- **Docker (`UNOSIM_SERVER_MODE=docker`):** Backend läuft im Container, jeder
+  Compile in einer kurzlebigen Compile-Sandbox und jede Simulation des
+  Host-Mocks in einer kurzlebigen Docker-Sandbox; Browser-Läufe brauchen keine
+  Server-Sandbox. Ein vertrauenswürdiges Gateway ist verpflichtend;
+  Benutzeranmeldung ist optional. Dockerfehler führen nicht zu lokaler
+  Ausführung.
 - **Docker-Testprofil:** Nur `NODE_ENV=test` darf mit
   `UNOSIM_DOCKER_TEST_BYPASS_GATEWAY=1` die externe Gateway-Identität
   ersetzen. Sandbox-Ausführung und Docker-Readiness bleiben aktiv.
+
+### Host-Mock als Rückfallebene
+
+Seit [ADR 0009](adr/0009-browser-emulation-runtime.md) (E9) ist die Emulation
+im Browser die Laufzeit; der Host-Mock (Sketch als nativer Prozess gegen
+einen Arduino-Mock, Steuerung über den WebSocket) bleibt bis zu einer eigenen
+Entscheidung als Rückfallebene erhalten, nur für den Uno.
+
+**Rückfall im Betrieb** (ohne Datenmigration; der Server speichert keine
+Sketches):
+
+| Wer | Weg | Wirkung |
+|---|---|---|
+| Betreiber | `UNOSIM_DEFAULT_RUNTIME=host-mock`, Neustart | neue Läufe starten im Host-Mock, „Emulation“ bleibt wählbar |
+| Betreiber | `browser` aus `UNOSIM_RUNTIME_BACKENDS` entfernen, Neustart | nur noch Host-Mock; Boards ohne Host-Mock (Nano, Mega 2560) werden nicht mehr angeboten |
+| Nutzer | **File → Settings → Simulation engine → Legacy** | gilt ab dem nächsten Start, nur für den Uno |
+
+**Kriterien für den Abbau.** Der Host-Mock wird frühestens nach `v2.0.0`
+entfernt, und nur mit einer eigenen ADR, wenn beide Bedingungen gelten:
+
+1. Ein Semester Unterricht auf dem Release ohne Rückfall: Kein Betreiber hat
+   `UNOSIM_DEFAULT_RUNTIME=host-mock` gesetzt oder `browser` abgeschaltet, um
+   einen Fehler der Emulation zu umgehen, und kein offener Befund verlangt
+   „Legacy“ als Ausweg.
+2. Der Referenzkorpus (`tests/fixtures/runtime-corpus/`) ist über dieses
+   Semester stabil grün, Ausnahmen der Klasse `hardware` sind ausgewiesen und
+   nicht gewachsen.
+
+Die ADR prüft außerdem, ob Einbettungen oder Werkzeuge den Simulationsteil
+des WebSockets `1.0.0` direkt nutzen; die iframe-API hängt nicht daran.
+
+**Umfang des Abbaus**, damit die spätere ADR ihn nicht neu ermitteln muss:
+
+| Bereich | Bestandteile |
+|---|---|
+| Laufzeit im Server | `server/services/arduino-mock.ts`, `sketch-file-builder.ts`, `sketch-prototypes.ts`, `local-compiler.ts` (g++ im lokalen Profil) |
+| Sandbox | `sandbox-runner-pool.ts`, `sandbox-runner.ts`, `sandbox/` (`execution-manager.ts`, `execution-phases/`, Stream- und Textbegrenzung), `simulation-admission-controller.ts`, Start-Semaphore, `Dockerfile.sandbox`, Variablen `SIMULATION_*` und `SANDBOX_*` |
+| Verträge | Simulationsnachrichten des WebSockets (`start_simulation`, Pin- und Serial-Ereignisse des Servers) |
+| Client | `client/src/lib/runtime/host-mock-runtime.ts`, Einstellung „Simulation engine“, Legacy-Abschnitt im Benutzerhandbuch |
+| Tests | Timing- und Pausetests des Mocks (`tests/server/pause-resume-*.test.ts`, `timing-delay.test.ts`, `tests/integration/paused-run-budget.test.ts`), Docker-Gate-Teil der Laufzeit-Sandbox |
+| Betrieb | Simulationsteil des [Kapazitätsmodells](CAPACITY_MODEL.md), Pausenbudget, Laufzeit-Sandbox in Installer und Deployment-Tests |
+
+Bleiben: Compile-Sandbox, Compile-Worker-Pool, Gateway, iframe-API, Parser
+und statische I/O-Registry. Der offene Punkt steht in
+[OPEN_POINTS.md](OPEN_POINTS.md) (HOSTMOCK-REMOVAL).
 
 ### Zentrale Konfiguration
 - **Zentrale Konfiguration:** `server/config.ts` als Single Source of Truth

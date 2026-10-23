@@ -238,6 +238,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Compile Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.compile-sandbox
+          load: true
+          tags: unosim-compile-sandbox:latest
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
+
       - name: Run Docker sandbox tests
         run: npm run test:docker
 
@@ -281,6 +291,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Compile Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.compile-sandbox
+          load: true
+          tags: unosim-compile-sandbox:deployment-ci
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
+
       - name: Build Production Image
         uses: docker/build-push-action@v5
         with:
@@ -291,17 +311,20 @@ jobs:
           cache-from: type=gha,scope=unosim-production
           cache-to: type=gha,scope=unosim-production,mode=max
 
-      # Moved here from the Docker sandbox job, which built this image only for these two checks.
-      - name: Verify Arduino CLI in Production Image
+      # The production image only starts the sandboxes (plan P2.4): no compiler in it,
+      # the pinned toolchain lives in the compile sandbox image.
+      - name: Verify the toolchain placement
         run: |
-          docker run --rm --entrypoint arduino-cli unosim-server:deployment-ci version | grep -F "Version: 1.5.1 "
-          docker run --rm --entrypoint sh unosim-server:deployment-ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
+          docker run --rm --entrypoint sh unosim-server:deployment-ci -c '! command -v arduino-cli && ! command -v g++'
+          docker run --rm --entrypoint arduino-cli unosim-compile-sandbox:deployment-ci version | grep -F "Version: 1.5.1 "
+          docker run --rm --entrypoint sh unosim-compile-sandbox:deployment-ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
 
       - name: Containerised gateway deployment
         timeout-minutes: 15
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment
 
       - name: Ubuntu/VBox installer topology (host gateway, production compose)
@@ -309,6 +332,7 @@ jobs:
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment:installer
 
       - name: Diagnostics and leftover cleanup

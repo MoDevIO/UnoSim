@@ -29,7 +29,8 @@ import {
 } from "./compiler/cache-manager";
 import { processHeaderIncludes } from "./compiler/header-processor";
 import { findUnsafeIncludes } from "./compiler/include-guard";
-import { compileWithArduinoCli, FIXED_BUILD_FLAGS, type CLICompileConfig } from "./compiler/cli-runner";
+import { FIXED_BUILD_FLAGS, type CLICompileConfig, type CLICompileResult } from "./compiler/cli-runner";
+import { arduinoToolchain } from "./compiler/toolchain";
 import { buildSketchHash } from "./workers/compile-worker-utils";
 import { type BoardId, findBoardByFqbn } from "@shared/boards";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
@@ -83,6 +84,8 @@ export class ArduinoCompiler {
   private readonly tempDir = join(process.cwd(), "temp");
   private readonly logger = new Logger("ArduinoCompiler");
   private readonly processExecutor = new ProcessExecutor();
+  /** Backend or compile sandbox, by profile (plan P2.4). */
+  private readonly toolchain = arduinoToolchain();
   private readonly defaultFqbn = config.compilation.fqbn;
   private readonly defaultBuildCacheDir = config.compilation.cacheDir;
   // Hex and binary outputs use the shared storage dir (storage/cache) so that
@@ -208,8 +211,9 @@ export class ArduinoCompiler {
     const compileStartedAt = process.hrtime.bigint();
 
     try {
-      // 0. arduino-cli runs inside the backend, not a sandbox: an include must
-      // not make the preprocessor read and echo a file outside the project.
+      // 0. An include must not make the preprocessor read and echo a file outside
+      // the project. In the local profile arduino-cli runs in the backend; in the
+      // compile sandbox this stays as an additional layer (plan 4.10).
       const unsafeIncludes = findUnsafeIncludes(sourceProject);
       if (unsafeIncludes.length > 0) {
         return {
@@ -276,7 +280,7 @@ export class ArduinoCompiler {
         buildPath,
         buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
       };
-      const cliResult = await compileWithArduinoCli(sketchFile, cliConfig, this.processExecutor);
+      const cliResult = await this.toolchain.compile(sketchFile, cliConfig, this.processExecutor);
 
       // 5. Handle result (success or error)
       const settled = await this.settleCliResult(cliResult, { sketchHash, hexCacheDir, lineOffset, board, identity });
@@ -312,7 +316,7 @@ export class ArduinoCompiler {
 
   /** Turns the CLI result into output, errors and, on success, the cached build with its artifact. */
   private async settleCliResult(
-    cliResult: Awaited<ReturnType<typeof compileWithArduinoCli>>,
+    cliResult: CLICompileResult,
     context: { sketchHash: string; hexCacheDir: string; lineOffset: number; board?: BoardId; identity: BuildIdentity },
   ): Promise<{ cliOutput: string; cliErrors: string; parsedErrors: CompilationError[]; artifact?: SimulationArtifact }> {
     if (!cliResult.success) {
