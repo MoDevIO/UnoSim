@@ -42,8 +42,10 @@ const header = (inner, extra = "") => `<?xml version="1.0" encoding="UTF-8"?>
 ${extra}${inner}</svg>
 `;
 
-const text = (x, y, size, content, { anchor = "middle", opacity } = {}) =>
-  `<text x="${x}" y="${y}" font-size="${size}" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="${anchor}"${opacity ? ` fill-opacity="${opacity}"` : ""}>${content}</text>`;
+const text = (x, y, size, content, { anchor = "middle", opacity } = {}) => {
+  const fade = opacity ? ` fill-opacity="${opacity}"` : "";
+  return `<text x="${x}" y="${y}" font-size="${size}" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="${anchor}"${fade}>${content}</text>`;
+};
 
 function boardSvg() {
   const legs = pins

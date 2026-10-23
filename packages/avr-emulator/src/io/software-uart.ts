@@ -229,7 +229,7 @@ export class SoftwareUart {
       // Fewest framing errors wins; on a tie the slower rate (the larger bit time).
       if (!best || frames.errors < best.errors) best = { baud, bit, errors: frames.errors };
     }
-    if (best && best.errors === 0) this.lock(best.baud, best.bit);
+    if (best?.errors === 0) this.lock(best.baud, best.bit);
   }
 
   /** Complete frames among the buffered edges at `bit` cycles per bit, and how many of them lack their stop bit. */
