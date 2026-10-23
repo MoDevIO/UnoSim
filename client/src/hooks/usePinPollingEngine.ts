@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { PinState } from "@/components/features/arduino-board";
 import type { BoardPin } from "@shared/board-pins";
-import { activeAnalogPins, activePins, activePwmPins, isActivePwmPin } from "@/lib/active-board";
+import { activeAnalogPins, activeLedBuiltin, activePins, activePwmPins, isActivePwmPin } from "@/lib/active-board";
 
 // Constants
 /** Height of the Uno drawing; the fallback where the SVG names no view box. */
@@ -362,7 +362,7 @@ export function usePinPollingEngine({
     }
   };
 
-  /** Update a single analog pin element: the SVG names it by its label (`A0`…`A15`). */
+  /** Update a single analog pin element: the SVG names it as the sketch does (`A0`…`A15`; on the ATtiny85 its number). */
   const updateAnalogPin = (svgEl: SVGSVGElement, { pin: pinNumber, name }: BoardPin) => {
     const frame = pinElement<SVGRectElement>(svgEl, `pin-${name}-frame`);
     const state = pinElement<SVGCircleElement>(svgEl, `pin-${name}-state`);
@@ -397,9 +397,10 @@ export function usePinPollingEngine({
     const ledL = svgEl.querySelector<SVGRectElement>("#led-l");
     const ledTx = svgEl.querySelector<SVGRectElement>("#led-tx");
     const ledRx = svgEl.querySelector<SVGRectElement>("#led-rx");
-    const pin13On = (pinStates.find((p) => p.pin === 13)?.value ?? 0) > 0;
+    const ledBuiltin = activeLedBuiltin();
+    const ledBuiltinOn = (pinStates.find((p) => p.pin === ledBuiltin)?.value ?? 0) > 0;
     applyLedVisual(ledOn, isSimulationRunning, "var(--color-led-green)", "#glow-green");
-    applyLedVisual(ledL, pin13On, "var(--color-led-yellow)", "#glow-yellow");
+    applyLedVisual(ledL, ledBuiltinOn, "var(--color-led-yellow)", "#glow-yellow");
     applyLedVisual(ledTx, txBlink, "var(--color-led-yellow)", "#glow-yellow");
     applyLedVisual(ledRx, rxBlink, "var(--color-led-yellow)", "#glow-yellow");
   };
@@ -422,7 +423,7 @@ export function usePinPollingEngine({
 
     for (const analog of activeAnalogPins()) {
       const valStr = getPinState(analog.pin)?.value?.toString() ?? "";
-      updateLabelForPin(svgEl, `pin-${analog.label}-state`, `pin-${analog.label}-frame`, `pin-${analog.label}-val`, valStr, showPWMValues);
+      updateLabelForPin(svgEl, `pin-${analog.name}-state`, `pin-${analog.name}-frame`, `pin-${analog.name}-val`, valStr, showPWMValues);
     }
   };
 

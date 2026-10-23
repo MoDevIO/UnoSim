@@ -94,6 +94,7 @@ describe("software UART line decoding (synthetic waveforms)", () => {
     const uart = new SoftwareUart(cpu, port, CLOCK_HZ);
     const bytes: number[] = [];
     uart.onByteTransmit = (byte) => bytes.push(byte);
+    cpu.writeData(0x28, 0x4b); // ACSR as Serial.begin() sets it: bandgap, interrupt on, rising edge
     cpu.writeData(0x37, 0x01); // DDRB: PB0 output
     cpu.writeData(0x38, 0x01); // idle high
     const at = (cycle: number, level: 0 | 1) => {
@@ -121,6 +122,14 @@ describe("software UART line decoding (synthetic waveforms)", () => {
     idle(20 * bit);
     expect(uart.baudRate).toBe(9600);
     expect(bytes).toEqual(Array(6).fill(0x55));
+  });
+
+  it("sends nothing while Serial is not active (PB0 used as an ordinary pin)", () => {
+    const { cpu, bytes, frame, idle } = line();
+    cpu.writeData(0x28, 0x80); // ACSR: comparator off, as before Serial.begin() or after Serial.end()
+    frame(1_000, 0x00, CLOCK_HZ / 9600);
+    idle(40 * (CLOCK_HZ / 9600));
+    expect(bytes).toEqual([]);
   });
 
   it("ignores PB0 while timer 0 drives it as PWM (OC0A)", () => {

@@ -90,7 +90,7 @@ export class BrowserRuntime implements SimulationRuntime {
   private readonly gate = new RunGate();
   private worker: EmulatorWorker | undefined;
   private phase: Phase = "idle";
-  private pendingStart: { readonly timeoutSec: number } | undefined;
+  private pendingStart: { readonly timeoutSec: number; readonly serialBaud?: number } | undefined;
   private timeoutSec = 0;
   private deadline: unknown;
   private heartbeatTimer: unknown;
@@ -120,7 +120,7 @@ export class BrowserRuntime implements SimulationRuntime {
     this.registry.clear();
     this.board = artifact.board;
     this.heldCarriageReturn.clear();
-    this.pendingStart = { timeoutSec: request.timeoutSec };
+    this.pendingStart = { timeoutSec: request.timeoutSec, ...(request.serialBaud === undefined ? {} : { serialBaud: request.serialBaud }) };
     this.timeoutSec = request.timeoutSec;
     this.phase = "loading";
     this.lastHeard = this.timers.now();
@@ -264,7 +264,12 @@ export class BrowserRuntime implements SimulationRuntime {
     if (this.phase !== "loading" || !start) return;
     this.pendingStart = undefined;
     this.phase = "starting";
-    this.post({ type: "start", runId: this.gate.runIdFor("start"), timeoutMs: start.timeoutSec * 1000 });
+    this.post({
+      type: "start",
+      runId: this.gate.runIdFor("start"),
+      timeoutMs: start.timeoutSec * 1000,
+      ...(start.serialBaud === undefined ? {} : { serialBaud: start.serialBaud }),
+    });
     this.expect(this.limits.confirmMs, "the emulator did not start");
   }
 

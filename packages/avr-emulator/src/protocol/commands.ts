@@ -24,9 +24,10 @@ const parserTable: Record<Command["type"], (fields: Fields, runId: number) => Co
     return { ok: true, command: { type: "load", runId, board, artifactBoard, buildId, sha256, flash, symbols: symbols as unknown as ImageSymbols } };
   },
   start(fields, runId) {
-    const { timeoutMs } = fields;
+    const { timeoutMs, serialBaud } = fields;
     if (!isInteger(timeoutMs, COMMAND_LIMITS.minTimeoutMs, COMMAND_LIMITS.maxTimeoutMs)) return fail("invalid timeoutMs");
-    return { ok: true, command: { type: "start", runId, timeoutMs } };
+    if (serialBaud !== undefined && !isInteger(serialBaud, COMMAND_LIMITS.minSerialBaud, COMMAND_LIMITS.maxSerialBaud)) return fail("invalid serialBaud");
+    return { ok: true, command: { type: "start", runId, timeoutMs, ...(serialBaud === undefined ? {} : { serialBaud }) } };
   },
   pause: (_fields, runId) => ({ ok: true, command: { type: "pause", runId } }),
   resume: (_fields, runId) => ({ ok: true, command: { type: "resume", runId } }),

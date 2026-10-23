@@ -13,6 +13,8 @@ export type StartRequest =
       /** The board selected in the UI; the worker refuses an artifact built for another board. Defaults to the artifact's board. */
       readonly board?: BoardId;
       readonly timeoutSec: number;
+      /** `Serial.begin()` value of the sketch, for a board whose `Serial` is a software UART (ATtiny85). */
+      readonly serialBaud?: number;
     }
   | {
       readonly kind: "host-mock";

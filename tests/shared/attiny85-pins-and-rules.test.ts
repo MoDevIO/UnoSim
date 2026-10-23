@@ -74,3 +74,13 @@ describe("static analysis and rules for the ATtiny85 (plan P6.4)", () => {
     expect(uno.some((m) => m.message.includes("RESET") || m.message.includes("Serial TX"))).toBe(false);
   });
 });
+
+describe("sketchSerialBaud (plan P6.5)", () => {
+  it("reads an active Serial.begin() literal, not a commented one", async () => {
+    const { sketchSerialBaud } = await import("@shared/parser-patterns");
+    expect(sketchSerialBaud("void setup(){ Serial.begin(9600); }")).toBe(9600);
+    expect(sketchSerialBaud("// Serial.begin(4800);\nvoid setup(){ Serial.begin( 19200 ); }")).toBe(19200);
+    expect(sketchSerialBaud("// Serial.begin(4800);\nvoid setup(){}")).toBeUndefined();
+    expect(sketchSerialBaud("const long BAUD = 9600; void setup(){ Serial.begin(BAUD); }")).toBeUndefined();
+  });
+});

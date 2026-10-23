@@ -6,12 +6,16 @@ import type { AVRIOPort, CPU } from "avr8js";
  * comparator. It offers the members of `AVRUSART` that `SerialPorts` uses, so
  * a board without a hardware USART gets the same serial port.
  *
- * - **TX:** edges of the TX pin while it is an output and not driven by
- *   timer 0 PWM. The baud rate is not in any register: it is the largest
- *   standard bit time of which the edge distances are whole multiples, the bit
- *   width is then refined from them (the core's delay loop runs a few percent
- *   slow). Until enough edges fix it, the configured baud rate (the Serial
- *   Monitor's) decodes the line once it is idle.
+ * - **TX:** edges of the TX pin while `Serial` is active (after
+ *   `Serial.begin()`, which also switches the comparator on), the pin is an
+ *   output and timer 0 does not drive it as PWM; a sketch that toggles PB0
+ *   without `Serial` sends nothing. The baud rate is in no register: among the
+ *   standard rates of which the edge distances are whole bit multiples, the one
+ *   whose frames end with a stop bit wins (a multiple of the true rate fits
+ *   the distances too, but breaks the frames), the bit width is then measured
+ *   from the distances (the core's delay loop runs a few percent slow). Until
+ *   enough edges fix it, the configured baud rate (the sketch's) decodes the
+ *   line once it is idle.
  * - **RX:** a waveform on the RX pin (AIN1) in simulated time; the comparator
  *   (ACSR) compares it with the bandgap (ACBG) or AIN0 and raises its
  *   interrupt. The receiver counts as enabled while the comparator interrupt
@@ -50,6 +54,8 @@ const MIN_FIT_INTERVALS = 8;
  * (measured at 19200 baud: 3 of 39 distances off by more than 20 %).
  */
 const MIN_FIT_SHARE = 0.9;
+/** Complete frames whose stop bits confirm a rate before it is used. */
+const MIN_FRAMES = 4;
 /** Idle bits between two received bytes, after the stop bit. */
 const RX_IDLE_BITS = 2;
 
@@ -125,7 +131,7 @@ export class SoftwareUart {
     const { data } = this.cpu;
     const mask = 1 << this.pins.txPin;
     const timerDriven = this.pins.txPin === 0 && (data[TCCR0A] & COM0A_MASK) !== 0;
-    if (!(data[DDRB] & mask) || timerDriven) return;
+    if (!this.rxEnabledValue || !(data[DDRB] & mask) || timerDriven) return;
     const level: 0 | 1 = data[PORTB] & mask ? 1 : 0;
     if (level === this.txLevel) return;
     this.txLevel = level;
@@ -206,19 +212,44 @@ export class SoftwareUart {
 
   private tryDetectBaud(): void {
     const intervals = this.edges.slice(1).map(([cycle], index) => cycle - this.edges[index][0]);
+    let best: { baud: number; bit: number; errors: number } | undefined;
     for (const baud of STANDARD_BAUDS) {
-      const bit = this.clockHz / baud;
-      const inFrame = intervals.filter((distance) => distance < bit * 9.5);
+      const nominal = this.clockHz / baud;
+      const inFrame = intervals.filter((distance) => distance < nominal * 9.5);
       if (inFrame.length < MIN_FIT_INTERVALS) continue;
       const fitting = inFrame.filter((distance) => {
-        const bits = Math.round(distance / bit);
-        return bits >= 1 && Math.abs(distance - bits * bit) < bit * 0.2;
+        const bits = Math.round(distance / nominal);
+        return bits >= 1 && Math.abs(distance - bits * nominal) < nominal * 0.2;
       });
       if (fitting.length < inFrame.length * MIN_FIT_SHARE) continue;
-      const measured = fitting.reduce((sum, distance) => sum + distance / Math.round(distance / bit), 0) / fitting.length;
-      this.lock(baud, measured);
-      return;
+      const bit = fitting.reduce((sum, distance) => sum + distance / Math.round(distance / nominal), 0) / fitting.length;
+      const frames = this.frameCheck(bit);
+      // Every fitting rate is judged on enough frames: a faster one completes its shorter frames first.
+      if (frames.complete < MIN_FRAMES) return;
+      // Fewest framing errors wins; on a tie the slower rate (the larger bit time).
+      if (!best || frames.errors < best.errors) best = { baud, bit, errors: frames.errors };
     }
+    if (best && best.errors === 0) this.lock(best.baud, best.bit);
+  }
+
+  /** Complete frames among the buffered edges at `bit` cycles per bit, and how many of them lack their stop bit. */
+  private frameCheck(bit: number): { complete: number; errors: number } {
+    let complete = 0;
+    let errors = 0;
+    let index = 0;
+    while (index < this.edges.length) {
+      const [start, level] = this.edges[index];
+      if (level !== 0 || !this.isStartBit(start, bit)) {
+        index++;
+        continue;
+      }
+      const end = start + 9.5 * bit;
+      if (end > this.cpu.cycles) break;
+      complete++;
+      if (this.levelAt(end) !== 1) errors++;
+      while (index < this.edges.length && this.edges[index][0] <= end) index++;
+    }
+    return { complete, errors };
   }
 
   private lock(baud: number, bitCycles: number): void {

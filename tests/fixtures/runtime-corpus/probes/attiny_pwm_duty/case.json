@@ -1,0 +1,18 @@
+{
+  "board": "attiny85",
+  "simMs": 120,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)",
+  "description": "analogWrite on PB0 (OC0A), PB1 (OC1A) and PB4 (OC1B) of the ATtiny85, analogWrite 0/255 as digital levels and digitalWrite ending PWM.",
+  "basis": "ATTinyCore 1.5.2 wiring_analog.c with digital_pin_to_timer_PGM of tinyX5 (0: TIMER0A, 1: TIMER1A with TIMER1_PWM, 4: TIMER1B): analogWrite(0) and analogWrite(255) are digitalWrite(LOW/HIGH), other values set OCR0A, OCR1A, OCR1B; timer 0 in 8-bit fast PWM, timer 1 in PWM mode with OCR1C = 255, so the duty cycle equals the value; digitalWrite on a PWM pin turns PWM off (turnOffPWM)",
+  "events": [],
+  "expectState": [
+    [20, "pwm", 0, 40],
+    [20, "pwm", 1, 100],
+    [20, "pwm", 4, 200],
+    [100, "pin", 0, "OUTPUT", 0],
+    [100, "pin", 1, "OUTPUT", 1],
+    [100, "pin", 4, "OUTPUT", 0]
+  ],
+  "tolerances": []
+}

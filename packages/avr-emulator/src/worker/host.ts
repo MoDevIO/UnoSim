@@ -80,6 +80,9 @@ export class WorkerHost {
       case "start":
         this.withEmulator("idle", (emulator) => {
           emulator.configureTimeout(command.timeoutMs);
+          if (command.serialBaud !== undefined) {
+            for (const port of emulator.serial.portIndexes) emulator.serial.setFallbackBaud(port, command.serialBaud);
+          }
           emulator.start();
           this.batcher.addStatus("running");
         });

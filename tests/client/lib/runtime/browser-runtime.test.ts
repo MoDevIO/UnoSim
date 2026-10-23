@@ -535,3 +535,16 @@ describe("BrowserRuntime (plan P3.2)", () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe("BrowserRuntime serial baud for a software UART (plan P6.5)", () => {
+  it("passes the sketch's Serial.begin() value with the start command, and nothing without one", () => {
+    const { runtime, worker, ev } = setup();
+    runtime.start({ kind: "browser", artifact, timeoutSec: 30, serialBaud: 9600 });
+    worker().emit(ev(worker().last("load").runId, { type: "ready", protocolVersion: 1, board: "uno", buildId: artifact.buildId }));
+    expect(worker().last("start")).toMatchObject({ type: "start", timeoutMs: 30_000, serialBaud: 9600 });
+
+    runtime.start({ kind: "browser", artifact, timeoutSec: 30 });
+    worker().emit(ev(worker().last("load").runId, { type: "ready", protocolVersion: 1, board: "uno", buildId: artifact.buildId }));
+    expect(worker().last("start")).not.toHaveProperty("serialBaud");
+  });
+});

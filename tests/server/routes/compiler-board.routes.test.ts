@@ -75,6 +75,7 @@ describe("compiler.routes - board selection", () => {
   });
 
   it("refuses a board the deployment does not offer", async () => {
+    offered = enabledBoards(undefined, "uno", ["host-mock"]); // without the browser backend only the Uno is offered
     const result = await postCompile(baseUrl, { code: "x", board: "attiny85" });
 
     expect(result.status).toBe(400);
@@ -83,6 +84,7 @@ describe("compiler.routes - board selection", () => {
   });
 
   it("refuses the deprecated fqbn of a board that is not offered", async () => {
+    offered = enabledBoards(undefined, "uno", ["host-mock"]);
     const result = await postCompile(baseUrl, { code: "x", fqbn: "ATTinyCore:avr:attinyx5:chip=85,clock=8internal" });
 
     expect(result.status).toBe(400);

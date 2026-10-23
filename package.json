@@ -54,6 +54,7 @@
     "emulate": "tsx scripts/emulate.ts",
     "generate:nano-svg": "node scripts/generate-nano-svg.mjs",
     "generate:mega-svg": "node scripts/generate-mega-svg.mjs",
+    "generate:attiny85-svg": "node scripts/generate-attiny85-svg.mjs",
     "record:hardware": "tsx scripts/record-hardware.ts",
     "spike:p03": "node spikes/p0-3/build.mjs --serve",
     "fixtures:runtime": "tsx scripts/runtime-fixtures.ts",

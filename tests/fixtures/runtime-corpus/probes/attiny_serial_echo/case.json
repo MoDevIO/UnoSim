@@ -1,0 +1,16 @@
+{
+  "board": "attiny85",
+  "simMs": 3200,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)",
+  "description": "TinySoftwareSerial receives through the analog comparator after Serial.begin(); input before it is discarded; parseInt skips non-digits and its 1 s timeout ends a number.",
+  "basis": "ATTinyCore 1.5.2 TinySoftwareSerial.cpp: begin() enables the comparator interrupt (ACIE, bandgap against AIN1 = PB1); without it no byte is received; Stream::parseInt of the core: non-digits are discarded until a digit arrives, the 1 s timeout starts anew with every character, so \"42\" ends 1 s after its last digit (got 42 at about 1.3 s) and \"7\" at about 2.5 s; \"9\" arrives before Serial.begin() and is lost",
+  "events": [
+    [20, "serial", "9"],
+    [300, "serial", "42"],
+    [1500, "serial", "7"]
+  ],
+  "expectState": [],
+  "tolerances": [],
+  "expectDiagnostics": ["serial-input-discarded"]
+}

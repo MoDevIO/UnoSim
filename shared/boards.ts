@@ -42,7 +42,7 @@ export const BOARD_CATALOG: readonly BoardCatalogEntry[] = [
     fqbn: "ATTinyCore:avr:attinyx5:chip=85,clock=8internal",
     core: { id: "ATTinyCore:avr", version: "1.5.2" },
     runtimes: ["browser"],
-    status: "planned",
+    status: "preview",
   },
 ];
 

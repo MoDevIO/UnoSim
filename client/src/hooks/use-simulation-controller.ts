@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import { normalizeSimulationTimeout } from "@shared/input-limits";
+import { sketchSerialBaud } from "@shared/parser-patterns";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import { useSimulationControllerState } from "./use-simulation-controller-state";
@@ -190,7 +191,11 @@ export function useSimulationController(
         if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
         const runtime = await hub.load("browser");
         // Start first: replacing a run reports the old one stopped, which must not end the new one.
-        runtime.start({ kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout });
+        const serialBaud = sketchSerialBaud(compiledCodeRef.current ?? "");
+        runtime.start({
+          kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout,
+          ...(serialBaud === undefined ? {} : { serialBaud }),
+        });
         hub.setActive("browser");
         return { success: true };
       }

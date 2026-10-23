@@ -56,16 +56,18 @@ beschreibt das
 ## Board wählen
 
 Unter **Tools → Board** wählst du das Board, für das UnoSim kompiliert und das
-es darstellt: **Arduino UNO**, **Arduino Nano** oder **Arduino Mega 2560**. Die
-Wahl bleibt im Browser gespeichert; ein Wechsel stoppt einen laufenden Sketch.
-Nano und Mega tragen den Hinweis „preview“: Sie laufen in der Emulation, aber
-UnoSim hat ihre Ergebnisse noch nicht mit einem echten Board verglichen.
+es darstellt: **Arduino UNO**, **Arduino Nano**, **Arduino Mega 2560** oder
+**ATtiny85**. Die Wahl bleibt im Browser gespeichert; ein Wechsel stoppt einen
+laufenden Sketch. Nano, Mega und ATtiny85 tragen den Hinweis „preview“: Sie
+laufen in der Emulation, aber UnoSim hat ihre Ergebnisse noch nicht mit einem
+echten Board verglichen.
 
 | Board | Pins | PWM (`analogWrite`) | Analogeingänge | Serielle Schnittstellen |
 |---|---|---|---|---|
 | Uno | 0 bis 13, A0 bis A5 | 3, 5, 6, 9, 10, 11 | A0 bis A5 | `Serial` |
 | Nano | wie der Uno, dazu A6 und A7 (nur analog) | wie der Uno | A0 bis A7 | `Serial` |
 | Mega 2560 | 0 bis 53, A0 bis A15 | 2 bis 13 und 44 bis 46 | A0 bis A15 | `Serial`, `Serial1`, `Serial2`, `Serial3` |
+| ATtiny85 | 0 bis 4 (PB0 bis PB4; PB5 ist RESET) | 0, 1, 4 | A0 bis A3 auf den Pins 5, 2, 4, 3 | `Serial` (in Software, auf 0 und 1) |
 
 Beim **Mega 2560** gilt:
 
@@ -88,6 +90,27 @@ Beim **Mega 2560** gilt:
 - Beispiele, die für den Uno geschrieben sind, laufen auf dem Mega, solange sie
   keine Pinnummer über 13 voraussetzen (`A0` bis `A5` heißen dort anders
   nummeriert, siehe oben).
+
+Beim **ATtiny85** gilt (Arduino-Core ATTinyCore 1.5.2, 8 MHz intern):
+
+- Die Pins 0 bis 5 sind PB0 bis PB5. `A1` ist ein zweiter Name für Pin 2, `A2`
+  für Pin 4, `A3` für Pin 3, `A0` für Pin 5; `analogRead(1)` liest wie
+  `analogRead(A1)`. Auf dem Board heißt der Pin deshalb „2 (A1)“. `LED_BUILTIN`
+  ist Pin 1.
+- PB5 ist der RESET-Pin und als Ein- oder Ausgang nicht nutzbar; UnoSim warnt,
+  wenn der Sketch ihn digital verwendet. `analogRead(A0)` funktioniert.
+- Es gibt keine serielle Schnittstelle in Hardware. `Serial` sendet in Software
+  auf Pin 0 (TX) und empfängt über den Analogkomparator auf Pin 1 (RX), mit
+  einem Format von 8N1. Daraus folgen Grenzen des Boards, die UnoSim nachbildet:
+  - **Halbduplex:** Während der Sketch sendet, empfängt er nichts. Lies
+    Eingaben zuerst (`Serial.parseInt()`) und antworte danach; ein Sketch, der
+    ständig ausgibt, verliert Eingaben.
+  - Wer Pin 0 oder Pin 1 anders benutzt (auch für `analogWrite`), stört
+    `Serial`; UnoSim warnt dann.
+  - Die Baudrate steht in keinem Register. UnoSim erkennt sie an der Ausgabe;
+    bis dahin gilt der Wert aus `Serial.begin()`. Übliche Rate ist 9600.
+- Speicher: 8 KB Flash, 512 Byte SRAM, 512 Byte EEPROM.
+- Die Legacy-Simulation gibt es nicht; `Serial1` bis `Serial3` auch nicht.
 
 ## Der Tutor
 
@@ -149,11 +172,11 @@ Unter **File → Settings** findest du außerdem:
 UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für das
 gewählte Board (Standard: Uno). Was hier kompiliert, kompiliert also auch auf der
 Hardware. Danach läuft das fertige Programm in der **Emulation**: ein Nachbau
-des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560) im Browser,
+des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560, beim ATtiny85 der ATtiny85) im Browser,
 der den Maschinencode des Sketches ausführt, nicht ein Programm für den
 UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
 deshalb wie auf dem Uno. Wer die frühere Art der Simulation braucht, wählt
-unter **File → Settings → Simulation engine** „Legacy“ (siehe unten). Das gibt es nur für den Uno; bei Nano und Mega 2560 ist die Einstellung sichtbar, aber fest auf „Emulation“ gesetzt und nennt den Grund.
+unter **File → Settings → Simulation engine** „Legacy“ (siehe unten). Das gibt es nur für den Uno; bei Nano, Mega 2560 und ATtiny85 ist die Einstellung sichtbar, aber fest auf „Emulation“ gesetzt und nennt den Grund.
 
 Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 

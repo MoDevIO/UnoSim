@@ -1,0 +1,15 @@
+{
+  "board": "attiny85",
+  "simMs": 400,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)",
+  "description": "analogRead of the ATtiny85 on A1-A3 and by channel number with the VCC, 1.1 V and 2.56 V reference (REFS2 at bit 4 of ADMUX).",
+  "basis": "ATtiny85 datasheet 17.13 and table 17-3: ADC = floor(Vin * 1024 / Vref), at most 1023; Vref = VCC (5 V) for DEFAULT, 1.1 V for INTERNAL1V1, 2.56 V for INTERNAL2V56 (REFS2:0 = 110); ATTinyCore analogRead takes the channel (pin & 127), A<n> = 0x80 | n; channels 1, 2, 3 are PB2, PB4, PB3; computed by hand: 2.51 V -> 514, 5 V -> 1023, 0.5 V -> 102 (VCC), 465 (1.1 V), 200 (2.56 V)",
+  "events": [
+    [0, "adcVolts", 1, 2.51],
+    [0, "adcVolts", 2, 5],
+    [0, "adcVolts", 3, 0.5]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

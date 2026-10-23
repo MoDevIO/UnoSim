@@ -1,4 +1,4 @@
-import { boardAnalogPins, boardPins, boardPwmPins, boardPinLabel, findBoardPin, type BoardPin } from "@shared/board-pins";
+import { boardAnalogPins, boardPins, boardPwmPins, boardPinLabel, findBoardPin, resolveBoardPin, type BoardPin } from "@shared/board-pins";
 import { type BoardId, DEFAULT_BOARD_ID } from "@shared/boards";
 
 /**
@@ -25,9 +25,18 @@ export const isAnalogPin = (pin: number): boolean => findBoardPin(hardwareBoard(
 /** `13`, `A0`: how a sketch writes the pin on the active board. */
 export const activePinLabel = (pin: number): string => boardPinLabel(hardwareBoard(), pin);
 
+/** The name and, where it is a second name (ATtiny85), the analog name: `2 (A1)`; else as `activePinLabel`. */
+export const activeAnalogPinTitle = (pin: number): string => {
+  const found = findBoardPin(hardwareBoard(), pin);
+  return found?.analogName ? `${found.name} (${found.analogName})` : activePinLabel(pin);
+};
+
 /** Pin number of analog input `A<channel>` on the active board. */
 export const analogChannelPin = (channel: number): number | undefined => boardAnalogPins(hardwareBoard()).find((pin) => pin.adcChannel === channel)?.pin;
 
 export const isActivePwmPin = (pin: number): boolean => boardPwmPins(hardwareBoard()).includes(pin);
 export const activePwmPins = (): readonly number[] => boardPwmPins(hardwareBoard());
 export const activeAnalogPins = (): readonly BoardPin[] => boardAnalogPins(hardwareBoard());
+
+/** `LED_BUILTIN` of the active board: 13 on the ATmega boards, 1 on the ATtiny85. */
+export const activeLedBuiltin = (): number => resolveBoardPin(hardwareBoard(), "LED_BUILTIN") ?? 13;
