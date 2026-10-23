@@ -192,6 +192,53 @@ die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
 Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
 sein.
 
+## Compile-Sandbox
+
+- Jeder Compile (`POST /api/compile` und Worker-Pool) läuft in einem eigenen,
+  kurzlebigen Container von `COMPILE_SANDBOX_IMAGE`
+  (`unosim-compile-sandbox:latest`, gebaut aus `Dockerfile.compile-sandbox`).
+  Das Server-Image enthält keinen Compiler.
+- Fehlt das Image, startet das Backend im Docker-Profil nicht; die Meldung
+  nennt den Build-Befehl.
+- Grenzen je Container: `COMPILE_SANDBOX_MEMORY_MB` (512),
+  `COMPILE_SANDBOX_CPU_LIMIT` (1), `COMPILE_SANDBOX_PIDS_LIMIT` (128), 256 MiB
+  tmpfs, 60 s Zeitlimit. Wie viele Compile-Container gleichzeitig laufen,
+  begrenzt der Worker-Pool (`WORKER_COUNT`, höchstens 8), im Fallback ohne
+  Pool `COMPILE_MAX_CONCURRENT`. Dazu kommen kurze Toolchain-Abfragen für die
+  Build-Identität (drei Container je Worker, höchstens alle 5 Minuten).
+- Der Sketch liegt unter `UNOSIM_SHARED_TEMP_DIR` und wird read-only
+  eingehängt. Der Container hat kein Netz und keinen Docker-Socket und schreibt
+  nichts auf den Host.
+- Compile-Container heißen `unosim-compile-<uuid>` und tragen dasselbe
+  `unosim.owner`-Label wie die Simulations-Sandboxes; die Aufräumroutine beim
+  Start erfasst sie. `./check-leaks.sh` meldet Compile-Container, die gestoppt
+  sind oder seit Minuten laufen (`--cleanup` entfernt sie).
+
+Einzelheiten zur Isolation: [SECURITY.md](SECURITY.md), Abschnitt „Compile
+boundary“.
+
+## Browser-Emulation im Docker-Profil (Pilot)
+
+Ohne weitere Einstellung bietet das Docker-Profil nur den Host-Mock und den
+Uno an. Für eine Pilot-Instanz mit Emulation im Browser als Standard in `.env`
+setzen und das Backend neu erstellen (`docker compose up -d`):
+
+```text
+UNOSIM_RUNTIME_BACKENDS=browser,host-mock
+UNOSIM_DEFAULT_RUNTIME=browser
+```
+
+Dann bietet der Server zusätzlich Nano und Mega 2560 an (Status `preview`),
+und `POST /api/compile` liefert das Flash-Abbild (`artifact`) aus der
+Compile-Sandbox; der Sketch läuft im Browser des Nutzers und belastet den
+Server nicht. „Legacy“ (Host-Mock) bleibt für den Uno wählbar.
+`UNOSIM_BOARDS` und `UNOSIM_DEFAULT_BOARD` schränken die Boards ein bzw. legen
+das Standard-Board fest; leere Einträge gelten als nicht gesetzt.
+
+Zurück zum Host-Mock ohne neues Image: `UNOSIM_DEFAULT_RUNTIME=host-mock`
+(Emulation bleibt wählbar) oder `UNOSIM_RUNTIME_BACKENDS=host-mock` (nur
+Host-Mock und Uno), dann `docker compose up -d`.
+
 ## Relevante Runtime-Variablen
 
 ### Pflichtwerte
@@ -338,7 +385,9 @@ Simulationen bleiben echte Docker-Sandboxen. Er ist kein Deploymentmodus.
 ## Health, Readiness und Status
 
 - `/api/health`: HTTP-Prozess erreichbar
-- `/api/readiness`: Docker-Runner-Pool initialisiert und bereit
+- `/api/readiness`: alle angebotenen Laufzeiten bereit; mit `host-mock` heißt
+  das: Docker-Runner-Pool initialisiert und Sandbox verfügbar. Die
+  Compile-Sandbox prüft das Backend schon beim Start.
 - `/api/status`: Runner, Compile-Slots, Worker, WebSockets, Admission und
   Prozessmetriken; im Docker-Profil nur mit gültiger Gateway-Identität
 
@@ -366,5 +415,11 @@ Zu sichern sind:
 3. Neue Instanz starten und Health/Readiness prüfen.
 4. Gateway-Traffic umschalten.
 5. Bei Fehlern auf das vorherige unveränderte Image-Tag zurückrollen.
+
+Ein Rollback von V2 auf das V1-Image (v1.0.1) braucht keine Änderung an
+`.env` oder `storage/`: V1 ignoriert die neuen Variablen und die neuen
+Cache-Dateien (`*.artifact.json`); umgekehrt baut V2 Einträge ohne diese
+Datei neu (geprüft am 23.10.2026). Nach dem Rollback laufen alle Sketches im
+Host-Mock, Nano und Mega 2560 sind nicht mehr wählbar.
 
 Die vollständigen Gates stehen in [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md).

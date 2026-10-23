@@ -92,3 +92,16 @@ describe("runtime settings (plan 4.11, P2.6)", () => {
     });
   });
 });
+
+describe("blank values (Compose passes an unset .env entry as NAME=, plan P7.2)", () => {
+  it("treats blank runtime and board variables as unset", () => {
+    const blank = { UNOSIM_RUNTIME_BACKENDS: "", UNOSIM_DEFAULT_RUNTIME: " ", UNOSIM_BOARDS: "", UNOSIM_DEFAULT_BOARD: "" };
+    expect(parseRuntimeSettings(blank, "docker")).toEqual(parseRuntimeSettings({}, "docker"));
+    expect(parseRuntimeSettings(blank, "local")).toEqual(parseRuntimeSettings({}, "local"));
+  });
+
+  it("takes the pilot configuration of the Docker profile from Compose", () => {
+    const pilot = parseRuntimeSettings({ UNOSIM_RUNTIME_BACKENDS: "browser,host-mock", UNOSIM_DEFAULT_RUNTIME: "browser", UNOSIM_BOARDS: "", UNOSIM_DEFAULT_BOARD: "" }, "docker", { compileSandboxAvailable: true });
+    expect(pilot).toEqual({ backends: ["browser", "host-mock"], defaultRuntime: "browser", boards: undefined, defaultBoard: "uno" });
+  });
+});

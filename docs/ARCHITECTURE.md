@@ -378,6 +378,7 @@ Sketches):
 | Betreiber | `UNOSIM_DEFAULT_RUNTIME=host-mock`, Neustart | neue Läufe starten im Host-Mock, „Emulation“ bleibt wählbar |
 | Betreiber | `browser` aus `UNOSIM_RUNTIME_BACKENDS` entfernen, Neustart | nur noch Host-Mock; Boards ohne Host-Mock (Nano, Mega 2560) werden nicht mehr angeboten |
 | Nutzer | **File → Settings → Simulation engine → Legacy** | gilt ab dem nächsten Start, nur für den Uno |
+| Betreiber | V1-Image (v1.0.1) wieder ausrollen | ganze Rückkehr ohne Änderung an `.env` und `storage/`; zurück auf V2 ebenso |
 
 **Kriterien für den Abbau.** Der Host-Mock wird frühestens nach `v2.0.0`
 entfernt, und nur mit einer eigenen ADR, wenn beide Bedingungen gelten:

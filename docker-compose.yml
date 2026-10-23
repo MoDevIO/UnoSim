@@ -49,6 +49,13 @@ services:
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DOCKER_SANDBOX_IMAGE=unosim-sandbox:latest
+      # Runtime backends and boards (docs/INSTALL_SERVER.md). Empty keeps the application
+      # default: host mock only, Uno. The pilot of the browser emulation sets
+      # UNOSIM_RUNTIME_BACKENDS=browser,host-mock and UNOSIM_DEFAULT_RUNTIME=browser in .env.
+      - UNOSIM_RUNTIME_BACKENDS=${UNOSIM_RUNTIME_BACKENDS:-}
+      - UNOSIM_DEFAULT_RUNTIME=${UNOSIM_DEFAULT_RUNTIME:-}
+      - UNOSIM_BOARDS=${UNOSIM_BOARDS:-}
+      - UNOSIM_DEFAULT_BOARD=${UNOSIM_DEFAULT_BOARD:-}
       # Every compile runs in its own container of this image (npm run build:compile-sandbox):
       # no network, read-only root and sketch, bounded tmpfs. See docs/SECURITY.md.
       - COMPILE_SANDBOX_IMAGE=unosim-compile-sandbox:latest

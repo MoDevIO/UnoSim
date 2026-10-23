@@ -3,6 +3,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { simulationArtifactSchema } from "../../shared/simulation-artifact";
 import {
   blinkSketch,
   checked,
@@ -183,6 +184,29 @@ async function teardown(run: {
   return cleanupError;
 }
 
+/**
+ * The configuration of the browser-emulation pilot (plan P7.2/P7.3): emulation
+ * as default next to the host mock, boards that only the browser runs, and the
+ * flash image from the compile sandbox through the gateway.
+ */
+async function verifyBrowserEmulationPilot(gateway: { port: number; ca: Buffer }): Promise<void> {
+  const config = parseJson((await httpsRequest(gateway, "/api/config")).body);
+  assert.deepEqual(config.runtime, { backends: ["browser", "host-mock"], default: "browser" });
+  assert.deepEqual(config.boards.map((board: { id: string }) => board.id), ["uno", "nano", "mega2560"]);
+
+  const compileResponse = await httpsRequest(gateway, "/api/compile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: blinkSketch, board: "nano" }),
+    timeoutMs: 180_000,
+  });
+  assert.equal(compileResponse.statusCode, 200, `Nano compile through gateway returned ${compileResponse.statusCode}`);
+  const result = parseJson(compileResponse.body);
+  assert.equal(result.success, true, "Nano compile through gateway must succeed");
+  assert.equal("binary" in result, false, "the HEX must never leave the server");
+  assert.equal(simulationArtifactSchema.parse(result.artifact).board, "nano", "the compile sandbox must deliver the Nano's flash image");
+}
+
 /** Frontend, authenticated API, tutor credential contract, identity headers and backend isolation. */
 async function verifyGatewayContract(
   gateway: { port: number; ca: Buffer },
@@ -209,6 +233,8 @@ async function verifyGatewayContract(
   assert.equal(parseJson(missingTutorCredential.body).error.code, "CREDENTIAL_REQUIRED");
   await composeCall(["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY === undefined ? 0 : 1)"], 20_000);
   await composeCall(["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_TUTOR_MODE === undefined && process.env.UNOSIM_LLM_API_KEY === undefined ? 0 : 1)"], 20_000);
+
+  await verifyBrowserEmulationPilot(gateway);
 
   const spoofedResponse = await httpsRequest(gateway, "/api/status", {
     headers: {

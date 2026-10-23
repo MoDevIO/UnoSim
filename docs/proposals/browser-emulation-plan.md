@@ -1152,6 +1152,15 @@ Kapazitätsskripten; Messung auf dem Referenz-Host; Kapazitätsmodell neu.
 `docker-compose.yml` (Image-Variable, Build), Installer, Deployment-Tests
 (`npm run test:deployment`, `npm run test:deployment:installer`),
 INSTALL_SERVER, INSTALL_UBUNTU_VBOX, Release-Runbook.
+Umgesetzt: Image-Variable, Build und Startprüfung der Compile-Sandbox mit P2.4;
+Compose reicht `UNOSIM_RUNTIME_BACKENDS`, `UNOSIM_DEFAULT_RUNTIME`,
+`UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD` aus `.env` durch (leer = Standard);
+der Gateway-Deployment-Test läuft in der Pilot-Konfiguration (Emulation
+Standard, Nano-Compile mit Artefakt über das Gateway), der Installer-Test mit
+dem Standard; die Rückkehr auf v1.0.1 (9.3) ist einmal geprüft
+([Bericht](report-p7-2-v1-rollback.md)). Die Standardwerte des Docker-Profils
+bleiben bis zur Abnahme von M4 bei `host-mock`; die Pilot-Instanz setzt sie in
+`.env` (P7.3).
 
 **P7.3 Vorabversionen und Erprobung im Unterricht (M).**
 Tags `v2.0.0-beta.N` und `v2.0.0-rc.N` im Integrationsbranch nach 9.2,
