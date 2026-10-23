@@ -300,9 +300,6 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 </div>
               </div>
             ) : undefined}
-            {...(serialPortCount > 1 && props.setSerialPort
-              ? { centerAction: <SerialPortSelector count={serialPortCount} selected={serialPort} onSelect={props.setSerialPort} /> }
-              : {})}
             actions={
               <>
               <ToolbarIconButton
@@ -332,6 +329,12 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               </>
             }
           />
+
+          {serialPortCount > 1 && props.setSerialPort && (
+            <div className="flex shrink-0 items-center border-b border-border bg-muted/40 px-[var(--header-padding-x)] py-1">
+              <SerialPortSelector count={serialPortCount} selected={serialPort} onSelect={props.setSerialPort} />
+            </div>
+          )}
 
           {/* Content Area */}
           <div className="flex-1 min-h-0">
