@@ -182,8 +182,11 @@ geliefert wird.
 Für öffentliche GitHub-Repositories löst der Server den validierten Ref über
 den serverkontrollierten GitHub-Endpunkt
 `GET https://api.github.com/repos/<owner>/<repository>/commits/<ref>` auf. Die
-Antwort MUSS einen vollständigen kleingeschriebenen SHA gemäß
-`^[0-9a-f]{40}$` liefern. Browserinput bestimmt weder Host noch URL-Struktur.
+Anfrage MUSS `Accept: application/vnd.github.sha` verwenden. Die Textantwort
+MUSS nach Entfernen von Rand-Whitespace einen vollständigen kleingeschriebenen
+SHA gemäß `^[0-9a-f]{40}$` liefern. Ihr eigenes festes Antwortlimit beträgt
+256 Bytes, unabhängig vom Manifestlimit. Die vollständige Commit-JSON-Antwort
+mit Dateidiffs wird weder angefordert noch als Ausweichformat akzeptiert. Browserinput bestimmt weder Host noch URL-Struktur.
 
 Danach gelten ausschließlich folgende Content-Ziele:
 

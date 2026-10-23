@@ -118,3 +118,15 @@ Docker-Sandbox-Tests sind ein getrenntes Gate und werden unter
 - Port belegt: `lsof -nP -iTCP:3000 -sTCP:LISTEN` prüfen.
 - Docker-Fehler im lokalen Profil weisen auf eine falsche Konfiguration hin;
   lokale Entwicklung verwendet Docker nicht.
+
+### Diagnose: Beispiele und GitHub-Commit-Auflösung
+
+Die Ref-Auflösung fordert mit `Accept: application/vnd.github.sha` nur den
+Commit-SHA an (eigenes Antwortlimit: 256 Bytes). Große Commit-Diffs beeinflussen
+diesen Abruf nicht. `UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES` begrenzt das eigentliche
+Manifest, standardmäßig auf 262.144 Bytes. Eine nur wegen großer Commit-Antworten
+gesetzte Erhöhung dieser Einstellung kann nach diesem Update entfernt werden;
+eine für tatsächlich größere Manifeste benötigte Einstellung bleibt bestehen.
+Konfigurationsänderungen erfordern einen Serverneustart bzw. die Neuerzeugung
+des Backend-Containers. Bei Quellfehlern die sichere `resolve-ref`-Diagnose im
+Backend-Log und die Erreichbarkeit von GitHub prüfen.
