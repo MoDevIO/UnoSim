@@ -291,6 +291,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Compile Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.compile-sandbox
+          load: true
+          tags: unosim-compile-sandbox:deployment-ci
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
+
       - name: Build Production Image
         uses: docker/build-push-action@v5
         with:
@@ -312,6 +322,7 @@ jobs:
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment
 
       - name: Ubuntu/VBox installer topology (host gateway, production compose)
@@ -319,6 +330,7 @@ jobs:
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment:installer
 
       - name: Diagnostics and leftover cleanup

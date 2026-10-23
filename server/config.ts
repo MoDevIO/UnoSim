@@ -232,7 +232,10 @@ function envList(key: string, fallback: string[]): string[] {
 
 rejectObsoleteTutorCurriculumEnv(process.env);
 const runtimeProfile = parseRuntimeProfile(process.env);
-const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode);
+// Since P2.4 the Docker profile compiles in the compile sandbox; its image is a startup check (server/routes.ts).
+const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode, {
+  compileSandboxAvailable: runtimeProfile.serverMode === "docker",
+});
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
   runtimeProfile.nodeEnv,

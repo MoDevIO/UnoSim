@@ -13,12 +13,13 @@ keinen host-nativen Simulations-Fallback.
 - Docker Engine mit Compose Plugin
 - Reverse Proxy mit TLS und UnoSim-Gateway-Headern; Benutzeranmeldung ist
   optional
-- Sandbox- und Server-Image aus demselben geprüften Source-Stand
+- Sandbox-, Compile-Sandbox- und Server-Image aus demselben geprüften Source-Stand
 
 ## Images und Compose
 
 ```bash
 docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
+docker build -f Dockerfile.compile-sandbox -t unosim-compile-sandbox:latest .
 docker build -t unosim-server:latest .
 
 # Einmalig vor dem ersten Start: Laufzeitverzeichnisse für den Container-User.
@@ -217,7 +218,9 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | Variable | Zweck |
 |---|---|
 | `WORKER_COUNT` | Anzahl paralleler Compile-Worker für `/api/compile`; höchstens 8 werden gestartet (ein höherer Wert wird beim Start als Warnung gemeldet) |
-| `UNOSIM_RUNTIME_BACKENDS` | angebotene Laufzeiten: `host-mock` (Standard im Docker-Profil), `browser` verlangt die Compile-Sandbox (Plan P2.4, noch nicht verfügbar; der Start schlägt sonst fehl); ohne `host-mock` startet kein Sandbox-Runner-Pool |
+| `UNOSIM_RUNTIME_BACKENDS` | angebotene Laufzeiten: `host-mock` (Standard im Docker-Profil) und `browser` (Emulation im Browser, Flash-Abbild aus der Compile-Sandbox); ohne `host-mock` startet kein Sandbox-Runner-Pool |
+| `COMPILE_SANDBOX_IMAGE` | Image der Compile-Sandbox, Standard `unosim-compile-sandbox:latest`; jeder Compile läuft in einem eigenen Container. Fehlt das Image, startet das Backend nicht |
+| `COMPILE_SANDBOX_MEMORY_MB`, `COMPILE_SANDBOX_CPU_LIMIT`, `COMPILE_SANDBOX_PIDS_LIMIT` | Grenzen je Compile-Container; Standard `512`, `1`, `128` (Spike P0.2) |
 | `UNOSIM_DEFAULT_RUNTIME`, `UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD` | Vorauswahl der Laufzeit, angebotene Boards und Standard-Board (`uno`); siehe [INSTALL_LOCAL](INSTALL_LOCAL.md) |
 | `COMPILE_MAX_CONCURRENT` | Obergrenze gleichzeitiger Compiles im Hauptprozess (lokaler Modus und Fallback bei ausgefallenem Worker-Pool) |
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen; Standard in Compose `200` |
@@ -264,8 +267,10 @@ npm run build:sandbox
 npm run capacity:calibrate -- --expected-users 200
 ```
 
-`npm run build:sandbox` ist derselbe Befehl wie
-`docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .` oben. Fehlt der
+`npm run build:sandbox` baut dieselben beiden Images wie die Befehle
+`docker build -f Dockerfile.sandbox …` und
+`docker build -f Dockerfile.compile-sandbox …` oben; das Test-Backend im
+Docker-Profil braucht beide. Fehlt der
 gebaute Client (`dist/public/index.html`), bricht die Kalibrierung vor allen
 Docker- und Lastmessungen mit dem Hinweis ab, `npm run build` auszuführen. Sie
 baut die Anwendung nicht selbst.

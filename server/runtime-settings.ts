@@ -16,7 +16,7 @@ export interface RuntimeSettings {
 }
 
 export interface RuntimeSettingsOptions {
-  /** Whether the Docker profile has the compile sandbox the `browser` backend needs (package P2.4). */
+  /** Whether the Docker profile compiles in the compile sandbox the `browser` backend needs (package P2.4); the image itself is a startup check. */
   readonly compileSandboxAvailable?: boolean;
 }
 
@@ -38,7 +38,7 @@ function parseBackends(env: NodeJS.ProcessEnv, serverMode: "local" | "docker", o
   const defaults: RuntimeKind[] = serverMode === "local" ? ["browser", "host-mock"] : ["host-mock"];
   const backends = listed ? listed.map((item) => parseChoice("UNOSIM_RUNTIME_BACKENDS", item, RUNTIME_KINDS)) : defaults;
   if (serverMode === "docker" && backends.includes("browser") && !options.compileSandboxAvailable) {
-    throw new Error("UNOSIM_RUNTIME_BACKENDS: the browser backend needs the compile sandbox in the Docker profile (plan P2.4); it is not available yet");
+    throw new Error("UNOSIM_RUNTIME_BACKENDS: the browser backend needs the compile sandbox in the Docker profile (plan P2.4)");
   }
   return backends;
 }

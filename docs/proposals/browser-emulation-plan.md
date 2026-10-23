@@ -925,6 +925,13 @@ schreibt der Container nichts auf den Host: HEX, ELF und die Standardausgabe
 von `arduino-cli` kommen gerahmt (Base64) über stdout zurück, das einzige
 Bind-Mount (Sketch) bleibt read-only; der tmpfs hat `noexec`. Die Auswertung
 der CLI-Ausgabe teilen sich lokaler und Sandbox-Weg (`interpretCliRun`).
+Teil b: `compiler/toolchain.ts` wählt je Profil (Docker → Sandbox, lokal →
+direkt) für Compile und Toolchain-Abfragen (Build-Identität, Fingerabdruck im
+Worker); das Docker-Profil startet nicht ohne das Image (wie beim Host-Mock),
+liefert das Artefakt aus und erlaubt `browser` in `UNOSIM_RUNTIME_BACKENDS`
+(Standard bleibt `host-mock` bis M4); der `ProcessExecutor` verweigert
+Compile-Container ohne Isolation; `check-leaks.sh`, Deployment-Tests,
+Installer, Compose und Kapazitätsskripte kennen das Image.
 
 **P2.5 Artefakt und Build-Identität (L).**
 - Build-Identität nach E15 als eigener Typ. Die Schlüssel des HEX-Caches, des

@@ -1,7 +1,8 @@
 import { Logger } from "@shared/logger";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ProcessExecutor, ProcessOutputLimitError } from "../process-executor";
+import { ProcessOutputLimitError } from "../process-executor";
+import type { ProcessExecution } from "../process-execution-port";
 import type { CompilationError } from "./compiler-output-parser";
 import { limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES, parseCompilerDiagnostics } from "../compiler-diagnostics";
 import { config as appConfig } from "../../config";
@@ -73,7 +74,7 @@ interface CliRunContext {
 export async function compileWithArduinoCli(
   sketchFile: string,
   config: CLICompileConfig,
-  processExecutor: ProcessExecutor,
+  processExecutor: ProcessExecution,
 ): Promise<CLICompileResult> {
   // Arduino CLI expects the sketch directory; the public compiler passes the .ino path.
   const sketchDir = dirname(sketchFile);

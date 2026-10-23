@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +11,9 @@ import {
   runCliJsonInSandbox,
 } from "../../server/services/compiler/sandboxed-cli-runner";
 import { parseCliVersion, parseCores } from "../../server/services/compiler/toolchain-info";
+import { ArduinoCompiler } from "../../server/services/arduino-compiler";
+import { ProcessExecutor } from "../../server/services/process-executor";
+import { simulationArtifactSchema } from "../../shared/simulation-artifact";
 
 /**
  * Contract of the compile sandbox (plan P2.4, 7.8) against the real image
@@ -186,6 +189,22 @@ maybeDescribe("Compile sandbox contract", () => {
   it("reads the toolchain of the image for the build identity", async () => {
     expect(parseCliVersion(await runCliJsonInSandbox(["version", "--format", "json"], undefined, SETTINGS))).toBe("1.5.1");
     expect(parseCores(await runCliJsonInSandbox(["core", "list", "--format", "json"], undefined, SETTINGS))).toContainEqual({ id: "arduino:avr", version: "1.8.8" });
+  });
+
+  it("compiles a REST compile of the Docker profile in the sandbox and delivers its artifact", async () => {
+    const execute = vi.spyOn(ProcessExecutor.prototype, "execute");
+    try {
+      // A unique comment keeps the HEX cache from answering.
+      const code = `// ${process.pid}-${Date.now()}\nvoid setup(){ pinMode(13, OUTPUT); }\nvoid loop(){ digitalWrite(13, HIGH); }\n`;
+      const result = await new ArduinoCompiler().compile(code, [], undefined, { board: "mega2560", fqbn: "arduino:avr:mega:cpu=atmega2560", hexCacheDir: join(work, "hex-cache") });
+      expect(result.success, result.stderr).toBe(true);
+      expect(simulationArtifactSchema.parse(result.artifact).board).toBe("mega2560");
+      const commands = execute.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
+      expect(commands.some((line) => line.startsWith("docker run --rm --name unosim-compile-") && line.includes(" unosim-compile 60 compile "))).toBe(true);
+      expect(commands.some((line) => line.startsWith("arduino-cli compile"))).toBe(false);
+    } finally {
+      execute.mockRestore();
+    }
   });
 
   it("removes every compile container it started", () => {
