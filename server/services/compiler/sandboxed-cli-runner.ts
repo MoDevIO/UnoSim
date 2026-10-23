@@ -131,7 +131,8 @@ async function runContainer(
 function frameFailureMessage(result: { code: number; error?: Error }, timeoutSeconds: number): string {
   if (result.error instanceof ProcessTimeoutError) return `Compilation timed out after ${timeoutSeconds} s.`;
   if (result.error instanceof ProcessOutputLimitError) return "Compilation stopped: the compiler output exceeded its limit.";
-  logger.error(`Compile sandbox ended without a result (exit ${result.code}${result.error ? `, ${result.error.name}` : ""})`);
+  const errorName = result.error ? `, ${result.error.name}` : "";
+  logger.error(`Compile sandbox ended without a result (exit ${result.code}${errorName})`);
   // Docker reports its own failures (daemon, missing image) with 125; a killed container with 137.
   return result.code === 137
     ? "Compilation stopped: the compile sandbox ran out of memory or was stopped."
