@@ -35,7 +35,7 @@ import { buildSketchHash } from "./workers/compile-worker-utils";
 import { type BoardId, findBoardByFqbn } from "@shared/boards";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
 import { type BuildRecord, buildArtifact, readBuildRecord, writeBuildRecord } from "./compiler/artifact-builder";
-import { type BuildIdentity, createBuildIdentity } from "./compiler/build-identity";
+import { type BuildIdentity, buildIdOf, createBuildIdentity } from "./compiler/build-identity";
 import { readToolchainInfo } from "./compiler/toolchain-info";
 
 // Re-export for backwards compatibility
@@ -326,6 +326,15 @@ export class ArduinoCompiler {
     const artifact = board && cliResult.binary ? buildArtifact({ board, hex: cliResult.binary, elf: cliResult.elf, identity }) : undefined;
     const successResult = await this.handleCompilationSuccess(context.sketchHash, context.hexCacheDir, cliResult, { identity, ...(artifact ? { artifact } : {}) });
     return { ...successResult, ...(artifact ? { artifact } : {}) };
+  }
+
+  /**
+   * The id of everything in a build identity that does not come from the request: toolchain, installed
+   * libraries, build options and artifact format. A cache in front of the compiler adds it to its keys,
+   * so it serves an entry only under the identity the compiler itself would check.
+   */
+  async buildEnvironmentId(): Promise<string> {
+    return buildIdOf(createBuildIdentity({ sketchHash: "", fqbn: "", toolchain: await readToolchainInfo(), buildOptions: FIXED_BUILD_FLAGS }));
   }
 
   /** The board and the identity of this build (plan E15): what a cache entry must have been built under. */

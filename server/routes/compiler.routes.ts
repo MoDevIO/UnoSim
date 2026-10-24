@@ -19,6 +19,8 @@ type CompilerDeps = {
   compiler: {
     compile: (code: string, headers?: CompilerHeader[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
     tracksCompileMetrics?: boolean;
+    /** Toolchain, libraries, options and artifact format the compiler checks its own cache under (plan E15). */
+    buildEnvironmentId?: () => Promise<string>;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
   hashCode: (code: string, headers?: CompilerHeader[], options?: CompileRequestOptions) => string;
@@ -184,7 +186,11 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
         ...target.options,
         ...(entryFile ? { entryFile } : {}),
       };
-      const codeHash = hashCode(code, headers, compileOptions);
+      // The result cache answers before the compiler: its key carries the compiler's build environment, so a
+      // changed toolchain or library set misses it just as it misses the compiler's own caches.
+      const environment = await compiler.buildEnvironmentId?.();
+      const requestHash = hashCode(code, headers, compileOptions);
+      const codeHash = environment ? `${requestHash}:${environment}` : requestHash;
       const cacheDisabled = process.env.DISABLE_COMPILE_CACHE === "true";
       const cachedResult = getCachedCompilation(
         compilationCache,

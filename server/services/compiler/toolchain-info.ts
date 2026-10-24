@@ -18,6 +18,8 @@ const UNKNOWN = "unknown";
 const TEST_INFO: ToolchainInfo = { arduinoCli: "test-cli", cores: [{ id: "arduino:avr", version: "test-core" }], librariesFingerprint: "test-libraries" };
 
 let cached: { info: ToolchainInfo; expiresAt: number } | undefined;
+/** The query in flight: concurrent callers share it (a class compiling at once after the cache expired). */
+let pending: Promise<ToolchainInfo> | undefined;
 
 const asRecord = (value: unknown): Record<string, unknown> => (typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {});
 const text = (value: unknown): string => (typeof value === "string" && value.length > 0 ? value : UNKNOWN);
@@ -63,7 +65,13 @@ export function librariesFingerprint(json: unknown): string {
 export async function readToolchainInfo(run?: JsonRunner, now: () => number = Date.now): Promise<ToolchainInfo> {
   if (!run && process.env.NODE_ENV === "test") return TEST_INFO;
   if (cached && cached.expiresAt > now()) return cached.info;
-  const runner = run ?? arduinoToolchain().queryJson;
+  pending ??= queryToolchainInfo(run ?? arduinoToolchain().queryJson, now).finally(() => {
+    pending = undefined;
+  });
+  return pending;
+}
+
+async function queryToolchainInfo(runner: JsonRunner, now: () => number): Promise<ToolchainInfo> {
   const [version, cores, libraries] = await Promise.all([
     runner(["version", "--format", "json"]),
     runner(["core", "list", "--format", "json"]),
@@ -76,4 +84,5 @@ export async function readToolchainInfo(run?: JsonRunner, now: () => number = Da
 
 export function resetToolchainInfoCache(): void {
   cached = undefined;
+  pending = undefined;
 }

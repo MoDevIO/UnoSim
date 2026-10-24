@@ -60,3 +60,14 @@ describe("toolchain info (plan E15)", () => {
     expect(info.arduinoCli).toBe("test-cli");
   });
 });
+
+describe("toolchain info for concurrent callers", () => {
+  it("queries the CLI once for callers that arrive while a query runs", async () => {
+    const run = runner();
+    const infos = await Promise.all([readToolchainInfo(run), readToolchainInfo(run), readToolchainInfo(run)]);
+
+    expect(run).toHaveBeenCalledTimes(3); // version, core list, lib list: one query
+    expect(infos[1]).toBe(infos[0]);
+    expect(infos[2]).toBe(infos[0]);
+  });
+});
