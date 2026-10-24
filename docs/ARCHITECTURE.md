@@ -122,7 +122,13 @@ als Rückfallebene (nur Uno).
   - Cache: ein In-Memory-Ergebniscache der Route (ohne HEX) und ein
     Festplatten-Cache für HEX und Compiler-Ausgabe. Beide sind über die
     Sketch-Identität aus Code, Headern, Entry-File und FQBN adressiert;
-    Worker-Pool und direkter Compiler teilen dieselben Einträge.
+    Worker-Pool und direkter Compiler teilen dieselben Einträge. Über die
+    Gültigkeit entscheidet der Compiler: Er prüft seine Einträge gegen die
+    vollständige Build-Identität (ADR 0010, E15), und der Ergebniscache der
+    Route trägt dessen Build-Umgebung (`buildEnvironmentId`: Toolchain,
+    Bibliotheken, Build-Optionen, Artefaktformat) im Schlüssel. Die
+    Toolchain-Abfrage gilt fünf Minuten; gleichzeitige Aufrufer teilen eine
+    laufende Abfrage.
   - Wo `arduino-cli` läuft, wählt `services/compiler/toolchain.ts` je Profil:
     lokal im Backend (`compiler/cli-runner.ts`), im Docker-Profil je Compile
     in einem Container des Images `unosim-compile-sandbox`

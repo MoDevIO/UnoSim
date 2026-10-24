@@ -51,6 +51,11 @@ export class CompilerWithFallback {
     }
   }
 
+  /** The build environment both paths compile under (the workers query the same toolchain). */
+  buildEnvironmentId(): Promise<string> {
+    return this.directCompiler.buildEnvironmentId();
+  }
+
   /**
    * Compile code through the worker pool (production) or directly (development)
    * 
