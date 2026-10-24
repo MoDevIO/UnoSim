@@ -1,6 +1,11 @@
 // Pure parts of the hardware recording tool (scripts/record-hardware.ts): no I/O, tested in tests/server.
 import type { StimulusEvent } from "../packages/avr-emulator/src/index";
 
+/** Toolchain a recording of a case of this board was built with, as `case.json` names it. */
+export function recordingToolchain(board: string): string {
+  return board === "attiny85" ? "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)" : "arduino-cli 1.5.1, arduino:avr@1.8.8";
+}
+
 /** Baud rate of `Serial.begin(n)` in the sketch; undefined if it never opens the port. */
 export function baudOf(sketch: string): number | undefined {
   const match = /Serial\.begin\(\s*(\d+)\s*\)/.exec(sketch.replaceAll(/\/\/.*|\/\*[\s\S]*?\*\//g, ""));

@@ -1,9 +1,11 @@
 # Messungen und Aufnahmen durch Menschen
 
-> **Nicht normativ.** Anleitung für die Arbeitspakete, die eine Person mit
-> Geräten durchführen muss (P0.3 und die Klasse `hardware` von P1.14) im Rahmen
-> von [browser-emulation-plan.md](browser-emulation-plan.md). Wird mit dem Plan
-> gelöscht. Ergebnisse gehen an den Agenten oder in die Statusdatei
+> **Nicht normativ.** Anleitung für alles, was im Rahmen von
+> [browser-emulation-plan.md](browser-emulation-plan.md) nur eine Person
+> erledigen kann: Messungen und Aufnahmen mit Geräten (Teile 1–4), Meldungen an
+> avr8js (Teil 5), das README von UnoSim-Examples (Teil 6) und die
+> Vorabversion (Teil 7). Wird mit dem Plan gelöscht. Ergebnisse gehen an den
+> Agenten oder in die Statusdatei
 > [browser-emulation-status.md](browser-emulation-status.md).
 
 Alle Befehle laufen im Hauptverzeichnis des Repositorys auf dem Branch
@@ -194,3 +196,183 @@ und `nproc`/`free -g` in CAPACITY_MODEL.md unter „Compile capacity“ eintrage
 | Abbruch „requires a built application“ | `npm run build` fehlt |
 | Backend startet nicht, Meldung nennt `unosim-compile-sandbox` | `npm run build:sandbox` fehlt oder ist fehlgeschlagen |
 | Zeilen mit 503 | der Pool war länger als 30 s voll; Wert notieren, das ist ein Befund |
+
+## Teil 4 – Aufnahmen an Nano, Mega 2560 und ATtiny85 (Klasse `hardware`)
+
+**Ziel:** wie Teil 2, für die 33 Fälle der übrigen Boards (Nano 7, Mega 21,
+ATtiny85 5; alle bisher `derived`). Werkzeug, Ablauf und Übernahme sind
+dieselben wie in Teil 2; das Board steht im `case.json`, der Befehl ist
+gleich. Die Aufnahme liest nur `Serial`. Deshalb übernimmt das Werkzeug diese
+9 Fälle nicht, sie bleiben `derived`:
+
+- 8 Fälle mit Zustandsprüfungen (`expectState`): Nano `it03-06`, `it04-03`;
+  Mega `it03-04`, `it03-06`, `it04-03`, `mega_pins`, `mega_pwm_duty`;
+  ATtiny85 `attiny_pwm_duty`.
+- `mega_serial_ports`: Er nutzt `Serial1`–`Serial3`, die Aufnahme liest nur
+  `Serial`.
+
+**Fälle mit schnellen Flanken** (`mega_interrupts`: alle 5 ms;
+`attiny_interrupts`: alle 20 ms) sind von Hand nicht zu treffen. Sie brauchen
+einen Pulsgeber, zum Beispiel ein zweites Arduino, das die Flanken aus
+`events` im `case.json` erzeugt. Ohne Pulsgeber bleiben sie `derived`.
+
+### Nano und Mega 2560
+
+Wie Teil 2, nur mit dem jeweiligen Board am USB. Ein Nano-Klon mit altem
+Bootloader lädt nur mit `cpu=atmega328old`; dann den Fall **nicht**
+übernehmen und dem Agenten melden (der Korpus nimmt den neuen Bootloader an).
+Für die Analogfälle (`nano_adc_read`: A0, A5, A6, A7; `mega_adc_read`: A0, A7,
+A8, A15) die Spannungen aus `events` mit Potentiometer oder Spannungsteiler
+einstellen und messen, wie in Teil 2.
+
+```sh
+npm run record:hardware -- tests/fixtures/runtime-corpus/probes/nano_adc_read --port /dev/cu.usbserial-1410
+npm run record:hardware -- tests/fixtures/runtime-corpus/probes/mega_memory_layout --port /dev/cu.usbmodem1101
+```
+
+### ATtiny85
+
+**Was du brauchst:** einen ATtiny85 (DIP-8) auf dem Steckbrett, einen
+ISP-Programmer (USBasp oder ein Uno mit dem Sketch „ArduinoISP“), einen
+USB-Seriell-Adapter mit 5 V und DTR-Pin, einen Kondensator 100 nF und einen
+Widerstand 10 kΩ.
+
+**Aufbau:**
+
+| ATtiny85 | Verbindung |
+|---|---|
+| Pin 8 (VCC), Pin 4 (GND) | 5 V und GND des Adapters (gemeinsame Masse mit dem Programmer) |
+| Pin 1 (PB5, RESET) | 10 kΩ nach 5 V; 100 nF zum DTR des Adapters (Reset beim Öffnen des Ports, wie beim Uno) |
+| Pin 5 (PB0, TX) | RX des Adapters |
+| Pin 6 (PB1, RX) | TX des Adapters |
+| Pins 1, 5, 6, 7 (PB5, PB0, PB1, PB2) | zum Programmieren an RESET, MOSI, MISO, SCK des Programmers |
+
+**Einmal je Chip:** Ein neuer ATtiny85 läuft mit 1 MHz (Fuse CKDIV8). Die
+Fuses für 8 MHz intern setzt:
+
+```sh
+arduino-cli burn-bootloader -b "ATTinyCore:avr:attinyx5:chip=85,clock=8internal" -P usbasp -p usb
+# mit Uno als ISP: -P arduinoasisp -p /dev/cu.usbmodem1101
+```
+
+**Ein Fall:** Das Werkzeug lädt über den Programmer und nimmt am Adapter auf.
+Bricht der Upload ab, stört der Adapter an PB0/PB1 (MOSI/MISO): seine
+TX-Leitung zum Hochladen kurz abziehen, dann mit `--attempts 1` und ohne
+Upload (`--no-upload`) aufnehmen.
+
+```sh
+npm run record:hardware -- tests/fixtures/runtime-corpus/probes/attiny_basics --port /dev/cu.usbserial-A10K --programmer usbasp --upload-port usb
+```
+
+Der interne Oszillator weicht ab Werk um bis zu ±10 % ab. Zeitwerte in
+`attiny_basics` können dadurch außerhalb der Toleranz liegen, die Baudrate
+ebenso (unlesbare Zeichen). Dann den Fall nicht übernehmen und dem Agenten
+die Aufnahme geben, mit dem Hinweis auf den Takt; OSCCAL-Kalibrierung ist ein
+eigener Schritt.
+
+`attiny_adc_read` erwartet 2,51 V an A1 (Pin 7), 5 V an A2 (Pin 3) und 0,5 V
+an A3 (Pin 2). `attiny_serial_echo` sendet der Adapter selbst.
+
+## Teil 5 – Meldungen an avr8js (rund 30 Minuten)
+
+UnoSim korrigiert vier Fehler von avr8js 0.21.1 im eigenen Code
+([README des Pakets](../../packages/avr-emulator/README.md#avr8js-0211-corrections-and-known-differences)).
+Wer sie meldet, hilft anderen Nutzern und macht ein späteres Update leichter.
+Vorher in [wokwi/avr8js/issues](https://github.com/wokwi/avr8js/issues) nach
+einem passenden Issue suchen. Am 2026-10-24 gab es keins; #136 (ADC im
+Free-Running-Modus) und #178 (Timer 0 und `delay()` mit ATTinyCore) betreffen
+andere Fehler. Je Fehler ein Issue, Texte zum Kopieren:
+
+**1. USART: writing UCSRnB clears a pending RXC**
+
+> avr8js 0.21.1 clears the RXC flag on every write to UCSRnB while RXEN stays
+> set. On the ATmega328P only reading UDRn clears RXC (datasheet, UCSRnA). The
+> Arduino core writes UCSR0B in every `Serial.write` (to enable UDRIE), so a
+> byte that arrives while the sketch prints loses its interrupt, and the next
+> byte overwrites it. Reproduce: a sketch that echoes input while printing
+> continuously; send two bytes in quick succession; one is lost.
+
+**2. ATtiny85 ADC: REFS2 is read at bit 3 instead of bit 4**
+
+> On the ATtiny25/45/85, ADMUX has REFS1:0 at bits 7:6 and REFS2 at bit 4;
+> bit 3 is MUX3 (datasheet, ADMUX). avr8js reads REFS2 at bit 3, so
+> `analogReference(INTERNAL2V56)` (ATTinyCore) measures against VCC: 0.5 V on
+> A3 reads 102 instead of 200.
+
+**3. ATtiny85: INT0 and the pin-change interrupt share GIMSK and GIFR**
+
+> GIMSK holds INT0 (bit 6) and PCIE (bit 5), GIFR holds INTF0 (bit 6) and PCIF
+> (bit 5). avr8js hooks GIMSK only for the external interrupt and GIFR only for
+> the pin-change interrupt. Setting PCIE does not raise a pending pin change,
+> and writing 1 to INTF0 does not clear a pending INT0.
+
+**4. ATtinyTimer1: PWM mode counts phase-correct and drives no OC1x with CTC1**
+
+> In PWM mode (PWM1A or PWM1B) timer 1 of the ATtiny85 counts up from 0 to
+> OCR1C and restarts at 0, with or without CTC1 (datasheet, "Timer/Counter1 in
+> PWM Mode"). OC1x is set
+> at 0 and cleared on a match with OCR1x (COM1x = 01/10), inverted with 11.
+> `ATtinyTimer1` counts phase-correct when CTC1 is clear, and with CTC1 set (as
+> ATTinyCore configures `analogWrite` on PB1/PB4) it drives no waveform at all:
+> `updateCompPinNonPwm` is skipped because PWM is on, and `phasePwmCount` is
+> not used because CTC1 is on.
+
+Die Issue-Links in die Statusdatei eintragen (Zeile P6.2) oder dem Agenten geben.
+
+## Teil 6 – README von UnoSim-Examples (rund 15 Minuten)
+
+UnoSim liest seit P4.6 das optionale Manifestfeld `board`
+([ExternalExamples-SSOT 7.1](../../ssot/ssot_function_definition_ExternalExamples.md)).
+Das README des Beispiel-Repositorys nennt es noch nicht und beschreibt
+außerdem nur die frühere Simulation. Vorschlag für einen PR in
+`ttbombadil/unosim-examples`:
+
+1. Nach dem Absatz über Headerdateien einfügen:
+
+   > Every example may name its board in `manifest.json` with the optional
+   > field `board`: `uno`, `nano`, `mega2560` or `attiny85`. Without it an
+   > example fits every board. UnoSim versions that do not know an ID treat
+   > it as not given; from version 2 on, UnoSim asks before it loads an
+   > example for another board than the selected one. The examples of this
+   > catalog are written for the Uno and carry no `board`.
+
+2. Den Absatz „UnoSim does not run the sketch as Uno machine code …“ ersetzen
+   durch:
+
+   > UnoSim 1.x runs a sketch as a program on the server, so a few
+   > observations differ from the hardware: `int` is 32 bits wide, `double`
+   > 64 bits, and a float printed without a precision shows `2.5` instead of
+   > `2.50`. UnoSim 2 emulates the board's microcontroller and matches the
+   > hardware here ("Legacy" keeps the former behaviour). The examples avoid
+   > these cases (overflow is shown with `byte`, floats are always printed
+   > with a precision), so they behave the same in both versions. Keep it
+   > that way in new examples; the UnoSim user guide lists all differences in
+   > its section "Grenzen der Simulation".
+
+Danach die Zeile P4.6 in der Statusdatei auf „erledigt“ setzen.
+
+## Teil 7 – Vorabversion `v2.0.0-beta.1`
+
+Die technischen Voraussetzungen erfüllt der Integrationsbranch (M1, P2.4,
+P7.2; Plan 9.2). Ablauf und Abnahmekriterien stehen im
+[Release-Runbook](../RELEASE_RUNBOOK.md#vorabversionen-und-v200-browser-emulation).
+Ein Mensch entscheidet:
+
+1. **Ob und wann:** Zeitpunkt der Pilot-Instanz (Semesterplanung).
+2. **Version und CHANGELOG:** Der Abschnitt „Unreleased“ im CHANGELOG ist
+   vollständig. Für die Beta wird er zu `## v2.0.0-beta.1 – <Datum>` und die
+   Version gesetzt: `npm version 2.0.0-beta.1 --no-git-tag-version`. Ein
+   vorbereiteter PR macht genau das.
+3. **Tag nach dem Merge** dieses PRs und grüner CI:
+
+   ```sh
+   git fetch origin && git checkout feature/browser-emulation && git pull --ff-only
+   git tag -a v2.0.0-beta.1 -m "UnoSim v2.0.0-beta.1" && git push origin v2.0.0-beta.1
+   ```
+
+4. **Pilot-Instanz:** Images aus diesem Tag bauen, nach
+   [INSTALL_SERVER.md, Pilot](../INSTALL_SERVER.md#browser-emulation-im-docker-profil-pilot)
+   mit `UNOSIM_DEFAULT_RUNTIME=browser` neben der V1-Instanz ausrollen. Vor
+   dem Unterricht: Teil 3 (Kapazität) auf dem Pilot-Host.
+5. **Rückmeldungen** aus dem Unterricht als Issues; der Agent behebt sie in
+   PRs gegen den Integrationsbranch.
