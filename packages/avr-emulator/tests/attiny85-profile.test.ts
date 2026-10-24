@@ -171,7 +171,7 @@ describe("ATtiny85 profile (plan P6.2)", () => {
     });
   });
 
-  describe("timer 1 PWM (datasheet 12.2.2; avr8js counts phase-correct and drives no pin with CTC1)", () => {
+  describe("timer 1 PWM (datasheet: Timer/Counter1 in PWM Mode; avr8js counts phase-correct and drives no pin with CTC1)", () => {
     const TCCR1 = 0x50;
     const GTCCR = 0x4c;
     const OCR1A = 0x4e;

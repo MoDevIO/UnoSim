@@ -111,7 +111,7 @@ const OVERRIDE_CLEAR = 3 as PinOverrideMode;
 
 /**
  * In PWM mode timer 1 of the ATtiny85 counts up from 0 to OCR1C and starts at 0 again,
- * with or without CTC1 (datasheet 12.2.2; ATTinyCore sets OCR1C = 255 because "this module
+ * with or without CTC1 (datasheet, "Timer/Counter1 in PWM Mode"; ATTinyCore sets OCR1C = 255 because "this module
  * doesn't have a 8bit PWM mode"). OC1x is high from 0 until the match with OCR1x
  * (COM1x = 01 or 10) and inverted with COM1x = 11. avr8js drives no waveform with CTC1 set,
  * as ATTinyCore configures `analogWrite`, and counts phase-correct without it. The
