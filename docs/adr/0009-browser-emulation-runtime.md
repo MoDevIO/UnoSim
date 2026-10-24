@@ -7,9 +7,9 @@
   (decisions E1–E5, E7–E14, E16)
 - Proposal: [browser-emulation.md](../proposals/browser-emulation.md)
 
-> Draft. The decisions marked *pending spike* stay open until the named spike
-> report exists; this ADR is accepted only after those reports and by the
-> maintainers, not by an implementation session.
+> Draft. Every spike report this ADR depends on exists (P0.2–P0.6); P0.3 is
+> a synthetic measurement. The ADR is accepted by the maintainers, not by an
+> implementation session.
 
 ## Context
 
@@ -86,7 +86,14 @@ the server and little for each student's browser.
     the simulation slower and shows the real-time factor. A backlog above
     100 ms is not caught up: the wall-clock reference is reset and emulation
     continues without skipping cycles. A worker ahead of time waits. Hidden
-    tabs keep running. *Thresholds of the worker watchdog pending spike P0.3.*
+    tabs keep running. The main thread supervises the worker: heartbeat about
+    every 500 ms, also paused; at most 3 s of silence, 15 s until `ready`, 5 s
+    for a confirmation, 2 s for `stop`. The deadlines apply in the visible tab
+    only, because browsers throttle or freeze hidden ones. Spike P0.3
+    (synthetic, [report](../proposals/report-p0-3-vm-matrix.md)) found a
+    real-time factor of 1.00 and UI delays of at most 24 ms with one vCPU, far
+    within these limits; a measurement on a real school device is still
+    recommended.
 12. **Board per sketch (E13).** The board is chosen per browser and workspace
     (localStorage). Examples may name a board (optional, default `uno`).
 13. **Contracts (E14).** WebSocket `1.0.0` stays and serves only the host mock
