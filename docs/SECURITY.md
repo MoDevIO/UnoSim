@@ -194,6 +194,12 @@ development startup reject the flag.
   no client-created or changed sketches.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
+- GitHub ref lookups request only `application/vnd.github.sha`, enforce an
+  independent 256-byte response limit and validate the complete lowercase
+  40-character SHA. Manifest limits remain independent. DNS, allowlist,
+  redirect, timeout and streaming-size checks apply to this representation too.
+  Ref failures log only the request ID and safe error metadata, never bodies
+  or upstream error messages.
 - GitHub ref lookups respect the REST quota: after a 403/429 rate-limit answer
   no request is sent before the announced reset, and browser overrides leave a
   reserve of 10 lookups to the operator's default Course. The optional
@@ -221,3 +227,9 @@ development startup reject the flag.
 
 Report security vulnerabilities privately to the instance operators before
 public disclosure.
+
+The read-only `/api/examples/builtin/catalog` endpoint serves only the local
+BuiltInProvider catalog with the same anonymous default-read policy as
+`/api/examples`. It accepts no selection parameters and does not start outbound
+requests or spend source-load/GitHub quotas. External selection and revision
+checks remain on their existing endpoints.

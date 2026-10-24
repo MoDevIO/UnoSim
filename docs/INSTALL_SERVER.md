@@ -423,3 +423,23 @@ Datei neu (geprüft am 23.10.2026). Nach dem Rollback laufen alle Sketches im
 Host-Mock, Nano und Mega 2560 sind nicht mehr wählbar.
 
 Die vollständigen Gates stehen in [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md).
+
+### Diagnose: Beispiele und GitHub-Commit-Auflösung
+
+Die Ref-Auflösung fordert mit `Accept: application/vnd.github.sha` nur den
+Commit-SHA an (eigenes Antwortlimit: 256 Bytes). Große Commit-Diffs beeinflussen
+diesen Abruf nicht. `UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES` begrenzt das eigentliche
+Manifest, standardmäßig auf 262.144 Bytes. Eine nur wegen großer Commit-Antworten
+gesetzte Erhöhung dieser Einstellung kann nach diesem Update entfernt werden;
+eine für tatsächlich größere Manifeste benötigte Einstellung bleibt bestehen.
+Konfigurationsänderungen erfordern einen Serverneustart bzw. die Neuerzeugung
+des Backend-Containers. Bei Quellfehlern die sichere `resolve-ref`-Diagnose im
+Backend-Log und die Erreichbarkeit von GitHub prüfen.
+
+Der Diagnoseabruf `GET /api/examples/builtin/catalog` muss bei erreichbarem
+Backend auch dann erfolgreich sein, wenn `/api/examples` wegen der externen
+Quelle fehlschlägt. Er liest `public/examples` und akzeptiert keine Query-Parameter.
+Das Menü lädt beide Gruppen getrennt und bietet bei Fehlern **Retry** an.
+Das Hinzufügen eines Beispiel-Repositories zum IDE-Workspace stellt die Quelle
+des laufenden Servers nicht um; maßgeblich bleiben Serverkonfiguration und
+validierter Browser-Override.
