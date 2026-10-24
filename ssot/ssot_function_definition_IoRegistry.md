@@ -31,7 +31,7 @@ statische Analyse nicht mehr, sondern wird mit ihr zusammengeführt
 
 * Alle statischen Einträge und ihre Zeilen bleiben sichtbar, auch bei leerem
   Laufzeit-Snapshot.
-* Laufzeitfunde ergänzen je Pin und Funktion. Jede Funktion trägt ihre Herkunft
+* Laufzeitfunde ergänzen je Pin und Funktion. Derselbe Pin heißt über die Pinbelegung des gewählten Boards gleich, ob als Name oder Nummer (`A0` und `14` beim Uno, `A0` und `54` beim Mega 2560, `A1` und `2` beim ATtiny85); der Digitalpin 14 des Mega ist ein anderer Pin als `A0`. Jede Funktion trägt ihre Herkunft
   `origin`: `static`, `runtime` oder `both`. Ein Fund ohne statische Zeile
   erscheint wie bisher als „runtime“ (Browser-Emulation: immer ohne Zeile,
   Host-Mock: mit der Zeile der Instrumentierung).
