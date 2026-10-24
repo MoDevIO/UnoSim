@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import type { IOPinRecord } from "@shared/schema";
 import type { SimulationStatus } from "@shared/types/arduino.types";
 import { mergeIoRegistry } from "./io-registry-merge";
@@ -12,11 +13,12 @@ export function getEffectiveIoRegistry(
   staticIoRegistry: IOPinRecord[],
   runtimeIoRegistry: IOPinRecord[] | null,
   simulationStatus: SimulationStatus,
+  board?: BoardId,
 ): IOPinRecord[] {
   const simulationActive =
     simulationStatus === "running" || simulationStatus === "paused";
 
   return simulationActive && runtimeIoRegistry !== null
-    ? mergeIoRegistry(staticIoRegistry, runtimeIoRegistry)
+    ? mergeIoRegistry(staticIoRegistry, runtimeIoRegistry, board)
     : staticIoRegistry;
 }

@@ -1,3 +1,5 @@
+import { DEFAULT_BOARD_ID, type BoardId } from "@shared/boards";
+import { resolveBoardPin } from "@shared/board-pins";
 import type { IOFunction, IOOrigin, IOPinRecord } from "@shared/schema";
 
 const FUNCTIONS: readonly IOFunction[] = ["pinMode", "digitalRead", "digitalWrite", "analogRead", "analogWrite"];
@@ -7,10 +9,13 @@ type LineMark = number | "runtime";
 type LineKey = `${IOFunction}Lines`;
 type LocationKey = `${IOFunction}Locations`;
 
-/** "13", "A0" and "14" name the same pin on the Uno and Nano (plan 4.9 merges per pin). */
-function pinKey(pin: string): string {
-  const analog = /^A(\d+)$/i.exec(pin);
-  return analog ? String(14 + Number(analog[1])) : pin;
+/**
+ * Plan 4.9 merges per pin: a name and the number of the same pin of the board share one key ("A0"
+ * and "14" on the Uno, "A0" and "54" on the Mega 2560, "A1" and "2" on the ATtiny85).
+ */
+function pinKey(pin: string, board: BoardId): string {
+  const resolved = resolveBoardPin(board, pin);
+  return resolved === undefined ? pin : String(resolved);
 }
 
 interface RuntimeFinding {
@@ -101,12 +106,17 @@ function mergePin(staticRecord: IOPinRecord | undefined, runtimeRecord: IOPinRec
  * the run saw is added as a runtime entry; a pin mode that contradicts the
  * static analysis marks the pin as a conflict.
  */
-export function mergeIoRegistry(staticRegistry: readonly IOPinRecord[], runtimeRegistry: readonly IOPinRecord[]): IOPinRecord[] {
-  const runtimeByPin = new Map(runtimeRegistry.map((record) => [pinKey(record.pin), record]));
-  const merged = staticRegistry.map((record) => mergePin(record, runtimeByPin.get(pinKey(record.pin))));
-  const known = new Set(staticRegistry.map((record) => pinKey(record.pin)));
+export function mergeIoRegistry(
+  staticRegistry: readonly IOPinRecord[],
+  runtimeRegistry: readonly IOPinRecord[],
+  board: BoardId = DEFAULT_BOARD_ID,
+): IOPinRecord[] {
+  const key = (record: IOPinRecord) => pinKey(record.pin, board);
+  const runtimeByPin = new Map(runtimeRegistry.map((record) => [key(record), record]));
+  const merged = staticRegistry.map((record) => mergePin(record, runtimeByPin.get(key(record))));
+  const known = new Set(staticRegistry.map(key));
   for (const record of runtimeRegistry) {
-    if (!known.has(pinKey(record.pin))) merged.push(mergePin(undefined, record));
+    if (!known.has(key(record))) merged.push(mergePin(undefined, record));
   }
   return merged;
 }

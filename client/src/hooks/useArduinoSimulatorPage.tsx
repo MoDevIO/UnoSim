@@ -666,8 +666,8 @@ export function useArduinoSimulatorPage() {
   }, [simulationStatus]);
 
   const effectiveIoRegistry = useMemo(
-    () => getEffectiveIoRegistry(staticIoRegistry, runtimeIoRegistry, simulationStatus),
-    [staticIoRegistry, runtimeIoRegistry, simulationStatus],
+    () => getEffectiveIoRegistry(staticIoRegistry, runtimeIoRegistry, simulationStatus, boardId),
+    [staticIoRegistry, runtimeIoRegistry, simulationStatus, boardId],
   );
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
