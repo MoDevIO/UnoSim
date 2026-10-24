@@ -103,6 +103,18 @@ behaviour for the Uno.
 - On phones the panel navigation covered pins of the board view.
 - The ATtiny85 drives the PWM signal of timer 1 on PB1 and PB4.
 - A hidden browser tab no longer ends a run as "stopped responding".
+- **The Tutor knows the board and the whole project:** it receives the selected
+  board and the header files (whatever tab is open) and reads pins as that
+  board has them; on the ATtiny85 `LED_BUILTIN` was taken as pin 13 instead
+  of 1. `/api/tutor/question` and `/api/tutor/dialog` accept `headers` and
+  `entryFile` like `POST /api/compile` (REST `1.1.0`, additive).
+- The I/O Registry merges runtime findings per pin of the board: on the Mega
+  2560 a finding of `A0` landed on digital pin 14.
+- A browser run shows `running` or `paused` only once the emulator confirmed
+  it; a pause sent right after the start no longer shows "paused" while the
+  sketch runs on.
+- A cached compile result is served only under the toolchain and libraries it
+  was built with.
 
 ## v1.0.1 – 2026-10-18
 
