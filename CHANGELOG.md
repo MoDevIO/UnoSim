@@ -2,9 +2,10 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased (integration branch `feature/browser-emulation`)
+## v2.0.0-beta.1 – 2026-10-24
 
-Version 2 runs the compiled sketch in the browser instead of on the server and
+First pre-release of version 2 from the integration branch `feature/browser-emulation`
+for a pilot instance next to the V1 instance (plan 9.2). Version 2 runs the compiled sketch in the browser instead of on the server and
 adds the Arduino Nano, the Arduino Mega 2560 and the ATtiny85 as preview
 boards. Contracts: REST API `1.1.0` (additive, `1.0.0` clients stay
 supported), WebSocket `1.0.0` (unchanged; serial messages may carry an optional
