@@ -1,7 +1,14 @@
 import type { AVRUSART } from "avr8js";
 import type { SerialPortHardware } from "../boards/types";
 import type { Machine } from "../machine";
+import { SoftwareUart } from "./software-uart";
 import { Utf8StreamDecoder, encodeUtf8 } from "./utf8";
+
+/** What a serial port needs of its transport: a hardware USART or the core's software UART (ATtiny85). */
+type SerialChannel = Pick<
+  AVRUSART,
+  "onByteTransmit" | "onRxComplete" | "onConfigurationChange" | "rxEnable" | "rxBusy" | "writeByte" | "baudRate" | "bitsPerChar" | "stopBits" | "parityEnabled" | "parityOdd"
+>;
 
 /** Input limits as in UnoSim today (plan P1.7): per message and pending per port. */
 export const SERIAL_INPUT_LIMITS = { maxMessageBytes: 4 * 1024, maxPendingBytes: 1024 * 1024 } as const;
@@ -21,7 +28,9 @@ export interface SerialOutput {
 
 interface Port {
   readonly hardware: SerialPortHardware;
-  readonly usart: AVRUSART;
+  readonly usart: SerialChannel;
+  /** Set for a software UART: its fallback baud rate follows the Serial Monitor. */
+  readonly software?: SoftwareUart;
   readonly decoder: Utf8StreamDecoder;
   output: string;
   /** Bytes waiting for the receiver, oldest first. */
@@ -50,9 +59,10 @@ export class SerialPorts {
     private readonly onDiscard: (port: number, bytes: number) => void = () => undefined,
   ) {
     for (const hardware of machine.board.serialPorts) {
-      const usart = machine.peripherals.usarts[hardware.usart];
-      if (!usart) throw new RangeError(`${machine.mcu.id} has no USART${hardware.usart}`);
-      const port: Port = { hardware, usart, decoder: new Utf8StreamDecoder(), output: "", rx: [], rxHead: 0 };
+      const software = hardware.kind === "software" ? softwareUart(machine, hardware) : undefined;
+      const usart = software ?? (hardware.kind === "usart" ? machine.peripherals.usarts[hardware.usart] : undefined);
+      if (!usart) throw new RangeError(`${machine.mcu.id} has no USART${hardware.kind === "usart" ? hardware.usart : ""}`);
+      const port: Port = { hardware, usart, ...(software ? { software } : {}), decoder: new Utf8StreamDecoder(), output: "", rx: [], rxHead: 0 };
       usart.onByteTransmit = (byte) => {
         port.output += port.decoder.decode([byte]);
       };
@@ -97,7 +107,17 @@ export class SerialPorts {
     return port.rx.length - port.rxHead;
   }
 
-  /** Frame format the sketch configured (UBRR, U2X, UCSRC). */
+  /**
+   * Baud rate of a software UART until its output reveals the sketch's
+   * (`Serial.begin(baud)` sets no register); the Serial Monitor's setting.
+   * Ignored for a hardware USART, whose rate is in UBRR.
+   */
+  setFallbackBaud(portIndex: number, baud: number): void {
+    const { software } = this.port(portIndex);
+    if (software) software.configuredBaud = baud;
+  }
+
+  /** Frame format the sketch configured (UBRR, U2X, UCSRC; for a software UART the rate it found, 8N1). */
   frameConfig(portIndex: number): SerialFrameConfig {
     const { usart } = this.port(portIndex);
     return { baud: usart.baudRate, dataBits: usart.bitsPerChar, parity: parityOf(usart), stopBits: usart.stopBits };
@@ -130,7 +150,17 @@ export class SerialPorts {
   }
 }
 
-function parityOf(usart: AVRUSART): SerialFrameConfig["parity"] {
+/** The core's software UART on the pins of `hardware`; both must be on the same port. */
+function softwareUart(machine: Machine, hardware: SerialPortHardware): SoftwareUart {
+  const pinOf = (number: number) => machine.board.pins.find((pin) => pin.pin === number)?.port;
+  const tx = pinOf(hardware.txPin);
+  const rx = pinOf(hardware.rxPin);
+  const io = tx && machine.peripherals.ports.get(tx.port);
+  if (!tx || !rx || !io || tx.port !== rx.port) throw new RangeError(`serial port ${hardware.index} needs TX and RX on one port`);
+  return new SoftwareUart(machine.cpu, io, machine.board.clockHz, { txPin: tx.bit, rxPin: rx.bit });
+}
+
+function parityOf(usart: SerialChannel): SerialFrameConfig["parity"] {
   if (!usart.parityEnabled) return "none";
   return usart.parityOdd ? "odd" : "even";
 }

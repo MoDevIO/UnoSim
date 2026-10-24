@@ -8,6 +8,7 @@ import {
 } from "@shared/io-registry-parser";
 import type { BoardId } from "../boards";
 import { type PinContext, pinContext } from "./pin-context";
+import { stripComments } from "../parser-patterns";
 
 const DIGITAL_OPERATIONS = new Set<StaticIOOperation>([
   "digitalRead",
@@ -79,7 +80,12 @@ function createVariableMissingPinModeMessage(
 export class HardwareCompatibilityParser {
   private readonly pins: PinContext;
 
-  constructor(private readonly analysis: StaticIOAnalysis, board?: BoardId) {
+  constructor(
+    private readonly analysis: StaticIOAnalysis,
+    board?: BoardId,
+    /** The sketch, to tell whether it uses `Serial` (rules for a software serial port). */
+    private readonly code = "",
+  ) {
     this.pins = pinContext(board);
   }
 
@@ -87,6 +93,8 @@ export class HardwareCompatibilityParser {
     return [
       ...this.checkAnalogWritePWM(),
       ...this.checkAnalogOnlyPins(),
+      ...this.checkResetPin(),
+      ...this.checkSoftwareSerialPins(),
       ...this.checkPinModeConflicts(),
       ...this.checkMissingPinModes(),
       ...this.checkOutputPinsReadAsInput(),
@@ -123,6 +131,47 @@ export class HardwareCompatibilityParser {
             suggestion: `// Read it with analogRead(${this.pins.label(pinId)}) instead`,
             ...sourceLocation(call),
           })),
+      );
+  }
+
+  /** A pin reserved for RESET (ATtiny85 PB5) has no digital function; analogRead() of it works. */
+  private checkResetPin(): ParserMessage[] {
+    return this.analysis.pins
+      .filter(({ pinId }) => this.pins.role(pinId) === "reset")
+      .flatMap(({ pinId, calls }) =>
+        calls
+          .filter(({ op }) => op !== "analogRead")
+          .map((call) => ({
+            id: randomUUID(),
+            type: "warning" as const,
+            category: "hardware" as const,
+            severity: 2 as const,
+            message: `${call.op}(${call.sourceExpression}, ...) used on pin ${pinId}, which is the RESET pin of ${this.pins.displayName} and cannot be used as digital I/O.`,
+            suggestion: "// Use one of the pins 0–4",
+            ...sourceLocation(call),
+          })),
+      );
+  }
+
+  /**
+   * On a board whose `Serial` is a software UART on ordinary pins (ATtiny85: TX
+   * on 0, RX on 1), using those pins for anything else disturbs `Serial`.
+   */
+  private checkSoftwareSerialPins(): ParserMessage[] {
+    const serial = this.pins.softwareSerialPins();
+    if (!serial || !/\bSerial\s*\.\s*\w+/.test(stripComments(this.code))) return [];
+    return this.analysis.pins
+      .filter(({ pinId }) => pinId === serial.tx || pinId === serial.rx)
+      .flatMap(({ pinId, calls }) =>
+        calls.map((call) => ({
+          id: randomUUID(),
+          type: "warning" as const,
+          category: "hardware" as const,
+          severity: 2 as const,
+          message: `${call.op}(${call.sourceExpression}, ...) used on pin ${pinId}, which is Serial ${pinId === serial.tx ? "TX" : "RX"} on ${this.pins.displayName}; Serial ${pinId === serial.tx ? "output" : "input"} will not work while the sketch uses the pin.`,
+          suggestion: `// Use another pin, Serial needs pins ${serial.tx} and ${serial.rx}`,
+          ...sourceLocation(call),
+        })),
       );
   }
 

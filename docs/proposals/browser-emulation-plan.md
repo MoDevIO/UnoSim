@@ -1161,6 +1161,13 @@ das Benutzerhandbuch folgen mit der Board-Hardware (P6.4/P6.5).
 **P6.4 Board-Hardware und Regeln (M).**
 Pins 0–5, PB5 als RESET sichtbar, aber nicht nutzbar; A0–A3; PWM 0, 1, 4;
 Parserregeln (kein Hardware-Serial, Warnung bei Nutzung des TX-Pins).
+Umgesetzt: `ATTINY85_BOARD` und Registrierung von Profil und Hardware; Serial-
+Port der Art `software` (`SerialPorts` mit `SoftwareUart`); PWM-Beobachtung für
+Timer 1 des ATtiny85; Pinmodell mit Analog-Zweitnamen; die Parser rechnen
+`A<n>` wie ATTinyCore als `0x80 | n` und `analogRead(n)` als Kanal; Regeln für
+RESET (PB5) und die Serial-Pins; Pinbelegung im Toolchain-Gate gegen den Core.
+Freigegebene Teständerungen: fünf Tests, die den ATtiny85 als Beispiel für ein
+Board ohne Hardware nutzten, prüfen den Rückfall jetzt mit einer unbekannten ID.
 
 **P6.5 ATtiny85 freigeben (M).**
 SVG (DIP-8), Proben, E2E; Status `preview`.

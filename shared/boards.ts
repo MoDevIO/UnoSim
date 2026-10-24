@@ -93,14 +93,17 @@ export function boardTutorFacts(id: BoardId): { id: BoardId; displayName: string
 }
 
 /**
- * Pin names the sketch parsers resolve for a board (`A0` → 14, `LED_BUILTIN`),
- * taken from the pin map of the emulation package. Boards without hardware
- * profile yet (Mega 2560 and ATtiny85 until P5.1 and P6.2) have none.
+ * Pin names of a board and their pins (`A0` → 14, ATtiny85 `A1` → 2,
+ * `LED_BUILTIN`), taken from the pin map of the emulation package; a board
+ * without hardware profile has none.
  */
 export function boardPinAliases(id: BoardId): Readonly<Record<string, number>> | undefined {
   if (!hasBoardHardware(id)) return undefined;
   const hardware = boardHardware(id);
   const aliases: Record<string, number> = { LED_BUILTIN: hardware.ledBuiltin };
-  for (const pin of hardware.pins) if (/^A\d+$/.test(pin.label)) aliases[pin.label] = pin.pin;
+  for (const pin of hardware.pins) {
+    const name = pin.analogName ?? pin.label;
+    if (/^A\d+$/.test(name)) aliases[name] = pin.pin;
+  }
   return aliases;
 }

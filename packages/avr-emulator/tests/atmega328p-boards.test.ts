@@ -1,6 +1,7 @@
 import { CPU } from "avr8js";
 import { describe, expect, it } from "vitest";
 import { ATMEGA328P, NANO, UNO, boardHardware, hasBoardHardware, mcuProfile } from "../src/index";
+import type { BoardHardwareId, McuId } from "../src/index";
 import { machineFromFixture, runSerial } from "./machine-helpers";
 
 describe("board hardware Uno and Nano", () => {
@@ -36,9 +37,10 @@ describe("board hardware Uno and Nano", () => {
   it("knows the boards with a profile and refuses the others for now", () => {
     expect(boardHardware("nano")).toBe(NANO);
     expect(hasBoardHardware("uno")).toBe(true);
-    expect(hasBoardHardware("attiny85")).toBe(false);
-    expect(() => boardHardware("attiny85")).toThrow(/no hardware profile yet/);
-    expect(() => mcuProfile("attiny85")).toThrow(/no profile yet/);
+    // Every board id has hardware since P6.4; an id without it is still refused.
+    expect(hasBoardHardware("unknown" as BoardHardwareId)).toBe(false);
+    expect(() => boardHardware("unknown" as BoardHardwareId)).toThrow(/no hardware profile yet/);
+    expect(() => mcuProfile("unknown" as McuId)).toThrow(/no profile yet/);
   });
 });
 

@@ -49,7 +49,7 @@ export class CodeParser {
     code: string,
     analysis: StaticIOAnalysis = this.analyzeIO(code, { board: this.board }),
   ): ParserMessage[] {
-    const parser = new HardwareCompatibilityParser(analysis, this.board);
+    const parser = new HardwareCompatibilityParser(analysis, this.board, code);
     return parser.parse();
   }
 

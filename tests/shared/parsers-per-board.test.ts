@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CodeParser } from "@shared/code-parser";
 import { analyzeStaticIO, parseStaticIORegistry, parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { pinContext } from "@shared/parsers/pin-context";
+import type { BoardId } from "@shared/boards";
 
 const NANO_SKETCH = `void setup() { Serial.begin(115200); pinMode(13, OUTPUT); }
 void loop() {
@@ -49,8 +50,9 @@ describe("static I/O analysis per board (plan P4.2)", () => {
   });
 
   it("falls back to the Uno for a board without hardware profile yet", () => {
-    expect(pinContext("attiny85").board).toBe("uno");
-    expect(pinContext("attiny85").maxPin).toBe(19);
+    // Every catalog board has hardware since P6.4; an id without it falls back to the Uno.
+    expect(pinContext("no-hardware" as BoardId).board).toBe("uno");
+    expect(pinContext("no-hardware" as BoardId).maxPin).toBe(19);
   });
 });
 

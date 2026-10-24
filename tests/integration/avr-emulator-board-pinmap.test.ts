@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { MEGA2560, NANO, UNO, type BoardHardware } from "@unosim/avr-emulator";
+import { ATTINY85_BOARD, MEGA2560, NANO, UNO, type BoardHardware } from "@unosim/avr-emulator";
 
 /**
  * Plan P1.3: the board pin maps of the emulation core must match
@@ -20,16 +20,20 @@ const TIMER_NUMBER: Readonly<Record<string, number>> = {
   "3A": 9, "3B": 10, "3C": 11, "4A": 12, "4B": 13, "4C": 14, "5A": 16, "5B": 17, "5C": 18,
 };
 
-/** Runs the core's own preprocessor (paths from `arduino-cli --show-properties`) over pins_arduino.h. */
-function preprocessedTables(fqbn: string): string {
+/** Build properties of `fqbn` from `arduino-cli --show-properties`, and a scratch sketch directory. */
+function coreProperties(fqbn: string): { sketch: string; prop: (key: string) => string } {
   const sketch = join(work, `pinmap_${fqbn.replaceAll(/\W/g, "_")}`);
   mkdirSync(sketch, { recursive: true });
   writeFileSync(join(sketch, `${sketch.split("/").pop()}.ino`), "void setup() {}\nvoid loop() {}\n");
   const shown = spawnSync("arduino-cli", ["compile", "--fqbn", fqbn, "--show-properties", sketch], { encoding: "utf8", timeout: 120_000 });
   expect(shown.status, shown.stderr).toBe(0);
   const props = new Map(shown.stdout.split("\n").map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]));
-  const prop = (key: string) => props.get(key) ?? "";
+  return { sketch, prop: (key: string) => props.get(key) ?? "" };
+}
 
+/** Runs the core's own preprocessor (paths from `arduino-cli --show-properties`) over pins_arduino.h. */
+function preprocessedTables(fqbn: string): string {
+  const { sketch, prop } = coreProperties(fqbn);
   const source = join(sketch, "tables.cpp");
   writeFileSync(source, [
     "#define ARDUINO_MAIN",
@@ -44,6 +48,30 @@ function preprocessedTables(fqbn: string): string {
   ], { encoding: "utf8", timeout: 60_000 });
   expect(result.status, result.stderr).toBe(0);
   return result.stdout;
+}
+
+/**
+ * Integer expressions of the core (`analogInputToDigitalPin(2)`, `LED_BUILTIN`)
+ * evaluated by its compiler, which the preprocessor alone does not do: the
+ * constants are compiled to assembly and read from their `.word`.
+ */
+function compiledConstants(fqbn: string, expressions: Readonly<Record<string, string>>): Record<string, number> {
+  const { sketch, prop } = coreProperties(fqbn);
+  const source = join(sketch, "constants.cpp");
+  writeFileSync(source, [
+    "#include <Arduino.h>",
+    ...Object.entries(expressions).map(([name, expression]) => `extern const int unosim_${name} = ${expression};`),
+  ].join("\n"));
+  const result = spawnSync(`${prop("compiler.path")}${prop("compiler.cpp.cmd")}`, [
+    "-S", "-O1", "-o", "-", `-mmcu=${prop("build.mcu")}`, `-DF_CPU=${prop("build.f_cpu")}`, `-DARDUINO=${prop("runtime.ide.version")}`,
+    `-DARDUINO_${prop("build.board")}`, `-DARDUINO_ARCH_${prop("build.arch")}`,
+    `-I${prop("build.core.path")}`, `-I${prop("build.variant.path")}`, source,
+  ], { encoding: "utf8", timeout: 60_000 });
+  expect(result.status, result.stderr).toBe(0);
+  return Object.fromEntries(Object.keys(expressions).map((name) => {
+    const word = new RegExp(String.raw`unosim_${name}:\s*\.word\s+(-?\d+)`).exec(result.stdout)?.[1];
+    return [name, word === undefined ? Number.NaN : (Number(word) << 16) >> 16];
+  }));
 }
 
 function table(source: string, name: string): number[] {
@@ -82,5 +110,36 @@ describe.each([
     expect(analog).toHaveLength(scalar(source, "unosimNumAnalog"));
     for (const pin of analog) expect(scalar(source, `A${pin.adcChannel}`), pin.label).toBe(pin.pin);
     expect(board.ledBuiltin).toBe(scalar(source, "unosimLedBuiltin"));
+  });
+});
+
+/**
+ * ATTinyCore 1.5.2 (P6.4): same port and timer numbering as arduino:avr; the
+ * analog names are second names (`A1 = 0x80 | 1`), resolved by
+ * `analogInputToDigitalPin`, and NUM_ANALOG_INPUTS counts channels without a pin.
+ */
+describe("pin map of ATTinyCore:avr:attinyx5:chip=85,clock=8internal", () => {
+  const source = preprocessedTables("ATTinyCore:avr:attinyx5:chip=85,clock=8internal");
+  const ports = table(source, "digital_pin_to_port_PGM");
+  const masks = table(source, "digital_pin_to_bit_mask_PGM");
+  const timers = table(source, "digital_pin_to_timer_PGM");
+  const constants = compiledConstants("ATTinyCore:avr:attinyx5:chip=85,clock=8internal", {
+    ledBuiltin: "LED_BUILTIN",
+    numAnalog: "NUM_ANALOG_INPUTS",
+    ...Object.fromEntries(Array.from({ length: 16 }, (_, channel) => [`analog${channel}`, `analogInputToDigitalPin(${channel})`])),
+  });
+
+  it("has the same digital pins with port, bit and timer", () => {
+    expect(ATTINY85_BOARD.pins.map((pin) => pin.pin)).toEqual(ports.map((_, index) => index));
+    for (const pin of ATTINY85_BOARD.pins) {
+      expect([ports[pin.pin], masks[pin.pin]], pin.label).toEqual([PORT_NUMBER[pin.port?.port ?? ""], 1 << (pin.port?.bit ?? 0)]);
+      expect(timers[pin.pin], `${pin.label} timer`).toBe(pin.pwm ? TIMER_NUMBER[`${pin.pwm.timer}${pin.pwm.channel}`] : 0);
+    }
+  });
+
+  it("has the analog channels on the pins of analogInputToDigitalPin and LED_BUILTIN 1", () => {
+    const channels = Array.from({ length: constants.numAnalog }, (_, channel) => [channel, constants[`analog${channel}`]] as const).filter(([, pin]) => pin >= 0);
+    expect(ATTINY85_BOARD.pins.filter((pin) => pin.adcChannel !== undefined).map((pin) => [pin.adcChannel, pin.pin]).sort()).toEqual(channels.map(([channel, pin]) => [channel, pin]).sort());
+    expect(ATTINY85_BOARD.ledBuiltin).toBe(constants.ledBuiltin);
   });
 });
