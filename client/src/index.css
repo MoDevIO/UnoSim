@@ -489,6 +489,12 @@ button:not(.arduino-overlay):not(.parser-message-btn) > svg {
     min-height: 0 !important;
   }
 
+  /* The floating panel navigation (mobile-layout.tsx: up to five 40px buttons with gaps, padding
+     and margins, bottom right) must not cover the board's pins: the board is drawn above it. */
+  .workspace-layout[data-layout-mode="mobile"] .workspace-board-panel.workspace-mobile-full-panel {
+    padding-bottom: 20rem;
+  }
+
   /* Recharts default tooltip — styled with Tailwind utilities via @apply */
   .recharts-default-tooltip {
     @apply text-ui-xs text-white rounded p-2;
