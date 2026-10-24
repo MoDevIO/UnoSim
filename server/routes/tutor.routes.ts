@@ -129,7 +129,7 @@ function bindRequestAbortSignal(req: Request, res: Response): AbortSignal {
  * The service's last argument: the board id of a lone sketch as before, the whole source when the
  * request carries project files (the entry file is `code`), nothing without either.
  */
-function tutorSource({ board, headers, entryFile }: { board?: BoardId; headers?: TutorSource["headers"]; entryFile?: string }): [] | [BoardId | TutorSource] {
+function tutorSource({ board, headers, entryFile }: TutorSource): [] | [BoardId | TutorSource] {
   if (headers?.length || entryFile) return [{ ...(board ? { board } : {}), ...(headers?.length ? { headers } : {}), ...(entryFile ? { entryFile } : {}) }];
   return board ? [board] : [];
 }
