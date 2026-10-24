@@ -147,10 +147,15 @@ export function useSimulationController(
     networkMode: "always",
     mutationFn: async () => {
       params.uiFeedback.logPauseSimulation(hub.active);
+      const browser = browserRunActive();
       params.sendMessage({ type: "pause_simulation" });
-      return { success: true };
+      return { success: true, browser };
     },
-    onSuccess: () => setSimulationStatus("paused"),
+    // A browser run reports its state once the worker confirmed it (SimulationRuntime SSOT); the
+    // worker ignores a pause before its run is confirmed, so the UI must not claim it early.
+    onSuccess: ({ browser }) => {
+      if (!browser) setSimulationStatus("paused");
+    },
     onError: () => params.uiFeedback.showPauseFailedToast(),
   });
 
@@ -160,10 +165,13 @@ export function useSimulationController(
     networkMode: "always",
     mutationFn: async () => {
       params.uiFeedback.logResumeSimulation(hub.active);
+      const browser = browserRunActive();
       params.sendMessage({ type: "resume_simulation" });
-      return { success: true };
+      return { success: true, browser };
     },
-    onSuccess: () => setSimulationStatus("running"),
+    onSuccess: ({ browser }) => {
+      if (!browser) setSimulationStatus("running");
+    },
     onError: () => params.uiFeedback.showResumeFailedToast(),
   });
 
@@ -197,7 +205,10 @@ export function useSimulationController(
           ...(serialBaud === undefined ? {} : { serialBaud }),
         });
         hub.setActive("browser");
-        return { success: true };
+        // Pending until the worker confirms the run, which takes a message round trip: the runtime then
+        // reports `running` (or `stopped`). Set after start, which reports a replaced run stopped at once.
+        setSimulationStatus("queued");
+        return { success: true, browser: true };
       }
       hub.setActive("host-mock");
       if (params.sendMessageImmediate) {
@@ -210,10 +221,10 @@ export function useSimulationController(
       } else {
         params.sendMessage(message);
       }
-      return { success: true };
+      return { success: true, browser: false };
     },
-    onSuccess: () => {
-      setSimulationStatus("running");
+    onSuccess: ({ browser }) => {
+      if (!browser) setSimulationStatus("running");
       if (params.pendingPinConflicts.length > 0) {
         params.uiFeedback.showPinConflictWarning(params.pendingPinConflicts);
       }

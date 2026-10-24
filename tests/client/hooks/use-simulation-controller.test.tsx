@@ -106,7 +106,8 @@ describe("useSimulationController", () => {
         hook.result.current.handleStart();
       });
 
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      // Pending until the worker confirms; the runtime reports the confirmation through the handler.
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("queued"));
       expect(runtime.start).toHaveBeenCalledWith({ kind: "browser", artifact, timeoutSec: 60 });
       expect(params.sendMessage).not.toHaveBeenCalled();
       expect(params.sendMessageImmediate).not.toHaveBeenCalled();
@@ -146,12 +147,17 @@ describe("useSimulationController", () => {
         hook.result.current.setCompiledArtifact(artifact);
         hook.result.current.handleStart();
       });
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("queued"));
+      act(() => hook.result.current.setSimulationStatus("running")); // the worker's confirmation
 
       act(() => { hook.result.current.handlePause(); });
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("paused"));
+      await waitFor(() => expect(params.sendMessage).toHaveBeenCalledWith({ type: "pause_simulation" }));
+      expect(hook.result.current.simulationStatus).toBe("running"); // not confirmed yet
+      act(() => hook.result.current.setSimulationStatus("paused"));
       act(() => { hook.result.current.handleResume(); });
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      await waitFor(() => expect(params.sendMessage).toHaveBeenCalledWith({ type: "resume_simulation" }));
+      expect(hook.result.current.simulationStatus).toBe("paused");
+      act(() => hook.result.current.setSimulationStatus("running"));
       act(() => { hook.result.current.handleStop(); });
       await waitFor(() => expect(hook.result.current.simulationStatus).toBe("idle"));
 
@@ -164,20 +170,37 @@ describe("useSimulationController", () => {
         hook.result.current.setCompiledArtifact(artifact);
         hook.result.current.handleStart();
       });
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("queued"));
+      act(() => hook.result.current.setSimulationStatus("running")); // the worker's confirmation
 
       onlineManager.setOnline(false);
       try {
         act(() => { hook.result.current.handlePause(); });
-        await waitFor(() => expect(hook.result.current.simulationStatus).toBe("paused"));
+        await waitFor(() => expect(params.sendMessage).toHaveBeenCalledWith({ type: "pause_simulation" }));
+        act(() => hook.result.current.setSimulationStatus("paused"));
         act(() => { hook.result.current.handleResume(); });
-        await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+        await waitFor(() => expect(params.sendMessage).toHaveBeenCalledWith({ type: "resume_simulation" }));
+        act(() => hook.result.current.setSimulationStatus("running"));
         act(() => { hook.result.current.handleStop(); });
         await waitFor(() => expect(hook.result.current.simulationStatus).toBe("idle"));
         expect(params.sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
       } finally {
         onlineManager.setOnline(true);
       }
+    });
+
+    it("does not show a pause the worker has not confirmed: a pause before the run's confirmation leaves it pending", async () => {
+      const { params, hook } = browserSetup();
+      act(() => {
+        hook.result.current.setCompiledArtifact(artifact);
+        hook.result.current.handleStart();
+      });
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("queued"));
+
+      act(() => { hook.result.current.handlePause(); });
+      await waitFor(() => expect(params.sendMessage).toHaveBeenCalledWith({ type: "pause_simulation" }));
+
+      expect(hook.result.current.simulationStatus).toBe("queued");
     });
 
     it("resets a running browser emulation without compiling again", async () => {
@@ -187,7 +210,8 @@ describe("useSimulationController", () => {
         hook.result.current.setCompiledArtifact(artifact);
         hook.result.current.handleStart();
       });
-      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("running"));
+      await waitFor(() => expect(hook.result.current.simulationStatus).toBe("queued"));
+      act(() => hook.result.current.setSimulationStatus("running")); // the worker's confirmation
 
       let done = false;
       act(() => { done = hook.result.current.resetWithoutCompile(); });
