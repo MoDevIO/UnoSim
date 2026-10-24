@@ -23,8 +23,10 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 - Als Entwurf (`Proposed`, noch nicht normativ) liegen
   `adr/0009-browser-emulation-runtime.md` (Browser-Emulation als Laufzeit,
   Host-Mock als Rückfallebene) und `adr/0010-compile-sandbox-and-flash-artifact.md`
-  (Compile-Sandbox, Flash-Abbild, Build-Identität). Bis zu ihrer Annahme
-  beschreibt dieses Dokument weiter den Host-Mock als einzige Laufzeit.
+  (Compile-Sandbox, Flash-Abbild, Build-Identität). Der Integrationsbranch
+  `feature/browser-emulation` setzt sie um; dieses Dokument beschreibt den
+  umgesetzten Stand. Bis zur Annahme können die Maintainer Entscheidungen
+  daraus noch ändern.
 - Externe iframe-API-Verträge liegen in `EXTERNAL_API.md`; Feature-Details liegen in den thematischen SSOT-Dateien unter `../ssot/`.
 - Versionsverträge: REST `1.1.0` (`1.0.0` weiterhin akzeptiert; `Accept-Version`/`X-UnoSim-API-Version`), WebSocket `1.0.0` (`handshake.protocolVersion`) und iframe `postMessage` `1.5.0`; inkompatible Änderungen benötigen eine neue Major-Version und Migration.
 - Neben normativer Dokumentation enthält der Tree als historisch oder nicht
@@ -36,13 +38,19 @@ Diese Datei beschreibt die grundlegende Architektur von UnoSim mit Fokus auf Dat
 
 ```mermaid
 graph TD
-    A[Client/Browser] -->|WebSocket| B[UnoSim Server]
-    B -->|REST / Prepare-Phase| C[Arduino Compiler]
-    B -->|Docker API| D[Sandbox Runner Pool]
-    C -->|Hex-Datei| D
-    D -->|Serial Output| B
-    B -->|WebSocket| A
+    A[Client/Browser] -->|REST /api/compile| B[UnoSim Server]
+    B --> C[Arduino Compiler<br/>Docker: Compile-Sandbox]
+    C -->|Artefakt: Flash-Abbild| A
+    A -->|Artefakt, Befehle| W[Emulator im Web Worker<br/>@unosim/avr-emulator]
+    W -->|Serial, Pins, Status| A
+    A -.->|WebSocket, nur Host-Mock| B
+    B -.->|Docker API| D[Sandbox Runner Pool]
+    C -.->|Hex-Datei| D
+    D -.->|Serial Output| B
 ```
+
+Durchgezogen der Standardweg (Browser-Emulation), gestrichelt der Host-Mock
+als Rückfallebene (nur Uno).
 
 ## 🏗️ Architekturkomponenten
 
@@ -57,8 +65,42 @@ graph TD
   - `use-simulation-controller.ts` – Simulation-Mutationen, WebSocket-Kommandos und Lifecycle
   - `use-ui-feedback-adapter.ts` – Toasts, Debug-Meldungen, Glitch- und Pin-Konflikt-Feedback
   - `useArduinoSimulatorPage` – Composition Root für ViewModels
+  - `lib/runtime/` – Laufzeit-Schnittstelle `SimulationRuntime` mit den
+    Umsetzungen `BrowserRuntime` (Worker, Überwachung, Übersetzung in die
+    Nachrichten des WebSocket-Handlers) und `HostMockRuntime` (WebSocket),
+    `RuntimeHub` (aktive Laufzeit eines Tabs), `runtime-commands.ts`
+    (Befehls-Router an der Grenze der Controller), Auswahlregeln
+    (`runtime-selection.ts`, `board-selection.ts`, `runtime-config.ts`) und
+    die Worker-Datei `emulator.worker.ts` (eigener Chunk, lädt erst beim
+    ersten Browser-Start)
+  - `lib/active-board.ts`, `lib/board-view.ts` – gewähltes Board und seine
+    Ansicht (Grafiken je Board)
 
-### 2. UnoSim Server (Backend)
+### 2. Emulationskern (`packages/avr-emulator`)
+- **Verantwortung:** führt das Flash-Abbild eines kompilierten Sketches als
+  AVR-Maschinencode aus; importiert nichts aus UnoSim
+- **Technologie:** avr8js (exakt gepinnt, einzige Laufzeitabhängigkeit),
+  TypeScript, privates Workspace-Paket `@unosim/avr-emulator`
+- **Einstiege:** `.` (Emulator, Headless-Lauf), `./boards` (Pinbelegung ohne
+  avr8js, auch im Server und in `shared/`), `./image` (HEX/ELF, Artefakt),
+  `./protocol` (Worker-Protokoll ohne avr8js), `./worker` (Worker-Host)
+- **Hauptkomponenten:** MCU-Profile (`mcu/`: ATmega328P, ATmega2560,
+  ATtiny85 mit den Korrekturen an avr8js), Board-Hardware (`boards/`),
+  Peripherie-Beobachtung (`io/`: Pins, PWM, ADC, serielle Ports samt
+  Software-UART, Laufzeitfunde der I/O-Registry, Diagnosen), Zeitsteuerung
+  (`runtime/`), Worker-Host mit Laufkennung und Heartbeat (`worker/`).
+  Einzelheiten: [README des Pakets](../packages/avr-emulator/README.md),
+  [SimulationRuntime-SSOT](../ssot/ssot_function_definition_SimulationRuntime.md)
+
+### 3. Board-Katalog (`shared/boards.ts`)
+- **Verantwortung:** Produktsicht der Boards: Name, FQBN, Core, angebotene
+  Laufzeiten, Freigabestatus (`planned`, `preview`, `available`); die
+  Hardware (Pins, MCU, Takt) kommt aus dem Emulationskern
+- **Nutzer:** Compile-Route (FQBN-Allowlist), `GET /api/config`, Parser je
+  Board (`shared/parsers/pin-context.ts`, `shared/board-pins.ts`), Tutor-Kontext,
+  Client (Tools → Board). Vertrag: [Boards-SSOT](../ssot/ssot_function_definition_Boards.md)
+
+### 4. UnoSim Server (Backend)
 - **Verantwortung:** WebSocket-Server, REST-API, Compilation-Queue, Sandbox-Management
 - **Technologie:** Node.js/Express, TypeScript, WebSocket (ws)
 - **Hauptkomponenten:**
@@ -71,7 +113,7 @@ graph TD
   - `services/sandbox-runner-pool.ts` – Pool für Docker-Sandboxen
   - `services/sandbox-runner.ts` – Einzelne Sandbox-Instanz
 
-### 3. Arduino Compiler
+### 5. Arduino Compiler
 - **Verantwortung:** Sketch-Kompilierung, Header-Verarbeitung, Cache-Management
 - **Technologie:** arduino-cli, im Docker-Profil in der Compile-Sandbox, lokal im Backend
 - **Hauptkomponenten:**
@@ -97,8 +139,8 @@ graph TD
     gestartet. Lokal und als Fallback bei ausgefallenem Pool begrenzt der
     Gatekeeper (`COMPILE_MAX_CONCURRENT`).
 
-### 4. Sandbox Runner Pool
-- **Verantwortung:** Verwaltung von Runner-Leases und Docker-Containern für Sketch-Ausführung
+### 6. Sandbox Runner Pool (nur Host-Mock)
+- **Verantwortung:** Verwaltung von Runner-Leases und Docker-Containern für die Sketch-Ausführung des Host-Mocks
 - **Technologie:** Docker-API und pro Ausführung kurzlebige Sandbox-Container. Node.js Worker Threads gehören zum Compiler Worker Pool, nicht zum Runner-Pool.
 - **Hauptmerkmale:**
   - **Runner-Pool:** Vorgehaltene Runner-Objekte; Sandbox-Container werden pro Ausführung gestartet und anschließend bereinigt.
@@ -109,14 +151,14 @@ graph TD
   - **Isolation:** Jeder Sketch läuft in eigenem Container
   - **Ressourcenkontrolle:** CPU/Memory/PID-Limits pro Container
 
-### 5. Execution pipeline
+### 7. Execution pipeline (nur Host-Mock)
 - **Verantwortung:** Sandbox-Lifecycle, Compile-Gatekeeping, Stream-Verarbeitung
 - **Technologie:** TypeScript, Dependency-Injection via Context-Objekte
 - **Extrahierte Phasen:**
   - `server/services/sandbox/execution-phases/prepare-phase.ts` – Compilation mit Gatekeeper
   - Weitere Phasen kapseln Cleanup, Timeout, Stream und Start
 
-### 6. Parser-Module
+### 8. Parser-Module
 - **Verantwortung:** Arduino C++ Code-Analyse, I/O-Registry, Hardware-Kompatibilität
 - **Technologie:** TypeScript, funktionale Parser-Kombinatoren
 - **Extrahierte Module:**
@@ -266,12 +308,30 @@ and [adr/0005-browser-scoped-external-examples.md](adr/0005-browser-scoped-exter
 ### Compile-Flow
 1. Client sendet Code an Server via REST (`/api/compile`)
 2. Server leitet an Compiler weiter (mit Fallback-Mechanismus)
-3. Compiler kompiliert Code zu Artefakten/Diagnosen (mit Cache)
-4. REST-Compile liefert das Compile-Ergebnis an den Client zurück
+3. Compiler kompiliert Code zu Artefakten/Diagnosen (mit Cache); im
+   Docker-Profil läuft `arduino-cli` in der Compile-Sandbox
+4. REST-Compile liefert das Compile-Ergebnis an den Client zurück, bei Erfolg
+   mit dem Feld `artifact` (Flash-Abbild, Board, SHA-256, Symbole,
+   `buildId`); das HEX verlässt den Server nicht
 
-Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Runner aber über den WebSocket-Simulationsfluss.
+Der Host-Mock nutzt denselben Compilerpfad in der Prepare-Phase, startet den
+Runner aber über den WebSocket-Simulationsfluss.
 
-### Simulation-Flow
+### Simulation-Flow (Browser-Emulation, Standard)
+1. Client kompiliert (Compile-Flow) und hält das Artefakt des letzten Builds
+2. `RuntimeHub` wählt die Laufzeit (Nutzerwahl → Server-Standard → erste
+   nutzbare) und lädt beim ersten Browser-Start den Worker
+3. `BrowserRuntime` sendet `load` mit dem Flash-Abbild, nach `ready` `start`;
+   jeder Befehl trägt eine Laufkennung (`runId`), Ereignisse anderer Läufe
+   werden verworfen
+4. Der Worker emuliert in Echtzeit und sendet gebündelt Serial-, Pin-,
+   Status- und Laufzeitereignisse sowie etwa alle 500 ms einen Heartbeat
+5. `BrowserRuntime` übersetzt sie in die Nachrichten des WebSocket-Handlers;
+   die UI wertet beide Laufzeiten gleich aus
+6. Pause, Reset, serielle Eingabe und Pinwerte gehen als Befehle an den
+   Worker; der Lauf übersteht einen Verbindungsverlust zum Server
+
+### Simulation-Flow (Host-Mock, Rückfallebene)
 1. Client sendet `start_simulation` via WebSocket
 2. Server validiert Session und acquired Runner aus Pool
 3. ExecutionManager startet Prepare-Phase (Compilation mit Gatekeeper)
@@ -304,6 +364,11 @@ Die Simulation nutzt denselben Compilerpfad in der Prepare-Phase, startet den Ru
 | `ws-output-buffer.ts` | Serial-Output-Batching und sichere WebSocket-Ausgabe |
 | `sandbox-runner-pool.ts` | Runner-Lebenszyklus und Pool-Management |
 | `arduino-compiler.ts` | Compilation und Cache-Logik |
+| `RuntimeHub` | aktive Laufzeit eines Tabs, Wechsel nur im Leerlauf, Zustellung der Browser-Ereignisse |
+| `BrowserRuntime` | Worker-Lebenszyklus, Laufkennung, Fristen und Heartbeat-Überwachung |
+| `WorkerHost` (Paket) | Maschine im Worker, Zeitsteuerung, Bestätigungen, EEPROM je Board über Läufe |
+| `shared/boards.ts` | Board-Katalog, angebotene Boards, FQBN-Allowlist |
+| `lib/active-board.ts` | gewähltes Board für Pin-Store, Registry-Tabelle und Sketch-Analyse |
 | Browser Settings | optionale, nur lokal persistierte Course-Content-Auswahl für Examples und Tutor |
 | Course Content API | Ermittlung von Default oder request-scoped Browser-Override, immutable Revision und capability-scoped Status |
 | `ExamplesRepository` / Course snapshot | gemeinsamer Repository-/Ref-Source-Cache, immutable Revision-Snapshots, Examples-Kernvalidierung, optionaler Tutor-Bundle-Status und atomare LKG-Aktivierung |
@@ -330,8 +395,18 @@ Der Gateway-Vertrag ist in ADR 0001
 Benutzeranmeldung optional ist. Die folgenden Punkte sind eine
 Architektur-Zusammenfassung und ersetzen die ADRs nicht.
 
-### Sandbox-Sicherheit
-- **Isolation:** Jeder Sketch läuft in eigenem Docker-Container
+### Browser-Laufzeit
+- **Ausführung beim Nutzer:** Ein Browser-Lauf führt AVR-Maschinencode in
+  avr8js in einem Web Worker aus. Der Sketch-Code wird interpretiert, nicht
+  als JavaScript ausgeführt, und hat keinen Zugriff auf DOM, Netz oder
+  Speicher der Seite. Er belastet nur den Tab des Nutzers, keine
+  Server-Ressourcen.
+- **Grenzen:** Fristen und Heartbeat im Hauptthread, Laufzeitgrenze 1–300 s
+  ohne Pausen, begrenzte serielle Puffer, Prüfung des Artefakts beim Laden
+  (Board, Größe, SHA-256). Einzelheiten: [SECURITY.md](SECURITY.md)
+
+### Sandbox-Sicherheit (Host-Mock und Compile)
+- **Isolation:** Jeder Host-Mock-Lauf und im Docker-Profil jeder Compile läuft in eigenem Docker-Container
 - **Ressourcenlimits:** CPU, Memory, PID-Limits pro Container
 - **Dateisystem:** Read-only Root-Dateisystem; read-only `/sandbox`-Bind-Mount für Sketch und Build-Quellen; beschreibbares `/sandbox-work`-tmpfs für Binary und relative Laufzeitdateien, begrenzt auf 64 MiB und 4096 Inodes; beschreibbares, auf 64 MiB begrenztes `noexec`-`/tmp`-tmpfs
 - **Timeouts:** Laufzeit pro Simulation standardmäßig 60 Sekunden, je Start 1–300 Sekunden
@@ -376,7 +451,7 @@ Sketches):
 | Wer | Weg | Wirkung |
 |---|---|---|
 | Betreiber | `UNOSIM_DEFAULT_RUNTIME=host-mock`, Neustart | neue Läufe starten im Host-Mock, „Emulation“ bleibt wählbar |
-| Betreiber | `browser` aus `UNOSIM_RUNTIME_BACKENDS` entfernen, Neustart | nur noch Host-Mock; Boards ohne Host-Mock (Nano, Mega 2560) werden nicht mehr angeboten |
+| Betreiber | `browser` aus `UNOSIM_RUNTIME_BACKENDS` entfernen, Neustart | nur noch Host-Mock; Boards ohne Host-Mock (Nano, Mega 2560, ATtiny85) werden nicht mehr angeboten |
 | Nutzer | **File → Settings → Simulation engine → Legacy** | gilt ab dem nächsten Start, nur für den Uno |
 | Betreiber | V1-Image (v1.0.1) wieder ausrollen | ganze Rückkehr ohne Änderung an `.env` und `storage/`; zurück auf V2 ebenso |
 
@@ -433,7 +508,11 @@ Der UnoSim Server sammelt folgende Metriken:
 - **Serial Output:** Bytes pro Sekunde, Drop-Rate
 - **Pin States:** Änderungen pro Sekunde, Batch-Größen
 
-Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/health` prüft nur die HTTP-Erreichbarkeit; `/api/readiness` meldet, ob der Sandbox-Pool initialisiert und bereit ist.
+Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/health` prüft nur die HTTP-Erreichbarkeit; `/api/readiness` meldet bereit, wenn alle angebotenen Backends bereit sind (Host-Mock: Sandbox-Pool; Browser-Emulation braucht serverseitig nur den Compiler). `/api/status` nennt die Backends.
+
+Browser-Läufe messen im Worker: Echtzeitfaktor, Pinwechsel und Zeichen je
+Sekunde, verworfene Zeichen (Telemetrie etwa einmal je Sekunde). Diese Werte
+bleiben im Browser (Debug-Leiste), der Server sieht sie nicht.
 
 ## 🔄 Versionierung und API-Kontrakte
 
@@ -441,6 +520,8 @@ Diese Metriken sind über `/api/status` und WebSocket-Events verfügbar. `/api/h
   `X-UnoSim-API-Version` und den optionalen Request-Header `Accept-Version`; die
   aktuellen Routen bleiben beispielsweise `/api/status`.
 - **WebSocket:** Versionierung über Handshake-Nachrichten
+- **Worker-Protokoll:** intern, versioniert im Paket (`protocolVersion` in
+  `ready`); Client und Worker kommen immer aus demselben Build
 - **Deprecation:** Legacy-Felder und API-Endpunkte werden mit `@deprecated` markiert und nach 2 Major-Releases entfernt
 
 ---

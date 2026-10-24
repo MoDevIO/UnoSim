@@ -25,6 +25,16 @@ includes `protocolVersion`; clients that do not use this field remain
 compatible. A future incompatible WebSocket change requires a new protocol
 version and an explicit migration/parallel-operation period.
 
+### Connection to the server
+
+`START_SIMULATION` compiles on the server. Without a connection it is queued
+(`QUEUED_FOR_COMPILING`) and runs when the server is reachable again. A run in
+the browser emulation (`runtime: "browser"` in `GET_STATE`) needs the server
+only for that compile: once it runs, `STOP_SIMULATION`, `PAUSE_SIMULATION`,
+`RESUME_SIMULATION`, the pin messages and `SERIAL_INPUT` keep working while the
+connection is lost, and its events keep arriving. A run of the host mock
+(`runtime: "host-mock"`) ends when the connection is lost.
+
 ---
 
 ## Security
@@ -143,7 +153,7 @@ iframe.contentWindow.postMessage(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7; Mega 2560 0–53 digital and 54–69 for A0–A15 (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
+| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7; Mega 2560 0–53 digital and 54–69 for A0–A15; ATtiny85 0–5 for PB0–PB5, where A0–A3 are pins 5, 2, 4 and 3 and PB5 is the RESET pin of the chip (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
 | `payload.value` | `number` | Digital: `0` or `1`. Analog: `0–1023`. PWM: `0–255`. |
 
 ---
@@ -201,7 +211,7 @@ iframe.contentWindow.postMessage(
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `payload.data` | `string` | ✅ | Serial data to send to the sketch. |
-| `payload.port` | `number` | – | Hardware serial port: `0` = `Serial` (default), `1`–`3` = `Serial1`–`Serial3` on the Mega 2560 (see `serialPorts` in `GET_STATE`). A port the board does not have is refused with `success: false` and `error: "payload.port must be an integer from 0 to <n>"`. |
+| `payload.port` | `number` | – | Serial port: `0` = `Serial` (default), `1`–`3` = `Serial1`–`Serial3` on the Mega 2560 (see `serialPorts` in `GET_STATE`). On the ATtiny85 `Serial` is a software UART (TX PB0, RX PB1) and half duplex: input that arrives while the sketch prints is lost, as on the chip. A port the board does not have is refused with `success: false` and `error: "payload.port must be an integer from 0 to <n>"`. |
 
 ---
 
@@ -271,11 +281,11 @@ iframe.contentWindow.postMessage(
 
 | Field | Description |
 |---|---|
-| `board` | Board id: `uno`, `nano`, `mega2560` (more with later releases). |
+| `board` | Board id: `uno`, `nano`, `mega2560`, `attiny85` (more with later releases). |
 | `boardName` | Name for display, for example `"Arduino Nano"`. |
 | `runtime` | `"browser"` (emulation in the page) or `"host-mock"` (server-side simulation, "Legacy"): the runtime of the current run, or of the next one while idle. Absent while no runtime is usable. |
 | `state` | Same values as `GET_SIMULATION_STATE`. |
-| `serialPorts` | Number of hardware serial ports of the board: `1`, on the Mega 2560 `4` (`Serial`, `Serial1`–`Serial3`). |
+| `serialPorts` | Number of serial ports of the board: `1`, on the Mega 2560 `4` (`Serial`, `Serial1`–`Serial3`); on the ATtiny85 the one port is a software UART. |
 
 ---
 

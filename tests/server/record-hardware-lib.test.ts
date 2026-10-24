@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptedCase, baudOf, lineDiff, normalizeRecording, stepsOf, stripLeadingNoise } from "../../scripts/record-hardware-lib";
+import { acceptedCase, baudOf, lineDiff, normalizeRecording, recordingToolchain, stepsOf, stripLeadingNoise } from "../../scripts/record-hardware-lib";
 
 describe("hardware recording tool (plan 7.4)", () => {
   it("finds the baud rate of the sketch, ignoring comments", () => {
@@ -39,6 +39,12 @@ describe("hardware recording tool (plan 7.4)", () => {
 
     expect(result).toMatchObject({ provenance: "hardware", recordedOn: "Arduino Uno R3", toolchain: "arduino-cli 1.5.1, arduino:avr@1.8.8", simMs: 100 });
     expect(result.basis).toBe("Recorded once on Arduino Uno R3 (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: datasheet");
+  });
+
+  it("names the toolchain of the board a recording was built with", () => {
+    expect(recordingToolchain("uno")).toBe("arduino-cli 1.5.1, arduino:avr@1.8.8");
+    expect(recordingToolchain("mega2560")).toBe("arduino-cli 1.5.1, arduino:avr@1.8.8");
+    expect(recordingToolchain("attiny85")).toBe("arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)");
   });
 
   describe("bridge noise ahead of the first line", () => {

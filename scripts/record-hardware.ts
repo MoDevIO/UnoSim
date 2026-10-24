@@ -1,6 +1,7 @@
 // Records a corpus case on a real board (plan 7.4, class `hardware`):
 //   npm run record:hardware -- tests/fixtures/runtime-corpus/probes/data_types --port /dev/cu.usbmodem1101
 //   ... --accept "Arduino Uno R3 (genuine)"     # turn a matching recording into the expectation
+//   ... --programmer usbasp --upload-port usb    # ATtiny85: upload through an ISP programmer, record on --port
 // Uploads the sketch, resets the board, replays the stimuli (serial text automatically, pins and voltages
 // are announced for the person to set) and writes recorded.<board>.txt next to the case.
 import { spawn, spawnSync } from "node:child_process";
@@ -9,20 +10,23 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { CORPUS_FQBN } from "./runtime-fixtures";
 import { diffOutput, type Tolerance } from "../packages/avr-emulator/tests/corpus-helpers";
-import { acceptedCase, baudOf, lineDiff, normalizeRecording, stepsOf, stripLeadingNoise } from "./record-hardware-lib";
+import { acceptedCase, baudOf, lineDiff, normalizeRecording, recordingToolchain, stepsOf, stripLeadingNoise } from "./record-hardware-lib";
 
-const TOOLCHAIN = "arduino-cli 1.5.1, arduino:avr@1.8.8";
 const args = process.argv.slice(2);
 const option = (name: string): string | undefined => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 const caseDir = resolve(args.find((arg) => !arg.startsWith("--")) ?? "");
 const port = option("--port");
 const bootMs = Number(option("--boot-ms") ?? 3300);
 const accept = option("--accept");
+// Boards without a USB bootloader (ATtiny85) are programmed through an ISP programmer at another port than the
+// serial adapter the recording reads.
+const programmer = option("--programmer");
 
 if (!existsSync(join(caseDir, "case.json")) || !port) {
-  console.error('usage: npm run record:hardware -- <case dir> --port <serial port> [--boot-ms 3300] [--accept "<board and revision>"] [--attempts N] [--no-upload]');
+  console.error('usage: npm run record:hardware -- <case dir> --port <serial port> [--boot-ms 3300] [--accept "<board and revision>"] [--attempts N] [--no-upload] [--programmer <id> --upload-port <port>]');
   process.exit(2);
 }
+const uploadPort = option("--upload-port") ?? port;
 const caseFile = JSON.parse(readFileSync(join(caseDir, "case.json"), "utf8")) as { board: string; simMs: number; events?: never[]; expectState?: unknown[]; tolerances?: Tolerance[] } & Record<string, unknown>;
 const id = basename(caseDir);
 const fqbn = CORPUS_FQBN[caseFile.board];
@@ -31,14 +35,15 @@ const baud = baudOf(sketch);
 
 // Every attempt starts from a fresh upload: closing the port does not reset the board, so a free-running sketch
 // would otherwise hand the next recording the middle of its previous run.
-function uploadSketch(portName: string): void {
+function uploadSketch(): void {
   if (args.includes("--no-upload")) return;
   const work = mkdtempSync(join(tmpdir(), "unosim-record-"));
   try {
     cpSync(caseDir, join(work, id), { recursive: true, filter: (source) => !/(case\.json|expected\..*\.txt|recorded\..*\.txt)$/.test(source) });
-    console.log(`uploading ${id} to ${portName} …`);
+    console.log(`uploading ${id} to ${uploadPort} …`);
     // Maintainer tool: uses the arduino-cli the maintainer installed on the PATH.
-    const upload = spawnSync("arduino-cli", ["compile", "--upload", "--fqbn", fqbn, "--port", portName, join(work, id)], { stdio: "inherit" }); // NOSONAR S4036
+    const programmerArgs = programmer ? ["--programmer", programmer] : [];
+    const upload = spawnSync("arduino-cli", ["compile", "--upload", "--fqbn", fqbn, "--port", uploadPort, ...programmerArgs, join(work, id)], { stdio: "inherit" }); // NOSONAR S4036
     if (upload.status !== 0) process.exit(1);
   } finally {
     rmSync(work, { recursive: true, force: true });
@@ -80,7 +85,7 @@ const attempts = Number(option("--attempts") ?? (steps.some((step) => step.instr
 let text = "";
 let differences: string[] = [];
 for (let attempt = 1; attempt <= attempts; attempt++) {
-  uploadSketch(port);
+  uploadSketch();
   console.log("starting in 3 s …");
   await new Promise((resolveStart) => setTimeout(resolveStart, 3000));
   text = await recordOnce();
@@ -107,6 +112,6 @@ if (accept && differences.length > 0) {
   console.log("not accepted: this case also checks pin, PWM or ADC states (expectState), which a serial recording does not cover; the case stays as it is");
 } else if (accept) {
   writeFileSync(expectedPath, text); // the measured values; the tolerances of the case stay as they are
-  writeFileSync(join(caseDir, "case.json"), `${JSON.stringify(acceptedCase(caseFile, accept, TOOLCHAIN), null, 2)}\n`);
+  writeFileSync(join(caseDir, "case.json"), `${JSON.stringify(acceptedCase(caseFile, accept, recordingToolchain(caseFile.board)), null, 2)}\n`);
   console.log(`accepted: expected.${caseFile.board}.txt holds the recording, case.json set to class hardware (${accept})`);
 }

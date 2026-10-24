@@ -15,6 +15,7 @@ Ziel-SSOT für projektspezifische Agentenarbeit; übergeordnete System-, Tool- u
 - Pfad: Working-Branch -> dev -> main.
 - Vor Merge in dev: dev in Working-Branch ziehen und Konflikte lokal lösen.
 - Repo-Klarstellung: Dieses Repository hat derzeit keinen `dev`-Branch. Für die Tutor-Quality-Arbeitsserie ist `main` die Base.
+- Browser-Emulation (V2): Base ist der Integrationsbranch `feature/browser-emulation`. Pfad: Working-Branch → PR nach `feature/browser-emulation` → nach der Abnahme ein Merge-Commit nach `main` (Tag `v2.0.0`). Den Integrationsbranch nie rebasen; `main` wird per Merge-PR übernommen. Mergen darf nur ein Mensch. Ablauf und Vorabversionen: `docs/RELEASE_RUNBOOK.md`, Abschnitt „Vorabversionen und v2.0.0“.
 
 2.2 Test-Integrität:
 
