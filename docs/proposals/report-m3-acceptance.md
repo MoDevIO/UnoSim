@@ -18,9 +18,9 @@ alle ATtiny-Fälle sind `derived`.
 |---|---|---|
 | P6.1 Toolchain im Compile-Sandbox-Image | erfüllt | #333: ATTinyCore 1.5.2 mit gepinnter SHA-256 im Image, Core je FQBN vorkompiliert; Vertragstest kompiliert für den ATtiny85 in der Sandbox; Toolchain-Gate `toolchain-cores.test.ts` für alle vier Boards |
 | P6.2 MCU-Profil | erfüllt | #334: Port B mit INT0/PCINT0, Timer 0 und 1, ADC mit REFS2 an Bit 4, EEPROM, Watchdog; `attiny85-profile.test.ts` (13 Fälle) |
-| P6.3 Software-UART | erfüllt | #335 und dieser PR: TX-Dekodierung mit Baudraten-Erkennung, RX über das Komparatormodell; `software-uart.test.ts` (8 Fälle) |
+| P6.3 Software-UART | erfüllt | #335 und #337: TX-Dekodierung mit Baudraten-Erkennung, RX über das Komparatormodell; `software-uart.test.ts` (8 Fälle) |
 | P6.4 Board-Hardware und Regeln | erfüllt | #336: `ATTINY85_BOARD`, Serial-Port der Art `software`, PWM-Beobachtung Timer 1, Parser rechnen `A<n>` wie ATTinyCore, Warnungen RESET-Pin und Serial-Pins; Pinbelegung im Toolchain-Gate gegen `variants/tinyX5` |
-| P6.5 Freigabe `preview` | erfüllt | dieser PR: `shared/boards.ts` `attiny85` `preview`, Laufzeit `browser`; Boardansicht DIP-8 (`npm run generate:attiny85-svg`); Benutzerhandbuch „Board wählen“ mit den Grenzen des Boards |
+| P6.5 Freigabe `preview` | erfüllt | #337: `shared/boards.ts` `attiny85` `preview`, Laufzeit `browser`; Boardansicht DIP-8 (`npm run generate:attiny85-svg`); Benutzerhandbuch „Board wählen“ mit den Grenzen des Boards |
 | Proben grün | erfüllt | 5 Korpus-Proben (`attiny_basics`, `attiny_adc_read`, `attiny_pwm_duty`, `attiny_serial_echo`, `attiny_interrupts`), dazu die Paket-Tests von Profil, UART und Board |
 | E2E grün | erfüllt | `e2e/attiny85.spec.ts`, 3 Szenarien (unten), 3 von 3 in 8,7 s; ganze Suite 54 von 54 |
 | Bundle | erfüllt | `npm run check:bundle`: initialer Ladepfad 691,0 kB von 710 kB (die Boardansicht lädt seit #326 mit eigenem Chunk); avr8js nur im Worker-Chunk |
@@ -66,18 +66,15 @@ ist Arbeit für einen Menschen, eine Anleitung dafür fehlt noch.
 | avr8js liest REFS2 an Bit 3 | eigener Getter im Profil (#334, aus Spike P0.5) |
 | avr8js verdrahtet die gemeinsamen Register GIMSK/GIFR nur für INT0 bzw. PCINT | Hooks im Profil umhüllt (#334) |
 | `analogRead(A1)` wurde im Parser zu Pin 4 (Pin- und Kanalnummer überlagern sich) | Parser rechnen `A<n>` = `0x80 \| n` wie ATTinyCore (#336) |
-| LED „L“ und Analog-Beschriftungen der Boardansicht waren fest auf Pin 13 bzw. `A<k>`-Labels | `LED_BUILTIN` und Sketch-Namen des Boards (dieser PR) |
-| Baudraten-Erkennung rastete auf ein Vielfaches ein (19200 statt 9600) | Entscheidung erst, wenn jede passende Rate genug Rahmen hat; die Rate ohne Rahmenfehler gewinnt (dieser PR, Probe `attiny_basics`) |
-| `digitalWrite(0, LOW)` ohne `Serial` erzeugte ein Byte 0x00 | TX wird nur dekodiert, solange `Serial` aktiv ist (dieser PR, Probe `attiny_pwm_duty`) |
+| LED „L“ und Analog-Beschriftungen der Boardansicht waren fest auf Pin 13 bzw. `A<k>`-Labels | `LED_BUILTIN` und Sketch-Namen des Boards (#337) |
+| Baudraten-Erkennung rastete auf ein Vielfaches ein (19200 statt 9600) | Entscheidung erst, wenn jede passende Rate genug Rahmen hat; die Rate ohne Rahmenfehler gewinnt (#337, Probe `attiny_basics`) |
+| `digitalWrite(0, LOW)` ohne `Serial` erzeugte ein Byte 0x00 | TX wird nur dekodiert, solange `Serial` aktiv ist (#337, Probe `attiny_pwm_duty`) |
 | Spanne für `delay(587)` aus dem Spike (586–588 ms) zu eng | abgeleitet 585–589 ms (#334) |
+| avr8js erzeugt in der PWM-Konfiguration von ATTinyCore kein Signal an OC1A/OC1B (Timer 1) und zählt ohne CTC1 phasenkorrekt | Profil treibt OC1A/OC1B aus dem Zählerstand und zählt als Sägezahn wie das Datenblatt (#341; vier Tests, gleiche Geschwindigkeit) |
 
 ## Bekannte Restpunkte (nicht M3-blockierend)
 
 - **Keine Aufnahme an echter ATtiny85-Hardware** (alle Fälle `derived`).
-- **Timer-1-PWM-Signal:** avr8js 0.21.1 erzeugt in der PWM-Konfiguration von
-  ATTinyCore kein Signal an OC1A/OC1B. Das Tastverhältnis in UnoSim kommt aus
-  den Registern und stimmt; ein Sketch, der den Pegel des Pins liest, sieht LOW
-  (README des Pakets).
 - **Meldungen an avr8js** (REFS2, GIMSK/GIFR, Timer-1-PWM): nach außen
   gerichtet, wartet auf einen Menschen.
 - **Halbduplex** des Software-UART ist Eigenschaft des Boards und im
