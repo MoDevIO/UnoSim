@@ -182,7 +182,7 @@ Hardware. Danach läuft das fertige Programm in der **Emulation**: ein Nachbau
 des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560, beim ATtiny85 der ATtiny85) im Browser,
 der den Maschinencode des Sketches ausführt, nicht ein Programm für den
 UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
-deshalb wie auf dem Uno. Wer die frühere Art der Simulation braucht, wählt
+deshalb wie auf dem gewählten Board. Wer die frühere Art der Simulation braucht, wählt
 unter **File → Settings → Simulation engine** „Legacy“ (siehe unten). Das gibt es nur für den Uno; bei Nano, Mega 2560 und ATtiny85 ist die Einstellung sichtbar, aber fest auf „Emulation“ gesetzt und nennt den Grund.
 
 Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
@@ -194,13 +194,13 @@ Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 | Pegel, den du am Board setzt | gilt, bis der Sketch den Pin auf `OUTPUT` schaltet |
 | Analoger Eingang | Der Regler ist eine Spannung von 0 bis 5 V in 1024 Stufen; mit der Standardreferenz liefert `analogRead()` genau den Reglerwert. Am Pin `AREF` (`EXTERNAL`) liegen 5 V, weil dort am Board nichts angeschlossen ist |
 | PWM | UnoSim zeigt das Tastverhältnis (0 bis 255), keine Signalform |
-| Serial | Der Empfangspuffer hat 64 Byte wie am Uno (beim Mega je Schnittstelle); was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
+| Serial | Der Empfangspuffer hat 64 Byte wie am Uno (beim Mega je Schnittstelle, beim ATtiny85 32 Byte wie im Core); was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
 | Zeit | exakt in simulierter Zeit. Ist dein Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr; die Kopfzeile zeigt dann einen Echtzeitfaktor unter 1. Der Timeout zählt Wanduhrzeit: Bei Faktor 0,5 endet ein 30-Sekunden-Lauf nach etwa 15 simulierten Sekunden |
 | Pause | hält auch `millis()` an |
 | Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
 | EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
 | I²C, SPI | Die Bausteine sind vorhanden, aber es hängt kein Gerät am Bus |
-| Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
+| Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB, beim ATtiny85 512 Byte). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
 | `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
 
 Was das für deine Programme bedeutet:
