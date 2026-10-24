@@ -112,8 +112,10 @@ describe("ATtiny85 profile (plan P6.2)", () => {
       expect(data[0x4b]).toBe(200); // OCR1B
       expect(data[0x4d]).toBe(255); // OCR1C = TOP
       expect(data[0x4c] & 0x70).toBe(0x60); // GTCCR: PWM1B, COM1B1:0 = 10
-      // avr8js 0.21.1 drives no OC1B waveform in this mode (README, known differences); the duty
-      // shown in UnoSim comes from these registers, not from the pin.
+    });
+
+    it("drives the timer 1 waveform on PB4: high from 0 to OCR1B, period OCR1C + 1 (avr8js alone: none)", () => {
+      expect(highShare(probe, 4)).toBeCloseTo(200 / 256, 1);
     });
 
     it("drives fast PWM on PB0 with timer 0", () => {
@@ -166,6 +168,65 @@ describe("ATtiny85 profile (plan P6.2)", () => {
       cpu.writeData(GIFR, 1 << 6);
       expect(cpu.data[GIFR] & (1 << 6)).toBe(0);
       expect(cpu.nextInterrupt).toBe(-1);
+    });
+  });
+
+  describe("timer 1 PWM (datasheet: Timer/Counter1 in PWM Mode; avr8js counts phase-correct and drives no pin with CTC1)", () => {
+    const TCCR1 = 0x50;
+    const GTCCR = 0x4c;
+    const OCR1A = 0x4e;
+    const OCR1B = 0x4b;
+    const OCR1C = 0x4d;
+    const TIFR = 0x58;
+    const DDRB = 0x37;
+
+    /** Level of `pin` after each of the next `cycles` CPU cycles, as 0/1 string, timer 1 at prescaler 1. */
+    function levels({ cpu, peripherals }: Tiny, pin: number, cycles: number): string {
+      const port = peripherals.ports.get("B");
+      let out = "";
+      for (let i = 0; i < cycles; i++) {
+        cpu.cycles++;
+        cpu.tick();
+        out += port?.pinState(pin) === PinState.High ? "1" : "0";
+      }
+      return out;
+    }
+
+    function pwmTiny(setup: (cpu: CPU) => void): Tiny {
+      const probe = tiny();
+      probe.cpu.writeData(DDRB, (1 << 1) | (1 << 4));
+      probe.cpu.writeData(OCR1C, 9); // period 10 counts
+      setup(probe.cpu);
+      levels(probe, 1, 25); // settle into the first periods
+      return probe;
+    }
+
+    it("sets OC1A at 0 and clears it on OCR1A, period OCR1C + 1, with CTC1 as ATTinyCore sets it", () => {
+      const probe = pwmTiny((cpu) => {
+        cpu.writeData(OCR1A, 3);
+        cpu.writeData(TCCR1, 0x80 | 0x40 | 0x20 | 0x01); // CTC1, PWM1A, COM1A = 10, CK/1
+      });
+      const wave = levels(probe, 1, 40);
+      expect(wave.match(/1+/g)?.slice(0, 3).map((run) => run.length)).toEqual([3, 3, 3]);
+      expect(wave.match(/0+/g)?.slice(1, 3).map((run) => run.length)).toEqual([7, 7]);
+    });
+
+    it("counts the same sawtooth without CTC1 (not phase-correct)", () => {
+      const probe = pwmTiny((cpu) => {
+        cpu.writeData(OCR1A, 3);
+        cpu.writeData(TCCR1, 0x40 | 0x20 | 0x01); // PWM1A, COM1A = 10, CK/1
+      });
+      expect(levels(probe, 1, 40).match(/1+/g)?.slice(0, 3).map((run) => run.length)).toEqual([3, 3, 3]);
+    });
+
+    it("inverts OC1B with COM1B = 11 and sets TOV1 at the wrap to 0", () => {
+      const probe = pwmTiny((cpu) => {
+        cpu.writeData(OCR1B, 3);
+        cpu.writeData(GTCCR, 0x40 | 0x30); // PWM1B, COM1B = 11
+        cpu.writeData(TCCR1, 0x01); // CK/1
+      });
+      expect(levels(probe, 4, 40).match(/1+/g)?.slice(1, 3).map((run) => run.length)).toEqual([7, 7]);
+      expect(probe.cpu.data[TIFR] & (1 << 2)).toBeTruthy(); // TOV1
     });
   });
 
