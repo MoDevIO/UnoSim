@@ -7,7 +7,7 @@ import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
 import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
 import { DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
-import { activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
+import { activeAnalogPinTitle, activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
 import { type BoardView, DEFAULT_LOGO_PLACEMENT, boardView } from "@/lib/board-view";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
@@ -731,7 +731,7 @@ function getAnalogDialogCoordinates(
   left = Math.max(viewportMargin, Math.min(globalThis.innerWidth - dialogWidth - viewportMargin, left));
   top = Math.max(viewportMargin, Math.min(globalThis.innerHeight - dialogHeight - viewportMargin, top));
 
-  const pinLabel = activePinLabel(dialog.pin);
+  const pinLabel = activeAnalogPinTitle(dialog.pin);
 
   return { left, top, dialogWidth, dialogHeight, pinLabel };
 }

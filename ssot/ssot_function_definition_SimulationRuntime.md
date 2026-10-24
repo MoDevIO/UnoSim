@@ -54,7 +54,7 @@ Der Hauptthread vergibt eine aufsteigende `runId` (`RunGate.runIdFor`). `load`, 
 | Befehl | Felder | Grenzen |
 |---|---|---|
 | `load` | `board` (gewählt), `artifactBoard`, `buildId`, `sha256`, `flash` (`ArrayBuffer`), `symbols` | bekannte Boards, `buildId` 1–256 Zeichen, `sha256` 64 Hexziffern, Flash 1 Byte bis 256 KiB |
-| `start` | `timeoutMs` | 1000–300000 (1–300 s, E8) |
+| `start` | `timeoutMs`, optional `serialBaud` | 1000–300000 (1–300 s, E8); `serialBaud` 300–1000000 ganzzahlig: Rate, mit der ein Software-UART (ATtiny85) dekodiert, bis die Leitung die des Sketches zeigt (der Client sendet das Literal aus `Serial.begin()`); Hardware-USARTs ignorieren sie |
 | `pause`, `resume`, `stop`, `reset` | – | – |
 | `serialIn` | `port`, `text` | Port 0–3, 1 bis 4096 Byte UTF-8 |
 | `setDigital` | `pin`, `level` | Pin 0–255, Pegel 0 oder 1 |

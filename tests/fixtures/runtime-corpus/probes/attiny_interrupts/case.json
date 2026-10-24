@@ -1,0 +1,22 @@
+{
+  "board": "attiny85",
+  "simMs": 600,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)",
+  "description": "INT0 on PB2 counts only rising edges, the pin-change interrupt on PB3 counts every change; both share GIMSK and GIFR on the ATtiny85.",
+  "basis": "ATtiny85 datasheet 9.2 and 9.3: INT0 with ISC01:0 = 11 fires on rising edges, PCINT fires on every change of an enabled pin (PCMSK, PCIE in GIMSK); the case drives PB2 low-high three times and PB3 high-low twice: 3 rising edges, 4 changes",
+  "events": [
+    [50, "pin", 2, 1],
+    [70, "pin", 2, 0],
+    [90, "pin", 2, 1],
+    [110, "pin", 2, 0],
+    [130, "pin", 2, 1],
+    [150, "pin", 2, 0],
+    [200, "pin", 3, 1],
+    [220, "pin", 3, 0],
+    [240, "pin", 3, 1],
+    [260, "pin", 3, 0]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

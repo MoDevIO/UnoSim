@@ -11,6 +11,11 @@ function emulator(fixture: string): Emulator {
 
 const text = (e: Emulator) => e.takeSerialOutput().map((output) => output.text).join("").replaceAll("\r\n", "\n");
 
+/** Advances in 25 ms steps until `done` holds or `maxMs` passed (emulation is costly under coverage). */
+function advanceUntil(e: Emulator, done: () => boolean, maxMs: number): void {
+  for (let ms = 0; ms < maxMs && !done(); ms += 25) e.advance(25);
+}
+
 describe("board hardware ATtiny85 (plan P6.4)", () => {
   it("is registered with its MCU profile", () => {
     expect(hasBoardHardware("attiny85")).toBe(true);
@@ -43,8 +48,10 @@ describe("ATtiny85 in the emulator", () => {
     const e = emulator("tiny_serial");
     e.setAnalog(2, 512); // A1
     e.setAnalog(3, 102); // A3: 0.5 V
-    e.advance(1500);
-    const lines = text(e).split("\n");
+    let output = "";
+    const take = () => e.takeSerialOutput().map((chunk) => chunk.text).join("");
+    advanceUntil(e, () => (output += take()).includes("DONE"), 1500);
+    const lines = output.replaceAll("\r\n", "\n").split("\n");
     expect(lines[0]).toBe("int 32767 + 1 = -32768");
     expect(lines).toContain("A1 VCC = 512");
     expect(lines).toContain("DONE");
@@ -70,18 +77,20 @@ describe("ATtiny85 in the emulator", () => {
     expect(e.serial.frameConfig(0).baud).toBe(9600);
   });
 
-  it("shows the analogWrite duty cycles of timer 1 (PB4) and timer 0 (PB0)", () => {
+  describe("tiny_probe", () => {
     const e = emulator("tiny_probe");
-    e.advance(1000);
+    e.setAnalog(2, 512);
+    // The probe writes its results to EEPROM and ends with the two analogWrite calls after the marker.
+    advanceUntil(e, () => e.machine.peripherals.adc.channelValues.length > 0 && e.pins.state(0).pwm !== undefined, 1000);
+
+    it("shows the analogWrite duty cycles of timer 1 (PB4) and timer 0 (PB0)", () => {
     expect(e.pins.state(4)).toMatchObject({ mode: "OUTPUT", pwm: 200, level: 1 });
     expect(e.pins.state(0)).toMatchObject({ mode: "OUTPUT", pwm: 77, level: 0 });
     expect(e.usage.snapshot().filter((usage) => usage.fn === "analogWrite").map((usage) => usage.pin).sort()).toEqual([0, 4]);
-  });
+    });
 
-  it("reads analog inputs by their pin number", () => {
-    const e = emulator("tiny_probe");
-    e.setAnalog(2, 512);
-    e.advance(1000);
+    it("reads analog inputs by their pin number", () => {
     expect(e.machine.peripherals.adc.channelValues[1]).toBeCloseTo((512.5 / 1024) * 5, 3);
+    });
   });
 });

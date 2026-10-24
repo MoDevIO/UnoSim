@@ -1,7 +1,7 @@
 // Builds the HEX fixtures of the runtime reference corpus (plan 7.4, P1.14):
 //   npm run fixtures:runtime            rebuild tests/fixtures/runtime-corpus/hex/<board>/<case>.hex
 //   npm run fixtures:runtime -- --check compare a rebuild with the checked-in files
-// The toolchain (arduino-cli, arduino:avr core) is the pinned one of the CI toolchain gate.
+// The toolchain (arduino-cli, arduino:avr core, ATTinyCore) is the pinned one of the CI toolchain gate.
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,6 +15,7 @@ export const CORPUS_FQBN: Readonly<Record<string, string>> = {
   uno: "arduino:avr:uno",
   nano: "arduino:avr:nano:cpu=atmega328",
   mega2560: "arduino:avr:mega:cpu=atmega2560",
+  attiny85: "ATTinyCore:avr:attinyx5:chip=85,clock=8internal",
 };
 
 export interface CorpusCaseRef {

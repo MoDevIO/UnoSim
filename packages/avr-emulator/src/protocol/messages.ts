@@ -18,6 +18,9 @@ export const COMMAND_LIMITS = {
   /** Largest flash of any supported MCU (ATmega2560). */
   maxFlashBytes: 256 * 1024,
   maxBuildIdLength: 256,
+  /** Fallback baud rate of a software UART (`serialBaud` of `start`). */
+  minSerialBaud: 300,
+  maxSerialBaud: 1_000_000,
 } as const;
 
 /** Commands from the UI to the worker; `load`, `start` and `reset` begin a new run (plan 4.5). */
@@ -36,7 +39,16 @@ export type Command =
       readonly flash: ArrayBuffer;
       readonly symbols: ImageSymbols;
     }
-  | { readonly type: "start"; readonly runId: number; readonly timeoutMs: number }
+  | {
+      readonly type: "start";
+      readonly runId: number;
+      readonly timeoutMs: number;
+      /**
+       * Baud rate a software UART (ATtiny85) decodes with until the line reveals
+       * the sketch's: the `Serial.begin()` value of the sketch. Hardware USARTs ignore it.
+       */
+      readonly serialBaud?: number;
+    }
   | { readonly type: "pause" | "resume" | "stop" | "reset"; readonly runId: number }
   | { readonly type: "serialIn"; readonly runId: number; readonly port: number; readonly text: string }
   | { readonly type: "setDigital"; readonly runId: number; readonly pin: number; readonly level: 0 | 1 }

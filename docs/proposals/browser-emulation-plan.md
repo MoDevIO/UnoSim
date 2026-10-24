@@ -1171,6 +1171,10 @@ Board ohne Hardware nutzten, prüfen den Rückfall jetzt mit einer unbekannten I
 
 **P6.5 ATtiny85 freigeben (M).**
 SVG (DIP-8), Proben, E2E; Status `preview`.
+Umgesetzt: Boardansicht (`npm run generate:attiny85-svg`), 5 Korpus-Proben,
+`e2e/attiny85.spec.ts`, Status `preview`, Benutzerhandbuch; Startbefehl des
+Workers mit `serialBaud` aus `Serial.begin()`; Abnahme
+[report-m3-acceptance.md](report-m3-acceptance.md).
 
 ### Phase 7 – Betrieb, Kapazität, Release (M4)
 

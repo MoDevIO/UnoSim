@@ -56,6 +56,12 @@ export const COMMENT_PATTERNS = {
  * Strip comments while preserving character positions (newlines kept intact).
  * This allows line numbers in the stripped code to match the original source.
  */
+/** The baud rate of an active `Serial.begin(<number>)` in the sketch, if it is a literal. */
+export function sketchSerialBaud(code: string): number | undefined {
+  const match = SERIAL_PATTERNS.BEGIN_EXTRACT.exec(stripComments(code));
+  return match ? Number(match[1]) : undefined;
+}
+
 export function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
   let result = code.replaceAll(COMMENT_PATTERNS.MULTI_LINE, (m) =>

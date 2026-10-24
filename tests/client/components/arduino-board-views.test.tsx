@@ -11,7 +11,7 @@ describe("board view per board (plan P4.4)", () => {
     expect(boardView("uno")).toEqual({ boardSvg: "/ArduinoUno.svg", overlaySvg: "/ArduinoUno-overlay.svg", width: 285.2, height: 209 });
     expect(boardView("nano")).toEqual({ boardSvg: "/ArduinoNano.svg", overlaySvg: "/ArduinoNano-overlay.svg", width: 172.8, height: 72 });
     expect(boardView()).toBe(boardView("uno"));
-    expect(boardView("attiny85")).toBe(boardView("uno")); // no graphics yet
+    expect(boardView("attiny85")).toMatchObject({ boardSvg: "/ATtiny85.svg", overlaySvg: "/ATtiny85-overlay.svg", width: 128, height: 96 }); // own graphics since P6.5
     expect(boardView("mega2560")).toMatchObject({ boardSvg: "/ArduinoMega.svg", overlaySvg: "/ArduinoMega-overlay.svg", width: 406.4, height: 213.2 });
     expect(boardView("mega2560").logo).toEqual({ left: 74, top: 38, width: 20, height: 10 });
     expect(boardView("uno").logo).toBeUndefined(); // the Uno keeps the mark where it was

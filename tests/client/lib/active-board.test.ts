@@ -38,3 +38,17 @@ describe("active board (plan P4.3)", () => {
     expect(isAnalogPin(20)).toBe(false);
   });
 });
+
+describe("active board ATtiny85 (plan P6.5)", () => {
+  it("names analog pins by number and analog name, and knows LED_BUILTIN 1", async () => {
+    const { activeAnalogPinTitle, activeLedBuiltin } = await import("../../../client/src/lib/active-board");
+    setActiveBoard("attiny85");
+    expect(activePins()).toHaveLength(6);
+    expect(activePinLabel(2)).toBe("2");
+    expect(activeAnalogPinTitle(2)).toBe("2 (A1)");
+    expect(activeLedBuiltin()).toBe(1);
+    setActiveBoard("uno");
+    expect(activeAnalogPinTitle(14)).toBe("A0");
+    expect(activeLedBuiltin()).toBe(13);
+  });
+});
