@@ -17,3 +17,19 @@ describe("Tutor requests: board (plan P2.7)", () => {
     expect(tutorDialogRequestSchema.safeParse({ ...dialog, board: "" }).success).toBe(false);
   });
 });
+
+describe("Tutor requests: project files (LearningQuestions SSOT)", () => {
+  const question = { code: '#include "a.h"\nvoid setup(){} void loop(){}' };
+  const headers = [{ name: "a.h", content: "const int LED = 9;" }];
+
+  it("accepts the headers and entry file of the project as POST /api/compile does", () => {
+    expect(tutorQuestionRequestSchema.safeParse({ ...question, headers, entryFile: "main.ino" }).success).toBe(true);
+    expect(tutorDialogRequestSchema.safeParse({ ...question, headers, history: [], question: "Frage?", answer: "Antwort" }).success).toBe(true);
+  });
+
+  it("rejects unsafe or colliding file names", () => {
+    expect(tutorQuestionRequestSchema.safeParse({ ...question, headers: [{ name: "../x.h", content: "" }] }).success).toBe(false);
+    expect(tutorQuestionRequestSchema.safeParse({ ...question, headers: [{ name: "main.ino", content: "" }], entryFile: "main.ino" }).success).toBe(false);
+    expect(tutorQuestionRequestSchema.safeParse({ ...question, headers: [...headers, { name: "A.h", content: "" }] }).success).toBe(false);
+  });
+});

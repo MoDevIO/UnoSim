@@ -30,7 +30,7 @@ const compilerHeaderSchema = z
   })
   .strict();
 
-function rejectEntryHeaderCollision(
+export function rejectEntryHeaderCollision(
   data: { entryFile?: string; headers?: Array<{ name: string }> },
   ctx: z.RefinementCtx,
 ): void {
@@ -59,24 +59,32 @@ function rejectFqbnOfAnotherBoard(data: { board?: string; fqbn?: string }, ctx: 
   }
 }
 
+/**
+ * The project files of a request besides `code` (the entry file): compile and Tutor see the same
+ * project. Requests with these fields also need `rejectEntryHeaderCollision`.
+ */
+export const projectFilesRequestFields = {
+  entryFile: z.string().refine(
+    (entryFile) => normalizeSourcePath(entryFile) !== undefined,
+    "Entry file must be a safe relative POSIX path",
+  ).optional(),
+  headers: z
+    .array(compilerHeaderSchema)
+    .max(INPUT_LIMITS.compile.maxHeaders)
+    .refine(
+      (headers) =>
+        new Set(headers.map((header) => header.name.toLowerCase())).size ===
+        headers.length,
+      "Header names must be unique",
+    )
+    .optional(),
+};
+
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    entryFile: z.string().refine(
-      (entryFile) => normalizeSourcePath(entryFile) !== undefined,
-      "Entry file must be a safe relative POSIX path",
-    ).optional(),
-    headers: z
-      .array(compilerHeaderSchema)
-      .max(INPUT_LIMITS.compile.maxHeaders)
-      .refine(
-        (headers) =>
-          new Set(headers.map((header) => header.name.toLowerCase())).size ===
-          headers.length,
-        "Header names must be unique",
-      )
-      .optional(),
+    ...projectFilesRequestFields,
     board: boardIdSchema.optional(),
     /** Deprecated: allowed only together with (or instead of) the board it belongs to. */
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),

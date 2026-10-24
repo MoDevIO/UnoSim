@@ -12,7 +12,8 @@ import { KiconnectProvider } from "../services/tutor/kiconnect-provider";
 import {
   TutorProviderError,
 } from "../services/tutor/llm-provider";
-import { TutorService } from "../services/tutor/tutor-service";
+import { TutorService, type TutorSource } from "../services/tutor/tutor-service";
+import type { BoardId } from "@shared/boards";
 import { createTutorService } from "../services/tutor/tutor-service-factory";
 import type { RequestIdentity } from "../security/access-control";
 import {
@@ -124,6 +125,15 @@ function bindRequestAbortSignal(req: Request, res: Response): AbortSignal {
   return controller.signal;
 }
 
+/**
+ * The service's last argument: the board id of a lone sketch as before, the whole source when the
+ * request carries project files (the entry file is `code`), nothing without either.
+ */
+function tutorSource({ board, headers, entryFile }: TutorSource): [] | [BoardId | TutorSource] {
+  if (headers?.length || entryFile) return [{ ...(board ? { board } : {}), ...(headers?.length ? { headers } : {}), ...(entryFile ? { entryFile } : {}) }];
+  return board ? [board] : [];
+}
+
 export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): void {
   const logger = deps.logger ?? new Logger("TutorRoutes");
   const service = deps.service ?? createTutorService(new KiconnectProvider());
@@ -152,7 +162,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.difficulty,
         content?.content,
         signal,
-        ...(parsed.data.board ? [parsed.data.board] as const : []),
+        ...tutorSource(parsed.data),
       );
       if (signal.aborted) return;
       const session = commitTutorSession(content, sessionStore);
@@ -224,7 +234,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
         parsed.data.difficulty,
         content?.content,
         signal,
-        ...(parsed.data.board ? [parsed.data.board] as const : []),
+        ...tutorSource(parsed.data),
       );
       if (signal.aborted) return;
       // A provider-free fallback verified no credential: it may use an existing session but not create one.

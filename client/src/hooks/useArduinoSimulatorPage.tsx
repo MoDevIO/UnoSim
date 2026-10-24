@@ -28,6 +28,7 @@ import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
 import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
+import { buildCompileCommand } from "@/hooks/compile-command-builder";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
 import { getServerCapabilities } from "@/lib/server-capabilities";
@@ -45,6 +46,7 @@ import type {
 } from "@shared/schema";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
+import type { TutorSketch } from "@/hooks/use-tutor";
 import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { isSourceLocation } from "@/types/source-navigation";
@@ -263,6 +265,11 @@ export function useArduinoSimulatorPage() {
   // The pin helpers outside the page (pin store, labels, registry table) follow the selected board.
   if (boardId) setActiveBoard(boardId);
   const boardSerialPorts = boardId ? boardSerialPortCount(boardId) : 1;
+  // The Tutor sees the project the compiler sees, whatever tab is open, and the selected board.
+  const tutorSketch = useMemo<TutorSketch>(
+    () => ({ ...(sourceProject ? buildCompileCommand(sourceProject) : { code }), ...(boardId ? { board: boardId } : {}) }),
+    [sourceProject, code, boardId],
+  );
   useEffect(() => {
     setSerialPortCount(boardSerialPorts);
   }, [boardSerialPorts, setSerialPortCount]);
@@ -954,6 +961,7 @@ export function useArduinoSimulatorPage() {
     },
     tutor: {
       code,
+      sketch: tutorSketch,
     },
   };
 
