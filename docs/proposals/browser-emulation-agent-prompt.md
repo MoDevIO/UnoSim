@@ -1,4 +1,4 @@
-# Auftrag für Umsetzungs-Sessions: Browser-Emulation (Stand nach M2)
+# Auftrag für Umsetzungs-Sessions: Browser-Emulation (Stand nach M3)
 
 > **Nicht normativ.** Startauftrag für Claude-Sessions, die
 > [browser-emulation-plan.md](browser-emulation-plan.md) selbstständig zu Ende
@@ -17,64 +17,60 @@
 ---
 
 Du führst in diesem Repository (UnoSim) den Plan
-`docs/proposals/browser-emulation-plan.md` zu Ende. M1 und M2 sind abgenommen; M0 wartet
-nur noch auf die Annahme der ADRs durch die Maintainer. Arbeite selbstständig und so weit wie möglich. Unterbrich und
-frag nur in den Ausnahmefällen aus Abschnitt 7.
+`docs/proposals/browser-emulation-plan.md` zu Ende. Alle Arbeitspakete sind
+umgesetzt; M1, M2 und M3 sind mit ausgewiesenen Ausnahmen abgenommen. Offen
+ist fast nur noch Arbeit von Menschen (Messungen, Aufnahmen, ADR-Annahme,
+Beta und Unterricht). Arbeite selbstständig und so weit wie möglich.
+Unterbrich und frag nur in den Ausnahmefällen aus Abschnitt 7.
 
-## 1. Stand (23.10.2026)
+## 1. Stand (24.10.2026)
 
-- `feature/browser-emulation` ist grün (CI aller sechs Jobs). Uno `available`,
-  Nano und Mega 2560 `preview`, ATtiny85 `planned` (`shared/boards.ts`). Lokal
-  ist die Browser-Emulation Standard; im **Docker-Profil gibt es sie noch
-  nicht**: dort läuft nur der Host-Mock, und `UNOSIM_RUNTIME_BACKENDS` mit
-  `browser` bricht beim Start ab, solange es keine Compile-Sandbox gibt
-  (`server/runtime-settings.ts`).
-- Abnahmeberichte: [report-m1-acceptance.md](report-m1-acceptance.md),
-  [report-m2-acceptance.md](report-m2-acceptance.md). Fortschritt je Paket:
+- `feature/browser-emulation` ist grün. Uno `available`, Nano, Mega 2560 und
+  ATtiny85 `preview` (`shared/boards.ts`). Lokal ist die Browser-Emulation
+  Standard. Im Docker-Profil kompiliert jeder Compile in der Compile-Sandbox,
+  `browser` ist dort anbietbar; der Standard bleibt `host-mock` bis M4 (die
+  Pilot-Instanz setzt `UNOSIM_DEFAULT_RUNTIME=browser`).
+- Abnahmeberichte: [M1](report-m1-acceptance.md), [M2](report-m2-acceptance.md),
+  [M3](report-m3-acceptance.md). Fortschritt je Paket:
   [browser-emulation-status.md](browser-emulation-status.md) (lies sie zuerst).
-- Korpus: 93 Fälle (Uno 65, Nano 7, Mega 21) in
-  `tests/fixtures/runtime-corpus/`; Regeln in dessen README und in
-  [TESTING_STANDARDS.md](../TESTING_STANDARDS.md).
+- Korpus: 98 Fälle (Uno 65, Nano 7, Mega 21, ATtiny85 5), davon 45 Klasse
+  `hardware` (alle vom Uno) in `tests/fixtures/runtime-corpus/`.
+- Bundle: initialer Ladepfad 691,0 kB von 710 kB (`npm run check:bundle`).
+- Was nur ein Mensch tun kann, steht mit Anleitung in
+  [human-tests.md](human-tests.md) (Teile 1–7).
 
-**Was noch fehlt (nach Plan-Abschnitt 5):**
+**Was noch offen ist:**
 
-| Paket | Stand | Hinweis |
+| Paket | Stand | Deine Aufgabe |
 |---|---|---|
-| **P2.3** Toolchain für alle Boards (M) | **nie begonnen** (keine Statuszeile) | ATTinyCore 1.5.2 pinnen (Entscheidung aus [spike-p0-5-attiny85.md](spike-p0-5-attiny85.md)); lokal ist nur `arduino:avr` installiert |
-| **P2.4** Compile-Sandbox (L) | **nie begonnen**, Voraussetzung für M4 und jede Beta | kein `Dockerfile.compile-sandbox`, kein `sandboxed-cli-runner.ts` |
-| P6.1–P6.5 ATtiny85 (M3) | offen | `status: "planned"` |
-| P7.1 Kapazität, P7.2 Deployment, P7.4 Host-Mock-Festschreibung | offen | |
-| P7.3 Beta/RC und Unterricht | offen, **nur zum Teil Agentenarbeit** | Tags, Pilot-Instanz und Rückmeldungen macht ein Mensch |
-| Reste | P0.1 (ADR 0009/0010 stehen auf `Proposed`; Annahme entscheiden die Maintainer), P1.14/M2 (Aufnahmen an echten Boards), P4.2/P4.3/P4.4/P4.6 (siehe Statusdatei) | |
+| P0.1 / M0 | ADR 0009/0010 `Proposed` | keine; Annahme durch die Maintainer |
+| P0.3 | synthetisch erledigt | Messwerte eines echten Geräts (human-tests Teil 1) in den Bericht übernehmen, falls geliefert |
+| P1.14, M2, M3 (Klasse `hardware`) | Uno 44/64, sonst `derived` | gelieferte Aufnahmen prüfen; Abweichungen sind Befunde (Emulation oder Herleitung korrigieren, begründet) |
+| P4.6 | README von UnoSim-Examples | keine (anderes Repository; Text in human-tests Teil 6) |
+| P7.1 | Messung auf dem Referenz-Host | gelieferte Tabelle in CAPACITY_MODEL übernehmen |
+| P7.3 | Beta vorbereitet (Entwurfs-PR, Runbook) | Befunde aus dem Pilot als PRs beheben |
+| M4 | wartet auf P7.3 und die Kriterien in RELEASE_RUNBOOK | nach Freigabe durch einen Menschen: Standardwerte des Docker-Profils auf `browser`, dann PR `feature/browser-emulation` → `main` vorbereiten (mergen nur ein Mensch) |
 
-**Bekannte Risiken, die du früh angehst:**
+**Bekannte Risiken:**
 
-- **Bundle-Reserve 1,8 kB:** der initiale Ladepfad liegt bei 708,2 kB von
-  710 kB (`npm run check:bundle`). Eine ATtiny-Boardansicht (P6.5) passt nicht
-  mehr hinein. Löse das zuerst, bevorzugt durch Nachladen der Boardansichten
-  (wie P3.9 für die Emulator-Laufzeit), nicht durch Anheben des Limits. Ein
-  neues Limit nur mit Begründung im PR.
-- **Zeitbudgets der Gates:** `test:unit` läuft in zwei Durchläufen
-  (`test:unit:app` 75/120 s, `test:unit:emulator` 45/90 s), `test:docker` hat
-  240 s. Der Emulator-Korpus wächst mit jedem Board. Lösche keine Tests, um ein
-  Budget einzuhalten; teile oder begründe eine Anhebung mit Messwerten.
+- **Zeitbudget `test:coverage` in CI:** Der Teil `unit-coverage` liegt auf
+  GitHub-Runnern bei 71–125 s (Grenze 120 s) und reißt sie gelegentlich (am
+  23.10.2026 einmal, Wiederholung grün). Lösche keine Tests, um ein Budget
+  einzuhalten; teile den Lauf oder begründe eine Anhebung mit Messwerten.
+- **avr8js-Korrekturen** (`AVR8JS-PATCHES` in OPEN_POINTS): Ein Update von
+  avr8js kann sie brechen; vorher die Tests der Profile laufen lassen.
 - **Portleiste des Serial Monitors** (Mega, #319): noch von keinem Menschen
-  angesehen. Weise im Abnahmebericht darauf hin.
+  angesehen.
 
 ## 2. Reihenfolge
 
-Beginne beim ersten Paket, das nicht erledigt ist. Empfohlen (wie der Plan,
-M4 hängt nur an M1 und P2.4 und kann parallel zu M3 laufen):
-
-1. **Bundle-Reserve schaffen** (klein), damit P6.5 möglich bleibt.
-2. **P2.4 Compile-Sandbox** (in mehrere PRs teilen, jeder für sich grün), dann
-   **P7.2 Deployment**, **P7.1 Kapazität**, **P7.4 Host-Mock-Festschreibung**.
-   Danach ist die Voraussetzung für `v2.0.0-beta.N` technisch erfüllt (Plan
-   9.2); den Tag und die Pilot-Instanz setzt ein Mensch (P7.3).
-3. **P2.3, dann P6.1–P6.5 (ATtiny85)** und `report-m3-acceptance.md` nach dem
-   Muster der Berichte M1/M2. P6.1 nimmt ATTinyCore in das Compile-Sandbox-Image
-   auf; das geht erst nach P2.4.
-4. Reste aus der Tabelle, soweit kein Mensch nötig ist.
+1. Offene PRs: CI-Stand prüfen, Rotes lesen und beheben (Budget, Flake oder
+   Fehler unterscheiden), grüne PRs mit Merge-Befehl melden.
+2. Ergebnisse von Menschen einarbeiten, sobald sie vorliegen (Tabelle oben):
+   Aufnahmen, Messungen, Issue-Links, Rückmeldungen aus dem Pilot.
+3. Befunde aus Pilot und Unterricht als kleine PRs gegen den Integrationsbranch.
+4. Offene Punkte der Browser-Emulation in [OPEN_POINTS.md](../OPEN_POINTS.md)
+   (`EMU-*`, `EDITOR-INDENT`) nur nach einer Entscheidung eines Menschen.
 
 Was eine Person braucht, überspringst du und trägst es als „wartet auf Mensch“
 ein: Messungen auf Referenzgeräten (P0.3), Aufnahmen an echter Hardware
