@@ -2,27 +2,107 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
-## Unreleased (integration branch `feature/browser-emulation`)
+## v2.0.0-beta.1 – 2026-10-24
+
+First pre-release of version 2 from the integration branch `feature/browser-emulation`
+for a pilot instance next to the V1 instance (plan 9.2). Version 2 runs the compiled sketch in the browser instead of on the server and
+adds the Arduino Nano, the Arduino Mega 2560 and the ATtiny85 as preview
+boards. Contracts: REST API `1.1.0` (additive, `1.0.0` clients stay
+supported), WebSocket `1.0.0` (unchanged; serial messages may carry an optional
+`port`), embedding API (`postMessage`) `1.5.0` (additive). The decisions are
+drafted in ADR 0009 and ADR 0010 (`Proposed`).
+
+### Behaviour changes for teaching
+
+Check slides and exercises against these points; the user guide section
+"Grenzen der Simulation" describes the model, "Legacy" keeps the former
+behaviour for the Uno.
+
+- **Data types are those of the board:** `int` has 16 bit (`32767 + 1` is
+  −32768, formerly 32768), `long` 32 bit, `double` is the 32-bit `float`,
+  `sizeof(int)` is 2.
+- **`Serial.print(2.5)` prints `2.50`** (two decimals without a precision
+  argument), as on the board; formerly `2.5`.
+- **`Serial.parseInt()` without input waits one second** (the stream timeout)
+  and then returns 0; formerly it returned at once.
+- **Speed is the board's:** `loop()` runs as often per second as on a 16 MHz
+  board (ATtiny85: 8 MHz); counters in `loop()` without `delay()` reach other
+  values than before.
+- **Memory is the board's:** 2 KB SRAM on the Uno and Nano; a large array can
+  crash the sketch as on the board. UnoSim reports a stack that grows into the
+  globals or the heap, but not every memory error.
+- **`random()` gives the Uno's sequence.**
+- **Pause halts `millis()`.**
+- **An open input (`INPUT`) reads LOW**, `INPUT_PULLUP` reads HIGH until a
+  level is set at the board.
+- **Serial input sent before `Serial.begin()` is lost** as on the board; a
+  system line reports it.
+- **The run time counts wall-clock time:** on a device slower than real time
+  (real-time factor below 1 in the header) a 30-second run ends after less
+  simulated time.
+- **EEPROM content stays per board while the tab is open**; a reload starts
+  with an erased EEPROM.
+
+### Upgrade notes for operators
+
+- **Three images** from the same commit: `unosim-server`, `unosim-sandbox`
+  (host mock) and the new `unosim-compile-sandbox`; `npm run build:sandbox`
+  builds both sandbox images. In the Docker profile every compile runs
+  `arduino-cli` in its own container without network; the backend image no
+  longer contains `arduino-cli` or `g++` (1.62 GB → 726 MB). The backend
+  checks the compile sandbox image at startup.
+- **New variables** (Compose passes them from `.env`; empty means default):
+  `UNOSIM_RUNTIME_BACKENDS` (`browser`, `host-mock`), `UNOSIM_DEFAULT_RUNTIME`,
+  `UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD`. `ARDUINO_FQBN` remains as an alias
+  for the default board and is deprecated.
+- **Docker profile default stays the host mock** until the release is accepted;
+  a pilot instance sets `UNOSIM_DEFAULT_RUNTIME=browser` (INSTALL_SERVER.md,
+  "Browser-Emulation im Docker-Profil (Pilot)"). Without the browser backend only the Uno is offered.
+- **Return to V1** works with the unchanged `.env` and `storage/`
+  (INSTALL_SERVER.md, "Update und Rollback").
+- **Local installations** need ATTinyCore 1.5.2 for the ATtiny85:
+  `sh scripts/install-attinycore.sh` (INSTALL_LOCAL.md).
+- `npm run capacity:calibrate` measures compile capacity as well
+  (CAPACITY_MODEL.md, "Compile capacity").
+
+### Added
+
+- **Tools → Board** with the Arduino Nano (A6/A7 as analog-only inputs), the
+  Arduino Mega 2560 (pins 0–69, four serial ports with a port bar in the
+  Serial Monitor) and the ATtiny85 (ATTinyCore 1.5.2, 8 MHz, `Serial` as a
+  half-duplex software UART), each with its own board view and with warnings
+  for its pins. The choice is kept per browser; a change stops the run.
+- **Examples can name their board**; loading one for another board asks first.
+- **Diagnostics** in the Serial Monitor: stack collision, program counter
+  outside the program, watchdog reset, `sleep` with interrupts disabled.
+- **Debug bar:** engine (`BROWSER` or `LEGACY`) and real-time factor.
+- **I/O Registry** keeps the static entries during a run and marks what the
+  run confirmed ("+ runtime").
+- **Tutor** questions name the board; the Tutor knows its data type sizes.
+- **Embedding API `1.5.0`:** `GET_STATE` with board, runtime and serial ports;
+  pins are checked against the selected board; `SERIAL_INPUT` and serial
+  events carry the port.
 
 ### Changed
 
-- **The Arduino Uno now runs in the browser by default** (local profile). The
-  compiled sketch is executed by an emulator of the ATmega328P in a Web Worker;
-  `int` is 16 bit, `32767 + 1` is −32768, `sizeof`, `millis()` and `delay()`
-  behave like the board, and a running sketch keeps going when the connection to
-  the server is lost. Pause halts the simulated time. File → Settings →
-  "Simulation engine" switches to "Legacy" (the former server-side
-  simulation). The user guide section "Grenzen der Simulation" describes the
-  model.
-- Serial input that arrives before `Serial.begin()` is discarded like on the
-  board and reported with a system line.
-- REST API `1.1.0` (additive: `board` and `artifact` in `POST /api/compile`);
-  `1.0.0` clients stay supported. WebSocket `1.0.0` and the embedding API
-  `1.4.0` are unchanged.
+- **Sketches run in the browser by default** (local profile): the compiled
+  machine code runs in an emulator of the board's microcontroller (avr8js in a
+  Web Worker). A started run keeps going when the connection to the server is
+  lost. File → Settings → "Simulation engine" switches to "Legacy" (the former
+  server-side simulation, Uno only).
+- `POST /api/compile` returns the flash image as `artifact` (REST `1.1.0`);
+  the HEX file never leaves the server.
 
 ### Fixed
 
 - The serial input field could not be typed into while it was empty.
+- A sketch printing without pause (`Serial.println(millis())`) froze the
+  browser; the Serial Monitor keeps the last 40 000 characters.
+- The editor keeps the indentation on Enter, indents after `{` and closes
+  brackets and quotes.
+- On phones the panel navigation covered pins of the board view.
+- The ATtiny85 drives the PWM signal of timer 1 on PB1 and PB4.
+- A hidden browser tab no longer ends a run as "stopped responding".
 
 ## v1.0.1 – 2026-10-18
 

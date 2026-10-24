@@ -228,7 +228,7 @@ UNOSIM_RUNTIME_BACKENDS=browser,host-mock
 UNOSIM_DEFAULT_RUNTIME=browser
 ```
 
-Dann bietet der Server zusätzlich Nano und Mega 2560 an (Status `preview`),
+Dann bietet der Server zusätzlich Nano, Mega 2560 und ATtiny85 an (Status `preview`),
 und `POST /api/compile` liefert das Flash-Abbild (`artifact`) aus der
 Compile-Sandbox; der Sketch läuft im Browser des Nutzers und belastet den
 Server nicht. „Legacy“ (Host-Mock) bleibt für den Uno wählbar.
@@ -420,7 +420,7 @@ Ein Rollback von V2 auf das V1-Image (v1.0.1) braucht keine Änderung an
 `.env` oder `storage/`: V1 ignoriert die neuen Variablen und die neuen
 Cache-Dateien (`*.artifact.json`); umgekehrt baut V2 Einträge ohne diese
 Datei neu (geprüft am 23.10.2026). Nach dem Rollback laufen alle Sketches im
-Host-Mock, Nano und Mega 2560 sind nicht mehr wählbar.
+Host-Mock, Nano, Mega 2560 und ATtiny85 sind nicht mehr wählbar.
 
 Die vollständigen Gates stehen in [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md).
 

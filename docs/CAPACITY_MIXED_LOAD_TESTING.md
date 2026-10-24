@@ -4,6 +4,12 @@ This procedure measures REST Arduino compiles, simulation starts, and active
 simulations together. It records observations; it does not set production
 limits or judge a run against assumed thresholds.
 
+> **Browser emulation:** Simulation slots, sandbox starts and active
+> simulations here concern the host mock ("Legacy"). A run in the browser
+> emulation uses no server resource after its compile; with it, the compile
+> limits the server. See
+> [CAPACITY_MODEL.md, Compile capacity](CAPACITY_MODEL.md#compile-capacity-browser-emulation).
+
 ## Preconditions
 
 - Run on the actual target Linux host, or a dedicated staging host whose CPU,

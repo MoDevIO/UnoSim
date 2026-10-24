@@ -1,8 +1,8 @@
 # Release-Runbook
 
 Status: current  
-Version: 1.0.0  
-Datum: 2026-09-06  
+Version: 1.1.0  
+Datum: 2026-10-24  
 Grundlage: aktuelle Repository-Gates, `TESTING_STANDARDS.md` und `INSTALL_SERVER.md`.
 
 ---
@@ -331,6 +331,55 @@ git push origin vX.Y.Z
 
 ---
 
+## Vorabversionen und v2.0.0 (Browser-Emulation)
+
+V2 entsteht im Integrationsbranch `feature/browser-emulation`
+([Plan, Abschnitt 9](proposals/browser-emulation-plan.md#9-rollout-und-rückfall)).
+Bis zum Abschluss gilt:
+
+| Version | Branch | Voraussetzung | Einsatz |
+| --- | --- | --- | --- |
+| `v1.0.x` | Arbeitsbranch → `main` | Pflichtgates | Unterricht, Referenz und Rückkehr |
+| `v2.0.0-beta.N` | `feature/browser-emulation` | M1, Compile-Sandbox (P2.4), Deployment (P7.2), Pflichtgates | Pilot-Instanz neben der V1-Instanz, Browser-Emulation Standard (`UNOSIM_DEFAULT_RUNTIME=browser`), „Legacy“ wählbar |
+| `v2.0.0-rc.N` | `feature/browser-emulation` | alle Abnahmekriterien unten, Funktionsstopp im Integrationsbranch | letzte Erprobung im Unterricht, nur Fehlerbehebungen |
+| `v2.0.0` | Merge-Commit `feature/browser-emulation` → `main` | ein Release-Kandidat ohne neue Befunde über mindestens zwei Wochen Unterricht | Standardbetrieb |
+
+**Ablauf einer Vorabversion** (Release Manager):
+
+1. Im Integrationsbranch per PR `package.json`/`package-lock.json`
+   (`npm version <version> --no-git-tag-version`) und `CHANGELOG.md` auf die
+   Version setzen; der CHANGELOG nennt Verhaltensänderungen ausdrücklich.
+2. Pflichtgates auf dem Merge-Commit grün (CI und `./run-tests.sh`).
+3. Annotierten Tag auf diesen Commit setzen und pushen:
+   `git tag -a v2.0.0-beta.1 -m "UnoSim v2.0.0-beta.1" && git push origin v2.0.0-beta.1`.
+4. Images aus demselben Commit bauen (`unosim-server`, `unosim-sandbox`,
+   `unosim-compile-sandbox`) und die Pilot-Instanz nach
+   [INSTALL_SERVER.md](INSTALL_SERVER.md) mit `UNOSIM_DEFAULT_RUNTIME=browser`
+   ausrollen; die V1-Instanz bleibt unverändert.
+5. Befunde aus dem Unterricht als Issues; Behebungen als PRs in den
+   Integrationsbranch.
+
+**Abnahmekriterien für `v2.0.0`:**
+
+- Korpus: alle 51 Beispiele mit Referenzen der Klasse `hardware`, Ausnahmen
+  ausgewiesen; Proben aller freigegebenen Boards grün.
+- Browserbedienung: E2E grün; alle Funktionen im Pilot bestätigt; Rückfall auf
+  „Legacy“ funktioniert.
+- Compile-Sandbox: Vertragstest (Docker-Gate) grün, Artefakt nur mit Sandbox,
+  Build-Identität getestet.
+- Leistung: Echtzeitfaktor auf den Referenzgeräten (P0.3), Compile-Latenz und
+  Kapazität auf dem Referenz-Host (P7.1) im Rahmen.
+- Release-Gates: alle Pflichtgates und die Opt-in-Gates vor Major-Releases.
+- ADR 0009 und 0010 sind angenommen; die Standardwerte des Docker-Profils
+  stehen auf `browser`.
+
+**Nach `v2.0.0`:** V1-Fehlerbehebungen nur noch in `release/v1.x` ab dem
+letzten V1-Tag, ein Semester lang und nur für sicherheits- oder
+unterrichtskritische Fehler. `main` wird bis dahin mindestens alle zwei Wochen
+per Merge (nie per Rebase) in den Integrationsbranch übernommen.
+
+---
+
 ## Notfallplan
 
 ### Bei Gate-Fehlschlag
@@ -369,6 +418,7 @@ Rückfallebene](ARCHITECTURE.md#host-mock-als-rückfallebene).
 | Version | Datum | Änderungen |
 | --- | --- | --- |
 | 1.0.0 | 2026-09-06 | Initiale normative Runbook-Version; der aktuelle Implementierungsstand ist in den verlinkten Architektur-, Security- und Skalierungsdokumenten beschrieben. |
+| 1.1.0 | 2026-10-24 | Vorabversionen aus dem Integrationsbranch, Abnahmekriterien für v2.0.0, V1-Pflege über `release/v1.x` (Plan Browser-Emulation, P7.3). |
 
 ---
 
