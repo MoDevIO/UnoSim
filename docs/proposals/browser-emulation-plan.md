@@ -1140,8 +1140,8 @@ Umgesetzt (`mcu/attiny85.ts`, exportiert als `ATTINY85`; registriert erst mit
 der Board-Hardware in P6.4). Weitere Funde: INT0 und PCINT teilen GIMSK/GIFR,
 avr8js verdrahtet das nur für je einen (das Profil umhüllt die Hooks);
 `ATtinyTimer1` erzeugt in der PWM-Konfiguration von ATTinyCore kein Signal an
-OC1x (Register stimmen, das Tastverhältnis kommt aus ihnen; offen, siehe
-README des Pakets). Die Meldungen an avr8js macht ein Mensch.
+OC1x und zählt ohne CTC1 phasenkorrekt statt als Sägezahn (das Profil korrigiert
+beides, siehe README des Pakets). Die Meldungen an avr8js macht ein Mensch.
 
 **P6.3 Software-UART (M).**
 TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite (größte
