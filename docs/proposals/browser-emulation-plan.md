@@ -1151,6 +1151,12 @@ Analogkomparators (ACSR, Vektor 7) mit einer Wellenform an PB1 in simulierter
 Zeit; Baudrate aus der Ausgabe, sonst aus dem Serial Monitor. Das
 Benutzerhandbuch nennt die Grenzen des Boards: Halbduplex, kein Empfang, wenn
 PB1 anders genutzt wird (P0.5).
+Umgesetzt als `io/software-uart.ts` (`SoftwareUart` mit der Schnittstelle des
+USART für `SerialPorts`): Erkennung verlangt 90 % passende Abstände (die
+Pin-Initialisierung erzeugt Kurzimpulse, der Core dehnt einzelne Bits), die
+Bitbreite wird aus den Abständen gemittelt, Startbits werden in Bitmitte
+geprüft. Anbindung an die Serial-Schicht, die Baudrate des Serial Monitors und
+das Benutzerhandbuch folgen mit der Board-Hardware (P6.4/P6.5).
 
 **P6.4 Board-Hardware und Regeln (M).**
 Pins 0–5, PB5 als RESET sichtbar, aber nicht nutzbar; A0–A3; PWM 0, 1, 4;
