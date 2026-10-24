@@ -249,12 +249,13 @@ at least 90 % line coverage for `src/`.
   GIFR to the pin-change interrupt alone, so enabling PCIE did not raise a
   pending pin change and writing 1 to INTF0 did not clear INT0. The profile
   wraps both hooks.
-- **Timer 1 PWM on the ATtiny85 (open):** `ATtinyTimer1` models PWM mode as
+- **Timer 1 PWM on the ATtiny85:** `ATtinyTimer1` models PWM mode as
   phase-correct counting and drives no OC1A/OC1B waveform when CTC1 is set,
   which is how ATTinyCore configures it for `analogWrite` on PB1/PB4. On the
-  chip the counter runs from 0 to OCR1C, OC1x is set at 0 and cleared at OCR1x
-  (COM1x = 10). The registers are right, so a duty cycle derived from them is
-  right; a sketch that reads the pin level of a timer-1 PWM pin sees LOW.
+  chip the counter runs from 0 to OCR1C either way, OC1x is set at 0 and
+  cleared at OCR1x (COM1x = 01 or 10; inverted with 11). The profile drives
+  OC1A/OC1B from the counter and replaces the phase-correct count by that
+  sawtooth. Not modelled: the inverted outputs on PB0/PB3 of COM1x = 01.
 
 ## ATmega2560 profile
 

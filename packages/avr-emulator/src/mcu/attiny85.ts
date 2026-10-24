@@ -85,6 +85,91 @@ function shareInterruptRegisters(cpu: CPU): void {
   };
 }
 
+/** The members of avr8js' `ATtinyTimer1` (private in 0.21.1, pinned) that `correctTimer1Pwm` replaces or reads. */
+interface ATtinyTimer1Internals {
+  readonly TOP: number;
+  readonly ocrA: number;
+  readonly ocrB: number;
+  readonly comA: number;
+  readonly comB: number;
+  readonly tcntUpdated: boolean;
+  readonly OVF: InterruptConfig;
+  readonly OCFA: InterruptConfig;
+  readonly OCFB: InterruptConfig;
+  phasePwmCount(value: number, delta: number): number;
+  timerUpdated(value: number, prevValue: number): void;
+}
+
+const PWM1A = 0x40; // TCCR1
+const PWM1B = 0x40; // GTCCR
+const OC1A_PIN = 1; // PB1
+const OC1B_PIN = 4; // PB4
+/** `PinOverrideMode.Set` and `.Clear` of avr8js; the package does not export the enum. */
+type PinOverrideMode = Parameters<AVRIOPort["timerOverridePin"]>[1];
+const OVERRIDE_SET = 2 as PinOverrideMode;
+const OVERRIDE_CLEAR = 3 as PinOverrideMode;
+
+/**
+ * In PWM mode timer 1 of the ATtiny85 counts up from 0 to OCR1C and starts at 0 again,
+ * with or without CTC1 (datasheet, "Timer/Counter1 in PWM Mode"; ATTinyCore sets OCR1C = 255 because "this module
+ * doesn't have a 8bit PWM mode"). OC1x is high from 0 until the match with OCR1x
+ * (COM1x = 01 or 10) and inverted with COM1x = 11. avr8js drives no waveform with CTC1 set,
+ * as ATTinyCore configures `analogWrite`, and counts phase-correct without it. The
+ * correction drives OC1A (PB1) and OC1B (PB4) from the counter after every count with CTC1
+ * (avr8js counts that sawtooth right), and replaces the phase-correct count by the sawtooth
+ * with its flags. Not modelled: the inverted outputs on PB0 and PB3 of COM1x = 01.
+ * Members are replaced as plain properties: an accessor on the instance slows the whole
+ * timer down in V8 (ATtiny85 emulation 11 × → 8 × real time).
+ */
+function correctTimer1Pwm(cpu: CPU, timer: ATtinyTimer1): void {
+  const internals = timer as unknown as ATtinyTimer1Internals;
+  const tccr1 = attinyTimer1Config.TCCR1;
+  const gtccr = attinyTimer1Config.GTCCR;
+  const port = () => cpu.gpioByPort[attinyTimer1Config.compPortB];
+
+  const output = (pin: number, com: number, ocr: number, prev: number, count: number) => {
+    if (com === 0 || (count !== 0 && (prev < ocr) === (count < ocr))) return;
+    const high = (count < ocr) === (com !== 3);
+    port()?.timerOverridePin(pin, high ? OVERRIDE_SET : OVERRIDE_CLEAR);
+  };
+  /** OC1A and OC1B for a step of the counter from `prev` to `count`. */
+  const outputs = (prev: number, count: number) => {
+    if (cpu.data[tccr1] & PWM1A) output(OC1A_PIN, internals.comA, internals.ocrA, prev, count);
+    if (cpu.data[gtccr] & PWM1B) output(OC1B_PIN, internals.comB, internals.ocrB, prev, count);
+  };
+
+  const timerUpdated = internals.timerUpdated.bind(timer);
+  internals.timerUpdated = (value, prevValue) => {
+    timerUpdated(value, prevValue);
+    outputs(prevValue, value);
+  };
+
+  /** Flags of the sawtooth for the counter value just reached (avr8js sets them only on the CTC path). */
+  const flags = (count: number) => {
+    if (count === 0) cpu.setInterruptFlag(internals.OVF);
+    if (count === internals.ocrA) cpu.setInterruptFlag(internals.OCFA);
+    if (count === internals.ocrB) cpu.setInterruptFlag(internals.OCFB);
+  };
+  internals.phasePwmCount = (value, delta) => {
+    const top = internals.TOP;
+    let count = value;
+    for (let step = 0; step < delta; step++) {
+      const prev = count;
+      count = count >= top ? 0 : count + 1;
+      if (internals.tcntUpdated) continue;
+      flags(count);
+      outputs(prev, count);
+    }
+    return count & 0xff;
+  };
+}
+
+function createTimer1(cpu: CPU): ATtinyTimer1 {
+  const timer = new ATtinyTimer1(cpu, attinyTimer1Config);
+  correctTimer1Pwm(cpu, timer);
+  return timer;
+}
+
 /** Timer 0: own registers and vectors; OC0A on PB0, OC0B on PB1, T0 on PB2. */
 const timer0: AVRTimerConfig = {
   ...timer0Config,
@@ -190,7 +275,7 @@ export const ATTINY85: McuProfile = {
     shareInterruptRegisters(cpu);
     return {
       ports: new Map([["B", port]]),
-      timers: [new AVRTimer(cpu, timer0), new ATtinyTimer1(cpu, attinyTimer1Config)],
+      timers: [new AVRTimer(cpu, timer0), createTimer1(cpu)],
       usarts: [],
       adc: new Attiny85ADC(cpu, adc),
       eeprom: new AVREEPROM(cpu, new ArrayEepromBackend(eeprom), {
