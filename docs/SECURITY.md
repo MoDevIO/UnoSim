@@ -12,7 +12,8 @@ gateway is optional.
 - `NODE_ENV=development`, `UNOSIM_SERVER_MODE=local`
 - loopback listener by default
 - local signed session cookie; no external identity provider
-- compilation and simulation run as local processes
+- compilation runs as a local process; sketches run in the browser emulation
+  (see "Browser runtime boundary"), the host mock as a local process
 - intended for one trusted developer on one machine
 
 Local development is not approved for shared, LAN or public access.
@@ -31,7 +32,9 @@ exposes local process execution to clients that can reach the listener.
 
 - `NODE_ENV=production`, `UNOSIM_SERVER_MODE=docker`
 - server runs in Docker
-- every simulation runs in a separate Docker sandbox
+- every compile runs in a separate compile sandbox (see "Compile boundary")
+- every host-mock simulation runs in a separate Docker sandbox; browser runs
+  need no server sandbox
 - a trusted gateway and valid gateway identity are mandatory; authenticating a
   person before the gateway is optional
 - Docker availability and the sandbox image are startup/readiness requirements
@@ -73,9 +76,35 @@ ADR 0001 records the original gateway contract; [ADR
 for user authentication while retaining gateway identity, header and origin
 requirements.
 
+## Browser runtime boundary
+
+With the browser backend ([ADR 0009](adr/0009-browser-emulation-runtime.md),
+`Proposed`) a sketch runs in the user's browser: avr8js interprets the AVR
+machine code of the flash image in a Web Worker. Sketch code is never executed
+as JavaScript and reaches neither the DOM, the network nor the page's storage;
+its effects are the emulated pins, serial ports and EEPROM of the tab. A
+sketch that loops or floods output costs only that tab, no server resource.
+
+Bounds, enforced in the worker and the main thread:
+
+- the worker loads only a flash image that fits the board's flash (at most
+  256 KiB) and whose SHA-256 matches; symbols are checked against the flash
+  size;
+- every command and event carries a run identifier; events of other runs are
+  dropped;
+- a run ends after its run time of 1–300 s without pauses; pending serial
+  output and findings are bounded and drops are counted, serial input is
+  limited to 4 KiB per message and 1 MiB pending;
+- the main thread terminates a worker that misses its heartbeat (3 s) or a
+  confirmation deadline in the visible tab, or reports `error`/`messageerror`.
+
+The artifact is derived from the user's own compile; the server never sends
+the HEX file. The worker module is part of the built client, loaded from the
+same origin.
+
 ## Sandbox boundary
 
-Docker simulations use a dedicated non-root container with:
+Host-mock simulations in Docker use a dedicated non-root container with:
 
 - network disabled,
 - read-only root filesystem,
@@ -217,13 +246,15 @@ development startup reject the flag.
 
 ## Production checklist
 
-1. Use only the Docker profile and reviewed immutable images.
+1. Use only the Docker profile and reviewed immutable images (backend,
+   compile sandbox and, while the host mock is offered, simulation sandbox).
 2. Keep the backend inaccessible except through the trusted gateway.
 3. Configure TLS, gateway secret, trusted proxy and exact WebSocket origins.
 4. Verify `/api/health` and `/api/readiness` before routing traffic.
 5. Keep Docker sandbox resource limits, rate limits and admission enabled.
-6. Run `npm run test:security:inputs`, `npm run test:docker`, the unit suite,
-   E2E suite, build and security audit before release.
+6. Run `npm run test:security:inputs`, `npm run test:docker` (including the
+   compile sandbox contract), the unit suite, E2E suite, build and security
+   audit before release.
 
 Report security vulnerabilities privately to the instance operators before
 public disclosure.
