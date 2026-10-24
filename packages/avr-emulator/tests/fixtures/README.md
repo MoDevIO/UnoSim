@@ -50,3 +50,13 @@ the ports with extended I/O addresses (H, J, K, L).
 
 The reproducible fixture set of the runtime corpus (plan 7.4) is separate.
 `uno-eeprom_counter.hex` (`sketches/eeprom_counter`) prints EEPROM cell 0 and stores the next value; the worker keeps the EEPROM per board between runs (a run sees what the run before wrote, 255 on the first).
+
+`attiny85-tiny_probe.hex`, `attiny85-tiny_interrupts.hex` and
+`attiny85-tiny_watchdog.hex` are `sketches/tiny_*/` built with ATTinyCore 1.5.2
+(`ATTinyCore:avr:attinyx5:chip=85,clock=8internal`, `scripts/install-attinycore.sh`),
+same `arduino-cli` and avr-gcc. They write their results to EEPROM, so the
+profile tests need no software-UART decoder. Derived expectations: RAMEND
+0x25F from the datasheet; `delay(587)` measured by `millis()` 585–589 ms
+(each reading lags by up to one timer-0 overflow, 2.048 ms at 8 MHz and
+prescaler 64); ADC `floor(V / V_ref · 1024)`; timer-0 fast PWM duty
+`(OCR0A + 1) / 256`; boots counted after 15 ms watchdog resets with WDRF in MCUSR.

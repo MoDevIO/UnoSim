@@ -1,4 +1,4 @@
-import type { AVRADC, AVRClock, AVREEPROM, AVRIOPort, AVRTimer, AVRUSART, AVRWatchdog, CPU } from "avr8js";
+import type { ATtinyTimer1, AVRADC, AVRClock, AVREEPROM, AVRIOPort, AVRTimer, AVRUSART, AVRWatchdog, CPU } from "avr8js";
 import type { PortName } from "../boards/types";
 import type { TimerRegisters } from "../io/pwm";
 import type { MemoryLayout } from "./memory";
@@ -6,7 +6,8 @@ import type { McuId } from "./mcus";
 
 export interface McuPeripherals {
   readonly ports: ReadonlyMap<PortName, AVRIOPort>;
-  readonly timers: readonly AVRTimer[];
+  /** By timer number; timer 1 of the ATtiny85 is the ATtiny-specific one of avr8js. */
+  readonly timers: readonly (AVRTimer | ATtinyTimer1)[];
   readonly usarts: readonly AVRUSART[];
   readonly adc: AVRADC;
   readonly eeprom: AVREEPROM;
