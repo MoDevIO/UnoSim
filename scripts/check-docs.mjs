@@ -18,8 +18,8 @@ async function collect(dir) {
 /** Markdown files Git tracks or would track: ignored drafts (`local-temp/`, reports) are not documentation. */
 function gitMarkdownFiles() {
   try {
-    // NOSONAR S4036 - fixed git binary from PATH, as in the other repository scripts
-    const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"], { cwd: root, encoding: "utf8" });
+    // The git of the maintainer's PATH, as in the other repository scripts.
+    const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"], { cwd: root, encoding: "utf8" }); // NOSONAR S4036
     return out.split("\0").filter(Boolean).map((file) => join(root, file));
   } catch {
     return undefined; // no Git checkout: walk the tree
