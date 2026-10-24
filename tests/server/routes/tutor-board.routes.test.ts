@@ -74,3 +74,25 @@ describe("Tutor routes: board", () => {
     expect(service.generateDialogResponse).not.toHaveBeenCalled();
   });
 });
+
+describe("Tutor routes: project files", () => {
+  it("passes board, headers and entry file together as the last argument", async () => {
+    const service = serviceStub();
+    const post = await start(service);
+    const headers = [{ name: "leds.h", content: "const int LED = 9;" }];
+
+    expect(await post("/api/tutor/question", { code: sketch, credential: "secret", board: "nano", headers, entryFile: "blink.ino" })).toBe(200);
+    expect(await post("/api/tutor/dialog", { ...dialog, headers })).toBe(200);
+
+    expect(service.generateQuestion.mock.calls[0]?.[6]).toEqual({ board: "nano", headers, entryFile: "blink.ino" });
+    expect(service.generateDialogResponse.mock.calls[0]?.[9]).toEqual({ headers });
+  });
+
+  it("rejects a header that would replace the entry file", async () => {
+    const service = serviceStub();
+    const post = await start(service);
+
+    expect(await post("/api/tutor/question", { code: sketch, credential: "secret", headers: [{ name: "sketch.ino", content: "" }] })).toBe(400);
+    expect(service.generateQuestion).not.toHaveBeenCalled();
+  });
+});

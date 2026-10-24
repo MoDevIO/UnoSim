@@ -13,6 +13,7 @@ import {
   type TutorResponse,
   type TutorCourseContentContext,
 } from "@shared/tutor";
+import type { BoardId } from "@shared/boards";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { refreshExternalExamplesCatalog, useExternalExamples } from "@/lib/external-examples";
@@ -42,11 +43,28 @@ export interface TutorPanelState {
   readonly history: readonly TutorDialogTurn[];
   readonly answer: string;
   readonly setAnswer: (value: string) => void;
-  readonly submitAnswer: (code: string) => Promise<void>;
+  readonly submitAnswer: (sketch: string | TutorSketch) => Promise<void>;
   readonly resetDialog: () => void;
   readonly isLoading: boolean;
   readonly error: string | null;
-  readonly generateQuestion: (code: string) => Promise<void>;
+  readonly generateQuestion: (sketch: string | TutorSketch) => Promise<void>;
+}
+
+/**
+ * What a Tutor request is about (LearningQuestions SSOT): the entry file `code`, the other files of the
+ * project as `POST /api/compile` receives them, and the selected board. A string is a lone sketch.
+ */
+export interface TutorSketch {
+  readonly code: string;
+  readonly headers?: readonly { readonly name: string; readonly content: string }[];
+  readonly entryFile?: string;
+  readonly board?: BoardId;
+}
+
+const asTutorSketch = (sketch: string | TutorSketch): TutorSketch => (typeof sketch === "string" ? { code: sketch } : sketch);
+
+function sketchRequestFields({ code, headers, entryFile, board }: TutorSketch) {
+  return { code, ...(headers?.length ? { headers } : {}), ...(entryFile ? { entryFile } : {}), ...(board ? { board } : {}) };
 }
 
 const DEFAULT_CONFIG: TutorConfig = {
@@ -325,10 +343,10 @@ export function useTutor(
     }
   }, [capabilities, credential]);
 
-  const requestQuestion = useCallback(async (code: string, requestDifficulty: TutorDifficulty, freshSession = false) => {
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, freshSession = false) => {
     if (!capabilities.canUseTutor) return;
     setError(null);
-    if (!code.trim()) {
+    if (!sketch.code.trim()) {
       setError("Open a sketch with source code first.");
       return;
     }
@@ -349,7 +367,7 @@ export function useTutor(
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          code,
+          ...sketchRequestFields(sketch),
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
@@ -384,22 +402,24 @@ export function useTutor(
     setCourseContentSession(undefined);
   }, [configuredDifficulty]);
 
-  const generateQuestion = useCallback(async (code: string) => {
+  const generateQuestion = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
+    const sketch = asTutorSketch(input);
     if (question !== null || history.length > 0) {
       resetDialog();
-      await requestQuestion(code, configuredDifficulty, true);
+      await requestQuestion(sketch, configuredDifficulty, true);
       return;
     }
-    await requestQuestion(code, effectiveDifficulty);
+    await requestQuestion(sketch, effectiveDifficulty);
   }, [capabilities, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog]);
 
-  const submitAnswer = useCallback(async (code: string) => {
+  const submitAnswer = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
     setError(null);
+    const sketch = asTutorSketch(input);
     const validationError = getSubmitAnswerValidationError({
       question,
-      code,
+      code: sketch.code,
       answer,
       credential,
     });
@@ -424,7 +444,7 @@ export function useTutor(
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          code,
+          ...sketchRequestFields(sketch),
           history: currentHistory,
           question: currentQuestion,
           answer: submittedAnswer,

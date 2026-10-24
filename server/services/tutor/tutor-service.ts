@@ -1,5 +1,5 @@
 import { type BoardId, boardTutorFacts } from "@shared/boards";
-import { analyzeStaticIO } from "@shared/io-registry-parser";
+import { analyzeStaticIO, analyzeStaticIOProject } from "@shared/io-registry-parser";
 import {
   tutorContentResultSchema,
   tutorDialogTurnSchema,
@@ -59,6 +59,16 @@ const TUTOR_NO_ANSWER_IN_FOLLOW_UP_GUIDANCE = "Die Folgefrage darf die gesuchte 
 
 const TUTOR_RATE_ANSWER_ONLY_GUIDANCE = "Bewerte die Antwort ausschließlich danach, ob sie die gestellte Frage fachlich korrekt beantwortet. Details, die erst die Folgefrage vertiefen soll, und ein in der Folgefrage verlangter konkreter Wert rechtfertigen keine niedrigere Bewertung der gegebenen Antwort und kein ‚teilweise richtig‘.";
 
+/**
+ * What the Tutor knows about the sketch besides its entry file `code`: the board and the other
+ * files of the project, as `POST /api/compile` receives them (LearningQuestions SSOT).
+ */
+export interface TutorSource {
+  readonly board?: BoardId;
+  readonly headers?: readonly { readonly name: string; readonly content: string }[];
+  readonly entryFile?: string;
+}
+
 type TutorDialogArguments = [
   code: string,
   history: readonly TutorDialogTurn[],
@@ -69,7 +79,7 @@ type TutorDialogArguments = [
   difficulty?: TutorDifficulty,
   courseContent?: TutorPlanningContentContext,
   signal?: AbortSignal,
-  board?: BoardId,
+  source?: TutorSource | BoardId,
 ];
 
 function throwIfTutorRequestAborted(signal: AbortSignal | undefined): void {
@@ -122,15 +132,39 @@ export const TUTOR_SYSTEM_PROMPT = [
 
 type TutorContext = ReturnType<typeof buildTutorContext>;
 
-function buildTutorContext(code: string, board?: BoardId) {
-  const analysis = analyzeStaticIO(code);
+/**
+ * The sketch text of the prompt: the entry file, then every header after a C++ comment line that names
+ * it. The files stay data inside the sketch block; the versioned prompt templates do not change.
+ */
+function tutorSketchText(code: string, { headers }: TutorSource = {}): string {
+  if (!headers?.length) return code;
+  return [code, ...headers.map(({ name, content }) => `\n// ---- Datei ${name} ----\n${content}`)].join("\n");
+}
+
+/** Pins and calls as the static analysis sees them for the board, over every file of the project. */
+function analyzeTutorSource(code: string, { board, headers, entryFile }: TutorSource) {
+  if (!headers?.length) return analyzeStaticIO(code, { board });
+  const entry = entryFile ?? "sketch.ino";
+  const files = Object.fromEntries([...headers.map(({ name, content }) => [name, content] as const), [entry, code] as const]);
+  return analyzeStaticIOProject({ entryFile: entry, files }, { board });
+}
+
+/** A board id alone stands for a sketch without other files. */
+function asTutorSource(sourceOrBoard: TutorSource | BoardId): TutorSource {
+  return typeof sourceOrBoard === "string" ? { board: sourceOrBoard } : sourceOrBoard;
+}
+
+function buildTutorContext(code: string, sourceOrBoard: TutorSource | BoardId = {}) {
+  const source = asTutorSource(sourceOrBoard);
+  const analysis = analyzeTutorSource(code, source);
   return {
-    ...(board ? { board: boardTutorFacts(board) } : {}),
+    ...(source.board ? { board: boardTutorFacts(source.board) } : {}),
     staticIO: {
       pins: analysis.pins.map(({ pinId, calls }) => ({
         pinId,
-        calls: calls.map(({ op, line, sourceExpression, mode }) => ({
+        calls: calls.map(({ op, line, file, sourceExpression, mode }) => ({
           op,
+          ...(file && file !== (source.entryFile ?? "sketch.ino") ? { file } : {}),
           line,
           sourceExpression,
           ...(mode ? { mode } : {}),
@@ -703,11 +737,11 @@ export class TutorService {
     difficulty: TutorDifficulty = TUTOR_DEFAULT_DIFFICULTY,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
-    board?: BoardId,
+    source?: TutorSource | BoardId,
   ): Promise<TutorServiceResponse> {
     return this.inSessionOrder(
       courseContent,
-      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal, board),
+      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal, source),
       signal,
     );
   }
@@ -719,11 +753,12 @@ export class TutorService {
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
-    board?: BoardId,
+    sourceOrBoard: TutorSource | BoardId = {},
   ): Promise<TutorServiceResponse> {
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
-    const context = buildTutorContext(code, board);
+    const source = asTutorSource(sourceOrBoard);
+    const context = buildTutorContext(code, source);
     const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
       ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
@@ -738,7 +773,7 @@ export class TutorService {
         model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildUserPrompt(
-          code,
+          tutorSketchText(code, source),
           context,
           difficulty,
           planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
@@ -769,7 +804,8 @@ export class TutorService {
   }
 
   private async generateDialogResponseInSession(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
-    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal, board] = args;
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal, sourceOrBoard = {}] = args;
+    const source = asTutorSource(sourceOrBoard);
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
@@ -784,7 +820,7 @@ export class TutorService {
         withoutProvider: true,
       };
     }
-    const context = buildTutorContext(code, board);
+    const context = buildTutorContext(code, source);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
     const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent, signal);
@@ -797,7 +833,7 @@ export class TutorService {
       {
         model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildDialogPrompt(code, context, parsedHistory, question, answer, difficulty, {
+        userPrompt: buildDialogPrompt(tutorSketchText(code, source), context, parsedHistory, question, answer, difficulty, {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
           learningObjectives: transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,

@@ -434,7 +434,7 @@ export function ArduinoSimulatorPageLayout(
             setSizes={experimentalWorkspace.setSizes}
             codeColumn={experimentalCodeColumn}
             simulationColumn={experimentalSimulationColumn}
-            tutorColumn={<TutorWorkspacePlaceholder code={props.tutor.code} tutor={tutorPanel} debugMode={debugMode} />}
+            tutorColumn={<TutorWorkspacePlaceholder code={props.tutor.code} sketch={props.tutor.sketch} tutor={tutorPanel} debugMode={debugMode} />}
           />
         ) : (
           <LegacyWorkspaceLayout
