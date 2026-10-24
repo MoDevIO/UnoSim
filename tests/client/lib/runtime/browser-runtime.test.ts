@@ -66,7 +66,8 @@ const artifact = {
 function setup() {
   const workers: FakeWorker[] = [];
   const timers = new FakeTimers();
-  const runtime = new BrowserRuntime({ createWorker: () => { const worker = new FakeWorker(); workers.push(worker); return worker; }, timers });
+  const tab = { hidden: false };
+  const runtime = new BrowserRuntime({ createWorker: () => { const worker = new FakeWorker(); workers.push(worker); return worker; }, timers, isHidden: () => tab.hidden });
   const events: AnyRuntimeEvent[] = [];
   runtime.subscribe((event) => events.push(event));
   const ev = <T extends RunEvent["type"]>(runId: number, event: Omit<Extract<RunEvent, { type: T }>, "runId">) => ({ ...event, runId });
@@ -82,7 +83,7 @@ function setup() {
   };
   const statuses = () => events.filter((event) => event.type === "simulation_status").map((event) => (event as { status: string }).status);
   const lines = () => events.filter((event) => event.type === "serial_output").map((event) => (event as { data: string }).data);
-  return { runtime, workers, worker, timers, events, ev, startRunning, statuses, lines };
+  return { runtime, workers, worker, timers, tab, events, ev, startRunning, statuses, lines };
 }
 
 describe("BrowserRuntime (plan P3.2)", () => {
@@ -500,6 +501,55 @@ describe("BrowserRuntime (plan P3.2)", () => {
     timers.advance(DEFAULT_SUPERVISION.heartbeatMs + 1000);
     expect(worker().terminated).toBe(true);
     expect(statuses()).toEqual(["running", "paused", "stopped"]);
+  });
+
+  it("does not count silence in a hidden tab, and counts it again from the return (plan 4.5)", () => {
+    const { startRunning, worker, timers, tab, statuses } = setup();
+    startRunning();
+
+    tab.hidden = true; // the browser throttles or freezes the tab: no heartbeat arrives
+    timers.advance(DEFAULT_SUPERVISION.heartbeatMs * 10);
+    expect(worker().terminated).toBe(false);
+
+    tab.hidden = false;
+    timers.advance(DEFAULT_SUPERVISION.heartbeatMs / 2);
+    expect(worker().terminated).toBe(false);
+    timers.advance(DEFAULT_SUPERVISION.heartbeatMs * 2);
+    expect(worker().terminated).toBe(true);
+    expect(statuses()).toEqual(["running", "stopped"]);
+  });
+
+  it("starts a deadline that runs out in a hidden tab again instead of ending the run", () => {
+    const { runtime, startRunning, worker, ev, timers, tab, statuses } = setup();
+    const runId = startRunning();
+
+    runtime.pause();
+    tab.hidden = true;
+    timers.advance(DEFAULT_SUPERVISION.confirmMs * 3);
+    expect(worker().terminated).toBe(false);
+
+    tab.hidden = false;
+    worker().emit(ev(runId, { type: "status", state: "paused" }));
+    for (let i = 0; i < 20; i++) {
+      timers.advance(500);
+      worker().emit(ev(runId, { type: "heartbeat", simTimeMs: 0 }));
+    }
+    expect(worker().terminated).toBe(false);
+    expect(statuses()).toEqual(["running", "paused"]);
+  });
+
+  it("ends an unconfirmed command once the tab is visible again", () => {
+    const { runtime, startRunning, worker, timers, tab, statuses } = setup();
+    startRunning();
+
+    runtime.pause();
+    tab.hidden = true;
+    timers.advance(DEFAULT_SUPERVISION.confirmMs * 3);
+    tab.hidden = false;
+    timers.advance(DEFAULT_SUPERVISION.confirmMs);
+
+    expect(worker().terminated).toBe(true);
+    expect(statuses()).toEqual(["running", "stopped"]);
   });
 
   it("starting again replaces the run: the old one stops, the new one gets a higher runId", () => {

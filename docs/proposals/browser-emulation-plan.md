@@ -368,8 +368,10 @@ festhängender Worker kann kein `fault` mehr senden:
 
 - `error` und `messageerror` am Worker gelten als Ausfall.
 - Ein Worker mit geladener Maschine sendet etwa alle 500 ms `heartbeat`, auch
-  in der Pause. Bleibt der Heartbeat länger als 3 s aus oder die Bestätigung
-  eines Befehls länger als 2 s, gilt der Worker als ausgefallen.
+  in der Pause. Bleibt der Heartbeat länger als 3 s aus, `ready` länger als
+  15 s, die Bestätigung eines Befehls länger als 5 s oder die von `stop` länger
+  als 2 s, gilt der Worker als ausgefallen (umgesetzt in P3.2, SSOT
+  SimulationRuntime).
 - Bei einem Ausfall beendet der Hauptthread den Worker mit `terminate()`, setzt
   den Lauf auf `stopped`, schreibt eine Systemzeile, meldet `operation_error`
   mit `SIMULATION_FAULT` und erzeugt beim nächsten Start einen neuen Worker.

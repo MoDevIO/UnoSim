@@ -23,7 +23,9 @@ export interface RuntimeTimers {
 
 /**
  * Deadlines of the supervision (plan 4.5): the worker cannot watch itself,
- * so the main thread ends a worker that does not answer in time.
+ * so the main thread ends a worker that does not answer in time. They apply
+ * in the visible tab: browsers throttle or freeze hidden tabs, so a deadline
+ * that runs out there starts again, and silence counts from the return.
  */
 export interface SupervisionLimits {
   /** `load` until `ready`: includes fetching and starting the worker module. */
@@ -49,7 +51,11 @@ export interface BrowserRuntimeOptions {
   createWorker(): EmulatorWorker;
   timers?: RuntimeTimers;
   limits?: Partial<SupervisionLimits>;
+  /** Whether the tab is hidden; by default `document.visibilityState`. */
+  isHidden?: () => boolean;
 }
+
+const documentHidden = (): boolean => globalThis.document?.visibilityState === "hidden";
 
 const systemTimers: RuntimeTimers = {
   now: () => Date.now(),
@@ -87,6 +93,7 @@ export class BrowserRuntime implements SimulationRuntime {
   private readonly listeners = new Set<(event: AnyRuntimeEvent) => void>();
   private readonly timers: RuntimeTimers;
   private readonly limits: SupervisionLimits;
+  private readonly isHidden: () => boolean;
   private readonly gate = new RunGate();
   private worker: EmulatorWorker | undefined;
   private phase: Phase = "idle";
@@ -108,6 +115,7 @@ export class BrowserRuntime implements SimulationRuntime {
   constructor(private readonly options: BrowserRuntimeOptions) {
     this.timers = options.timers ?? systemTimers;
     this.limits = { ...DEFAULT_SUPERVISION, ...options.limits };
+    this.isHidden = options.isHidden ?? documentHidden;
   }
 
   start(request: StartRequest): void {
@@ -344,13 +352,14 @@ export class BrowserRuntime implements SimulationRuntime {
 
   private expect(ms: number, message: string): void {
     this.clearDeadline();
-    this.deadline = this.timers.setTimeout(() => this.fail(message), ms);
+    this.deadline = this.timers.setTimeout(() => (this.isHidden() ? this.expect(ms, message) : this.fail(message)), ms);
   }
 
   private armHeartbeat(): void {
     this.clearHeartbeat();
     const check = (): void => {
       if (this.phase === "idle") return;
+      if (this.isHidden()) this.lastHeard = this.timers.now();
       // While loading, the `ready` deadline governs: the worker module may take longer to arrive than a heartbeat period.
       if (this.phase !== "loading" && this.timers.now() - this.lastHeard >= this.limits.heartbeatMs) this.fail("the emulator stopped responding");
       else this.heartbeatTimer = this.timers.setTimeout(check, this.limits.heartbeatMs / 2);
