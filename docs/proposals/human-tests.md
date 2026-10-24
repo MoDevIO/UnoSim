@@ -363,7 +363,8 @@ Ein Mensch entscheidet:
    vollständig. Für die Beta wird er zu `## v2.0.0-beta.1 – <Datum>` und die
    Version gesetzt: `npm version 2.0.0-beta.1 --no-git-tag-version`. Ein
    vorbereiteter PR macht genau das.
-3. **Tag nach dem Merge** dieses PRs und grüner CI:
+3. **Tag nach dem Merge** von #344 und der Korrekturen #346–#350 (der
+   CHANGELOG von `v2.0.0-beta.1` nennt sie) und grüner CI:
 
    ```sh
    git fetch origin && git checkout feature/browser-emulation && git pull --ff-only
