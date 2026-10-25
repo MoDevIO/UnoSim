@@ -210,6 +210,13 @@ development startup reject the flag.
   so a client cannot make the server validate the large arrays of server events
   (a 256 KiB message of empty `pin_state_batch` entries once cost 240 000
   issues and about 100 MiB of heap).
+- The parsers read sketch text of up to 128 KiB on the single server process
+  (compile, Tutor, I/O analysis), so their cost must be linear in that text. Two
+  quadratic cases were found and fixed: unterminated block comments (48 KB took
+  1.7 s, 96 KB 6.6 s) and array declarations without a closing bracket or brace
+  in the Tutor's sketch facts (1.3 s). Tests keep the comment scan identical to
+  the former regex and bound the time of such inputs; there is no proof for every
+  other pattern (OPEN_POINTS, `PARSER-COST`).
 - Mutating `/api` requests with a body must be `application/json` (else 415),
   so a foreign page cannot send them as a CORS-simple form or text request.
   Browsers that report `Sec-Fetch-Site: cross-site` or `same-site` are refused

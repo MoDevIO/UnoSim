@@ -598,3 +598,45 @@ describe("BrowserRuntime serial baud for a software UART (plan P6.5)", () => {
     expect(worker().last("start")).not.toHaveProperty("serialBaud");
   });
 });
+
+describe("BrowserRuntime: the confirmation of a stop and the supervision of the next start", () => {
+  /** Stop, then start again at once: the worker confirms the old stop only after the new `load` was sent. */
+  function stopThenStart() {
+    const context = setup();
+    const oldRunId = context.startRunning();
+    context.runtime.stop();
+    context.runtime.start({ kind: "browser", artifact, timeoutSec: 30 });
+    return { ...context, oldRunId };
+  }
+
+  it("keeps the ready deadline of the new start when the old stop is confirmed", () => {
+    const { worker, ev, oldRunId, timers, statuses, events } = stopThenStart();
+
+    worker().emit(ev(oldRunId, { type: "status", state: "stopped", reason: "stop" })); // late confirmation of the old run
+    timers.advance(DEFAULT_SUPERVISION.readyMs);
+
+    expect(worker().terminated).toBe(true);
+    expect(statuses().at(-1)).toBe("stopped");
+    expect(events).toContainEqual(expect.objectContaining({ code: "RUNTIME_FAILED", message: "the emulator did not become ready" }));
+  });
+
+  it("ends the worker that does not confirm the stop in time, and the start that waits behind it", () => {
+    const { worker, timers, events } = stopThenStart();
+
+    timers.advance(DEFAULT_SUPERVISION.stopMs);
+
+    expect(worker().terminated).toBe(true);
+    expect(events).toContainEqual(expect.objectContaining({ code: "RUNTIME_FAILED" }));
+  });
+
+  it("does not end the worker after a confirmed stop, and a new start then runs", () => {
+    const { runtime, worker, ev, startRunning, timers } = setup();
+    const runId = startRunning();
+    runtime.stop();
+
+    worker().emit(ev(runId, { type: "status", state: "stopped", reason: "stop" }));
+    timers.advance(DEFAULT_SUPERVISION.stopMs * 2);
+
+    expect(worker().terminated).toBe(false);
+  });
+});

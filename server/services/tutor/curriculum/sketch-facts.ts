@@ -25,8 +25,29 @@ const TYPE_ALIASES: Readonly<Record<string, SketchType>> = {
 };
 
 const TYPE_PATTERN = /\b(?:(?:unsigned|signed)\s+)?(?:char|byte|uint8_t|int|long|float)\b/g;
-const ARRAY_PATTERN = /\b(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[([^\]]*)\]/g;
-const INITIALIZER_PATTERN = /^\s*=\s*\{([^}]*)\}/;
+// The size expression is bounded: with "int a[" repeated and no closer, an unbounded `[^\]]*` rescans the rest
+// of the text for every start (128 KiB of it took 1.3 s).
+const MAX_SIZE_EXPRESSION_CHARS = 64;
+const ARRAY_PATTERN = new RegExp(String.raw`\b(char|byte|uint8_t|int|long|float)\s+([A-Za-z_]\w*)\s*\[([^\]]{0,${MAX_SIZE_EXPRESSION_CHARS}})\]`, "g");
+const INITIALIZER_HEAD = /^\s*=\s*\{/;
+/** Where an initializer's head can start looking: whitespace and the equals sign are short. */
+const INITIALIZER_HEAD_WINDOW = 256;
+
+/**
+ * The next closing brace at or after `from`, searched once for a run of increasing starts: while a start lies
+ * before the brace found last, that brace is also its answer, and when none was found none follows a later
+ * start. Looking up every initializer with its own search made "int a[]={" repeated, with no closer, quadratic.
+ */
+function closingBraceFinder(text: string): (from: number) => number {
+  let searchedFrom = -1;
+  let found = -1;
+  return (from) => {
+    if (searchedFrom >= 0 && from >= searchedFrom && (found === -1 || from <= found)) return found;
+    searchedFrom = from;
+    found = text.indexOf("}", from);
+    return found;
+  };
+}
 const SERIAL_PATTERN = /\bSerial\s*\.\s*(print|println|write)\s*\(/gi;
 
 function canonicalType(value: string): SketchType | undefined {
@@ -35,6 +56,32 @@ function canonicalType(value: string): SketchType | undefined {
 
 function distinct<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
+}
+
+type DeclaredArray = { name: string; elementType: SketchType; elementCount: number };
+
+/** The arrays a sketch declares: element type, name and the number of elements (initializer, else declared size). */
+function declaredArrays(clean: string): DeclaredArray[] {
+  const arrays: DeclaredArray[] = [];
+  const closingBrace = closingBraceFinder(clean);
+  for (const match of clean.matchAll(ARRAY_PATTERN)) {
+    const elementType = canonicalType(match[1] ?? "");
+    const name = match[2];
+    if (!elementType || !name) continue;
+    const afterDeclaration = (match.index ?? 0) + match[0].length;
+    const head = INITIALIZER_HEAD.exec(clean.slice(afterDeclaration, afterDeclaration + INITIALIZER_HEAD_WINDOW));
+    const close = head ? closingBrace(afterDeclaration + head[0].length) : -1;
+    const initializer = head && close >= 0 ? clean.slice(afterDeclaration + head[0].length, close).trim() : undefined;
+    const declaredSize = Number.parseInt(match[3]?.trim() ?? "", 10);
+    let elementCount = 0;
+    if (initializer) {
+      elementCount = initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
+    } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
+      elementCount = declaredSize;
+    }
+    arrays.push({ name, elementType, elementCount });
+  }
+  return arrays;
 }
 
 export class DefaultSketchFactExtractor implements SketchFactExtractor {
@@ -46,23 +93,8 @@ export class DefaultSketchFactExtractor implements SketchFactExtractor {
       if (type) types.push(type);
     }
 
-    const arrays: Array<{ name: string; elementType: SketchType; elementCount: number }> = [];
-    for (const match of clean.matchAll(ARRAY_PATTERN)) {
-      const elementType = canonicalType(match[1] ?? "");
-      const name = match[2];
-      if (!elementType || !name) continue;
-      const initializerMatch = INITIALIZER_PATTERN.exec(clean.slice((match.index ?? 0) + match[0].length));
-      const initializer = initializerMatch?.[1]?.trim();
-      const declaredSize = Number.parseInt(match[3]?.trim() ?? "", 10);
-      let elementCount = 0;
-      if (initializer) {
-        elementCount = initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
-      } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
-        elementCount = declaredSize;
-      }
-      arrays.push({ name, elementType, elementCount });
-      types.push(elementType);
-    }
+    const arrays = declaredArrays(clean);
+    for (const array of arrays) types.push(array.elementType);
 
     const serialCalls: ("print" | "write")[] = [];
     for (const match of clean.matchAll(SERIAL_PATTERN)) {
