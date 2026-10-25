@@ -115,6 +115,11 @@ behaviour for the Uno.
   sketch runs on.
 - A cached compile result is served only under the toolchain and libraries it
   was built with.
+- Stop, a loaded example, replaced files, `LOAD_CODE` or a board change end a
+  browser start that is still loading the emulator; before, the run could begin
+  afterwards, with a build that was already discarded.
+- The Tutor's topic selection and follow-up decision read the header files of
+  the project as well, not only the entry file.
 
 ## v1.0.1 – 2026-10-18
 
