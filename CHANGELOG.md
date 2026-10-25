@@ -125,6 +125,12 @@ behaviour for the Uno.
   check of their length instead of one issue per element; a 1 MiB body no
   longer costs several hundred MiB and up to a second of blocked event loop.
   Responses are unchanged.
+- **Security:** a sketch of unterminated block comments (96 KB took 6.6 s) or of
+  array declarations without closing bracket (1.3 s) no longer holds the server;
+  the comment scan and the Tutor's array facts are linear.
+- A quick Stop and Start no longer lets the late stop confirmation switch off
+  the start supervision of the new run, and a worker that does not confirm a
+  stop ends together with the start that waits behind it.
 - **Security:** a client can no longer make the server validate the content of
   server events: the direction of a WebSocket message is decided by its type
   first (before, a 256 KiB message of empty `pin_state_batch` entries cost
