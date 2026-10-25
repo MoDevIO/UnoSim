@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 import { boardIdSchema, findBoardByFqbn } from "./boards";
+import { boundedArray } from "./bounded-array";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 
@@ -68,9 +69,7 @@ export const projectFilesRequestFields = {
     (entryFile) => normalizeSourcePath(entryFile) !== undefined,
     "Entry file must be a safe relative POSIX path",
   ).optional(),
-  headers: z
-    .array(compilerHeaderSchema)
-    .max(INPUT_LIMITS.compile.maxHeaders)
+  headers: boundedArray(compilerHeaderSchema, INPUT_LIMITS.compile.maxHeaders)
     .refine(
       (headers) =>
         new Set(headers.map((header) => header.name.toLowerCase())).size ===
@@ -88,10 +87,7 @@ export const compileRequestSchema = z
     board: boardIdSchema.optional(),
     /** Deprecated: allowed only together with (or instead of) the board it belongs to. */
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
-    libraries: z
-      .array(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars))
-      .max(INPUT_LIMITS.compile.maxLibraries)
-      .optional(),
+    libraries: boundedArray(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars), INPUT_LIMITS.compile.maxLibraries).optional(),
   })
   .strict()
   .superRefine(rejectEntryHeaderCollision)
@@ -153,9 +149,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       (entryFile) => normalizeSourcePath(entryFile) !== undefined,
       "Entry file must be a safe relative POSIX path",
     ).optional(),
-    headers: z
-      .array(compilerHeaderSchema)
-      .max(INPUT_LIMITS.compile.maxHeaders)
+    headers: boundedArray(compilerHeaderSchema, INPUT_LIMITS.compile.maxHeaders)
       .refine(
         (headers) =>
           new Set(headers.map((header) => header.name.toLowerCase())).size ===

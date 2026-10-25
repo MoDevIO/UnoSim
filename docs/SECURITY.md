@@ -197,7 +197,14 @@ development startup reject the flag.
 
 ## Input and network controls
 
-- HTTP and WebSocket payloads are schema-validated and size-limited.
+- HTTP and WebSocket payloads are schema-validated and size-limited. Arrays of
+  a request or of repository content (headers, libraries, Tutor history,
+  example and curriculum lists) are checked against their length limit before
+  any element is validated (`boundedArray`): Zod 3 would otherwise validate and
+  report every element of an oversized array, and a 1 MiB body of invalid
+  elements cost 500 000 issues and several hundred MiB. `npm audit` still
+  reports `zod < 4.6.6` until the migration to Zod 4 (OPEN_POINTS,
+  `ZOD-ADVISORY`).
 - Mutating `/api` requests with a body must be `application/json` (else 415),
   so a foreign page cannot send them as a CORS-simple form or text request.
   Browsers that report `Sec-Fetch-Site: cross-site` or `same-site` are refused

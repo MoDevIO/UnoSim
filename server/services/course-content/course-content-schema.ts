@@ -5,6 +5,7 @@ import {
   validateManifestReferences,
   type ExamplesManifestCore,
 } from "../examples/examples-schema";
+import { boundedArray } from "@shared/bounded-array";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 const v2ManifestExampleSchema = manifestExampleSchema.strict();
@@ -17,7 +18,7 @@ const v2ManifestSchema = z.object({
   schemaVersion: z.literal(2),
   repository: z.string().max(256).optional(),
   ref: z.string().max(128).optional(),
-  examples: z.array(v2ManifestExampleSchema).max(1000),
+  examples: boundedArray(v2ManifestExampleSchema, 1000),
   tutor: tutorDescriptorSchema.optional(),
 }).strict();
 
@@ -40,8 +41,8 @@ export const courseContentStrategyEntrySchema = z.object({
 const tutorManifestV1Schema = z.object({
   schemaVersion: z.literal(1),
   defaultStrategy: z.string().regex(SAFE_ID).optional(),
-  topics: z.array(courseContentTopicEntrySchema).max(64),
-  strategies: z.array(courseContentStrategyEntrySchema).max(64),
+  topics: boundedArray(courseContentTopicEntrySchema, 64),
+  strategies: boundedArray(courseContentStrategyEntrySchema, 64),
 }).strict();
 
 const phaseStrategiesSchema = z.object({
@@ -52,8 +53,8 @@ const phaseStrategiesSchema = z.object({
 const tutorManifestV2Schema = z.object({
   schemaVersion: z.literal(2),
   defaultStrategy: z.string().regex(SAFE_ID).optional(),
-  topics: z.array(courseContentTopicEntrySchema).max(64),
-  strategies: z.array(courseContentStrategyEntrySchema).max(64),
+  topics: boundedArray(courseContentTopicEntrySchema, 64),
+  strategies: boundedArray(courseContentStrategyEntrySchema, 64),
   phaseStrategies: phaseStrategiesSchema.optional(),
 }).strict();
 
@@ -120,7 +121,7 @@ const courseContentCoreSchema = z.union([
     schemaVersion: z.literal(2),
     repository: z.string().max(256).optional(),
     ref: z.string().max(128).optional(),
-    examples: z.array(v2ManifestExampleSchema).max(1000),
+    examples: boundedArray(v2ManifestExampleSchema, 1000),
   }).strict(),
 ]);
 

@@ -120,6 +120,11 @@ behaviour for the Uno.
   afterwards, with a build that was already discarded.
 - The Tutor's topic selection and follow-up decision read the header files of
   the project as well, not only the entry file.
+- **Security:** oversized arrays of invalid elements in a request (headers,
+  libraries, Tutor history, example and curriculum lists) are refused with one
+  check of their length instead of one issue per element; a 1 MiB body no
+  longer costs several hundred MiB and up to a second of blocked event loop.
+  Responses are unchanged.
 - **Security:** body-parser 1.20.9 (a compressed request with trailing bytes
   could end the process with an uncaught exception, GHSA-27r3-jxmh-p828) and
   ip-address 10.7.5 (quadratic matching of a zone identifier, used by the rate

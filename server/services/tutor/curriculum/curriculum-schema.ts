@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { boundedArray } from "@shared/bounded-array";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SAFE_SHA256 = /^[a-f0-9]{64}$/i;
@@ -22,15 +23,15 @@ const factKindSchema = z.enum(["type-used", "array-declared", "serial-call"]);
 
 export const factRequirementSchema = z.object({
   fact: factKindSchema,
-  values: z.array(boundedText(64)).max(12).optional(),
-  elementTypes: z.array(boundedText(64)).max(12).optional(),
+  values: boundedArray(boundedText(64), 12).optional(),
+  elementTypes: boundedArray(boundedText(64), 12).optional(),
 }).strict().refine(
   (value) => value.values !== undefined || value.elementTypes !== undefined || value.fact === "array-declared",
   "Fact requirements need a bounded value selector",
 );
 
 const activationSchema = z.object({
-  any: z.array(factRequirementSchema).min(1).max(16),
+  any: boundedArray(factRequirementSchema, 16, 1),
 }).strict();
 
 const difficultyRangeSchema = z.tuple([
@@ -51,7 +52,7 @@ const indicatorSchema = z.object({
 const masterySchema = z.object({
   minimumSuccessfulProbes: z.number().int().min(1).max(10),
   successRatingAtLeast: z.number().int().min(3).max(5),
-  requiredIndicators: z.array(idSchema).min(1).max(12),
+  requiredIndicators: boundedArray(idSchema, 12, 1),
   minimumDistinctQuestionKinds: z.number().int().min(1).max(5),
   recentWeakAnswersAllowed: z.number().int().min(0).max(3),
 }).strict();
@@ -60,13 +61,13 @@ const conceptSchema = z.object({
   id: idSchema,
   title: boundedText(160),
   objective: boundedText(1_000),
-  prerequisites: z.array(idSchema).max(8),
+  prerequisites: boundedArray(idSchema, 8),
   difficulty: z.object({
     entry: difficultyRangeSchema,
     transfer: difficultyRangeSchema,
   }).strict(),
-  misconceptions: z.array(misconceptionSchema).max(16),
-  indicators: z.array(indicatorSchema).min(1).max(12),
+  misconceptions: boundedArray(misconceptionSchema, 16),
+  indicators: boundedArray(indicatorSchema, 12, 1),
   mastery: masterySchema,
 }).strict();
 
@@ -76,10 +77,10 @@ const questionSchema = z.object({
   indicator: idSchema,
   kind: questionKindSchema,
   difficulty: difficultyRangeSchema,
-  requires: z.array(factRequirementSchema).min(1).max(8),
+  requires: boundedArray(factRequirementSchema, 8, 1),
   text: boundedText(1_000).optional(),
   template: boundedText(1_000).optional(),
-  slots: z.array(idSchema).max(8).optional(),
+  slots: boundedArray(idSchema, 8).optional(),
 }).strict().superRefine((value, context) => {
   if ((value.text === undefined) === (value.template === undefined)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Exactly one of text or template is required" });
@@ -100,8 +101,8 @@ const scaffoldSchema = z.object({
 }).strict();
 
 const progressionSchema = z.object({
-  entryConcepts: z.array(idSchema).min(1).max(8),
-  preferredOrder: z.array(idSchema).min(1).max(32),
+  entryConcepts: boundedArray(idSchema, 8, 1),
+  preferredOrder: boundedArray(idSchema, 32, 1),
   onRating: z.object({
     "1-2": z.literal("remediate"),
     "3": z.literal("clarify-same-indicator"),
@@ -113,7 +114,7 @@ const progressionSchema = z.object({
 const deepeningSchema = z.object({
   minimumSuccessfulProbes: z.number().int().min(1).max(10),
   successRatingAtLeast: z.number().int().min(3).max(5),
-  requiredQuestionKinds: z.array(z.enum(["application", "prediction", "transfer"])).min(1).max(3),
+  requiredQuestionKinds: boundedArray(z.enum(["application", "prediction", "transfer"]), 3, 1),
   recentWeakAnswersAllowed: z.number().int().min(0).max(3),
 }).strict().superRefine((value, context) => {
   if (new Set(value.requiredQuestionKinds).size !== value.requiredQuestionKinds.length) {
@@ -132,9 +133,9 @@ const curriculumTopicV1Schema = z.object({
   title: boundedText(160),
   locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
   activation: activationSchema,
-  concepts: z.array(conceptSchema).min(1).max(16),
-  questions: z.array(questionSchema).min(1).max(64),
-  scaffolds: z.array(scaffoldSchema).max(32),
+  concepts: boundedArray(conceptSchema, 16, 1),
+  questions: boundedArray(questionSchema, 64, 1),
+  scaffolds: boundedArray(scaffoldSchema, 32),
   progression: progressionSchema,
 }).strict();
 
@@ -144,12 +145,12 @@ const curriculumTopicV2Schema = z.object({
   title: boundedText(160),
   locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
   activation: activationSchema,
-  concepts: z.array(conceptSchema).min(1).max(16),
-  questions: z.array(questionSchema).min(1).max(64),
-  scaffolds: z.array(scaffoldSchema).max(32),
+  concepts: boundedArray(conceptSchema, 16, 1),
+  questions: boundedArray(questionSchema, 64, 1),
+  scaffolds: boundedArray(scaffoldSchema, 32),
   progression: progressionSchema,
   deepening: deepeningSchema.optional(),
-  extensions: z.array(topicExtensionSchema).max(8).optional(),
+  extensions: boundedArray(topicExtensionSchema, 8).optional(),
 }).strict();
 
 export const curriculumTopicSchema = z.union([curriculumTopicV1Schema, curriculumTopicV2Schema]);
@@ -159,11 +160,11 @@ export const curriculumManifestSchema = z.object({
   curriculumId: idSchema,
   release: boundedText(64),
   locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
-  topics: z.array(z.object({
+  topics: boundedArray(z.object({
     id: idSchema,
     path: z.string().regex(/^topics\/[a-z][a-z0-9-]{0,63}\.yaml$/),
     sha256: z.string().regex(SAFE_SHA256),
-  }).strict()).max(64),
+  }).strict(), 64),
 }).strict();
 
 export type FactRequirement = z.infer<typeof factRequirementSchema>;
