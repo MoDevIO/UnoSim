@@ -76,14 +76,15 @@ describe("TestBudgetReporter", () => {
     return JSON.parse(readFileSync(metricsPath, "utf8")) as Metrics;
   }
 
-  it("configures coverage with a 75-second warning and a 90-second hard-fail budget", () => {
+  it("configures the application coverage pass with a 100-second warning and a 150-second hard-fail budget", () => {
     const packageJson = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
       scripts: Record<string, string>;
     };
     const coverageScript = packageJson.scripts["test:coverage"];
 
-    expect(coverageScript).toContain("TEST_BUDGET_WARN_MS=75000");
-    expect(coverageScript).toContain("TEST_BUDGET_FAIL_MS=120000");
+    // Measured on the runners (docs/TESTING_STANDARDS.md, "Application coverage pass"): 78 s to 120 s.
+    expect(coverageScript).toContain("TEST_BUDGET_SUITE=unit-coverage TEST_BUDGET_WARN_MS=100000 TEST_BUDGET_FAIL_MS=150000");
+    expect(coverageScript).toContain("TEST_BUDGET_SUITE=unit-emulator-coverage TEST_BUDGET_WARN_MS=60000 TEST_BUDGET_FAIL_MS=120000");
   });
 
   it("configures unit tests with a 75-second warning and a 120-second hard-fail budget", () => {
