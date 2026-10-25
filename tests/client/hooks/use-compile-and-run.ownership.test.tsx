@@ -280,3 +280,63 @@ describe("one server lifecycle per connection", () => {
     expect(sent.indexOf("stop_simulation")).toBeLessThan(sent.indexOf("start_simulation"));
   });
 });
+
+describe("standalone Compile and a replaced project", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const replacement = (params: CompileAndRunParams): CompileAndRunParams => ({
+    ...params,
+    tabs: [{ id: "replacement", name: "other.ino", content: "void setup() {} void loop() { delay(1); }" }],
+    activeTabId: "replacement",
+    code: "void setup() {} void loop() { delay(1); }",
+  });
+
+  it.each([false, true])("ignores the late result (success: %s) of a Compile that was started for the old project", async (success) => {
+    const fixture = setup();
+    await act(async () => { fixture.result.current.handleCompile(); });
+
+    fixture.rerender(replacement(fixture.params));
+    await fixture.complete(0, success);
+
+    expect(fixture.result.current.hasCompilationErrors).toBe(false);
+    expect(fixture.result.current.compilerErrors).toEqual([]);
+    expect(fixture.result.current.lastCompilationResult).toBeNull();
+    expect(fixture.params.setParserMessages).not.toHaveBeenCalledWith(expect.arrayContaining([expect.anything()]));
+  });
+
+  it("ignores the late failure of a Compile after the project was replaced through the page's handler", async () => {
+    const fixture = setup();
+    await act(async () => { fixture.result.current.handleCompile(); });
+
+    expect(fixture.result.current.arduinoCliStatus).toBe("compiling");
+    act(() => fixture.result.current.invalidatePendingStart()); // what loading an example or replacing the files calls
+    expect(fixture.result.current.arduinoCliStatus).toBe("idle"); // the indicator of the ended request is taken back
+    await fixture.complete(0, false);
+
+    expect(fixture.result.current.hasCompilationErrors).toBe(false);
+    expect(fixture.result.current.compilerErrors).toEqual([]);
+    expect(fixture.result.current.arduinoCliStatus).toBe("idle");
+  });
+
+  it("applies the result of a Compile whose project did not change", async () => {
+    const fixture = setup();
+    await act(async () => { fixture.result.current.handleCompile(); });
+
+    await fixture.complete(0, false);
+
+    expect(fixture.result.current.hasCompilationErrors).toBe(true);
+  });
+
+  it("lets the result of a Compile started after the replacement apply", async () => {
+    const fixture = setup();
+    await act(async () => { fixture.result.current.handleCompile(); });
+    fixture.rerender(replacement(fixture.params));
+
+    await act(async () => { fixture.result.current.handleCompile(); });
+    await act(async () => { fixture.requests[1].complete(false); });
+    await waitFor(() => expect(fixture.result.current.hasCompilationErrors).toBe(true));
+    await fixture.complete(0, true); // the old one arrives late and changes nothing
+
+    expect(fixture.result.current.hasCompilationErrors).toBe(true);
+  });
+});

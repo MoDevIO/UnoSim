@@ -195,9 +195,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The simulation controller's cancel, set once it exists: a start that waits for the emulator is pending too. */
   const cancelControllerStart = useRef<(() => void) | undefined>(undefined);
+  /** The standalone Compile in flight, whose "compiling" indicator an invalidation has to take back. */
+  const standaloneCompile = useRef<CompileConfig | null>(null);
   const invalidatePendingStart = useCallback(() => {
     startGeneration.current++;
     cancelControllerStart.current?.();
+    if (standaloneCompile.current) {
+      standaloneCompile.current = null;
+      controllerState.setArduinoCliStatus("idle");
+    }
     if (pendingCompileStart.current) {
       controllerState.setCompilationStatus("ready");
       controllerState.setArduinoCliStatus("idle");
@@ -258,6 +264,14 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     capabilities: params.capabilities,
     ...(params.boardId ? { boardId: params.boardId } : {}),
     isCompileResultCurrent,
+    // A standalone Compile belongs to the project it was started for: replacing the project ends it, like a compile-to-start.
+    claimCompile: (payload) => {
+      compileOwners.current.set(payload, startGeneration.current);
+      standaloneCompile.current = payload;
+    },
+    onCompileSettled: (payload) => {
+      if (standaloneCompile.current === payload) standaloneCompile.current = null;
+    },
     onCompileResult: (data) => artifactSinkRef.current?.(data.success ? data.artifact : undefined),
     // Callbacks
     setParserMessages: params.setParserMessages,
