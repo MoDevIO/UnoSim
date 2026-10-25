@@ -193,8 +193,11 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   const compileOwners = useRef(new WeakMap<CompileConfig, number>());
   const pendingCompileStart = useRef(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The simulation controller's cancel, set once it exists: a start that waits for the emulator is pending too. */
+  const cancelControllerStart = useRef<(() => void) | undefined>(undefined);
   const invalidatePendingStart = useCallback(() => {
     startGeneration.current++;
+    cancelControllerStart.current?.();
     if (pendingCompileStart.current) {
       controllerState.setCompilationStatus("ready");
       controllerState.setArduinoCliStatus("idle");
@@ -312,6 +315,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   });
 
   artifactSinkRef.current = simulation.setCompiledArtifact;
+  cancelControllerStart.current = simulation.cancelPendingStart;
 
   // Expose a test-only setter so E2E tests can inject the REST-compiled code
   // into the simulation controller before starting a simulation.

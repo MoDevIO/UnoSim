@@ -73,6 +73,8 @@ export type SimulationControllerResult = {
   handlePause: () => void;
   handleResume: () => void;
   stopSimulationImmediately: () => void;
+  /** Cancels a browser start that is still loading the emulator (Stop does it itself). */
+  cancelPendingStart: () => void;
   startSimulation: () => void;
   setCompiledCode: (code: string) => void;
   setCompiledHeaders?: (headers: Array<{ name: string; content: string }>) => void;
@@ -111,6 +113,14 @@ export function useSimulationController(
   const compiledHeadersRef = useRef<Array<{ name: string; content: string }>>([]);
   const compiledEntryFileRef = useRef<string | undefined>(undefined);
   const compiledArtifactRef = useRef<unknown>(undefined);
+  /**
+   * Identifies the start in flight. A browser start waits for the emulator code to load; Stop, a new
+   * workspace or a discarded build in that time cancel it by taking the next number.
+   */
+  const startToken = useRef(0);
+  const cancelPendingStart = useCallback(() => {
+    startToken.current++;
+  }, []);
   const hub = params.runtimeHub ?? getRuntimeHub();
   const internalStartRef = useRef<(() => void) | null>(null);
   const startSimulationRef = params.startSimulationRef ?? internalStartRef;
@@ -124,12 +134,13 @@ export function useSimulationController(
   const stopSimulationImmediately = useCallback(() => {
     if (!canSimulate) return;
     params.uiFeedback.logStopSimulation(hub.active);
+    cancelPendingStart();
     const message = { type: "stop_simulation" } as const;
     if (!(params.sendMessageImmediate?.(message) ?? false)) params.sendMessage(message);
     setSimulationStatus("idle");
     params.serialEventQueueRef.current = [];
     params.resetPinUI({ keepDetected: true });
-  }, [canSimulate, params, setSimulationStatus]);
+  }, [canSimulate, params, setSimulationStatus, cancelPendingStart]);
 
   const stopMutation = useMutation({
     // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
@@ -175,11 +186,35 @@ export function useSimulationController(
     onError: () => params.uiFeedback.showResumeFailedToast(),
   });
 
+  /** Loads the emulator on demand and starts the run, unless Stop, a new start or a discarded build ended this start meanwhile. */
+  const startBrowserRun = async (token: number, compiledArtifact: unknown, timeout: number) => {
+    // The schema and the runtime load on demand: they stay out of the initial bundle.
+    const { parseSimulationArtifact } = await import("@shared/simulation-artifact");
+    const artifact = parseSimulationArtifact(compiledArtifact);
+    if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
+    const runtime = await hub.load("browser");
+    if (token !== startToken.current) return { success: true, browser: true, cancelled: true };
+    // Start first: replacing a run reports the old one stopped, which must not end the new one.
+    const serialBaud = sketchSerialBaud(compiledCodeRef.current ?? "");
+    runtime.start({
+      kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout,
+      ...(serialBaud === undefined ? {} : { serialBaud }),
+    });
+    hub.setActive("browser");
+    // Pending until the worker confirms the run, which takes a message round trip: the runtime then
+    // reports `running` (or `stopped`). Set after start, which reports a replaced run stopped at once.
+    setSimulationStatus("queued");
+    return { success: true, browser: true, cancelled: false };
+  };
+
   const startMutation = useMutation({
     // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
     // stay controllable when the browser reports being offline (networkMode "online" would pause them).
     networkMode: "always",
     mutationFn: async () => {
+      const token = ++startToken.current;
+      // The build this start is made for: a later build or a discarded one does not change what it runs.
+      const compiledArtifact = compiledArtifactRef.current;
       const timeout = normalizeSimulationTimeout(simulationTimeout);
       logger.debug(`[CLIENT] startMutation invoked, simulationTimeout=${timeout}`);
       params.resetPinUI({ keepDetected: true });
@@ -192,24 +227,7 @@ export function useSimulationController(
       if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current, startsInBrowser() ? "browser" : "host-mock");
-      if (startsInBrowser()) {
-        // The schema and the runtime load on demand: they stay out of the initial bundle.
-        const { parseSimulationArtifact } = await import("@shared/simulation-artifact");
-        const artifact = parseSimulationArtifact(compiledArtifactRef.current);
-        if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
-        const runtime = await hub.load("browser");
-        // Start first: replacing a run reports the old one stopped, which must not end the new one.
-        const serialBaud = sketchSerialBaud(compiledCodeRef.current ?? "");
-        runtime.start({
-          kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout,
-          ...(serialBaud === undefined ? {} : { serialBaud }),
-        });
-        hub.setActive("browser");
-        // Pending until the worker confirms the run, which takes a message round trip: the runtime then
-        // reports `running` (or `stopped`). Set after start, which reports a replaced run stopped at once.
-        setSimulationStatus("queued");
-        return { success: true, browser: true };
-      }
+      if (startsInBrowser()) return startBrowserRun(token, compiledArtifact, timeout);
       hub.setActive("host-mock");
       if (params.sendMessageImmediate) {
         const sent = params.sendMessageImmediate(message);
@@ -221,9 +239,10 @@ export function useSimulationController(
       } else {
         params.sendMessage(message);
       }
-      return { success: true, browser: false };
+      return { success: true, browser: false, cancelled: false };
     },
-    onSuccess: ({ browser }) => {
+    onSuccess: ({ browser, cancelled }) => {
+      if (cancelled) return;
       if (!browser) setSimulationStatus("running");
       if (params.pendingPinConflicts.length > 0) {
         params.uiFeedback.showPinConflictWarning(params.pendingPinConflicts);
@@ -314,6 +333,7 @@ export function useSimulationController(
     handlePause,
     handleResume,
     stopSimulationImmediately,
+    cancelPendingStart,
     startSimulation,
     setCompiledCode,
     setCompiledHeaders,
