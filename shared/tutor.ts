@@ -3,6 +3,7 @@ import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
 import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
+import { boundedArray } from "./bounded-array";
 
 export const tutorModelSchema = z
   .string()
@@ -54,7 +55,7 @@ const tutorLearningMetadataFields = {
   contentRevision: z.string().regex(/^[a-f0-9]{40}$/i).optional(),
   learningPhase: tutorLearningPhaseSchema.optional(),
   activeTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
-  masteredTopicIds: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/)).max(64).optional(),
+  masteredTopicIds: boundedArray(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/), 64).optional(),
   progressionBlockedReason: z.literal("content-exhausted").optional(),
   extensionTargetTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
 };
@@ -132,7 +133,7 @@ export const tutorModelsRequestSchema = z
 
 export const tutorModelsResponseSchema = z
   .object({
-    models: z.array(tutorModelSchema).max(256),
+    models: boundedArray(tutorModelSchema, 256),
   })
   .strict();
 
@@ -171,7 +172,7 @@ export const tutorDialogRequestSchema = z
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
     ...projectFilesRequestFields,
     board: boardIdSchema.optional(),
-    history: z.array(tutorDialogTurnSchema).max(INPUT_LIMITS.tutor.maxHistoryEntries),
+    history: boundedArray(tutorDialogTurnSchema, INPUT_LIMITS.tutor.maxHistoryEntries),
     question: z.string().trim().min(1).max(2_000),
     answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),

@@ -1,5 +1,6 @@
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { boundedArray } from "@shared/bounded-array";
 
 export const EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES = 16 * 1024;
 const OPENING_MARKER = "/* @unosim-tutor";
@@ -34,19 +35,19 @@ const focusAreaSchema = z.object({
   id: z.string().regex(SAFE_TUTOR_ID),
   title: SAFE_TEXT(160),
   objective: SAFE_TEXT(500),
-  questions: z.array(focusQuestionSchema).min(1).max(6),
+  questions: boundedArray(focusQuestionSchema, 6, 1),
 }).strict();
 
 export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
 
 export const embeddedTutorAnnotationSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2)]),
-  focus: z.array(focusAreaSchema).min(1).max(8).optional(),
+  focus: boundedArray(focusAreaSchema, 8, 1).optional(),
   afterFocus: z.enum(["free", "topics"]).optional(),
-  topics: z.array(z.string().regex(SAFE_TUTOR_ID)).min(1).max(32).optional(),
+  topics: boundedArray(z.string().regex(SAFE_TUTOR_ID), 32, 1).optional(),
   primaryTopic: z.string().regex(SAFE_TUTOR_ID).optional(),
   strategy: z.string().regex(SAFE_TUTOR_ID).optional(),
-  learningObjectives: z.array(learningObjectiveSchema).min(1).max(10).optional(),
+  learningObjectives: boundedArray(learningObjectiveSchema, 10, 1).optional(),
 }).strict().superRefine((value, context) => {
   if (value.schemaVersion === 1 && (value.focus !== undefined || value.afterFocus !== undefined)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
