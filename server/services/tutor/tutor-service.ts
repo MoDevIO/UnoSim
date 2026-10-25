@@ -759,12 +759,15 @@ export class TutorService {
     const requestCredential = this.resolveCredential(credential);
     const source = asTutorSource(sourceOrBoard);
     const context = buildTutorContext(code, source);
+    // Planner, strategy and prompt see the same project: a topic the sketch's facts select (an array, a
+    // type, a Serial call) must not depend on which file the declaration sits in.
+    const sketchText = tutorSketchText(code, source);
     const transaction = beginTutorPlanningTransaction(courseContent);
     const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code, history: [], difficulty, courseContent: transaction.courseContent })
+      ? await this.planningExtension.planInitial({ code: sketchText, history: [], difficulty, courseContent: transaction.courseContent })
       : null;
     throwIfTutorRequestAborted(signal);
-    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(code, transaction.courseContent, signal);
+    const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(sketchText, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
     const model = await this.resolveModel(requestedModel, requestCredential, signal);
     throwIfTutorRequestAborted(signal);
@@ -773,7 +776,7 @@ export class TutorService {
         model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildUserPrompt(
-          tutorSketchText(code, source),
+          sketchText,
           context,
           difficulty,
           planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
@@ -809,9 +812,10 @@ export class TutorService {
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
+    const sketchText = tutorSketchText(code, source);
     const transaction = beginTutorPlanningTransaction(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
-      const strategy = await this.resolveStrategy(code, transaction.courseContent, signal);
+      const strategy = await this.resolveStrategy(sketchText, transaction.courseContent, signal);
       throwIfTutorRequestAborted(signal);
       return {
         model: requestedModel ?? "fallback",
@@ -823,9 +827,9 @@ export class TutorService {
     const context = buildTutorContext(code, source);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
-    const currentPlanningResult = await this.planAnsweredQuestion(code, parsedHistory, question, difficulty, transaction.courseContent, signal);
+    const currentPlanningResult = await this.planAnsweredQuestion(sketchText, parsedHistory, question, difficulty, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
-    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(code, transaction.courseContent, signal);
+    const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(sketchText, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
     const model = await this.resolveModel(requestedModel, requestCredential, signal);
     throwIfTutorRequestAborted(signal);
@@ -833,7 +837,7 @@ export class TutorService {
       {
         model,
         systemPrompt: TUTOR_SYSTEM_PROMPT,
-        userPrompt: buildDialogPrompt(tutorSketchText(code, source), context, parsedHistory, question, answer, difficulty, {
+        userPrompt: buildDialogPrompt(sketchText, context, parsedHistory, question, answer, difficulty, {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
           learningObjectives: transaction.courseContent?.exampleTutorAnnotation?.learningObjectives,
@@ -848,7 +852,7 @@ export class TutorService {
       throw new TutorProviderError("invalid-response");
     }
     const followUp = await this.applyDialogFollowUp(validatedResult, {
-      code,
+      code: sketchText,
       history: parsedHistory,
       question,
       difficulty,
