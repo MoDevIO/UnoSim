@@ -99,7 +99,10 @@ export class BrowserRuntime implements SimulationRuntime {
   private phase: Phase = "idle";
   private pendingStart: { readonly timeoutSec: number; readonly serialBaud?: number } | undefined;
   private timeoutSec = 0;
+  /** The deadline of the current run's next step (ready, a confirmation). */
   private deadline: unknown;
+  /** The deadline of a stop the worker has not confirmed yet. It outlives the run it stops and belongs to no later run. */
+  private stopDeadline: unknown;
   private heartbeatTimer: unknown;
   private lastHeard = 0;
   private stoppingRunId: number | undefined;
@@ -158,7 +161,9 @@ export class BrowserRuntime implements SimulationRuntime {
     if (runId !== undefined && this.worker && this.phase !== "loading") {
       this.stoppingRunId = runId;
       this.post({ type: "stop", runId });
-      this.deadline = this.timers.setTimeout(() => this.terminateWorker(), this.limits.stopMs);
+      this.clearStopDeadline();
+      // A worker that does not confirm in time is ended, with a start that already waits behind it.
+      this.stopDeadline = this.timers.setTimeout(() => this.fail("the emulator did not stop"), this.limits.stopMs);
     } else {
       this.terminateWorker(); // still loading: nothing to ask, and the worker may be stuck
     }
@@ -201,6 +206,7 @@ export class BrowserRuntime implements SimulationRuntime {
 
   dispose(): void {
     this.clearDeadline();
+    this.clearStopDeadline();
     this.clearHeartbeat();
     this.terminateWorker();
     this.listeners.clear();
@@ -230,7 +236,7 @@ export class BrowserRuntime implements SimulationRuntime {
     if (!isRunEvent(data)) return;
     if (data.runId === this.stoppingRunId && data.type === "status" && data.state === "stopped") {
       this.stoppingRunId = undefined;
-      this.clearDeadline();
+      this.clearStopDeadline();
       return;
     }
     if (!this.gate.accept(data)) return;
@@ -386,7 +392,7 @@ export class BrowserRuntime implements SimulationRuntime {
 
   /** The run is over for the UI: state `stopped`, supervision off, later events of the run dropped. */
   private finish(before: readonly AnyRuntimeEvent[]): void {
-    this.clearDeadline(this.stoppingRunId === undefined);
+    this.clearDeadline();
     this.clearHeartbeat();
     this.phase = "idle";
     this.pendingStart = undefined;
@@ -401,13 +407,20 @@ export class BrowserRuntime implements SimulationRuntime {
     this.worker = undefined;
     this.stoppingRunId = undefined;
     this.clearDeadline();
+    this.clearStopDeadline();
     worker?.terminate();
   }
 
-  private clearDeadline(clear = true): void {
-    if (!clear || this.deadline === undefined) return;
+  private clearDeadline(): void {
+    if (this.deadline === undefined) return;
     this.timers.clearTimeout(this.deadline);
     this.deadline = undefined;
+  }
+
+  private clearStopDeadline(): void {
+    if (this.stopDeadline === undefined) return;
+    this.timers.clearTimeout(this.stopDeadline);
+    this.stopDeadline = undefined;
   }
 
   private clearHeartbeat(): void {
