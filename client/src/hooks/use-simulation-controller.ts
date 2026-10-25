@@ -186,6 +186,27 @@ export function useSimulationController(
     onError: () => params.uiFeedback.showResumeFailedToast(),
   });
 
+  /** Loads the emulator on demand and starts the run, unless Stop, a new start or a discarded build ended this start meanwhile. */
+  const startBrowserRun = async (token: number, compiledArtifact: unknown, timeout: number) => {
+    // The schema and the runtime load on demand: they stay out of the initial bundle.
+    const { parseSimulationArtifact } = await import("@shared/simulation-artifact");
+    const artifact = parseSimulationArtifact(compiledArtifact);
+    if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
+    const runtime = await hub.load("browser");
+    if (token !== startToken.current) return { success: true, browser: true, cancelled: true };
+    // Start first: replacing a run reports the old one stopped, which must not end the new one.
+    const serialBaud = sketchSerialBaud(compiledCodeRef.current ?? "");
+    runtime.start({
+      kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout,
+      ...(serialBaud === undefined ? {} : { serialBaud }),
+    });
+    hub.setActive("browser");
+    // Pending until the worker confirms the run, which takes a message round trip: the runtime then
+    // reports `running` (or `stopped`). Set after start, which reports a replaced run stopped at once.
+    setSimulationStatus("queued");
+    return { success: true, browser: true, cancelled: false };
+  };
+
   const startMutation = useMutation({
     // These mutations send WebSocket messages or call the browser runtime, never HTTP: a browser run must
     // stay controllable when the browser reports being offline (networkMode "online" would pause them).
@@ -206,26 +227,7 @@ export function useSimulationController(
       if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
       params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current, startsInBrowser() ? "browser" : "host-mock");
-      if (startsInBrowser()) {
-        // The schema and the runtime load on demand: they stay out of the initial bundle.
-        const { parseSimulationArtifact } = await import("@shared/simulation-artifact");
-        const artifact = parseSimulationArtifact(compiledArtifact);
-        if (!artifact) throw new Error("The latest build has no image for the browser emulation. Compile again.");
-        const runtime = await hub.load("browser");
-        // Stopped, replaced by another start or discarded while the emulator code loaded: do not run.
-        if (token !== startToken.current) return { success: true, browser: true, cancelled: true };
-        // Start first: replacing a run reports the old one stopped, which must not end the new one.
-        const serialBaud = sketchSerialBaud(compiledCodeRef.current ?? "");
-        runtime.start({
-          kind: "browser", artifact, ...(params.board ? { board: params.board } : {}), timeoutSec: timeout,
-          ...(serialBaud === undefined ? {} : { serialBaud }),
-        });
-        hub.setActive("browser");
-        // Pending until the worker confirms the run, which takes a message round trip: the runtime then
-        // reports `running` (or `stopped`). Set after start, which reports a replaced run stopped at once.
-        setSimulationStatus("queued");
-        return { success: true, browser: true, cancelled: false };
-      }
+      if (startsInBrowser()) return startBrowserRun(token, compiledArtifact, timeout);
       hub.setActive("host-mock");
       if (params.sendMessageImmediate) {
         const sent = params.sendMessageImmediate(message);
