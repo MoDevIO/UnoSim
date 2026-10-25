@@ -36,6 +36,22 @@ only 0.8 s of headroom before the Mega corpus was added. The coverage guard
 validates both `lcov` files and requires at least 90 % line coverage for
 `packages/avr-emulator/src/`; Sonar reads both reports.
 
+### Application coverage pass
+
+The application pass of `npm run test:coverage` (`unit-client`, `unit-node`,
+`unit-node-http`; budget `unit-coverage`) has a warning at 100 s and a hard
+fail at 150 s. It was 75 s / 120 s until 2026-10-25. Measured on the GitHub
+runners, 14 runs: 78 s to 120 s; on 2026-10-25 every run was between 115.8 s
+and 119.97 s, one run on 2026-10-23 failed at 125 s, while the same pass takes
+41 s on an Apple M2 Pro. The suite grew by about 600 tests since the old limit
+was set (3,658 tests), V8 coverage costs roughly 50 % more than the plain pass
+(`test:unit:app`, 80 s on the runner, limits unchanged), and no single test
+dominates: the three slowest files take about a third of the summed file time
+(compile tests with a faked CLI at roughly 150 ms per compile). The new limit
+keeps 25 % headroom over the slowest run seen; no test was removed or skipped.
+A run that approaches 150 s is the signal to split the pass, not to raise the
+limit again.
+
 Emulator tests should keep simulated time short: about 1 ms of simulated time
 costs roughly 1 ms of wall time without coverage and 5–25 ms with it.
 
