@@ -58,6 +58,32 @@ function distinct<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
 }
 
+type DeclaredArray = { name: string; elementType: SketchType; elementCount: number };
+
+/** The arrays a sketch declares: element type, name and the number of elements (initializer, else declared size). */
+function declaredArrays(clean: string): DeclaredArray[] {
+  const arrays: DeclaredArray[] = [];
+  const closingBrace = closingBraceFinder(clean);
+  for (const match of clean.matchAll(ARRAY_PATTERN)) {
+    const elementType = canonicalType(match[1] ?? "");
+    const name = match[2];
+    if (!elementType || !name) continue;
+    const afterDeclaration = (match.index ?? 0) + match[0].length;
+    const head = INITIALIZER_HEAD.exec(clean.slice(afterDeclaration, afterDeclaration + INITIALIZER_HEAD_WINDOW));
+    const close = head ? closingBrace(afterDeclaration + head[0].length) : -1;
+    const initializer = head && close >= 0 ? clean.slice(afterDeclaration + head[0].length, close).trim() : undefined;
+    const declaredSize = Number.parseInt(match[3]?.trim() ?? "", 10);
+    let elementCount = 0;
+    if (initializer) {
+      elementCount = initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
+    } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
+      elementCount = declaredSize;
+    }
+    arrays.push({ name, elementType, elementCount });
+  }
+  return arrays;
+}
+
 export class DefaultSketchFactExtractor implements SketchFactExtractor {
   extract(code: string): SketchFacts {
     const clean = stripComments(code);
@@ -67,26 +93,8 @@ export class DefaultSketchFactExtractor implements SketchFactExtractor {
       if (type) types.push(type);
     }
 
-    const arrays: Array<{ name: string; elementType: SketchType; elementCount: number }> = [];
-    const closingBrace = closingBraceFinder(clean);
-    for (const match of clean.matchAll(ARRAY_PATTERN)) {
-      const elementType = canonicalType(match[1] ?? "");
-      const name = match[2];
-      if (!elementType || !name) continue;
-      const afterDeclaration = (match.index ?? 0) + match[0].length;
-      const head = INITIALIZER_HEAD.exec(clean.slice(afterDeclaration, afterDeclaration + INITIALIZER_HEAD_WINDOW));
-      const close = head ? closingBrace(afterDeclaration + head[0].length) : -1;
-      const initializer = head && close >= 0 ? clean.slice(afterDeclaration + head[0].length, close).trim() : undefined;
-      const declaredSize = Number.parseInt(match[3]?.trim() ?? "", 10);
-      let elementCount = 0;
-      if (initializer) {
-        elementCount = initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
-      } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
-        elementCount = declaredSize;
-      }
-      arrays.push({ name, elementType, elementCount });
-      types.push(elementType);
-    }
+    const arrays = declaredArrays(clean);
+    for (const array of arrays) types.push(array.elementType);
 
     const serialCalls: ("print" | "write")[] = [];
     for (const match of clean.matchAll(SERIAL_PATTERN)) {
