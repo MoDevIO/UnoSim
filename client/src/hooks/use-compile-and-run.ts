@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
@@ -294,8 +294,15 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setSerialOutput: params.setSerialOutput,
   });
 
+  // Opening another tab changes the shown `code`, not the source of the run.
+  const sourceSignature = useMemo(
+    () => (params.sourceProject ? JSON.stringify(Object.values(params.sourceProject.files)) : undefined),
+    [params.sourceProject],
+  );
+
   const simulation = useSimulationController({
     onStartOrStop: invalidatePendingStart,
+    ...(sourceSignature === undefined ? {} : { sourceSignature }),
     ...(params.runtimeKind ? { runtimeKind: params.runtimeKind } : {}),
     ...(params.boardId ? { board: params.boardId } : {}),
     ...(params.hostMockUsable === undefined ? {} : { hostMockUsable: params.hostMockUsable }),
