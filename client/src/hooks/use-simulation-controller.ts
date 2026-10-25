@@ -28,6 +28,8 @@ export type SimulationControllerParams = {
   /** The runtimes of this tab; the shared hub when not given. */
   runtimeHub?: Pick<RuntimeHub, "load" | "peek" | "active" | "setActive">;
   code: string;
+  /** The content of every file of the project: an edit of any of them stops the run, opening another tab does not. */
+  sourceSignature?: string;
   hasCompilationErrors: boolean;
   isModified?: boolean;
   ensureBackendConnected: (reason: string) => boolean;
@@ -307,6 +309,8 @@ export function useSimulationController(
 
   const lifecycle = useSimulationLifecycle({
     code: params.code,
+    ...(params.sourceSignature === undefined ? {} : { sourceSignature: params.sourceSignature }),
+    isStartingInBrowser: browserRunActive,
     simulationStatus,
     setSimulationStatus,
     sendMessage: params.sendMessage,
