@@ -205,6 +205,11 @@ development startup reject the flag.
   elements cost 500 000 issues and several hundred MiB. `npm audit` still
   reports `zod < 4.6.6` until the migration to Zod 4 (OPEN_POINTS,
   `ZOD-ADVISORY`).
+- The direction of a WebSocket message is decided by its `type` before any
+  content is validated: a message of a server-to-client type is refused at once,
+  so a client cannot make the server validate the large arrays of server events
+  (a 256 KiB message of empty `pin_state_batch` entries once cost 240 000
+  issues and about 100 MiB of heap).
 - Mutating `/api` requests with a body must be `application/json` (else 415),
   so a foreign page cannot send them as a CORS-simple form or text request.
   Browsers that report `Sec-Fetch-Site: cross-site` or `same-site` are refused
