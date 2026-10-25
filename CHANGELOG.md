@@ -125,6 +125,14 @@ behaviour for the Uno.
   check of their length instead of one issue per element; a 1 MiB body no
   longer costs several hundred MiB and up to a second of blocked event loop.
   Responses are unchanged.
+- **Security:** a client can no longer make the server validate the content of
+  server events: the direction of a WebSocket message is decided by its type
+  first (before, a 256 KiB message of empty `pin_state_batch` entries cost
+  240 000 issues and about 100 MiB of heap).
+- The late answer of a standalone Compile no longer shows the errors of the old
+  project after another project was loaded.
+- Resume works offline for a paused browser run (the button was disabled once the
+  client had noticed the missing server).
 - **Security:** body-parser 1.20.9 (a compressed request with trailing bytes
   could end the process with an uncaught exception, GHSA-27r3-jxmh-p828) and
   ip-address 10.7.5 (quadratic matching of a zone identifier, used by the rate
