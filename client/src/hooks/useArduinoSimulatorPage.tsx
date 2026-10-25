@@ -31,7 +31,7 @@ import { buildSourceProject } from "@/lib/source-project";
 import { buildCompileCommand } from "@/hooks/compile-command-builder";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
-import { getServerCapabilities } from "@/lib/server-capabilities";
+import { getServerCapabilities, isSimulateControlDisabled } from "@/lib/server-capabilities";
 import { setActiveBoard } from "@/lib/active-board";
 import { boardSerialPortCount } from "@shared/board-pins";
 import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
@@ -833,11 +833,14 @@ export function useArduinoSimulatorPage() {
     pauseMutation.isPending ||
     resumeMutation.isPending;
 
-  const simulateDisabled =
-    !capabilities.canSimulate ||
-    ((simulationStatus === "idle" || simulationStatus === "paused") &&
-      (!backendReachable || !isConnected)) ||
-    simControlBusy;
+  const simulateDisabled = isSimulateControlDisabled({
+    canSimulate: capabilities.canSimulate,
+    simulationStatus,
+    backendReachable,
+    isConnected,
+    busy: simControlBusy,
+    browserRun: getRuntimeHub().active === "browser",
+  });
 
   // Ensure the output panel is visible once a simulation starts so that the
   // output tabs (Compiler / Messages / Registry / Debug) are always accessible.

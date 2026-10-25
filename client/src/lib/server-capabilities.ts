@@ -44,3 +44,26 @@ export function getServerCapabilities(
   if (backendReachable) return AVAILABLE_CAPABILITIES;
   return browserRunActive ? BROWSER_RUN_OFFLINE_CAPABILITIES : OFFLINE_CAPABILITIES;
 }
+
+export interface SimulateControlInput {
+  readonly canSimulate: boolean;
+  readonly simulationStatus: string;
+  readonly backendReachable: boolean;
+  readonly isConnected: boolean;
+  /** A start, stop, pause, resume or compile request is in flight. */
+  readonly busy: boolean;
+  /** The current or latest run is a browser run: it needs no server once it exists. */
+  readonly browserRun: boolean;
+}
+
+/**
+ * Whether the Start / Pause / Resume control is disabled. Starting needs the server (the compile), and so
+ * does resuming a server-side run. A paused run of the browser emulation does not: pause, resume and
+ * stop work without a connection (plan P3.5).
+ */
+export function isSimulateControlDisabled({ canSimulate, simulationStatus, backendReachable, isConnected, busy, browserRun }: SimulateControlInput): boolean {
+  if (!canSimulate || busy) return true;
+  const needsServer = simulationStatus === "idle" || (simulationStatus === "paused" && !browserRun);
+  return needsServer && (!backendReachable || !isConnected);
+}
+

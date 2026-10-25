@@ -177,6 +177,32 @@ test.describe("browser emulation (M1)", () => {
     }
   });
 
+  test("offline, a run in the browser can be paused and resumed, and the paused time does not advance", async ({ page, context }: { page: Page; context: BrowserContext }) => {
+    await openWithEngine(page, "browser");
+    await startFromEditor(page, COUNTER);
+    await expect.poll(() => lastCount(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+
+    await context.setOffline(true);
+    try {
+      // The health check runs every 5 s with a 2 s timeout: only after it the client knows the server is gone.
+      await page.waitForTimeout(8_000);
+      await page.getByRole("button", { name: /pause simulation/i }).click();
+      await expect(serial(page)).toContainText("--- Simulation paused ---");
+      const frozen = await lastCount(page);
+      await page.waitForTimeout(800);
+      expect(await lastCount(page)).toBe(frozen);
+
+      // The paused run needs no server: Resume stays available while the connection is lost.
+      const resume = page.getByRole("button", { name: /resume simulation/i });
+      await expect(resume).toBeEnabled({ timeout: 10_000 });
+      await resume.click();
+      await expect(serial(page)).toContainText("--- Simulation resumed ---");
+      await expect.poll(() => lastCount(page), { timeout: 10_000 }).toBeGreaterThan(frozen);
+    } finally {
+      await context.setOffline(false);
+    }
+  });
+
   test("host-mock fallback: with the Legacy engine selected the server simulates and the browser emulation stays unused", async ({ page }) => {
     const traffic = await openWithEngine(page, "host-mock");
 
