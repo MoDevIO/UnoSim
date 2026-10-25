@@ -120,6 +120,14 @@ behaviour for the Uno.
   afterwards, with a build that was already discarded.
 - The Tutor's topic selection and follow-up decision read the header files of
   the project as well, not only the entry file.
+- **Security:** body-parser 1.20.9 (a compressed request with trailing bytes
+  could end the process with an uncaught exception, GHSA-27r3-jxmh-p828) and
+  ip-address 10.7.5 (quadratic matching of a zone identifier, used by the rate
+  limiter).
+- An edit while a browser run is starting (waiting for the worker's
+  confirmation) stops it; before, the confirmation started the old source.
+- Opening another tab, for example a header, no longer stops a running
+  simulation: only an edit of a file does.
 
 ## v1.0.1 – 2026-10-18
 
