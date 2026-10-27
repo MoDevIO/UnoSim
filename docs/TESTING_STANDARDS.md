@@ -2,6 +2,23 @@
 
 Status: current
 
+## Pin capability reference and registry tabs
+
+`packages/avr-emulator/tests/boards/pin-reference.test.ts` checks bus and
+interrupt mappings against hand-checked pinned-core/MCU expectations, including
+Nano analog-only pins, ATtiny USI master roles, and Mega PCINT helper limits.
+`tests/client/io-registry-tabs.test.tsx` verifies the shared source-detail state,
+full file/line navigation targets, empty registries, runtime additions, and
+board changes. `tests/client/pin-infos.test.tsx` covers the compact reference,
+search, restrictions and nonprogrammable contacts.
+
+`e2e/pin-infos.spec.ts` checks the real board menu, reference updates, usage
+source state, the single sticky header/Pin column, and overflow at 100 % and
+150 % font scale in a narrow panel. It expands the initially minimized output
+panel before interacting with the registry. The UI uses existing semantic
+colors, central typography, AppTab/TabBar, and UnifiedScrollArea; no prototype
+CSS is copied into the application.
+
 ## CI Timing Tolerances
 
 ### 🕒 Timing tests are inherently flaky in CI

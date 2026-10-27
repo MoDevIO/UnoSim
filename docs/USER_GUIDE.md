@@ -29,6 +29,45 @@ Ein Lauf endet automatisch nach seiner Laufzeit, die du unter
 **Tools → Timeout** zwischen 5 Sekunden und 5 Minuten wählst. Eine pausierte
 Simulation endet spätestens nach insgesamt 10 Minuten Pause.
 
+## I/O Registry: Nutzung und Pin-Eigenschaften
+
+Im Output Panel unter dem Editor öffnest du **I/O Registry**. Ein Doppelklick
+auf diesen Tab vergrößert das Panel. Darunter stehen drei Ansichten:
+
+- **Programmed Pins (n)** zeigt wie bisher die im Sketch und während des Laufs
+  erkannten Pins und ihre Operationen. Die Zahl zählt verwendete Pins.
+- **All Pins** zeigt dieselbe Nutzungstabelle für alle Signalpins des gewählten
+  Boards. Unbenutzte Pins haben leere Operationsfelder.
+- **Pin Infos** zeigt die Fähigkeiten des gewählten Boards unabhängig vom
+  Sketch: Digital In/Out, Analog In, PWM Out, Bus Connections, Ext. IRQ,
+  Pin Change und Timer. I²C, SPI/USI und Serial stehen mit ihrer Signalrolle in
+  einer gemeinsamen Spalte. Die Suche findet zum Beispiel `SDA`, `SPI`,
+  `PCINT` oder `A0`. Beim Scrollen bleiben Kopfzeile und Pin-Spalte sichtbar.
+
+Der Auge-Button schaltet in den beiden Nutzungstabellen die Quellstellen ein.
+Dateiname, Zeile, vollständiger Pfad im Tooltip und der Sprung zur richtigen
+Datei bleiben erhalten. Alte Einträge mit einer Zeile ohne Dateipfad zeigen
+weiterhin etwa `L23`; dynamische Funde ohne statische Stelle heißen `runtime`.
+Der Zustand des Auge-Buttons bleibt beim Wechsel zwischen den drei Ansichten
+erhalten. **Pin Infos** hat keine Quellstellen, weil es Hardware beschreibt.
+
+PWM verwendet **8 Bit**, also 256 Stufen von 0 bis 255. Analogeingänge liefern
+**10 Bit**, also 1024 Stufen von 0 bis 1023. Nano A6/A7 sind nur Analogeingänge.
+Ein Sternchen erklärt Einschränkungen im Tooltip: insbesondere ATtiny PB5 als
+reservierter RESET-Pin und einzelne Mega-Pins mit Pin-Change-Fähigkeit über
+Register, die der Arduino-Core nicht über seine Helfer anbietet. Beim ATtiny
+steht die Codeschreibweise unter dem Pin, etwa **PB4 — Code: 4 / A2**.
+Versorgungs-, Masse- und Steuerkontakte stehen als reine Referenz am Ende;
+sie sind keine zusätzlichen programmierbaren Pins und erhöhen die Zählung nicht.
+
+Die Tabelle beschreibt Hardwarefähigkeiten, keine gleichzeitige Nutzbarkeit
+aller mehrfach belegten Funktionen. Beim ATtiny gelten die angezeigten
+USI/SPI-Rollen für den Master-Modus des gewählten Cores; ISP-Beschriftungen
+können davon abweichen. **I²C, SPI und USI werden derzeit nicht simuliert.**
+Die seriellen Peripherien werden im Browser-Modus nachgebildet; daraus folgt
+keine Unterstützung beliebiger angeschlossener Geräte. Das bloße Anzeigen
+einer Busfunktion verspricht deshalb keine Simulation eines Sensors.
+
 ## Arbeit sichern
 
 Der Server speichert keine Sketches. Sichere deine Dateien mit
