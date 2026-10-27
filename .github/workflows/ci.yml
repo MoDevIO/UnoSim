@@ -102,7 +102,9 @@ jobs:
     name: Playwright E2E
     # No `needs: build-and-test`: the job builds the client itself, and waiting for the unit job put
     # about 220 s on the critical path of every run.
-    runs-on: ubuntu-latest
+    # Keep the OS within the pinned Playwright browser support matrix.
+    # ubuntu-latest can move to a release whose Chromium binary is not available yet.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

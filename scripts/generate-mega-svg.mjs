@@ -1,166 +1,160 @@
-// Draws the Arduino Mega 2560 for the board view (plan P5.4): `client/public/ArduinoMega.svg` (the board) and
-// `ArduinoMega-overlay.svg` (the interactive parts, same id convention as the Uno and the Nano: pin-<n>-click/-state/-frame,
-// pin-A<k>-..., led-l/-on/-tx/-rx, reset-click). Drawn from scratch, no third-party artwork. 4 units per mm.
-//   node scripts/generate-mega-svg.mjs
-import { writeFileSync } from "node:fs";
+// Builds the Mega view from the supplied artwork, never from an approximate schematic.
+// The source stays untouched; the quarter scale keeps runtime labels in the other boards' unit range.
+// Run: npm run generate:mega-svg
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { JSDOM } from "jsdom";
+import { MEGA2560 } from "../packages/avr-emulator/src/boards/mega2560-board.ts";
 
-const MM = 4;
-const WIDTH = 101.6 * MM; // 406.4
-const HEIGHT = 53.3 * MM; // 213.2
-const MARGIN = 4;
-const PITCH = 2.54 * MM;
-const X0 = 70;
-const GAP = 8;
-const TOP_Y = 8;
-const BOTTOM_Y = HEIGHT - 8;
-const RIGHT_X = [WIDTH - 20, WIDTH - 9.84];
-const RIGHT_Y0 = 40;
-const BOARD_COLOR = "#0f7391"; // replaced by the user's board colour at run time
+const root = join(import.meta.dirname, "..");
+const source = readFileSync(join(root, "assets/boards/ArduinoMega.source.svg"), "utf8");
+const dom = new JSDOM(source, { contentType: "image/svg+xml" });
+const document = dom.window.document;
+const svg = document.documentElement;
+const SCALE = 0.25;
+const [, , sourceWidth, sourceHeight] = svg.getAttribute("viewBox").split(/\s+/).map(Number);
+const viewBox = `0 0 ${sourceWidth * SCALE} ${sourceHeight * SCALE}`;
+const fmt = (value) => Number(value.toFixed(6));
+const n = (element, attribute) => Number(element.getAttribute(attribute));
 
-/** One header block: `label` = silk screen, `pin` = Arduino pin name in the sketch (absent for power pins). */
-const digital = (n, label = `D${n}`) => ({ label, pin: String(n) });
-const analog = (k) => ({ label: `A${k}`, pin: `A${k}` });
-const power = (label) => ({ label });
-
-const TOP_BLOCKS = [
-  [power("AREF"), power("GND"), ...[13, 12, 11, 10, 9, 8].map((n) => digital(n))],
-  [7, 6, 5, 4, 3, 2, 1, 0].map((n) => digital(n)),
-  [digital(14, "TX3"), digital(15, "RX3"), digital(16, "TX2"), digital(17, "RX2"), digital(18, "TX1"), digital(19, "RX1"), digital(20, "SDA"), digital(21, "SCL")],
-];
-const BOTTOM_BLOCKS = [
-  [power("NC"), power("IOREF"), power("RST"), power("3V3"), power("5V"), power("GND"), power("GND"), power("VIN")],
-  Array.from({ length: 8 }, (_, k) => analog(k)),
-  Array.from({ length: 8 }, (_, k) => analog(k + 8)),
-];
-
-const fmt = (value) => Number(value.toFixed(2));
-
-function rowPositions(blocks, y) {
-  const out = [];
-  let x = X0;
-  for (const block of blocks) {
-    for (const entry of block) {
-      out.push({ ...entry, x: fmt(x), y });
-      x += PITCH;
-    }
-    x += GAP;
-  }
-  return out;
+function socket(element) {
+  const surround = element.previousElementSibling;
+  if (surround?.tagName !== "rect") throw new Error("Mega contact has no rectangular surround");
+  const box = (node) => Object.fromEntries(["x", "y", "width", "height"].map(key => [key, n(node, key)]));
+  const hole = box(element);
+  return { element, hole, surround: box(surround), x: hole.x + hole.width / 2, y: hole.y + hole.height / 2 };
 }
 
-/** The two-row header on the right edge: pins 22–53 (even in the left column, odd in the right), 5V on top and GND at the bottom. */
-function rightPositions() {
-  const out = [];
-  for (let row = 0; row < 16; row++) {
-    const y = fmt(RIGHT_Y0 + row * PITCH);
-    out.push({ ...digital(22 + 2 * row), x: fmt(RIGHT_X[0]), y }, { ...digital(23 + 2 * row), x: fmt(RIGHT_X[1]), y });
-  }
-  const top = fmt(RIGHT_Y0 - PITCH);
-  const bottom = fmt(RIGHT_Y0 + 16 * PITCH);
-  out.push(
-    { ...power("5V"), x: fmt(RIGHT_X[0]), y: top }, { ...power("5V"), x: fmt(RIGHT_X[1]), y: top },
-    { ...power("GND"), x: fmt(RIGHT_X[0]), y: bottom }, { ...power("GND"), x: fmt(RIGHT_X[1]), y: bottom },
-  );
-  return out;
+const sockets = [...document.querySelectorAll("#pins > rect.cls-28")].map(socket);
+const top = sockets.filter(({ hole, y }) => hole.width > hole.height && y < sourceHeight / 2).sort((a, b) => a.x - b.x);
+const bottom = sockets.filter(({ hole, y }) => hole.width > hole.height && y > sourceHeight / 2).sort((a, b) => a.x - b.x);
+const right = sockets.filter(({ hole }) => hole.width < hole.height);
+const midColumn = (Math.min(...right.map(({ x }) => x)) + Math.max(...right.map(({ x }) => x))) / 2;
+const columns = [right.filter(({ x }) => x < midColumn), right.filter(({ x }) => x > midColumn)]
+  .map(column => column.toSorted((a, b) => a.y - b.y));
+if (top.length !== 26 || bottom.length !== 24 || columns.some(column => column.length !== 18)) {
+  throw new Error("Mega artwork's headers changed; review the pin assignment before generating the overlay");
 }
 
-const pins = [...rowPositions(TOP_BLOCKS, TOP_Y), ...rowPositions(BOTTOM_BLOCKS, BOTTOM_Y), ...rightPositions()];
+const pins = new Map();
+const assign = (name, pad) => {
+  pad.element.dataset.megaContact = name;
+  pins.set(name, pad);
+};
+[13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 14, 15, 16, 17, 18, 19, 20, 21]
+  .forEach((pin, index) => assign(String(pin), top[index + 4]));
+for (let channel = 0; channel < 16; channel++) assign(`A${channel}`, bottom[channel + 8]);
+for (let row = 0; row < 16; row++) {
+  assign(String(22 + row * 2), columns[0][row + 1]);
+  assign(String(23 + row * 2), columns[1][row + 1]);
+}
+const aliases = [{ pin: "21", alias: "scl", pad: top[0] }, { pin: "20", alias: "sda", pad: top[1] }];
+for (const { pin, alias, pad } of aliases) pad.element.dataset.megaContact = `${pin}-${alias}`;
 
-const header = (inner, extra = "") => `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-MARGIN} ${-MARGIN} ${fmt(WIDTH + 2 * MARGIN)} ${fmt(HEIGHT + 2 * MARGIN)}">
-${extra}${inner}</svg>
-`;
+const lights = [["l", "led_l_off"], ["on", "led_l_off-2"], ["tx", "led_l_off-3"], ["rx", "led_l_off-4"]]
+  .map(([name, id]) => ({ name, element: document.getElementById(id) }));
+const reset = document.getElementById("button_off");
+// Match the Uno reset cap and its darker edge, preserving the supplied geometry.
+reset.setAttribute("style", "fill:#852725");
+document.getElementById("button_on").setAttribute("style", "fill:#641d1c");
 
-const FONT = 'font-family="Arial, sans-serif"';
+// The export contains duplicate ids and permanently lit LED glows, including an invalid
+// "display:none" class. Only the runtime overlay should provide these lights.
+[...document.querySelectorAll('[id="led_l_on"]')].forEach((element, index) => {
+  element.id = `led_glow_${index}`;
+  element.setAttribute("display", "none");
+  element.dataset.sourceLedGlow = "";
+});
 
-function labelPosition({ x, y }) {
-  if (x > WIDTH - 40) return { x: x < WIDTH - 15 ? x - 5.2 : x + 5.2, y: y + 1, anchor: x < WIDTH - 15 ? "end" : "start" };
-  return { x, y: y === TOP_Y ? y + 7.5 : y - 5.5, anchor: "middle" };
+// Namespace the illustrator's generic classes, masks and ids to protect other inline SVGs.
+const sourceIds = [...document.querySelectorAll("[id]")].map(element => element.id);
+for (const element of document.querySelectorAll("[id]")) element.id = `mega-source-${element.id}`;
+for (const { element } of sockets) {
+  const name = element.dataset.megaContact;
+  if (name) element.id = `mega-pad-${name}`;
+}
+const artwork = document.createElementNS("http://www.w3.org/2000/svg", "g");
+artwork.id = "mega-artwork";
+artwork.setAttribute("transform", `scale(${SCALE})`);
+// Snapshot the live collection before moving its members to another parent.
+const sourceChildren = Array.from(svg.children);
+for (const child of sourceChildren) if (child.tagName !== "defs") artwork.append(child);
+svg.append(artwork);
+svg.setAttribute("viewBox", viewBox);
+
+// Keep the supplied outline lettering intact. Add the Uno's PWM wave next to
+// the corresponding labels, using the same hardware capabilities as the UI.
+const pwmMarkers = document.createElementNS("http://www.w3.org/2000/svg", "g");
+pwmMarkers.id = "mega-pwm-markers";
+for (const [name, value] of Object.entries({ fill: "none", stroke: "#fff", "stroke-width": "0.55", "stroke-linecap": "round", "pointer-events": "none" })) {
+  pwmMarkers.setAttribute(name, value);
+}
+for (const { pin } of MEGA2560.pins.filter(pin => pin.pwm)) {
+  const pad = pins.get(String(pin));
+  const topRow = pin <= 13;
+  let labelOffset = 0;
+  if (!topRow) labelOffset = pin % 2 === 0 ? -18.75 : 6.3;
+  const x = pad.x * SCALE + labelOffset;
+  const y = topRow ? 27.5 : pad.y * SCALE;
+  const marker = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  marker.dataset.pwmPin = String(pin);
+  marker.setAttribute("d", "M -1.8 0 C -0.6 -1.8 0.6 1.8 1.8 0");
+  marker.setAttribute("transform", `translate(${fmt(x)} ${fmt(y)})${topRow ? " rotate(-90)" : ""}`);
+  pwmMarkers.append(marker);
+}
+svg.append(pwmMarkers);
+let board = new dom.window.XMLSerializer().serializeToString(svg);
+for (const id of sourceIds) board = board.replaceAll(`url(#${id})`, `url(#mega-source-${id})`);
+board = board.replaceAll(/\bcls-(\d+)\b/g, "mega-cls-$1")
+  .replaceAll("#41969c", "#0f7391") // preserve the existing configurable PCB colour
+  .replaceAll("><", ">\n<");
+
+function pinOverlay(name, { x, y, hole, surround }) {
+  const box = Object.fromEntries(Object.entries(surround).map(([key, value]) => [key, value * SCALE]));
+  box.x = x * SCALE - box.width / 2;
+  box.y = y * SCALE - box.height / 2;
+  return `  <g id="pin-${name}" data-pin="${name}">
+    <title>${name.startsWith("A") ? name : `D${name}`}</title>
+    <rect id="pin-${name}-frame" class="input-frame" x="${fmt(box.x - 0.25)}" y="${fmt(box.y - 0.25)}" width="${fmt(box.width + 0.5)}" height="${fmt(box.height + 0.5)}" style="display:none"/>
+    <circle id="pin-${name}-state" cx="${fmt(x * SCALE)}" cy="${fmt(y * SCALE)}" r="${fmt(Math.min(hole.width, hole.height) * SCALE / 2)}" fill="transparent"/>
+    <rect id="pin-${name}-click" class="click-area" x="${fmt(box.x - 0.25)}" y="${fmt(box.y - 0.25)}" width="${fmt(box.width + 0.5)}" height="${fmt(box.height + 0.5)}"/>
+  </g>`;
 }
 
-function boardSvg() {
-  const pads = pins
-    .map((entry) => {
-      const { x, y, label, pin } = entry;
-      const at = labelPosition(entry);
-      return `  <circle cx="${x}" cy="${y}" r="2.1" fill="${pin ? "#d1c690" : "#8a8a8a"}"/>\n  <text x="${at.x}" y="${at.y}" font-size="3" ${FONT} fill="#ffffff" text-anchor="${at.anchor}"${pin === undefined ? ' fill-opacity="0.7"' : ""}>${label}</text>`;
-    })
-    .join("\n");
-  const led = (y, label, x = 40) => `  <rect x="${x}" y="${y}" width="5" height="2.6" fill="#d8d8d8"/><text x="${x + 6.5}" y="${y + 2.2}" font-size="2.4" ${FONT} fill="#ffffff">${label}</text>`;
-  return header(`  <!-- Arduino Mega 2560, drawn for UnoSim: ${WIDTH} x ${HEIGHT} units (101.6 x 53.3 mm) -->
-  <rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" rx="3" fill="${BOARD_COLOR}"/>
-  <rect x="-3" y="30" width="34" height="38" rx="1.5" fill="#bdbdbd" stroke="#8a8a8a" stroke-width="0.6"/>
-  <rect x="-3" y="36" width="26" height="26" rx="1" fill="#9b9b9b"/>
-  <rect x="-3" y="${HEIGHT - 70}" width="40" height="46" rx="1.5" fill="#222222"/>
-  <rect x="-3" y="${HEIGHT - 64}" width="30" height="34" rx="1" fill="#3a3a3a"/>
-  <rect x="140" y="82" width="52" height="52" rx="1" fill="#222222"/>
-  <circle cx="146" cy="88" r="1.3" fill="#555555"/>
-  <text x="166" y="106" font-size="4" ${FONT} fill="#ffffff" text-anchor="middle">ATmega2560</text>
-  <text x="166" y="113" font-size="3" ${FONT} fill="#ffffff" fill-opacity="0.8" text-anchor="middle">16 MHz</text>
-  <rect x="82" y="98" width="26" height="26" rx="1" fill="#2a2a2a"/>
-  <text x="95" y="112" font-size="3" ${FONT} fill="#ffffff" text-anchor="middle">16U2</text>
-  <rect x="116" y="150" width="12" height="16" rx="1" fill="#c0c0c0"/>
-  <circle cx="52" cy="104" r="6" fill="#c0c0c0" stroke="#8a8a8a" stroke-width="0.6"/>
-  <circle cx="52" cy="104" r="3.4" fill="#b02a2a"/>
-  <rect x="226" y="120" width="40" height="26" rx="1" fill="#2a2a2a"/>
-  <text x="246" y="135" font-size="3" ${FONT} fill="#ffffff" text-anchor="middle">UnoSim</text>
-  <text x="290" y="150" font-size="7" ${FONT} fill="#ffffff" text-anchor="middle">MEGA 2560</text>
-${led(66, "TX")}
-${led(72, "RX")}
-${led(78, "L")}
-${led(84, "ON")}
-${pads}
-`);
+function aliasOverlay({ pin, alias, pad }) {
+  const original = pins.get(pin);
+  const x = fmt((pad.x - original.x) * SCALE);
+  const y = fmt((pad.y - original.y) * SCALE);
+  return `  <g id="pin-${pin}-${alias}" data-pin="${pin}">
+    <title>${alias.toUpperCase()} (D${pin})</title>
+${["frame", "state", "click"].map(part => `    <use id="pin-${pin}-${alias}-${part}" href="#pin-${pin}-${part}" x="${x}" y="${y}"/>`).join("\n")}
+  </g>`;
 }
 
-function overlaySvg() {
-  const style = `  <defs>
+function ledOverlay({ name, element }) {
+  const geometry = ["x", "y", "width", "height"].map(attribute => `${attribute}="${fmt(n(element, attribute) * SCALE)}"`).join(" ");
+  return `  <rect id="led-${name}" ${geometry} fill="transparent" fill-opacity="0" pointer-events="none"/>`;
+}
+
+const overlay = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
+  <defs>
     <style>
-      .pin-stroke { fill: none; stroke: #9a916c; stroke-miterlimit: 5; stroke-width: 1px; }
       .click-area { fill: transparent; cursor: pointer; }
-      .state-circle { fill-opacity: 0.8; }
-      .input-frame { fill: none; stroke: #ffff00; stroke-width: 1; }
+      .input-frame { fill: none; stroke: #ffff00; stroke-width: 0.7; pointer-events: none; }
     </style>
-    <filter id="glow-yellow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
+${["yellow", "green", "red"].map(color => `    <filter id="glow-${color}" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    </filter>`).join("\n")}
   </defs>
+${[...pins].map(([name, pad]) => pinOverlay(name, pad)).join("\n")}
+${aliases.map(aliasOverlay).join("\n")}
+${lights.map(ledOverlay).join("\n")}
+  <circle id="reset-click" class="click-area" ${["cx", "cy", "r"].map(attribute => `${attribute}="${fmt(n(reset, attribute) * SCALE)}"`).join(" ")}><title>Reset</title></circle>
+</svg>
 `;
-  const interactive = pins
-    .filter(({ pin }) => pin !== undefined)
-    .map(({ x, y, pin }) => `  <g id="pin-${pin}" data-pin="${pin}">
-    <rect id="pin-${pin}-frame" class="input-frame" x="${fmt(x - 3.5)}" y="${fmt(y - 3.5)}" width="7" height="7" style="display:none"/>
-    <circle id="pin-${pin}-state" cx="${x}" cy="${y}" r="2.5" fill="#000000"/>
-    <rect id="pin-${pin}-click" class="click-area" x="${fmt(x - 4)}" y="${fmt(y - 4.6)}" width="8" height="9.2"/>
-  </g>`)
-    .join("\n");
-  const led = (id, y) => `  <rect id="${id}" x="40" y="${y}" width="5" height="2.6" rx="1" ry="1" fill="transparent" fill-opacity="0"/>`;
-  return header(`${[
-    '  <g id="board-outline" opacity="0">',
-    `    <rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" rx="3" fill="none" stroke="${BOARD_COLOR}" stroke-width="1"/>`,
-    "  </g>",
-    interactive,
-    led("led-tx", 66),
-    led("led-rx", 72),
-    led("led-l", 78),
-    led("led-on", 84),
-    '  <g id="reset-button">',
-    '    <circle id="reset-click" class="click-area" cx="52" cy="104" r="7"/>',
-    "  </g>",
-  ].join("\n")}\n`, style);
-}
 
-const outDir = join(import.meta.dirname, "..", "client", "public");
-writeFileSync(join(outDir, "ArduinoMega.svg"), boardSvg());
-writeFileSync(join(outDir, "ArduinoMega-overlay.svg"), overlaySvg());
-console.log(`wrote ArduinoMega.svg and ArduinoMega-overlay.svg (viewBox ${-MARGIN} ${-MARGIN} ${fmt(WIDTH + 2 * MARGIN)} ${fmt(HEIGHT + 2 * MARGIN)})`);
+writeFileSync(join(root, "client/public/ArduinoMega.svg"), `${board}\n`);
+writeFileSync(join(root, "client/public/ArduinoMega-overlay.svg"), overlay);
+dom.window.close();
+console.log(`wrote supplied Mega artwork and overlay (${pins.size} pins + ${aliases.length} SDA/SCL sockets, viewBox ${viewBox})`);

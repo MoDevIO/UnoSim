@@ -76,7 +76,7 @@ test.describe("ATtiny85 (preview)", () => {
 
     // A1 is PB2, pin 2 on the board: the pin opens a dialog with a slider and a number field.
     await page.locator("#pin-2-click").click();
-    await expect(page.getByText("2 (A1)")).toBeVisible();
+    await expect(page.getByText("2 (A1)", { exact: true })).toBeVisible();
     await page.locator('input[type="number"]').fill("512");
     await page.getByRole("button", { name: "Confirm" }).click();
     await expect(serial(page)).toContainText("A1=512", { timeout: 10_000 });

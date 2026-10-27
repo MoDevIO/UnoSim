@@ -85,6 +85,20 @@ behaviour for the Uno.
 
 ### Changed
 
+- **Mega board artwork:** uses the supplied illustration, with contact-aligned
+  pin targets, LEDs and reset. The duplicate SDA/SCL sockets share D20/D21.
+- **Nano board artwork:** uses the supplied illustration, with all 22 signal
+  contacts, four LEDs and reset aligned to the drawing; A6/A7 remain analog-only.
+- **ATtiny85 artwork:** shows a bare DIP-8 chip with metal leads, package notch
+  and pin-1 mark. The carrier, external LEDs, reset switch and board logo are
+  removed; pin input and the existing reset controls remain available.
+- **Board size hierarchy:** a shared display area presents Mega at 125 %, Uno
+  at 100 %, Nano at 85 % and ATtiny at 65 % relative width. Compact panels
+  soften the differences while preserving the order and overlay alignment.
+- **PWM pin markings:** Mega, Nano and ATtiny now show `~` next to their PWM
+  pin labels, following the Uno convention and the board's hardware profile.
+- **Board readability:** ATtiny pin subtitles are larger and have more
+  contrast; Mega and Nano reset caps use the Uno's dark-red colours.
 - **Sketches run in the browser by default** (local profile): the compiled
   machine code runs in an emulator of the board's microcontroller (avr8js in a
   Web Worker). A started run keeps going when the connection to the server is
