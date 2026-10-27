@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import { Cpu, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
 import { DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
 import { activeAnalogPinTitle, activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
-import { type BoardView, DEFAULT_LOGO_PLACEMENT, boardView } from "@/lib/board-view";
+import { type BoardView, DEFAULT_LOGO_PLACEMENT, boardView, boardDisplayScale } from "@/lib/board-view";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
 
 const logger = new Logger("ArduinoBoard");
@@ -116,10 +116,10 @@ function preprocessSvg(content: string): string {
 }
 
 /**
- * Parse pin number from a click-area element id (e.g. "pin-5-click", "pin-A2-click")
+ * Parse pin number from a click-area id, including the Mega's duplicate SDA/SCL sockets.
  */
 function parsePinFromElement(el: Element): number | undefined {
-  const digitalMatch = /^pin-(\d+)-click$/.exec(el.id);
+  const digitalMatch = /^pin-(\d+)(?:-(?:sda|scl))?-click$/.exec(el.id);
   if (digitalMatch) return Number.parseInt(digitalMatch[1], 10);
   const analogMatch = /^pin-A(\d+)-click$/.exec(el.id);
   if (analogMatch) return analogChannelPin(Number.parseInt(analogMatch[1], 10));
@@ -311,6 +311,7 @@ export function ArduinoBoard({
   controlsDisabled = false,
 }: ArduinoBoardProps) {
   const view = boardView(boardId);
+  const logo = view.logo === false ? undefined : (view.logo ?? DEFAULT_LOGO_PLACEMENT);
   const { width: VIEWBOX_WIDTH, height: VIEWBOX_HEIGHT } = view;
   const boardName = getBoard(boardId).displayName;
   const [svgContent, setSvgContent] = useState<string>("");
@@ -512,33 +513,26 @@ export function ArduinoBoard({
     [onPinToggle, onReset, pinStates, sliderPositions, onAnalogChange, analogPins, controlsDisabled],
   );
 
-  // Compute scale to fit both width and height
-  useEffect(() => {
+  // Use a common reference for all boards; background, overlay and logo share this scale.
+  useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el || !svgContent) return;
 
     const updateScale = () => {
       const cw = el.clientWidth;
       const ch = el.clientHeight;
-      if (cw > 0 && ch > 0) {
-        const SAFE_MARGIN = getComputedSpacingToken('--svg-safe-margin');
-        const s = Math.min(
-          (cw - SAFE_MARGIN * 2) / VIEWBOX_WIDTH,
-          (ch - SAFE_MARGIN * 2) / VIEWBOX_HEIGHT,
-        );
-        setScale(Math.max(s, 0.1));
-      }
+      const SAFE_MARGIN = getComputedSpacingToken('--svg-safe-margin');
+      setScale(boardDisplayScale(boardId, cw, ch, SAFE_MARGIN));
     };
 
-    const timer = setTimeout(updateScale, 50);
+    updateScale();
     const ro = new ResizeObserver(updateScale);
     ro.observe(el);
 
     return () => {
-      clearTimeout(timer);
       ro.disconnect();
     };
-  }, [svgContent]);
+  }, [svgContent, boardId]);
 
   // Derived SVG strings (memoized to avoid recomputation on every render)
   const modifiedSvg = useMemo(() => {
@@ -611,6 +605,7 @@ export function ArduinoBoard({
                 position: "relative",
                 width: `${VIEWBOX_WIDTH}px`,
                 height: `${VIEWBOX_HEIGHT}px`,
+                flexShrink: 0,
                 transform: `scale(${scale})`,
                 transformOrigin: "center",
               }}
@@ -620,23 +615,23 @@ export function ArduinoBoard({
                 style={{ position: "relative", width: "100%", height: "100%" }}
                 dangerouslySetInnerHTML={{ __html: modifiedSvg }}
               />
-              {/* TH Köln identity mark, anchored to the ATmega chip in ViewBox percentages. */}
-              <div className="pointer-events-none absolute inset-0">
+              {/* Board branding is omitted for the bare ATtiny package. */}
+              {logo && <div className="pointer-events-none absolute inset-0">
                 <img
                   src="/TH_Koeln_Logo.svg"
                   alt=""
                   aria-hidden="true"
                   className="absolute"
                   style={{
-                    left: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).left}%`,
-                    top: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).top}%`,
-                    width: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).width}%`,
-                    height: `${(view.logo ?? DEFAULT_LOGO_PLACEMENT).height}%`,
+                    left: `${logo.left}%`,
+                    top: `${logo.top}%`,
+                    width: `${logo.width}%`,
+                    height: `${logo.height}%`,
                     objectFit: "contain",
                     transform: "translate(-50%, -50%)",
                   }}
                 />
-              </div>
+              </div>}
               {/* Overlay SVG - dynamic visualization and click handling */}
               <button
                 type="button"

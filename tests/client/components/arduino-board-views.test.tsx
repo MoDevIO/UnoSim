@@ -8,12 +8,12 @@ const publicFile = (path: string) => readFileSync(join(__dirname, "../../../clie
 // The component itself is covered by the browser tests (e2e): rendering it with jsdom does not return, also before P4.4.
 describe("board view per board (plan P4.4)", () => {
   it("draws the Uno as before and the Nano with its own graphics and size", () => {
-    expect(boardView("uno")).toEqual({ boardSvg: "/ArduinoUno.svg", overlaySvg: "/ArduinoUno-overlay.svg", width: 285.2, height: 209 });
-    expect(boardView("nano")).toEqual({ boardSvg: "/ArduinoNano.svg", overlaySvg: "/ArduinoNano-overlay.svg", width: 172.8, height: 72 });
+    expect(boardView("uno")).toEqual({ boardSvg: "/ArduinoUno.svg", overlaySvg: "/ArduinoUno-overlay.svg", width: 285.2, height: 209, relativeWidth: 1 });
+    expect(boardView("nano")).toEqual({ boardSvg: "/ArduinoNano.svg", overlaySvg: "/ArduinoNano-overlay.svg", width: 185, height: 74, relativeWidth: 0.85, logo: { left: 39, top: 50, width: 10, height: 10 } });
     expect(boardView()).toBe(boardView("uno"));
-    expect(boardView("attiny85")).toMatchObject({ boardSvg: "/ATtiny85.svg", overlaySvg: "/ATtiny85-overlay.svg", width: 128, height: 96 }); // own graphics since P6.5
-    expect(boardView("mega2560")).toMatchObject({ boardSvg: "/ArduinoMega.svg", overlaySvg: "/ArduinoMega-overlay.svg", width: 406.4, height: 213.2 });
-    expect(boardView("mega2560").logo).toEqual({ left: 74, top: 38, width: 20, height: 10 });
+    expect(boardView("attiny85")).toMatchObject({ boardSvg: "/ATtiny85.svg", overlaySvg: "/ATtiny85-overlay.svg", width: 168, height: 112, logo: false });
+    expect(boardView("mega2560")).toMatchObject({ boardSvg: "/ArduinoMega.svg", overlaySvg: "/ArduinoMega-overlay.svg", width: 438.905, height: 213.765 });
+    expect(boardView("mega2560").logo).toEqual({ left: 80, top: 45, width: 16, height: 9 });
     expect(boardView("uno").logo).toBeUndefined(); // the Uno keeps the mark where it was
   });
 
@@ -26,13 +26,13 @@ describe("board view per board (plan P4.4)", () => {
       for (const part of ["", "-click", "-state", "-frame"]) expect(ids.has(`pin-${name}${part}`), `pin-${name}${part}`).toBe(true);
     }
     for (const id of ["led-l", "led-on", "led-tx", "led-rx", "reset-click"]) expect(ids.has(id), id).toBe(true);
-    expect(overlay.match(/id="pin-[^"]+-click"/g)).toHaveLength(70);
+    expect(overlay.match(/id="pin-[^"]+-click"/g)).toHaveLength(72); // 70 pins and the SDA/SCL duplicate sockets
   });
 
   it("draws the Mega at the size of its overlay's view box", () => {
     const { width, height } = boardView("mega2560");
     for (const file of ["ArduinoMega.svg", "ArduinoMega-overlay.svg"]) {
-      expect(publicFile(file)).toContain(`viewBox="-4 -4 ${width + 8} ${Number((height + 8).toFixed(1))}"`);
+      expect(publicFile(file)).toContain(`viewBox="0 0 ${width} ${height}"`);
     }
   });
 
