@@ -10,3 +10,5 @@ export { ATTINY85_BOARD } from "./attiny85-board";
 export { MEGA2560 } from "./mega2560-board";
 export { boardHardware, hasBoardHardware } from "./registry";
 export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./types";
+export { boardPinReference, boardReferenceContacts } from "./pin-reference";
+export type { PinReference, PinBusReference, ReferenceContact } from "./pin-reference";
