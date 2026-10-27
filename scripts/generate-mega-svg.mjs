@@ -31,14 +31,14 @@ const bottom = sockets.filter(({ hole, y }) => hole.width > hole.height && y > s
 const right = sockets.filter(({ hole }) => hole.width < hole.height);
 const midColumn = (Math.min(...right.map(({ x }) => x)) + Math.max(...right.map(({ x }) => x))) / 2;
 const columns = [right.filter(({ x }) => x < midColumn), right.filter(({ x }) => x > midColumn)]
-  .map(column => column.sort((a, b) => a.y - b.y));
+  .map(column => column.toSorted((a, b) => a.y - b.y));
 if (top.length !== 26 || bottom.length !== 24 || columns.some(column => column.length !== 18)) {
   throw new Error("Mega artwork's headers changed; review the pin assignment before generating the overlay");
 }
 
 const pins = new Map();
 const assign = (name, pad) => {
-  pad.element.setAttribute("data-mega-contact", name);
+  pad.element.dataset.megaContact = name;
   pins.set(name, pad);
 };
 [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 14, 15, 16, 17, 18, 19, 20, 21]
@@ -49,7 +49,7 @@ for (let row = 0; row < 16; row++) {
   assign(String(23 + row * 2), columns[1][row + 1]);
 }
 const aliases = [{ pin: "21", alias: "scl", pad: top[0] }, { pin: "20", alias: "sda", pad: top[1] }];
-for (const { pin, alias, pad } of aliases) pad.element.setAttribute("data-mega-contact", `${pin}-${alias}`);
+for (const { pin, alias, pad } of aliases) pad.element.dataset.megaContact = `${pin}-${alias}`;
 
 const lights = [["l", "led_l_off"], ["on", "led_l_off-2"], ["tx", "led_l_off-3"], ["rx", "led_l_off-4"]]
   .map(([name, id]) => ({ name, element: document.getElementById(id) }));
@@ -63,20 +63,22 @@ document.getElementById("button_on").setAttribute("style", "fill:#641d1c");
 [...document.querySelectorAll('[id="led_l_on"]')].forEach((element, index) => {
   element.id = `led_glow_${index}`;
   element.setAttribute("display", "none");
-  element.setAttribute("data-source-led-glow", "");
+  element.dataset.sourceLedGlow = "";
 });
 
 // Namespace the illustrator's generic classes, masks and ids to protect other inline SVGs.
 const sourceIds = [...document.querySelectorAll("[id]")].map(element => element.id);
 for (const element of document.querySelectorAll("[id]")) element.id = `mega-source-${element.id}`;
 for (const { element } of sockets) {
-  const name = element.getAttribute("data-mega-contact");
+  const name = element.dataset.megaContact;
   if (name) element.id = `mega-pad-${name}`;
 }
 const artwork = document.createElementNS("http://www.w3.org/2000/svg", "g");
 artwork.id = "mega-artwork";
 artwork.setAttribute("transform", `scale(${SCALE})`);
-for (const child of [...svg.children]) if (child.tagName !== "defs") artwork.append(child);
+// Snapshot the live collection before moving its members to another parent.
+const sourceChildren = Array.from(svg.children);
+for (const child of sourceChildren) if (child.tagName !== "defs") artwork.append(child);
 svg.append(artwork);
 svg.setAttribute("viewBox", viewBox);
 
@@ -90,10 +92,12 @@ for (const [name, value] of Object.entries({ fill: "none", stroke: "#fff", "stro
 for (const { pin } of MEGA2560.pins.filter(pin => pin.pwm)) {
   const pad = pins.get(String(pin));
   const topRow = pin <= 13;
-  const x = pad.x * SCALE + (topRow ? 0 : pin % 2 === 0 ? -18.75 : 6.3);
+  let labelOffset = 0;
+  if (!topRow) labelOffset = pin % 2 === 0 ? -18.75 : 6.3;
+  const x = pad.x * SCALE + labelOffset;
   const y = topRow ? 27.5 : pad.y * SCALE;
   const marker = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  marker.setAttribute("data-pwm-pin", String(pin));
+  marker.dataset.pwmPin = String(pin);
   marker.setAttribute("d", "M -1.8 0 C -0.6 -1.8 0.6 1.8 1.8 0");
   marker.setAttribute("transform", `translate(${fmt(x)} ${fmt(y)})${topRow ? " rotate(-90)" : ""}`);
   pwmMarkers.append(marker);
@@ -127,6 +131,11 @@ ${["frame", "state", "click"].map(part => `    <use id="pin-${pin}-${alias}-${pa
   </g>`;
 }
 
+function ledOverlay({ name, element }) {
+  const geometry = ["x", "y", "width", "height"].map(attribute => `${attribute}="${fmt(n(element, attribute) * SCALE)}"`).join(" ");
+  return `  <rect id="led-${name}" ${geometry} fill="transparent" fill-opacity="0" pointer-events="none"/>`;
+}
+
 const overlay = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
   <defs>
     <style>
@@ -140,7 +149,7 @@ ${["yellow", "green", "red"].map(color => `    <filter id="glow-${color}" x="-10
   </defs>
 ${[...pins].map(([name, pad]) => pinOverlay(name, pad)).join("\n")}
 ${aliases.map(aliasOverlay).join("\n")}
-${lights.map(({ name, element }) => `  <rect id="led-${name}" ${["x", "y", "width", "height"].map(attribute => `${attribute}="${fmt(n(element, attribute) * SCALE)}"`).join(" ")} fill="transparent" fill-opacity="0" pointer-events="none"/>`).join("\n")}
+${lights.map(ledOverlay).join("\n")}
   <circle id="reset-click" class="click-area" ${["cx", "cy", "r"].map(attribute => `${attribute}="${fmt(n(reset, attribute) * SCALE)}"`).join(" ")}><title>Reset</title></circle>
 </svg>
 `;

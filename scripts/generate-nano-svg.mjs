@@ -25,7 +25,7 @@ const NUMBER = String.raw`[-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?`;
 function contours(path) {
   let startX = 0;
   let startY = 0;
-  return [...path.getAttribute("d").matchAll(new RegExp(`([mM])\\s*(${NUMBER})[\\s,]+(${NUMBER})([^mM]*)`, "g"))].map(([, command, dx, dy, rest]) => {
+  return [...path.getAttribute("d").matchAll(new RegExp(String.raw`([mM])\s*(${NUMBER})[\s,]+(${NUMBER})([^mM]*)`, "g"))].map(([, command, dx, dy, rest]) => {
     if (!/[zZ]\s*$/.test(rest)) throw new Error("Nano source contour is not closed");
     startX = Number(dx) + (command === "m" ? startX : 0);
     startY = Number(dy) + (command === "m" ? startY : 0);
@@ -34,7 +34,18 @@ function contours(path) {
 }
 
 function circle(contour) {
-  const values = contour.rest.match(new RegExp(NUMBER, "gi")).map(Number);
+  // A sticky scan consumes each number once instead of retrying an unanchored
+  // numeric expression at every character of the supplied path.
+  const values = [];
+  const pattern = new RegExp(NUMBER, "iy");
+  for (let offset = 0; offset < contour.rest.length;) {
+    pattern.lastIndex = offset;
+    const match = pattern.exec(contour.rest);
+    if (match) {
+      values.push(Number(match[0]));
+      offset = pattern.lastIndex;
+    } else offset++;
+  }
   const radius = values[0];
   const endpoints = [[radius, radius], [-radius, radius], [-radius, -radius], [radius, -radius]];
   if (!/^a\s/i.test(contour.rest) || values.length !== 28 || endpoints.some(([dx, dy], index) => {
@@ -48,7 +59,7 @@ function rectangle(contour) {
   let px = contour.x;
   let py = contour.y;
   const points = [[px, py]];
-  const pattern = new RegExp(`([hHvV])\\s*(${NUMBER})`, "g");
+  const pattern = new RegExp(String.raw`([hHvV])\s*(${NUMBER})`, "g");
   if (contour.rest.replaceAll(pattern, "").replaceAll(/[zZ\s,]/g, "")) throw new Error("Nano source rectangle changed");
   for (const [, command, value] of contour.rest.matchAll(pattern)) {
     if (command.toLowerCase() === "h") px = Number(value) + (command === "h" ? px : 0);
@@ -82,7 +93,7 @@ const pads = contours(padPath).map(contour => {
     cx: round ? geometry.cx : geometry.x + geometry.width / 2,
     cy: round ? geometry.cy : geometry.y + geometry.height / 2, r: round ? geometry.r : geometry.width / 2 };
 });
-const rows = [pads.filter(pad => pad.cy < 100), pads.filter(pad => pad.cy >= 100)].map(row => row.sort((a, b) => a.cx - b.cx));
+const rows = [pads.filter(pad => pad.cy < 100), pads.filter(pad => pad.cy >= 100)].map(row => row.toSorted((a, b) => a.cx - b.cx));
 if (pads.length !== 30 || rows.some(row => row.length !== 15)) throw new Error("Nano source headers changed; review the pin order");
 const names = [
   ["12", "11", "10", "9", "8", "7", "6", "5", "4", "3", "2", null, null, "0", "1"],
@@ -109,9 +120,12 @@ const reset = circle(contours(resetPath)[0]);
 resetPath.replaceWith(shape("circle", { id: "nano-reset-surface", style: resetPath.getAttribute("style").replace("fill:#f2f2f2", "fill:#852725").replace("stroke:#333333", "stroke:#641d1c"), ...reset }));
 
 for (const element of document.querySelectorAll("[id]")) if (!element.id.startsWith("nano-")) element.id = `nano-source-${element.id}`;
-for (const element of [...svg.children]) if (element.localName === "namedview") element.remove();
+// Snapshot the live collection before removing or reparenting source children.
+const sourceChildren = Array.from(svg.children);
+for (const element of sourceChildren) if (element.localName === "namedview") element.remove();
 const artwork = shape("g", { id: "nano-artwork", transform: "matrix(0.5 0 0 0.5 -20 -13.5)" });
-for (const element of [...svg.children]) if (element.localName !== "defs" && element.localName !== "title") artwork.append(element);
+const drawingChildren = Array.from(svg.children);
+for (const element of drawingChildren) if (element.localName !== "defs" && element.localName !== "title") artwork.append(element);
 svg.append(artwork);
 const viewBox = `0 0 ${size(CROP.width)} ${size(CROP.height)}`;
 // Do not carry the editor's xmlns:svg alias onto the output root: XMLSerializer can otherwise emit
@@ -130,7 +144,7 @@ output.append(pwmMarkers);
 const board = new dom.window.XMLSerializer().serializeToString(output)
   .replaceAll("#017e7b", "#0f7391") // retain the existing configurable PCB colour
   .replaceAll("><", ">\n<")
-  .replaceAll(/[ \t]+$/gm, "");
+  .split("\n").map(line => line.trimEnd()).join("\n");
 
 const overlay = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
   <defs>

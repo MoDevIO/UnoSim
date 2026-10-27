@@ -35,13 +35,19 @@ function boardSvg() {
   const legs = pins.map((pin) => {
     const left = pin.side === "left";
     const pwm = pwmPins.has(pin.pin);
+    const textX = left ? 30 : 138;
+    const anchor = left ? "end" : "start";
+    const titleNote = pin.note ? ` (${pin.note})` : "";
+    const pwmAttribute = pwm ? ` data-pwm-pin="${pin.pin}"` : "";
+    const pinLabel = `${pin.dip} · ${pwm ? "~" : ""}${pin.label}`;
+    const subtitle = pin.note ? `    <text x="${textX}" y="${pin.y + 6.8}" font-size="5.5" text-anchor="${anchor}" fill="#b8c1cc">${pin.note}</text>` : "";
     return `  <g>
-    <title>Physical pin ${pin.dip}: ${pin.label}${pin.note ? ` (${pin.note})` : ""}</title>
+    <title>Physical pin ${pin.dip}: ${pin.label}${titleNote}</title>
     <path id="attiny-lead-${pin.dip}" d="${leadPath(pin)}" fill="url(#attiny-lead-fill)" stroke="#848a91" stroke-width="0.3"/>
     <rect id="attiny-contact-${pin.dip}" x="${pin.x - 6}" y="${pin.y - 3}" width="12" height="6" rx="0.5" fill="url(#attiny-lead-face)"/>
     <path d="M ${left ? 36 : 120} ${pin.y - 2.5} H ${left ? 48 : 132}" stroke="#f1f3f5" stroke-opacity="0.7" stroke-width="0.4"/>
-    <text${pwm ? ` data-pwm-pin="${pin.pin}"` : ""} x="${left ? 30 : 138}" y="${pin.y - 0.6}" font-size="5.5" text-anchor="${left ? "end" : "start"}" fill="#d7dce2">${pin.dip} · ${pwm ? "~" : ""}${pin.label}</text>
-${pin.note ? `    <text x="${left ? 30 : 138}" y="${pin.y + 6.8}" font-size="5.5" text-anchor="${left ? "end" : "start"}" fill="#b8c1cc">${pin.note}</text>` : ""}
+    <text${pwmAttribute} x="${textX}" y="${pin.y - 0.6}" font-size="5.5" text-anchor="${anchor}" fill="#d7dce2">${pinLabel}</text>
+${subtitle}
   </g>`;
   }).join("\n");
   return header(`  <defs>
