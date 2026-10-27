@@ -238,7 +238,7 @@ Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 | Pause | hält auch `millis()` an |
 | Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
 | EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
-| I²C, SPI | Die Bausteine sind vorhanden, aber es hängt kein Gerät am Bus |
+| I²C, SPI, USI | Die Hardware-Pinbelegung steht in Pin Infos; die Busperipherien und angeschlossene Geräte werden derzeit nicht simuliert |
 | Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB, beim ATtiny85 512 Byte). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
 | `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
 

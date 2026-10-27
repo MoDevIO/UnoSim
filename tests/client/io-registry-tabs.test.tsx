@@ -152,4 +152,51 @@ describe("I/O Registry views", () => {
     );
     expect(document.querySelectorAll("tbody tr")).toHaveLength(6);
   });
+  it.each([
+    ["attiny85", "0", "TX"],
+    ["attiny85", "1", "RX"],
+    ["mega2560", "14", "TX"],
+    ["mega2560", "19", "RX"],
+  ] as const)(
+    "uses %s pin %s's real Serial direction in the usage table",
+    (boardId, pin, direction) => {
+      render(
+        <ParserOutput
+          boardId={boardId}
+          messages={[]}
+          ioRegistry={[
+            {
+              pin,
+              defined: true,
+              usedAt: [{ line: 1, operation: "pinMode:1" }],
+            },
+          ]}
+          onClear={vi.fn()}
+          defaultTab="registry"
+        />,
+      );
+      const pinCell = screen.getAllByRole("cell")[0];
+      expect(within(pinCell).getByText(direction)).toBeVisible();
+    },
+  );
+
+  it("uses the supplied board for PWM labels even if the ambient board is still Uno", () => {
+    setActiveBoard("uno");
+    render(
+      <ParserOutput
+        boardId="attiny85"
+        messages={[]}
+        ioRegistry={[
+          {
+            pin: "4",
+            defined: true,
+            usedAt: [{ line: 1, operation: "analogWrite" }],
+          },
+        ]}
+        onClear={vi.fn()}
+        defaultTab="registry"
+      />,
+    );
+    expect(within(screen.getAllByRole("cell")[0]).getByText("~")).toBeVisible();
+  });
 });

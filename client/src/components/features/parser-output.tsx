@@ -16,9 +16,10 @@ import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
-import { getActiveBoard, isActivePwmPin } from "@/lib/active-board";
-import { boardPins, resolveBoardPin } from "@shared/board-pins";
+import { getActiveBoard } from "@/lib/active-board";
+import { boardPins, findBoardPin, resolveBoardPin } from "@shared/board-pins";
 import type { BoardId } from "@shared/boards";
+import { boardHardware } from "@unosim/avr-emulator/boards";
 import { PinInfos } from "@/components/features/pin-infos";
 import {
   formatSourceNavigationTarget,
@@ -69,17 +70,18 @@ function getSeverityColor(severity: SeverityLevel): string {
   return getStatusColor(getSeverityStatus(severity));
 }
 
-/** Returns an RX/TX badge element for pin 0/1, or null. Fixes S1940 IIFE anti-pattern. */
-function getRxTxBadge(pin: string): JSX.Element | null {
-  if (pin === "0") return <span className="text-blue-400 text-ui-xs font-semibold">RX</span>;
-  if (pin === "1") return <span className="text-red-400 text-ui-xs font-semibold">TX</span>;
-  return null;
+/** Serial directions come from the selected board, including the ATtiny software UART. */
+function getRxTxBadge(pin: number | undefined, boardId: BoardId): JSX.Element | null {
+  const serial = boardHardware(boardId).serialPorts.find(port => port.rxPin === pin || port.txPin === pin);
+  if (!serial) return null;
+  const direction = serial.rxPin === pin ? "RX" : "TX";
+  const portName = serial.kind === "software" ? "Software Serial" : `Serial${serial.index || ""}`;
+  return <span className={clsx("text-ui-xs font-semibold", direction === "RX" ? "text-blue-400" : "text-red-400")} title={`${portName} · ${direction}`}>{direction}</span>;
 }
 
-/** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
-function getPwmTilde(pin: string): JSX.Element | null {
-  const n = Number.parseInt(pin, 10);
-  return !Number.isNaN(n) && isActivePwmPin(n)
+/** PWM marking follows the explicit board, just like the reference table. */
+function getPwmTilde(pin: number | undefined, boardId: BoardId): JSX.Element | null {
+  return pin !== undefined && findBoardPin(boardId, pin)?.pwm
     ? <span className="text-yellow-400">~</span>
     : null;
 }
@@ -468,13 +470,15 @@ function renderRegistryOperationCell({
 }
 
 interface IoRegistryRowProps {
+  readonly boardId: BoardId;
   readonly record: IOPinRecord;
   readonly index: number;
   readonly detailView: boolean;
   readonly onGoToLine?: (target: SourceNavigationTarget) => void;
 }
 
-function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowProps) {
+function IoRegistryRow({ boardId, record, index, detailView, onGoToLine }: IoRegistryRowProps) {
+  const pinId = getPinId(record, boardId);
   const operations = record.usedAt || [];
   const pinModes: string[] = record.pinModeModes ?? operations
     .filter((operation) => operation.operation.includes("pinMode"))
@@ -535,8 +539,8 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     >
       <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
         <div className="flex items-center justify-end gap-2">
-          {getRxTxBadge(String(record.pin))}
-          {getPwmTilde(String(record.pin))}
+          {getRxTxBadge(pinId, boardId)}
+          {getPwmTilde(pinId, boardId)}
           <span>{record.pin}</span>
         </div>
       </td>
@@ -560,6 +564,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
 }
 
 interface IoRegistryBodyProps {
+  readonly boardId: BoardId;
   readonly filteredRegistry: IOPinRecord[];
   readonly showAllPins: boolean;
   readonly setShowAllPins: (show: boolean) => void;
@@ -568,6 +573,7 @@ interface IoRegistryBodyProps {
 }
 
 function IoRegistryBody({
+  boardId,
   filteredRegistry,
   showAllPins,
   setShowAllPins,
@@ -625,6 +631,7 @@ function IoRegistryBody({
         <tbody>
           {filteredRegistry.map((record, index) => (
             <IoRegistryRow
+              boardId={boardId}
               key={record.pin}
               record={record}
               index={index}
@@ -811,6 +818,7 @@ export function ParserOutput({
             {["programmed", "all"].map(value => <TabsContent key={value} value={value} className="flex-1 min-h-0 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
               <UnifiedScrollArea className="flex-1" orientation="both" scrollbarVisibility="always">
                 <IoRegistryBody
+                  boardId={boardId}
                   filteredRegistry={filteredRegistry}
                   showAllPins={showAllPins}
                   setShowAllPins={() => setRegistryTab("all")}

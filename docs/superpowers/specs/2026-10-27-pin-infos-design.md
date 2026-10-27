@@ -1,6 +1,6 @@
 # I/O Registry: drei Tabs
 
-Status: aktualisierter Konzeptvorschlag, 2026-10-27. Die Aufteilung folgt dem Nutzerwunsch; die Anwendung ist noch nicht geändert.
+Status: vom Nutzer freigegeben und umgesetzt am 2026-10-27. Die Aufteilung folgt dem abgestimmten Konzept.
 
 ## Navigation
 

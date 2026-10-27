@@ -13,6 +13,8 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   columns, and a single sticky header and Pin column. RESET/analog-only/core
   restrictions and nonprogrammable reference contacts remain explicit;
   hardware bus capability is distinguished from simulation support.
+- Usage-row RX/TX and PWM markers now follow the selected board, including
+  the ATtiny software UART directions and all four Mega serial ports.
 
 ## v2.0.0-beta.1 – 2026-10-24
 
