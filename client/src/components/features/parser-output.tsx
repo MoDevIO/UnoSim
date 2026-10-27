@@ -6,7 +6,6 @@ import {
   Plus,
   Eye,
   EyeOff,
-  ListFilter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
@@ -17,7 +16,10 @@ import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
-import { activePins, analogChannelPin, isActivePwmPin } from "@/lib/active-board";
+import { getActiveBoard, isActivePwmPin } from "@/lib/active-board";
+import { boardPins, resolveBoardPin } from "@shared/board-pins";
+import type { BoardId } from "@shared/boards";
+import { PinInfos } from "@/components/features/pin-infos";
 import {
   formatSourceNavigationTarget,
   isSourceLocation,
@@ -29,15 +31,15 @@ import { TabBar } from "@/components/ui/tab-bar";
 import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
 
 /** One empty row per pin of the active board, for "show all pins". */
-function allPinRecords(): IOPinRecord[] {
-  return activePins().map((pin) => ({ pin: pin.name, pinId: pin.pin, defined: false, usedAt: [] }));
+function allPinRecords(boardId: BoardId): IOPinRecord[] {
+  return (boardPins(boardId) ?? []).map((pin) => ({ pin: pin.name, pinId: pin.pin, defined: false, usedAt: [] }));
 }
 
-function getPinId(record: IOPinRecord): number | undefined {
+function getPinId(record: IOPinRecord, boardId: BoardId): number | undefined {
   if (record.pinId !== undefined) return record.pinId;
   if (/^\d+$/.test(record.pin)) return Number.parseInt(record.pin, 10);
   const analogMatch = /^A(\d+)$/.exec(record.pin);
-  return analogMatch ? analogChannelPin(Number.parseInt(analogMatch[1], 10)) : undefined;
+  return analogMatch ? resolveBoardPin(boardId, record.pin) : undefined;
 }
 
 // Module-level pure helpers — fix S6481 (no re-creation on render)
@@ -296,12 +298,13 @@ function getCategoryLabel(category: string): string {
 function filterIoRegistry(
   ioRegistry: IOPinRecord[],
   showAllPins: boolean,
+  boardId: BoardId,
 ): IOPinRecord[] {
   if (!showAllPins) return ioRegistry.filter(isPinProgrammed);
 
-  const pinsById = new Map(allPinRecords().map((record) => [record.pinId, record]));
+  const pinsById = new Map(allPinRecords(boardId).map((record) => [record.pinId, record]));
   for (const record of ioRegistry) {
-    const pinId = getPinId(record);
+    const pinId = getPinId(record, boardId);
     if (pinId !== undefined) pinsById.set(pinId, record);
   }
   return [...pinsById.values()];
@@ -636,6 +639,7 @@ function IoRegistryBody({
 }
 
 interface ParserOutputProps {
+  readonly boardId?: BoardId;
   readonly messages: ParserMessage[];
   readonly ioRegistry?: IOPinRecord[];
   readonly onClear: () => void;
@@ -647,6 +651,7 @@ interface ParserOutputProps {
 }
 
 export function ParserOutput({
+  boardId = getActiveBoard(),
   messages,
   ioRegistry = [],
   onClear,
@@ -659,7 +664,8 @@ export function ParserOutput({
   const [activeTab, setActiveTab] = useState<"messages" | "registry">(
     defaultTab,
   );
-  const [showAllPins, setShowAllPins] = useState(false);
+  const [registryTab, setRegistryTab] = useState("programmed");
+  const showAllPins = registryTab === "all";
   /** detailView: false = compact (✓/—), true = extended (line numbers). Eye-button toggle per SSOT. */
   const [detailView, setDetailView] = useState(false);
 
@@ -673,8 +679,8 @@ export function ParserOutput({
 
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
   const filteredRegistry = React.useMemo(
-    () => filterIoRegistry(ioRegistry, showAllPins),
-    [ioRegistry, showAllPins],
+    () => filterIoRegistry(ioRegistry, showAllPins, boardId),
+    [ioRegistry, showAllPins, boardId],
   );
 
   // Count of programmed pins (pins with any operation)
@@ -784,43 +790,39 @@ export function ParserOutput({
           value="registry"
           className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         >
-          {/* Toggle Button for Pin Visibility */}
-          <div className="panel-content-header sticky top-0 border-b px-3 justify-between z-10">
-            <span className="text-ui-xs text-muted-foreground">
-              {showAllPins
-                ? `All pins (${filteredRegistry.length})`
-                : `Programmed pins (${totalProgrammedPins})`}
-            </span>
-            <div className="flex items-center gap-1">
-              <ToolbarIconButton
-                icon={<ListFilter className="h-3.5 w-3.5" />}
-                label={showAllPins ? "Show programmed pins" : "Show all pins"}
-                onClick={() => setShowAllPins(!showAllPins)}
-                aria-pressed={showAllPins}
-              />
-              {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
-              <ToolbarIconButton
+          <Tabs value={registryTab} onValueChange={setRegistryTab} className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="panel-content-header border-b border-border justify-between gap-1">
+              <TabBar asChild className="min-w-0 flex-1 overflow-x-auto border-0">
+                <TabsList aria-label="I/O Registry views" className="gap-0">
+                  <TabsTrigger value="programmed">Programmed Pins ({totalProgrammedPins})</TabsTrigger>
+                  <TabsTrigger value="all">All Pins</TabsTrigger>
+                  <TabsTrigger value="infos">Pin Infos</TabsTrigger>
+                </TabsList>
+              </TabBar>
+              {registryTab !== "infos" && <ToolbarIconButton
                 icon={detailView ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 label={detailView ? "Hide source locations" : "Show source locations"}
                 onClick={() => setDetailView(!detailView)}
+                aria-pressed={detailView}
                 data-testid="io-registry-detail-toggle"
-              />
+                className="mr-2 shrink-0"
+              />}
             </div>
-          </div>
-
-          <UnifiedScrollArea
-            className="flex-1"
-            orientation="both"
-            scrollbarVisibility="always"
-          >
-            <IoRegistryBody
-              filteredRegistry={filteredRegistry}
-              showAllPins={showAllPins}
-              setShowAllPins={setShowAllPins}
-              detailView={detailView}
-              onGoToLine={onGoToLine}
-            />
-          </UnifiedScrollArea>
+            {["programmed", "all"].map(value => <TabsContent key={value} value={value} className="flex-1 min-h-0 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
+              <UnifiedScrollArea className="flex-1" orientation="both" scrollbarVisibility="always">
+                <IoRegistryBody
+                  filteredRegistry={filteredRegistry}
+                  showAllPins={showAllPins}
+                  setShowAllPins={() => setRegistryTab("all")}
+                  detailView={detailView}
+                  onGoToLine={onGoToLine}
+                />
+              </UnifiedScrollArea>
+            </TabsContent>)}
+            <TabsContent value="infos" className="flex-1 min-h-0 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
+              <PinInfos key={boardId} boardId={boardId} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

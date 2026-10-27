@@ -35,7 +35,10 @@ function hasRegistryConflict(record: IOPinRecord): boolean {
   );
 }
 
+import type { BoardId } from "@shared/boards";
+
 interface OutputPanelProps {
+  readonly boardId?: BoardId;
   /* State */
   readonly activeOutputTab: OutputTab;
   readonly isSuccessState: boolean;
@@ -91,6 +94,7 @@ function protocolClass(protocol: string | undefined): string {
 
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
   const {
+    boardId,
     activeOutputTab,
     isSuccessState,
     isModified,
@@ -179,6 +183,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       <TabsContent value="messages" className="flex-1 overflow-hidden m-0">
         <Suspense fallback={null}>
           <ParserOutput
+            boardId={boardId}
             messages={parserMessages}
             ioRegistry={ioRegistry}
             messagesContainerRef={parserMessagesContainerRef}
@@ -192,7 +197,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
 
       <TabsContent value="registry" className="flex-1 overflow-hidden m-0">
         <Suspense fallback={null}>
-          <ParserOutput messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
+          <ParserOutput boardId={boardId} messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
         </Suspense>
       </TabsContent>
 
