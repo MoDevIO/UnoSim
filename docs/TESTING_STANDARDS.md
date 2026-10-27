@@ -95,8 +95,13 @@ and stop with their system lines, the diagnostic for input before
 `Serial.begin()`, reset without compiling again, a run that continues while the
 connection is lost, and the host-mock fallback. The engine is chosen with the
 `localStorage` key of File → Settings → "Simulation engine" (`unoSimulationEngine`).
-The client build is the pre-built `dist/public` (see above): run
-`npm run build:client` before running this spec locally.
+The test server serves the pre-built `dist/public`. Playwright runs a fresh
+production build before starting its test server, for both local and CI runs.
+This also refreshes board SVGs and compiled workers after a pull; an existing
+`dist` directory is not evidence that it matches the current source. The test
+server is owned by the run and never reuses an already running application.
+Keep port 3000 free for direct Playwright runs; `run-tests.sh` handles this in
+its pre-flight stage. No separate manual build is required before the E2E step.
 
 ---
 

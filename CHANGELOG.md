@@ -85,6 +85,8 @@ behaviour for the Uno.
 
 ### Changed
 
+- **E2E startup:** Playwright rebuilds the application before starting its own
+  test server, so local pipeline runs use the current client and board artwork.
 - **Mega board artwork:** uses the supplied illustration, with contact-aligned
   pin targets, LEDs and reset. The duplicate SDA/SCL sockets share D20/D21.
 - **Nano board artwork:** uses the supplied illustration, with all 22 signal
