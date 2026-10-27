@@ -80,8 +80,25 @@ function Capability({ available }: Readonly<{ available: boolean }>) {
   );
 }
 
+function PinChangeCell({ pin }: Readonly<{ pin: PinReference }>) {
+  const { hardware, pinChange } = pin;
+  if (!pinChange) return <Capability available={false} />;
+  let restriction: string | undefined;
+  if (hardware.role === "reset") restriction = RESET_RESTRICTION;
+  else if (!pinChange.coreSupported) restriction = PCINT_RESTRICTION;
+  return (
+    <span
+      className={restriction ? "text-status-warning" : undefined}
+      title={restriction}
+    >
+      PCINT{pinChange.index}
+      {restriction ? " *" : ""}
+    </span>
+  );
+}
+
 function PinInfoRow({ pin }: Readonly<{ pin: PinReference }>) {
-  const { hardware, buses, pinChange } = pin;
+  const { hardware, buses } = pin;
   const code = codeName(pin);
   const gpio =
     hardware.role === "reset" ? (
@@ -91,25 +108,6 @@ function PinInfoRow({ pin }: Readonly<{ pin: PinReference }>) {
     ) : (
       <Capability available={hardware.port !== undefined} />
     );
-  let pcint: React.ReactNode = <Capability available={false} />;
-  if (pinChange) {
-    const restricted = hardware.role === "reset" || !pinChange.coreSupported;
-    pcint = (
-      <span
-        className={restricted ? "text-status-warning" : undefined}
-        title={
-          hardware.role === "reset"
-            ? RESET_RESTRICTION
-            : !pinChange.coreSupported
-              ? PCINT_RESTRICTION
-              : undefined
-        }
-      >
-        PCINT{pinChange.index}
-        {restricted ? " *" : ""}
-      </span>
-    );
-  }
   return (
     <tr className="group border-b border-border" data-pin={hardware.pin}>
       <td className="sticky left-0 z-10 bg-background px-3 py-1 text-left font-semibold border-r border-border group-hover:bg-muted">
@@ -165,7 +163,9 @@ function PinInfoRow({ pin }: Readonly<{ pin: PinReference }>) {
           <Capability available={pin.externalInterrupt !== undefined} />
         </span>
       </td>
-      <td className="px-3 py-1">{pcint}</td>
+      <td className="px-3 py-1">
+        <PinChangeCell pin={pin} />
+      </td>
       <td className="px-3 py-1">
         {hardware.pwm ? (
           `T${hardware.pwm.timer} / ${hardware.pwm.channel}`
@@ -253,12 +253,9 @@ export function PinInfos({ boardId }: Readonly<{ boardId: BoardId }>) {
           </tbody>
         </table>
         {!filteredPins.length && !filteredContacts.length && (
-          <p
-            className="p-4 text-center text-ui-xs text-muted-foreground"
-            role="status"
-          >
+          <output className="block p-4 text-center text-ui-xs text-muted-foreground">
             No matching pins.
-          </p>
+          </output>
         )}
       </UnifiedScrollArea>
       <div className="shrink-0 border-t border-border px-3 py-1 text-ui-xs text-muted-foreground">
