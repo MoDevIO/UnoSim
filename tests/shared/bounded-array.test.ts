@@ -7,14 +7,14 @@ import { compileRequestSchema, clientToServerWSMessageSchema } from "../../share
 import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor";
 
 /**
- * Zod 3 validates every element of an array that is too long. An oversized array of invalid elements
- * then costs one issue per element: a 1 MiB body gave 500 000 to 700 000 issues and several hundred MiB
- * of heap. `boundedArray` checks the length first (GHSA-mrhx-c7xc-m3w5 describes the pattern for Zod 4).
+ * An array schema validates every element of an array that is too long, unless the length is checked
+ * first: an oversized array of invalid elements then costs one issue per element (a 1 MiB body gave
+ * 500 000 to 700 000 issues and several hundred MiB of heap under Zod 3; GHSA-mrhx-c7xc-m3w5 describes
+ * the pattern). `boundedArray` checks the length first and keeps that independent of the Zod release.
  */
-const issuesOf = (schema: z.ZodTypeAny, value: unknown) => {
+const issuesOf = (schema: z.ZodType, value: unknown) => {
   const result = schema.safeParse(value);
-  // `fatal` only tells Zod to end the validation; it is no part of what a response says.
-  return result.success ? [] : result.error.issues.map(({ fatal: _fatal, ...issue }: z.ZodIssue & { fatal?: boolean }) => issue);
+  return result.success ? [] : result.error.issues;
 };
 const repeat = (element: unknown, count: number) => Array.from({ length: count }, () => element);
 
@@ -27,7 +27,7 @@ describe("boundedArray", () => {
     const value = { list: ["a", "b", "c", "d"] };
 
     expect(issuesOf(bounded, value)).toEqual(issuesOf(plain, value));
-    expect(issuesOf(bounded, value)[0]?.message).toBe("Array must contain at most 3 element(s)");
+    expect(issuesOf(bounded, value)[0]?.message).toBe("Too big: expected array to have <=3 items");
   });
 
   it("checks no element of an oversized array", () => {
@@ -38,7 +38,7 @@ describe("boundedArray", () => {
 
     expect(checked).toBe(0);
     expect(issues).toHaveLength(1);
-    expect(issues[0]).toMatchObject({ code: "too_big", path: ["list"], maximum: 3, type: "array" });
+    expect(issues[0]).toMatchObject({ code: "too_big", path: ["list"], maximum: 3, origin: "array" });
   });
 
   it("reports the invalid elements of an array within the limit as before", () => {
@@ -78,7 +78,7 @@ describe("boundedArray", () => {
 
 describe("requests with oversized arrays of invalid elements", () => {
   const MIB = 1024 * 1024;
-  const cheap = (schema: z.ZodTypeAny, value: unknown) => {
+  const cheap = (schema: z.ZodType, value: unknown) => {
     const started = performance.now();
     const issues = issuesOf(schema, value);
     return { issues, ms: performance.now() - started };

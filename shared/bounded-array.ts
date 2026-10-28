@@ -12,15 +12,15 @@ import { z } from "zod";
  * Use it for every array whose content comes from a request, a repository or any other source that
  * is not this code. The minimum is checked as before, after the elements (a short array is cheap).
  */
-export function boundedArray<T extends z.ZodTypeAny>(element: T, max: number, min?: number) {
+export function boundedArray<T extends z.ZodType>(element: T, max: number, min?: number) {
   const array = min === undefined ? z.array(element).max(max) : z.array(element).min(min).max(max);
   return z
     .unknown()
     .superRefine((value, ctx) => {
       if (!Array.isArray(value) || value.length <= max) return;
       // Fatal: the validation of the whole input ends here, so a refinement around the array never
-      // sees the unchecked elements (the issue carries `fatal: true`, nothing else differs).
-      ctx.addIssue({ code: z.ZodIssueCode.too_big, type: "array", maximum: max, inclusive: true, exact: false, fatal: true });
+      // sees the unchecked elements (the issue carries `continue: false`, nothing else differs).
+      ctx.addIssue({ code: "too_big", origin: "array", maximum: max, inclusive: true, continue: false });
     })
     .pipe(array);
 }

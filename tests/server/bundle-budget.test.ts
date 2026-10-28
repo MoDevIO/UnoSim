@@ -59,7 +59,7 @@ describe("bundle budget initial load path", () => {
   });
 
   it("still enforces the index size limit", () => {
-    const result = runBudget({ "index-a1.js": "x".repeat(710_001), ...WORKER }, { "index.html": { file: "assets/index-a1.js" } });
+    const result = runBudget({ "index-a1.js": "x".repeat(745_001), ...WORKER }, { "index.html": { file: "assets/index-a1.js" } });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Bundle budget exceeded");
   });

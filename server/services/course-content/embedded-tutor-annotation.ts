@@ -12,7 +12,7 @@ const learningObjectiveSchema = z.preprocess(
   (value) => typeof value === "string" ? value.trim() : value,
   z.string().min(1).superRefine((value, context) => {
     if ([...value].length > 500) {
-      context.addIssue({ code: z.ZodIssueCode.too_big, maximum: 500, type: "string", inclusive: true, message: "Objective is too long" });
+      context.addIssue({ code: "too_big", maximum: 500, origin: "string", inclusive: true, message: "Objective is too long" });
     }
     if (CONTROL_CHARACTER.test(value)) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "Objective contains a control character" });
