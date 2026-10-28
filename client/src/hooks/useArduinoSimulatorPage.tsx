@@ -60,6 +60,9 @@ import {
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 import { detectParentOrigin } from "@/lib/parent-origin";
 
+/** Run commands the simulation controller already writes to the debug log when it issues them. */
+const LOGGED_ELSEWHERE: ReadonlySet<string> = new Set(["start_simulation", "stop_simulation", "pause_simulation", "resume_simulation"]);
+
 export function useArduinoSimulatorPage() {
   const editorRef = useRef<{
     getValue: () => string;
@@ -273,19 +276,34 @@ export function useArduinoSimulatorPage() {
   useEffect(() => {
     setSerialPortCount(boardSerialPorts);
   }, [boardSerialPorts, setSerialPortCount]);
+  // The run commands (start, stop, pause, resume) are logged where they are issued; every other message
+  // the page sends (serial input, pin values, code changes) is logged here, with the way it takes.
+  const logOutgoing = useCallback((message: IncomingArduinoMessage, viaBrowser: boolean) => {
+    if (LOGGED_ELSEWHERE.has(message.type)) return;
+    addDebugMessage("frontend", viaBrowser ? `browser: ${message.type}` : message.type, JSON.stringify(message, null, 2), viaBrowser ? "worker" : "websocket");
+  }, [addDebugMessage]);
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
-    if (commandRouter.route(message)) return;
+    if (commandRouter.route(message)) return logOutgoing(message, true);
     if (!capabilities.canUseRealtimeControls) return;
+    logOutgoing(message, false);
     sendMessageRaw(message);
-  }, [capabilities, sendMessageRaw, commandRouter]);
+  }, [capabilities, sendMessageRaw, commandRouter, logOutgoing]);
   const sendMessageImmediateGuarded = useCallback((message: IncomingArduinoMessage) => {
-    if (commandRouter.route(message)) return true;
+    if (commandRouter.route(message)) {
+      logOutgoing(message, true);
+      return true;
+    }
     if (!capabilities.canUseRealtimeControls) return false;
+    logOutgoing(message, false);
     return sendMessageImmediate(message);
-  }, [capabilities, sendMessageImmediate, commandRouter]);
+  }, [capabilities, sendMessageImmediate, commandRouter, logOutgoing]);
   const sendAnalogValue = useCallback((pin: number, value: number) => {
-    if (!commandRouter.setAnalog(pin, value)) sendMessage({ type: "set_pin_value", pin, value });
-  }, [commandRouter, sendMessage]);
+    if (commandRouter.setAnalog(pin, value)) {
+      addDebugMessage("frontend", "browser: set_analog", JSON.stringify({ type: "set_analog", pin, value }, null, 2), "worker");
+    } else {
+      sendMessage({ type: "set_pin_value", pin, value });
+    }
+  }, [commandRouter, sendMessage, addDebugMessage]);
 
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
@@ -670,13 +688,12 @@ export function useArduinoSimulatorPage() {
     [staticIoRegistry, runtimeIoRegistry, simulationStatus, boardId],
   );
 
-  const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
+  const { handleSerialSend, handleClearSerialOutput } =
     useSimulatorSerialPanel({
       sendMessage,
       simulationStatus,
       toast,
       setTxActivity,
-      serialInputValue,
       setSerialInputValue,
       clearSerialOutput,
       serialPort,
@@ -684,9 +701,9 @@ export function useArduinoSimulatorPage() {
       capabilities,
     });
 
-  const handleSerialInputSend = () => {
+  const handleSerialInputSend = (lineEnding = "") => {
     if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue, serialPort);
+    handleSerialSend(serialInputValue + lineEnding, serialPort);
   };
 
   const closeMobilePanel = useCallback(() => {
@@ -773,7 +790,6 @@ export function useArduinoSimulatorPage() {
     setAutoScrollEnabled,
     serialInputValue,
     setSerialInputValue,
-    handleSerialInputKeyDown,
     handleSerialInputSend,
     baudRate,
     telemetryData,
@@ -893,7 +909,6 @@ export function useArduinoSimulatorPage() {
       setAutoScrollEnabled,
       serialInputValue,
       setSerialInputValue,
-      handleSerialInputKeyDown,
       handleSerialInputSend,
       txActivity,
       rxActivity,

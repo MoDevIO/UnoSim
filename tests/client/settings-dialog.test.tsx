@@ -40,3 +40,20 @@ describe("SettingsDialog layout", () => {
     expect(localStorage.getItem("unoToastDuration")).toBe("2000");
   });
 });
+
+describe("SettingsDialog: Serial monitor line ending", () => {
+  it("offers Newline by default and remembers another choice for the serial monitor", () => {
+    globalThis.localStorage.removeItem("unoSerialLineEnding");
+
+    render(<SettingsDialog open onOpenChange={vi.fn()} />);
+    const select = screen.getByLabelText("serial line ending") as HTMLSelectElement;
+
+    expect(select.value).toBe("lf");
+    expect([...select.options].map((option) => option.textContent)).toEqual(["No line ending", "Newline", "Carriage return", "Both NL & CR"]);
+
+    fireEvent.change(select, { target: { value: "crlf" } });
+
+    expect(globalThis.localStorage.getItem("unoSerialLineEnding")).toBe("crlf");
+    globalThis.localStorage.removeItem("unoSerialLineEnding");
+  });
+});

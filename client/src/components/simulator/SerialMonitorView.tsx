@@ -3,6 +3,7 @@ import { Terminal, ChevronsDown, BarChart, Columns, Monitor, Trash2 } from "luci
 import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { InputGroup } from "@/components/ui/input-group";
+import { getSerialLineEnding } from "@/lib/serial-line-ending";
 import { clsx } from "clsx";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
 import { SerialMonitor } from "@/components/features/serial-monitor";
@@ -181,8 +182,8 @@ interface SerialMonitorViewProps {
   readonly serialPort?: number;
   readonly serialPortCount?: number;
   readonly setSerialPort?: (port: number) => void;
-  readonly handleSerialInputKeyDown: (e: React.KeyboardEvent) => void;
-  readonly handleSerialInputSend: () => void;
+  /** Sends the typed text followed by the chosen line ending, like the Arduino IDE serial monitor. */
+  readonly handleSerialInputSend: (lineEnding: string) => void;
   readonly debugMode: boolean;
   readonly telemetryData: { last: TelemetryMetrics | null } | null;
   readonly baudRate: number;
@@ -205,7 +206,6 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
     setAutoScrollEnabled,
     serialInputValue,
     setSerialInputValue,
-    handleSerialInputKeyDown,
     handleSerialInputSend,
     debugMode,
     telemetryData,
@@ -359,8 +359,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             placeholder={serialPort === 0 ? "Send to Arduino..." : `Send to ${serialPortName(serialPort)}...`}
             value={serialInputValue}
             onChange={(e) => setSerialInputValue(e.target.value)}
-            onKeyDown={handleSerialInputKeyDown}
-            onSubmit={handleSerialInputSend}
+            onSubmit={() => handleSerialInputSend(getSerialLineEnding())}
             title={capabilities && !capabilities.canUseRealtimeControls ? "Server connection required" : undefined}
             submitDisabled={!serialInputValue.trim()}
             disabled={

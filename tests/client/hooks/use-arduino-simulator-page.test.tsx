@@ -184,7 +184,6 @@ vi.mock("@/hooks/use-serial-io", () => ({
 vi.mock("@/hooks/useSimulatorSerialPanel", () => ({
   useSimulatorSerialPanel: () => ({
     handleSerialSend: noop,
-    handleSerialInputKeyDown: noop,
     handleClearSerialOutput: noop,
   }),
 }));

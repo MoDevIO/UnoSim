@@ -20,7 +20,6 @@ function renderView(props: { serialPort?: number; serialPortCount?: number; setS
       setAutoScrollEnabled={vi.fn()}
       serialInputValue=""
       setSerialInputValue={vi.fn()}
-      handleSerialInputKeyDown={vi.fn()}
       handleSerialInputSend={vi.fn()}
       debugMode={false}
       telemetryData={{ last: null }}
