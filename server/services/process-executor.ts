@@ -162,6 +162,11 @@ function validateCommand(command: string, args: string[]): void {
     }
   }
 
+  requireCommandRules(command, args);
+}
+
+/** Rules beyond the argument patterns for the toolchain commands. */
+function requireCommandRules(command: string, args: string[]): void {
   if (command === "arduino-cli") requireCatalogFqbn(args);
   if (command === "docker") requireIsolatedCompileContainer(args);
   if (command === "arduino-cli" || command === "docker") requireKnownBuildProperties(args);

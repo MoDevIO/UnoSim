@@ -219,7 +219,8 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
     const insertion = loaded.shared.insertIncludes(currentSource(), entry.includes, { localHeaders: activeFile.localHeaders, fromFile: activeFile.path });
     if (insertion.inserted.length === 0) return;
     writeSource(insertion.content);
-    toast({ title: "Include eingefügt", description: `${insertion.inserted.map((header) => `<${header}>`).join(", ")} in ${activeFile.path}` });
+    const headers = insertion.inserted.map((header) => "<" + header + ">").join(", ");
+    toast({ title: "Include eingefügt", description: `${headers} in ${activeFile.path}` });
   };
 
   /** Registers a requirement without touching the source (the hint of a written include, §7). */

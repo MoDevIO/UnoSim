@@ -45,7 +45,14 @@ const STATUS_LABELS: Record<CompatibilityStatement["status"], string> = {
 const keyOf = (entry: LibraryRequirement) => `${entry.name}@${entry.version}`;
 
 function statementText(label: string, statement: CompatibilityStatement): string {
-  return `${label}: ${STATUS_LABELS[statement.status]}${statement.reason ? ` – ${statement.reason}` : ""}`;
+  const reason = statement.reason ? ` – ${statement.reason}` : "";
+  return `${label}: ${STATUS_LABELS[statement.status]}${reason}`;
+}
+
+/** The badge of a catalog entry: selected, or not provided here. */
+function availableBadge(entry: OfferedLibraryPackage, selectedNames: ReadonlySet<string>): string | undefined {
+  if (selectedNames.has(entry.name)) return "Im Projekt";
+  return entry.available ? undefined : "Nicht verfügbar";
 }
 
 function matches(entry: { name: string; description?: string }, query: string): boolean {
@@ -58,8 +65,19 @@ function matches(entry: { name: string; description?: string }, query: string): 
  * the project's selection, details with compatibility, and "Einbinden".
  * Opening, searching and switching views change neither source nor selection.
  */
-export function LibrariesDialog(props: LibrariesDialogProps) {
-  const { catalog, libraries } = props;
+export function LibrariesDialog({
+  open,
+  onOpenChange,
+  boardId,
+  boardName,
+  runtime,
+  catalog,
+  libraries,
+  activeFile,
+  onInclude,
+  onInsertInclude,
+  onOpenExample,
+}: LibrariesDialogProps) {
   const [view, setView] = useState<View>("available");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | undefined>();
@@ -76,12 +94,12 @@ export function LibrariesDialog(props: LibrariesDialogProps) {
   const selectedProjectEntry = view === "project" ? inProject.find((entry) => keyOf(entry) === selectedKey) : undefined;
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col gap-3" aria-describedby="libraries-dialog-context">
         <DialogHeader className="shrink-0">
           <DialogTitle>Libraries</DialogTitle>
           <DialogDescription id="libraries-dialog-context">
-            {props.boardName} · {props.runtime ? ENGINE_LABELS[props.runtime] : "–"}
+            {boardName} · {runtime ? ENGINE_LABELS[runtime] : "–"}
           </DialogDescription>
         </DialogHeader>
 
@@ -117,11 +135,11 @@ export function LibrariesDialog(props: LibrariesDialogProps) {
           </UnifiedScrollArea>
           <UnifiedScrollArea orientation="vertical" className="min-h-0 rounded-md border" viewportClassName="p-3">
             {selectedPackage && (
-              <PackageDetails {...props} entry={selectedPackage} onRequestExample={setPendingExample} />
+              <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedPackage} onRequestExample={setPendingExample} />
             )}
             {selectedProjectEntry && (
               selectedProjectEntry.offered
-                ? <PackageDetails {...props} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
+                ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
                 : <MissingDetails entry={selectedProjectEntry} catalog={catalog.packages} />
             )}
             {!selectedPackage && !selectedProjectEntry && (
@@ -145,8 +163,8 @@ export function LibrariesDialog(props: LibrariesDialogProps) {
                   const exampleId = pendingExample;
                   setPendingExample(undefined);
                   if (exampleId) {
-                    props.onOpenExample(exampleId);
-                    props.onOpenChange(false);
+                    onOpenExample(exampleId);
+                    onOpenChange(false);
                   }
                 }}
               >
@@ -195,7 +213,7 @@ function CatalogList({ view, catalog, query, available, inProject, selectedNames
               onSelect={() => onSelect(keyOf(entry))}
               title={`${entry.name} ${entry.version}`}
               detail={entry.description}
-              badge={selectedNames.has(entry.name) ? "Im Projekt" : entry.available ? undefined : "Nicht verfügbar"}
+              badge={availableBadge(entry, selectedNames)}
             />
           </li>
         ))}
@@ -223,7 +241,7 @@ function CatalogList({ view, catalog, query, available, inProject, selectedNames
   );
 }
 
-function ListButton(props: { selected: boolean; onSelect: () => void; title: string; detail: string; badge?: string }) {
+function ListButton(props: { readonly selected: boolean; readonly onSelect: () => void; readonly title: string; readonly detail: string; readonly badge?: string }) {
   return (
     <button
       type="button"
@@ -240,7 +258,7 @@ function ListButton(props: { selected: boolean; onSelect: () => void; title: str
   );
 }
 
-interface PackageDetailsProps extends LibrariesDialogProps {
+interface PackageDetailsProps extends Pick<LibrariesDialogProps, "boardId" | "runtime" | "libraries" | "activeFile" | "onInclude" | "onInsertInclude"> {
   readonly entry: OfferedLibraryPackage;
   readonly onRequestExample: (exampleId: string) => void;
 }
@@ -285,7 +303,12 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
   );
 }
 
-function IncludeButton(props: { action: ReturnType<typeof includeAction> | undefined; activeFile: ActiveLibraryFile | undefined; onInclude: () => void; onInsertInclude: () => void }) {
+function IncludeButton(props: {
+  readonly action: ReturnType<typeof includeAction> | undefined;
+  readonly activeFile: ActiveLibraryFile | undefined;
+  readonly onInclude: () => void;
+  readonly onInsertInclude: () => void;
+}) {
   if (!props.action) {
     return <p className="text-ui-xs text-muted-foreground">Öffne eine .ino- oder .h-Datei, um die Bibliothek einzubinden.</p>;
   }
@@ -304,7 +327,7 @@ function IncludeButton(props: { action: ReturnType<typeof includeAction> | undef
   }
 }
 
-function MissingDetails({ entry, catalog }: { entry: ProjectLibraryEntry; catalog: readonly OfferedLibraryPackage[] }) {
+function MissingDetails({ entry, catalog }: { readonly entry: ProjectLibraryEntry; readonly catalog: readonly OfferedLibraryPackage[] }) {
   const listed = catalog.find((candidate) => candidate.name === entry.name && candidate.version === entry.version);
   const reason = listed?.unavailableReason ?? `Version ${entry.version} wird auf diesem Server nicht angeboten. Eine andere Version wird nicht ersatzweise verwendet.`;
   return (

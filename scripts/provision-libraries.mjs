@@ -60,7 +60,7 @@ function install(entry, archive) {
   try {
     const zip = join(work, "package.zip");
     writeFileSync(zip, archive);
-    execFileSync("unzip", ["-q", zip, "-d", join(work, "unpacked")], { stdio: "inherit" });
+    execFileSync("unzip", ["-q", zip, "-d", join(work, "unpacked")], { stdio: "inherit" }); // NOSONAR S4036 – provisioning tool run by the operator, like the core install scripts
     const unpacked = join(work, "unpacked", entry.archive.root);
     const properties = libraryProperties(unpacked);
     if (properties.name !== entry.name || properties.version !== entry.version) {

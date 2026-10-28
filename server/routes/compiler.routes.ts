@@ -102,6 +102,17 @@ function clientResultOf(result: CompilationResult, deliverArtifact: boolean): Co
   return deliverArtifact && result.success && artifact ? { ...clientResult, artifact } : clientResult;
 }
 
+/** The packages a request's requirements resolve to for its board; none without requirements. */
+async function resolveRequestLibraries(
+  libraries: LibraryRequirement[] | undefined,
+  target: { board?: BoardId; fqbn?: string },
+  deps: CompilerDeps,
+): Promise<{ ok: true; libraries: readonly ResolvedLibrary[] | undefined } | { ok: false; messages: readonly string[] }> {
+  if (!libraries || libraries.length === 0) return { ok: true, libraries: undefined };
+  const board = target.board ?? (target.fqbn ? findBoardByFqbn(target.fqbn)?.id : undefined) ?? DEFAULT_BOARD_ID;
+  return resolveCompileLibraries(libraries, board, (await deps.providedLibraries?.()) ?? []);
+}
+
 /** A compile refused before the compiler: the library requirements cannot be built here. */
 function libraryFailure(messages: readonly string[]): CompilationResult {
   return {
@@ -206,15 +217,10 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
       const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
       if (target.error) return res.status(400).json({ error: target.error });
 
-      let resolvedLibraries: readonly ResolvedLibrary[] | undefined;
-      if (libraries && libraries.length > 0) {
-        const board = target.options.board ?? (target.options.fqbn ? findBoardByFqbn(target.options.fqbn)?.id : undefined) ?? DEFAULT_BOARD_ID;
-        const resolution = resolveCompileLibraries(libraries, board, (await deps.providedLibraries?.()) ?? []);
-        if (!resolution.ok) return res.json(libraryFailure(resolution.messages));
-        resolvedLibraries = resolution.libraries;
-      }
+      const resolution = await resolveRequestLibraries(libraries, target.options, deps);
+      if (!resolution.ok) return res.json(libraryFailure(resolution.messages));
       const compileOptions = {
-        libraries: resolvedLibraries,
+        libraries: resolution.libraries,
         ...target.options,
         ...(entryFile ? { entryFile } : {}),
       };

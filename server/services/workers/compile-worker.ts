@@ -149,6 +149,11 @@ async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, c
   return { coreCacheWarm, acquiredCoreLock, activeBuildCachePath };
 }
 
+/** The resolved library packages of a task, when it has any. */
+function librariesOption(task: CompileRequestPayload): { libraries?: CompileRequestPayload["libraries"] } {
+  return task.libraries && task.libraries.length > 0 ? { libraries: task.libraries } : {};
+}
+
 /**
  * Process incoming compilation requests with strict typing
  */
@@ -186,7 +191,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
         entryFile: task.entryFile,
         ...(task.board ? { board: task.board } : {}),
         fqbn,
-        ...(task.libraries && task.libraries.length > 0 ? { libraries: task.libraries } : {}),
+        ...librariesOption(task),
         sketchHash,
         coreFingerprint,
         buildPath: sketchBuildPath,

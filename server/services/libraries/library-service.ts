@@ -23,7 +23,7 @@ import catalogJson from "@shared/library-catalog.json";
 
 const catalogPackageSchema = libraryPackageSchema.extend({
   /** The immutable archive the provisioning step downloads and checks against `sha256`. */
-  archive: z.object({ url: z.string().url(), size: z.number().int().positive(), root: z.string().min(1) }).strict(),
+  archive: z.object({ url: z.url(), size: z.number().int().positive(), root: z.string().min(1) }).strict(),
 }).strict();
 export type CatalogPackage = z.infer<typeof catalogPackageSchema>;
 
@@ -95,7 +95,8 @@ export function resolveCompileLibraries(
   for (const entry of resolution.packages) {
     const compile = compileCompatibility(entry, board);
     if (compile.status === "unsupported") {
-      messages.push(`${entry.name} ${entry.version} does not support ${getBoard(board).displayName}${compile.reason ? `: ${compile.reason}` : ""}`);
+      const reason = compile.reason ? `: ${compile.reason}` : "";
+      messages.push(`${entry.name} ${entry.version} does not support ${getBoard(board).displayName}${reason}`);
       continue;
     }
     const problem = provisioningProblem(entry, provided);
