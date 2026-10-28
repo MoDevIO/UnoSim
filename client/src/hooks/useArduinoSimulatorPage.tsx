@@ -727,6 +727,7 @@ export function useArduinoSimulatorPage() {
     compileSlot,
     serialSlot,
   } = useSimulatorUIState({
+    boardId,
     code,
     setCode,
     tabs,

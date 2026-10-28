@@ -18,7 +18,10 @@ const CodeEditor = lazy(() =>
   }))
 );
 
+import type { BoardId } from "@shared/boards";
+
 interface UseSimulatorUIStateParams {
+  boardId?: BoardId;
   code: string;
   setCode: (code: string) => void;
   tabs: Array<{ id: string; name: string; path?: string; content: string }>;
@@ -119,6 +122,7 @@ const LoadingPlaceholder = () => (
 );
 
 export function useSimulatorUIState({
+  boardId,
   code,
   setCode,
   tabs,
@@ -288,6 +292,7 @@ export function useSimulatorUIState({
   const compileSlot = useMemo(
     () => (
       <OutputPanel
+        boardId={boardId}
         activeOutputTab={activeOutputTab}
         isSuccessState={isSuccessState}
         isModified={isModified}
@@ -321,6 +326,7 @@ export function useSimulatorUIState({
       />
     ),
     [
+      boardId,
       activeOutputTab,
       isSuccessState,
       isModified,

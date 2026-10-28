@@ -2,6 +2,20 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- I/O Registry now has **Programmed Pins (n)**, **All Pins**, and **Pin Infos**
+  tabs. The usage views retain runtime provenance, conflict markers, and
+  file-aware source links with the shared eye-button state. Pin Infos provides
+  a searchable reference for all four boards with one bus column, nine
+  columns, and a single sticky header and Pin column. RESET/analog-only/core
+  restrictions and nonprogrammable reference contacts remain explicit;
+  hardware bus capability is distinguished from simulation support.
+- Usage-row RX/TX and PWM markers now follow the selected board, including
+  the ATtiny software UART directions and all four Mega serial ports.
+
 ## v2.0.0-beta.1 – 2026-10-24
 
 First pre-release of version 2 from the integration branch `feature/browser-emulation`

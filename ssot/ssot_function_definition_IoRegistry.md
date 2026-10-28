@@ -13,6 +13,44 @@ Im ino-File werden Pins verwendet. Die Verwendung der Pins soll in einer Tabelle
 
 Die IO-Registry ist eine Tabelle aller verwendeter Pins. Als Spalten existieren dann die Funktionen (siehe Bild).
 
+## Ansichten der Registry (2026-10-27)
+
+Unter I/O Registry stehen die englisch beschrifteten Untertabs
+**Programmed Pins (n)** (Standard), **All Pins** und **Pin Infos**.
+Die ersten beiden ersetzen den bisherigen Sichtbarkeits-Schalter und nutzen
+weiterhin dieselben Registry-Zeilen, Konfliktmarker und Herkunftsangaben.
+Der Auge-Button gilt für beide Nutzungsansichten; sein Zustand überlebt den
+Besuch von Pin Infos. Er zeigt weiterhin Datei und Zeile mit Navigation zum
+vollständigen SourceLocation-Target; `L<n>` bleibt der Fallback für alte
+zeilenbasierte Einträge. Es gibt keine Reduktion auf reine Zeilennummern.
+
+Pin Infos ist eine vom Sketch und Lauf unabhängige Referenz des aktiven Boards.
+Neun Spalten, genau eine Kopfzeile:
+**Pin | Digital In | Digital Out | Analog In | PWM Out | Bus Connections | Ext. IRQ | Pin Change | Timer**.
+Die Pin-Spalte und die Kopfzeile bleiben beim Scrollen stehen; eine Suche
+filtert nach sichtbaren Namen/Funktionen, bei einem Boardwechsel wird sie
+zurückgesetzt. Die bestehende Boardansicht bleibt an ihrem bisherigen Ort.
+Es gibt keine Spalten für Sketch/Alias, Port, ADC-Kanal, Chipbein oder
+Besonderheiten. Nur abweichende Codeschreibweisen stehen direkt beim Pin.
+
+Quelle ist `packages/avr-emulator/src/boards/pin-reference.ts`: Signalpins,
+ADC/PWM und Serial werden aus `BoardHardware` abgeleitet. Zusätzliche Rollen
+folgen `arduino:avr` 1.8.8 (`variants/standard`, `eightanaloginputs`, `mega`)
+und ATTinyCore 1.5.2 (`variants/tinyX5`); PCINT folgt den MCU-Portzuordnungen.
+Der externe Interruptindex bezeichnet `digitalPinToInterrupt`, keinen
+Vektorindex. Mega PE0/PJ0/PJ1 haben PCINT per Register, aber keine Unterstützung
+der gepinnten Arduino-Core-Helfer. ATtiny PB5 bleibt reservierter RESET,
+Nano A6/A7 bleiben analog-only. Die USI/SPI-Rollen sind Master-Rollen.
+
+PWM heißt 8 Bit / 0–255, Analog In 10 Bit / 0–1023. Versorgung, GND, AREF und
+separate Steuerkontakte werden ohne Arduino-Pinnummer als Referenzeinträge
+aufgeführt; mehrfach vorhandene gleichnamige Kontakte teilen einen Eintrag.
+Hardwarefähigkeit ist von Emulationsunterstützung getrennt: Die Referenz
+kennzeichnet I²C/SPI/USI als nicht modelliert und Serial als im Browser-Modus
+modelliert, ohne beliebige angeschlossene Geräte zu versprechen.
+Alle neuen Controls verwenden die gemeinsamen Tab-, Toolbar-, Input- und
+Scroll-Komponenten sowie semantische Style-Tokens.
+
 # Aktualisierung der Tabelle:
 Die Verwendung der Pins wird durch `analyzeStaticIO(code)` während der Eingabe
 ermittelt und dargestellt. Das kanonische Ergebnis enthält auflösbare Pins,

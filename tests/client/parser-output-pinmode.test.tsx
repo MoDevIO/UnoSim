@@ -72,6 +72,8 @@ describe("ParserOutput - pinMode derived from legacy usedAt operations", () => {
   });
 });
 
+// The approved three-tab design replaces the former visibility icon. Only
+// visibility selectors/layout assertions change; usage and source targets stay intact.
 describe("ParserOutput Component", () => {
   const mockOnClear = vi.fn();
   const mockOnGoToLine = vi.fn();
@@ -323,7 +325,7 @@ describe("ParserOutput Component", () => {
     expect(screen.getByText("✓")).not.toBeNull();
     expect(screen.queryByText("All")).toBeNull();
     expect(screen.queryByText("Used")).toBeNull();
-    expect(screen.getByRole("button", { name: "Show all pins" })).toHaveClass("bg-transparent");
+    expect(screen.getByRole("tab", { name: "All Pins", exact: true })).toHaveAttribute("data-app-tab", "true");
     expect(screen.queryByRole("button", { name: "Go to led_controller.h:8" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go to led_controller.h:13" })).toBeNull();
     expect(screen.getByRole("button", { name: "Show source locations" })).not.toBeNull();
@@ -548,7 +550,7 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    const registryHeader = screen.getByText("Programmed pins (1)").parentElement;
+    const registryHeader = screen.getByRole("tab", { name: "Programmed Pins (1)" }).closest(".panel-content-header");
     expect(registryHeader).toHaveClass("panel-content-header");
     expect(screen.getByText("13")).not.toBeNull();
     expect(screen.getByText("OUTPUT")).not.toBeNull();
@@ -570,13 +572,14 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("Programmed pins (1)")).not.toBeNull();
+    expect(screen.getByText("Programmed Pins (1)")).not.toBeNull();
 
-    const toggleButton = screen.getByTitle("Show all pins");
+    const toggleButton = screen.getByRole("tab", { name: "All Pins", exact: true });
     await user.click(toggleButton);
 
     await waitFor(() => {
-      expect(screen.getByText("All pins (20)")).not.toBeNull();
+      expect(screen.getByRole("tab", { name: "All Pins", exact: true })).toHaveAttribute("aria-selected", "true");
+      expect(document.querySelectorAll("tbody tr")).toHaveLength(20);
     });
   });
 
@@ -621,7 +624,7 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    expect(screen.getByText("Programmed pins (1)")).not.toBeNull();
+    expect(screen.getByText("Programmed Pins (1)")).not.toBeNull();
     expect(screen.getByText("4")).not.toBeNull();
     expect(screen.getByText("OUTPUT")).not.toBeNull();
     expect(screen.queryByText("No pins statically detected")).toBeNull();
@@ -646,7 +649,8 @@ describe("ParserOutput Component", () => {
     await user.click(showAllLink);
 
     await waitFor(() => {
-      expect(screen.getByText("All pins (20)")).not.toBeNull();
+      expect(screen.getByRole("tab", { name: "All Pins", exact: true })).toHaveAttribute("aria-selected", "true");
+      expect(document.querySelectorAll("tbody tr")).toHaveLength(20);
     });
   });
 
@@ -662,10 +666,11 @@ describe("ParserOutput Component", () => {
       />,
     );
 
-    await user.click(screen.getByTitle("Show all pins"));
+    await user.click(screen.getByRole("tab", { name: "All Pins", exact: true }));
 
     await waitFor(() => {
-      expect(screen.getByText("All pins (20)")).not.toBeNull();
+      expect(screen.getByRole("tab", { name: "All Pins", exact: true })).toHaveAttribute("aria-selected", "true");
+      expect(document.querySelectorAll("tbody tr")).toHaveLength(20);
       expect(screen.getByText("A5")).not.toBeNull();
       expect(screen.queryByText("No pins available")).toBeNull();
     });
@@ -990,14 +995,14 @@ describe("ParserOutput - all pins of the active board (plan P4.3)", () => {
   it("lists the 20 pins of the Uno and the 22 of the Nano, A6 and A7 included, when all pins are shown", async () => {
     const rows = () => document.querySelectorAll("tbody tr").length;
     const { unmount } = renderRegistry();
-    await userEvent.click(screen.getByLabelText("Show all pins"));
+    await userEvent.click(screen.getByRole("tab", { name: "All Pins", exact: true }));
     expect(rows()).toBe(20);
     unmount();
 
     setActiveBoard("nano");
     try {
       renderRegistry();
-      await userEvent.click(screen.getByLabelText("Show all pins"));
+      await userEvent.click(screen.getByRole("tab", { name: "All Pins", exact: true }));
       expect(rows()).toBe(22);
       expect(screen.getByText("A7")).toBeInTheDocument();
     } finally {

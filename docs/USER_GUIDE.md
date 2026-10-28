@@ -29,6 +29,45 @@ Ein Lauf endet automatisch nach seiner Laufzeit, die du unter
 **Tools → Timeout** zwischen 5 Sekunden und 5 Minuten wählst. Eine pausierte
 Simulation endet spätestens nach insgesamt 10 Minuten Pause.
 
+## I/O Registry: Nutzung und Pin-Eigenschaften
+
+Im Output Panel unter dem Editor öffnest du **I/O Registry**. Ein Doppelklick
+auf diesen Tab vergrößert das Panel. Darunter stehen drei Ansichten:
+
+- **Programmed Pins (n)** zeigt wie bisher die im Sketch und während des Laufs
+  erkannten Pins und ihre Operationen. Die Zahl zählt verwendete Pins.
+- **All Pins** zeigt dieselbe Nutzungstabelle für alle Signalpins des gewählten
+  Boards. Unbenutzte Pins haben leere Operationsfelder.
+- **Pin Infos** zeigt die Fähigkeiten des gewählten Boards unabhängig vom
+  Sketch: Digital In/Out, Analog In, PWM Out, Bus Connections, Ext. IRQ,
+  Pin Change und Timer. I²C, SPI/USI und Serial stehen mit ihrer Signalrolle in
+  einer gemeinsamen Spalte. Die Suche findet zum Beispiel `SDA`, `SPI`,
+  `PCINT` oder `A0`. Beim Scrollen bleiben Kopfzeile und Pin-Spalte sichtbar.
+
+Der Auge-Button schaltet in den beiden Nutzungstabellen die Quellstellen ein.
+Dateiname, Zeile, vollständiger Pfad im Tooltip und der Sprung zur richtigen
+Datei bleiben erhalten. Alte Einträge mit einer Zeile ohne Dateipfad zeigen
+weiterhin etwa `L23`; dynamische Funde ohne statische Stelle heißen `runtime`.
+Der Zustand des Auge-Buttons bleibt beim Wechsel zwischen den drei Ansichten
+erhalten. **Pin Infos** hat keine Quellstellen, weil es Hardware beschreibt.
+
+PWM verwendet **8 Bit**, also 256 Stufen von 0 bis 255. Analogeingänge liefern
+**10 Bit**, also 1024 Stufen von 0 bis 1023. Nano A6/A7 sind nur Analogeingänge.
+Ein Sternchen erklärt Einschränkungen im Tooltip: insbesondere ATtiny PB5 als
+reservierter RESET-Pin und einzelne Mega-Pins mit Pin-Change-Fähigkeit über
+Register, die der Arduino-Core nicht über seine Helfer anbietet. Beim ATtiny
+steht die Codeschreibweise unter dem Pin, etwa **PB4 — Code: 4 / A2**.
+Versorgungs-, Masse- und Steuerkontakte stehen als reine Referenz am Ende;
+sie sind keine zusätzlichen programmierbaren Pins und erhöhen die Zählung nicht.
+
+Die Tabelle beschreibt Hardwarefähigkeiten, keine gleichzeitige Nutzbarkeit
+aller mehrfach belegten Funktionen. Beim ATtiny gelten die angezeigten
+USI/SPI-Rollen für den Master-Modus des gewählten Cores; ISP-Beschriftungen
+können davon abweichen. **I²C, SPI und USI werden derzeit nicht simuliert.**
+Die seriellen Peripherien werden im Browser-Modus nachgebildet; daraus folgt
+keine Unterstützung beliebiger angeschlossener Geräte. Das bloße Anzeigen
+einer Busfunktion verspricht deshalb keine Simulation eines Sensors.
+
 ## Arbeit sichern
 
 Der Server speichert keine Sketches. Sichere deine Dateien mit
@@ -199,7 +238,7 @@ Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
 | Pause | hält auch `millis()` an |
 | Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
 | EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
-| I²C, SPI | Die Bausteine sind vorhanden, aber es hängt kein Gerät am Bus |
+| I²C, SPI, USI | Die Hardware-Pinbelegung steht in Pin Infos; die Busperipherien und angeschlossene Geräte werden derzeit nicht simuliert |
 | Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB, beim ATtiny85 512 Byte). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
 | `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
 
