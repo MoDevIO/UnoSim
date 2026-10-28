@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.83% </span>
+                <span class="strong">76.37% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>97/120</span>
+                <span class='fraction'>97/127</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.24% </span>
+                <span class="strong">83.55% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>123/146</span>
+                <span class='fraction'>127/152</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.04% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>32/41</span>
+                <span class='fraction'>32/44</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.8% </span>
+                <span class="strong">79.27% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>88/105</span>
+                <span class='fraction'>88/111</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -697,8 +697,21 @@
 <a name='L632'></a><a href='#L632'>632</a>
 <a name='L633'></a><a href='#L633'>633</a>
 <a name='L634'></a><a href='#L634'>634</a>
-<a name='L635'></a><a href='#L635'>635</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L635'></a><a href='#L635'>635</a>
+<a name='L636'></a><a href='#L636'>636</a>
+<a name='L637'></a><a href='#L637'>637</a>
+<a name='L638'></a><a href='#L638'>638</a>
+<a name='L639'></a><a href='#L639'>639</a>
+<a name='L640'></a><a href='#L640'>640</a>
+<a name='L641'></a><a href='#L641'>641</a>
+<a name='L642'></a><a href='#L642'>642</a>
+<a name='L643'></a><a href='#L643'>643</a>
+<a name='L644'></a><a href='#L644'>644</a>
+<a name='L645'></a><a href='#L645'>645</a>
+<a name='L646'></a><a href='#L646'>646</a>
+<a name='L647'></a><a href='#L647'>647</a>
+<a name='L648'></a><a href='#L648'>648</a>
+<a name='L649'></a><a href='#L649'>649</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -885,6 +898,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">29x</span>
 <span class="cline-any cline-yes">29x</span>
 <span class="cline-any cline-yes">29x</span>
@@ -980,8 +996,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1210,6 +1236,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1345,8 +1373,7 @@ import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
-import type { TutorPanelState } from "@/hooks/use-tutor";
-import { renderMermaidSubset } from "@/lib/tutor-mermaid";
+import type { TutorPanelState, TutorSketch } from "@/hooks/use-tutor";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import {
@@ -1510,12 +1537,15 @@ function TutorPlaceholder({
   className,
   style,
   code = "",
+  sketch,
   tutor,
   debugMode = false,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
+  /** The whole project and board; without it the Tutor sees `code` alone. */
+  readonly sketch?: TutorSketch;
   readonly tutor?: TutorPanelState;
   readonly debugMode?: boolean;
 }) {
@@ -1554,7 +1584,7 @@ function TutorPlaceholder({
                 onClick={() =&gt; {
                   setShowKeyView(false);
                   tutor.resetDialog();
-                  void tutor.generateQuestion(code);
+                  void tutor.generateQuestion(sketch ?? code);
                 }}
                 disabled={tutor.isLoading || !tutor.capabilities.canUseTutor}
                 title={tutor.capabilities.canUseTutor ? questionVisualState.label : "Server connection required"}
@@ -1595,7 +1625,7 @@ function TutorPlaceholder({
         /&gt;
         {tutor ? (
           &lt;TutorPanelContent
-            code={code}
+            sketch={sketch ?? code}
             tutor={tutor}
             showKeyView={showKeyView}
             setShowKeyView={setShowKeyView}
@@ -1613,20 +1643,30 @@ function TutorPlaceholder({
   );
 }
 &nbsp;
+/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
 function <span class="fstat-no" title="function not covered" >MermaidPreview({</span> source }: { readonly source: string }) {
   const renderId = <span class="cstat-no" title="statement not covered" >useId().replaceAll(":", "");</span>
-  const renderedSvg = <span class="cstat-no" title="statement not covered" >renderMermaidSubset(source, `tutor-diagram-${renderId}`);</span>
+  const [renderedSvg, setRenderedSvg] = <span class="cstat-no" title="statement not covered" >useState&lt;string | null&gt;(null);</span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >  useEffect(() =&gt; {</span></span>
+    let current = <span class="cstat-no" title="statement not covered" >true;</span>
+<span class="cstat-no" title="statement not covered" >    void import("@/lib/tutor-mermaid").then(({ <span class="fstat-no" title="function not covered" >renderMermaidSubset }) =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      if (current) <span class="cstat-no" title="statement not covered" >setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));</span></span>
+    });
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >    return () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >      current = false;</span>
+    };
+  }, [source, renderId]);
 <span class="cstat-no" title="statement not covered" >  if (!renderedSvg) <span class="cstat-no" title="statement not covered" >return null;</span></span>
 <span class="cstat-no" title="statement not covered" >  return &lt;div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} /&gt;;</span>
 }
 &nbsp;
 function TutorPanelContent({
-  code,
+  sketch,
   tutor,
   showKeyView,
   setShowKeyView,
 }: {
-  readonly code: string;
+  readonly sketch: string | TutorSketch;
   readonly tutor: TutorPanelState;
   readonly showKeyView: boolean;
   readonly setShowKeyView: (value: boolean) =&gt; void;
@@ -1803,7 +1843,7 @@ function TutorPanelContent({
                 if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
                 <span class="missing-if-branch" title="if path not taken" >I</span>if (!tutor.answer.trim() || tutor.isLoading || !canRequest || !tutor.question) <span class="cstat-no" title="statement not covered" >return;</span>
                 event.preventDefault();
-                void tutor.submitAnswer(code);
+                void tutor.submitAnswer(sketch);
               }}
               rows={1}
               maxLength={2_000}
@@ -1819,7 +1859,7 @@ function TutorPanelContent({
               aria-label="Send answer"
               title="Send answer"
               className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() =&gt; void tutor.submitAnswer(code)}
+              onClick={() =&gt; void tutor.submitAnswer(sketch)}
               disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question || !tutor.capabilities.canUseTutor}
             &gt;
               &lt;ArrowUp className="h-4 w-4" aria-hidden="true" /&gt;
@@ -1835,16 +1875,18 @@ export function TutorWorkspacePlaceholder({
   className,
   style,
   code,
+  sketch,
   tutor,
   debugMode,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
+  readonly sketch?: TutorSketch;
   readonly tutor?: TutorPanelState;
   readonly debugMode?: boolean;
 }) {
-  return &lt;TutorPlaceholder className={className} style={style} code={code} tutor={tutor} debugMode={debugMode} /&gt;;
+  return &lt;TutorPlaceholder className={className} style={style} code={code} sketch={sketch} tutor={tutor} debugMode={debugMode} /&gt;;
 }
 &nbsp;
 interface ExperimentalWorkspaceProps {
@@ -1972,7 +2014,7 @@ export function ExperimentalWorkspace({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-18T16:13:31.969Z
+                at 2026-10-28T09:13:03.694Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

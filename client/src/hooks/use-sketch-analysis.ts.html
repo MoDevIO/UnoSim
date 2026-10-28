@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.05% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>33/34</span>
+                <span class='fraction'>34/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">86.36% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>21/24</span>
+                <span class='fraction'>19/22</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.29% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>26/27</span>
+                <span class='fraction'>28/28</span>
             </div>
         
             
@@ -142,7 +142,13 @@
 <a name='L77'></a><a href='#L77'>77</a>
 <a name='L78'></a><a href='#L78'>78</a>
 <a name='L79'></a><a href='#L79'>79</a>
-<a name='L80'></a><a href='#L80'>80</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -161,8 +167,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-yes">28x</span>
 <span class="cline-any cline-yes">23x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -179,6 +185,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -188,6 +195,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">13x</span>
@@ -221,7 +229,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useMemo } from "react";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { BoardId } from "@shared/boards";
+import { analogChannelPin, isAnalogPin } from "@/lib/active-board";
+import { useMemo } from "react";
 import {
   analyzeStaticIO,
   analyzeStaticIOProject,
@@ -239,9 +249,9 @@ interface SketchAnalysisResult {
 }
 &nbsp;
 function toAnalogBoardPin(pinId: number): number | undefined {
-  if (pinId &gt;= 0 &amp;&amp; pinId &lt;= 5) return pinId + 14;
-  <span class="missing-if-branch" title="else path not taken" >E</span>if (pinId &gt;= 14 &amp;&amp; pinId &lt;= 19) return pinId;
-<span class="cstat-no" title="statement not covered" >  return undefined;</span>
+  const channelPin = analogChannelPin(pinId);
+  if (channelPin !== undefined) return channelPin;
+  return isAnalogPin(pinId) ? pinId : <span class="branch-1 cbranch-no" title="branch not covered" >undefined;</span>
 }
 &nbsp;
 function projectVarMap(symbols: Record&lt;string, number&gt;): Record&lt;string, number&gt; {
@@ -257,18 +267,20 @@ function isVisibleAnalogRead(call: StaticIOCall): boolean {
   return call.op === "analogRead" &amp;&amp; call.loopBody !== "braceless";
 }
 &nbsp;
-function analyzeSource(source: string | SourceProject | null | undefined) {
-  if (typeof source === "string") return analyzeStaticIO(source);
-  if (source) return analyzeStaticIOProject(source);
+function analyzeSource(source: string | SourceProject | null | undefined, board?: BoardId) {
+  const options = board ? { board } : {};
+  if (typeof source === "string") return analyzeStaticIO(source, options);
+  if (source) return analyzeStaticIOProject(source, options);
   return { pins: [], unresolvedCalls: [], symbols: {} };
 }
 &nbsp;
 // Hook: pure projection of the canonical static I/O analysis for board state.
 export function useSketchAnalysis(
   source: string | SourceProject | null | undefined,
+  board?: BoardId,
 ): SketchAnalysisResult {
   return useMemo(() =&gt; {
-    const analysis = analyzeSource(source);
+    const analysis = analyzeSource(source, board);
     const analogPins = new Set&lt;number&gt;();
     const pinModePins = new Set&lt;number&gt;();
     const detectedPinModes: Record&lt;number, PinMode&gt; = {};
@@ -298,7 +310,7 @@ export function useSketchAnalysis(
       ),
       digitalPinsFromPinMode: sortedPinModePins,
     };
-  }, [source]);
+  }, [source, board]);
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -307,7 +319,7 @@ export function useSketchAnalysis(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-18T16:13:31.969Z
+                at 2026-10-28T09:13:03.694Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

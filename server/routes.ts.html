@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">69.31% </span>
+                <span class="strong">68.88% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>61/88</span>
+                <span class='fraction'>62/90</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">29.62% </span>
+                <span class="strong">31.03% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>8/27</span>
+                <span class='fraction'>9/29</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.25% </span>
+                <span class="strong">70.37% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>57/80</span>
+                <span class='fraction'>57/81</span>
             </div>
         
             
@@ -307,7 +307,14 @@
 <a name='L242'></a><a href='#L242'>242</a>
 <a name='L243'></a><a href='#L243'>243</a>
 <a name='L244'></a><a href='#L244'>244</a>
-<a name='L245'></a><a href='#L245'>245</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -428,6 +435,8 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -506,6 +515,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -585,11 +597,12 @@ import { registerTutorRoutes } from "./routes/tutor.routes";
 import { registerSketchRoutes } from "./routes/sketches.routes";
 import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
 import { ExamplesRepository } from "./services/examples/examples-repository";
-import { config } from "./config";
+import { config, offeredBoards } from "./config";
 import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
 import { ProcessExecutor } from "./services/process-executor";
 import { removeOrphanedSandboxContainers, sandboxOwner } from "./services/sandbox/orphan-sweep";
+import { artifactDeliveryAllowed, assertCompileSandboxImage } from "./services/compiler/toolchain";
 &nbsp;
 const WEBSOCKET_CLOSE_GRACE_MS = 250;
 &nbsp;
@@ -672,8 +685,10 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
   <span class="missing-if-branch" title="if path not taken" >I</span>if (config.serverMode === "docker") {
     // Before any sandbox of this process exists: remove those a crashed predecessor left running.
 <span class="cstat-no" title="statement not covered" >    await removeOrphanedSandboxContainers(new ProcessExecutor(), sandboxOwner(), logger);</span>
+<span class="cstat-no" title="statement not covered" >    await assertCompileSandboxImage(new ProcessExecutor());</span>
   }
-  await initializeSandboxRunnerPool();
+  // Only the host mock runs sketches on the server (plan 4.11): without it there is no sandbox runner pool.
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (config.runtime.backends.includes("host-mock")) await initializeSandboxRunnerPool();
 &nbsp;
   // All REST endpoints advertise and negotiate the same additive API contract.
   app.use("/api", apiVersionMiddleware);
@@ -754,6 +769,9 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
     logger,
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
+    offeredBoards,
+    // Only images built without access to backend files (compile sandbox) or for the local developer (plan 4.10).
+    artifactDelivery: artifactDeliveryAllowed(),
   });
 &nbsp;
   // --- WebSocket handler (moved to modular WS file) ---
@@ -802,7 +820,7 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-18T16:13:31.969Z
+                at 2026-10-28T09:13:03.694Z
             </div>
         <script src="../prettify.js"></script>
         <script>
