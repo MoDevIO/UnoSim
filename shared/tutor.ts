@@ -42,7 +42,7 @@ export const tutorCourseContentContextSchema = z.object({
   revision: fullCommitShaSchema,
   exampleId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/).optional(),
 }).strict();
-export const tutorCourseContentSessionSchema = z.string().uuid();
+export const tutorCourseContentSessionSchema = z.uuid();
 export type TutorCourseContentContext = z.infer<typeof tutorCourseContentContextSchema>;
 const tutorLearningMetadataFields = {
   topicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),

@@ -83,10 +83,10 @@ const questionSchema = z.object({
   slots: boundedArray(idSchema, 8).optional(),
 }).strict().superRefine((value, context) => {
   if ((value.text === undefined) === (value.template === undefined)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "Exactly one of text or template is required" });
+    context.addIssue({ code: "custom", message: "Exactly one of text or template is required" });
   }
   if (value.template === undefined && value.slots !== undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "Slots require a template" });
+    context.addIssue({ code: "custom", message: "Slots require a template" });
   }
 });
 
@@ -118,7 +118,7 @@ const deepeningSchema = z.object({
   recentWeakAnswersAllowed: z.number().int().min(0).max(3),
 }).strict().superRefine((value, context) => {
   if (new Set(value.requiredQuestionKinds).size !== value.requiredQuestionKinds.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["requiredQuestionKinds"], message: "Deepening question kinds must be unique" });
+    context.addIssue({ code: "custom", path: ["requiredQuestionKinds"], message: "Deepening question kinds must be unique" });
   }
 });
 

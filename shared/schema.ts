@@ -41,7 +41,7 @@ export function rejectEntryHeaderCollision(
   data.headers.forEach((header, index) => {
     if (normalizeSourcePath(header.name) === entryPath) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["headers", index, "name"],
         message: "Header path must not collide with the entry file",
       });
@@ -54,9 +54,9 @@ function rejectFqbnOfAnotherBoard(data: { board?: string; fqbn?: string }, ctx: 
   if (data.fqbn === undefined) return;
   const owner = findBoardByFqbn(data.fqbn);
   if (!owner) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fqbn"], message: "fqbn is not the FQBN of a known board" });
+    ctx.addIssue({ code: "custom", path: ["fqbn"], message: "fqbn is not the FQBN of a known board" });
   } else if (data.board !== undefined && owner.id !== data.board) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fqbn"], message: "fqbn does not belong to the selected board" });
+    ctx.addIssue({ code: "custom", path: ["fqbn"], message: "fqbn does not belong to the selected board" });
   }
 }
 

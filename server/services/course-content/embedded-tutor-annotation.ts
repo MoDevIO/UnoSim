@@ -15,7 +15,7 @@ const learningObjectiveSchema = z.preprocess(
       context.addIssue({ code: "too_big", maximum: 500, origin: "string", inclusive: true, message: "Objective is too long" });
     }
     if (CONTROL_CHARACTER.test(value)) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Objective contains a control character" });
+      context.addIssue({ code: "custom", message: "Objective contains a control character" });
     }
   }),
 );
@@ -50,22 +50,22 @@ export const embeddedTutorAnnotationSchema = z.object({
   learningObjectives: boundedArray(learningObjectiveSchema, 10, 1).optional(),
 }).strict().superRefine((value, context) => {
   if (value.schemaVersion === 1 && (value.focus !== undefined || value.afterFocus !== undefined)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
+    context.addIssue({ code: "custom", path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
   }
   if (value.afterFocus !== undefined && value.focus === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["afterFocus"], message: "afterFocus requires focus" });
+    context.addIssue({ code: "custom", path: ["afterFocus"], message: "afterFocus requires focus" });
   }
   if (value.focus !== undefined && new Set(value.focus.map(({ id }) => id)).size !== value.focus.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus ids must be unique" });
+    context.addIssue({ code: "custom", path: ["focus"], message: "focus ids must be unique" });
   }
   if (value.primaryTopic !== undefined && value.topics === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryTopic"], message: "primaryTopic requires topics" });
+    context.addIssue({ code: "custom", path: ["primaryTopic"], message: "primaryTopic requires topics" });
   }
   if (value.primaryTopic !== undefined && value.topics !== undefined && !value.topics.includes(value.primaryTopic)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryTopic"], message: "primaryTopic must be listed in topics" });
+    context.addIssue({ code: "custom", path: ["primaryTopic"], message: "primaryTopic must be listed in topics" });
   }
   if (value.topics !== undefined && new Set(value.topics).size !== value.topics.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["topics"], message: "topics must be unique" });
+    context.addIssue({ code: "custom", path: ["topics"], message: "topics must be unique" });
   }
 });
 

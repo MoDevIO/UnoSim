@@ -10,11 +10,11 @@ const tutorQualityCaseSchema = z.object({
   forbiddenTopics: boundedArray(z.string().regex(SAFE_ID), 64).default([]),
 }).strict().superRefine((value, context) => {
   if (value.expectedTopics.length === 0 && value.forbiddenTopics.length === 0) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "A quality case must declare an expected or forbidden Topic" });
+    context.addIssue({ code: "custom", message: "A quality case must declare an expected or forbidden Topic" });
   }
   const overlap = value.expectedTopics.find((topicId) => value.forbiddenTopics.includes(topicId));
   if (overlap) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: `Topic cannot be expected and forbidden: ${overlap}` });
+    context.addIssue({ code: "custom", message: `Topic cannot be expected and forbidden: ${overlap}` });
   }
 });
 
@@ -23,6 +23,6 @@ export const tutorQualityCasesSchema = z.object({
   cases: boundedArray(tutorQualityCaseSchema, 256, 1),
 }).strict().superRefine((value, context) => {
   if (new Set(value.cases.map(({ id }) => id)).size !== value.cases.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["cases"], message: "Quality case ids must be unique" });
+    context.addIssue({ code: "custom", path: ["cases"], message: "Quality case ids must be unique" });
   }
 });

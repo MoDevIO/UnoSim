@@ -41,10 +41,10 @@ export const simulationArtifactSchema = z
   .superRefine((artifact, ctx) => {
     const capacity = MCU_FLASH_BYTES[BOARD_MCU[artifact.board as BoardId]];
     if (artifact.flashBytes > capacity) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["flashBytes"], message: "flashBytes exceeds the flash of the board's MCU" });
+      ctx.addIssue({ code: "custom", path: ["flashBytes"], message: "flashBytes exceeds the flash of the board's MCU" });
     }
     if (artifact.flashBase64.length !== base64Length(artifact.flashBytes)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["flashBase64"], message: "flashBase64 does not match flashBytes" });
+      ctx.addIssue({ code: "custom", path: ["flashBase64"], message: "flashBase64 does not match flashBytes" });
     }
   });
 
