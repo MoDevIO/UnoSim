@@ -161,6 +161,16 @@ the board the Example is written for; an Example without it fits every board and
 an id this version does not know counts as absent (plan P4.6, see the External
 Examples SSOT, section 7.1).
 
+The planned, not yet implemented
+[Libraries extension](ssot_function_definition_Libraries.md), section 8.3,
+will add optional, strictly validated `libraries` requirements to the existing
+v2 Example entries. These requirements belong to the core Examples capability,
+independently of the optional Tutor descriptor. Library-bearing Examples must
+use root v2; the current strict v2 reader rejects that field until the extension
+is implemented. Existing v1/v2 Examples without library requirements remain
+valid. This does not assert support in already deployed v1 readers, which can
+silently strip unknown entry fields.
+
 tutor at the root is optional. Example-specific Tutor metadata is not a root
 manifest field. When present, it is authored only in the terminal structured
 annotation of the Example's declared main `.ino` file. The exact existing
