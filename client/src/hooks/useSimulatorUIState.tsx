@@ -19,6 +19,7 @@ const CodeEditor = lazy(() =>
 );
 
 import type { BoardId } from "@shared/boards";
+import type { LibraryRequirement } from "@shared/libraries";
 
 interface UseSimulatorUIStateParams {
   boardId?: BoardId;
@@ -35,6 +36,12 @@ interface UseSimulatorUIStateParams {
   handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
   handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
   downloadAllFiles: () => void;
+  /** The library selection of a loaded example (SSOT Libraries §8.2). */
+  onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
+  /** "Libraries (n)", the include hints and the dialog of the project libraries. */
+  librariesButton?: React.ReactNode;
+  libraryHints?: React.ReactNode;
+  librariesDialog?: React.ReactNode;
   formatCode: () => void;
   editorRef: React.RefObject<{
     getValue: () => string;
@@ -135,6 +142,10 @@ export function useSimulatorUIState({
   handleFilesLoaded,
   handleLoadExample,
   downloadAllFiles,
+  onExampleLibraries,
+  librariesButton,
+  libraryHints,
+  librariesDialog,
   formatCode,
   editorRef,
   capabilities,
@@ -233,10 +244,14 @@ export function useSimulatorUIState({
           examplesMenu={
             <ExamplesMenu
               onLoadExample={handleLoadExample}
+              {...(onExampleLibraries ? { onExampleLibraries } : {})}
               capabilities={capabilities}
             />
           }
+          librariesButton={librariesButton}
         />
+        {libraryHints}
+        {librariesDialog}
         <div className="flex-1 min-h-0 w-full">
           <Suspense fallback={<LoadingPlaceholder />}>
             <CodeEditor value={code} onChange={setCode} editorRef={editorRef} />
@@ -254,6 +269,10 @@ export function useSimulatorUIState({
       handleFilesLoaded,
       formatCode,
       handleLoadExample,
+      onExampleLibraries,
+      librariesButton,
+      libraryHints,
+      librariesDialog,
       capabilities,
       code,
       setCode,

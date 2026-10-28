@@ -278,10 +278,9 @@ Board, lädt das Beispiel), „Load anyway“ (Board bleibt) oder „Cancel“. 
 Board, das der Server nicht anbietet oder das nur `planned` ist, lässt sich
 nicht wählen; dann bleiben „Load anyway“ und „Cancel“.
 
-### 7.2 Geplante Bibliotheksangaben je Beispiel
+### 7.2 Bibliotheksangaben je Beispiel
 
-Die noch nicht implementierte
-[Bibliotheksverwaltung](ssot_function_definition_Libraries.md), Abschnitt 8.3,
+Die [Bibliotheksverwaltung](ssot_function_definition_Libraries.md), Abschnitt 8.3,
 ergänzt Beispiele um exakte direkte Bibliotheksanforderungen. Dafür wird das
 bereits vorhandene strikte Root-v2-Schema erweitert; `libraries` ist kein
 optionales v1-Erweiterungsfeld nach dem Vorbild von `board`.
@@ -290,12 +289,11 @@ Die Kompatibilitätsgrenze ist ausdrücklich: Der heutige v1-Loader entfernt
 unbekannte Beispieleintragsfelder still. Ein als v1 veröffentlichtes Beispiel
 kann seine `libraries`-Angaben auf alten Servern deshalb verlieren. Neue
 Bibliotheksbeispiele müssen Root-Version 2 verwenden; neue Server lehnen
-`libraries` in v1 vor dem verwerfenden Parsing ab. Der heutige strikte
-v2-Loader lehnt das neue Feld bis zur Implementierung ab, statt es zu
+`libraries` in v1 vor dem verwerfenden Parsing ab. Strikte v2-Loader von
+Servern vor der Bibliotheksverwaltung lehnen das Feld ab, statt es zu
 entfernen. v1- und v2-Manifeste ohne Bibliotheksangaben bleiben gültig.
 
-Diese Regeln sind ein geplanter Zielvertrag, keine bereits ausgelieferte
-Funktion. Die konkreten Anforderungen, die Behandlung fehlender
+Die konkreten Anforderungen, die Behandlung fehlender
 Paketversionen und die Grenze historischer Leser stehen ausschließlich in
 der Libraries-SSOT. Die unveränderten LKG-Regeln dürfen bei Ablehnung eines
 neuen Manifests weiterhin den bisherigen Snapshot als `stale` liefern.

@@ -54,7 +54,7 @@ export default defineConfig({
     // Use the test-mode Express server with built assets (npm run dev:e2e).
     // dev:full also starts a separate Vite server on port 3001; this run owns
     // just the application server on port 3000.
-    command: `NODE_ENV=production npm run build && PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
+    command: `npm run provision:libraries && NODE_ENV=production npm run build && PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: false,
     timeout: 180 * 1000, 

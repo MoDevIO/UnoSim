@@ -1,4 +1,5 @@
 import type { BoardId } from "@shared/boards";
+import type { LibraryRequirement } from "@shared/libraries";
 import { useCallback } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -41,6 +42,8 @@ export interface UseCompileControllerParams {
   readonly capabilities?: ServerCapabilities;
   /** The selected board; the compile request names it (plan P4.5). */
   readonly boardId?: BoardId;
+  /** The project's direct library requirements; every compile request carries them (SSOT Libraries §4). */
+  readonly libraries?: readonly LibraryRequirement[];
   /** Ignore completions whose compile-to-start owner was invalidated. */
   isCompileResultCurrent?: (payload: CompileConfig) => boolean;
   /** A standalone Compile is about to be sent: whoever owns the project registers it, so that its result can be ignored later. */
@@ -237,7 +240,13 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     }
 
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    const payload: CompileConfig = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) };
+    const payload: CompileConfig = {
+      code: mainSketchCode,
+      headers,
+      ...(entryFile ? { entryFile } : {}),
+      ...(params.boardId ? { board: params.boardId } : {}),
+      ...(params.libraries && params.libraries.length > 0 ? { libraries: [...params.libraries] } : {}),
+    };
     params.claimCompile?.(payload);
     compileMutation.mutate(payload);
   }, [

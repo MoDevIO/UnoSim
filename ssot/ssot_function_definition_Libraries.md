@@ -4,7 +4,7 @@ Status: current
 
 Zielrolle: feature-contract
 
-Umsetzungsstand: geplant – Produktfunktion noch nicht implementiert
+Umsetzungsstand: erste Ausbaustufe umgesetzt (2026-10-28), siehe Abschnitt 16
 
 Stand: 2026-10-28
 
@@ -12,8 +12,9 @@ Ziel-SSOT für den kuratierten Bibliothekskatalog, die Bibliotheksauswahl eines
 Projekts, die Einbindung im Quelltext und die reproduzierbare Bereitstellung
 beim Kompilieren. AUnit ist der erste konkrete Anwendungsfall.
 
-`current` bezeichnet den aktuellen Fachvertrag, nicht dessen Umsetzung.
-Die Regeln dieses Dokuments beschreiben den Zielzustand. Die bestätigte
+`current` bezeichnet den aktuellen Fachvertrag. Die Regeln dieses Dokuments
+beschreiben den Zielzustand; Abschnitt 16 nennt die Umsetzung der ersten
+Ausbaustufe und ihre Nachweise. Die bestätigte
 klickbare Skizze ist ein Bedienungsentwurf und kein Nachweis einer bereits
 vorhandenen Bibliotheksunterstützung. Ein `verified`-Status setzt gesonderte
 Compile- und Laufzeitnachweise voraus.
@@ -722,3 +723,27 @@ eigene Oberfläche für AUnit-Testergebnisse.
   – Bibliotheksverwendung, Test-Runner und serielle Ergebnisse.
 - [AUnit 1.7.1: TestRunner](https://github.com/bxparks/AUnit/blob/v1.7.1/src/aunit/TestRunner.h)
   – gemeinsame Timeout-Frist ab Runner-Initialisierung.
+
+## 16. Umsetzung der ersten Ausbaustufe
+
+Umgesetzt am 2026-10-28. Die fachlichen Regeln oben bleiben maßgeblich; diese
+Übersicht nennt nur Ort und Nachweis.
+
+| Bereich | Umsetzung | Nachweis |
+| --- | --- | --- |
+| Gemeinsame Regeln (§3, §4, §6, §7, §9) | `shared/library-requirements.ts`, `shared/libraries.ts`, `shared/library-catalog-schema.ts` | `tests/shared/libraries.test.ts` |
+| Katalog und Bereitstellung (§3, §10) | `shared/library-catalog.json`, `scripts/provision-libraries.mjs` (`npm run provision:libraries`), Stufe `libraries` in `Dockerfile.compile-sandbox` | `tests/server/scripts/provision-libraries.test.ts`, `tests/server/services/libraries/library-service.test.ts` |
+| Isolierter Compile (§10) | eigenes `directories.user` und leeres eingebautes Bibliotheksverzeichnis (`server/services/compiler/cli-isolation.ts`), `--library` je Paket, `__FILE__` als `sketch.ino` | `tests/integration/library-aunit.test.ts`, `tests/integration/compile-sandbox-libraries.test.ts` |
+| Build-Identität und Caches (§11) | Pakete mit Version und SHA-256 in Sketch-Hash, Build-Identität und Ergebnis-Cache | `tests/server/services/arduino-compiler-artifact.test.ts`, `tests/server/routes/libraries.routes.test.ts` |
+| Transport (§14) | `libraries: [{ name, version }]` im Compile-Request; reine Namen werden mit Diagnose abgelehnt | `tests/server/routes/compiler.routes.test.ts` |
+| Katalog-API und Beispiele (§8.2, §8.3) | `GET /api/libraries`, Zuordnung eingebauter Beispiele, `libraries` in v2-Manifesten, Ablehnung in v1 | `tests/server/examples/example-libraries.test.ts`, `tests/server/services/course-content/course-content-libraries.test.ts` |
+| Dialog und Bedienung (§5–§8.1) | `client/src/components/features/libraries-dialog.tsx`, `client/src/hooks/use-project-libraries.tsx`, Hinweisleiste, Download-Hinweis, Startsperre | `tests/client/libraries-dialog.ui.test.tsx`, `tests/client/hooks/use-project-libraries.test.tsx`, `e2e/libraries.spec.ts` |
+
+AUnit 1.7.1 ist für **Uno** beim Kompilieren und in der **Browser-Emulation**
+als `verified` eingetragen: Die Nachweise decken erfolgreiche und
+fehlschlagende Assertions, die gemeinsame Runner-Frist einschließlich noch
+nicht gestarteter `test()`-Fälle und die serielle Zusammenfassung ab, lokal
+und in der Compile-Sandbox. Für die Legacy-Engine ist die Laufzeit
+`unsupported`, weil ihr nativer Server-Build keine Projektbibliotheken
+einbindet; alle übrigen Boards bleiben `untested`.
+

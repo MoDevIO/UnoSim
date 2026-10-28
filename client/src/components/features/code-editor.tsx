@@ -167,6 +167,8 @@ interface CodeEditorAPI {
   goToLine?: (line: number) => void;
   insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   insertTextAtLine?: (line: number | undefined, text: string) => void;
+  /** Replaces the whole text as one change the editor's undo takes back (Libraries "Einbinden"). */
+  replaceContent?: (text: string) => void;
   formatCode?: () => void;
 }
 
@@ -371,6 +373,13 @@ export function CodeEditor({
               editor.revealRangeInCenter(model.getFullModelRange());
             }
           });
+        },
+        replaceContent: (text: string) => {
+          const model = editor.getModel();
+          if (!model || model.getValue() === text) return;
+          editor.pushUndoStop();
+          editor.executeEdits("libraries", [{ range: model.getFullModelRange(), text }]);
+          editor.pushUndoStop();
         },
         insertTextAtLine: (line: number | undefined, text: string) => {
           try {

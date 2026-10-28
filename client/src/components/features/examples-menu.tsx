@@ -20,6 +20,7 @@ import {
   useExternalExamples,
 } from "@/lib/external-examples";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
+import { type LibraryRequirement, projectLibrariesSchema } from "@shared/library-requirements";
 
 interface Example {
   id: string;
@@ -44,6 +45,8 @@ const emptyGroup = (): CatalogGroup => ({ items: [], loading: false, error: fals
 
 interface ExampleDetail {
   files: Array<{ name: string; path?: string; content: string }>;
+  /** Direct library requirements of the example (SSOT Libraries §8.2). */
+  libraries?: LibraryRequirement[];
 }
 
 interface ExamplesMenuProps {
@@ -51,11 +54,14 @@ interface ExamplesMenuProps {
     files: Array<{ name: string; path?: string; content: string }>,
     title: string,
   ) => void;
+  /** The library selection of a loaded example, called right after `onLoadExample`; empty when it has none. */
+  readonly onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
   readonly capabilities?: ServerCapabilities;
 }
 
 export function ExamplesMenu({
   onLoadExample,
+  onExampleLibraries,
   capabilities = getServerCapabilities(true),
 }: ExamplesMenuProps) {
   const [groups, setGroups] = useState<Record<ExampleSource, CatalogGroup>>({ builtin: emptyGroup(), external: emptyGroup() });
@@ -278,6 +284,7 @@ export function ExamplesMenu({
         ? { repository: example.repository, ref: example.ref, revision: example.revision, exampleId: example.id }
         : null);
       onLoadExample(detail.files, displayName);
+      onExampleLibraries?.(detail.libraries ?? []);
       toast({
         title: "Example Loaded",
         description: `${displayName} has been loaded into the editor`,
@@ -427,6 +434,10 @@ async function loadExampleDetail(example: Example): Promise<ExampleDetail> {
   const detail = (await response.json()) as ExampleDetail;
   if (!Array.isArray(detail.files) || detail.files.length === 0) {
     throw new Error("Example contains no files");
+  }
+  // Invalid requirements load nothing instead of a sketch without its libraries.
+  if (detail.libraries !== undefined && !projectLibrariesSchema.safeParse(detail.libraries).success) {
+    throw new Error("Example has invalid library requirements");
   }
   return detail;
 }

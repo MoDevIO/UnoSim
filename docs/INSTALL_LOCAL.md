@@ -22,6 +22,7 @@ cd UnoSim
 npm ci
 sh scripts/install-arduino-avr-core.sh
 sh scripts/install-attinycore.sh
+npm run provision:libraries
 ```
 
 Beide Skripte installieren die gepinnten Versionen (`scripts/arduino-avr-core-version`,
@@ -33,6 +34,14 @@ sondern als Release-Archiv mit geprüfter SHA-256 in das Sketchbook
 `arduino:avr`. Eine `platform.local.txt` schaltet die Post-Build-Hooks des
 Cores ab (Disassembler-Liste, Kopie in den Sketch-Ordner); das HEX ändert sich
 dadurch nicht. Entfernen: diesen Ordner löschen.
+
+`npm run provision:libraries` stellt die Projektbibliotheken des Katalogs
+`shared/library-catalog.json` bereit (derzeit AUnit 1.7.1): Archiv laden,
+Größe und SHA-256 prüfen, nach `storage/libraries` entpacken (anderer Ort:
+`UNOSIM_LIBRARIES_DIR`). Kompilieren lädt nie etwas nach. Ein Compile sieht
+nur diese Pakete und die Bibliotheken der Cores, keine Bibliothek aus dem
+eigenen Sketchbook (`ssot/ssot_function_definition_Libraries.md`, §10). Ohne
+diesen Schritt zeigt der Libraries-Dialog AUnit als nicht verfügbar.
 
 Das Repository ist ein npm-Workspace: `npm ci` im Wurzelverzeichnis
 installiert auch die Pakete unter `packages/` (derzeit der Emulationskern

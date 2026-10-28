@@ -7,11 +7,11 @@ import {
   describeResolutionProblem,
   type LibraryCatalogResponse,
   libraryKey,
-  libraryPackageSchema,
   type LibraryRequirement,
   type ResolvedLibrary,
   resolveLibraryGraph,
 } from "@shared/libraries";
+import { libraryPackageSchema } from "@shared/library-catalog-schema";
 import catalogJson from "@shared/library-catalog.json";
 
 /**

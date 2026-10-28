@@ -3,7 +3,7 @@ import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 import { boardIdSchema, findBoardByFqbn } from "./boards";
 import { boundedArray } from "./bounded-array";
-import { projectLibrariesSchema } from "./libraries";
+import { projectLibrariesSchema } from "./library-requirements";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 

@@ -64,6 +64,8 @@ interface SketchTabsProps {
   readonly onFormatCode?: () => void;
   readonly onDownloadAllFiles?: () => void;
   readonly examplesMenu?: React.ReactNode;
+  /** "Libraries (n)" right of the file tabs (SSOT Libraries §5.1). */
+  readonly librariesButton?: React.ReactNode;
   readonly loadFilesTriggerRef?: React.MutableRefObject<(() => void) | null>;
   readonly renameTriggerRef?: React.MutableRefObject<(() => void) | null>;
 }
@@ -84,6 +86,7 @@ export function SketchTabs({
   onFormatCode,
   onDownloadAllFiles,
   examplesMenu,
+  librariesButton,
   loadFilesTriggerRef,
   renameTriggerRef,
 }: SketchTabsProps) {
@@ -409,6 +412,8 @@ export function SketchTabs({
             )}
           </AppTab>
         ))}
+
+        {librariesButton && <div className="flex items-center pl-2 flex-shrink-0">{librariesButton}</div>}
 
         {/* Context Menu Button */}
         <div className="flex items-center px-2 flex-shrink-0">

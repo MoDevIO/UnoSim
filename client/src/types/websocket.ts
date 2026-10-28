@@ -1,5 +1,6 @@
 import type { BoardId } from "@shared/boards";
 import { wsMessageSchema, type WSMessage, type ParserMessage, type IOPinRecord } from "@shared/schema";
+import type { LibraryRequirement } from "@shared/libraries";
 
 export type IncomingArduinoMessage = WSMessage;
 
@@ -33,7 +34,8 @@ export interface CompileConfig {
   /** The board to compile for (a catalog id); the server's default board when absent. */
   board?: BoardId;
   fqbn?: string;
-  libraries?: string[];
+  /** Direct project library requirements with exact versions (SSOT Libraries §4). */
+  libraries?: LibraryRequirement[];
 }
 
 export interface CompileResult {
