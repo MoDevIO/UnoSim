@@ -137,8 +137,38 @@ describe("useUiFeedbackAdapter", () => {
       expect(mockAddDebugMessage).toHaveBeenCalledWith({
         source: "server",
         type: "compile_response",
-        data: JSON.stringify({ success: true }, null, 2),
+        data: JSON.stringify({
+          success: true,
+          delivery: "none, a server run uses the build kept on the server",
+        }, null, 2),
         protocol: "http",
+      });
+    });
+
+    it("names the flash image a compile response hands to the frontend", () => {
+      const { result } = renderAdapter();
+      const artifact = { board: "uno", flashBytes: 1866, sha256: "a".repeat(64), buildId: "b".repeat(64), flashBase64: "AAAA" };
+
+      result.current.logCompilationSuccess({ cached: false, artifact });
+
+      const logged = JSON.parse(mockAddDebugMessage.mock.calls.at(-1)![0].data);
+      expect(logged).toEqual({
+        success: true,
+        cached: false,
+        delivery: "flash image to the frontend, for the browser emulation",
+        image: { board: "uno", flashBytes: 1866, sha256: "a".repeat(12), buildId: "b".repeat(12) },
+      });
+      expect(JSON.stringify(logged)).not.toContain("AAAA");
+    });
+
+    it("names the image a browser run starts from", () => {
+      const { result } = renderAdapter();
+      const artifact = { board: "uno", flashBytes: 10, sha256: "c".repeat(64), buildId: "d".repeat(64) };
+
+      result.current.logStartSimulation(60, true, "browser", artifact);
+
+      expect(JSON.parse(mockAddDebugMessage.mock.calls.at(-1)![0].data).image).toEqual({
+        board: "uno", flashBytes: 10, sha256: "c".repeat(12), buildId: "d".repeat(12),
       });
     });
 

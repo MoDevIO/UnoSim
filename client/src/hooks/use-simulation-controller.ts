@@ -228,7 +228,7 @@ export function useSimulationController(
       if (compiledHeadersRef.current.length > 0) message.headers = compiledHeadersRef.current;
       if (compiledEntryFileRef.current) message.entryFile = compiledEntryFileRef.current;
 
-      params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current, startsInBrowser() ? "browser" : "host-mock");
+      params.uiFeedback.logStartSimulation(timeout, !!compiledCodeRef.current, startsInBrowser() ? "browser" : "host-mock", compiledArtifact);
       if (startsInBrowser()) return startBrowserRun(token, compiledArtifact, timeout);
       hub.setActive("host-mock");
       if (params.sendMessageImmediate) {

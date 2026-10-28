@@ -78,8 +78,7 @@ interface UseSimulatorUIStateParams {
   serialPort?: number;
   setSerialPort?: (port: number) => void;
   serialPortCount?: number;
-  handleSerialInputKeyDown: (event: React.KeyboardEvent) => void;
-  handleSerialInputSend: () => void;
+  handleSerialInputSend: (lineEnding?: string) => void;
   baudRate: number;
   telemetryData: { last: TelemetryMetrics | null } | null;
 
@@ -172,7 +171,6 @@ export function useSimulatorUIState({
   serialPort = 0,
   setSerialPort,
   serialPortCount = 1,
-  handleSerialInputKeyDown,
   handleSerialInputSend,
   baudRate,
   telemetryData,
@@ -380,7 +378,6 @@ export function useSimulatorUIState({
           serialPort={serialPort}
           {...(setSerialPort ? { setSerialPort } : {})}
           serialPortCount={serialPortCount}
-          handleSerialInputKeyDown={handleSerialInputKeyDown}
           handleSerialInputSend={handleSerialInputSend}
           debugMode={debugMode}
           telemetryData={telemetryData}
@@ -407,7 +404,6 @@ export function useSimulatorUIState({
       serialPort,
       setSerialPort,
       serialPortCount,
-      handleSerialInputKeyDown,
       handleSerialInputSend,
       debugMode,
       telemetryData,

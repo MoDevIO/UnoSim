@@ -23,7 +23,7 @@ type ArduinoCliStatus = "idle" | "compiling" | "success" | "error";
 /** UI Feedback Adapter interface for compile controller */
 interface UiFeedbackAdapter {
   logCompileRequest: (codeLength: number) => void;
-  logCompilationSuccess: () => void;
+  logCompilationSuccess: (result?: { cached?: boolean; artifact?: unknown }) => void;
   logCompilationError: (errors: CompilationErrors) => void;
   triggerCompileErrorGlitch: () => void;
   showCompileSuccessToast: () => void;
@@ -173,7 +173,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
       params.setLastCompilationResult("success");
       params.setCompilerErrors([]);
       params.uiFeedback.setCompileSuccessOutput(data.output ?? "");
-      params.uiFeedback.logCompilationSuccess();
+      params.uiFeedback.logCompilationSuccess({ cached: data.cached, artifact: data.artifact });
       params.setParserMessages(data.parserMessages ?? []);
       if (data.parserMessages && data.parserMessages.length > 0) {
         params.setParserPanelDismissed(false);

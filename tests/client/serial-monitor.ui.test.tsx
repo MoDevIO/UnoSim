@@ -283,7 +283,6 @@ describe("SerialMonitor UI", () => {
         setAutoScrollEnabled={vi.fn()}
         serialInputValue=""
         setSerialInputValue={vi.fn()}
-        handleSerialInputKeyDown={vi.fn()}
         handleSerialInputSend={vi.fn()}
         debugMode={false}
         telemetryData={{ last: null }}
@@ -299,6 +298,80 @@ describe("SerialMonitor UI", () => {
 
     await user.click(clearButton);
     expect(handleClearSerialOutput).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the typed text once when Enter is pressed", async () => {
+    const user = userEvent.setup();
+    const handleSerialSend = vi.fn();
+    const handleSerialInputSend = vi.fn();
+
+    render(
+      <SerialMonitorView
+        renderedSerialOutput={[]}
+        serialOutput={[]}
+        isConnected
+        simulationStatus="running"
+        handleSerialSend={handleSerialSend}
+        handleClearSerialOutput={vi.fn()}
+        showSerialMonitor
+        showSerialPlotter={false}
+        serialViewMode="monitor"
+        cycleSerialViewMode={vi.fn()}
+        autoScrollEnabled
+        setAutoScrollEnabled={vi.fn()}
+        serialInputValue="ABC"
+        setSerialInputValue={vi.fn()}
+        handleSerialInputSend={handleSerialInputSend}
+        debugMode={false}
+        telemetryData={{ last: null }}
+        baudRate={9600}
+      />,
+    );
+
+    await user.type(screen.getByPlaceholderText("Send to Arduino..."), "{Enter}");
+
+    expect(handleSerialInputSend).toHaveBeenCalledTimes(1);
+    expect(handleSerialInputSend).toHaveBeenCalledWith("\n");
+    expect(handleSerialSend).not.toHaveBeenCalled();
+  });
+
+  it("sends the line ending chosen in the settings", async () => {
+    const user = userEvent.setup();
+    const handleSerialInputSend = vi.fn();
+    const monitor = (
+      <SerialMonitorView
+        renderedSerialOutput={[]}
+        serialOutput={[]}
+        isConnected
+        simulationStatus="running"
+        handleSerialSend={vi.fn()}
+        handleClearSerialOutput={vi.fn()}
+        showSerialMonitor
+        showSerialPlotter={false}
+        serialViewMode="monitor"
+        cycleSerialViewMode={vi.fn()}
+        autoScrollEnabled
+        setAutoScrollEnabled={vi.fn()}
+        serialInputValue="ABC"
+        setSerialInputValue={vi.fn()}
+        handleSerialInputSend={handleSerialInputSend}
+        debugMode={false}
+        telemetryData={{ last: null }}
+        baudRate={9600}
+      />
+    );
+    render(monitor);
+    const input = screen.getByPlaceholderText("Send to Arduino...");
+
+    try {
+      for (const [id, suffix] of [["none", ""], ["cr", "\r"], ["crlf", "\r\n"]]) {
+        globalThis.localStorage.setItem("unoSerialLineEnding", id);
+        await user.type(input, "{Enter}");
+        expect(handleSerialInputSend).toHaveBeenLastCalledWith(suffix);
+      }
+    } finally {
+      globalThis.localStorage.removeItem("unoSerialLineEnding");
+    }
   });
 
   it("uses the shared icon-only toolbar actions for serial controls", () => {
@@ -318,7 +391,6 @@ describe("SerialMonitor UI", () => {
         setAutoScrollEnabled={vi.fn()}
         serialInputValue=""
         setSerialInputValue={vi.fn()}
-        handleSerialInputKeyDown={vi.fn()}
         handleSerialInputSend={vi.fn()}
         debugMode={false}
         telemetryData={{ last: null }}

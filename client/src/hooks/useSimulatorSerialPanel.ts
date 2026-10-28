@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
@@ -11,7 +11,6 @@ export function useSimulatorSerialPanel(params: {
   simulationStatus: SimulationStatus;
   toast: ToastFn;
   setTxActivity: Dispatch<SetStateAction<number>>;
-  serialInputValue: string;
   setSerialInputValue: Dispatch<SetStateAction<string>>;
   clearSerialOutput: (port?: number) => void;
   /** The port the monitor shows: typing and Clear act on it (0 = `Serial`). */
@@ -23,7 +22,6 @@ export function useSimulatorSerialPanel(params: {
     simulationStatus,
     toast,
     setTxActivity,
-    serialInputValue,
     setSerialInputValue,
     clearSerialOutput,
     ensureBackendConnected,
@@ -59,15 +57,6 @@ export function useSimulatorSerialPanel(params: {
     [ensureBackendConnected, simulationStatus, toast, setTxActivity, sendMessage, setSerialInputValue, params.capabilities],
   );
 
-  const handleSerialInputKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        handleSerialSend(serialInputValue, serialPort);
-      }
-    },
-    [handleSerialSend, serialInputValue, serialPort],
-  );
-
   const handleClearOutput = useCallback(() => {
     if (serialPort === 0) clearSerialOutput();
     else clearSerialOutput(serialPort);
@@ -75,7 +64,6 @@ export function useSimulatorSerialPanel(params: {
 
   return {
     handleSerialSend,
-    handleSerialInputKeyDown,
     handleClearSerialOutput: handleClearOutput,
   };
 }

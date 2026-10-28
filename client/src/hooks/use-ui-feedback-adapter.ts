@@ -79,13 +79,14 @@ export interface UseUiFeedbackAdapterResult {
 
   // Debug messages
   logCompileRequest: (codeLength: number) => void;
-  logCompilationSuccess: () => void;
+  /** `result` is the compile response: its flash image (`artifact`) is what a browser run starts from. */
+  logCompilationSuccess: (result?: { cached?: boolean; artifact?: unknown }) => void;
   logCompilationError: (errors: CompilationErrors) => void;
   /** `runtime` names where the command goes: the WebSocket (host mock, default) or the browser emulation's worker. */
   logStopSimulation: (runtime?: RuntimeKind) => void;
   logPauseSimulation: (runtime?: RuntimeKind) => void;
   logResumeSimulation: (runtime?: RuntimeKind) => void;
-  logStartSimulation: (timeout: number, hasCode: boolean, runtime?: RuntimeKind) => void;
+  logStartSimulation: (timeout: number, hasCode: boolean, runtime?: RuntimeKind, artifact?: unknown) => void;
   logStartSimulationFallback: () => void;
 
   // Error handling
@@ -98,6 +99,14 @@ export interface UseUiFeedbackAdapterResult {
 
   // Error message extraction
   extractErrorMessage: (error: unknown) => string;
+}
+
+/** Identity of a flash image (board, size, hashes) for the debug log; undefined when `artifact` is not one. */
+function describeImage(artifact: unknown): { board: string; flashBytes: number; sha256: string; buildId: string } | undefined {
+  if (typeof artifact !== "object" || artifact === null) return undefined;
+  const { board, flashBytes, sha256, buildId } = artifact as Record<string, unknown>;
+  if (typeof board !== "string" || typeof flashBytes !== "number" || typeof sha256 !== "string" || typeof buildId !== "string") return undefined;
+  return { board, flashBytes, sha256: sha256.slice(0, 12), buildId: buildId.slice(0, 12) };
 }
 
 /**
@@ -216,8 +225,15 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
     logDebug("frontend", "compile_request", JSON.stringify({ endpoint: "POST /api/compile", codeLength }, null, 2));
   };
 
-  const logCompilationSuccess = () => {
-    logDebug("server", "compile_response", JSON.stringify({ success: true }, null, 2));
+  const logCompilationSuccess = (result?: { cached?: boolean; artifact?: unknown }) => {
+    const image = describeImage(result?.artifact);
+    logDebug("server", "compile_response", JSON.stringify({
+      success: true,
+      ...(result?.cached === undefined ? {} : { cached: result.cached }),
+      // The flash image travels to the page only for a browser run; the server runner keeps the build on the server.
+      delivery: image ? "flash image to the frontend, for the browser emulation" : "none, a server run uses the build kept on the server",
+      ...(image ? { image } : {}),
+    }, null, 2));
   };
 
   const logCompilationError = (errors: CompilerError[] | string | undefined) => {
@@ -235,7 +251,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
   const logPauseSimulation = (runtime?: RuntimeKind) => logRunCommand("pause", {}, runtime);
   const logResumeSimulation = (runtime?: RuntimeKind) => logRunCommand("resume", {}, runtime);
 
-  const logStartSimulation = (timeout: number, hasCode: boolean, runtime?: RuntimeKind) => {
+  const logStartSimulation = (timeout: number, hasCode: boolean, runtime?: RuntimeKind, artifact?: unknown) => {
     const startMsg: { type: "start_simulation"; timeout: number; code?: string } = {
       type: "start_simulation",
       timeout,
@@ -244,7 +260,7 @@ export function useUiFeedbackAdapter(params: UseUiFeedbackAdapterParams): UseUiF
       startMsg.code = "<code present>";
     }
 
-    if (runtime === "browser") logRunCommand("start", { timeout, image: "from the compile result" }, runtime);
+    if (runtime === "browser") logRunCommand("start", { timeout, image: describeImage(artifact) ?? "from the compile result" }, runtime);
     else logDebug("frontend", "start_simulation", JSON.stringify(startMsg, null, 2), "websocket");
   };
 

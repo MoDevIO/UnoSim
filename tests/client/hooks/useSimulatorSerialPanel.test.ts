@@ -9,7 +9,6 @@ function createParams(overrides: Partial<Parameters<typeof useSimulatorSerialPan
     simulationStatus: "running" as const,
     toast: vi.fn(),
     setTxActivity: vi.fn(),
-    serialInputValue: "hello",
     setSerialInputValue: vi.fn(),
     clearSerialOutput: vi.fn(),
     ensureBackendConnected: vi.fn().mockReturnValue(true),
@@ -83,30 +82,6 @@ describe("useSimulatorSerialPanel", () => {
     );
   });
 
-  it("handleSerialInputKeyDown triggers send on Enter", () => {
-    const params = createParams();
-    const { result } = renderHook(() => useSimulatorSerialPanel(params));
-
-    act(() => {
-      result.current.handleSerialInputKeyDown({
-        key: "Enter",
-      } as any);
-    });
-
-    expect(params.sendMessage).toHaveBeenCalledWith({ type: "serial_input", data: "hello" });
-  });
-
-  it("handleSerialInputKeyDown ignores non-Enter keys", () => {
-    const params = createParams();
-    const { result } = renderHook(() => useSimulatorSerialPanel(params));
-
-    act(() => {
-      result.current.handleSerialInputKeyDown({ key: "a" } as any);
-    });
-
-    expect(params.sendMessage).not.toHaveBeenCalled();
-  });
-
   it("handleClearSerialOutput calls clearSerialOutput", () => {
     const params = createParams();
     const { result } = renderHook(() => useSimulatorSerialPanel(params));
@@ -133,15 +108,6 @@ describe("useSimulatorSerialPanel with several serial ports (plan P5.3)", () => 
       [{ type: "serial_input", data: "to zero" }],
       [{ type: "serial_input", data: "default" }],
     ]);
-  });
-
-  it("sends the typed text to the port the monitor shows when Enter is pressed", () => {
-    const params = createParams({ serialPort: 3 });
-    const { result } = renderHook(() => useSimulatorSerialPanel(params));
-
-    act(() => result.current.handleSerialInputKeyDown({ key: "Enter" } as never));
-
-    expect(params.sendMessage).toHaveBeenCalledWith({ type: "serial_input", data: "hello", port: 3 });
   });
 
   it("clears the port the monitor shows", () => {

@@ -22,6 +22,14 @@ import {
   EXPERIMENTAL_WORKSPACE_LAYOUT_KEY,
 } from "@/lib/experimental-workspace-layout";
 
+import {
+  SERIAL_LINE_ENDINGS,
+  getSerialLineEndingId,
+  isSerialLineEndingId,
+  setSerialLineEndingId,
+  type SerialLineEndingId,
+} from "@/lib/serial-line-ending";
+
 const STORAGE_KEY = "unoBoardColor";
 const DEFAULT_COLOR = "var(--color-brand-primary)";
 const TOAST_DURATION_KEY = "unoToastDuration";
@@ -331,6 +339,7 @@ export default function SettingsDialog({
           </SettingsSection>
 
           <SimulationEngineSection />
+          <SerialMonitorSection />
 
           <SettingsSection
             title="Feedback & Diagnostics"
@@ -390,6 +399,34 @@ export default function SettingsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** What the serial monitor appends to everything it sends, as in the Arduino IDE (default: Newline). */
+function SerialMonitorSection() {
+  const [lineEnding, setLineEnding] = React.useState<SerialLineEndingId>(getSerialLineEndingId);
+  return (
+    <SettingsSection title="Serial monitor" description="How the input line of the serial monitor sends text.">
+      <SettingsRow
+        label="Line ending"
+        description="Appended to every text sent from the serial monitor, like the line ending menu of the Arduino IDE. Serial.read() then also receives it (Newline = 10)."
+      >
+        <select
+          aria-label="serial line ending"
+          value={lineEnding}
+          onChange={(event) => {
+            if (!isSerialLineEndingId(event.target.value)) return;
+            setLineEnding(event.target.value);
+            setSerialLineEndingId(event.target.value);
+          }}
+          className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground"
+        >
+          {SERIAL_LINE_ENDINGS.map((ending) => (
+            <option key={ending.id} value={ending.id}>{ending.label}</option>
+          ))}
+        </select>
+      </SettingsRow>
+    </SettingsSection>
   );
 }
 
