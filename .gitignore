@@ -87,6 +87,7 @@ shared/**/*.js
 *.sqlite
 *.db
 /storage/*.json
+/storage/libraries/
 !/storage/.gitkeep
 /storage/core-cache/meta/*.ready
 

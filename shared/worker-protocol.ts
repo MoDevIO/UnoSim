@@ -12,6 +12,7 @@
 
 import type { CompilationResult } from "../server/services/arduino-compiler";
 import type { BoardId } from "./boards";
+import type { ResolvedLibrary } from "./libraries";
 
 /**
  * Commands that can be sent to worker threads.
@@ -35,7 +36,8 @@ export interface CompileRequestPayload {
   tempRoot?: string;
   board?: BoardId;
   fqbn?: string;
-  libraries?: string[];
+  /** Resolved project library packages (SSOT Libraries §10). */
+  libraries?: readonly ResolvedLibrary[];
   sketchHash?: string;
   coreFingerprint?: string;
 }

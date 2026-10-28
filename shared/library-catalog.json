@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "AUnit",
+      "version": "1.7.1",
+      "description": "A unit testing framework for Arduino platforms inspired by ArduinoUnit and Google Test.",
+      "author": "Brian T. Park",
+      "license": "MIT",
+      "documentationUrl": "https://github.com/bxparks/AUnit/tree/v1.7.1",
+      "headers": ["AUnit.h", "AUnitVerbose.h"],
+      "includes": ["AUnit.h"],
+      "dependencies": [],
+      "sha256": "32ba9479d215b07b550703674ccd44575a58341340d143dc7e091bdaf99be796",
+      "examples": [
+        {
+          "title": "AUnit minimal example",
+          "path": "libraries/AUnit/AUnitMinimal/AUnitMinimal.ino"
+        }
+      ],
+      "compatibility": {
+        "compile": [{ "board": "uno", "status": "verified" }],
+        "runtime": [
+          { "board": "uno", "runtime": "browser", "status": "verified" },
+          {
+            "board": "uno",
+            "runtime": "host-mock",
+            "status": "unsupported",
+            "reason": "The Legacy engine builds the sketch natively on the server without project libraries."
+          }
+        ]
+      },
+      "archive": {
+        "url": "https://downloads.arduino.cc/libraries/github.com/bxparks/AUnit-1.7.1.zip",
+        "size": 1428540,
+        "root": "AUnit-1.7.1"
+      }
+    }
+  ]
+}

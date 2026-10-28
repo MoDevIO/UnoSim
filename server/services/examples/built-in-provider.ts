@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolvePathWithinRoot } from "../../security/safe-paths";
 import type { ExampleRecord } from "./examples-schema";
+import { attachCatalogLibraries } from "../libraries/library-service";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +38,7 @@ export class BuiltInProvider {
     files.sort((a, b) => a.localeCompare(b));
     const sketches = files.filter((file) => file.toLowerCase().endsWith(".ino"));
 
-    return Promise.all(sketches.map(async (relativePath) => {
+    const examples = await Promise.all(sketches.map(async (relativePath) => {
       const relativeDirectory = path.dirname(relativePath);
       const relatedHeaders = files.filter(
         (file) => path.dirname(file) === relativeDirectory && file.toLowerCase().endsWith(".h"),
@@ -61,6 +62,7 @@ export class BuiltInProvider {
         source: "builtin" as const,
       };
     }));
+    return attachCatalogLibraries(examples);
   }
 
   private async collectFiles(root: string, current: string, output: string[]): Promise<void> {

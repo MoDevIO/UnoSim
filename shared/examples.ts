@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { BoardId } from "./boards";
+import type { LibraryRequirement } from "./libraries";
 import { INPUT_LIMITS } from "./input-limits";
 
 const OWNER_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
@@ -95,6 +96,8 @@ export interface ExampleCatalogItem {
   main: string;
   source: "builtin" | "external";
   files: Array<Omit<ExampleFile, "content">>;
+  /** Direct library requirements; loading the example makes them the project's selection (SSOT Libraries §8.2). */
+  libraries?: LibraryRequirement[];
 }
 
 export interface ExamplesCatalogResponse {
@@ -113,6 +116,7 @@ export interface ExampleDetailResponse {
   source: "builtin" | "external";
   revision: FullCommitSha | null;
   files: ExampleFile[];
+  libraries?: LibraryRequirement[];
 }
 
 export type ExamplesErrorCode =

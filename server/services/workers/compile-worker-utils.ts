@@ -8,6 +8,12 @@
 import { createHash } from "node:crypto";
 import { mkdir, open, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { ResolvedLibrary } from "../../../shared/libraries.ts";
+
+/** What identifies a resolved library package in caches and the build identity: name, version and checksum, no path. */
+export function libraryIdentity(entry: ResolvedLibrary): string {
+  return `${entry.name}@${entry.version}#${entry.sha256}`;
+}
 
 /**
  * Normalize and sort library names for deterministic hashing.
@@ -23,14 +29,17 @@ export function normalizeLibraries(libraries?: string[]): string[] {
  * Compute a SHA-256 hash of code + FQBN for sketch identity.
  */
 export function buildSketchHash(
-  task: { code: string; headers?: Array<{ name: string; content: string }>; entryFile?: string },
+  task: { code: string; headers?: Array<{ name: string; content: string }>; entryFile?: string; libraries?: readonly ResolvedLibrary[] },
   fqbn: string,
 ): string {
+  // Library packages count only when there are some, so the hash of a sketch without them stays as it was.
+  const libraries = normalizeLibraries(task.libraries?.map(libraryIdentity));
   const payload = JSON.stringify({
     code: task.code,
     fqbn,
     entryFile: task.entryFile || "sketch.ino",
     headers: task.headers || [],
+    ...(libraries.length > 0 ? { libraries } : {}),
   });
   return createHash("sha256").update(payload).digest("hex");
 }

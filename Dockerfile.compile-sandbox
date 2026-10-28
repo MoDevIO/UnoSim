@@ -2,6 +2,15 @@
 # The backend starts it with no network, a read-only root filesystem, the sketch as its only
 # (read-only) bind mount and a bounded tmpfs; see server/services/compiler/sandboxed-cli-runner.ts.
 # Build: npm run build:compile-sandbox
+
+# Library packages of shared/library-catalog.json (SSOT Libraries §10): downloaded and checked
+# against the catalog SHA-256 at image build time; a compile never downloads anything.
+FROM node:24.20.0-slim AS libraries
+RUN apt-get update && apt-get install -y --no-install-recommends unzip ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY shared/library-catalog.json /work/shared/library-catalog.json
+COPY scripts/provision-libraries.mjs /work/scripts/provision-libraries.mjs
+RUN node /work/scripts/provision-libraries.mjs --root /opt/unosim/libraries --catalog /work/shared/library-catalog.json
+
 FROM debian:bookworm-slim
 ARG DEBIAN_FRONTEND=noninteractive
 COPY scripts/install-arduino-cli.sh scripts/arduino-avr-core-version scripts/check-arduino-avr-core-version.sh scripts/install-arduino-avr-core.sh \
@@ -17,6 +26,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && rm /usr/local/bin/install-arduino-cli.sh /usr/local/bin/install-arduino-avr-core.sh /usr/local/bin/install-attinycore.sh \
     && apt-get purge -y curl bzip2 && apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --chmod=755 scripts/compile-sandbox-entry.sh /usr/local/bin/unosim-compile
+# Read-only for the compile user; the sketchbook installs no library, so only these packages exist.
+COPY --from=libraries /opt/unosim/libraries /opt/unosim/libraries
+RUN test ! -e /home/compile/Arduino/libraries && test ! -e /home/compile/.arduino15/libraries \
+    && test -s /opt/unosim/libraries/provided.json
 USER compile
 WORKDIR /home/compile
 # Precompile the core of every catalog board (shared/boards.ts).

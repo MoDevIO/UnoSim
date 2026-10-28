@@ -320,14 +320,20 @@ describe("compiler.routes - /api/compile", () => {
     expect(deps.compiler.compile).not.toHaveBeenCalled();
   });
 
-  it("passes fqbn and libraries to compiler", async () => {
-    await post(baseUrl, "/api/compile", {
+  // Changed with the project libraries (SSOT Libraries §14, approved 2026-10-28): a bare library
+  // name names no version and is refused instead of being passed on.
+  it("passes fqbn to compiler and refuses libraries without a version", async () => {
+    await post(baseUrl, "/api/compile", { code: "code", fqbn: "arduino:avr:uno" });
+    const unversioned = await post(baseUrl, "/api/compile", {
       code: "code",
       fqbn: "arduino:avr:uno",
       libraries: ["Servo"],
     });
     const callArgs = deps.compiler.compile.mock.calls[0];
-    expect(callArgs[3]).toEqual({ fqbn: "arduino:avr:uno", libraries: ["Servo"] });
+    expect(callArgs[3]).toEqual({ fqbn: "arduino:avr:uno", libraries: undefined });
+    expect(unversioned.status).toBe(400);
+    expect(unversioned.body.error).toMatch(/need a name and an exact version/);
+    expect(deps.compiler.compile).toHaveBeenCalledTimes(1);
   });
 
   it("does not cache failed compilations", async () => {
