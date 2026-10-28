@@ -150,7 +150,7 @@ async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, c
 }
 
 /** The resolved library packages of a task, when it has any. */
-function librariesOption(task: CompileRequestPayload): { libraries?: CompileRequestPayload["libraries"] } {
+function librariesOption(task: CompileRequestPayload): Pick<CompileRequestPayload, "libraries"> {
   return task.libraries && task.libraries.length > 0 ? { libraries: task.libraries } : {};
 }
 

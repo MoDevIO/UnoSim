@@ -113,6 +113,27 @@ async function resolveRequestLibraries(
   return resolveCompileLibraries(libraries, board, (await deps.providedLibraries?.()) ?? []);
 }
 
+type PreparedCompile =
+  | { error: string }
+  | { refused: CompilationResult }
+  | { code: string; headers?: CompilerHeader[]; compileOptions: CompileRequestOptions };
+
+/** The validated request with board and resolved libraries: a 400 error, a refused compile, or what to compile. */
+async function prepareCompile(body: unknown, deps: CompilerDeps): Promise<PreparedCompile> {
+  const parsedRequest = parseCompileRequest(body);
+  if (!parsedRequest.success) return { error: parsedRequest.error };
+  const { code, headers, entryFile, libraries } = parsedRequest.data;
+  const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
+  if (target.error) return { error: target.error };
+  const resolution = await resolveRequestLibraries(libraries, target.options, deps);
+  if (!resolution.ok) return { refused: libraryFailure(resolution.messages) };
+  return {
+    code,
+    ...(headers ? { headers } : {}),
+    compileOptions: { libraries: resolution.libraries, ...target.options, ...(entryFile ? { entryFile } : {}) },
+  };
+}
+
 /** A compile refused before the compiler: the library requirements cannot be built here. */
 function libraryFailure(messages: readonly string[]): CompilationResult {
   return {
@@ -209,21 +230,10 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
     try {
       if (!enforceCompileRateLimit(res, deps)) return;
 
-      const parsedRequest = parseCompileRequest(req.body);
-      if (!parsedRequest.success) {
-        return res.status(400).json({ error: parsedRequest.error });
-      }
-      const { code, headers, entryFile, libraries } = parsedRequest.data;
-      const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
-      if (target.error) return res.status(400).json({ error: target.error });
-
-      const resolution = await resolveRequestLibraries(libraries, target.options, deps);
-      if (!resolution.ok) return res.json(libraryFailure(resolution.messages));
-      const compileOptions = {
-        libraries: resolution.libraries,
-        ...target.options,
-        ...(entryFile ? { entryFile } : {}),
-      };
+      const prepared = await prepareCompile(req.body, deps);
+      if ("error" in prepared) return res.status(400).json({ error: prepared.error });
+      if ("refused" in prepared) return res.json(prepared.refused);
+      const { code, headers, compileOptions } = prepared;
       // The result cache answers before the compiler: its key carries the compiler's build environment, so a
       // changed toolchain or library set misses it just as it misses the compiler's own caches.
       const environment = await compiler.buildEnvironmentId?.();
