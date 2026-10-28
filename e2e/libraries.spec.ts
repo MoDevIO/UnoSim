@@ -40,6 +40,13 @@ async function setSketch(page: Page, code: string): Promise<void> {
   }, code);
 }
 
+/** "Libraries (n)" sits in the options menu of the file tabs (SSOT Libraries §5.1). */
+async function expectLibrariesCount(page: Page, count: number): Promise<void> {
+  await page.getByTitle("Options").click();
+  await expect(page.getByRole("menuitem", { name: `Libraries (${count})` })).toBeVisible();
+  await page.keyboard.press("Escape");
+}
+
 async function includeAUnit(page: Page): Promise<void> {
   await page.getByRole("menuitem", { name: "Sketch" }).click();
   await page.getByRole("menuitem", { name: "Libraries…" }).click();
@@ -53,12 +60,12 @@ async function includeAUnit(page: Page): Promise<void> {
 test.describe("project libraries (SSOT Libraries)", () => {
   test("Einbinden adds AUnit and its include; the browser run prints the AUnit results", async ({ page }) => {
     await open(page, "browser");
-    await expect(page.getByRole("button", { name: "Libraries (0)" })).toBeVisible();
+    await expectLibrariesCount(page, 0);
     await setSketch(page, TESTS);
 
     await includeAUnit(page);
 
-    await expect(page.getByRole("button", { name: "Libraries (1)" })).toBeVisible();
+    await expectLibrariesCount(page, 1);
     expect(await editorValue(page)).toBe(`\n#include <AUnit.h>\n${TESTS}`);
     await page.getByRole("button", { name: /start simulation/i }).click();
     const serial = page.locator('[data-testid="serial-output"]');
@@ -75,7 +82,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await expect(page.getByText("AUnit.h erkannt. AUnit fehlt noch in den Projektbibliotheken.")).toBeVisible();
     await page.getByRole("button", { name: "AUnit 1.7.1 hinzufügen" }).click();
 
-    await expect(page.getByRole("button", { name: "Libraries (1)" })).toBeVisible();
+    await expectLibrariesCount(page, 1);
     await expect(page.getByText("AUnit.h erkannt.")).toBeHidden();
     expect(await editorValue(page)).toBe(code);
   });

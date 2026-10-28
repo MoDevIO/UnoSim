@@ -26,7 +26,7 @@ import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useProjectLibraries } from "@/hooks/use-project-libraries";
-import { LibrariesButton, LibraryHintsBar } from "@/components/features/project-libraries-controls";
+import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
 import { downloadNotice } from "@/lib/library-download-notice";
 import { projectLibrariesSchema } from "@shared/library-requirements";
 import { DEFAULT_BOARD_ID } from "@shared/boards";
@@ -335,6 +335,7 @@ export function useArduinoSimulatorPage() {
   });
   const { replaceLibraries } = projectLibraries;
   const [librariesOpen, setLibrariesOpen] = useState(false);
+  const openLibrariesDialog = useCallback(() => setLibrariesOpen(true), []);
 
   const {
     compilationStatus,
@@ -812,7 +813,8 @@ export function useArduinoSimulatorPage() {
       void downloadAllFilesWithNotice();
     },
     onExampleLibraries: replaceLibraries,
-    librariesButton: <LibrariesButton count={projectLibraries.libraries.length} onClick={() => setLibrariesOpen(true)} />,
+    librariesCount: projectLibraries.libraries.length,
+    onOpenLibraries: openLibrariesDialog,
     libraryHints: <LibraryHintsBar hints={projectLibraries.hints} onAdd={projectLibraries.addRequirement} />,
     // Loaded on first opening: the dialog is not part of the initial load path.
     librariesDialog: librariesOpen && (
@@ -1004,7 +1006,7 @@ export function useArduinoSimulatorPage() {
       formatCode,
       onLoadFiles: openLoadFiles,
       downloadAllFiles: downloadAllFilesWithNotice,
-      openLibraries: () => setLibrariesOpen(true),
+      openLibraries: openLibrariesDialog,
       undo,
       redo,
       cut,

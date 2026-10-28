@@ -171,8 +171,9 @@ Screens und bleibt eine spätere Erweiterung.
 ### 5.1 Einstieg
 
 Der Dialog MUSS über **Sketch → Libraries…** aufrufbar sein. Zusätzlich MUSS
-rechts neben den Dateitabs ein Button **Libraries (n)** denselben Dialog
-öffnen. `n` zählt die direkt ausgewählten Bibliotheken des aktuellen Projekts,
+das Optionsmenü der Dateitabs (⋮) einen Eintrag **Libraries (n)** enthalten,
+der denselben Dialog öffnet. Die Tab-Leiste selbst erhält dafür keinen
+eigenen Button (Änderung vom 2026-10-28). `n` zählt die direkt ausgewählten Bibliotheken des aktuellen Projekts,
 einschließlich einer angeforderten, auf diesem Deployment fehlenden Version.
 Transitive Abhängigkeiten erhöhen diese Zahl nicht.
 
@@ -640,7 +641,7 @@ Die Umsetzung MUSS mindestens folgende beobachtbaren Fälle abdecken:
 
 | Fall | Erwartetes Verhalten |
 | --- | --- |
-| Menü und Kurzbutton | Beide öffnen denselben Dialog für das aktuelle Projekt; Anzahl und Projektauswahl stimmen überein |
+| Hauptmenü und Optionsmenü der Tabs | Beide öffnen denselben Dialog für das aktuelle Projekt; Anzahl und Projektauswahl stimmen überein |
 | Katalogsuche und Fehler | Suchtreffer, keine Treffer, leeres Projekt und Abruffehler sind unterscheidbar; Projektzustand bleibt erhalten |
 | Erstes Einbinden von AUnit | Exakte Version und Include werden zusammen ergänzt; Dateiname und Paketversion werden bestätigt |
 | Wiederholtes Einbinden | Keine doppelte Abhängigkeit und keine doppelte Include-Zeile |

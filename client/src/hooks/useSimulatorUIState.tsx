@@ -38,8 +38,9 @@ interface UseSimulatorUIStateParams {
   downloadAllFiles: () => void;
   /** The library selection of a loaded example (SSOT Libraries §8.2). */
   onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
-  /** "Libraries (n)", the include hints and the dialog of the project libraries. */
-  librariesButton?: React.ReactNode;
+  /** "Libraries (n)" of the tab options menu, the include hints and the dialog of the project libraries. */
+  librariesCount?: number;
+  onOpenLibraries?: () => void;
   libraryHints?: React.ReactNode;
   librariesDialog?: React.ReactNode;
   formatCode: () => void;
@@ -143,7 +144,8 @@ export function useSimulatorUIState({
   handleLoadExample,
   downloadAllFiles,
   onExampleLibraries,
-  librariesButton,
+  librariesCount,
+  onOpenLibraries,
   libraryHints,
   librariesDialog,
   formatCode,
@@ -248,7 +250,7 @@ export function useSimulatorUIState({
               capabilities={capabilities}
             />
           }
-          librariesButton={librariesButton}
+          {...(onOpenLibraries ? { onOpenLibraries, librariesCount } : {})}
         />
         {libraryHints}
         {librariesDialog}
@@ -270,7 +272,8 @@ export function useSimulatorUIState({
       formatCode,
       handleLoadExample,
       onExampleLibraries,
-      librariesButton,
+      librariesCount,
+      onOpenLibraries,
       libraryHints,
       librariesDialog,
       capabilities,

@@ -1,18 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { LibrariesButton, LibraryHintsBar } from "@/components/features/project-libraries-controls";
-
-describe("Libraries button (SSOT Libraries §5.1)", () => {
-  it("counts the direct selection and opens the dialog", async () => {
-    const onClick = vi.fn();
-    render(<LibrariesButton count={1} onClick={onClick} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Libraries (1)" }));
-
-    expect(onClick).toHaveBeenCalledOnce();
-  });
-});
+import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
 
 describe("hints for written includes (SSOT Libraries §7)", () => {
   it("names the header and offers the concrete version", async () => {

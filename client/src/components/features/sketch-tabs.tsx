@@ -10,6 +10,7 @@ import {
   Upload,
   FileCode2,
   Code2,
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,8 +65,9 @@ interface SketchTabsProps {
   readonly onFormatCode?: () => void;
   readonly onDownloadAllFiles?: () => void;
   readonly examplesMenu?: React.ReactNode;
-  /** "Libraries (n)" right of the file tabs (SSOT Libraries §5.1). */
-  readonly librariesButton?: React.ReactNode;
+  /** "Libraries (n)" in the options menu: n counts the direct selection (SSOT Libraries §5.1). */
+  readonly librariesCount?: number;
+  readonly onOpenLibraries?: () => void;
   readonly loadFilesTriggerRef?: React.MutableRefObject<(() => void) | null>;
   readonly renameTriggerRef?: React.MutableRefObject<(() => void) | null>;
 }
@@ -86,7 +88,8 @@ export function SketchTabs({
   onFormatCode,
   onDownloadAllFiles,
   examplesMenu,
-  librariesButton,
+  librariesCount,
+  onOpenLibraries,
   loadFilesTriggerRef,
   renameTriggerRef,
 }: SketchTabsProps) {
@@ -413,8 +416,6 @@ export function SketchTabs({
           </AppTab>
         ))}
 
-        {librariesButton && <div className="flex items-center pl-2 flex-shrink-0">{librariesButton}</div>}
-
         {/* Context Menu Button */}
         <div className="flex items-center px-2 flex-shrink-0">
           <DropdownMenu>
@@ -470,6 +471,15 @@ export function SketchTabs({
                 <Download className="h-4 w-4 mr-2" />
                 Save All Files
               </DropdownMenuItem>
+              {onOpenLibraries && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onOpenLibraries}>
+                    <Library className="h-4 w-4 mr-2" />
+                    Libraries ({librariesCount ?? 0})
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

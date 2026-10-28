@@ -1,15 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { LibraryIncludeHint, LibraryRequirement } from "@shared/libraries";
 
-/** "Libraries (n)" right of the file tabs: n counts the direct selection, not transitive packages (SSOT Libraries §5.1). */
-export function LibrariesButton({ count, onClick }: { readonly count: number; readonly onClick: () => void }) {
-  return (
-    <Button variant="outline" size="sm" onClick={onClick} title="Bibliotheken des Projekts">
-      Libraries ({count})
-    </Button>
-  );
-}
-
 /**
  * Hints for written or pasted includes of known library headers the project
  * does not select (SSOT Libraries §7). Nothing is added without a click.
