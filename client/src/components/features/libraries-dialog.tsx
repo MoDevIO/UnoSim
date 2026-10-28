@@ -36,17 +36,13 @@ export interface LibrariesDialogProps {
 
 type View = "available" | "project";
 
-const STATUS_LABELS: Record<CompatibilityStatement["status"], string> = {
-  verified: "geprüft",
-  untested: "ungeprüft",
-  unsupported: "nicht unterstützt",
-};
-
 const keyOf = (entry: LibraryRequirement) => `${entry.name}@${entry.version}`;
 
-function statementText(label: string, statement: CompatibilityStatement): string {
+/** Only an explicit "not supported" is shown, with its reason; verified and untested stay silent (§5.2). */
+function unsupportedText(label: string, statement: CompatibilityStatement): string | undefined {
+  if (statement.status !== "unsupported") return undefined;
   const reason = statement.reason ? ` – ${statement.reason}` : "";
-  return `${label}: ${STATUS_LABELS[statement.status]}${reason}`;
+  return `${label}: nicht unterstützt${reason}`;
 }
 
 /** The badge of a catalog entry: selected, or not provided here. */
@@ -141,9 +137,6 @@ export function LibrariesDialog({
               selectedProjectEntry.offered
                 ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
                 : <MissingDetails entry={selectedProjectEntry} catalog={catalog.packages} />
-            )}
-            {!selectedPackage && !selectedProjectEntry && (
-              <p className="text-ui-sm text-muted-foreground">Wähle eine Bibliothek, um Details zu sehen.</p>
             )}
           </UnifiedScrollArea>
         </div>
@@ -269,6 +262,10 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
     : undefined;
   const selected = libraries.some((requirement) => requirement.name === entry.name && requirement.version === entry.version);
   const examples = entry.examples.filter((example) => example.exampleId);
+  const warnings = [
+    unsupportedText("Kompilierung", compileCompatibility(entry, boardId)),
+    runtime ? unsupportedText(`Simulation (${ENGINE_LABELS[runtime]})`, runtimeCompatibility(entry, boardId, runtime)) : undefined,
+  ].filter((warning): warning is string => warning !== undefined);
 
   return (
     <section aria-label={`${entry.name} ${entry.version}`} className="flex flex-col gap-3">
@@ -280,10 +277,11 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
         {selected && <span data-testid="library-project-badge" className="rounded bg-muted px-1.5 text-ui-xs">Im Projekt</span>}
       </div>
       <p className="text-ui-sm text-foreground">{entry.description}</p>
-      <ul className="text-ui-xs text-muted-foreground">
-        <li>{statementText("Kompilierung", compileCompatibility(entry, boardId))}</li>
-        {runtime && <li>{statementText(`Simulation (${ENGINE_LABELS[runtime]})`, runtimeCompatibility(entry, boardId, runtime))}</li>}
-      </ul>
+      {warnings.length > 0 && (
+        <ul className="text-ui-xs text-destructive">
+          {warnings.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      )}
       <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-ui-xs">{entry.includes.map((header) => `#include <${header}>`).join("\n")}</code>
       <p className="text-ui-xs text-muted-foreground">
         Lizenz {entry.license} · <a className="underline" href={entry.documentationUrl} target="_blank" rel="noreferrer">Dokumentation</a>

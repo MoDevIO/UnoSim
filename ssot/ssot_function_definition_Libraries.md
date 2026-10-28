@@ -196,8 +196,12 @@ Er enthält eine Suche sowie die Ansichten **Verfügbar** und **Im Projekt**:
   manuellen erneuten Abruf an.
 
 Ein ausgewählter Eintrag zeigt Name, Version, Beschreibung, Autor,
-Kompatibilitätsstatus, Standard-Include, Dokumentation, verfügbare Beispiele
-und den Projektstatus. Direkte Abhängigkeiten sind als **Im Projekt**
+Standard-Include, Dokumentation, verfügbare Beispiele und den Projektstatus.
+Vom Kompatibilitätsstatus erscheint nur ein ausdrückliches **nicht
+unterstützt** für das aktuelle Board beziehungsweise die gewählte Engine,
+mit Begründung; `verified` und `untested` werden im Dialog nicht angezeigt
+(Vereinfachung vom 2026-10-28). Solange keine Bibliothek gewählt ist, bleibt
+der Detailbereich leer. Direkte Abhängigkeiten sind als **Im Projekt**
 erkennbar. Technische Paketpfade und Installationsschritte sind keine
 Bedienaufgabe für Studierende.
 

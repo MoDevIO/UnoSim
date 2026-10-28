@@ -53,6 +53,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(screen.getByText("Arduino UNO · Emulation")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Verfügbar" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Wähle eine Bibliothek/)).toBeNull();
   });
 
   it("tells loading, a failed fetch with retry, an empty catalog, no hits and an empty project apart", async () => {
@@ -97,8 +98,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     expect(within(details).getByText("#include <AUnit.h>")).toBeInTheDocument();
     expect(within(details).getByText("Brian T. Park")).toBeInTheDocument();
-    expect(within(details).getByText("Kompilierung: geprüft")).toBeInTheDocument();
-    expect(within(details).getByText("Simulation (Emulation): geprüft")).toBeInTheDocument();
+    expect(within(details).queryByText(/Kompilierung|Simulation \(/)).toBeNull();
     expect(within(details).getByRole("link", { name: "Dokumentation" })).toHaveAttribute("href", aunit.documentationUrl);
     await user.click(within(details).getByRole("button", { name: "Einbinden" }));
     expect(props.onInclude).toHaveBeenCalledWith(aunit);
