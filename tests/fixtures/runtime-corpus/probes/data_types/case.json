@@ -1,0 +1,12 @@
+{
+  "board": "uno",
+  "simMs": 80,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Sizes and limits of the AVR data types.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: avr-gcc ABI for AVR (int 16 bit, long 32 bit, long long 64 bit, double = float = 32 bit, pointers 16 bit) and the type limits of avr-libc",
+  "events": [],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

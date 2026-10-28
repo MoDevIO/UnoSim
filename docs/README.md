@@ -50,8 +50,19 @@ eigenen Reverse Proxy gilt [INSTALL_SERVER.md](INSTALL_SERVER.md).
 
 ## Entscheidungen und Fachverträge
 
-- [adr/](adr/) – akzeptierte Architekturentscheidungen.
-- [../ssot/](../ssot/) – fachliche Single Sources of Truth für UI und Verhalten.
+- [adr/](adr/) – akzeptierte Architekturentscheidungen. Als Entwurf
+  (`Proposed`) liegen dort
+  [ADR 0009](adr/0009-browser-emulation-runtime.md) (Browser-Emulation als
+  Laufzeit) und [ADR 0010](adr/0010-compile-sandbox-and-flash-artifact.md)
+  (Compile-Sandbox und Flash-Abbild); sie gelten erst nach ihrer Annahme.
+- [../ssot/](../ssot/) – fachliche Single Sources of Truth für UI und Verhalten,
+  für die Browser-Emulation vor allem
+  [Boards](../ssot/ssot_function_definition_Boards.md) (Katalog, Pinbelegung,
+  Freigabestatus) und
+  [SimulationRuntime](../ssot/ssot_function_definition_SimulationRuntime.md)
+  (Laufzeit-Schnittstelle, Worker-Protokoll, Zeit- und Speichermodell).
+- [../packages/avr-emulator/README.md](../packages/avr-emulator/README.md) –
+  API, Boards, Korrekturen an avr8js und Grenzen des Emulationskerns.
 
 Bei Änderungen zuerst die zuständige normative Quelle aktualisieren.
 
@@ -59,6 +70,15 @@ Bei Änderungen zuerst die zuständige normative Quelle aktualisieren.
 
 - [OPEN_POINTS.md](OPEN_POINTS.md) – geprüfte offene Entscheidungen und
   zurückgestellte Punkte.
+
+## Laufende Umsetzung (nicht normativ)
+
+- [proposals/browser-emulation-plan.md](proposals/browser-emulation-plan.md) –
+  Umsetzungsplan Browser-Emulation, mit
+  [Vorschlag](proposals/browser-emulation.md) und
+  [Umsetzungsstand](proposals/browser-emulation-status.md); wird nach Abschluss
+  gelöscht. Was nur ein Mensch erledigen kann, steht mit Anleitung in
+  [proposals/human-tests.md](proposals/human-tests.md).
 
 ## Archiv
 

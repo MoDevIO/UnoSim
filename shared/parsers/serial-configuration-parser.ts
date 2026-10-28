@@ -7,6 +7,7 @@
  * - Commented-out Serial.begin()
  * - while(!Serial) antipattern
  * - Serial.read() without Serial.available() check
+ * - Serial1–Serial3: used on a board without that port, or without begin() (Mega 2560)
  */
 
 import type { ParserMessage } from "../schema";
@@ -16,14 +17,72 @@ import {
   stripComments,
   findLineNumber,
 } from "../parser-patterns";
+import type { BoardId } from "../boards";
+import { type PinContext, pinContext } from "./pin-context";
+
+/** `Serial1`–`Serial3`, the hardware ports after `Serial`. */
+const EXTRA_PORTS = [1, 2, 3] as const;
 
 /**
  * Analyzer for Serial configuration issues
  */
 export class SerialConfigurationParser {
-  constructor(private readonly code: string) {}
+  private readonly board: PinContext;
+
+  constructor(
+    private readonly code: string,
+    board?: BoardId,
+  ) {
+    this.board = pinContext(board);
+  }
 
   parse(): ParserMessage[] {
+    return [...this.parseSerial(), ...this.parseExtraPorts()];
+  }
+
+  /** `Serial1`–`Serial3`: a port the board does not have, and a used port that was never started. */
+  private parseExtraPorts(): ParserMessage[] {
+    // Text in strings is no use of a port (positions stay, so line numbers still match).
+    const uncommentedCode = stripComments(this.code).replaceAll(/"(?:\\.|[^"\\\n])*"/g, (text) => " ".repeat(text.length));
+    const portCount = this.board.serialPortCount();
+    return EXTRA_PORTS.flatMap((port): ParserMessage[] => {
+      const name = `Serial${port}`;
+      const use = new RegExp(String.raw`\b${name}\s*\.\s*(?!begin\b|end\b)\w+`);
+      if (!use.test(uncommentedCode) || this.declaresOwn(uncommentedCode, name)) return [];
+      if (port >= portCount) {
+        const available = portCount === 1 ? "only Serial" : "Serial to Serial" + (portCount - 1);
+        return [{
+          id: randomUUID(),
+          type: "warning",
+          category: "serial",
+          severity: 2,
+          message: `${name} does not exist on ${this.board.displayName}, which has ${available}.`,
+          suggestion: portCount === 1 ? "// Use Serial, or choose Tools → Board → Arduino Mega 2560" : "// Use one of the serial ports of this board",
+          line: findLineNumber(this.code, use),
+        }];
+      }
+      if (new RegExp(String.raw`\b${name}\s*\.\s*begin\s*\(`).test(uncommentedCode)) return [];
+      const commented = new RegExp(String.raw`\b${name}\s*\.\s*begin\s*\(`).test(this.code);
+      return [{
+        id: randomUUID(),
+        type: "warning",
+        category: "serial",
+        severity: 2,
+        message: commented
+          ? `${name}.begin() is commented out! ${name} output may not work correctly.`
+          : `${name}.begin(9600) is missing in setup(). ${name} output may not work correctly.`,
+        suggestion: `${name}.begin(9600);`,
+        line: findLineNumber(this.code, use),
+      }];
+    });
+  }
+
+  /** A sketch may declare its own object with that name, for example `SoftwareSerial Serial1(10, 11);`. */
+  private declaresOwn(code: string, name: string): boolean {
+    return new RegExp(String.raw`\b\w+[\s&*]+${name}\s*[(;={,)]`).test(code);
+  }
+
+  private parseSerial(): ParserMessage[] {
     const messages: ParserMessage[] = [];
     const uncommentedCode = stripComments(this.code);
 

@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
+import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
+import { boundedArray } from "./bounded-array";
 
 export const tutorModelSchema = z
   .string()
@@ -39,7 +42,7 @@ export const tutorCourseContentContextSchema = z.object({
   revision: fullCommitShaSchema,
   exampleId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/).optional(),
 }).strict();
-export const tutorCourseContentSessionSchema = z.string().uuid();
+export const tutorCourseContentSessionSchema = z.uuid();
 export type TutorCourseContentContext = z.infer<typeof tutorCourseContentContextSchema>;
 const tutorLearningMetadataFields = {
   topicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
@@ -52,7 +55,7 @@ const tutorLearningMetadataFields = {
   contentRevision: z.string().regex(/^[a-f0-9]{40}$/i).optional(),
   learningPhase: tutorLearningPhaseSchema.optional(),
   activeTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
-  masteredTopicIds: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/)).max(64).optional(),
+  masteredTopicIds: boundedArray(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/), 64).optional(),
   progressionBlockedReason: z.literal("content-exhausted").optional(),
   extensionTargetTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
 };
@@ -109,13 +112,18 @@ export function calculateNextTutorDifficulty(
 export const tutorQuestionRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    /** Header files and entry file name of the project, as in `POST /api/compile`; `code` is the entry file. */
+    ...projectFilesRequestFields,
+    /** Board the sketch is written for; the Tutor's context then names it, its data type sizes and its pins. */
+    board: boardIdSchema.optional(),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectEntryHeaderCollision);
 
 export const tutorModelsRequestSchema = z
   .object({
@@ -125,7 +133,7 @@ export const tutorModelsRequestSchema = z
 
 export const tutorModelsResponseSchema = z
   .object({
-    models: z.array(tutorModelSchema).max(256),
+    models: boundedArray(tutorModelSchema, 256),
   })
   .strict();
 
@@ -162,7 +170,9 @@ export type TutorDialogTurn = z.infer<typeof tutorDialogTurnSchema>;
 export const tutorDialogRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    history: z.array(tutorDialogTurnSchema).max(INPUT_LIMITS.tutor.maxHistoryEntries),
+    ...projectFilesRequestFields,
+    board: boardIdSchema.optional(),
+    history: boundedArray(tutorDialogTurnSchema, INPUT_LIMITS.tutor.maxHistoryEntries),
     question: z.string().trim().min(1).max(2_000),
     answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
@@ -171,7 +181,8 @@ export const tutorDialogRequestSchema = z
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(rejectEntryHeaderCollision);
 
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),

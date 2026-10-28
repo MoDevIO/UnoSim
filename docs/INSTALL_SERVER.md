@@ -13,12 +13,13 @@ keinen host-nativen Simulations-Fallback.
 - Docker Engine mit Compose Plugin
 - Reverse Proxy mit TLS und UnoSim-Gateway-Headern; Benutzeranmeldung ist
   optional
-- Sandbox- und Server-Image aus demselben geprüften Source-Stand
+- Sandbox-, Compile-Sandbox- und Server-Image aus demselben geprüften Source-Stand
 
 ## Images und Compose
 
 ```bash
 docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .
+docker build -f Dockerfile.compile-sandbox -t unosim-compile-sandbox:latest .
 docker build -t unosim-server:latest .
 
 # Einmalig vor dem ersten Start: Laufzeitverzeichnisse für den Container-User.
@@ -191,6 +192,53 @@ die aktuelle Entscheidung zur optionalen Benutzeranmeldung steht in
 Auf macOS muss der Projektpfad in Docker Desktop für File Sharing freigegeben
 sein.
 
+## Compile-Sandbox
+
+- Jeder Compile (`POST /api/compile` und Worker-Pool) läuft in einem eigenen,
+  kurzlebigen Container von `COMPILE_SANDBOX_IMAGE`
+  (`unosim-compile-sandbox:latest`, gebaut aus `Dockerfile.compile-sandbox`).
+  Das Server-Image enthält keinen Compiler.
+- Fehlt das Image, startet das Backend im Docker-Profil nicht; die Meldung
+  nennt den Build-Befehl.
+- Grenzen je Container: `COMPILE_SANDBOX_MEMORY_MB` (512),
+  `COMPILE_SANDBOX_CPU_LIMIT` (1), `COMPILE_SANDBOX_PIDS_LIMIT` (128), 256 MiB
+  tmpfs, 60 s Zeitlimit. Wie viele Compile-Container gleichzeitig laufen,
+  begrenzt der Worker-Pool (`WORKER_COUNT`, höchstens 8), im Fallback ohne
+  Pool `COMPILE_MAX_CONCURRENT`. Dazu kommen kurze Toolchain-Abfragen für die
+  Build-Identität (drei Container je Worker, höchstens alle 5 Minuten).
+- Der Sketch liegt unter `UNOSIM_SHARED_TEMP_DIR` und wird read-only
+  eingehängt. Der Container hat kein Netz und keinen Docker-Socket und schreibt
+  nichts auf den Host.
+- Compile-Container heißen `unosim-compile-<uuid>` und tragen dasselbe
+  `unosim.owner`-Label wie die Simulations-Sandboxes; die Aufräumroutine beim
+  Start erfasst sie. `./check-leaks.sh` meldet Compile-Container, die gestoppt
+  sind oder seit Minuten laufen (`--cleanup` entfernt sie).
+
+Einzelheiten zur Isolation: [SECURITY.md](SECURITY.md), Abschnitt „Compile
+boundary“.
+
+## Browser-Emulation im Docker-Profil (Pilot)
+
+Ohne weitere Einstellung bietet das Docker-Profil nur den Host-Mock und den
+Uno an. Für eine Pilot-Instanz mit Emulation im Browser als Standard in `.env`
+setzen und das Backend neu erstellen (`docker compose up -d`):
+
+```text
+UNOSIM_RUNTIME_BACKENDS=browser,host-mock
+UNOSIM_DEFAULT_RUNTIME=browser
+```
+
+Dann bietet der Server zusätzlich Nano, Mega 2560 und ATtiny85 an (Status `preview`),
+und `POST /api/compile` liefert das Flash-Abbild (`artifact`) aus der
+Compile-Sandbox; der Sketch läuft im Browser des Nutzers und belastet den
+Server nicht. „Legacy“ (Host-Mock) bleibt für den Uno wählbar.
+`UNOSIM_BOARDS` und `UNOSIM_DEFAULT_BOARD` schränken die Boards ein bzw. legen
+das Standard-Board fest; leere Einträge gelten als nicht gesetzt.
+
+Zurück zum Host-Mock ohne neues Image: `UNOSIM_DEFAULT_RUNTIME=host-mock`
+(Emulation bleibt wählbar) oder `UNOSIM_RUNTIME_BACKENDS=host-mock` (nur
+Host-Mock und Uno), dann `docker compose up -d`.
+
 ## Relevante Runtime-Variablen
 
 ### Pflichtwerte
@@ -217,6 +265,10 @@ muss diese Werte nicht ändern. Für größere Installationen können sie über
 | Variable | Zweck |
 |---|---|
 | `WORKER_COUNT` | Anzahl paralleler Compile-Worker für `/api/compile`; höchstens 8 werden gestartet (ein höherer Wert wird beim Start als Warnung gemeldet) |
+| `UNOSIM_RUNTIME_BACKENDS` | angebotene Laufzeiten: `host-mock` (Standard im Docker-Profil) und `browser` (Emulation im Browser, Flash-Abbild aus der Compile-Sandbox); ohne `host-mock` startet kein Sandbox-Runner-Pool |
+| `COMPILE_SANDBOX_IMAGE` | Image der Compile-Sandbox, Standard `unosim-compile-sandbox:latest`; jeder Compile läuft in einem eigenen Container. Fehlt das Image, startet das Backend nicht |
+| `COMPILE_SANDBOX_MEMORY_MB`, `COMPILE_SANDBOX_CPU_LIMIT`, `COMPILE_SANDBOX_PIDS_LIMIT` | Grenzen je Compile-Container; Standard `512`, `1`, `128` (Spike P0.2) |
+| `UNOSIM_DEFAULT_RUNTIME`, `UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD` | Vorauswahl der Laufzeit, angebotene Boards und Standard-Board (`uno`); siehe [INSTALL_LOCAL](INSTALL_LOCAL.md) |
 | `COMPILE_MAX_CONCURRENT` | Obergrenze gleichzeitiger Compiles im Hauptprozess (lokaler Modus und Fallback bei ausgefallenem Worker-Pool) |
 | `SIMULATION_MAX_CONCURRENT` | maximale Zahl gleichzeitig aktiver Simulationen; Standard in Compose `200` |
 | `SANDBOX_START_MAX_CONCURRENT` | maximale Zahl paralleler Docker-Sandbox-Starts; Standard `8` |
@@ -262,8 +314,10 @@ npm run build:sandbox
 npm run capacity:calibrate -- --expected-users 200
 ```
 
-`npm run build:sandbox` ist derselbe Befehl wie
-`docker build -f Dockerfile.sandbox -t unosim-sandbox:latest .` oben. Fehlt der
+`npm run build:sandbox` baut dieselben beiden Images wie die Befehle
+`docker build -f Dockerfile.sandbox …` und
+`docker build -f Dockerfile.compile-sandbox …` oben; das Test-Backend im
+Docker-Profil braucht beide. Fehlt der
 gebaute Client (`dist/public/index.html`), bricht die Kalibrierung vor allen
 Docker- und Lastmessungen mit dem Hinweis ab, `npm run build` auszuführen. Sie
 baut die Anwendung nicht selbst.
@@ -331,7 +385,9 @@ Simulationen bleiben echte Docker-Sandboxen. Er ist kein Deploymentmodus.
 ## Health, Readiness und Status
 
 - `/api/health`: HTTP-Prozess erreichbar
-- `/api/readiness`: Docker-Runner-Pool initialisiert und bereit
+- `/api/readiness`: alle angebotenen Laufzeiten bereit; mit `host-mock` heißt
+  das: Docker-Runner-Pool initialisiert und Sandbox verfügbar. Die
+  Compile-Sandbox prüft das Backend schon beim Start.
 - `/api/status`: Runner, Compile-Slots, Worker, WebSockets, Admission und
   Prozessmetriken; im Docker-Profil nur mit gültiger Gateway-Identität
 
@@ -360,4 +416,30 @@ Zu sichern sind:
 4. Gateway-Traffic umschalten.
 5. Bei Fehlern auf das vorherige unveränderte Image-Tag zurückrollen.
 
+Ein Rollback von V2 auf das V1-Image (v1.0.1) braucht keine Änderung an
+`.env` oder `storage/`: V1 ignoriert die neuen Variablen und die neuen
+Cache-Dateien (`*.artifact.json`); umgekehrt baut V2 Einträge ohne diese
+Datei neu (geprüft am 23.10.2026). Nach dem Rollback laufen alle Sketches im
+Host-Mock, Nano, Mega 2560 und ATtiny85 sind nicht mehr wählbar.
+
 Die vollständigen Gates stehen in [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md).
+
+### Diagnose: Beispiele und GitHub-Commit-Auflösung
+
+Die Ref-Auflösung fordert mit `Accept: application/vnd.github.sha` nur den
+Commit-SHA an (eigenes Antwortlimit: 256 Bytes). Große Commit-Diffs beeinflussen
+diesen Abruf nicht. `UNOSIM_EXAMPLES_MAX_MANIFEST_BYTES` begrenzt das eigentliche
+Manifest, standardmäßig auf 262.144 Bytes. Eine nur wegen großer Commit-Antworten
+gesetzte Erhöhung dieser Einstellung kann nach diesem Update entfernt werden;
+eine für tatsächlich größere Manifeste benötigte Einstellung bleibt bestehen.
+Konfigurationsänderungen erfordern einen Serverneustart bzw. die Neuerzeugung
+des Backend-Containers. Bei Quellfehlern die sichere `resolve-ref`-Diagnose im
+Backend-Log und die Erreichbarkeit von GitHub prüfen.
+
+Der Diagnoseabruf `GET /api/examples/builtin/catalog` muss bei erreichbarem
+Backend auch dann erfolgreich sein, wenn `/api/examples` wegen der externen
+Quelle fehlschlägt. Er liest `public/examples` und akzeptiert keine Query-Parameter.
+Das Menü lädt beide Gruppen getrennt und bietet bei Fehlern **Retry** an.
+Das Hinzufügen eines Beispiel-Repositories zum IDE-Workspace stellt die Quelle
+des laufenden Servers nicht um; maßgeblich bleiben Serverkonfiguration und
+validierter Browser-Override.

@@ -28,9 +28,16 @@ import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
 import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
+import { buildCompileCommand } from "@/hooks/compile-command-builder";
 import { findTabForSourceLocation } from "@/lib/source-navigation";
 import { getEffectiveIoRegistry } from "@/lib/io-registry-state";
-import { getServerCapabilities } from "@/lib/server-capabilities";
+import { getServerCapabilities, isSimulateControlDisabled } from "@/lib/server-capabilities";
+import { setActiveBoard } from "@/lib/active-board";
+import { boardSerialPortCount } from "@shared/board-pins";
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
+import { createRuntimeCommandRouter } from "@/lib/runtime/runtime-commands";
+import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
+import { useBrowserRunInfo } from "@/hooks/use-browser-run-info";
 
 import type {
   Sketch,
@@ -39,10 +46,12 @@ import type {
 } from "@shared/schema";
 import type { IncomingArduinoMessage } from "@/types/websocket";
 import type { DebugMessageParams } from "@/hooks/use-compile-and-run";
+import type { TutorSketch } from "@/hooks/use-tutor";
 import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { isSourceLocation } from "@/types/source-navigation";
 import type { SourceLocation } from "@shared/source-project";
+import type { BoardId } from "@shared/boards";
 import { holdsServerSimulation } from "@shared/types/arduino.types";
 import { isMac } from "@/lib/platform";
 import {
@@ -90,6 +99,10 @@ export function useArduinoSimulatorPage() {
     showSerialPlotter,
     cycleSerialViewMode,
     clearSerialOutput,
+    serialPort,
+    setSerialPort,
+    serialPortCount,
+    setSerialPortCount,
     // Baudrate rendering (Phase 3-4)
     renderedSerialOutput, // Use this for SerialMonitor (baudrate-simulated)
     appendSerialOutput,
@@ -162,8 +175,7 @@ export function useArduinoSimulatorPage() {
 
   // Serial view mode state handled by useSerialIO
 
-  // Selected board and baud rate (moved to Tools menu)
-  const [board] = useState<string>("Arduino UNO");
+  // Baud rate (shown in the Tools menu)
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [workerIndex, setWorkerIndex] = useState<number | undefined>(undefined);
   const [workerTotal, setWorkerTotal] = useState<number | undefined>(undefined);
@@ -236,20 +248,44 @@ export function useArduinoSimulatorPage() {
     triggerErrorGlitch,
     serverStatus,
   } = useBackendHealth(queryClient);
+  // A running browser emulation keeps its controls while the server is gone.
+  const browserRun = useBrowserRunInfo();
   const capabilities = useMemo(
-    () => getServerCapabilities(backendReachable),
-    [backendReachable],
+    () => getServerCapabilities(backendReachable, browserRun.active),
+    [backendReachable, browserRun.active],
   );
 
-  // All outgoing WebSocket commands share this offline guard.
+  // Run commands of a browser run go to the browser runtime (it needs no connection);
+  // everything else shares the offline guard of the WebSocket commands.
+  const commandRouter = useMemo(() => createRuntimeCommandRouter(getRuntimeHub()), []);
+  const runtimeSelection = useSimulationRuntimeSelection();
+  // Selected board (Tools → Board): the server's default until the user chooses another.
+  const board = runtimeSelection.board?.displayName ?? "Arduino UNO";
+  const boardId = runtimeSelection.board?.id;
+  // The pin helpers outside the page (pin store, labels, registry table) follow the selected board.
+  if (boardId) setActiveBoard(boardId);
+  const boardSerialPorts = boardId ? boardSerialPortCount(boardId) : 1;
+  // The Tutor sees the project the compiler sees, whatever tab is open, and the selected board.
+  const tutorSketch = useMemo<TutorSketch>(
+    () => ({ ...(sourceProject ? buildCompileCommand(sourceProject) : { code }), ...(boardId ? { board: boardId } : {}) }),
+    [sourceProject, code, boardId],
+  );
+  useEffect(() => {
+    setSerialPortCount(boardSerialPorts);
+  }, [boardSerialPorts, setSerialPortCount]);
   const sendMessage = useCallback((message: IncomingArduinoMessage) => {
+    if (commandRouter.route(message)) return;
     if (!capabilities.canUseRealtimeControls) return;
     sendMessageRaw(message);
-  }, [capabilities, sendMessageRaw]);
+  }, [capabilities, sendMessageRaw, commandRouter]);
   const sendMessageImmediateGuarded = useCallback((message: IncomingArduinoMessage) => {
+    if (commandRouter.route(message)) return true;
     if (!capabilities.canUseRealtimeControls) return false;
     return sendMessageImmediate(message);
-  }, [capabilities, sendMessageImmediate]);
+  }, [capabilities, sendMessageImmediate, commandRouter]);
+  const sendAnalogValue = useCallback((pin: number, value: number) => {
+    if (!commandRouter.setAnalog(pin, value)) sendMessage({ type: "set_pin_value", pin, value });
+  }, [commandRouter, sendMessage]);
 
   // placeholder for compilation-start callback
   const startSimulationRef = useRef<(() => void) | null>(null);
@@ -289,9 +325,13 @@ export function useArduinoSimulatorPage() {
     handlePause: controllerHandlePause,
     handleResume: controllerHandleResume,
     handleReset: controllerHandleReset,
+    discardBuild,
     suppressAutoStopOnce,
     invalidatePendingStart,
   } = useCompileAndRun({
+    ...(runtimeSelection.runtimeKind ? { runtimeKind: runtimeSelection.runtimeKind } : {}),
+    ...(boardId ? { boardId } : {}),
+    hostMockUsable: runtimeSelection.usable.includes("host-mock"),
     editorRef,
     tabs,
     activeTabId,
@@ -339,6 +379,18 @@ export function useArduinoSimulatorPage() {
     setRuntimeIoRegistry(null);
     controllerHandleStop();
   }, [controllerHandleStop, setRuntimeIoRegistry]);
+
+  // A board change, from whichever place (Tools → Board, an example for another board), stops the run and
+  // drops the build made for the old board (plan P4.5, P4.6).
+  const handleBoardChange = useCallback((next: BoardId) => runtimeSelection.setBoard(next), [runtimeSelection]);
+  const previousBoardRef = useRef(boardId);
+  useEffect(() => {
+    const previous = previousBoardRef.current;
+    previousBoardRef.current = boardId;
+    if (previous === undefined || previous === boardId) return;
+    if (holdsServerSimulation(simulationStatus)) handleStopAndClearRuntime();
+    discardBuild();
+  }, [boardId, simulationStatus, handleStopAndClearRuntime, discardBuild]);
 
   const handleResetAndClearRuntime = useCallback(() => {
     setRuntimeIoRegistry(null);
@@ -582,7 +634,7 @@ export function useArduinoSimulatorPage() {
     varMap: _varMap,
     detectedPinModes: _detectedPinModes,
     pendingPinConflicts: _pendingPinConflicts,
-  } = useSketchAnalysis(sourceProject);
+  } = useSketchAnalysis(sourceProject, boardId);
 
   // Mirror results into local state (previously done inside the big useEffect)
   useEffect(() => {
@@ -601,12 +653,11 @@ export function useArduinoSimulatorPage() {
   // Populate I/O registry from static code analysis whenever code changes or compilation completes
   useEffect(() => {
     const timer = setTimeout(() => {
-      setStaticIoRegistry(
-        sourceProject ? parseStaticIORegistryProject(sourceProject) : [],
-      );
+      const options = boardId ? { board: boardId } : {};
+      setStaticIoRegistry(sourceProject ? parseStaticIORegistryProject(sourceProject, options) : []);
     }, 300);
     return () => clearTimeout(timer);
-  }, [sourceProject, compilationStatus, setStaticIoRegistry]);
+  }, [sourceProject, boardId, compilationStatus, setStaticIoRegistry]);
 
   // A stopped/reset run must not leak its last runtime snapshot into the next
   // idle view. The static registry becomes authoritative again immediately.
@@ -615,8 +666,8 @@ export function useArduinoSimulatorPage() {
   }, [simulationStatus]);
 
   const effectiveIoRegistry = useMemo(
-    () => getEffectiveIoRegistry(staticIoRegistry, runtimeIoRegistry, simulationStatus),
-    [staticIoRegistry, runtimeIoRegistry, simulationStatus],
+    () => getEffectiveIoRegistry(staticIoRegistry, runtimeIoRegistry, simulationStatus, boardId),
+    [staticIoRegistry, runtimeIoRegistry, simulationStatus, boardId],
   );
 
   const { handleSerialSend, handleSerialInputKeyDown, handleClearSerialOutput } =
@@ -628,13 +679,14 @@ export function useArduinoSimulatorPage() {
       serialInputValue,
       setSerialInputValue,
       clearSerialOutput,
+      serialPort,
       ensureBackendConnected,
       capabilities,
     });
 
   const handleSerialInputSend = () => {
     if (!serialInputValue.trim()) return;
-    handleSerialSend(serialInputValue);
+    handleSerialSend(serialInputValue, serialPort);
   };
 
   const closeMobilePanel = useCallback(() => {
@@ -659,6 +711,7 @@ export function useArduinoSimulatorPage() {
   // Pin control handlers are extracted into a dedicated hook for better separation of concerns.
   const { handlePinToggle, handleAnalogChange } = useSimulatorPinControls({
     sendMessage,
+    sendAnalogValue,
     capabilities,
     simulationStatus,
     toast,
@@ -674,6 +727,7 @@ export function useArduinoSimulatorPage() {
     compileSlot,
     serialSlot,
   } = useSimulatorUIState({
+    boardId,
     code,
     setCode,
     tabs,
@@ -704,6 +758,9 @@ export function useArduinoSimulatorPage() {
     onNavigateToSource: navigateToSourceLocation,
     renderedSerialOutput,
     serialOutput,
+    serialPort,
+    setSerialPort,
+    serialPortCount,
     isConnected,
     simulationStatus,
     handleSerialSend,
@@ -746,7 +803,11 @@ export function useArduinoSimulatorPage() {
     setCode(nextCode);
   }, [invalidatePendingStart, setCode]);
 
+  // The runtime of the current run, or the one the next start will use while idle (the debug bar names it).
+  const engine = holdsServerSimulation(simulationStatus) ? (getRuntimeHub().active ?? runtimeSelection.runtimeKind) : runtimeSelection.runtimeKind;
+
   const { pendingExternalStart } = useSimulatorExternalControl({
+    ...(boardId ? { getBoardInfo: () => ({ board: boardId, boardName: board, serialPorts: boardSerialPorts, ...(engine ? { runtime: engine } : {}) }) } : {}),
     allowedOrigin: externalAllowedOrigin,
     backendReachable,
     isConnected,
@@ -773,11 +834,14 @@ export function useArduinoSimulatorPage() {
     pauseMutation.isPending ||
     resumeMutation.isPending;
 
-  const simulateDisabled =
-    !capabilities.canSimulate ||
-    ((simulationStatus === "idle" || simulationStatus === "paused") &&
-      (!backendReachable || !isConnected)) ||
-    simControlBusy;
+  const simulateDisabled = isSimulateControlDisabled({
+    canSimulate: capabilities.canSimulate,
+    simulationStatus,
+    backendReachable,
+    isConnected,
+    busy: simControlBusy,
+    browserRun: getRuntimeHub().active === "browser",
+  });
 
   // Ensure the output panel is visible once a simulation starts so that the
   // output tabs (Compiler / Messages / Registry / Debug) are always accessible.
@@ -870,6 +934,8 @@ export function useArduinoSimulatorPage() {
       workerIndex,
       workerTotal,
       serverStatus,
+      browserRun,
+      engine,
     },
     layout: {
       showErrorGlitch,
@@ -878,6 +944,9 @@ export function useArduinoSimulatorPage() {
       isDesktop,
       layoutMode,
       board,
+      boards: runtimeSelection.config.boards,
+      boardId,
+      onBoardChange: handleBoardChange,
       isMac,
       toast,
       openSettings,
@@ -896,6 +965,7 @@ export function useArduinoSimulatorPage() {
     },
     tutor: {
       code,
+      sketch: tutorSketch,
     },
   };
 

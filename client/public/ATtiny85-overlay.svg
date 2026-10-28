@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 112">
+  <defs>
+    <style>
+      .attiny-click-area { fill: transparent; cursor: pointer; }
+      .attiny-input-frame { fill: none; stroke: #ffff00; stroke-width: 0.7; pointer-events: none; }
+      .attiny-pin-state { fill-opacity: 0.9; pointer-events: none; }
+      .attiny-pin-state[fill="var(--color-black)"], .attiny-pin-state[fill="transparent"] { fill-opacity: 0; }
+    </style>
+    <filter id="glow-red" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-yellow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g id="pin-3" data-pin="3">
+    <title>PB3, physical pin 2</title>
+    <rect id="pin-3-frame" class="attiny-input-frame" x="35" y="42" width="14" height="8" rx="0.8" style="display:none"/>
+    <circle id="pin-3-state" class="attiny-pin-state" cx="42" cy="46" r="2.3" fill="transparent"/>
+    <rect id="pin-3-click" class="attiny-click-area" x="34" y="41" width="16" height="10"/>
+  </g>
+  <g id="pin-4" data-pin="4">
+    <title>PB4, physical pin 3</title>
+    <rect id="pin-4-frame" class="attiny-input-frame" x="35" y="62" width="14" height="8" rx="0.8" style="display:none"/>
+    <circle id="pin-4-state" class="attiny-pin-state" cx="42" cy="66" r="2.3" fill="transparent"/>
+    <rect id="pin-4-click" class="attiny-click-area" x="34" y="61" width="16" height="10"/>
+  </g>
+  <g id="pin-2" data-pin="2">
+    <title>PB2, physical pin 7</title>
+    <rect id="pin-2-frame" class="attiny-input-frame" x="119" y="42" width="14" height="8" rx="0.8" style="display:none"/>
+    <circle id="pin-2-state" class="attiny-pin-state" cx="126" cy="46" r="2.3" fill="transparent"/>
+    <rect id="pin-2-click" class="attiny-click-area" x="118" y="41" width="16" height="10"/>
+  </g>
+  <g id="pin-1" data-pin="1">
+    <title>PB1, physical pin 6</title>
+    <rect id="pin-1-frame" class="attiny-input-frame" x="119" y="62" width="14" height="8" rx="0.8" style="display:none"/>
+    <circle id="pin-1-state" class="attiny-pin-state" cx="126" cy="66" r="2.3" fill="transparent"/>
+    <rect id="pin-1-click" class="attiny-click-area" x="118" y="61" width="16" height="10"/>
+  </g>
+  <g id="pin-0" data-pin="0">
+    <title>PB0, physical pin 5</title>
+    <rect id="pin-0-frame" class="attiny-input-frame" x="119" y="82" width="14" height="8" rx="0.8" style="display:none"/>
+    <circle id="pin-0-state" class="attiny-pin-state" cx="126" cy="86" r="2.3" fill="transparent"/>
+    <rect id="pin-0-click" class="attiny-click-area" x="118" y="81" width="16" height="10"/>
+  </g>
+</svg>

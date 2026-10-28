@@ -129,3 +129,12 @@ Syntax, API, In-Memory-Limits, Cache-Keys und Concurrency sind im normativen
 [`External-Examples-Vertrag`](../../ssot/ssot_function_definition_ExternalExamples.md)
 konkretisiert. Getrennt offen bleibt nur eine mögliche neustartfeste LKG-Ablage;
 sie darf Request-Isolation und Commit-Bindung nicht verändern.
+
+## Nachtrag 2026-10-23: Unabhängiger eingebauter Katalog
+
+`GET /api/examples/builtin/catalog` bietet ausschließlich lokale Beispiele ohne
+GitHub-Abhängigkeit an. Das Menü lädt diesen Katalog parallel zum bisherigen
+gemeinsamen Katalog und verarbeitet die Gruppen getrennt. Der gemeinsame
+Katalog, seine kontrollierten Fehler sowie Source-/Revisionsbindung, LKG und
+transaktionales Validate/Apply behalten ihren Vertrag. Ein externer Ausfall
+aktiviert keinen anderen externen Snapshot.

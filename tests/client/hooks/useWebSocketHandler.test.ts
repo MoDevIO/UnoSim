@@ -102,6 +102,7 @@ function createMockParams() {
   };
 }
 
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import { useWebSocketHandler } from "@/hooks/useWebSocketHandler";
 import { emitOperationErrorEvent, emitSimulationStateEvent } from "@/hooks/use-external-api";
 
@@ -116,6 +117,23 @@ describe("useWebSocketHandler", () => {
   });
 
   describe("connection loss", () => {
+    it("lets a browser run continue when the socket drops (plan P3.5)", () => {
+      const hub = getRuntimeHub();
+      hub.setActive("browser");
+      try {
+        const { rerender } = renderHook(() => useWebSocketHandler(params));
+
+        mockIsConnected = false;
+        rerender();
+
+        expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
+        expect(params.appendRenderedText).not.toHaveBeenCalled();
+        expect(params.resetPinUI).not.toHaveBeenCalled();
+      } finally {
+        hub.setActive(undefined);
+      }
+    });
+
     it("returns a running simulation to idle with cleared pins when the socket drops", () => {
       const { rerender } = renderHook(() => useWebSocketHandler(params));
 
@@ -171,6 +189,28 @@ describe("useWebSocketHandler", () => {
       expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
       expect(params.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Simulation Started" }));
     });
+  });
+
+  it("logs the run events of a browser run as BROWSER over the worker, and the server's messages as SERVER", () => {
+    const hub = getRuntimeHub();
+    hub.setActive("browser");
+    try {
+      const { rerender } = renderHook(() => useWebSocketHandler(params));
+
+      mockMessageQueue = [
+        { type: "serial_output", data: "hi\n", isComplete: true },
+        { type: "compilation_status", arduinoCliStatus: "success" },
+      ];
+      rerender();
+
+      const logged = (params.addDebugMessage as ReturnType<typeof vi.fn>).mock.calls.map(([source, type, , protocol]) => [source, type, protocol]);
+      expect(logged).toEqual([
+        ["browser", "serial_output", "worker"],
+        ["server", "compilation_status", "websocket"],
+      ]);
+    } finally {
+      hub.setActive(undefined);
+    }
   });
 
   it("returns sendMessage and isConnected", () => {

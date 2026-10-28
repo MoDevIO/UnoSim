@@ -76,6 +76,7 @@ fi
 [[ "${DOCKER_ENDPOINT}" == unix://* ]] || { echo "Docker must use a local Unix socket; remote Docker would measure the wrong host" >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable" >&2; exit 1; }
 docker image inspect unosim-sandbox:latest >/dev/null 2>&1 || { echo "Required image unosim-sandbox:latest is missing; run npm run build:sandbox first" >&2; exit 1; }
+docker image inspect unosim-compile-sandbox:latest >/dev/null 2>&1 || { echo "Required image unosim-compile-sandbox:latest is missing; run npm run build:sandbox first (builds both sandbox images)" >&2; exit 1; }
 [[ -x ./node_modules/.bin/tsx ]] || { echo "Dependencies are missing; run npm install first" >&2; exit 1; }
 ARDUINO_CLI_VERSION="$(arduino-cli version 2>/dev/null || true)"
 printf '%s\n' "${ARDUINO_CLI_VERSION}" | grep -Fq "Version: 1.5.1 " || { echo "Arduino CLI 1.5.1 is required on the host" >&2; exit 1; }

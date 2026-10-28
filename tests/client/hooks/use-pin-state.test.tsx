@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { usePinState } from "../../../client/src/hooks/use-pin-state";
+import { setActiveBoard } from "../../../client/src/lib/active-board";
 
 const createLocalStorageMock = () => {
   let store: Record<string, string> = {};
@@ -219,5 +220,22 @@ describe("usePinState", () => {
 
     // pinMonitorVisible should remain unchanged
     expect(result.current.pinMonitorVisible).toBe(false);
+  });
+
+  describe("pinToNumber for the active board (plan P4.3)", () => {
+    afterEach(() => setActiveBoard("uno"));
+
+    it("maps A0–A5 on the Uno and rejects A6 and A7", () => {
+      const { result } = renderHook(() => usePinState(mockResetPinStates));
+
+      expect(["13", "A0", "A5", "A6", "A7", "x"].map(result.current.pinToNumber)).toEqual([13, 14, 19, null, null, null]);
+    });
+
+    it("maps A6 and A7 on the Nano", () => {
+      setActiveBoard("nano");
+      const { result } = renderHook(() => usePinState(mockResetPinStates));
+
+      expect(["A5", "A6", "A7", "A8"].map(result.current.pinToNumber)).toEqual([19, 20, 21, null]);
+    });
   });
 });

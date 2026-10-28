@@ -1,3 +1,4 @@
+import { isAnalogPin } from "@/lib/active-board";
 import { useSyncExternalStore } from "react";
 import { telemetryStore } from "./use-telemetry-store";
 import type { PinMode, PinStateChange } from "@shared/types/arduino.types";
@@ -98,7 +99,7 @@ const applyEvents = (current: PinState[], events: PinEvent[]): PinState[] => {
 
 function getPinType(pin: number, stateType: PinStateType): "digital" | "analog" | "pwm" {
   if (stateType === "pwm") return "pwm";
-  return pin >= 14 && pin <= 19 ? "analog" : "digital";
+  return isAnalogPin(pin) ? "analog" : "digital";
 }
 
 function buildNewPinState(pin: number, stateType: PinStateType, value: number): PinState {

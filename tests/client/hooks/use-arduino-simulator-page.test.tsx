@@ -177,6 +177,7 @@ vi.mock("@/hooks/use-serial-io", () => ({
     stopRendering: noop,
     appendRenderedText: noop,
     clearSerialOutput: noop,
+    setSerialPortCount: noop,
   }),
 }));
 

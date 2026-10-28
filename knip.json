@@ -1,13 +1,21 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["sonar-scanner"],
+  "ignoreBinaries": ["sonar-scanner", "arduino-cli"],
   "ignoreExportsUsedInFile": true,
-  "entry": [
-    "client/src/types/external-api.ts",
-    "shared/worker-protocol.ts",
-    "server/config.ts",
-    "playwright.scalability.config.ts",
-    "scripts/capacity-mixed-load.ts",
-    "scripts/tutor-catalog-eval.ts"
-  ]
+  "ignore": ["spikes/**"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "client/src/types/external-api.ts",
+        "shared/worker-protocol.ts",
+        "server/config.ts",
+        "playwright.scalability.config.ts",
+        "scripts/capacity-mixed-load.ts",
+        "scripts/tutor-catalog-eval.ts"
+      ]
+    },
+    "packages/avr-emulator": {
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    }
+  }
 }

@@ -1,0 +1,12 @@
+RAMEND = 8703
+E2END = 4095
+FLASHEND = 262143
+SP near RAMEND: 1
+bss starts after the extended I/O space: 1
+free RAM below 8192: 1
+malloc(100) inside SRAM: 1
+heap below stack: 1
+EEPROM[17] = 42
+EEPROM[4095] = 7
+EEPROM erased = 255
+DONE

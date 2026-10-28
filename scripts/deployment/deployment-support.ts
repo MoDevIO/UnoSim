@@ -184,21 +184,31 @@ export async function resolveDockerGid(): Promise<string> {
  * Uses images built by CI when given, otherwise builds both from the working
  * tree. Returns whether the images belong to this run and must be removed.
  */
-export async function prepareImages(runId: string): Promise<{ server: string; sandbox: string; owned: boolean }> {
+export async function prepareImages(runId: string): Promise<{ server: string; sandbox: string; compileSandbox: string; owned: boolean }> {
   const prebuiltServer = process.env.DEPLOYMENT_PREBUILT_SERVER_IMAGE;
   const prebuiltSandbox = process.env.DEPLOYMENT_PREBUILT_SANDBOX_IMAGE;
-  if (prebuiltServer && prebuiltSandbox) {
-    await checked("docker", ["image", "inspect", prebuiltServer], { timeoutMs: 20_000 });
-    await checked("docker", ["image", "inspect", prebuiltSandbox], { timeoutMs: 20_000 });
-    return { server: prebuiltServer, sandbox: prebuiltSandbox, owned: false };
+  const prebuiltCompileSandbox = process.env.DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE;
+  if (prebuiltServer && prebuiltSandbox && prebuiltCompileSandbox) {
+    for (const image of [prebuiltServer, prebuiltSandbox, prebuiltCompileSandbox]) {
+      await checked("docker", ["image", "inspect", image], { timeoutMs: 20_000 });
+    }
+    return { server: prebuiltServer, sandbox: prebuiltSandbox, compileSandbox: prebuiltCompileSandbox, owned: false };
   }
   const server = `unosim-server:deployment-${runId}`;
   const sandbox = `unosim-sandbox:deployment-${runId}`;
+  const compileSandbox = `unosim-compile-sandbox:deployment-${runId}`;
   console.log(`[deployment] building ${sandbox}`);
   await checked("docker", ["build", "-f", "Dockerfile.sandbox", "-t", sandbox, "."], { timeoutMs: 900_000 });
+  console.log(`[deployment] building ${compileSandbox}`);
+  await checked("docker", ["build", "-f", "Dockerfile.compile-sandbox", "-t", compileSandbox, "."], { timeoutMs: 900_000 });
   console.log(`[deployment] building ${server}`);
   await checked("docker", ["build", "-t", server, "."], { timeoutMs: 1_800_000 });
-  return { server, sandbox, owned: true };
+  return { server, sandbox, compileSandbox, owned: true };
+}
+
+/** A container the backend starts per run (`unosim-sandbox-*`) or per compile (`unosim-compile-*`, plan P2.4). */
+export function isBackendSandboxContainer(name: string): boolean {
+  return name.startsWith("unosim-sandbox-") || name.startsWith("unosim-compile-");
 }
 
 export async function createTestCertificate(directory: string, names: { certificate: string; key: string }): Promise<Buffer> {
@@ -309,7 +319,7 @@ export async function expectRejectedOrigin(target: { port: number; ca: Buffer },
 /** Removes sandbox containers this run created; reports them as a failure. */
 export async function removeLeakedSandboxes(baseline: Set<string>): Promise<string[]> {
   const after = await listContainerNames();
-  const leaked = [...after].filter((name) => !baseline.has(name) && name.startsWith("unosim-sandbox-"));
+  const leaked = [...after].filter((name) => !baseline.has(name) && isBackendSandboxContainer(name));
   for (const name of leaked) await runCommand("docker", ["rm", "-f", name], { timeoutMs: 20_000 });
   return leaked;
 }

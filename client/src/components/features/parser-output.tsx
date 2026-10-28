@@ -6,18 +6,21 @@ import {
   Plus,
   Eye,
   EyeOff,
-  ListFilter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ParserMessage, IOPinRecord } from "@shared/schema";
+import type { ParserMessage, IOPinRecord, IOOrigin } from "@shared/schema";
 import { clsx } from "clsx";
 import { useState } from "react";
 import * as React from "react";
 import type { SeverityLevel } from "@shared/reserved-names-validator";
 import type { SourceLocation } from "@shared/source-project";
-import { isUnoPwmPin } from "@shared/utils/arduino-utils";
+import { getActiveBoard } from "@/lib/active-board";
+import { boardPins, findBoardPin, resolveBoardPin } from "@shared/board-pins";
+import type { BoardId } from "@shared/boards";
+import { boardHardware } from "@unosim/avr-emulator/boards";
+import { PinInfos } from "@/components/features/pin-infos";
 import {
   formatSourceNavigationTarget,
   isSourceLocation,
@@ -28,19 +31,16 @@ import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
 
-// Module-level constants (not re-created on every render)
-const ALL_PIN_RECORDS: IOPinRecord[] = Array.from({ length: 20 }, (_, pinId) => ({
-  pin: pinId >= 14 ? `A${pinId - 14}` : String(pinId),
-  pinId,
-  defined: false,
-  usedAt: [],
-}));
+/** One empty row per pin of the active board, for "show all pins". */
+function allPinRecords(boardId: BoardId): IOPinRecord[] {
+  return (boardPins(boardId) ?? []).map((pin) => ({ pin: pin.name, pinId: pin.pin, defined: false, usedAt: [] }));
+}
 
-function getPinId(record: IOPinRecord): number | undefined {
+function getPinId(record: IOPinRecord, boardId: BoardId): number | undefined {
   if (record.pinId !== undefined) return record.pinId;
   if (/^\d+$/.test(record.pin)) return Number.parseInt(record.pin, 10);
-  const analogMatch = /^A([0-5])$/.exec(record.pin);
-  return analogMatch ? 14 + Number.parseInt(analogMatch[1], 10) : undefined;
+  const analogMatch = /^A(\d+)$/.exec(record.pin);
+  return analogMatch ? resolveBoardPin(boardId, record.pin) : undefined;
 }
 
 // Module-level pure helpers — fix S6481 (no re-creation on render)
@@ -70,17 +70,18 @@ function getSeverityColor(severity: SeverityLevel): string {
   return getStatusColor(getSeverityStatus(severity));
 }
 
-/** Returns an RX/TX badge element for pin 0/1, or null. Fixes S1940 IIFE anti-pattern. */
-function getRxTxBadge(pin: string): JSX.Element | null {
-  if (pin === "0") return <span className="text-blue-400 text-ui-xs font-semibold">RX</span>;
-  if (pin === "1") return <span className="text-red-400 text-ui-xs font-semibold">TX</span>;
-  return null;
+/** Serial directions come from the selected board, including the ATtiny software UART. */
+function getRxTxBadge(pin: number | undefined, boardId: BoardId): JSX.Element | null {
+  const serial = boardHardware(boardId).serialPorts.find(port => port.rxPin === pin || port.txPin === pin);
+  if (!serial) return null;
+  const direction = serial.rxPin === pin ? "RX" : "TX";
+  const portName = serial.kind === "software" ? "Software Serial" : `Serial${serial.index || ""}`;
+  return <span className={clsx("text-ui-xs font-semibold", direction === "RX" ? "text-blue-400" : "text-red-400")} title={`${portName} · ${direction}`}>{direction}</span>;
 }
 
-/** Returns a PWM tilde element for PWM-capable pins, or null. Fixes S1940 IIFE anti-pattern. */
-function getPwmTilde(pin: string): JSX.Element | null {
-  const n = Number.parseInt(pin, 10);
-  return !Number.isNaN(n) && isUnoPwmPin(n)
+/** PWM marking follows the explicit board, just like the reference table. */
+function getPwmTilde(pin: number | undefined, boardId: BoardId): JSX.Element | null {
+  return pin !== undefined && findBoardPin(boardId, pin)?.pwm
     ? <span className="text-yellow-400">~</span>
     : null;
 }
@@ -299,12 +300,13 @@ function getCategoryLabel(category: string): string {
 function filterIoRegistry(
   ioRegistry: IOPinRecord[],
   showAllPins: boolean,
+  boardId: BoardId,
 ): IOPinRecord[] {
   if (!showAllPins) return ioRegistry.filter(isPinProgrammed);
 
-  const pinsById = new Map(ALL_PIN_RECORDS.map((record) => [record.pinId, record]));
+  const pinsById = new Map(allPinRecords(boardId).map((record) => [record.pinId, record]));
   for (const record of ioRegistry) {
-    const pinId = getPinId(record);
+    const pinId = getPinId(record, boardId);
     if (pinId !== undefined) pinsById.set(pinId, record);
   }
   return [...pinsById.values()];
@@ -406,6 +408,8 @@ function ParserMessagesList({
 type RegistryOperation = NonNullable<IOPinRecord["usedAt"]>[number];
 
 interface RegistryOperationCellProps {
+  /** Where the finding comes from (plan 4.9); a finding seen by both gets a mark. */
+  readonly origin?: IOOrigin;
   readonly lines: Array<number | "runtime"> | undefined;
   readonly locations: SourceLocation[] | undefined;
   readonly legacyOperations: RegistryOperation[];
@@ -414,6 +418,7 @@ interface RegistryOperationCellProps {
 }
 
 function renderRegistryOperationCell({
+  origin,
   lines,
   locations,
   legacyOperations,
@@ -423,7 +428,14 @@ function renderRegistryOperationCell({
   const hasNew = (lines?.length ?? 0) > 0 || (locations?.length ?? 0) > 0;
   const isUsed = hasNew || legacyOperations.length > 0;
   if (!isUsed) return <span className="text-gray-400">—</span>;
-  if (!detailView) return <span className="text-green-500 font-bold">✓</span>;
+  const seenInRun = origin === "both";
+  if (!detailView) {
+    return (
+      <span className="text-green-500 font-bold" title={seenInRun ? "Found in the code and seen while the simulation ran" : undefined}>
+        ✓{seenInRun && <span className="text-yellow-400 italic text-ui-xs font-normal"> ▶</span>}
+      </span>
+    );
+  }
 
   const sourceLocations = locations && locations.length > 0 ? locations : undefined;
   const visibleLines: Array<number | "runtime"> = hasNew
@@ -452,18 +464,21 @@ function renderRegistryOperationCell({
               )}
             </div>
           ))}
+      {seenInRun && <div className="text-ui-xs text-yellow-400 italic" title="Seen while the simulation ran">+ runtime</div>}
     </div>
   );
 }
 
 interface IoRegistryRowProps {
+  readonly boardId: BoardId;
   readonly record: IOPinRecord;
   readonly index: number;
   readonly detailView: boolean;
   readonly onGoToLine?: (target: SourceNavigationTarget) => void;
 }
 
-function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowProps) {
+function IoRegistryRow({ boardId, record, index, detailView, onGoToLine }: IoRegistryRowProps) {
+  const pinId = getPinId(record, boardId);
   const operations = record.usedAt || [];
   const pinModes: string[] = record.pinModeModes ?? operations
     .filter((operation) => operation.operation.includes("pinMode"))
@@ -486,6 +501,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     (hasInputMode && hasRuntimeWrite)
   );
   const digitalReadCell = renderRegistryOperationCell({
+    origin: record.origin?.digitalRead,
     lines: record.digitalReadLines,
     locations: record.digitalReadLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("digitalRead")),
@@ -493,6 +509,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const digitalWriteCell = renderRegistryOperationCell({
+    origin: record.origin?.digitalWrite,
     lines: record.digitalWriteLines,
     locations: record.digitalWriteLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("digitalWrite")),
@@ -500,6 +517,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const analogReadCell = renderRegistryOperationCell({
+    origin: record.origin?.analogRead,
     lines: record.analogReadLines,
     locations: record.analogReadLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("analogRead")),
@@ -507,6 +525,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     onGoToLine,
   });
   const analogWriteCell = renderRegistryOperationCell({
+    origin: record.origin?.analogWrite,
     lines: record.analogWriteLines,
     locations: record.analogWriteLocations,
     legacyOperations: operations.filter((operation) => operation.operation.includes("analogWrite")),
@@ -520,8 +539,8 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
     >
       <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
         <div className="flex items-center justify-end gap-2">
-          {getRxTxBadge(String(record.pin))}
-          {getPwmTilde(String(record.pin))}
+          {getRxTxBadge(pinId, boardId)}
+          {getPwmTilde(pinId, boardId)}
           <span>{record.pin}</span>
         </div>
       </td>
@@ -545,6 +564,7 @@ function IoRegistryRow({ record, index, detailView, onGoToLine }: IoRegistryRowP
 }
 
 interface IoRegistryBodyProps {
+  readonly boardId: BoardId;
   readonly filteredRegistry: IOPinRecord[];
   readonly showAllPins: boolean;
   readonly setShowAllPins: (show: boolean) => void;
@@ -553,6 +573,7 @@ interface IoRegistryBodyProps {
 }
 
 function IoRegistryBody({
+  boardId,
   filteredRegistry,
   showAllPins,
   setShowAllPins,
@@ -610,6 +631,7 @@ function IoRegistryBody({
         <tbody>
           {filteredRegistry.map((record, index) => (
             <IoRegistryRow
+              boardId={boardId}
               key={record.pin}
               record={record}
               index={index}
@@ -624,6 +646,7 @@ function IoRegistryBody({
 }
 
 interface ParserOutputProps {
+  readonly boardId?: BoardId;
   readonly messages: ParserMessage[];
   readonly ioRegistry?: IOPinRecord[];
   readonly onClear: () => void;
@@ -635,6 +658,7 @@ interface ParserOutputProps {
 }
 
 export function ParserOutput({
+  boardId = getActiveBoard(),
   messages,
   ioRegistry = [],
   onClear,
@@ -647,7 +671,8 @@ export function ParserOutput({
   const [activeTab, setActiveTab] = useState<"messages" | "registry">(
     defaultTab,
   );
-  const [showAllPins, setShowAllPins] = useState(false);
+  const [registryTab, setRegistryTab] = useState("programmed");
+  const showAllPins = registryTab === "all";
   /** detailView: false = compact (✓/—), true = extended (line numbers). Eye-button toggle per SSOT. */
   const [detailView, setDetailView] = useState(false);
 
@@ -661,8 +686,8 @@ export function ParserOutput({
 
   // Filter pins: show only programmed pins by default, all pins if showAllPins is true
   const filteredRegistry = React.useMemo(
-    () => filterIoRegistry(ioRegistry, showAllPins),
-    [ioRegistry, showAllPins],
+    () => filterIoRegistry(ioRegistry, showAllPins, boardId),
+    [ioRegistry, showAllPins, boardId],
   );
 
   // Count of programmed pins (pins with any operation)
@@ -772,43 +797,40 @@ export function ParserOutput({
           value="registry"
           className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden"
         >
-          {/* Toggle Button for Pin Visibility */}
-          <div className="panel-content-header sticky top-0 border-b px-3 justify-between z-10">
-            <span className="text-ui-xs text-muted-foreground">
-              {showAllPins
-                ? `All pins (${filteredRegistry.length})`
-                : `Programmed pins (${totalProgrammedPins})`}
-            </span>
-            <div className="flex items-center gap-1">
-              <ToolbarIconButton
-                icon={<ListFilter className="h-3.5 w-3.5" />}
-                label={showAllPins ? "Show programmed pins" : "Show all pins"}
-                onClick={() => setShowAllPins(!showAllPins)}
-                aria-pressed={showAllPins}
-              />
-              {/* Eye button: compact (✓/—) vs extended (line numbers) – SSOT eye-mode */}
-              <ToolbarIconButton
+          <Tabs value={registryTab} onValueChange={setRegistryTab} className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="panel-content-header border-b border-border justify-between gap-1">
+              <TabBar asChild className="min-w-0 flex-1 overflow-x-auto border-0">
+                <TabsList aria-label="I/O Registry views" className="gap-0">
+                  <TabsTrigger value="programmed">Programmed Pins ({totalProgrammedPins})</TabsTrigger>
+                  <TabsTrigger value="all">All Pins</TabsTrigger>
+                  <TabsTrigger value="infos">Pin Infos</TabsTrigger>
+                </TabsList>
+              </TabBar>
+              {registryTab !== "infos" && <ToolbarIconButton
                 icon={detailView ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 label={detailView ? "Hide source locations" : "Show source locations"}
                 onClick={() => setDetailView(!detailView)}
+                aria-pressed={detailView}
                 data-testid="io-registry-detail-toggle"
-              />
+                className="mr-2 shrink-0"
+              />}
             </div>
-          </div>
-
-          <UnifiedScrollArea
-            className="flex-1"
-            orientation="both"
-            scrollbarVisibility="always"
-          >
-            <IoRegistryBody
-              filteredRegistry={filteredRegistry}
-              showAllPins={showAllPins}
-              setShowAllPins={setShowAllPins}
-              detailView={detailView}
-              onGoToLine={onGoToLine}
-            />
-          </UnifiedScrollArea>
+            {["programmed", "all"].map(value => <TabsContent key={value} value={value} className="flex-1 min-h-0 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
+              <UnifiedScrollArea className="flex-1" orientation="both" scrollbarVisibility="always">
+                <IoRegistryBody
+                  boardId={boardId}
+                  filteredRegistry={filteredRegistry}
+                  showAllPins={showAllPins}
+                  setShowAllPins={() => setRegistryTab("all")}
+                  detailView={detailView}
+                  onGoToLine={onGoToLine}
+                />
+              </UnifiedScrollArea>
+            </TabsContent>)}
+            <TabsContent value="infos" className="flex-1 min-h-0 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
+              <PinInfos key={boardId} boardId={boardId} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

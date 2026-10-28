@@ -13,7 +13,9 @@ export function useSimulatorSerialPanel(params: {
   setTxActivity: Dispatch<SetStateAction<number>>;
   serialInputValue: string;
   setSerialInputValue: Dispatch<SetStateAction<string>>;
-  clearSerialOutput: () => void;
+  clearSerialOutput: (port?: number) => void;
+  /** The port the monitor shows: typing and Clear act on it (0 = `Serial`). */
+  serialPort?: number;
   ensureBackendConnected: (actionLabel: string) => boolean;
 }) {
   const {
@@ -26,9 +28,10 @@ export function useSimulatorSerialPanel(params: {
     clearSerialOutput,
     ensureBackendConnected,
   } = params;
+  const serialPort = params.serialPort ?? 0;
 
   const handleSerialSend = useCallback(
-    (message: string) => {
+    (message: string, port = 0) => {
       if (params.capabilities && !params.capabilities.canUseRealtimeControls) return;
       if (!ensureBackendConnected("Serial senden")) return;
 
@@ -50,7 +53,7 @@ export function useSimulatorSerialPanel(params: {
       // Trigger TX LED blink when client sends data
       setTxActivity((prev) => prev + 1);
 
-      sendMessage({ type: "serial_input", data: message });
+      sendMessage({ type: "serial_input", data: message, ...(port === 0 ? {} : { port }) });
       setSerialInputValue("");
     },
     [ensureBackendConnected, simulationStatus, toast, setTxActivity, sendMessage, setSerialInputValue, params.capabilities],
@@ -59,15 +62,16 @@ export function useSimulatorSerialPanel(params: {
   const handleSerialInputKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Enter") {
-        handleSerialSend(serialInputValue);
+        handleSerialSend(serialInputValue, serialPort);
       }
     },
-    [handleSerialSend, serialInputValue],
+    [handleSerialSend, serialInputValue, serialPort],
   );
 
   const handleClearOutput = useCallback(() => {
-    clearSerialOutput();
-  }, [clearSerialOutput]);
+    if (serialPort === 0) clearSerialOutput();
+    else clearSerialOutput(serialPort);
+  }, [clearSerialOutput, serialPort]);
 
   return {
     handleSerialSend,

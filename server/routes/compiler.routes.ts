@@ -2,6 +2,7 @@ import type { Express, Response } from "express";
 import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 import { compileRequestSchema } from "@shared/schema";
+import { type BoardCatalogEntry, type BoardId, enabledBoards, findBoardByFqbn, getBoard } from "@shared/boards";
 import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
 import { compileMetricsTracker } from "../services/server-metrics";
@@ -18,6 +19,8 @@ type CompilerDeps = {
   compiler: {
     compile: (code: string, headers?: CompilerHeader[], tempRoot?: string, options?: CompileRequestOptions) => Promise<CompilationResult>;
     tracksCompileMetrics?: boolean;
+    /** Toolchain, libraries, options and artifact format the compiler checks its own cache under (plan E15). */
+    buildEnvironmentId?: () => Promise<string>;
   };
   compilationCache: Map<string, { result: CompilationResult; timestamp: number }>;
   hashCode: (code: string, headers?: CompilerHeader[], options?: CompileRequestOptions) => string;
@@ -26,12 +29,17 @@ type CompilerDeps = {
   logger: Logger;
   compileRateLimiter?: { checkLimit: (identity: string) => RateLimitResult };
   disableRateLimit?: boolean;
+  /** Whether the response may carry the flash image (`artifact`); false when omitted. */
+  artifactDelivery?: boolean;
+  /** Boards this deployment offers; the catalog default (plan 4.11) when omitted. */
+  offeredBoards?: () => readonly BoardCatalogEntry[];
 };
 
 type CompileRequestData = {
   code: string;
   headers?: CompilerHeader[];
   entryFile?: string;
+  board?: BoardId;
   fqbn?: string;
   libraries?: string[];
 };
@@ -57,10 +65,27 @@ function parseCompileRequest(body: unknown): ParsedCompileRequest {
   return { success: true, data: parsedRequest.data };
 }
 
-/** The HEX stays on the server: the client never uses it and it inflates every response. */
-function withoutBinary(result: CompilationResult): CompilationResult {
-  const { binary: _binary, ...clientResult } = result;
-  return clientResult;
+/**
+ * The board a request compiles for. `board` wins; the deprecated `fqbn` alone
+ * means the board it belongs to (the schema ensures there is one). Requests
+ * without either compile for the server default and leave the options as they
+ * were. A board that is not offered is refused.
+ */
+function resolveCompileTarget(data: CompileRequestData, offered: readonly BoardCatalogEntry[]): { options: { board?: BoardId; fqbn?: string }; error?: string } {
+  const board = data.board ?? (data.fqbn === undefined ? undefined : findBoardByFqbn(data.fqbn)?.id);
+  if (board === undefined) return { options: {} };
+  if (!offered.some((entry) => entry.id === board)) return { options: {}, error: `Board ${board} is not available` };
+  return data.board === undefined ? { options: { fqbn: data.fqbn } } : { options: { board, fqbn: getBoard(board).fqbn } };
+}
+
+/**
+ * What the client gets: never the HEX (`binary`), and the `artifact` only for
+ * a successful build when the deployment may deliver it (plan 4.10: the local
+ * profile; the Docker profile once the compile sandbox exists).
+ */
+function clientResultOf(result: CompilationResult, deliverArtifact: boolean): CompilationResult {
+  const { binary: _binary, artifact, ...clientResult } = result;
+  return deliverArtifact && result.success && artifact ? { ...clientResult, artifact } : clientResult;
 }
 
 function isTimedOutCompileResult(result: CompilationResult): boolean {
@@ -152,14 +177,20 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
       if (!parsedRequest.success) {
         return res.status(400).json({ error: parsedRequest.error });
       }
-      const { code, headers, entryFile, fqbn, libraries } = parsedRequest.data;
+      const { code, headers, entryFile, libraries } = parsedRequest.data;
+      const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
+      if (target.error) return res.status(400).json({ error: target.error });
 
       const compileOptions = {
-        fqbn,
         libraries,
+        ...target.options,
         ...(entryFile ? { entryFile } : {}),
       };
-      const codeHash = hashCode(code, headers, compileOptions);
+      // The result cache answers before the compiler: its key carries the compiler's build environment, so a
+      // changed toolchain or library set misses it just as it misses the compiler's own caches.
+      const environment = await compiler.buildEnvironmentId?.();
+      const requestHash = hashCode(code, headers, compileOptions);
+      const codeHash = environment ? `${requestHash}:${environment}` : requestHash;
       const cacheDisabled = process.env.DISABLE_COMPILE_CACHE === "true";
       const cachedResult = getCachedCompilation(
         compilationCache,
@@ -191,7 +222,7 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
 
       recordCompileMetricIfNeeded(compiler, compileStartTime, result);
 
-      const clientResult = withoutBinary(result);
+      const clientResult = clientResultOf(result, deps.artifactDelivery === true);
       if (result.success) {
         if (!cacheDisabled) {
           compilationCache.set(codeHash, { result: clientResult, timestamp: Date.now() });

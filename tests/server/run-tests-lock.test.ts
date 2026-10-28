@@ -18,14 +18,24 @@ function temporaryDirectory(): string {
   return directory;
 }
 
-/** A live process whose command line contains "run-tests", standing in for a running pipeline. */
+/**
+ * A live process whose command line contains "run-tests", standing in for a running pipeline. Returns once
+ * the process shows that command line: right after `spawn` it is still a copy of the test process, and a
+ * lock check at that moment would (correctly) see an unrelated process.
+ */
 function fakePipeline(): number {
   const child = spawn("bash", ["-c", "exec -a run-tests.sh sleep 30"], { stdio: "ignore", detached: true });
   child.unref();
   cleanups.push(() => {
     try { process.kill(child.pid as number); } catch { /* already gone */ }
   });
-  return child.pid as number;
+  const pid = child.pid as number;
+  const deadline = Date.now() + 10_000;
+  while (!spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" }).stdout.includes("run-tests")) {
+    if (Date.now() > deadline) throw new Error(`the stand-in pipeline ${pid} never showed its command line`);
+    spawnSync("sleep", ["0.05"]);
+  }
+  return pid;
 }
 
 function bash(script: string) {

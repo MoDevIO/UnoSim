@@ -3,6 +3,8 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { enabledBoards } from "../../shared/boards";
+import { simulationArtifactSchema } from "../../shared/simulation-artifact";
 import {
   blinkSketch,
   checked,
@@ -16,6 +18,7 @@ import {
   openWebSocket,
   parseJson,
   prepareImages,
+  isBackendSandboxContainer,
   removeLeakedSandboxes,
   resolveDockerGid,
   runAsScript,
@@ -48,7 +51,7 @@ async function sandboxIds(owner: string): Promise<string[]> {
 
 /** Sandbox containers this run's backends started, independent of any label. */
 async function startedSandboxes(baseline: Set<string>): Promise<string[]> {
-  return [...await listContainerNames()].filter((name) => name.startsWith("unosim-sandbox-") && !baseline.has(name));
+  return [...await listContainerNames()].filter((name) => isBackendSandboxContainer(name) && !baseline.has(name));
 }
 
 type Lifecycle = {
@@ -182,6 +185,32 @@ async function teardown(run: {
   return cleanupError;
 }
 
+/**
+ * The configuration of the browser-emulation pilot (plan P7.2/P7.3): emulation
+ * as default next to the host mock, boards that only the browser runs, and the
+ * flash image from the compile sandbox through the gateway.
+ */
+async function verifyBrowserEmulationPilot(gateway: { port: number; ca: Buffer }): Promise<void> {
+  const config = parseJson((await httpsRequest(gateway, "/api/config")).body);
+  assert.deepEqual(config.runtime, { backends: ["browser", "host-mock"], default: "browser" });
+  // The boards the catalog offers with the browser backend (every `preview` and `available` board).
+  const expectedBoards = enabledBoards(undefined, "uno", ["browser", "host-mock"]).map((board) => board.id);
+  assert.deepEqual(config.boards.map((board: { id: string }) => board.id), expectedBoards);
+  assert.ok(expectedBoards.includes("nano"), "the pilot must offer a board that only the browser runs");
+
+  const compileResponse = await httpsRequest(gateway, "/api/compile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: blinkSketch, board: "nano" }),
+    timeoutMs: 180_000,
+  });
+  assert.equal(compileResponse.statusCode, 200, `Nano compile through gateway returned ${compileResponse.statusCode}`);
+  const result = parseJson(compileResponse.body);
+  assert.equal(result.success, true, "Nano compile through gateway must succeed");
+  assert.equal("binary" in result, false, "the HEX must never leave the server");
+  assert.equal(simulationArtifactSchema.parse(result.artifact).board, "nano", "the compile sandbox must deliver the Nano's flash image");
+}
+
 /** Frontend, authenticated API, tutor credential contract, identity headers and backend isolation. */
 async function verifyGatewayContract(
   gateway: { port: number; ca: Buffer },
@@ -208,6 +237,8 @@ async function verifyGatewayContract(
   assert.equal(parseJson(missingTutorCredential.body).error.code, "CREDENTIAL_REQUIRED");
   await composeCall(["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY === undefined ? 0 : 1)"], 20_000);
   await composeCall(["exec", "-T", "unosim-backend", "node", "-e", "process.exit(process.env.UNOSIM_TUTOR_MODE === undefined && process.env.UNOSIM_LLM_API_KEY === undefined ? 0 : 1)"], 20_000);
+
+  await verifyBrowserEmulationPilot(gateway);
 
   const spoofedResponse = await httpsRequest(gateway, "/api/status", {
     headers: {
@@ -268,6 +299,7 @@ async function main(): Promise<void> {
     images = await prepareImages(runId);
     env.DEPLOYMENT_SERVER_IMAGE = images.server;
     env.DEPLOYMENT_SANDBOX_IMAGE = images.sandbox;
+    env.DEPLOYMENT_COMPILE_SANDBOX_IMAGE = images.compileSandbox;
 
     await mkdir(tlsDir, { recursive: true });
     await mkdir(tempDir, { recursive: true });
@@ -312,7 +344,7 @@ async function main(): Promise<void> {
     socket.send(JSON.stringify({ type: "start_simulation", code: blinkSketch }));
     await nextWebSocketMessage(socket, (message) => message.type === "simulation_status" && message.status === "running", 180_000);
     const activeContainers = await listContainerNames();
-    const newSandboxContainers = [...activeContainers].filter((name) => name.startsWith("unosim-sandbox-") && !baselineContainers.has(name));
+    const newSandboxContainers = [...activeContainers].filter((name) => isBackendSandboxContainer(name) && !baselineContainers.has(name));
     assert.ok(newSandboxContainers.length > 0, "running simulation must use a Docker sandbox container");
 
     socket.send(JSON.stringify({ type: "stop_simulation" }));

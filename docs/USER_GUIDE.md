@@ -29,6 +29,45 @@ Ein Lauf endet automatisch nach seiner Laufzeit, die du unter
 **Tools → Timeout** zwischen 5 Sekunden und 5 Minuten wählst. Eine pausierte
 Simulation endet spätestens nach insgesamt 10 Minuten Pause.
 
+## I/O Registry: Nutzung und Pin-Eigenschaften
+
+Im Output Panel unter dem Editor öffnest du **I/O Registry**. Ein Doppelklick
+auf diesen Tab vergrößert das Panel. Darunter stehen drei Ansichten:
+
+- **Programmed Pins (n)** zeigt wie bisher die im Sketch und während des Laufs
+  erkannten Pins und ihre Operationen. Die Zahl zählt verwendete Pins.
+- **All Pins** zeigt dieselbe Nutzungstabelle für alle Signalpins des gewählten
+  Boards. Unbenutzte Pins haben leere Operationsfelder.
+- **Pin Infos** zeigt die Fähigkeiten des gewählten Boards unabhängig vom
+  Sketch: Digital In/Out, Analog In, PWM Out, Bus Connections, Ext. IRQ,
+  Pin Change und Timer. I²C, SPI/USI und Serial stehen mit ihrer Signalrolle in
+  einer gemeinsamen Spalte. Die Suche findet zum Beispiel `SDA`, `SPI`,
+  `PCINT` oder `A0`. Beim Scrollen bleiben Kopfzeile und Pin-Spalte sichtbar.
+
+Der Auge-Button schaltet in den beiden Nutzungstabellen die Quellstellen ein.
+Dateiname, Zeile, vollständiger Pfad im Tooltip und der Sprung zur richtigen
+Datei bleiben erhalten. Alte Einträge mit einer Zeile ohne Dateipfad zeigen
+weiterhin etwa `L23`; dynamische Funde ohne statische Stelle heißen `runtime`.
+Der Zustand des Auge-Buttons bleibt beim Wechsel zwischen den drei Ansichten
+erhalten. **Pin Infos** hat keine Quellstellen, weil es Hardware beschreibt.
+
+PWM verwendet **8 Bit**, also 256 Stufen von 0 bis 255. Analogeingänge liefern
+**10 Bit**, also 1024 Stufen von 0 bis 1023. Nano A6/A7 sind nur Analogeingänge.
+Ein Sternchen erklärt Einschränkungen im Tooltip: insbesondere ATtiny PB5 als
+reservierter RESET-Pin und einzelne Mega-Pins mit Pin-Change-Fähigkeit über
+Register, die der Arduino-Core nicht über seine Helfer anbietet. Beim ATtiny
+steht die Codeschreibweise unter dem Pin, etwa **PB4 — Code: 4 / A2**.
+Versorgungs-, Masse- und Steuerkontakte stehen als reine Referenz am Ende;
+sie sind keine zusätzlichen programmierbaren Pins und erhöhen die Zählung nicht.
+
+Die Tabelle beschreibt Hardwarefähigkeiten, keine gleichzeitige Nutzbarkeit
+aller mehrfach belegten Funktionen. Beim ATtiny gelten die angezeigten
+USI/SPI-Rollen für den Master-Modus des gewählten Cores; ISP-Beschriftungen
+können davon abweichen. **I²C, SPI und USI werden derzeit nicht simuliert.**
+Die seriellen Peripherien werden im Browser-Modus nachgebildet; daraus folgt
+keine Unterstützung beliebiger angeschlossener Geräte. Das bloße Anzeigen
+einer Busfunktion verspricht deshalb keine Simulation eines Sensors.
+
 ## Arbeit sichern
 
 Der Server speichert keine Sketches. Sichere deine Dateien mit
@@ -37,7 +76,14 @@ Der Server speichert keine Sketches. Sichere deine Dateien mit
 ## Beispiele laden
 
 **Examples** in der Kopfzeile (oder `Cmd/Ctrl+E`) öffnet die Beispielsammlung.
-Ein Beispiel ersetzt nach Rückfrage den aktuellen Sketch.
+Ein Beispiel ersetzt den aktuellen Sketch.
+
+**Built-in** enthält die eingebauten Beispiele. Diese Liste wird unabhängig
+von **External** geladen und bleibt bedienbar, wenn die externe Quelle langsam
+oder nicht erreichbar ist. Eine Statusmeldung erklärt den Ausfall; **Retry**
+lädt nur die betroffene Liste neu. Ein erneuter Abruf verändert deinen Sketch
+erst, wenn du ein Beispiel auswählst. Beide Listen benötigen die Verbindung
+zum UnoSim-Server.
 
 Lehrkräfte können für ihren Browser eine eigene Beispielsammlung wählen:
 
@@ -52,6 +98,65 @@ Die Auswahl gilt nur für diesen Browser und ändert nichts an der Einstellung
 des Servers. Wie man eine eigene Sammlung samt Tutor-Inhalten aufbaut,
 beschreibt das
 [README von UnoSim-Examples](https://github.com/ttbombadil/UnoSim-Examples#course-content-and-tutor-authoring).
+
+## Board wählen
+
+Unter **Tools → Board** wählst du das Board, für das UnoSim kompiliert und das
+es darstellt: **Arduino UNO**, **Arduino Nano**, **Arduino Mega 2560** oder
+**ATtiny85**. Die Wahl bleibt im Browser gespeichert; ein Wechsel stoppt einen
+laufenden Sketch. Nano, Mega und ATtiny85 tragen den Hinweis „preview“: Sie
+laufen in der Emulation, aber UnoSim hat ihre Ergebnisse noch nicht mit einem
+echten Board verglichen.
+
+| Board | Pins | PWM (`analogWrite`) | Analogeingänge | Serielle Schnittstellen |
+|---|---|---|---|---|
+| Uno | 0 bis 13, A0 bis A5 | 3, 5, 6, 9, 10, 11 | A0 bis A5 | `Serial` |
+| Nano | wie der Uno, dazu A6 und A7 (nur analog) | wie der Uno | A0 bis A7 | `Serial` |
+| Mega 2560 | 0 bis 53, A0 bis A15 | 2 bis 13 und 44 bis 46 | A0 bis A15 | `Serial`, `Serial1`, `Serial2`, `Serial3` |
+| ATtiny85 | 0 bis 4 (PB0 bis PB4; PB5 ist RESET) | 0, 1, 4 | A0 bis A3 auf den Pins 5, 2, 4, 3 | `Serial` (in Software, auf 0 und 1) |
+
+Beim **Mega 2560** gilt:
+
+- Die Pinnummern sind die des Boards: `A0` ist Pin 54, `A15` ist Pin 69. Ein
+  Sketch, der die Pinnummer eines Analogeingangs ausgibt, zeigt hier 54 bis 69
+  statt 14 bis 19.
+- Der Mega hat vier serielle Schnittstellen. Der Serial Monitor zeigt eine
+  davon; oben wählst du **Serial**, **Serial1**, **Serial2** oder **Serial3**.
+  Das Eingabefeld sendet an die gezeigte Schnittstelle, „Clear“ leert sie. Der
+  Plotter zeigt immer `Serial`. Systemzeilen wie „Simulation stopped“ erscheinen
+  in jeder Schnittstelle.
+- Die externen Interrupts `INT0` bis `INT5` (Pins 21, 20, 19, 18, 2, 3) und die
+  Pin-Change-Interrupts gibt es; `attachInterrupt()` funktioniert wie am Board.
+- Speicher: 256 KB Flash, 8 KB SRAM, 4 KB EEPROM. Wer mehr als 64 KB
+  Programmdaten im Flash ablegt, liest sie mit den „far“-Funktionen
+  (`pgm_read_byte_far`), wie am Board. Liegen die Pin-Tabellen des Arduino-Cores
+  durch große Datenmengen oberhalb von 64 KB, findet der Core sie nicht mehr;
+  das passiert am echten Mega ebenso.
+- Die frühere Simulation auf dem Server (Legacy) gibt es nur für den Uno.
+- Beispiele, die für den Uno geschrieben sind, laufen auf dem Mega, solange sie
+  keine Pinnummer über 13 voraussetzen (`A0` bis `A5` heißen dort anders
+  nummeriert, siehe oben).
+
+Beim **ATtiny85** gilt (Arduino-Core ATTinyCore 1.5.2, 8 MHz intern):
+
+- Die Pins 0 bis 5 sind PB0 bis PB5. `A1` ist ein zweiter Name für Pin 2, `A2`
+  für Pin 4, `A3` für Pin 3, `A0` für Pin 5; `analogRead(1)` liest wie
+  `analogRead(A1)`. Auf dem Board heißt der Pin deshalb „2 (A1)“. `LED_BUILTIN`
+  ist Pin 1.
+- PB5 ist der RESET-Pin und als Ein- oder Ausgang nicht nutzbar; UnoSim warnt,
+  wenn der Sketch ihn digital verwendet. `analogRead(A0)` funktioniert.
+- Es gibt keine serielle Schnittstelle in Hardware. `Serial` sendet in Software
+  auf Pin 0 (TX) und empfängt über den Analogkomparator auf Pin 1 (RX), mit
+  einem Format von 8N1. Daraus folgen Grenzen des Boards, die UnoSim nachbildet:
+  - **Halbduplex:** Während der Sketch sendet, empfängt er nichts. Lies
+    Eingaben zuerst (`Serial.parseInt()`) und antworte danach; ein Sketch, der
+    ständig ausgibt, verliert Eingaben.
+  - Wer Pin 0 oder Pin 1 anders benutzt (auch für `analogWrite`), stört
+    `Serial`; UnoSim warnt dann.
+  - Die Baudrate steht in keinem Register. UnoSim erkennt sie an der Ausgabe;
+    bis dahin gilt der Wert aus `Serial.begin()`. Übliche Rate ist 9600.
+- Speicher: 8 KB Flash, 512 Byte SRAM, 512 Byte EEPROM.
+- Die Legacy-Simulation gibt es nicht; `Serial1` bis `Serial3` auch nicht.
 
 ## Der Tutor
 
@@ -110,13 +215,55 @@ Unter **File → Settings** findest du außerdem:
 
 ## Grenzen der Simulation
 
-UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für den Uno.
-Was hier kompiliert, kompiliert also auch auf der Hardware. Ausgeführt wird der
-Sketch danach aber nicht als Uno-Programm, sondern als Programm für den
-UnoSim-Server. Dadurch weicht die Simulation in einigen Punkten vom echten
-Arduino Uno ab:
+UnoSim prüft jeden Sketch zuerst mit dem echten Arduino-Compiler für das
+gewählte Board (Standard: Uno). Was hier kompiliert, kompiliert also auch auf der
+Hardware. Danach läuft das fertige Programm in der **Emulation**: ein Nachbau
+des Mikrocontrollers (ATmega328P, beim Mega 2560 der ATmega2560, beim ATtiny85 der ATtiny85) im Browser,
+der den Maschinencode des Sketches ausführt, nicht ein Programm für den
+UnoSim-Server. Datentypen, Überläufe, `millis()` und `delay()` verhalten sich
+deshalb wie auf dem gewählten Board. Wer die frühere Art der Simulation braucht, wählt
+unter **File → Settings → Simulation engine** „Legacy“ (siehe unten). Das gibt es nur für den Uno; bei Nano, Mega 2560 und ATtiny85 ist die Einstellung sichtbar, aber fest auf „Emulation“ gesetzt und nennt den Grund.
 
-| Thema | Arduino Uno | UnoSim |
+Die Emulation ist ein Modell. Sie weicht in diesen Punkten vom echten Board ab:
+
+| Thema | Modell in UnoSim |
+|---|---|
+| Offener Eingang (`INPUT`, nicht gesetzt) | liest LOW; am echten Board ist der Pegel undefiniert |
+| `INPUT_PULLUP` | liest HIGH, bis du den Pin auf LOW setzt |
+| Pegel, den du am Board setzt | gilt, bis der Sketch den Pin auf `OUTPUT` schaltet |
+| Analoger Eingang | Der Regler ist eine Spannung von 0 bis 5 V in 1024 Stufen; mit der Standardreferenz liefert `analogRead()` genau den Reglerwert. Am Pin `AREF` (`EXTERNAL`) liegen 5 V, weil dort am Board nichts angeschlossen ist |
+| PWM | UnoSim zeigt das Tastverhältnis (0 bis 255), keine Signalform |
+| Serial | Der Empfangspuffer hat 64 Byte wie am Uno (beim Mega je Schnittstelle, beim ATtiny85 32 Byte wie im Core); was der Sketch nicht abholt, geht verloren. Text, den du **vor** `Serial.begin()` sendest, geht verloren wie am echten Board; UnoSim meldet das im Serial Monitor mit einer eigenen Zeile. Gesendeter Text endet mit dem Zeilenende (Code 10), wie in der Arduino IDE mit „New Line“ |
+| Zeit | exakt in simulierter Zeit. Ist dein Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr; die Kopfzeile zeigt dann einen Echtzeitfaktor unter 1. Der Timeout zählt Wanduhrzeit: Bei Faktor 0,5 endet ein 30-Sekunden-Lauf nach etwa 15 simulierten Sekunden |
+| Pause | hält auch `millis()` an |
+| Überlauf mit `int` und `long` | In C++ ist der Überlauf vorzeichenbehafteter Typen undefiniert. UnoSim zeigt, was der Code mit dem Compiler des Uno auf dem Board tut, z. B. `32767 + 1` ergibt −32768. Das ist keine allgemeine C++-Garantie: Mit Optimierung kann derselbe Quelltext anders laufen, auf dem echten Uno genauso |
+| EEPROM | bleibt im Browser-Tab je Board erhalten, solange du die Seite nicht neu lädst; ein neuer Tab beginnt gelöscht |
+| I²C, SPI, USI | Die Hardware-Pinbelegung steht in Pin Infos; die Busperipherien und angeschlossene Geräte werden derzeit nicht simuliert |
+| Speicher | Größen und Adressen wie am Board (2 KB SRAM, beim Mega 8 KB, beim ATtiny85 512 Byte). UnoSim meldet nur wenige Fälle, etwa einen Stack, der in die globalen Variablen oder den Heap hineinwächst, wenn die Prüfung ihn erfasst; ein Schreibzugriff über eine Arraygrenze fällt wie am echten Board nicht auf und zeigt sich nur in seinen Folgen |
+| `random()` | Die Zahlenfolge ist die des Uno (`randomSeed` und Startwert wie am Board) |
+
+Was das für deine Programme bedeutet:
+
+- Programme, die von Wertebereichen oder Rechenzeit abhängen, verhalten sich in
+  der Emulation wie auf dem Uno. Prüfe sie bei Timing auf dem Mikrosekundenbereich
+  trotzdem auf einem echten Board: Die Zeit stimmt in der Emulation, aber
+  Bauteile, Leitungen und Störungen gibt es nicht.
+- Unverbundene Eingänge zeigen im Board eine zufällige Spannung; in UnoSim
+  liest ein offener Eingang immer LOW. Schalte Eingänge mit `INPUT_PULLUP`
+  oder einem Widerstand, damit sich dein Programm auf dem Board gleich verhält.
+- Die Emulation läuft im Browser. Reißt die Verbindung zum Server ab, läuft ein
+  gestarteter Lauf weiter; Kompilieren, Beispiele und der Tutor brauchen den
+  Server.
+
+Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10).
+
+### Legacy: Simulation auf dem Server
+
+Wählst du „Legacy“ oder bietet der Server die Emulation nicht an, läuft der
+Sketch als Programm für den UnoSim-Server. Dann gelten die früheren
+Abweichungen:
+
+| Thema | Arduino Uno | UnoSim (Legacy) |
 |---|---|---|
 | Größe von `int` und `unsigned int` | 16 Bit: `int` reicht von −32768 bis 32767 | 32 Bit: `32767 + 1` ergibt 32768 statt −32768 |
 | Größe von `long` | 32 Bit | 64 Bit |
@@ -128,17 +275,8 @@ Arduino Uno ab:
 | Arbeitsspeicher | 2 KB | praktisch unbegrenzt: Ein großes Array kann hier laufen und auf dem Uno abstürzen |
 | `random()` | feste Zahlenfolge des Uno | andere Zahlenfolge |
 
-Was das für deine Programme bedeutet:
-
-- Überläufe beobachtest du zuverlässig mit `byte` (0 bis 255); bei `int`
-  und `long` zeigt UnoSim die Grenzen des Uno nicht.
-- Gib Kommazahlen immer mit Stellenzahl aus, z. B. `Serial.println(wert, 2)`;
-  dann ist die Ausgabe auf Uno und UnoSim gleich.
-- Prüfe Programme, die von Wertebereichen, Speicher oder genauer Rechenzeit
-  abhängen, zusätzlich auf einem echten Board.
-
-Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10),
-wie im Serial Monitor der Arduino IDE mit der Einstellung „New Line“.
+Überläufe beobachtest du in Legacy zuverlässig nur mit `byte` (0 bis 255), und
+Kommazahlen gibst du mit Stellenzahl aus, z. B. `Serial.println(wert, 2)`.
 
 ## Wenn etwas nicht klappt
 

@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { boardIdSchema } from "@shared/boards";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
+import { boundedArray } from "@shared/bounded-array";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const SAFE_FILE_NAME = /^[A-Z0-9][A-Z0-9_.-]{0,127}\.(?:ino|h)$/i;
@@ -14,7 +16,9 @@ export const manifestExampleSchema = z.object({
   title: z.string().min(1).max(160),
   category: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  files: z.array(manifestFileSchema).min(1).max(100),
+  /** The board the example is written for (plan P4.6); optional, and an id this version does not know counts as none. */
+  board: boardIdSchema.optional().catch(undefined),
+  files: boundedArray(manifestFileSchema, 100, 1),
   main: z.string().regex(SAFE_FILE_NAME),
 });
 
@@ -22,7 +26,7 @@ export const examplesManifestSchema = z.object({
   schemaVersion: z.literal(1),
   repository: z.string().max(256).optional(),
   ref: z.string().max(128).optional(),
-  examples: z.array(manifestExampleSchema).max(1000),
+  examples: boundedArray(manifestExampleSchema, 1000),
 });
 
 export type ManifestFile = z.infer<typeof manifestFileSchema>;

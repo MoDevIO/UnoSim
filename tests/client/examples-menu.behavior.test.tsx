@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExamplesMenu } from "../../client/src/components/features/examples-menu";
 import { getServerCapabilities } from "@/lib/server-capabilities";
+import { setActiveBoard } from "@/lib/active-board";
+import { resetRuntimeConfigCache } from "@/lib/runtime/runtime-config";
 
 vi.mock("@/components/ui/dropdown-menu", async () => {
   const React = await import("react");
@@ -26,6 +28,20 @@ vi.mock("@/components/ui/dropdown-menu", async () => {
   };
 });
 
+// Route-aware fixtures preserve the original catalog/detail assertions with two independent requests.
+function exampleResponses(catalog: Response, detail?: Response) {
+  return async (input: RequestInfo | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith("/builtin/catalog")) {
+      const payload = await catalog.json();
+      return { ok: true, json: async () => ({ ...payload, source: { selection: "default", mode: "builtin", repository: null, ref: null, revision: null, status: "builtin", stale: false }, examples: payload.examples.filter((example: { source: string }) => example.source === "builtin") }) } as Response;
+    }
+    if (url === "/api/examples" || url.startsWith("/api/examples?")) return catalog;
+    if (detail) return detail;
+    throw new Error("Unexpected example detail request");
+  };
+}
+
 const toast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast }) }));
 
@@ -37,8 +53,7 @@ afterEach(() => {
 describe("ExamplesMenu behavior", () => {
   it("loads, groups, expands, and selects examples", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    fetchMock
-      .mockResolvedValueOnce({
+    fetchMock.mockImplementation(exampleResponses({
         ok: true,
         json: async () => ({
           schemaVersion: 1,
@@ -68,18 +83,17 @@ describe("ExamplesMenu behavior", () => {
             },
           ],
         }),
-      } as Response)
-      .mockResolvedValueOnce({
+      } as Response, {
         ok: true,
         json: async () => ({
           files: [{ name: "01-blink.ino", content: "blink code" }],
         }),
-      } as Response);
+      } as Response));
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
       expect(screen.getByText("Load Example")).toBeInTheDocument(),
     );
@@ -147,7 +161,7 @@ describe("ExamplesMenu behavior", () => {
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("keeps built-in filenames aligned in compact non-wrapping rows", async () => {
@@ -163,7 +177,7 @@ describe("ExamplesMenu behavior", () => {
       "09-nonblocking-timing.ino",
       "10-unosim-showcase.ino",
     ];
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+    vi.spyOn(globalThis, "fetch").mockImplementation(exampleResponses({
       ok: true,
       json: async () => ({
         schemaVersion: 1,
@@ -184,7 +198,7 @@ describe("ExamplesMenu behavior", () => {
           files: [{ name, path: name }],
         })),
       }),
-    } as Response);
+    } as Response));
 
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
@@ -211,23 +225,20 @@ describe("ExamplesMenu behavior", () => {
     });
   });
 
-  it("reports a failed examples request and ignores an individual failed file", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+  it("keeps failed catalog requests visible with a retry action", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("", { status: 500 }),
     );
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
     await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Failed to Load Examples" }),
-      ),
+      expect(screen.getByText(/Built-in examples are currently unavailable/)).toBeInTheDocument(),
     );
   });
 
   it("toggles with the platform shortcut and closes after loading an example", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    fetchMock
-      .mockResolvedValueOnce({
+    fetchMock.mockImplementation(exampleResponses({
         ok: true,
         json: async () => ({
           schemaVersion: 1,
@@ -250,17 +261,16 @@ describe("ExamplesMenu behavior", () => {
             },
           ],
         }),
-      } as Response)
-      .mockResolvedValueOnce({
+      } as Response, {
         ok: true,
         json: async () => ({
           files: [{ name: "blink.ino", content: "blink" }],
         }),
-      } as Response);
+      } as Response));
     const onLoadExample = vi.fn();
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
     fireEvent.keyDown(document, { code: "KeyE", ctrlKey: true });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(screen.getByText("Load Example")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Built-in" }));
     fireEvent.click(screen.getByRole("button", { name: /blink\.ino/i }));
@@ -276,7 +286,7 @@ describe("ExamplesMenu behavior", () => {
   });
 
   it("separates built-in and external examples even when categories have the same name", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+    vi.spyOn(globalThis, "fetch").mockImplementation(exampleResponses({
       ok: true,
       json: async () => ({
         schemaVersion: 1,
@@ -306,7 +316,7 @@ describe("ExamplesMenu behavior", () => {
           },
         ],
       }),
-    } as Response);
+    } as Response));
 
     render(<ExamplesMenu onLoadExample={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
@@ -344,8 +354,7 @@ describe("ExamplesMenu behavior", () => {
 
   it("loads an external multi-file example through the existing detail endpoint", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    fetchMock
-      .mockResolvedValueOnce({
+    fetchMock.mockImplementation(exampleResponses({
         ok: true,
         json: async () => ({
           schemaVersion: 1,
@@ -374,8 +383,7 @@ describe("ExamplesMenu behavior", () => {
             },
           ],
         }),
-      } as Response)
-      .mockResolvedValueOnce({
+      } as Response, {
         ok: true,
         json: async () => ({
           files: [
@@ -383,12 +391,12 @@ describe("ExamplesMenu behavior", () => {
             { name: "motor.h", content: "void setup();" },
           ],
         }),
-      } as Response);
+      } as Response));
     const onLoadExample = vi.fn();
 
     render(<ExamplesMenu onLoadExample={onLoadExample} />);
     fireEvent.click(screen.getByRole("button", { name: "Examples" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: "External" }));
     fireEvent.click(screen.getByRole("button", { name: "Motors" }));
     fireEvent.click(screen.getByRole("button", { name: /Motor Control/ }));
@@ -405,5 +413,99 @@ describe("ExamplesMenu behavior", () => {
     expect(fetchMock).toHaveBeenLastCalledWith(
       `/api/examples/motor-control?repository=owner%2Frepo&revision=${"a".repeat(40)}`,
     );
+  });
+});
+
+describe("ExamplesMenu example for another board (plan P4.6)", () => {
+  const catalog = {
+    schemaVersion: 1,
+    source: { selection: "default", mode: "builtin", repository: null, ref: null, revision: null, status: "builtin", stale: false },
+    examples: [{ id: "nano-adc", title: "nano-adc.ino", category: "Built-in", source: "builtin", board: "nano", files: [{ name: "nano-adc.ino", path: "nano-adc.ino" }] }],
+  };
+  const config = (nanoStatus: "preview" | "planned") => ({
+    boards: [
+      { id: "uno", displayName: "Arduino UNO", status: "available", runtimes: ["browser"] },
+      { id: "nano", displayName: "Arduino Nano", status: nanoStatus, runtimes: ["browser"] },
+    ],
+    defaultBoard: "uno",
+    runtime: { backends: ["browser"], default: "browser" },
+  });
+
+  async function openAndClickNanoExample(nanoStatus: "preview" | "planned") {
+    resetRuntimeConfigCache();
+    setActiveBoard("uno");
+    const detail = { files: [{ name: "nano-adc.ino", content: "nano code" }] };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      let body: unknown = catalog;
+      if (url.includes("/api/config")) body = config(nanoStatus);
+      else if (url.includes("/api/examples/nano-adc")) body = detail;
+      return { ok: true, json: async () => body } as Response;
+    });
+    const onLoadExample = vi.fn();
+    render(<ExamplesMenu onLoadExample={onLoadExample} />);
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Built-in" }));
+    fireEvent.click(await screen.findByRole("button", { name: /nano-adc\.ino/ }));
+    return onLoadExample;
+  }
+
+  afterEach(() => {
+    setActiveBoard("uno");
+    globalThis.localStorage.removeItem("unoSelectedBoard");
+  });
+
+  it("asks before loading and loads after 'Load anyway', keeping the board", async () => {
+    const onLoadExample = await openAndClickNanoExample("preview");
+
+    expect(await screen.findByText("Example for Arduino Nano")).toBeInTheDocument();
+    expect(screen.getByText(/the selected board is Arduino UNO/)).toBeInTheDocument();
+    expect(onLoadExample).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Load anyway" }));
+
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledWith([{ name: "nano-adc.ino", content: "nano code" }], "nano-adc.ino"));
+    expect(globalThis.localStorage.getItem("unoSelectedBoard")).toBeNull();
+  });
+
+  it("switches the board and loads when asked to", async () => {
+    const onLoadExample = await openAndClickNanoExample("preview");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Switch to Arduino Nano" }));
+
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledOnce());
+    expect(globalThis.localStorage.getItem("unoSelectedBoard")).toBe("nano");
+  });
+
+  it("loads nothing on Cancel", async () => {
+    const onLoadExample = await openAndClickNanoExample("preview");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByText("Example for Arduino Nano")).not.toBeInTheDocument());
+    expect(onLoadExample).not.toHaveBeenCalled();
+  });
+
+  it("offers no switch to a board that is only planned", async () => {
+    await openAndClickNanoExample("planned");
+
+    expect(await screen.findByText(/is not available in this installation yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Switch to/ })).toBeNull();
+  });
+
+  it("loads at once when the example's board is the selected one", async () => {
+    resetRuntimeConfigCache();
+    setActiveBoard("nano");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const body = String(input).includes("/api/examples/nano-adc") ? { files: [{ name: "nano-adc.ino", content: "x" }] } : catalog;
+      return { ok: true, json: async () => body } as Response;
+    });
+    const onLoadExample = vi.fn();
+    render(<ExamplesMenu onLoadExample={onLoadExample} />);
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Built-in" }));
+    fireEvent.click(await screen.findByRole("button", { name: /nano-adc\.ino/ }));
+
+    await waitFor(() => expect(onLoadExample).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Example for Arduino Nano")).toBeNull();
   });
 });

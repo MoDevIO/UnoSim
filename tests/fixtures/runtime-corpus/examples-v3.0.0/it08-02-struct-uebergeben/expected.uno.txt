@@ -1,0 +1,4 @@
+  in korrigierenKopie:    20.5
+nach korrigierenKopie:    20.0
+  in korrigierenOriginal: 20.5
+nach korrigierenOriginal: 20.5

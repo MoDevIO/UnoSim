@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import { wsMessageSchema, type WSMessage, type ParserMessage, type IOPinRecord } from "@shared/schema";
 
 export type IncomingArduinoMessage = WSMessage;
@@ -29,6 +30,8 @@ export interface CompileConfig {
   code: string;
   headers?: Array<{ name: string; content: string }>;
   entryFile?: string;
+  /** The board to compile for (a catalog id); the server's default board when absent. */
+  board?: BoardId;
   fqbn?: string;
   libraries?: string[];
 }
@@ -43,6 +46,8 @@ export interface CompileResult {
   ioRegistry?: IOPinRecord[];
   arduinoCliStatus?: "idle" | "compiling" | "success" | "error";
   cached?: boolean;
+  /** Flash image of the build for the browser emulation; the server sends it only where it may (plan E5). */
+  artifact?: unknown;
 }
 
 export function isArduinoMessage(value: unknown): value is WSMessage {

@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR cancels the superseded run; runs on main and feature/browser-emulation always finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   clean-room:
     name: Clean-room reproducibility
@@ -95,8 +100,11 @@ jobs:
   # JOB 2: Browser-End-to-End-Tests
   e2e-tests:
     name: Playwright E2E
-    needs: build-and-test
-    runs-on: ubuntu-latest
+    # No `needs: build-and-test`: the job builds the client itself, and waiting for the unit job put
+    # about 220 s on the critical path of every run.
+    # Keep the OS within the pinned Playwright browser support matrix.
+    # ubuntu-latest can move to a release whose Chromium binary is not available yet.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -120,7 +128,7 @@ jobs:
             ~/.cache/ms-playwright
             server/arduino-cache
             storage/binaries
-          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
+          key: ${{ runner.os }}-e2e-turbo-arduino-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version', 'scripts/attinycore-version') }}-${{ hashFiles('package-lock.json', 'server/services/arduino-compiler.ts') }}
           restore-keys: |
             ${{ runner.os }}-e2e-turbo-
 
@@ -129,9 +137,12 @@ jobs:
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
           sh scripts/install-arduino-avr-core.sh
+          sh scripts/install-attinycore.sh
 
+      # Without --with-deps: the runner image already has the system libraries Chromium needs, and
+      # --with-deps runs apt-get update and installs CJK fonts, which took 12 s to 14 min depending on the mirror.
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Run E2E Tests
         env:
@@ -179,13 +190,14 @@ jobs:
         with:
           path: |
             ~/.arduino15
-          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version') }}-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-arduino-toolchain-cli-1.5.1-${{ hashFiles('scripts/arduino-avr-core-version', 'scripts/attinycore-version') }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install pinned Arduino CLI and AVR core
         run: |
           BINDIR=/usr/local/bin sh scripts/install-arduino-cli.sh
           arduino-cli version | grep -F "Version: 1.5.1 "
           sh scripts/install-arduino-avr-core.sh
+          sh scripts/install-attinycore.sh
 
       - name: Run toolchain integration tests
         env:
@@ -230,20 +242,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build Production Image
+      - name: Build Compile Sandbox Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.compile-sandbox
           load: true
-          tags: unosim:ci
-          cache-from: type=gha,scope=unosim-production
-          cache-to: type=gha,scope=unosim-production,mode=max
-
-      - name: Verify Arduino CLI in Production Image
-        run: |
-          docker run --rm --entrypoint arduino-cli unosim:ci version | grep -F "Version: 1.5.1 "
-          docker run --rm --entrypoint sh unosim:ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
+          tags: unosim-compile-sandbox:latest
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
 
       - name: Run Docker sandbox tests
         run: npm run test:docker
@@ -288,6 +295,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build Compile Sandbox Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.compile-sandbox
+          load: true
+          tags: unosim-compile-sandbox:deployment-ci
+          cache-from: type=gha,scope=compile-sandbox
+          cache-to: type=gha,scope=compile-sandbox,mode=max
+
       - name: Build Production Image
         uses: docker/build-push-action@v5
         with:
@@ -298,11 +315,21 @@ jobs:
           cache-from: type=gha,scope=unosim-production
           cache-to: type=gha,scope=unosim-production,mode=max
 
+      # The production image only starts the sandboxes (plan P2.4): no compiler in it,
+      # the pinned toolchain lives in the compile sandbox image.
+      - name: Verify the toolchain placement
+        run: |
+          docker run --rm --entrypoint sh unosim-server:deployment-ci -c '! command -v arduino-cli && ! command -v g++'
+          docker run --rm --entrypoint arduino-cli unosim-compile-sandbox:deployment-ci version | grep -F "Version: 1.5.1 "
+          docker run --rm --entrypoint sh unosim-compile-sandbox:deployment-ci -c 'sh /usr/local/bin/check-arduino-avr-core-version.sh'
+          docker run --rm --entrypoint sh unosim-compile-sandbox:deployment-ci -c 'sh /usr/local/bin/check-attinycore-version.sh'
+
       - name: Containerised gateway deployment
         timeout-minutes: 15
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment
 
       - name: Ubuntu/VBox installer topology (host gateway, production compose)
@@ -310,6 +337,7 @@ jobs:
         env:
           DEPLOYMENT_PREBUILT_SERVER_IMAGE: unosim-server:deployment-ci
           DEPLOYMENT_PREBUILT_SANDBOX_IMAGE: unosim-sandbox:deployment-ci
+          DEPLOYMENT_PREBUILT_COMPILE_SANDBOX_IMAGE: unosim-compile-sandbox:deployment-ci
         run: npm run test:deployment:installer
 
       - name: Diagnostics and leftover cleanup

@@ -45,7 +45,6 @@ export const PERFORMANCE_PATTERNS = {
 /** Comment patterns. */
 export const COMMENT_PATTERNS = {
   SINGLE_LINE: /\/\/[^\n]*$/gm, // NOSONAR S5843
-  MULTI_LINE: /\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g,
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,14 +52,41 @@ export const COMMENT_PATTERNS = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Replaces every terminated block comment by spaces and keeps its newlines. An unterminated comment stays
+ * as it is.
+ *
+ * A scan with `indexOf`, not a regular expression: with the usual comment regex every comment opener of an
+ * unterminated comment scans to the end of the text again, and a sketch of 48 KB made of the three
+ * characters slash, star, a held the server for 1.7 s (96 KB: 6.6 s; a request may carry 128 KiB). If no
+ * closer follows one opener, none follows a later one either, so the scan ends there.
+ */
+function blankBlockComments(code: string): string {
+  let result = "";
+  let from = 0;
+  for (;;) {
+    const open = code.indexOf("/*", from);
+    if (open < 0) break;
+    const close = code.indexOf("*/", open + 2);
+    if (close < 0) break;
+    result += code.slice(from, open) + code.slice(open, close + 2).replaceAll(/[^\n]/g, " ");
+    from = close + 2;
+  }
+  return result + code.slice(from);
+}
+
+/**
  * Strip comments while preserving character positions (newlines kept intact).
  * This allows line numbers in the stripped code to match the original source.
  */
+/** The baud rate of an active `Serial.begin(<number>)` in the sketch, if it is a literal. */
+export function sketchSerialBaud(code: string): number | undefined {
+  const match = SERIAL_PATTERNS.BEGIN_EXTRACT.exec(stripComments(code));
+  return match ? Number(match[1]) : undefined;
+}
+
 export function stripComments(code: string): string {
   // Multi-line comments → spaces (preserve newlines for correct line counting)
-  let result = code.replaceAll(COMMENT_PATTERNS.MULTI_LINE, (m) =>
-    m.replaceAll(/[^\n]/g, " "),
-  );
+  let result = blankBlockComments(code);
   // Single-line comments → spaces (preserve line length)
   result = result.replaceAll(COMMENT_PATTERNS.SINGLE_LINE, (m) => " ".repeat(m.length));
   return result;

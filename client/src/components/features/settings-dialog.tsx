@@ -13,6 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalExamplesSettings } from "@/components/features/external-examples-settings";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { useSimulationRuntimeSelection } from "@/hooks/use-simulation-runtime";
+import type { RuntimeKind } from "@shared/boards";
+import { ENGINE_LABELS, isRuntimeKind } from "@/lib/runtime/runtime-selection";
 import {
   DEFAULT_EXPERIMENTAL_WORKSPACE_LAYOUT,
   EXPERIMENTAL_WORKSPACE_LAYOUT_CHANGE_EVENT,
@@ -327,6 +330,8 @@ export default function SettingsDialog({
             </SettingsRow>
           </SettingsSection>
 
+          <SimulationEngineSection />
+
           <SettingsSection
             title="Feedback & Diagnostics"
             description="Control notification timing and optional diagnostic information."
@@ -385,6 +390,51 @@ export default function SettingsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const ENGINE_KINDS = Object.keys(ENGINE_LABELS) as RuntimeKind[];
+
+/** "Simulation engine" (plan P3.1): always shown; with a single usable engine the choice is fixed and the reason is stated. */
+function SimulationEngineSection() {
+  const { usable, userChoice, setUserChoice, config, board } = useSimulationRuntimeSelection();
+  const switchable = usable.length > 1;
+  const boardName = board?.displayName ?? "this board";
+  const unavailable = ENGINE_KINDS.filter((kind) => !usable.includes(kind)).map((kind) =>
+    board?.runtimes.includes(kind) === false
+      ? `${ENGINE_LABELS[kind]} is not implemented for ${boardName}.`
+      : `${ENGINE_LABELS[kind]} is not offered by this server.`,
+  );
+  return (
+    <SettingsSection title="Simulation" description="Choose how sketches run.">
+      <SettingsRow
+        label="Simulation engine"
+        description={
+          switchable
+            ? "Emulation runs the sketch in this browser; Legacy runs it on the server. The choice applies at the next start."
+            : `${unavailable.join(" ")} The choice applies at the next start.`
+        }
+      >
+        <select
+          aria-label="simulation engine"
+          value={switchable ? (userChoice ?? "") : ""}
+          disabled={!switchable}
+          onChange={(event) => setUserChoice(isRuntimeKind(event.target.value) ? event.target.value : undefined)}
+          className="h-[var(--ui-button-height)] rounded-md border border-input bg-background px-3 text-ui-sm text-foreground disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {switchable ? (
+            <>
+              <option value="">Server default ({ENGINE_LABELS[config.defaultRuntime]})</option>
+              {usable.map((kind) => (
+                <option key={kind} value={kind}>{ENGINE_LABELS[kind]}</option>
+              ))}
+            </>
+          ) : (
+            <option value="">{usable[0] ? `${ENGINE_LABELS[usable[0]]} (only option)` : "No engine available"}</option>
+          )}
+        </select>
+      </SettingsRow>
+    </SettingsSection>
   );
 }
 

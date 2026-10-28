@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { access, readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -14,7 +15,20 @@ async function collect(dir) {
   }
 }
 
-await collect(root);
+/** Markdown files Git tracks or would track: ignored drafts (`local-temp/`, reports) are not documentation. */
+function gitMarkdownFiles() {
+  try {
+    // The git of the maintainer's PATH, as in the other repository scripts.
+    const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"], { cwd: root, encoding: "utf8" }); // NOSONAR S4036
+    return out.split("\0").filter(Boolean).map((file) => join(root, file));
+  } catch {
+    return undefined; // no Git checkout: walk the tree
+  }
+}
+
+const tracked = gitMarkdownFiles();
+if (tracked) markdownFiles.push(...tracked.filter((file) => !file.includes("/node_modules/")));
+else await collect(root);
 const failures = [];
 for (const file of markdownFiles) {
   const content = await readFile(file, "utf8");

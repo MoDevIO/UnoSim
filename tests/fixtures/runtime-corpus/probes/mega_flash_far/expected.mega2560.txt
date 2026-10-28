@@ -1,0 +1,8 @@
+table 0 sum = 4335080
+table 1 sum = 4335000
+table 2 sum = 4334664
+table 3 sum = 4334584
+table 3 starts above 64 KB: 1
+table 3 byte 33999 = 38
+indirect call ok
+DONE

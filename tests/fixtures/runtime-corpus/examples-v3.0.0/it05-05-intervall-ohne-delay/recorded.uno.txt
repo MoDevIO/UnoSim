@@ -1,0 +1,2 @@
+�Zeit: 500 ms, Durchlaeufe: 137316
+Zeit: 1000 ms, Durchlaeufe: 274110

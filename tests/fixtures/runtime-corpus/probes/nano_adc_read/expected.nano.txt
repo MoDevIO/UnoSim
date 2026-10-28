@@ -1,0 +1,9 @@
+A0 514
+A5 819
+A6 125
+A7 307
+analogRead(7) 307
+A7 internal 1023
+A6 pin number 20
+A7 pin number 21
+DONE

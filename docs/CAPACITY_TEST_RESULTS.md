@@ -4,6 +4,12 @@ This document summarizes the measured reference results. The operating model,
 timeout boundaries, production defaults, and acceptance procedure are
 authoritative in CAPACITY_MODEL.md.
 
+> **Browser emulation:** Simulation slots, sandbox starts and active
+> simulations here concern the host mock ("Legacy"). A run in the browser
+> emulation uses no server resource after its compile; with it, the compile
+> limits the server. See
+> [CAPACITY_MODEL.md, Compile capacity](CAPACITY_MODEL.md#compile-capacity-browser-emulation).
+
 ## Historical harness baseline
 
 The reproducible BASELINE is 5 simulation slots, 5 sandbox-start slots, and 25

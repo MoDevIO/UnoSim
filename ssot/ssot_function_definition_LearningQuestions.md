@@ -836,7 +836,7 @@ Der Server DARF aus dem Sketch strukturierten Kontext erzeugen und dem LLM zusä
 
 Bevorzugte Quellen sind:
 
-- kanonische statische I/O-Analyse über `analyzeStaticIO(code)`,
+- kanonische statische I/O-Analyse über `analyzeStaticIO(code, { board })`, bei Projektdateien über `analyzeStaticIOProject` (Pin-IDs und Namen wie `LED_BUILTIN` oder `A0` nach dem Board: beim ATtiny85 `LED_BUILTIN` = 1, `A0` = 5; Aufrufe außerhalb der Hauptdatei tragen `file`),
 - statisch erkannte Pin-Nutzung,
 - `pinMode`,
 - `digitalRead` / `digitalWrite`,
@@ -844,7 +844,9 @@ Bevorzugte Quellen sind:
 - Parser-Messages,
 - erkannte Arduino-/Programmstrukturen,
 - Serial-Konfiguration,
-- einfache Schleifen und Konstanten.
+- einfache Schleifen und Konstanten,
+- das Board, für das der Sketch geschrieben ist (`board` im Request, eine Board-ID des Katalogs): Der Kontext nennt dann Board, MCU und die Größen der C++-Datentypen (`int` 16 Bit, `long` 32 Bit, `double` wie `float` 32 Bit, Zeiger 16 Bit). Ohne `board` fehlt dieser Eintrag; die Systemvorgabe weist das Modell an, Aussagen über Wertebereiche, Überläufe und Speicher nur auf diese Angaben zu stützen.
+- die übrigen Dateien des Projekts (`headers` und `entryFile` im Request wie bei `POST /api/compile`, gleiche Grenzen; `code` ist die Hauptdatei): Der Client sendet den Projektstand, den auch der Compiler sieht, unabhängig vom geöffneten Tab, und das gewählte Board. Im Prompt folgen die Header als Daten im Sketch-Block, jeweils nach einer Kommentarzeile `// ---- Datei <name> ----`; die versionierten Prompt-Vorlagen bleiben unverändert. Dieselbe Projektansicht (Hauptdatei, dann die Header) bekommen die deterministische Themenauswahl, die Strategieauflösung und die Folgefragen-Entscheidung; die Sketch-Fakten (Typen, Felder, `Serial`-Aufrufe) hängen so nicht davon ab, in welcher Datei eine Deklaration steht.
 
 Dabei gelten die bestehenden Parser- und I/O-Verträge von UnoSim.
 

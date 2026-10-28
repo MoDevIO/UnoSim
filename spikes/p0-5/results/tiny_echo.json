@@ -1,0 +1,26 @@
+{
+  "memory": {
+    "spAfterReset": "0x25f",
+    "dataBytes": 608,
+    "maxPeripheralAddress": "0x5f"
+  },
+  "serial": {
+    "baud": 9600,
+    "nominalBitCycles": 833.3333333333334,
+    "measuredBitCycles": 860.8,
+    "framingErrors": 0,
+    "text": "ready\r\ngot 21\r\ntwice 42\r\ngot 0\r\ntwice 0\r\n"
+  },
+  "pwm": {
+    "PB4 OCR1B": 0,
+    "PB0 OCR0A": 0,
+    "TCCR0A": "00000011",
+    "GTCCR": "01000000"
+  },
+  "realTimeFactor": 10.08,
+  "options": {
+    "input": "21\n",
+    "avr8jsAdc": false,
+    "defaultSram": false
+  }
+}

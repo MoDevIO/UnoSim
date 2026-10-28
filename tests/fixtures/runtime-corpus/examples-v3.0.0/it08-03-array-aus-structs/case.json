@@ -1,0 +1,21 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "An array of structs filled from three analog inputs.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; A0..A2 are pins 14..16",
+  "events": [
+    [0, "adcVolts", 0, 0.490723],
+    [0, "adcVolts", 1, 2.443848],
+    [0, "adcVolts", 2, 4.885254]
+  ],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "\\((\\d+) ms\\)$",
+      "plusMinus": 1,
+      "reason": "millis() granularity at the first loop() pass"
+    }
+  ]
+}

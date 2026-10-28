@@ -680,7 +680,7 @@ export function validateScenarioRuntimeConfiguration(
   if (hasMismatch) throw new CapacityScenarioConfigurationError(requirements, actual);
 }
 
-function createDefaultHostSampler(): () => Promise<HostSample> {
+export function createDefaultHostSampler(): () => Promise<HostSample> {
   let previousLinuxCounters: { total: number; idle: number; iowait: number } | null = null;
   return async () => {
     let cpuPercent: number | null = null;

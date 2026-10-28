@@ -12,6 +12,11 @@ services:
       UNOSIM_EXAMPLES_REF: ""
       DOCKER_HOST: unix:///var/run/docker.sock
       DOCKER_SANDBOX_IMAGE: ${DEPLOYMENT_SANDBOX_IMAGE:?DEPLOYMENT_SANDBOX_IMAGE is required}
+      COMPILE_SANDBOX_IMAGE: ${DEPLOYMENT_COMPILE_SANDBOX_IMAGE:?DEPLOYMENT_COMPILE_SANDBOX_IMAGE is required}
+      # The pilot configuration of the browser emulation (plan P7.3); the installer
+      # topology keeps the production default (host mock only).
+      UNOSIM_RUNTIME_BACKENDS: browser,host-mock
+      UNOSIM_DEFAULT_RUNTIME: browser
       UNOSIM_INSTANCE_ID: ${DEPLOYMENT_INSTANCE_ID:?DEPLOYMENT_INSTANCE_ID is required}
       UNOSIM_SHARED_TEMP_DIR: ${DEPLOYMENT_TEMP_DIR:?DEPLOYMENT_TEMP_DIR is required}
       ARDUINO_CACHE_DIR: /app/server/arduino-cache

@@ -1,0 +1,14 @@
+{
+  "board": "nano",
+  "simMs": 1600,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "PWM on pin 11: 0, then 25 (the same example on the Nano).",
+  "basis": "the output of the example on the Uno (class derived: derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; wiring_analog.c: analogWrite(0) is digitalWrite(LOW), 25 sets OCR2A = 25) holds for the Nano: it has the ATmega328P of the Uno at 16 MHz, the pins 0 to 19 are numbered alike (A0 = 14, pins_arduino.h of the eightanaloginputs variant) and the sketch uses neither A6 nor A7; no recording on a Nano exists",
+  "events": [],
+  "expectState": [
+    [500, "pin", 11, "OUTPUT", 0],
+    [1500, "pwm", 11, 25]
+  ],
+  "tolerances": []
+}

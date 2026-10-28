@@ -1,0 +1,12 @@
+{
+  "board": "uno",
+  "simMs": 60,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Stack pointer in setup(), end of .bss and free RAM as the toolchain lays them out.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: Output of the emulator for this build (arduino-cli 1.5.1, arduino:avr@1.8.8), checked for plausibility: SP 0x8FA is a few bytes below RAMEND 0x8FF (return addresses of main and setup), __bss_end 0x1EC lies above the I/O space, free = SP position - __bss_end. Replaced by a hardware recording once one exists",
+  "events": [],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

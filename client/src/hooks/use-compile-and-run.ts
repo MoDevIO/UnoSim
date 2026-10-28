@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject, type RefObject } from "react";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
 import { holdsServerSimulation, type SimulationStatus } from "@shared/types/arduino.types";
+import type { BoardId, RuntimeKind } from "@shared/boards";
 import type { CompilationStatus, CompilationResultType } from "@/types/compilation.types";
-import type { DebugMessage } from "@/hooks/use-debug-console";
+import type { DebugMessage, DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useSimulatorControllerState } from "./use-simulator-controller-state";
 import type { IncomingArduinoMessage, CompileConfig, CompileResult, CompilerError } from "@/types/websocket";
 import { useUiFeedbackAdapter } from "./use-ui-feedback-adapter";
@@ -42,10 +43,10 @@ function determineCodeSource(
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
 export type DebugMessageParams = {
-  source: "frontend" | "server";
+  source: DebugSender;
   type: string;
   data: string;
-  protocol?: "websocket" | "http";
+  protocol?: DebugProtocol;
 };
 
 // parameters for compile portion (same as old UseCompilationParams)
@@ -86,6 +87,12 @@ export type CompileAndRunParams = {
   setPendingPinConflicts: SetState<number[]>;
   isModified?: boolean; // duplicated with compile side
   handleCompileAndStart?: () => void; // used by reset
+  /** The runtime of the next run (plan P3.1 selection); the host mock when not given. */
+  runtimeKind?: RuntimeKind;
+  /** The selected board (Tools → Board): compiled for and started on. */
+  boardId?: BoardId;
+  /** The host mock can take over when the browser emulation has no image to run. */
+  hostMockUsable?: boolean;
   startSimulationRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -168,6 +175,8 @@ interface UseCompileAndRunResult {
   handlePause: () => void;
   handleResume: () => void;
   handleReset: () => void;
+  /** Drops the latest build (its flash image) and the compile state: after a board change nothing built for the old board may run. */
+  discardBuild: () => void;
 
   /* compatibility helpers */
   startSimulation: () => void;
@@ -179,12 +188,22 @@ interface UseCompileAndRunResult {
 
 export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunResult {
   const controllerState = useSimulatorControllerState();
+  const artifactSinkRef = useRef<((artifact: unknown) => void) | undefined>(undefined);
   const startGeneration = useRef(0);
   const compileOwners = useRef(new WeakMap<CompileConfig, number>());
   const pendingCompileStart = useRef(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The simulation controller's cancel, set once it exists: a start that waits for the emulator is pending too. */
+  const cancelControllerStart = useRef<(() => void) | undefined>(undefined);
+  /** The standalone Compile in flight, whose "compiling" indicator an invalidation has to take back. */
+  const standaloneCompile = useRef<CompileConfig | null>(null);
   const invalidatePendingStart = useCallback(() => {
     startGeneration.current++;
+    cancelControllerStart.current?.();
+    if (standaloneCompile.current) {
+      standaloneCompile.current = null;
+      controllerState.setArduinoCliStatus("idle");
+    }
     if (pendingCompileStart.current) {
       controllerState.setCompilationStatus("ready");
       controllerState.setArduinoCliStatus("idle");
@@ -243,7 +262,17 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   } = useCompileController({
     ...controllerState,
     capabilities: params.capabilities,
+    ...(params.boardId ? { boardId: params.boardId } : {}),
     isCompileResultCurrent,
+    // A standalone Compile belongs to the project it was started for: replacing the project ends it, like a compile-to-start.
+    claimCompile: (payload) => {
+      compileOwners.current.set(payload, startGeneration.current);
+      standaloneCompile.current = payload;
+    },
+    onCompileSettled: (payload) => {
+      if (standaloneCompile.current === payload) standaloneCompile.current = null;
+    },
+    onCompileResult: (data) => artifactSinkRef.current?.(data.success ? data.artifact : undefined),
     // Callbacks
     setParserMessages: params.setParserMessages,
     setParserPanelDismissed: params.setParserPanelDismissed,
@@ -279,8 +308,18 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setSerialOutput: params.setSerialOutput,
   });
 
+  // Opening another tab changes the shown `code`, not the source of the run.
+  const sourceSignature = useMemo(
+    () => (params.sourceProject ? JSON.stringify(Object.values(params.sourceProject.files)) : undefined),
+    [params.sourceProject],
+  );
+
   const simulation = useSimulationController({
     onStartOrStop: invalidatePendingStart,
+    ...(sourceSignature === undefined ? {} : { sourceSignature }),
+    ...(params.runtimeKind ? { runtimeKind: params.runtimeKind } : {}),
+    ...(params.boardId ? { board: params.boardId } : {}),
+    ...(params.hostMockUsable === undefined ? {} : { hostMockUsable: params.hostMockUsable }),
     code: params.code,
     hasCompilationErrors,
     isModified: params.isModified,
@@ -296,6 +335,9 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     uiFeedback,
   });
 
+  artifactSinkRef.current = simulation.setCompiledArtifact;
+  cancelControllerStart.current = simulation.cancelPendingStart;
+
   // Expose a test-only setter so E2E tests can inject the REST-compiled code
   // into the simulation controller before starting a simulation.
   useEffect(() => {
@@ -304,11 +346,16 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
         simulation.setCompiledCode(code);
         simulation.setCompiledHeaders?.(headers);
       };
+      // Same for the flash image of the browser emulation (the `artifact` field of a compile result).
+      (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_ARTIFACT__ = (artifact: unknown) => {
+        simulation.setCompiledArtifact(artifact);
+      };
       return () => {
         delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_CODE__;
+        delete (globalThis as Record<string, unknown>).__SET_LAST_COMPILED_ARTIFACT__;
       };
     }
-  }, [simulation.setCompiledCode]);
+  }, [simulation.setCompiledCode, simulation.setCompiledArtifact]);
 
   const handleCompileAndStart = useCallback(() => {
     invalidatePendingStart();
@@ -353,7 +400,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setCompilationStatus("compiling");
 
     // Compile with custom handlers for compile + start flow
-    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) };
+    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) };
     compileOwners.current.set(compilePayload, generation);
     pendingCompileStart.current = true;
     compileMutation.mutate(compilePayload, {
@@ -366,6 +413,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
           simulation.setCompiledCode(mainSketchCode);
           simulation.setCompiledHeaders?.(headers);
           simulation.setCompiledEntryFile?.(entryFile);
+          // The server reports the end of the compile through the simulation start; a browser run has no such message.
+          if (simulation.willStartInBrowser()) setCompilationStatus("success");
           simulation.startSimulation();
           simulation.setHasCompiledOnce(true);
           params.setIsModified(false);
@@ -387,8 +436,20 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     });
   }, [params, clearOutputs, compileMutation, simulation, uiFeedback, invalidatePendingStart]);
 
+  const discardBuild = useCallback(() => {
+    invalidatePendingStart();
+    simulation.setCompiledArtifact(undefined);
+    setCompilationStatus("ready");
+    setArduinoCliStatus("idle");
+  }, [invalidatePendingStart, simulation, setCompilationStatus, setArduinoCliStatus]);
+
   const handleReset = useCallback(() => {
     invalidatePendingStart();
+    // Browser emulation: a CPU reset, no compiling again, when code and board are unchanged.
+    if (!params.isModified && simulation.resetWithoutCompile()) {
+      uiFeedback.showResettingToast();
+      return;
+    }
     if (params.capabilities && !params.capabilities.canSimulate) return;
     if (!params.ensureBackendConnected("Reset simulation")) return;
     if (holdsServerSimulation(simulation.simulationStatus)) simulation.handleStop();
@@ -471,6 +532,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     handlePause: simulation.handlePause,
     handleResume: simulation.handleResume,
     handleReset,
+    discardBuild,
 
     startSimulation: simulation.startSimulation,
     startSimulationRef: simulation.startSimulationRef,

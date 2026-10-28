@@ -13,6 +13,44 @@ Im ino-File werden Pins verwendet. Die Verwendung der Pins soll in einer Tabelle
 
 Die IO-Registry ist eine Tabelle aller verwendeter Pins. Als Spalten existieren dann die Funktionen (siehe Bild).
 
+## Ansichten der Registry (2026-10-27)
+
+Unter I/O Registry stehen die englisch beschrifteten Untertabs
+**Programmed Pins (n)** (Standard), **All Pins** und **Pin Infos**.
+Die ersten beiden ersetzen den bisherigen Sichtbarkeits-Schalter und nutzen
+weiterhin dieselben Registry-Zeilen, Konfliktmarker und Herkunftsangaben.
+Der Auge-Button gilt für beide Nutzungsansichten; sein Zustand überlebt den
+Besuch von Pin Infos. Er zeigt weiterhin Datei und Zeile mit Navigation zum
+vollständigen SourceLocation-Target; `L<n>` bleibt der Fallback für alte
+zeilenbasierte Einträge. Es gibt keine Reduktion auf reine Zeilennummern.
+
+Pin Infos ist eine vom Sketch und Lauf unabhängige Referenz des aktiven Boards.
+Neun Spalten, genau eine Kopfzeile:
+**Pin | Digital In | Digital Out | Analog In | PWM Out | Bus Connections | Ext. IRQ | Pin Change | Timer**.
+Die Pin-Spalte und die Kopfzeile bleiben beim Scrollen stehen; eine Suche
+filtert nach sichtbaren Namen/Funktionen, bei einem Boardwechsel wird sie
+zurückgesetzt. Die bestehende Boardansicht bleibt an ihrem bisherigen Ort.
+Es gibt keine Spalten für Sketch/Alias, Port, ADC-Kanal, Chipbein oder
+Besonderheiten. Nur abweichende Codeschreibweisen stehen direkt beim Pin.
+
+Quelle ist `packages/avr-emulator/src/boards/pin-reference.ts`: Signalpins,
+ADC/PWM und Serial werden aus `BoardHardware` abgeleitet. Zusätzliche Rollen
+folgen `arduino:avr` 1.8.8 (`variants/standard`, `eightanaloginputs`, `mega`)
+und ATTinyCore 1.5.2 (`variants/tinyX5`); PCINT folgt den MCU-Portzuordnungen.
+Der externe Interruptindex bezeichnet `digitalPinToInterrupt`, keinen
+Vektorindex. Mega PE0/PJ0/PJ1 haben PCINT per Register, aber keine Unterstützung
+der gepinnten Arduino-Core-Helfer. ATtiny PB5 bleibt reservierter RESET,
+Nano A6/A7 bleiben analog-only. Die USI/SPI-Rollen sind Master-Rollen.
+
+PWM heißt 8 Bit / 0–255, Analog In 10 Bit / 0–1023. Versorgung, GND, AREF und
+separate Steuerkontakte werden ohne Arduino-Pinnummer als Referenzeinträge
+aufgeführt; mehrfach vorhandene gleichnamige Kontakte teilen einen Eintrag.
+Hardwarefähigkeit ist von Emulationsunterstützung getrennt: Die Referenz
+kennzeichnet I²C/SPI/USI als nicht modelliert und Serial als im Browser-Modus
+modelliert, ohne beliebige angeschlossene Geräte zu versprechen.
+Alle neuen Controls verwenden die gemeinsamen Tab-, Toolbar-, Input- und
+Scroll-Komponenten sowie semantische Style-Tokens.
+
 # Aktualisierung der Tabelle:
 Die Verwendung der Pins wird durch `analyzeStaticIO(code)` während der Eingabe
 ermittelt und dargestellt. Das kanonische Ergebnis enthält auflösbare Pins,
@@ -20,6 +58,30 @@ aufgelöste Symbole und ungelöste I/O-Aufrufe. Eindeutige konstante Arrays und
 einfache Indexschleifen werden unterstützt. Komplexe oder dynamische Ausdrücke
 werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
 ist für tatsächlich ausgeführte Zugriffe maßgeblich.
+
+## Pins je Board (P4.2)
+`analyzeStaticIO`, `analyzeStaticIOProject`, `parseStaticIORegistry` und `parseStaticIORegistryProject` nehmen `{ board }` (Standard `uno`); `CodeParser` reicht sein Board weiter. Pinbereich, `A0…An`, `LED_BUILTIN` und die Schreibweise der Pins in den Registry-Zeilen kommen aus dem Pin-Modell des Boards (`shared/board-pins.ts`, `shared/parsers/pin-context.ts`). Für den Uno bleiben alle Ergebnisse gleich; am Nano lösen `A6` und `A7` zu den Pins 20 und 21 auf, und `analogRead(6)`/`analogRead(7)` meinen diese Eingänge. Die Hardware-Regeln nennen das Board (PWM-Pins) und warnen, wenn ein reiner Analogeingang (A6, A7) digital genutzt wird. Der Mega 2560 nutzt seit P5.2 sein Pin-Modell (Pins 0–69, `A0`–`A15` = 54–69); ein Board ohne Hardwareprofil (ATtiny85 bis P6.4) wird wie der Uno geparst; Der Serial-Parser (`serial-configuration-parser.ts`) kennt das Board: `Serial1`–`Serial3` auf einem Board ohne diese Schnittstelle (Uno, Nano) ergeben die Warnung „Serial<n> does not exist on <Board>…“, auf dem Mega die Warnung „Serial<n>.begin(9600) is missing in setup()“ (bzw. „…is commented out!“), wenn eine Schnittstelle benutzt, aber nie gestartet wird; ein Objekt gleichen Namens im Sketch (`SoftwareSerial Serial1(10, 11);`) und Text in Strings und Kommentaren zählen nicht. Die 115200-Baud-Warnung betrifft nur `Serial`. „Kein Hardware-Serial“ folgt mit P6.4.
+
+## Zusammenführung von Statik und Laufzeit (beide Backends)
+Während eines Laufs (laufend oder pausiert) ersetzt der Laufzeit-Snapshot die
+statische Analyse nicht mehr, sondern wird mit ihr zusammengeführt
+(`mergeIoRegistry`, `getEffectiveIoRegistry`):
+
+* Alle statischen Einträge und ihre Zeilen bleiben sichtbar, auch bei leerem
+  Laufzeit-Snapshot.
+* Laufzeitfunde ergänzen je Pin und Funktion. Derselbe Pin heißt über die Pinbelegung des gewählten Boards gleich, ob als Name oder Nummer (`A0` und `14` beim Uno, `A0` und `54` beim Mega 2560, `A1` und `2` beim ATtiny85); der Digitalpin 14 des Mega ist ein anderer Pin als `A0`. Jede Funktion trägt ihre Herkunft
+  `origin`: `static`, `runtime` oder `both`. Ein Fund ohne statische Zeile
+  erscheint wie bisher als „runtime“ (Browser-Emulation: immer ohne Zeile,
+  Host-Mock: mit der Zeile der Instrumentierung).
+* Ein Fund, den beide Quellen haben, bleibt mit seinen statischen Zeilen stehen
+  und trägt die Marke „+ runtime“ (kompakt: ▶ hinter dem Haken).
+* Ein Pin, den nur der Lauf gesehen hat, wird als Laufzeiteintrag angehängt.
+* Widerspricht der beobachtete pinMode den statischen Modi (statisch `INPUT`,
+  zur Laufzeit `INPUT_PULLUP`), markiert die Konfliktlogik den Pin; die Meldung
+  nennt beide Quellen.
+* Vor dem ersten Snapshot und nach dem Lauf gilt allein die aktuelle statische
+  Analyse.
+* `A0` und `14` bezeichnen denselben Pin.
 
 
 # Übermittlung via Telemetry-Messages.

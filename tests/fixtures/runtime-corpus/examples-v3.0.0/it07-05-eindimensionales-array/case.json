@@ -1,0 +1,18 @@
+{
+  "board": "uno",
+  "simMs": 900,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "A byte array and the time stamps of four 200 ms steps.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; time stamps at 0, 200, 400, 600 ms",
+  "events": [],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "^zeitpunkte\\[\\d\\] = (\\d+)$",
+      "plusMinus": 2,
+      "reason": "millis() granularity of 1 ms per delay(200) and the few microseconds of the loop body, summed over up to three steps"
+    }
+  ],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
-import type { TutorPanelState } from "@/hooks/use-tutor";
-import { renderMermaidSubset } from "@/lib/tutor-mermaid";
+import type { TutorPanelState, TutorSketch } from "@/hooks/use-tutor";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import {
@@ -177,12 +176,15 @@ function TutorPlaceholder({
   className,
   style,
   code = "",
+  sketch,
   tutor,
   debugMode = false,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
+  /** The whole project and board; without it the Tutor sees `code` alone. */
+  readonly sketch?: TutorSketch;
   readonly tutor?: TutorPanelState;
   readonly debugMode?: boolean;
 }) {
@@ -221,7 +223,7 @@ function TutorPlaceholder({
                 onClick={() => {
                   setShowKeyView(false);
                   tutor.resetDialog();
-                  void tutor.generateQuestion(code);
+                  void tutor.generateQuestion(sketch ?? code);
                 }}
                 disabled={tutor.isLoading || !tutor.capabilities.canUseTutor}
                 title={tutor.capabilities.canUseTutor ? questionVisualState.label : "Server connection required"}
@@ -262,7 +264,7 @@ function TutorPlaceholder({
         />
         {tutor ? (
           <TutorPanelContent
-            code={code}
+            sketch={sketch ?? code}
             tutor={tutor}
             showKeyView={showKeyView}
             setShowKeyView={setShowKeyView}
@@ -280,20 +282,30 @@ function TutorPlaceholder({
   );
 }
 
+/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
 function MermaidPreview({ source }: { readonly source: string }) {
   const renderId = useId().replaceAll(":", "");
-  const renderedSvg = renderMermaidSubset(source, `tutor-diagram-${renderId}`);
+  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
+  useEffect(() => {
+    let current = true;
+    void import("@/lib/tutor-mermaid").then(({ renderMermaidSubset }) => {
+      if (current) setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));
+    });
+    return () => {
+      current = false;
+    };
+  }, [source, renderId]);
   if (!renderedSvg) return null;
   return <div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} />;
 }
 
 function TutorPanelContent({
-  code,
+  sketch,
   tutor,
   showKeyView,
   setShowKeyView,
 }: {
-  readonly code: string;
+  readonly sketch: string | TutorSketch;
   readonly tutor: TutorPanelState;
   readonly showKeyView: boolean;
   readonly setShowKeyView: (value: boolean) => void;
@@ -470,7 +482,7 @@ function TutorPanelContent({
                 if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
                 if (!tutor.answer.trim() || tutor.isLoading || !canRequest || !tutor.question) return;
                 event.preventDefault();
-                void tutor.submitAnswer(code);
+                void tutor.submitAnswer(sketch);
               }}
               rows={1}
               maxLength={2_000}
@@ -486,7 +498,7 @@ function TutorPanelContent({
               aria-label="Send answer"
               title="Send answer"
               className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => void tutor.submitAnswer(code)}
+              onClick={() => void tutor.submitAnswer(sketch)}
               disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question || !tutor.capabilities.canUseTutor}
             >
               <ArrowUp className="h-4 w-4" aria-hidden="true" />
@@ -502,16 +514,18 @@ export function TutorWorkspacePlaceholder({
   className,
   style,
   code,
+  sketch,
   tutor,
   debugMode,
 }: {
   readonly className?: string;
   readonly style?: React.CSSProperties;
   readonly code?: string;
+  readonly sketch?: TutorSketch;
   readonly tutor?: TutorPanelState;
   readonly debugMode?: boolean;
 }) {
-  return <TutorPlaceholder className={className} style={style} code={code} tutor={tutor} debugMode={debugMode} />;
+  return <TutorPlaceholder className={className} style={style} code={code} sketch={sketch} tutor={tutor} debugMode={debugMode} />;
 }
 
 interface ExperimentalWorkspaceProps {

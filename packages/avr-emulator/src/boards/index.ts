@@ -1,0 +1,14 @@
+/**
+ * Entry `@unosim/avr-emulator/boards`: board ids and pin hardware only. It
+ * imports no emulation code (no avr8js), so UnoSim's `shared/` and the client
+ * can read the pin maps without pulling the emulator into their bundles.
+ */
+export { BOARD_HARDWARE_IDS, BOARD_MCU, isBoardHardwareId } from "./ids";
+export type { BoardHardwareId } from "./ids";
+export { NANO, UNO } from "./atmega328p-boards";
+export { ATTINY85_BOARD } from "./attiny85-board";
+export { MEGA2560 } from "./mega2560-board";
+export { boardHardware, hasBoardHardware } from "./registry";
+export type { BoardHardware, PinHardware, PortName, SerialPortHardware } from "./types";
+export { boardPinReference, boardReferenceContacts } from "./pin-reference";
+export type { PinReference, PinBusReference, ReferenceContact } from "./pin-reference";

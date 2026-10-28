@@ -1,0 +1,3 @@
+setup: zaehlerGlobal = 10
+loop:  zaehlerGlobal = 11
+loop:  zaehlerGlobal = 12

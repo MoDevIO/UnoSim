@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import { useCallback } from "react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,8 +39,16 @@ export type CompilationErrors = CompilerError[] | string | undefined;
 
 export interface UseCompileControllerParams {
   readonly capabilities?: ServerCapabilities;
+  /** The selected board; the compile request names it (plan P4.5). */
+  readonly boardId?: BoardId;
   /** Ignore completions whose compile-to-start owner was invalidated. */
   isCompileResultCurrent?: (payload: CompileConfig) => boolean;
+  /** A standalone Compile is about to be sent: whoever owns the project registers it, so that its result can be ignored later. */
+  claimCompile?: (payload: CompileConfig) => void;
+  /** A compile request has ended (answer or error), current or not. */
+  onCompileSettled?: (payload: CompileConfig) => void;
+  /** Every current compile result, success or not: the browser emulation takes its flash image from it. */
+  onCompileResult?: (data: CompileResult) => void;
   // State
   compilationStatus: CompilationStatus;
   setCompilationStatus: SetState<CompilationStatus>;
@@ -131,7 +140,9 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
       return { success: false, errors: txt, raw: txt };
     },
     onSuccess: (data, payload) => {
+      params.onCompileSettled?.(payload);
       if (params.isCompileResultCurrent?.(payload) === false) return;
+      params.onCompileResult?.(data);
       if (data.success) {
         handleCompileSuccess(data);
       } else {
@@ -139,6 +150,7 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
       }
     },
     onError: (error: unknown, payload) => {
+      params.onCompileSettled?.(payload);
       if (params.isCompileResultCurrent?.(payload) === false) return;
       params.setArduinoCliStatus("error");
       params.uiFeedback.triggerCompileErrorGlitch();
@@ -225,7 +237,9 @@ export function useCompileController(params: UseCompileControllerParams): UseCom
     }
 
     logger.info(`[CLIENT] Compiling with ${headers.length} headers`);
-    compileMutation.mutate({ code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}) });
+    const payload: CompileConfig = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) };
+    params.claimCompile?.(payload);
+    compileMutation.mutate(payload);
   }, [
     params.activeTabId,
     clearOutputs,

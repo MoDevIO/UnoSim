@@ -86,7 +86,8 @@ cd /opt/unosim
 Ersetze `192.168.178.82` durch die IPv4-Adresse deiner VM. Das Skript prüft,
 dass sie auf diesem Rechner konfiguriert ist. Es installiert Docker Engine,
 Compose v2, Buildx, Nginx, OpenSSL und curl, erzeugt die lokalen
-Konfigurationsdateien, baut die Sandbox und startet den UnoSim-Backenddienst.
+Konfigurationsdateien, baut die Sandbox und die Compile-Sandbox und startet
+den UnoSim-Backenddienst.
 Wenn bereits eine `.env`-Datei, eine UnoSim-Nginx-Site, das Gateway-Secret-
 Snippet oder ein TLS-Ziel existiert, bricht das Skript ab, damit nichts
 überschrieben wird. Zeigt `sites-enabled/default` auf
@@ -379,6 +380,22 @@ Wenn Docker nach der Aufnahme in die Gruppe `docker` noch `permission denied`
 meldet, melde dich einmal ab und wieder an. Bis dahin kannst du Docker-Befehle
 mit `sudo` ausführen. Die Mitgliedschaft in der Gruppe `docker` verleiht
 weitreichende Rechte auf dem Host.
+
+## Browser-Emulation einschalten (Pilot)
+
+Der Installer richtet das Docker-Profil mit dem Host-Mock ein. Für eine
+Pilot-Instanz mit Emulation im Browser die beiden Zeilen in
+`/opt/unosim/.env` ergänzen und den Dienst neu erstellen:
+
+```bash
+cd /opt/unosim
+printf '%s\n' 'UNOSIM_RUNTIME_BACKENDS=browser,host-mock' 'UNOSIM_DEFAULT_RUNTIME=browser' | sudo tee -a .env >/dev/null
+sudo docker compose up -d
+```
+
+Das Compile-Sandbox-Image hat der Installer bereits gebaut. Zurück: die beiden
+Zeilen entfernen und `sudo docker compose up -d`. Einzelheiten:
+[INSTALL_SERVER.md](INSTALL_SERVER.md#browser-emulation-im-docker-profil-pilot).
 
 ## Identität und Limits
 

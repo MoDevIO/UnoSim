@@ -49,16 +49,14 @@ export default defineConfig({
   },
   // ... restliche Config
   webServer: {
-    // Use only the Express+Vite server (npm run dev), NOT dev:full.
-    // dev:full also starts a standalone Vite dev server on port 3001; two
-    // concurrent Vite instances watching the same files can trigger HMR
-    // full-page reloads in the shared port-3000 server, destroying the test
-    // execution context mid-test.
-    // VITE_DISABLE_HMR=true suppresses the HMR full-reload that Vite sends
-    // after its first-run dependency pre-bundling (no cache in CI).
-    command: `PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
+    // NODE_ENV=test serves dist/public. Rebuild before starting the owned server
+    // so local runs cannot test a stale client or stale board SVGs from an earlier checkout.
+    // Use the test-mode Express server with built assets (npm run dev:e2e).
+    // dev:full also starts a separate Vite server on port 3001; this run owns
+    // just the application server on port 3000.
+    command: `NODE_ENV=production npm run build && PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
     url: `http://localhost:${basePort}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 180 * 1000, 
     stdout: "pipe",
     stderr: "pipe",

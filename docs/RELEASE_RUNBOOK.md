@@ -1,8 +1,8 @@
 # Release-Runbook
 
 Status: current  
-Version: 1.0.0  
-Datum: 2026-09-06  
+Version: 1.1.0  
+Datum: 2026-10-24  
 Grundlage: aktuelle Repository-Gates, `TESTING_STANDARDS.md` und `INSTALL_SERVER.md`.
 
 ---
@@ -29,14 +29,16 @@ Dieses Runbook definiert das verbindliche Release-Gate für UnoSim. Es stellt si
 | --- | --- | --- |
 | `SONAR_TOKEN` | SonarQube-Analyse | `sqp_...` |
 | `DOCKER_HOST` | Docker-Host (optional) | `unix:///Users/to/.docker/run/docker.sock` |
-| `DOCKER_SANDBOX_IMAGE` | Sandbox-Image | `unosim-sandbox:latest` |
+| `DOCKER_SANDBOX_IMAGE` | Sandbox-Image (Host-Mock) | `unosim-sandbox:latest` |
+| `COMPILE_SANDBOX_IMAGE` | Compile-Sandbox-Image | `unosim-compile-sandbox:latest` |
 | `RUN_HEAVY_TESTS` | Heavy-Tests aktivieren | `1` oder `true` |
 | `REQUIRE_RELEASE_GATE` | Release-Gates einschließlich Docker/E2E/Sonar erzwingen | `1` |
 
 ### Systemvoraussetzungen
 
 - Node.js: `24.20.0` (oder gemäß `.nvmrc`)
-- Docker: für einen vollständigen Release-Gate-Lauf erforderlich
+- Docker: für einen vollständigen Release-Gate-Lauf erforderlich; beide
+  Sandbox-Images aus dem Release-Stand (`npm run build:sandbox` baut sie)
 - SonarQube: lokal (`http://localhost:9000`) oder remote
 
 ---
@@ -82,10 +84,32 @@ npm run test:integration
 npm run test:docker
 ```
 
-**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract. Im normalen
+**Erwartung:** Sandbox-Isolation, Cleanup, Security-Contract, Vertrag der
+Compile-Sandbox (`tests/integration/compile-sandbox-contract.test.ts`: kein
+Netz, keine fremden Dateien, explizite Umgebung, Zeitlimit, REST-Compile des
+Docker-Profils mit Artefakt). Im normalen
 Entwicklerlauf kann dieser Gate bei fehlendem Docker übersprungen werden; im
 Release-Gate ist Docker zwingend.
 **Abbruch bei:** Fehlern oder Cleanup-Problemen im ausgeführten Gate.
+
+---
+
+### 4a. Deployment-Tests
+
+```bash
+npm run test:deployment            # Produktions-Image hinter Nginx, Pilot-Konfiguration der Browser-Emulation
+npm run test:deployment:installer  # Compose und .env des Ubuntu/VBox-Installers (Linux)
+```
+
+**Erwartung:** Beide Läufe bauen Server-, Sandbox- und Compile-Sandbox-Image
+aus dem Release-Stand (oder nutzen die Images der CI über
+`DEPLOYMENT_PREBUILT_*_IMAGE`). Der Gateway-Lauf prüft unter anderem:
+`/api/config` mit `browser` als Standard, einen Nano-Compile mit Artefakt aus
+der Compile-Sandbox, Simulationen im Host-Mock, keinen zurückgelassenen
+Sandbox- oder Compile-Container.
+**Abbruch bei:** Fehlern; der Installer-Lauf braucht das Host-Netzwerk eines
+Linux-Docker-Hosts (unter Docker Desktop erreicht das Nginx im Host-Netz den
+Port nicht), er läuft in der CI.
 
 ---
 
@@ -269,6 +293,7 @@ Folgende Artefakte müssen pro Release vorhanden sein:
 | Coverage-Bericht | `coverage/` | Testabdeckung |
 | SonarQube-Report | SonarQube-Projekt `unosim` | Quality Gate |
 | Build-Artefakte | `dist/` | Auslieferbares Paket |
+| Images | `unosim-server`, `unosim-sandbox`, `unosim-compile-sandbox` aus demselben Commit | Auslieferung im Docker-Profil |
 | Security-Audit | `npm audit`-Output | Sicherheitsstatus |
 | Release-Notes | `CHANGELOG.md` (falls vorhanden) | Änderungen dokumentieren |
 
@@ -306,6 +331,55 @@ git push origin vX.Y.Z
 
 ---
 
+## Vorabversionen und v2.0.0 (Browser-Emulation)
+
+V2 entsteht im Integrationsbranch `feature/browser-emulation`
+([Plan, Abschnitt 9](proposals/browser-emulation-plan.md#9-rollout-und-rückfall)).
+Bis zum Abschluss gilt:
+
+| Version | Branch | Voraussetzung | Einsatz |
+| --- | --- | --- | --- |
+| `v1.0.x` | Arbeitsbranch → `main` | Pflichtgates | Unterricht, Referenz und Rückkehr |
+| `v2.0.0-beta.N` | `feature/browser-emulation` | M1, Compile-Sandbox (P2.4), Deployment (P7.2), Pflichtgates | Pilot-Instanz neben der V1-Instanz, Browser-Emulation Standard (`UNOSIM_DEFAULT_RUNTIME=browser`), „Legacy“ wählbar |
+| `v2.0.0-rc.N` | `feature/browser-emulation` | alle Abnahmekriterien unten, Funktionsstopp im Integrationsbranch | letzte Erprobung im Unterricht, nur Fehlerbehebungen |
+| `v2.0.0` | Merge-Commit `feature/browser-emulation` → `main` | ein Release-Kandidat ohne neue Befunde über mindestens zwei Wochen Unterricht | Standardbetrieb |
+
+**Ablauf einer Vorabversion** (Release Manager):
+
+1. Im Integrationsbranch per PR `package.json`/`package-lock.json`
+   (`npm version <version> --no-git-tag-version`) und `CHANGELOG.md` auf die
+   Version setzen; der CHANGELOG nennt Verhaltensänderungen ausdrücklich.
+2. Pflichtgates auf dem Merge-Commit grün (CI und `./run-tests.sh`).
+3. Annotierten Tag auf diesen Commit setzen und pushen:
+   `git tag -a v2.0.0-beta.1 -m "UnoSim v2.0.0-beta.1" && git push origin v2.0.0-beta.1`.
+4. Images aus demselben Commit bauen (`unosim-server`, `unosim-sandbox`,
+   `unosim-compile-sandbox`) und die Pilot-Instanz nach
+   [INSTALL_SERVER.md](INSTALL_SERVER.md) mit `UNOSIM_DEFAULT_RUNTIME=browser`
+   ausrollen; die V1-Instanz bleibt unverändert.
+5. Befunde aus dem Unterricht als Issues; Behebungen als PRs in den
+   Integrationsbranch.
+
+**Abnahmekriterien für `v2.0.0`:**
+
+- Korpus: alle 51 Beispiele mit Referenzen der Klasse `hardware`, Ausnahmen
+  ausgewiesen; Proben aller freigegebenen Boards grün.
+- Browserbedienung: E2E grün; alle Funktionen im Pilot bestätigt; Rückfall auf
+  „Legacy“ funktioniert.
+- Compile-Sandbox: Vertragstest (Docker-Gate) grün, Artefakt nur mit Sandbox,
+  Build-Identität getestet.
+- Leistung: Echtzeitfaktor auf den Referenzgeräten (P0.3), Compile-Latenz und
+  Kapazität auf dem Referenz-Host (P7.1) im Rahmen.
+- Release-Gates: alle Pflichtgates und die Opt-in-Gates vor Major-Releases.
+- ADR 0009 und 0010 sind angenommen; die Standardwerte des Docker-Profils
+  stehen auf `browser`.
+
+**Nach `v2.0.0`:** V1-Fehlerbehebungen nur noch in `release/v1.x` ab dem
+letzten V1-Tag, ein Semester lang und nur für sicherheits- oder
+unterrichtskritische Fehler. `main` wird bis dahin mindestens alle zwei Wochen
+per Merge (nie per Rebase) in den Integrationsbranch übernommen.
+
+---
+
 ## Notfallplan
 
 ### Bei Gate-Fehlschlag
@@ -315,6 +389,19 @@ git push origin vX.Y.Z
 3. **Beheben:** Fix implementieren und testen
 4. **Retest:** Nur betroffene Gates wiederholen
 5. **Dokumentieren:** Incident im Release-Log festhalten
+
+### Rückfall der Laufzeit im Betrieb
+
+Ohne neues Image, mit Neustart des Backends:
+
+1. `UNOSIM_DEFAULT_RUNTIME=host-mock` in `.env`: neue Läufe starten im
+   Host-Mock („Legacy“), die Emulation bleibt wählbar.
+2. `UNOSIM_RUNTIME_BACKENDS=host-mock` in `.env`: nur noch Host-Mock und Uno.
+3. Ganze Rückkehr auf das V1-Image (v1.0.1): ohne Änderung an `.env` und
+   `storage/` (siehe [INSTALL_SERVER.md, Update und Rollback](INSTALL_SERVER.md#update-und-rollback)).
+
+Rolle und Grenzen des Host-Mocks: [ARCHITECTURE.md, Host-Mock als
+Rückfallebene](ARCHITECTURE.md#host-mock-als-rückfallebene).
 
 ### Bei Security-Vulnerability
 
@@ -331,6 +418,7 @@ git push origin vX.Y.Z
 | Version | Datum | Änderungen |
 | --- | --- | --- |
 | 1.0.0 | 2026-09-06 | Initiale normative Runbook-Version; der aktuelle Implementierungsstand ist in den verlinkten Architektur-, Security- und Skalierungsdokumenten beschrieben. |
+| 1.1.0 | 2026-10-24 | Vorabversionen aus dem Integrationsbranch, Abnahmekriterien für v2.0.0, V1-Pflege über `release/v1.x` (Plan Browser-Emulation, P7.3). |
 
 ---
 

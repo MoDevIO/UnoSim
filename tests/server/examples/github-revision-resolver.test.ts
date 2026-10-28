@@ -5,7 +5,7 @@ const revision = "a".repeat(40);
 
 describe("GitHub revision resolver", () => {
   it("resolves a movable ref through the credential-free public commits API", async () => {
-    const fetchText = vi.fn(async () => JSON.stringify({ sha: revision }));
+    const fetchText = vi.fn(async () => revision);
     const resolver = new GitHubRevisionResolver({ fetchText });
     await expect(resolver.resolve("owner/repo", "main", { identity: "user", requestId: "request" }))
       .resolves.toBe(revision);
@@ -13,6 +13,7 @@ describe("GitHub revision resolver", () => {
       new URL("https://api.github.com/repos/owner/repo/commits/main"),
       expect.any(Number),
       undefined,
+      { representation: "github-commit-sha" },
     );
   });
 

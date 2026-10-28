@@ -204,6 +204,8 @@ export function ArduinoSimulatorPageLayout(
     wsHasEverConnected,
     workerIndex,
     workerTotal,
+    browserRun,
+    engine,
   } = connection;
   const {
     showErrorGlitch,
@@ -212,6 +214,9 @@ export function ArduinoSimulatorPageLayout(
     isDesktop,
     layoutMode,
     board,
+    boards,
+    boardId,
+    onBoardChange,
     isMac,
     openSettings,
     debugMode,
@@ -274,6 +279,7 @@ export function ArduinoSimulatorPageLayout(
       onAnalogChange={handleAnalogChange}
       capabilities={capabilities}
       isMobile={isMobile}
+      boardId={boardId}
     />
   );
   const experimentalCodeColumn = (
@@ -354,6 +360,9 @@ export function ArduinoSimulatorPageLayout(
         onPause={handlePause}
         onResume={handleResume}
         board={board}
+        boards={boards}
+        boardId={boardId}
+        onBoardChange={onBoardChange}
         baudRate={baudRate}
         simulationTimeout={simulationTimeout}
         onTimeoutChange={setSimulationTimeout}
@@ -399,6 +408,8 @@ export function ArduinoSimulatorPageLayout(
           <SimCockpit
             workerIndex={workerIndex}
             workerTotal={workerTotal}
+            browserRun={browserRun}
+            engine={engine}
             batchStats={batchStats}
             simulationStatus={simulationStatus}
             compilationStatus={compilationStatus}
@@ -423,7 +434,7 @@ export function ArduinoSimulatorPageLayout(
             setSizes={experimentalWorkspace.setSizes}
             codeColumn={experimentalCodeColumn}
             simulationColumn={experimentalSimulationColumn}
-            tutorColumn={<TutorWorkspacePlaceholder code={props.tutor.code} tutor={tutorPanel} debugMode={debugMode} />}
+            tutorColumn={<TutorWorkspacePlaceholder code={props.tutor.code} sketch={props.tutor.sketch} tutor={tutorPanel} debugMode={debugMode} />}
           />
         ) : (
           <LegacyWorkspaceLayout

@@ -1,0 +1,4 @@
+Wurf: 2
+Wurf: 2
+Wurf: 6
+Versuche bis zur 6: 3

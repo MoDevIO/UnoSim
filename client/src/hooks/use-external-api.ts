@@ -1,6 +1,10 @@
 import { useEffect } from "react";
-import { SimulatorActionType, API_VERSION, SimulatorEventType } from "@/types/external-api";
-import type { SimulatorMessage, SimulatorResponse, SimulatorEventMessage, SimulationStateEventData, ServerStatusEventData, OperationErrorEventData } from "@/types/external-api";
+import { isBoardPin } from "@shared/board-pins";
+import { type BoardId, DEFAULT_BOARD_ID, type RuntimeKind } from "@shared/boards";
+import {
+  SimulatorActionType, API_VERSION, SimulatorEventType,
+  type ExternalStateData, type SimulatorMessage, type SimulatorResponse, type SimulatorEventMessage, type SimulationStateEventData, type ServerStatusEventData, type OperationErrorEventData,
+} from "@/types/external-api";
 
 interface UseExternalApiParams {
   /** Restrict inbound messages to this origin. Use "*" to allow all origins. */
@@ -20,13 +24,15 @@ interface UseExternalApiParams {
   /** Returns the current value of a pin (used for GET_PIN_STATE responses). */
   getPinState: (pin: number) => number;
   /** Called when a SERIAL_INPUT message is received. */
-  onSerialInput: (data: string) => void;
+  onSerialInput: (data: string, port?: number) => void;
   /** Called when a SET_SIMULATION_TIMEOUT message is received. */
   onSetSimulationTimeout: (timeout: number) => void;
   /** Called when a SET_OUTPUT_TAB message is received. */
   onSetOutputTab: (tab: "compiler" | "messages" | "registry" | "debug") => void;
   /** Returns the current simulation state (used for GET_SIMULATION_STATE responses). */
   getSimulationState: () => string;
+  /** The selected board and runtime (API 1.5.0); without it pins are not checked against a board and GET_STATE answers with the state only. */
+  getBoardInfo?: () => { board: BoardId; boardName: string; runtime?: RuntimeKind; serialPorts?: number };
   /** Returns the current server status for GET_SERVER_STATUS responses. */
   getServerStatus: () => ServerStatusEventData | null;
 }
@@ -90,6 +96,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
     onSetOutputTab,
     getSimulationState,
     getServerStatus,
+    getBoardInfo,
   } = params;
 
   // Store the allowed origin globally for use by event-sending functions
@@ -107,10 +114,21 @@ export function useExternalApi(params: UseExternalApiParams): void {
     sendMessageToParent({ type: SimulatorActionType.LOAD_CODE, success: true }, allowedOrigin);
   };
 
+  /** An error text when the selected board has no such pin (API 1.5.0); `undefined` if the pin is fine or no board is known. */
+  const pinError = (pin: number): string | undefined => {
+    const info = getBoardInfo?.();
+    return info && !isBoardPin(info.board, pin) ? `pin ${pin} does not exist on ${info.boardName}` : undefined;
+  };
+
   const handlePinState = (payload: unknown): void => {
     const p = payload as { pin?: unknown; value?: unknown };
     if (typeof p?.pin !== "number" || typeof p?.value !== "number") {
       sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: false, error: "payload.pin and payload.value must be numbers" }, allowedOrigin);
+      return;
+    }
+    const error = pinError(p.pin);
+    if (error) {
+      sendMessageToParent({ type: SimulatorActionType.SET_PIN_STATE, success: false, error }, allowedOrigin);
       return;
     }
     onSetPinState(p.pin, p.value);
@@ -122,8 +140,13 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: false, error: "payload.pin must be a number" }, allowedOrigin);
       return;
     }
-    const value = getPinState((payload as { pin: number }).pin);
-    sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: true, data: value }, allowedOrigin);
+    const pin = (payload as { pin: number }).pin;
+    const error = pinError(pin);
+    if (error) {
+      sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: false, error }, allowedOrigin);
+      return;
+    }
+    sendMessageToParent({ type: SimulatorActionType.GET_PIN_STATE, success: true, data: getPinState(pin) }, allowedOrigin);
   };
 
   const handleBatchSetPinState = (payload: unknown): void => {
@@ -131,11 +154,15 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: false, error: "payload.pins must be an array" }, allowedOrigin);
       return;
     }
-    for (const pinState of (payload as { pins: Array<{ pin?: unknown; value?: unknown }> }).pins) {
-      if (typeof pinState?.pin === "number" && typeof pinState?.value === "number") {
-        onSetPinState(pinState.pin, pinState.value);
-      }
+    const entries = (payload as { pins: Array<{ pin?: unknown; value?: unknown }> }).pins
+      .filter((pinState): pinState is { pin: number; value: number } => typeof pinState?.pin === "number" && typeof pinState?.value === "number");
+    // All or nothing: a pin the board does not have rejects the whole batch (API 1.5.0).
+    const errors = entries.map(({ pin }) => pinError(pin)).filter((error): error is string => error !== undefined);
+    if (errors.length > 0) {
+      sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: false, error: errors.join("; ") }, allowedOrigin);
+      return;
     }
+    for (const { pin, value } of entries) onSetPinState(pin, value);
     sendMessageToParent({ type: SimulatorActionType.BATCH_SET_PIN_STATE, success: true }, allowedOrigin);
   };
 
@@ -144,7 +171,17 @@ export function useExternalApi(params: UseExternalApiParams): void {
       sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: false, error: "payload.data must be a string" }, allowedOrigin);
       return;
     }
-    onSerialInput((payload as { data: string }).data);
+    const { data, port } = payload as { data: string; port?: unknown };
+    if (port === undefined || port === 0) {
+      onSerialInput(data);
+    } else {
+      const ports = getBoardInfo?.()?.serialPorts ?? 1;
+      if (!Number.isInteger(port) || (port as number) < 0 || (port as number) >= ports) {
+        sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: false, error: `payload.port must be an integer from 0 to ${ports - 1}` }, allowedOrigin);
+        return;
+      }
+      onSerialInput(data, port as number);
+    }
     sendMessageToParent({ type: SimulatorActionType.SERIAL_INPUT, success: true }, allowedOrigin);
   };
 
@@ -170,6 +207,18 @@ export function useExternalApi(params: UseExternalApiParams): void {
   const handleGetState = (): void => {
     const state = getSimulationState();
     sendMessageToParent({ type: SimulatorActionType.GET_SIMULATION_STATE, success: true, data: state }, allowedOrigin);
+  };
+
+  const handleGetFullState = (): void => {
+    const info = getBoardInfo?.();
+    const data: ExternalStateData = {
+      board: info?.board ?? DEFAULT_BOARD_ID,
+      boardName: info?.boardName ?? "Arduino UNO",
+      ...(info?.runtime ? { runtime: info.runtime } : {}),
+      state: getSimulationState(),
+      serialPorts: info?.serialPorts ?? 1,
+    };
+    sendMessageToParent({ type: SimulatorActionType.GET_STATE, success: true, data }, allowedOrigin);
   };
 
   const handleGetServerStatus = (): void => {
@@ -230,6 +279,9 @@ export function useExternalApi(params: UseExternalApiParams): void {
         case SimulatorActionType.GET_SERVER_STATUS:
           handleGetServerStatus();
           break;
+        case SimulatorActionType.GET_STATE:
+          handleGetFullState();
+          break;
         // default: silently ignore unknown actions
       }
     };
@@ -259,12 +311,14 @@ function getAllowedOrigin(): string {
  * Automatically uses the configured allowed origin and includes API version.
  * Safely handles errors to prevent serial output from blocking the simulator.
  * @param output - The serial output string to send.
+ * @param port - The serial port (`Serial1`–`Serial3` on the Mega 2560); the event carries it only when it is not 0.
  */
-export function emitSerialOutput(output: string): void {
+export function emitSerialOutput(output: string, port = 0): void {
   try {
     const event: SimulatorEventMessage<typeof SimulatorEventType.SERIAL_OUTPUT_EVENT> = {
       version: API_VERSION,
       type: SimulatorEventType.SERIAL_OUTPUT_EVENT,
+      ...(port === 0 ? {} : { port }),
       success: true,
       data: output,
     };

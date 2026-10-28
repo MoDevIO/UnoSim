@@ -122,11 +122,18 @@ Der Browser kontaktiert ausschließlich UnoSim:
 
 ```http
 POST /api/examples/validate
+GET /api/examples/builtin/catalog
 GET /api/examples
 GET /api/examples?repository=owner%2Frepository&ref=main
 GET /api/examples/:id?repository=owner%2Frepository&revision=<full-commit-sha>
 ```
 
+- `GET /api/examples/builtin/catalog` liefert ausschließlich eingebaute Beispiele
+  mit `mode: builtin`, `status: builtin`, `revision: null` und `stale: false`.
+  Der Endpoint akzeptiert keine Query-Parameter, verwendet nur den lokalen
+  Provider und benötigt weder Ref-Auflösung noch externe Load-/GitHub-Kontingente.
+  Es gelten dieselben anonymen Default-Leserechte wie beim gemeinsamen Katalog.
+  Die unabhängige Verfügbarkeit ist kein Wechsel der externen Source.
 - Fehlende Auswahlparameter beim Katalog bedeuten Server-Default.
 - Ein Override MUSS `repository` und `ref` gemeinsam übertragen.
 - Partielle, doppelte und unbekannte Parameter werden abgelehnt.
@@ -177,13 +184,37 @@ sind Repository, Ref und Revision null, der Status ist `builtin`. `stale=true`
 bedeutet, dass ausschließlich der LKG derselben Repository-/Ref-Auswahl
 geliefert wird.
 
+### 5.1 Unabhängige Verfügbarkeit im Beispiele-Menü
+
+Beim Öffnen MUSS der Client den eingebauten Katalog und den bisherigen
+Katalog parallel anfragen und ihre Ergebnisse getrennt verarbeiten. Eingebaute
+Einträge kommen ausschließlich aus `/api/examples/builtin/catalog`; aus dem
+gemeinsamen Katalog übernimmt das Menü ausschließlich externe Einträge.
+Ein erfolgreicher Teil bleibt während Ladezeit oder Fehler des anderen bedienbar.
+Bei Fehler MUSS ein dauerhafter gruppenbezogener Hinweis mit `Retry` erscheinen.
+Retry lädt nur die betroffene Gruppe; es gibt keine automatische Retry-Schleife.
+`No examples available` gilt nur, wenn beide Gruppen erfolgreich leer sind.
+
+Katalogabrufe, Fehler und Retry dürfen weder Editorinhalt noch Browser-Auswahl
+ändern. Überholte/abgebrochene Antworten dürfen keine neuere Auswahl überschreiben.
+Auch ein bereits gestarteter Detailabruf aus einer früheren Auswahl darf
+nach einem Quellenwechsel weder Editor noch aktiven Tutor-Beispielkontext setzen.
+Der eingebaute Abruf hat einen eigenen AbortController und verändert weder den
+globalen externen Katalogzustand noch dessen Tutor-/Revisionskontext. Eingebaute
+Details setzen beim tatsächlichen Laden den externen Beispielkontext wie bisher
+zurück. Ein Backend-Ausfall verwendet weiter das bestehende Offline-Verhalten;
+es gibt keinen persistenten Browsercache für Beispielinhalte.
+
 ## 6. Ref-Auflösung und atomare Aktivierung
 
 Für öffentliche GitHub-Repositories löst der Server den validierten Ref über
 den serverkontrollierten GitHub-Endpunkt
 `GET https://api.github.com/repos/<owner>/<repository>/commits/<ref>` auf. Die
-Antwort MUSS einen vollständigen kleingeschriebenen SHA gemäß
-`^[0-9a-f]{40}$` liefern. Browserinput bestimmt weder Host noch URL-Struktur.
+Anfrage MUSS `Accept: application/vnd.github.sha` verwenden. Die Textantwort
+MUSS nach Entfernen von Rand-Whitespace einen vollständigen kleingeschriebenen
+SHA gemäß `^[0-9a-f]{40}$` liefern. Ihr eigenes festes Antwortlimit beträgt
+256 Bytes, unabhängig vom Manifestlimit. Die vollständige Commit-JSON-Antwort
+mit Dateidiffs wird weder angefordert noch als Ausweichformat akzeptiert. Browserinput bestimmt weder Host noch URL-Struktur.
 
 Danach gelten ausschließlich folgende Content-Ziele:
 
@@ -230,6 +261,22 @@ als informative Legacy-Metadaten:
 
 Damit bleibt das vorhandene Manifest-Schema kompatibel. Es wird kein neues
 Pflichtfeld und keine unnötige Breaking-Change eingeführt.
+
+### 7.1 Optionales Feld `board` je Beispiel (P4.6)
+
+Ein Beispiel DARF `board` tragen, die ID des Boards, für das es geschrieben ist
+(`uno`, `nano`, `mega2560`, `attiny85`). Das Feld ist optional und
+abwärtskompatibel: Ein Beispiel ohne `board` passt zu jedem Board, und eine ID,
+die diese UnoSim-Version nicht kennt, gilt als nicht angegeben (ein neueres
+Manifest macht einen älteren Server nicht ungültig). Der Katalog
+(`GET /api/examples`) liefert `board` je Beispiel mit; die Details brauchen es
+nicht.
+
+Lädt jemand ein Beispiel für ein anderes Board als das gewählte, fragt die
+Oberfläche nach: „Switch to <Board>“ (stoppt einen laufenden Lauf, wählt das
+Board, lädt das Beispiel), „Load anyway“ (Board bleibt) oder „Cancel“. Ein
+Board, das der Server nicht anbietet oder das nur `planned` ist, lässt sich
+nicht wählen; dann bleiben „Load anyway“ und „Cancel“.
 
 ## 8. Cache- und Multi-Browser-Semantik
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # check-leaks.sh
 # Detects and optionally cleans up leaked compiler processes from Arduino sketch compilation.
-# Targets: g++, cc1plus, arduino-cli, avr-gcc, avr-g++, avr-ld
+# Targets: g++, cc1plus, arduino-cli, avr-gcc, avr-g++, avr-ld, and compile sandbox
+# containers (unosim-compile-*, plan P2.4) when Docker is reachable.
 #
 # Usage:
 #   ./check-leaks.sh              # Snapshot: list zombie compiler processes
@@ -205,6 +206,48 @@ check_devshm() {
 }
 
 # ---------------------------------------------------------------------------
+# Compile sandbox containers
+# ---------------------------------------------------------------------------
+
+# A compile container lives for one compile (at most ~75 s) and removes itself
+# (--rm). One that runs for minutes, or exists after it stopped, is a leak; with
+# cleanup it is removed. Returns 1 when a leak remains.
+check_compile_containers() {
+  local do_cleanup="${1:-false}"
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    echo -e "  ${CYAN}[docker]${RESET} Docker not reachable — compile containers not checked."
+    return 0
+  fi
+
+  local containers
+  containers=$(docker ps -a --filter "name=unosim-compile-" --format '{{.ID}} {{.Names}} {{.State}} {{.RunningFor}}' 2>/dev/null || true)
+  if [[ -z "$containers" ]]; then
+    echo -e "  ${GREEN}[docker] No compile sandbox containers.${RESET}"
+    return 0
+  fi
+
+  echo -e "  ${BOLD}Compile sandbox containers:${RESET}"
+  while IFS= read -r line; do echo "    $line"; done <<< "$containers"
+
+  if [[ "$do_cleanup" == "true" ]]; then
+    awk '{print $1}' <<< "$containers" | xargs docker rm -f >/dev/null 2>&1 || true
+    if [[ -n "$(docker ps -aq --filter "name=unosim-compile-" 2>/dev/null)" ]]; then
+      echo -e "  ${RED}[docker] Compile containers still present after cleanup.${RESET}"
+      return 1
+    fi
+    echo -e "  ${GREEN}[docker] Compile containers removed.${RESET}"
+    return 0
+  fi
+
+  if grep -Eqv ' running ' <<< "$containers" || grep -Eq '(minutes|hour|day|week|month)' <<< "$containers"; then
+    echo -e "  ${RED}[docker] Leaked compile container(s): stopped, or running for minutes.${RESET}"
+    return 1
+  fi
+  echo -e "  ${YELLOW}[docker] Compile container(s) running (may be normal during a compile).${RESET}"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # Modes
 # ---------------------------------------------------------------------------
 
@@ -274,8 +317,12 @@ mode_snapshot() {
     echo -e "\n${GREEN}[OK] No leaked compiler processes.${RESET}"
   fi
 
-  # Propagate RAM-disk failure after the process summary
-  if (( shm_ok != 0 )); then
+  echo ""
+  local containers_ok=0
+  check_compile_containers "$do_cleanup" || containers_ok=1
+
+  # Propagate RAM-disk and container failures after the process summary
+  if (( shm_ok != 0 || containers_ok != 0 )); then
     exit 1
   fi
 }

@@ -8,15 +8,26 @@ import { githubApiBudget } from "./github-api-budget";
 
 export type LoadedRevisionSnapshot = LoadedCourseContentSnapshot;
 
+export interface TextFetchOptions {
+  readonly representation?: "github-commit-sha";
+}
+
+export class ExamplesResponseTooLargeError extends Error {
+  constructor() {
+    super("Examples response exceeds size limit");
+    this.name = "ExamplesResponseTooLargeError";
+  }
+}
+
 export interface TextFetcher {
-  fetchText(url: URL, maxBytes: number, signal?: AbortSignal): Promise<string>;
+  fetchText(url: URL, maxBytes: number, signal?: AbortSignal, options?: TextFetchOptions): Promise<string>;
 }
 
 export class SecureExamplesFetcher implements TextFetcher {
   constructor(private readonly controller?: ExamplesLoadController) {}
 
-  fetchText(url: URL, maxBytes: number, signal?: AbortSignal): Promise<string> {
-    const operation = () => fetchText(url, maxBytes, signal);
+  fetchText(url: URL, maxBytes: number, signal?: AbortSignal, options?: TextFetchOptions): Promise<string> {
+    const operation = () => fetchText(url, maxBytes, signal, options);
     return this.controller ? this.controller.runOutbound(operation, signal) : operation();
   }
 }
@@ -53,9 +64,12 @@ export function validateSourceUrl(value: string): URL {
 
 const GITHUB_API_HOST = "api.github.com";
 
-async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal): Promise<string> {
+async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal, options?: TextFetchOptions): Promise<string> {
   requestSignal?.throwIfAborted();
   const validated = validateSourceUrl(url.toString());
+  if (options?.representation === "github-commit-sha" && (
+    validated.hostname !== GITHUB_API_HOST || !/^\/repos\/[^/]+\/[^/]+\/commits\/[^/]+$/.test(validated.pathname)
+  )) throw new Error("SHA representation requires a GitHub commit URL");
   await assertPublicHost(validated.hostname);
   requestSignal?.throwIfAborted();
   const controller = new AbortController();
@@ -64,11 +78,11 @@ async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal
   else requestSignal?.addEventListener("abort", abort, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.examples.timeoutMs);
   try {
-    const response = await requestSource(validated, controller.signal);
+    const response = await requestSource(validated, controller.signal, options);
     if (response.status >= 300 && response.status < 400) throw new Error("Redirects are not allowed for examples");
     if (!response.ok) throw new Error(`Examples source returned ${response.status}`);
     const contentLength = response.headers.get("content-length");
-    if (contentLength && Number(contentLength) > maxBytes) throw new Error("Examples response exceeds size limit");
+    if (contentLength && Number(contentLength) > maxBytes) throw new ExamplesResponseTooLargeError();
     if (!response.body) throw new Error("Examples response has no body");
     return await readLimitedText(response.body, maxBytes);
   } finally {
@@ -77,14 +91,18 @@ async function fetchText(url: URL, maxBytes: number, requestSignal?: AbortSignal
   }
 }
 
-async function requestSource(url: URL, signal: AbortSignal): Promise<Response> {
+async function requestSource(url: URL, signal: AbortSignal, options?: TextFetchOptions): Promise<Response> {
   const isGitHubApi = url.hostname.toLowerCase() === GITHUB_API_HOST;
   // The optional token is sent to the GitHub REST API only, never to raw content hosts.
   const token = isGitHubApi ? config.examples.githubToken : undefined;
+  const headers = {
+    ...(options?.representation === "github-commit-sha" ? { accept: "application/vnd.github.sha" } : {}),
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+  };
   const response = await fetch(url, {
     signal,
     redirect: "manual",
-    ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}),
+    ...(Object.keys(headers).length ? { headers } : {}),
   });
   if (isGitHubApi) githubApiBudget.observe(response.status, response.headers);
   return response;
@@ -100,7 +118,7 @@ async function readLimitedText(body: ReadableStream<Uint8Array>, maxBytes: numbe
     total += next.value.byteLength;
     if (total > maxBytes) {
       await reader.cancel();
-      throw new Error("Examples response exceeds size limit");
+      throw new ExamplesResponseTooLargeError();
     }
     chunks.push(next.value);
   }

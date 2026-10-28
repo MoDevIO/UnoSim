@@ -1,0 +1,7 @@
+A1 514
+A2 1023
+A3 102
+channel 1 514
+internal 1.1 V: A3 465
+internal 2.56 V: A3 200
+DONE

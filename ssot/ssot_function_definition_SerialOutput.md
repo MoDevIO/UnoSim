@@ -35,6 +35,8 @@ Der Simulator bildet das Verhalten der Arduino-`Print`-Bibliothek ab. Die Konver
 - **`Serial.print()`**: Konvertiert Werte in ASCII-Darstellung und sendet diese.
 
 ## 3. Transport-Protokoll
+
+> **Browser-Emulation:** Hier gibt es weder `SERIAL_EVENT` noch stderr. Der Emulator liefert die Bytes des USART (beim ATtiny85 die des Software-UART an PB0, Baudrate aus den Flanken erkannt); der Worker dekodiert sie als UTF-8 (je Port, auch über Paketgrenzen), bündelt sie mit höchstens 60 Paketen je Sekunde und sendet sie als Ereignis `serial`. `BrowserRuntime` macht daraus dieselben `serial_output`-Nachrichten wie der Server (Zeilen enden mit LF, CRLF wird zu LF, `isComplete` sagt, ob der Text eine Zeile beendet). Eingabe vor `Serial.begin()` geht verloren wie am Board und erscheint als Systemzeile. Details: SSOT SimulationRuntime.
 Alle Ausgaben (print, println, write) werden über **stderr** als base64-kodierte `SERIAL_EVENT`-Nachrichten gesendet:
 ```
 [[SERIAL_EVENT:<millis_timestamp>:<base64_data>]]
@@ -246,6 +248,8 @@ Das bisherige duale Format (`serial_output` für stdout, `serial_event` für std
 }
 ```
 
+**Mehrere serielle Schnittstellen (P5.3):** `serial_output` und `serial_input` tragen das optionale Feld `port` (ganze Zahl 0–3; fehlt es, gilt 0 = `Serial`). Der Mega 2560 hat vier Schnittstellen (`Serial`, `Serial1`–`Serial3`), alle anderen Boards eine. `BrowserRuntime` setzt `port` nur für `Serial1`–`Serial3`, die Meldungen für `Serial` bleiben unverändert; ein halbes `CR` am Ende eines Pakets wartet je Port auf sein `LF`. Der Host-Mock kennt nur `Serial`: der Server verwirft `serial_input` mit `port` ungleich 0.
+
 Der `serial_event`-Typ (mit `ts_write`, `baud`, etc.) wird entfernt. Die Baudrate-basierte Timing-Simulation wird serverseitig durch den Batcher erledigt — das Frontend muss keine Timestamps mehr verarbeiten.
 
 ### 9.2 Telemetrie-Erweiterung
@@ -262,6 +266,15 @@ interface PerformanceMetrics {
   serialDroppedBytesPerSecond: number;  // Verworfene Bytes/s
 }
 ```
+
+### 9.3 Serial Monitor mit Portauswahl (Mega 2560, P5.3)
+
+- Hat das gewählte Board mehr als eine Schnittstelle, zeigt der Kopf des Serial Monitors die Auswahl `Serial | Serial1 | Serial2 | Serial3` (`data-testid="serial-port-selector"`, Tabs `serial-port-<n>`); bei einer Schnittstelle fehlt sie. Der Monitor zeigt immer genau einen Port; ein Board mit weniger Ports als der gewählte fällt auf `Serial` zurück.
+- Das Eingabefeld sendet an den angezeigten Port (Platzhalter „Send to Serial2...“); „Clear“ leert den angezeigten Port (bei `Serial` auch die Plotterdaten), das Leeren beim Start eines Laufs leert alle.
+- Der Plotter zeigt nur `Serial` (Port 0), unabhängig von der Auswahl.
+- Systemzeilen (`--- Simulation paused ---`, `--- Simulation stopped ---`, Diagnosen) betreffen das ganze Board und erscheinen in jedem Port. Die Zeile für verworfene Eingabe nennt den Port („Serial2.begin() has not run“).
+- `Serial1`–`Serial3` erscheinen ohne Baudraten-Verzögerung (sie läuft nur für `Serial` des Host-Mocks); der Text ist wie bei `Serial` auf die letzten 40 000 Zeichen begrenzt.
+- iframe-API: `SERIAL_OUTPUT_EVENT` trägt `port` für `Serial1`–`Serial3`; `SERIAL_INPUT` nimmt `payload.port`; `GET_STATE` nennt `serialPorts` (siehe `docs/EXTERNAL_API.md`).
 
 ## 10. Aufräumarbeiten (Cleanup)
 

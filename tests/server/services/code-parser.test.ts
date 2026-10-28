@@ -754,7 +754,7 @@ void loop() {}
       parserWithAnalyzerSpy.parseAll(code);
 
       expect(analyzeIO).toHaveBeenCalledOnce();
-      expect(analyzeIO).toHaveBeenCalledWith(code);
+      expect(analyzeIO).toHaveBeenCalledWith(code, { board: "uno" }); // the board of the parser (plan P4.2)
     });
 
     it("should combine all parser results", () => {
@@ -855,7 +855,7 @@ void loop() {}
       new CodeParser(undefined, analyzeProject).parseAllProject(project);
 
       expect(analyzeProject).toHaveBeenCalledOnce();
-      expect(analyzeProject).toHaveBeenCalledWith(project);
+      expect(analyzeProject).toHaveBeenCalledWith(project, { board: "uno" });
     });
 
     it("analyzes reachable headers once and preserves file provenance", () => {

@@ -1,3 +1,4 @@
+import type { BoardId } from "@shared/boards";
 import { useSyncExternalStore } from "react";
 
 export const EXTERNAL_EXAMPLES_STORAGE_KEY = "unoExternalExamplesSelection";
@@ -25,6 +26,8 @@ export interface ExternalExampleCatalogItem {
   title: string;
   category: string;
   description?: string;
+  /** The board the example is written for (plan P4.6). */
+  board?: BoardId;
   main: string;
   source: "builtin" | "external";
   files: Array<{ name: string; path: string }>;
@@ -174,6 +177,20 @@ export async function validateExternalExamplesSelection(
     );
   }
   return payload.source;
+}
+
+/** Loads local examples independently of selection, external request generation and Tutor state. */
+export async function loadBuiltInExamplesCatalog(signal?: AbortSignal): Promise<ExternalExamplesCatalog> {
+  const response = await fetch("/api/examples/builtin/catalog", { signal });
+  if (!response.ok) throw await parseApiError(response);
+  const payload = await parseJson(response);
+  if (!isCatalog(payload) || payload.source.selection !== "default" || payload.source.mode !== "builtin"
+    || payload.source.status !== "builtin" || payload.source.repository !== null || payload.source.ref !== null
+    || payload.source.revision !== null || payload.source.stale
+    || !payload.examples.every(example => example && typeof example === "object" && example.source === "builtin")) {
+    throw new ExternalExamplesError("UNKNOWN", "The server returned an invalid built-in examples catalog.");
+  }
+  return payload;
 }
 
 export async function refreshExternalExamplesCatalog(

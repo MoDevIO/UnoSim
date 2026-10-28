@@ -1,0 +1,18 @@
+{
+  "name": "@unosim/avr-emulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AVR emulation core of UnoSim: board and MCU profiles, peripherals, timing and event protocol on top of avr8js.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./boards": "./src/boards/index.ts",
+    "./image": "./src/image/index.ts",
+    "./worker": "./src/worker/entry.ts",
+    "./protocol": "./src/protocol/index.ts"
+  },
+  "dependencies": {
+    "avr8js": "0.21.1"
+  }
+}

@@ -2,6 +2,23 @@
 
 Status: current
 
+## Pin capability reference and registry tabs
+
+`packages/avr-emulator/tests/boards/pin-reference.test.ts` checks bus and
+interrupt mappings against hand-checked pinned-core/MCU expectations, including
+Nano analog-only pins, ATtiny USI master roles, and Mega PCINT helper limits.
+`tests/client/io-registry-tabs.test.tsx` verifies the shared source-detail state,
+full file/line navigation targets, empty registries, runtime additions, and
+board changes. `tests/client/pin-infos.test.tsx` covers the compact reference,
+search, restrictions and nonprogrammable contacts.
+
+`e2e/pin-infos.spec.ts` checks the real board menu, reference updates, usage
+source state, the single sticky header/Pin column, and overflow at 100 % and
+150 % font scale in a narrow panel. It expands the initially minimized output
+panel before interacting with the registry. The UI uses existing semantic
+colors, central typography, AppTab/TabBar, and UnifiedScrollArea; no prototype
+CSS is copied into the application.
+
 ## CI Timing Tolerances
 
 ### 🕒 Timing tests are inherently flaky in CI
@@ -19,6 +36,89 @@ The unit budget is **55 seconds**. The current baseline contains 2,115 tests;
 CI runtime depends on shared-runner load. Local HTTP listener tests run in the
 serial `unit-node-http` project while the remaining Node tests stay
 file-parallel. The budget is a wall-clock guard, not a per-test timeout.
+
+### Emulator coverage pass
+
+`npm run test:coverage` runs the Vitest project `unit-emulator`
+(`packages/avr-emulator/tests/`) in a second coverage pass with its own
+budget (`unit-emulator-coverage`, warning 60 s, hard fail 120 s) and report
+directory `coverage/emulator/`. V8 block coverage instruments the avr8js
+interpreter as well and slows emulation down by an order of magnitude, which
+would otherwise consume the shared unit-coverage budget. `npm run test:unit`
+runs the same split without coverage: `test:unit:app` (budget `unit`, warning
+75 s, hard fail 120 s) and `test:unit:emulator` (budget `unit-emulator`,
+warning 45 s, hard fail 90 s). The emulator corpus grows with every board and
+must not eat the budget of the application tests; the combined unit pass had
+only 0.8 s of headroom before the Mega corpus was added. The coverage guard
+validates both `lcov` files and requires at least 90 % line coverage for
+`packages/avr-emulator/src/`; Sonar reads both reports.
+
+### Application coverage pass
+
+The application pass of `npm run test:coverage` (`unit-client`, `unit-node`,
+`unit-node-http`; budget `unit-coverage`) has a warning at 100 s and a hard
+fail at 150 s. It was 75 s / 120 s until 2026-10-25. Measured on the GitHub
+runners, 14 runs: 78 s to 120 s; on 2026-10-25 every run was between 115.8 s
+and 119.97 s, one run on 2026-10-23 failed at 125 s, while the same pass takes
+41 s on an Apple M2 Pro. The suite grew by about 600 tests since the old limit
+was set (3,658 tests), V8 coverage costs roughly 50 % more than the plain pass
+(`test:unit:app`, 80 s on the runner, limits unchanged), and no single test
+dominates: the three slowest files take about a third of the summed file time
+(compile tests with a faked CLI at roughly 150 ms per compile). The new limit
+keeps 25 % headroom over the slowest run seen; no test was removed or skipped.
+A run that approaches 150 s is the signal to split the pass, not to raise the
+limit again.
+
+Emulator tests should keep simulated time short: about 1 ms of simulated time
+costs roughly 1 ms of wall time without coverage and 5–25 ms with it.
+
+### Runtime reference corpus
+
+`tests/fixtures/runtime-corpus/` holds the cases that decide whether the
+emulation behaves like the board: `probes/<case>/` (sketch, `case.json`,
+`expected.<board>.txt`) and precompiled `hex/<board>/<case>.hex`, so the unit
+gate (`unit-emulator`, `packages/avr-emulator/tests/runtime-corpus.test.ts`)
+needs no toolchain. Every case belongs to exactly one class, and a pass proves
+exactly that much:
+
+| `provenance` | Source of the expectation | A pass proves |
+|---|---|---|
+| `hardware` | recorded once on a real board (`recordedOn`) | agreement with the board |
+| `derived` | derived independently of the emulator (datasheet, core source, calculation; stated in `basis`) | agreement with that derivation, not with hardware |
+| `regression` | emulator output, reviewed for plausibility | only that nothing changed |
+
+Expectations compare serial port 0 line by line (CRLF read as LF).
+Tolerances apply only to time values, each with a pattern, a width and a
+reason in `case.json`; the ±250 ms of the wall-clock tests above does not
+apply to emulator cases. `npm run fixtures:runtime` rebuilds the HEX files with
+the pinned toolchain; the toolchain gate
+(`tests/integration/runtime-corpus-fixtures.test.ts`) fails when a rebuild
+differs from the checked-in bytes, in which case fixtures and core version are
+updated together. Serial output of a case must fit in its `simMs` (at 115200
+baud about 11 characters per simulated millisecond).
+
+The corpus is split into shards (`packages/avr-emulator/tests/runtime-corpus-*.test.ts`)
+so that Vitest spreads it over its workers. It runs in `npm run test:unit`
+but not in the emulator coverage pass (`UNOSIM_SKIP_CORPUS=1` in
+`test:coverage`): it adds no coverage of `src/` and costs minutes under V8
+instrumentation. The toolchain gate rebuilds every fixture; its budget is
+300 s (`test:integration`).
+
+### Browser emulation (M1)
+
+`e2e/browser-emulation.spec.ts` runs the whole path in a real browser against a
+real compile: Uno in the Web Worker, serial output and input, pause, resume
+and stop with their system lines, the diagnostic for input before
+`Serial.begin()`, reset without compiling again, a run that continues while the
+connection is lost, and the host-mock fallback. The engine is chosen with the
+`localStorage` key of File → Settings → "Simulation engine" (`unoSimulationEngine`).
+The test server serves the pre-built `dist/public`. Playwright runs a fresh
+production build before starting its test server, for both local and CI runs.
+This also refreshes board SVGs and compiled workers after a pull; an existing
+`dist` directory is not evidence that it matches the current source. The test
+server is owned by the run and never reuses an already running application.
+Keep port 3000 free for direct Playwright runs; `run-tests.sh` handles this in
+its pre-flight stage. No separate manual build is required before the E2E step.
 
 ---
 
@@ -92,3 +192,17 @@ security defaults, or open public host bindings.
   1. `npm run check`
   2. `npm run test:fast`
   3. `./run-tests.sh`
+
+## Verfügbarkeit von Beispielen
+
+Regressionstests für Beispiele simulieren ausgehende GitHub-Antworten
+deterministisch. Die Commit-Auflösung prüft die SHA-Repräsentation, das separate
+256-Byte-Limit, Header-/Token-Grenzen, Abbruch und bestehende Quota-Regeln.
+API-Tests prüfen den eingebauten Katalog ohne externe Provideraufrufe.
+`e2e/examples-availability.spec.ts` hält nur den gemeinsamen Katalog zurück oder
+antwortet dort mit HTTP 503. Der lokale Katalog und die Blink-Datei werden vom
+echten Testbackend geladen; anschließend wird der Code im Monaco-Editor geprüft.
+Ein weiteres Szenario prüft Retry und Wiederherstellung ohne Editorwechsel oder
+doppelten lokalen Abruf. Unit-Tests decken außerdem HTTP 429, leere Teilergebnisse,
+den umgekehrten Teilausfall und verspätete Antworten nach Auswahlwechsel ab.
+Ein echter GitHub-Ausfall ist keine Voraussetzung für diese Tests.

@@ -6,7 +6,9 @@ import {
   type StaticIOOperation,
   type UnresolvedStaticIOCall,
 } from "@shared/io-registry-parser";
-import { UNO_PWM_PINS, isUnoPwmPin } from "@shared/utils/arduino-utils";
+import type { BoardId } from "../boards";
+import { type PinContext, pinContext } from "./pin-context";
+import { stripComments } from "../parser-patterns";
 
 const DIGITAL_OPERATIONS = new Set<StaticIOOperation>([
   "digitalRead",
@@ -19,10 +21,6 @@ function sourceLocation(call: StaticIOCall | UnresolvedStaticIOCall): Pick<Parse
     line: call.line,
     ...(call.file ? { file: call.file } : {}),
   };
-}
-
-function pinLabel(pinId: number): string {
-  return pinId >= 14 ? `A${pinId - 14}` : String(pinId);
 }
 
 function resolvedCalls(
@@ -80,11 +78,23 @@ function createVariableMissingPinModeMessage(
 
 /** Derives hardware compatibility messages from canonical static I/O facts. */
 export class HardwareCompatibilityParser {
-  constructor(private readonly analysis: StaticIOAnalysis) {}
+  private readonly pins: PinContext;
+
+  constructor(
+    private readonly analysis: StaticIOAnalysis,
+    board?: BoardId,
+    /** The sketch, to tell whether it uses `Serial` (rules for a software serial port). */
+    private readonly code = "",
+  ) {
+    this.pins = pinContext(board);
+  }
 
   parse(): ParserMessage[] {
     return [
       ...this.checkAnalogWritePWM(),
+      ...this.checkAnalogOnlyPins(),
+      ...this.checkResetPin(),
+      ...this.checkSoftwareSerialPins(),
       ...this.checkPinModeConflicts(),
       ...this.checkMissingPinModes(),
       ...this.checkOutputPinsReadAsInput(),
@@ -93,16 +103,76 @@ export class HardwareCompatibilityParser {
 
   private checkAnalogWritePWM(): ParserMessage[] {
     return resolvedCalls(this.analysis, "analogWrite")
-      .filter(({ pinId }) => !isUnoPwmPin(pinId))
+      .filter(({ pinId }) => !this.pins.pwmPins().includes(pinId))
       .map((call) => ({
         id: randomUUID(),
         type: "warning" as const,
         category: "hardware" as const,
         severity: 2 as const,
-        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on Arduino UNO. PWM pins: ${UNO_PWM_PINS.join(", ")}.`,
+        message: `analogWrite(${call.sourceExpression}, ...) used on pin ${call.pinId}, which doesn't support PWM on ${this.pins.displayName}. PWM pins: ${this.pins.pwmPins().join(", ")}.`,
         suggestion: "// Use PWM pin instead: analogWrite(3, value);",
         ...sourceLocation(call),
       }));
+  }
+
+  /** Inputs without a digital function (A6, A7 of the Nano) cannot be used with pinMode(), digitalRead() or digitalWrite(). */
+  private checkAnalogOnlyPins(): ParserMessage[] {
+    return this.analysis.pins
+      .filter(({ pinId }) => this.pins.analogOnly(pinId))
+      .flatMap(({ pinId, calls }) =>
+        calls
+          .filter(({ op }) => op === "pinMode" || op === "digitalRead" || op === "digitalWrite")
+          .map((call) => ({
+            id: randomUUID(),
+            type: "warning" as const,
+            category: "hardware" as const,
+            severity: 2 as const,
+            message: `${call.op}(${call.sourceExpression}, ...) used on ${this.pins.label(pinId)}, which is an analog-only input on ${this.pins.displayName} and has no digital function.`,
+            suggestion: `// Read it with analogRead(${this.pins.label(pinId)}) instead`,
+            ...sourceLocation(call),
+          })),
+      );
+  }
+
+  /** A pin reserved for RESET (ATtiny85 PB5) has no digital function; analogRead() of it works. */
+  private checkResetPin(): ParserMessage[] {
+    return this.analysis.pins
+      .filter(({ pinId }) => this.pins.role(pinId) === "reset")
+      .flatMap(({ pinId, calls }) =>
+        calls
+          .filter(({ op }) => op !== "analogRead")
+          .map((call) => ({
+            id: randomUUID(),
+            type: "warning" as const,
+            category: "hardware" as const,
+            severity: 2 as const,
+            message: `${call.op}(${call.sourceExpression}, ...) used on pin ${pinId}, which is the RESET pin of ${this.pins.displayName} and cannot be used as digital I/O.`,
+            suggestion: "// Use one of the pins 0–4",
+            ...sourceLocation(call),
+          })),
+      );
+  }
+
+  /**
+   * On a board whose `Serial` is a software UART on ordinary pins (ATtiny85: TX
+   * on 0, RX on 1), using those pins for anything else disturbs `Serial`.
+   */
+  private checkSoftwareSerialPins(): ParserMessage[] {
+    const serial = this.pins.softwareSerialPins();
+    if (!serial || !/\bSerial\s*\.\s*\w+/.test(stripComments(this.code))) return [];
+    return this.analysis.pins
+      .filter(({ pinId }) => pinId === serial.tx || pinId === serial.rx)
+      .flatMap(({ pinId, calls }) =>
+        calls.map((call) => ({
+          id: randomUUID(),
+          type: "warning" as const,
+          category: "hardware" as const,
+          severity: 2 as const,
+          message: `${call.op}(${call.sourceExpression}, ...) used on pin ${pinId}, which is Serial ${pinId === serial.tx ? "TX" : "RX"} on ${this.pins.displayName}; Serial ${pinId === serial.tx ? "output" : "input"} will not work while the sketch uses the pin.`,
+          suggestion: `// Use another pin, Serial needs pins ${serial.tx} and ${serial.rx}`,
+          ...sourceLocation(call),
+        })),
+      );
   }
 
   private checkPinModeConflicts(): ParserMessage[] {
@@ -117,7 +187,7 @@ export class HardwareCompatibilityParser {
       const pin =
         firstExpression && LITERAL_PIN_EXPRESSION.test(firstExpression)
           ? firstExpression
-          : pinLabel(pinId);
+          : this.pins.label(pinId);
       const conflictCall = pinModeCalls[1];
 
       if (uniqueModes.length > 1) {
@@ -192,7 +262,7 @@ export class HardwareCompatibilityParser {
       const readCall = calls.find(({ op }) => op === "digitalRead");
       if (!isOutput || !readCall) continue;
 
-      const pin = pinLabel(pinId);
+      const pin = this.pins.label(pinId);
       messages.push({
         id: randomUUID(),
         type: "warning",

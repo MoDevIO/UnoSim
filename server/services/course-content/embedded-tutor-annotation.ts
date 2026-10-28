@@ -1,5 +1,6 @@
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { boundedArray } from "@shared/bounded-array";
 
 export const EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES = 16 * 1024;
 const OPENING_MARKER = "/* @unosim-tutor";
@@ -11,10 +12,10 @@ const learningObjectiveSchema = z.preprocess(
   (value) => typeof value === "string" ? value.trim() : value,
   z.string().min(1).superRefine((value, context) => {
     if ([...value].length > 500) {
-      context.addIssue({ code: z.ZodIssueCode.too_big, maximum: 500, type: "string", inclusive: true, message: "Objective is too long" });
+      context.addIssue({ code: "too_big", maximum: 500, origin: "string", inclusive: true, message: "Objective is too long" });
     }
     if (CONTROL_CHARACTER.test(value)) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Objective contains a control character" });
+      context.addIssue({ code: "custom", message: "Objective contains a control character" });
     }
   }),
 );
@@ -34,37 +35,37 @@ const focusAreaSchema = z.object({
   id: z.string().regex(SAFE_TUTOR_ID),
   title: SAFE_TEXT(160),
   objective: SAFE_TEXT(500),
-  questions: z.array(focusQuestionSchema).min(1).max(6),
+  questions: boundedArray(focusQuestionSchema, 6, 1),
 }).strict();
 
 export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
 
 export const embeddedTutorAnnotationSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2)]),
-  focus: z.array(focusAreaSchema).min(1).max(8).optional(),
+  focus: boundedArray(focusAreaSchema, 8, 1).optional(),
   afterFocus: z.enum(["free", "topics"]).optional(),
-  topics: z.array(z.string().regex(SAFE_TUTOR_ID)).min(1).max(32).optional(),
+  topics: boundedArray(z.string().regex(SAFE_TUTOR_ID), 32, 1).optional(),
   primaryTopic: z.string().regex(SAFE_TUTOR_ID).optional(),
   strategy: z.string().regex(SAFE_TUTOR_ID).optional(),
-  learningObjectives: z.array(learningObjectiveSchema).min(1).max(10).optional(),
+  learningObjectives: boundedArray(learningObjectiveSchema, 10, 1).optional(),
 }).strict().superRefine((value, context) => {
   if (value.schemaVersion === 1 && (value.focus !== undefined || value.afterFocus !== undefined)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
+    context.addIssue({ code: "custom", path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
   }
   if (value.afterFocus !== undefined && value.focus === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["afterFocus"], message: "afterFocus requires focus" });
+    context.addIssue({ code: "custom", path: ["afterFocus"], message: "afterFocus requires focus" });
   }
   if (value.focus !== undefined && new Set(value.focus.map(({ id }) => id)).size !== value.focus.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["focus"], message: "focus ids must be unique" });
+    context.addIssue({ code: "custom", path: ["focus"], message: "focus ids must be unique" });
   }
   if (value.primaryTopic !== undefined && value.topics === undefined) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryTopic"], message: "primaryTopic requires topics" });
+    context.addIssue({ code: "custom", path: ["primaryTopic"], message: "primaryTopic requires topics" });
   }
   if (value.primaryTopic !== undefined && value.topics !== undefined && !value.topics.includes(value.primaryTopic)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryTopic"], message: "primaryTopic must be listed in topics" });
+    context.addIssue({ code: "custom", path: ["primaryTopic"], message: "primaryTopic must be listed in topics" });
   }
   if (value.topics !== undefined && new Set(value.topics).size !== value.topics.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["topics"], message: "topics must be unique" });
+    context.addIssue({ code: "custom", path: ["topics"], message: "topics must be unique" });
   }
 });
 

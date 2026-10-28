@@ -1,3 +1,5 @@
+import { isAnalogPin } from "@/lib/active-board";
+import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useEffect, useCallback, useRef } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { getWebSocketManager } from "@/lib/websocket-manager";
@@ -9,6 +11,7 @@ import { telemetryStore } from "@/hooks/use-telemetry-store";
 import type { PinState, PinStateType } from "@/hooks/use-simulation-store";
 import { emitPinStateChange, emitSimulationStateEvent, emitOperationErrorEvent } from "@/hooks/use-external-api";
 import type { DockerGccPhase } from "@/hooks/use-compile-and-run";
+import { getRuntimeHub } from "@/lib/runtime/runtime-hub";
 import type {
   IncomingArduinoMessage,
   SerialPayload,
@@ -64,9 +67,9 @@ export type UseWebSocketHandlerParams = {
   simulationStatus: SimulationStatus;
 
   // callbacks / setters from parent scope
-  addDebugMessage: (source: "frontend" | "server", type: string, data: string, protocol?: "websocket" | "http") => void;
+  addDebugMessage: (source: DebugSender, type: string, data: string, protocol?: DebugProtocol) => void;
   setRxActivity: React.Dispatch<React.SetStateAction<number>>;
-  appendSerialOutput: (text: string) => void;
+  appendSerialOutput: (text: string, port?: number) => void;
   appendRenderedText: (text: string) => void;
   setSerialOutput: React.Dispatch<React.SetStateAction<OutputLine[]>>;
   setArduinoCliStatus: React.Dispatch<React.SetStateAction<"idle" | "compiling" | "success" | "error">>;
@@ -169,6 +172,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
   const handleSerialOutput = (message: SerialPayload) => {
     let text = (message.data ?? "").toString();
     const isComplete = message.isComplete ?? true;
+    const port = message.port ?? 0;
 
     // Skip timing control messages
     if (text.includes("[[TIME_RESUMED:") || text.includes("[[TIME_FROZEN:")) {
@@ -202,8 +206,11 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       } else {
         textForRenderer = text;
       }
-      appendSerialOutput(textForRenderer);
+      appendSerialOutput(textForRenderer, port);
     }
+
+    // The plotter and the line list belong to `Serial`; the other ports have their text only.
+    if (port !== 0) return;
 
     setSerialOutput((prev) => {
       const newLines = [...prev];
@@ -375,7 +382,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       );
       if (hasAnalogOp) {
         const pinNum = pinToNumber(record.pin);
-        if (pinNum !== null && pinNum >= 14 && pinNum <= 19) {
+        if (pinNum !== null && isAnalogPin(pinNum)) {
           analogPins.add(pinNum);
         }
       }
@@ -527,7 +534,9 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
 
     // Log all messages to debug console BEFORE consuming them
     messageQueue.forEach((msg) => {
-      addDebugMessage("server", msg.type || "unknown", JSON.stringify(msg, null, 2), "websocket");
+      // Events of a browser run are fed into this stream by the page itself; they did not come from the server.
+      const fromBrowser = getRuntimeHub().isBrowserEvent(msg);
+      addDebugMessage(fromBrowser ? "browser" : "server", msg.type || "unknown", JSON.stringify(msg, null, 2), fromBrowser ? "worker" : "websocket");
     });
 
     const messages = consumeMessages();
@@ -547,6 +556,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     const connectionLost = wasConnectedRef.current && !isConnected;
     wasConnectedRef.current = isConnected;
     if (!connectionLost) return;
+    // A browser run does not depend on the connection and continues (plan P3.5).
+    if (getRuntimeHub().browserRunActive) return;
     lastServerReportedStatusRef.current = null;
     if (simulationStatusRef.current === "idle") return;
     // Rendered before the reset stops the serial renderer, like a server-side stop notice.

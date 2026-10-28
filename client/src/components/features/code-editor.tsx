@@ -1,3 +1,5 @@
+import { formatCode } from "@/lib/editor/format-code";
+import { arduinoLanguageConfiguration } from "@/lib/editor/arduino-language-configuration";
 import { useEffect, useRef } from "react";
 // Import the editor API directly; the package root pulls every Monaco language.
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
@@ -31,53 +33,6 @@ function findFunctionInLines(
 
 /** Intentional no-op error handler - avoids anonymous function nesting in .catch() (S2004). */
 const _ignoreErr = () => {};
-
-// Formatting function
-function formatCode(code: string): string {
-  let formatted = code;
-
-  // 1. Normalize line endings
-  formatted = formatted.replaceAll('\r\n', '\n');
-
-  // 2. Add newlines after opening braces
-  formatted = formatted.replaceAll(/\{\s*/g, "{\n");
-
-  // 3. Add newlines before closing braces
-  formatted = formatted.replaceAll(/[ \t\n\r]*\}/g, "\n}"); // NOSONAR S2631
-
-  // 4. Indent blocks (simple 2-space indentation)
-  const lines = formatted.split("\n");
-  let indentLevel = 0;
-  const indentedLines = lines.map((line) => {
-    const trimmed = line.trim();
-
-    // Decrease indent for closing braces
-    if (trimmed.startsWith("}")) {
-      indentLevel = Math.max(0, indentLevel - 1);
-    }
-
-    const indented = "  ".repeat(indentLevel) + trimmed;
-
-    // Increase indent after opening braces
-    if (trimmed.endsWith("{")) {
-      indentLevel++;
-    }
-
-    return indented;
-  });
-
-  formatted = indentedLines.join("\n");
-
-  // 5. Remove multiple consecutive blank lines
-  formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
-
-  // 6. Ensure newline at end of file
-  if (!formatted.endsWith("\n")) {
-    formatted += "\n";
-  }
-
-  return formatted;
-}
 
 function insertSuggestionAtLine(
   editor: monaco.editor.IStandaloneCodeEditor,
@@ -238,6 +193,7 @@ export function CodeEditor({
 
     // Configure Monaco for Arduino C++
     monaco.languages.register({ id: "arduino-cpp" });
+    monaco.languages.setLanguageConfiguration("arduino-cpp", arduinoLanguageConfiguration);
 
     // Set tokens provider for Arduino C++ (use stateful handling for block comments)
     monaco.languages.setMonarchTokensProvider("arduino-cpp", {
@@ -348,9 +304,11 @@ export function CodeEditor({
       cursorStyle: "line",
       cursorWidth: 2,
       cursorSmoothCaretAnimation: "on",
-      // Prevent auto-indent and format-on-paste/type from mangling programmatically
-      // inserted code (e.g. via Playwright setValue / setEditorContent).
-      autoIndent: "none",
+      // Enter continues the indentation; setValue / executeEdits (programmatic inserts) are not affected.
+      autoIndent: "full",
+      tabSize: 2,
+      insertSpaces: true,
+      detectIndentation: false,
       formatOnPaste: false,
       formatOnType: false,
     });

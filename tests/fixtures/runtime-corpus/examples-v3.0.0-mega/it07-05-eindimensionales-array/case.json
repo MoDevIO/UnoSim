@@ -1,0 +1,18 @@
+{
+  "board": "mega2560",
+  "simMs": 900,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "A byte array and the time stamps of four 200 ms steps (the same example on the Mega 2560).",
+  "basis": "the output of the example on the Uno (recorded on a real Uno R3, class hardware) holds for the Mega 2560: the sketch uses no feature in which the ATmega328P and the ATmega2560 differ (no pin above 13, A0 as ADC channel 0, 16 MHz, 16-bit int, same core 1.8.8); no recording on a Mega exists",
+  "events": [],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "^zeitpunkte\\[\\d\\] = (\\d+)$",
+      "plusMinus": 2,
+      "reason": "millis() granularity of 1 ms per delay(200) and the few microseconds of the loop body, summed over up to three steps"
+    }
+  ],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

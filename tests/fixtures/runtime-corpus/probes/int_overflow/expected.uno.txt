@@ -1,0 +1,13 @@
+int 32767+1 = -32768
+int after ++ = -32768
+unsigned int 65535+1 = 0
+byte 255+1 = 0
+long max+1 = -2147483648
+unsigned long max+1 = 0
+200*200 as int = -25536
+200*200 as long = 40000
+200*200 as unsigned = 40000
+-7 / 2 = -3
+-7 % 3 = -1
+1 << 15 = -32768
+DONE

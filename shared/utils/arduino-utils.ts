@@ -1,3 +1,4 @@
+import { boardPwmPins } from "../board-pins";
 import type { PinMode } from "../types/arduino.types";
 
 const PIN_MODE_NAMES: Record<number, PinMode> = {
@@ -12,10 +13,10 @@ export function pinModeToString(mode: number): PinMode {
 
 /**
  * PWM-capable digital pins of the Arduino UNO (the pins marked "~"), in board
- * order. The single definition of this hardware property: UI, polling engine
- * and hardware-compatibility checks all derive from it.
+ * order, derived from the board hardware of the emulation package (`board-pins`).
+ * UI, polling engine and hardware-compatibility checks derive from it.
  */
-export const UNO_PWM_PINS: readonly number[] = [3, 5, 6, 9, 10, 11];
+export const UNO_PWM_PINS: readonly number[] = boardPwmPins("uno");
 
 const UNO_PWM_PIN_SET: ReadonlySet<number> = new Set(UNO_PWM_PINS);
 

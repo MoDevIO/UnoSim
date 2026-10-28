@@ -1,0 +1,11 @@
+{
+  "board": "mega2560",
+  "simMs": 700,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "PROGMEM above 64 KB read with the far instructions, code above 128 KB with an indirect call (22-bit program counter, EIND).",
+  "basis": "ATmega2560 datasheet (ELPM with RAMPZ, 22-bit PC, EIND) and avr-libc pgm_read_byte_far: four tables of 34000 bytes with byte i of table k = (i * 31 + k * 7) mod 256, summed in Python: 4335080, 4335000, 4334664, 4334584; byte 33999 of table 3 is 38; the tables fill 136000 bytes, so the last one lies above 64 KB and the code above 128 KB (spike P0.6)",
+  "events": [],
+  "expectState": [],
+  "tolerances": []
+}

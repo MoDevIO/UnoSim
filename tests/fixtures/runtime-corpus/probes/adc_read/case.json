@@ -1,0 +1,17 @@
+{
+  "board": "uno",
+  "simMs": 100,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "analogRead against fixed voltages, with the default and the internal reference.",
+  "basis": "ATmega328P datasheet 24.7: ADC = floor(Vin * 1024 / Vref) limited to 1023, Vref = VCC (5 V) for DEFAULT and 1.1 V for INTERNAL; computed by hand: 2.51 V -> 514, 0 V -> 0, 5 V -> 1023, 1.1 V -> 225, 0.6 V -> 122 (DEFAULT) and 558 (INTERNAL)",
+  "events": [
+    [0, "adcVolts", 0, 2.51],
+    [0, "adcVolts", 1, 0],
+    [0, "adcVolts", 2, 5],
+    [0, "adcVolts", 3, 1.1],
+    [0, "adcVolts", 4, 0.6]
+  ],
+  "expectState": [],
+  "tolerances": []
+}

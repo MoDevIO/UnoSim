@@ -25,9 +25,45 @@ const OFFLINE_CAPABILITIES: ServerCapabilities = Object.freeze({
   canUseRealtimeControls: false,
 });
 
-/** Derives every server-dependent UI capability from backendReachable. */
+/** Only the controls of a running browser emulation, which needs no server (plan P3.5). */
+const BROWSER_RUN_OFFLINE_CAPABILITIES: ServerCapabilities = Object.freeze({
+  ...OFFLINE_CAPABILITIES,
+  canSimulate: true,
+  canUseRealtimeControls: true,
+});
+
+/**
+ * Derives every server-dependent UI capability from backendReachable. A
+ * running browser emulation keeps its own controls (pause, stop, serial input,
+ * pins) while the server is gone; compile, examples and the tutor stay offline.
+ */
 export function getServerCapabilities(
   backendReachable: boolean,
+  browserRunActive = false,
 ): ServerCapabilities {
-  return backendReachable ? AVAILABLE_CAPABILITIES : OFFLINE_CAPABILITIES;
+  if (backendReachable) return AVAILABLE_CAPABILITIES;
+  return browserRunActive ? BROWSER_RUN_OFFLINE_CAPABILITIES : OFFLINE_CAPABILITIES;
 }
+
+export interface SimulateControlInput {
+  readonly canSimulate: boolean;
+  readonly simulationStatus: string;
+  readonly backendReachable: boolean;
+  readonly isConnected: boolean;
+  /** A start, stop, pause, resume or compile request is in flight. */
+  readonly busy: boolean;
+  /** The current or latest run is a browser run: it needs no server once it exists. */
+  readonly browserRun: boolean;
+}
+
+/**
+ * Whether the Start / Pause / Resume control is disabled. Starting needs the server (the compile), and so
+ * does resuming a server-side run. A paused run of the browser emulation does not: pause, resume and
+ * stop work without a connection (plan P3.5).
+ */
+export function isSimulateControlDisabled({ canSimulate, simulationStatus, backendReachable, isConnected, busy, browserRun }: SimulateControlInput): boolean {
+  if (!canSimulate || busy) return true;
+  const needsServer = simulationStatus === "idle" || (simulationStatus === "paused" && !browserRun);
+  return needsServer && (!backendReachable || !isConnected);
+}
+

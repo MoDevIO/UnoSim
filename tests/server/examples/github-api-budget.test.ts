@@ -59,7 +59,7 @@ describe("GitHub revision resolution under a rate limit", () => {
   it("sends no request while blocked and reports RATE_LIMITED with the remaining wait", async () => {
     const budget = new GitHubApiBudget(() => nowMs);
     budget.observe(403, headers({ "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(nowMs / 1000 + 300) }));
-    const fetchText = vi.fn(async () => JSON.stringify({ sha: revision }));
+    const fetchText = vi.fn(async () => revision);
     const resolver = new GitHubRevisionResolver({ fetchText }, budget);
 
     await expect(resolver.resolve("owner/repo", "main", context)).rejects.toMatchObject({ code: "RATE_LIMITED", retryAfterSeconds: 300 });
@@ -71,7 +71,7 @@ describe("GitHub revision resolution under a rate limit", () => {
     const budget = new GitHubApiBudget(() => now);
     let exhausted = false;
     const fetchText = vi.fn(async () => {
-      if (!exhausted) return JSON.stringify({ sha: revision });
+      if (!exhausted) return revision;
       budget.observe(403, headers({ "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(now / 1000 + 1_800) }));
       throw new Error("Examples source returned 403");
     });

@@ -2,6 +2,182 @@
 
 All notable changes to UnoSim. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- I/O Registry now has **Programmed Pins (n)**, **All Pins**, and **Pin Infos**
+  tabs. The usage views retain runtime provenance, conflict markers, and
+  file-aware source links with the shared eye-button state. Pin Infos provides
+  a searchable reference for all four boards with one bus column, nine
+  columns, and a single sticky header and Pin column. RESET/analog-only/core
+  restrictions and nonprogrammable reference contacts remain explicit;
+  hardware bus capability is distinguished from simulation support.
+- Usage-row RX/TX and PWM markers now follow the selected board, including
+  the ATtiny software UART directions and all four Mega serial ports.
+
+## v2.0.0-beta.1 – 2026-10-24
+
+First pre-release of version 2 from the integration branch `feature/browser-emulation`
+for a pilot instance next to the V1 instance (plan 9.2). Version 2 runs the compiled sketch in the browser instead of on the server and
+adds the Arduino Nano, the Arduino Mega 2560 and the ATtiny85 as preview
+boards. Contracts: REST API `1.1.0` (additive, `1.0.0` clients stay
+supported), WebSocket `1.0.0` (unchanged; serial messages may carry an optional
+`port`), embedding API (`postMessage`) `1.5.0` (additive). The decisions are
+drafted in ADR 0009 and ADR 0010 (`Proposed`).
+
+### Behaviour changes for teaching
+
+Check slides and exercises against these points; the user guide section
+"Grenzen der Simulation" describes the model, "Legacy" keeps the former
+behaviour for the Uno.
+
+- **Data types are those of the board:** `int` has 16 bit (`32767 + 1` is
+  −32768, formerly 32768), `long` 32 bit, `double` is the 32-bit `float`,
+  `sizeof(int)` is 2.
+- **`Serial.print(2.5)` prints `2.50`** (two decimals without a precision
+  argument), as on the board; formerly `2.5`.
+- **`Serial.parseInt()` without input waits one second** (the stream timeout)
+  and then returns 0; formerly it returned at once.
+- **Speed is the board's:** `loop()` runs as often per second as on a 16 MHz
+  board (ATtiny85: 8 MHz); counters in `loop()` without `delay()` reach other
+  values than before.
+- **Memory is the board's:** 2 KB SRAM on the Uno and Nano; a large array can
+  crash the sketch as on the board. UnoSim reports a stack that grows into the
+  globals or the heap, but not every memory error.
+- **`random()` gives the Uno's sequence.**
+- **Pause halts `millis()`.**
+- **An open input (`INPUT`) reads LOW**, `INPUT_PULLUP` reads HIGH until a
+  level is set at the board.
+- **Serial input sent before `Serial.begin()` is lost** as on the board; a
+  system line reports it.
+- **The run time counts wall-clock time:** on a device slower than real time
+  (real-time factor below 1 in the header) a 30-second run ends after less
+  simulated time.
+- **EEPROM content stays per board while the tab is open**; a reload starts
+  with an erased EEPROM.
+
+### Upgrade notes for operators
+
+- **Three images** from the same commit: `unosim-server`, `unosim-sandbox`
+  (host mock) and the new `unosim-compile-sandbox`; `npm run build:sandbox`
+  builds both sandbox images. In the Docker profile every compile runs
+  `arduino-cli` in its own container without network; the backend image no
+  longer contains `arduino-cli` or `g++` (1.62 GB → 726 MB). The backend
+  checks the compile sandbox image at startup.
+- **New variables** (Compose passes them from `.env`; empty means default):
+  `UNOSIM_RUNTIME_BACKENDS` (`browser`, `host-mock`), `UNOSIM_DEFAULT_RUNTIME`,
+  `UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD`. `ARDUINO_FQBN` remains as an alias
+  for the default board and is deprecated.
+- **Docker profile default stays the host mock** until the release is accepted;
+  a pilot instance sets `UNOSIM_DEFAULT_RUNTIME=browser` (INSTALL_SERVER.md,
+  "Browser-Emulation im Docker-Profil (Pilot)"). Without the browser backend only the Uno is offered.
+- **Return to V1** works with the unchanged `.env` and `storage/`
+  (INSTALL_SERVER.md, "Update und Rollback").
+- **Local installations** need ATTinyCore 1.5.2 for the ATtiny85:
+  `sh scripts/install-attinycore.sh` (INSTALL_LOCAL.md).
+- `npm run capacity:calibrate` measures compile capacity as well
+  (CAPACITY_MODEL.md, "Compile capacity").
+
+### Added
+
+- **Tools → Board** with the Arduino Nano (A6/A7 as analog-only inputs), the
+  Arduino Mega 2560 (pins 0–69, four serial ports with a port bar in the
+  Serial Monitor) and the ATtiny85 (ATTinyCore 1.5.2, 8 MHz, `Serial` as a
+  half-duplex software UART), each with its own board view and with warnings
+  for its pins. The choice is kept per browser; a change stops the run.
+- **Examples can name their board**; loading one for another board asks first.
+- **Diagnostics** in the Serial Monitor: stack collision, program counter
+  outside the program, watchdog reset, `sleep` with interrupts disabled.
+- **Debug bar:** engine (`BROWSER` or `LEGACY`) and real-time factor.
+- **I/O Registry** keeps the static entries during a run and marks what the
+  run confirmed ("+ runtime").
+- **Tutor** questions name the board; the Tutor knows its data type sizes.
+- **Embedding API `1.5.0`:** `GET_STATE` with board, runtime and serial ports;
+  pins are checked against the selected board; `SERIAL_INPUT` and serial
+  events carry the port.
+
+### Changed
+
+- **E2E startup:** Playwright rebuilds the application before starting its own
+  test server, so local pipeline runs use the current client and board artwork.
+- **Mega board artwork:** uses the supplied illustration, with contact-aligned
+  pin targets, LEDs and reset. The duplicate SDA/SCL sockets share D20/D21.
+- **Nano board artwork:** uses the supplied illustration, with all 22 signal
+  contacts, four LEDs and reset aligned to the drawing; A6/A7 remain analog-only.
+- **ATtiny85 artwork:** shows a bare DIP-8 chip with metal leads, package notch
+  and pin-1 mark. The carrier, external LEDs, reset switch and board logo are
+  removed; pin input and the existing reset controls remain available.
+- **Board size hierarchy:** a shared display area presents Mega at 125 %, Uno
+  at 100 %, Nano at 85 % and ATtiny at 65 % relative width. Compact panels
+  soften the differences while preserving the order and overlay alignment.
+- **PWM pin markings:** Mega, Nano and ATtiny now show `~` next to their PWM
+  pin labels, following the Uno convention and the board's hardware profile.
+- **Board readability:** ATtiny pin subtitles are larger and have more
+  contrast; Mega and Nano reset caps use the Uno's dark-red colours.
+- **Sketches run in the browser by default** (local profile): the compiled
+  machine code runs in an emulator of the board's microcontroller (avr8js in a
+  Web Worker). A started run keeps going when the connection to the server is
+  lost. File → Settings → "Simulation engine" switches to "Legacy" (the former
+  server-side simulation, Uno only).
+- `POST /api/compile` returns the flash image as `artifact` (REST `1.1.0`);
+  the HEX file never leaves the server.
+
+### Fixed
+
+- The serial input field could not be typed into while it was empty.
+- A sketch printing without pause (`Serial.println(millis())`) froze the
+  browser; the Serial Monitor keeps the last 40 000 characters.
+- The editor keeps the indentation on Enter, indents after `{` and closes
+  brackets and quotes.
+- On phones the panel navigation covered pins of the board view.
+- The ATtiny85 drives the PWM signal of timer 1 on PB1 and PB4.
+- A hidden browser tab no longer ends a run as "stopped responding".
+- **The Tutor knows the board and the whole project:** it receives the selected
+  board and the header files (whatever tab is open) and reads pins as that
+  board has them; on the ATtiny85 `LED_BUILTIN` was taken as pin 13 instead
+  of 1. `/api/tutor/question` and `/api/tutor/dialog` accept `headers` and
+  `entryFile` like `POST /api/compile` (REST `1.1.0`, additive).
+- The I/O Registry merges runtime findings per pin of the board: on the Mega
+  2560 a finding of `A0` landed on digital pin 14.
+- A browser run shows `running` or `paused` only once the emulator confirmed
+  it; a pause sent right after the start no longer shows "paused" while the
+  sketch runs on.
+- A cached compile result is served only under the toolchain and libraries it
+  was built with.
+- Stop, a loaded example, replaced files, `LOAD_CODE` or a board change end a
+  browser start that is still loading the emulator; before, the run could begin
+  afterwards, with a build that was already discarded.
+- The Tutor's topic selection and follow-up decision read the header files of
+  the project as well, not only the entry file.
+- **Security:** oversized arrays of invalid elements in a request (headers,
+  libraries, Tutor history, example and curriculum lists) are refused with one
+  check of their length instead of one issue per element; a 1 MiB body no
+  longer costs several hundred MiB and up to a second of blocked event loop.
+  Responses are unchanged.
+- **Security:** a sketch of unterminated block comments (96 KB took 6.6 s) or of
+  array declarations without closing bracket (1.3 s) no longer holds the server;
+  the comment scan and the Tutor's array facts are linear.
+- A quick Stop and Start no longer lets the late stop confirmation switch off
+  the start supervision of the new run, and a worker that does not confirm a
+  stop ends together with the start that waits behind it.
+- **Security:** a client can no longer make the server validate the content of
+  server events: the direction of a WebSocket message is decided by its type
+  first (before, a 256 KiB message of empty `pin_state_batch` entries cost
+  240 000 issues and about 100 MiB of heap).
+- The late answer of a standalone Compile no longer shows the errors of the old
+  project after another project was loaded.
+- Resume works offline for a paused browser run (the button was disabled once the
+  client had noticed the missing server).
+- **Security:** body-parser 1.20.9 (a compressed request with trailing bytes
+  could end the process with an uncaught exception, GHSA-27r3-jxmh-p828) and
+  ip-address 10.7.5 (quadratic matching of a zone identifier, used by the rate
+  limiter).
+- An edit while a browser run is starting (waiting for the worker's
+  confirmation) stops it; before, the confirmation started the old source.
+- Opening another tab, for example a header, no longer stops a running
+  simulation: only an edit of a file does.
+
 ## v1.0.1 – 2026-10-18
 
 Bug-fix release covering #239–#252. The REST API and the WebSocket protocol

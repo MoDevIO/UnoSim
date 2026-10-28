@@ -35,7 +35,6 @@ import {
   buildCacheEvictionTargets,
   cleanupCacheLru,
   ensureDirectories,
-  execArduinoCliJson,
   normalizeLibraries,
 } from "./compile-worker-utils.ts";
 
@@ -60,32 +59,33 @@ const CORE_CACHE_DIR = join(process.cwd(), "storage", "core-cache");
 const CORE_CACHE_BUILD_PATH = join(CORE_CACHE_DIR, "build-cache");
 const CORE_CACHE_LOCK_DIR = join(CORE_CACHE_DIR, "locks");
 const CORE_CACHE_META_DIR = join(CORE_CACHE_DIR, "meta");
-const CORE_METADATA_TTL_MS = 5 * 60 * 1000;
 const resolvedWorkerId = Number(workerData?.workerId || 1);
 // Safe usage of writable temp directory: worker-specific isolation by concurrent worker_${workerId},
 // and all files are temporary build artifacts with automatic cleanup after compilation.
 const WORKER_BUILD_DIR = join(workerBuildRoot(), `worker_${resolvedWorkerId}`);
 const BINARY_STORAGE_DIR = join(process.cwd(), "storage", "binaries");
 
-let cachedLibFingerprint: { value: string; expiresAt: number } | null = null;
-let cachedCompilerVersion: { value: string; expiresAt: number } | null = null;
-
 // Dynamic import of ArduinoCompiler (ESM-aware)
 let ArduinoCompiler: any = null;
 let compilerSingleton: any = null;
+let readToolchainInfo: (() => Promise<{ arduinoCli: string; librariesFingerprint: string }>) | null = null;
 let workerDirsReady = false;
 
 async function initializeCompiler() {
   try {
     // Try .js first (production build), fallback to .ts (development with tsx)
     let module;
+    let toolchainInfo;
     try {
       module = await import("../arduino-compiler.js");
+      toolchainInfo = await import("../compiler/toolchain-info.js");
     } catch {
       // In development mode with tsx, import the .ts file directly
       module = await import("../arduino-compiler.ts");
+      toolchainInfo = await import("../compiler/toolchain-info.ts");
     }
     ArduinoCompiler = module.ArduinoCompiler;
+    readToolchainInfo = toolchainInfo.readToolchainInfo;
     if (!compilerSingleton) {
       compilerSingleton = new ArduinoCompiler();
     }
@@ -110,63 +110,12 @@ async function ensureWorkerDirs(): Promise<void> {
   workerDirsReady = true;
 }
 
-async function getInstalledLibrariesFingerprint(): Promise<string> {
-  const now = Date.now();
-  if (cachedLibFingerprint && cachedLibFingerprint.expiresAt > now) {
-    return cachedLibFingerprint.value;
-  }
-
-  if (process.env.NODE_ENV === "test") {
-    return "test-libraries";
-  }
-
-  const libList = await execArduinoCliJson(["lib", "list", "--format", "json"]);
-  if (!Array.isArray(libList)) {
-    const fallback = "unknown-libraries";
-    cachedLibFingerprint = { value: fallback, expiresAt: now + CORE_METADATA_TTL_MS };
-    return fallback;
-  }
-
-  const normalized = libList
-    .map((lib: any) => `${lib.name || "unknown"}@${lib.version || "unknown"}`)
-    .sort((a: string, b: string) => a.localeCompare(b))
-    .join("|");
-
-  const value = createHash("sha256").update(normalized).digest("hex");
-  cachedLibFingerprint = { value, expiresAt: now + CORE_METADATA_TTL_MS };
-  return value;
-}
-
-async function getCompilerVersion(): Promise<string> {
-  const now = Date.now();
-  if (cachedCompilerVersion && cachedCompilerVersion.expiresAt > now) {
-    return cachedCompilerVersion.value;
-  }
-
-  if (process.env.NODE_ENV === "test") {
-    return "test-compiler";
-  }
-
-  const versionJson = await execArduinoCliJson(["version", "--format", "json"]);
-  const value =
-    versionJson?.version_string ||
-    versionJson?.versionString ||
-    versionJson?.VersionString ||
-    versionJson?.version ||
-    "unknown-compiler";
-
-  cachedCompilerVersion = { value, expiresAt: now + CORE_METADATA_TTL_MS };
-  return value;
-}
-
+/** Same toolchain (backend or compile sandbox) and versions as the build identity (plan E15). */
 async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): Promise<string> {
-  const [compilerVersion, installedLibFingerprint] = await Promise.all([
-    getCompilerVersion(),
-    getInstalledLibrariesFingerprint(),
-  ]);
-
+  if (!readToolchainInfo) throw new Error("Toolchain information is not loaded");
+  const toolchain = await readToolchainInfo();
   const explicitLibraries = normalizeLibraries(task.libraries).join("|");
-  const payload = `${fqbn}|${compilerVersion}|${installedLibFingerprint}|${explicitLibraries}`;
+  const payload = `${fqbn}|${toolchain.arduinoCli}|${toolchain.librariesFingerprint}|${explicitLibraries}`;
   return createHash("sha256").update(payload).digest("hex");
 }
 
@@ -234,6 +183,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
     try {
       const compileResult = await compiler.compile(task.code, task.headers, WORKER_BUILD_DIR, {
         entryFile: task.entryFile,
+        ...(task.board ? { board: task.board } : {}),
         fqbn,
         libraries: normalizeLibraries(task.libraries),
         sketchHash,

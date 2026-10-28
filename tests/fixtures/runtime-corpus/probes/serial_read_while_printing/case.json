@@ -1,0 +1,15 @@
+{
+  "board": "uno",
+  "simMs": 120,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Serial input arriving while the sketch prints: no character is lost.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: ATmega328P datasheet 19.7.3: the RXC flag is cleared only by reading UDR0, so the receive interrupt stays pending when the sketch writes UCSR0B (every Serial.write does) and each of the six characters 'H', 'i', LF, 'x', 'y', 'z' (72, 105, 10, 120, 121, 122) is received and answered",
+  "events": [
+    [20, "serial", "Hi\n"],
+    [60, "serial", "xyz"]
+  ],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

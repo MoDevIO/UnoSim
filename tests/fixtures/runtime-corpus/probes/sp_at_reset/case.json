@@ -1,0 +1,12 @@
+{
+  "board": "uno",
+  "simMs": 60,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Stack pointer as the C runtime leaves it before main(), and RAMEND.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: ATmega328P datasheet: the stack pointer starts at RAMEND (0x08FF) after reset; avr-libc init2 sets it",
+  "events": [],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)"
+}

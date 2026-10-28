@@ -106,4 +106,21 @@ describe("examples repository request scoping", () => {
     expect(result.source).toMatchObject({ status: "cache", tutor: { status: "invalid", reason: "invalid-tutor-bundle" } });
     expect(result.examples).toHaveLength(1);
   });
+
+  it("lists the board an example is written for in the catalog, and nothing for the others (plan P4.6)", async () => {
+    const repository = new ExamplesRepository({
+      examplesConfig: { ...baseConfig, mode: "builtin" },
+      builtInProvider: {
+        getExamples: async () => [
+          { id: "builtin-uno", title: "Uno", category: "Built-in", main: "uno.ino", source: "builtin" as const, files: [{ name: "uno.ino", path: "uno.ino", content: "" }] },
+          { id: "builtin-nano", title: "Nano", category: "Built-in", main: "nano.ino", source: "builtin" as const, board: "nano" as const, files: [{ name: "nano.ino", path: "nano.ino", content: "" }] },
+        ],
+      },
+      sourceProvider: { resolve: vi.fn(), getRevision: vi.fn() },
+    });
+
+    const catalog = await repository.getCatalog({ kind: "default" }, { identity: "user", requestId: "request" });
+
+    expect(catalog.examples.map(({ id, board }) => [id, board])).toEqual([["builtin-uno", undefined], ["builtin-nano", "nano"]]);
+  });
 });

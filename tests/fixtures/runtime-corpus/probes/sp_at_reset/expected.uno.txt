@@ -1,0 +1,3 @@
+SP at init3 = 0x8FF
+RAMEND = 0x8FF
+DONE

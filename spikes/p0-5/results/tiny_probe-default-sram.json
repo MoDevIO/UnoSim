@@ -1,0 +1,26 @@
+{
+  "memory": {
+    "spAfterReset": "0x20ff",
+    "dataBytes": 8448,
+    "maxPeripheralAddress": "0x5f"
+  },
+  "serial": {
+    "baud": 9600,
+    "nominalBitCycles": 833.3333333333334,
+    "measuredBitCycles": 863,
+    "framingErrors": 0,
+    "text": "int 32767 + 1 = -32768\r\nprint(2.5) = 2.50\r\nUmlaut: äöü\r\ndelay(587) = 588\r\nA1 VCC = 512\r\nA3 1V1 = 465\r\nA3 2V56 = 200\r\nRAMEND = 0x25F\r\nSP at setup = 0x25D\r\nDONE\r\n"
+  },
+  "pwm": {
+    "PB4 OCR1B": 200,
+    "PB0 OCR0A": 77,
+    "TCCR0A": "10000011",
+    "GTCCR": "01100000"
+  },
+  "realTimeFactor": 9.33,
+  "options": {
+    "input": null,
+    "avr8jsAdc": false,
+    "defaultSram": true
+  }
+}

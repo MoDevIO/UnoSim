@@ -1,0 +1,17 @@
+{
+  "board": "uno",
+  "simMs": 700,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "if/else switches the LED on pin 13.",
+  "basis": "derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example",
+  "events": [
+    [0, "adcVolts", 0, 0.490723],
+    [200, "adcVolts", 0, 3.908691]
+  ],
+  "expectState": [
+    [300, "pin", 13, "OUTPUT", 0],
+    [600, "pin", 13, "OUTPUT", 1]
+  ],
+  "tolerances": []
+}

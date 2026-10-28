@@ -9,6 +9,8 @@ import type { ServerCapabilities } from "@/lib/server-capabilities";
 export function useSimulatorPinControls(params: {
   capabilities?: ServerCapabilities;
   sendMessage: (message: IncomingArduinoMessage) => void;
+  /** Analog slider values; a browser run takes them as ADC values, otherwise they go out as before. */
+  sendAnalogValue?: (pin: number, value: number) => void;
   simulationStatus: SimulationStatus;
   toast: ToastFn;
   setPinStates: Dispatch<SetStateAction<PinState[]>>;
@@ -58,7 +60,8 @@ export function useSimulatorPinControls(params: {
         return;
       }
 
-      sendMessage({ type: "set_pin_value", pin, value: newValue });
+      if (params.sendAnalogValue) params.sendAnalogValue(pin, newValue);
+      else sendMessage({ type: "set_pin_value", pin, value: newValue });
 
       // Update local pin state immediately for responsive UI
       setPinStates((prev) => {
@@ -76,7 +79,7 @@ export function useSimulatorPinControls(params: {
         return newStates;
       });
     },
-    [simulationStatus, sendMessage, setPinStates, showSimulationNotActiveToast, params.capabilities],
+    [simulationStatus, sendMessage, params.sendAnalogValue, setPinStates, showSimulationNotActiveToast, params.capabilities],
   );
 
   return {

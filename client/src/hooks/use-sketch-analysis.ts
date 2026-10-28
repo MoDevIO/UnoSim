@@ -1,3 +1,5 @@
+import type { BoardId } from "@shared/boards";
+import { analogChannelPin, isAnalogPin } from "@/lib/active-board";
 import { useMemo } from "react";
 import {
   analyzeStaticIO,
@@ -16,9 +18,9 @@ interface SketchAnalysisResult {
 }
 
 function toAnalogBoardPin(pinId: number): number | undefined {
-  if (pinId >= 0 && pinId <= 5) return pinId + 14;
-  if (pinId >= 14 && pinId <= 19) return pinId;
-  return undefined;
+  const channelPin = analogChannelPin(pinId);
+  if (channelPin !== undefined) return channelPin;
+  return isAnalogPin(pinId) ? pinId : undefined;
 }
 
 function projectVarMap(symbols: Record<string, number>): Record<string, number> {
@@ -34,18 +36,20 @@ function isVisibleAnalogRead(call: StaticIOCall): boolean {
   return call.op === "analogRead" && call.loopBody !== "braceless";
 }
 
-function analyzeSource(source: string | SourceProject | null | undefined) {
-  if (typeof source === "string") return analyzeStaticIO(source);
-  if (source) return analyzeStaticIOProject(source);
+function analyzeSource(source: string | SourceProject | null | undefined, board?: BoardId) {
+  const options = board ? { board } : {};
+  if (typeof source === "string") return analyzeStaticIO(source, options);
+  if (source) return analyzeStaticIOProject(source, options);
   return { pins: [], unresolvedCalls: [], symbols: {} };
 }
 
 // Hook: pure projection of the canonical static I/O analysis for board state.
 export function useSketchAnalysis(
   source: string | SourceProject | null | undefined,
+  board?: BoardId,
 ): SketchAnalysisResult {
   return useMemo(() => {
-    const analysis = analyzeSource(source);
+    const analysis = analyzeSource(source, board);
     const analogPins = new Set<number>();
     const pinModePins = new Set<number>();
     const detectedPinModes: Record<number, PinMode> = {};
@@ -75,5 +79,5 @@ export function useSketchAnalysis(
       ),
       digitalPinsFromPinMode: sortedPinModePins,
     };
-  }, [source]);
+  }, [source, board]);
 }

@@ -1,9 +1,11 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
-import { ParserOutput } from "@/components/features/parser-output";
+
+// The messages and registry tables are not needed before the first compile: they load with their tab (initial bundle budget, plan P3.9).
+const ParserOutput = lazy(() => import("@/components/features/parser-output").then((module) => ({ default: module.ParserOutput })));
 import { X, LayoutGrid, Table, Copy, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
@@ -33,7 +35,10 @@ function hasRegistryConflict(record: IOPinRecord): boolean {
   );
 }
 
+import type { BoardId } from "@shared/boards";
+
 interface OutputPanelProps {
+  readonly boardId?: BoardId;
   /* State */
   readonly activeOutputTab: OutputTab;
   readonly isSuccessState: boolean;
@@ -72,8 +77,24 @@ interface OutputPanelProps {
   readonly onClearDebugMessages: () => void;
 }
 
+const SENDER_TEXT: Record<string, string> = { server: "text-blue-400", browser: "text-cyan-400", frontend: "text-green-400" };
+const SENDER_BADGE: Record<string, string> = {
+  server: "bg-blue-600/20 text-blue-400",
+  browser: "bg-cyan-600/20 text-cyan-400",
+  frontend: "bg-green-600/20 text-green-400",
+};
+const senderTextClass = (sender: string): string => SENDER_TEXT[sender] ?? SENDER_TEXT.frontend;
+const senderBadgeClass = (sender: string): string => SENDER_BADGE[sender] ?? SENDER_BADGE.frontend;
+
+/** Colour of the protocol column: HTTP orange, WebSocket purple, the browser emulation (worker) cyan. */
+function protocolClass(protocol: string | undefined): string {
+  if (protocol === "http") return "text-orange-400";
+  return protocol === "worker" ? "text-cyan-400" : "text-purple-400";
+}
+
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
   const {
+    boardId,
     activeOutputTab,
     isSuccessState,
     isModified,
@@ -160,19 +181,24 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       </TabsContent>
 
       <TabsContent value="messages" className="flex-1 overflow-hidden m-0">
-        <ParserOutput
-          messages={parserMessages}
-          ioRegistry={ioRegistry}
-          messagesContainerRef={parserMessagesContainerRef}
-          onClear={onParserMessagesClear}
-          onGoToLine={onParserGoToLine}
-          onInsertSuggestion={onInsertSuggestion}
-          hideHeader={true}
-        />
+        <Suspense fallback={null}>
+          <ParserOutput
+            boardId={boardId}
+            messages={parserMessages}
+            ioRegistry={ioRegistry}
+            messagesContainerRef={parserMessagesContainerRef}
+            onClear={onParserMessagesClear}
+            onGoToLine={onParserGoToLine}
+            onInsertSuggestion={onInsertSuggestion}
+            hideHeader={true}
+          />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="registry" className="flex-1 overflow-hidden m-0">
-        <ParserOutput messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
+        <Suspense fallback={null}>
+          <ParserOutput boardId={boardId} messages={[]} ioRegistry={ioRegistry} onClear={onRegistryClear} onGoToLine={onParserGoToLine} hideHeader={true} defaultTab="registry" />
+        </Suspense>
       </TabsContent>
 
       <TabsContent value="debug" className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
@@ -226,8 +252,8 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                     {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-100).map((msg, idx) => (
                       <tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : ""} transition-colors`}>
                         <td className="px-2 py-1 text-cyan-400 border-r font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={msg.sender === "server" ? "text-blue-400" : "text-green-400"}>{msg.sender.toUpperCase()}</span></td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={msg.protocol === "http" ? "text-orange-400" : "text-purple-400"}>{msg.protocol?.toUpperCase() || "?"}</span></td>
+                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={senderTextClass(msg.sender)}>{msg.sender.toUpperCase()}</span></td>
+                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={protocolClass(msg.protocol)}>{msg.protocol?.toUpperCase() || "?"}</span></td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className="text-yellow-400 font-mono">{msg.type}</span></td>
                         <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>{msg.content}</td>
                       </tr>
@@ -250,7 +276,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                       <div key={msg.id} className="border rounded p-3 transition-colors">
                         <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b">
                           <div className="flex items-center gap-3">
-                            <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${msg.sender === "server" ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}>{msg.sender.toUpperCase()}</span>
+                            <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${senderBadgeClass(msg.sender)}`}>{msg.sender.toUpperCase()}</span>
                             <span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded">{msg.type}</span>
                           </div>
                           <span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</span>

@@ -1,0 +1,31 @@
+{
+  "hex": {
+    "usedBytes": 152774,
+    "recordTypes": [0, 1, 2]
+  },
+  "cpu": {
+    "spAfterReset": 8703,
+    "dataBytes": 8704,
+    "pc22Bits": true,
+    "maxPcByte": 152684
+  },
+  "serial": [
+    "far sum = 19124632\nindirect call ok\ndelay(100) = 100\ntimer of D44 = 18\nDONE\n",
+    "",
+    "",
+    ""
+  ],
+  "baud": [117647, null, null, null],
+  "pwm": {
+    "D44 OCR5C": 0,
+    "D45 OCR5B": 0,
+    "D46 OCR5A": 0,
+    "D2 OCR3B": 0,
+    "D9 OCR2B": 0,
+    "D13 OCR0A": 0,
+    "TCCR5A": "00000001",
+    "TCCR3A": "00000001"
+  },
+  "realTimeFactor": 4.1,
+  "timers": 6
+}

@@ -1,10 +1,12 @@
 import { Logger } from "@shared/logger";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ProcessExecutor, ProcessOutputLimitError } from "../process-executor";
+import { ProcessOutputLimitError } from "../process-executor";
+import type { ProcessExecution } from "../process-execution-port";
 import type { CompilationError } from "./compiler-output-parser";
 import { limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES, parseCompilerDiagnostics } from "../compiler-diagnostics";
 import { config as appConfig } from "../../config";
+import { findBoardByFqbn } from "@shared/boards";
 
 const logger = new Logger("CLIRunner");
 
@@ -20,7 +22,12 @@ export interface CLICompileResult {
   errors?: string;
   parsedErrors?: CompilationError[];
   binary?: Buffer;
+  /** ELF of the same build, for the symbols of the artifact; never part of a response. */
+  elf?: Buffer;
 }
+
+/** `arduino-cli compile` flags that influence the output; part of the build identity (plan E15). */
+export const FIXED_BUILD_FLAGS: readonly string[] = ["--verbose"];
 
 /**
  * Builds arduino-cli compile arguments.
@@ -33,7 +40,7 @@ export function buildCompileArgs(
     "compile",
     "--fqbn",
     config.fqbn,
-    "--verbose",
+    ...FIXED_BUILD_FLAGS,
   ];
 
   if (config.buildPath) {
@@ -43,13 +50,31 @@ export function buildCompileArgs(
   return args;
 }
 
+/** What one `arduino-cli compile` printed, wherever it ran (backend or compile sandbox). */
+export interface CliRun {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/** Build outputs by file name (`<sketch>.ino.hex`, `<sketch>.ino.elf`, …). */
+export type BuildFiles = ReadonlyMap<string, Buffer>;
+
+interface CliRunContext {
+  readonly config: CLICompileConfig;
+  /** The sketch path as the compiler saw it; diagnostics name it `sketch.ino`. */
+  readonly sketchFile: string;
+  /** Read only after a successful run. */
+  readonly outputs: () => Promise<BuildFiles>;
+}
+
 /**
  * Executes arduino-cli compilation.
  */
 export async function compileWithArduinoCli(
   sketchFile: string,
   config: CLICompileConfig,
-  processExecutor: ProcessExecutor,
+  processExecutor: ProcessExecution,
 ): Promise<CLICompileResult> {
   // Arduino CLI expects the sketch directory; the public compiler passes the .ino path.
   const sketchDir = dirname(sketchFile);
@@ -71,47 +96,13 @@ export async function compileWithArduinoCli(
     if (result.error && !outputLimited && (result.code === -1 || isCliSpawnError(result.error))) {
       const errorMessage = withPathHint(`Failed to execute arduino-cli: ${result.error.message}.`);
       logger.error(errorMessage);
-      return {
-        success: false,
-        output: "",
-        errors: errorMessage,
-        parsedErrors: [{
-          file: "system",
-          line: 0,
-          column: 0,
-          type: "error",
-          message: errorMessage,
-        }],
-      };
+      return systemFailure(errorMessage);
     }
 
-    const output = result.stdout || "";
-    const errors = result.stderr || "";
-    const code = result.code;
-    const diagnosticOutput = selectDiagnosticOutput(output, errors);
-
-    if (code === 0) {
-      const parsedOutput = parseCompilerOutput(output);
-      const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0)
-        .filter((diagnostic) => diagnostic.type === "warning");
-      const binary = await discoverBuildBinary(config.buildPath || sketchDir);
-      return {
-        success: true,
-        output: parsedOutput,
-        errors: "",
-        parsedErrors: parsedWarnings,
-        binary,
-      };
-    } else {
-      const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, sketchFile));
-      const parsedErrors = parseCompilerDiagnostics(cleanedErrors, 0);
-      return {
-        success: false,
-        output: hasMemoryUsage(diagnosticOutput) ? parseCompilerOutput(diagnosticOutput) : "",
-        errors: cleanedErrors,
-        parsedErrors,
-      };
-    }
+    return await interpretCliRun(
+      { code: result.code, stdout: result.stdout || "", stderr: result.stderr || "" },
+      { config, sketchFile, outputs: () => readBuildFiles(config.buildPath || sketchDir) },
+    );
   } catch (error) {
     const errorText = error instanceof Error ? error.message : String(error);
     const errorMessage = withPathHint(`Failed to execute arduino-cli: ${errorText}.`, error);
@@ -120,30 +111,42 @@ export async function compileWithArduinoCli(
       ? `, ${error.code}`
       : "";
     logger.error(`Failed to execute arduino-cli (${errorType}${errorCode}, ${Buffer.byteLength(errorMessage)} diagnostic bytes)`);
-    return {
-      success: false,
-      output: "",
-      errors: errorMessage,
-      parsedErrors: [{
-        file: "system",
-        line: 0,
-        column: 0,
-        type: "error",
-        message: errorMessage,
-      }],
-    };
+    return systemFailure(errorMessage);
   }
 }
 
-/**
- * Cleans error messages by removing sketch directory paths.
- */
-function cleanErrorMessage(errors: string, sketchDir: string): string {
-  let cleanedErrors = errors;
-  if (sketchDir) {
-    cleanedErrors = cleanedErrors.replaceAll(sketchDir, "sketch.ino");
+/** Success with HEX (and ELF), or the compiler's diagnostics with sketch paths replaced. */
+export async function interpretCliRun(run: CliRun, context: CliRunContext): Promise<CLICompileResult> {
+  const diagnosticOutput = selectDiagnosticOutput(run.stdout, run.stderr);
+  if (run.code === 0) {
+    return successResult(run.stdout, diagnosticOutput, context.config, selectBuildOutputs(await context.outputs()));
   }
-  return cleanedErrors;
+  const cleanedErrors = limitCompilerDiagnostics(cleanErrorMessage(diagnosticOutput, context.sketchFile));
+  return {
+    success: false,
+    output: hasMemoryUsage(diagnosticOutput) ? parseCompilerOutput(diagnosticOutput, context.config.fqbn) : "",
+    errors: cleanedErrors,
+    parsedErrors: parseCompilerDiagnostics(cleanedErrors, 0),
+  };
+}
+
+/** A compile that did not get to the compiler's own diagnostics. */
+export function systemFailure(message: string): CLICompileResult {
+  return {
+    success: false,
+    output: "",
+    errors: message,
+    parsedErrors: [{ file: "system", line: 0, column: 0, type: "error", message }],
+  };
+}
+
+/**
+ * Names the sketch `sketch.ino` and the other project files (headers) by their
+ * own name: neither the backend's temp directory nor the sandbox mount shows.
+ */
+function cleanErrorMessage(errors: string, sketchFile: string): string {
+  if (!sketchFile) return errors;
+  return errors.replaceAll(sketchFile, "sketch.ino").replaceAll(`${dirname(sketchFile)}/`, "");
 }
 
 function withPathHint(message: string, error?: unknown): string {
@@ -184,28 +187,56 @@ function hasMemoryUsage(output: string): boolean {
   return /^(?:sketch uses|global variables use|der sketch verwendet|globale variablen verwenden)\b/im.test(output);
 }
 
-/**
- * Reads the HEX artifact emitted by arduino-cli from the build output directory.
- */
-async function discoverBuildBinary(buildOutputDir: string): Promise<Buffer | undefined> {
+async function successResult(output: string, diagnosticOutput: string, config: CLICompileConfig, outputs: { binary?: Buffer; elf?: Buffer }): Promise<CLICompileResult> {
+  const parsedWarnings = parseCompilerDiagnostics(diagnosticOutput, 0).filter((diagnostic) => diagnostic.type === "warning");
+  return {
+    success: true,
+    output: parseCompilerOutput(output, config.fqbn),
+    errors: "",
+    parsedErrors: parsedWarnings,
+    binary: outputs.binary,
+    ...(outputs.elf ? { elf: outputs.elf } : {}),
+  };
+}
+
+/** The HEX and ELF files of a build directory; empty when it cannot be read. */
+async function readBuildFiles(buildOutputDir: string): Promise<BuildFiles> {
+  const files = new Map<string, Buffer>();
+  let entries: string[];
   try {
-    const hexCandidates = (await readdir(buildOutputDir))
-      .filter((entry) => entry.endsWith(".hex"))
-      .sort((a, b) => a.localeCompare(b));
-    const preferred = hexCandidates.find((entry) => !entry.includes("with_bootloader")) || hexCandidates[0];
-    if (preferred) {
-      return await readFile(join(buildOutputDir, preferred));
-    }
+    entries = await readdir(buildOutputDir);
   } catch (error) {
     logger.debug(`[CompileCache] failed to read build hex output: ${error instanceof Error ? error.message : String(error)}`);
+    return files;
   }
-  return undefined;
+  for (const entry of entries.filter((name) => name.endsWith(".hex") || name.endsWith(".ino.elf"))) {
+    try {
+      files.set(entry, await readFile(join(buildOutputDir, entry)));
+    } catch {
+      // A file that vanished or cannot be read is no build output.
+    }
+  }
+  return files;
+}
+
+/**
+ * The HEX of the build (the one without bootloader when both exist) and, if
+ * there is a HEX, the ELF next to it (`<sketch>.ino.elf`).
+ */
+export function selectBuildOutputs(files: BuildFiles): { binary?: Buffer; elf?: Buffer } {
+  const names = [...files.keys()].sort((a, b) => a.localeCompare(b));
+  const hexNames = names.filter((name) => name.endsWith(".hex"));
+  const hexName = hexNames.find((name) => !name.includes("with_bootloader")) ?? hexNames[0];
+  if (!hexName) return {};
+  const elfName = names.find((name) => name.endsWith(".ino.elf"));
+  return { binary: files.get(hexName), ...(elfName ? { elf: files.get(elfName) } : {}) };
 }
 
 /**
  * Parses arduino-cli output to extract memory usage and format it.
  */
-function parseCompilerOutput(output: string): string {
+function parseCompilerOutput(output: string, fqbn: string): string {
+  const board = `Board: ${findBoardByFqbn(fqbn)?.displayName ?? fqbn}`;
   const progSizeRegex = /(Sketch uses[^\n]*\.|Der Sketch verwendet[^\n]*\.)/;
   const ramSizeRegex = /(Global variables use[^\n]*\.|Globale Variablen verwenden[^\n]*\.)/;
 
@@ -213,23 +244,23 @@ function parseCompilerOutput(output: string): string {
   const ramSizeMatch = ramSizeRegex.exec(output);
 
   if (progSizeMatch && ramSizeMatch) {
-    return `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\nBoard: Arduino UNO`;
+    return `${progSizeMatch[0]}\n${ramSizeMatch[0]}\n\n${board}`;
   } else if (progSizeMatch || ramSizeMatch) {
     // Partial memory info
     const parts = [];
     if (progSizeMatch) parts.push(progSizeMatch[0]);
     if (ramSizeMatch) parts.push(ramSizeMatch[0]);
-    return `${parts.join("\n")}\n\nBoard: Arduino UNO`;
+    return `${parts.join("\n")}\n\n${board}`;
   } else {
     // No memory info - check if there's any success output
     const trimmed = output.trim();
     if (trimmed) {
       // If output looks like a generic success message, use (Simulation) suffix
       if (trimmed.toLowerCase().includes("success") || trimmed.toLowerCase().includes("done")) {
-        return `${trimmed}\n\nBoard: Arduino UNO (Simulation)`;
+        return `${trimmed}\n\n${board} (Simulation)`;
       }
-      return `${trimmed}\n\nBoard: Arduino UNO`;
+      return `${trimmed}\n\n${board}`;
     }
-    return `Board: Arduino UNO (Simulation)`;
+    return `${board} (Simulation)`;
   }
 }

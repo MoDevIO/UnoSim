@@ -1,3 +1,4 @@
+import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import { useCallback } from "react";
 import type { MutableRefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -11,10 +12,10 @@ export type { SimulationStatus } from "@shared/types/arduino.types";
 export type SetState<T> = (value: T | ((prev: T) => T)) => void;
 
 export type DebugMessageParams = {
-  source: "frontend" | "server";
+  source: DebugSender;
   type: string;
   data: string;
-  protocol?: "websocket" | "http";
+  protocol?: DebugProtocol;
 };
 
 export type UseSimulationControlsParams = {

@@ -9,10 +9,12 @@
  *   • "local":  server and simulations run on the development host
  *   • "docker": server runs in Docker and simulations use Docker sandboxes
  */
+import { enabledBoards, getBoard } from "../shared/boards";
 import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
+import { parseRuntimeSettings } from "./runtime-settings";
 import { examplesRefSchema } from "@shared/examples";
 import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { normalizeRepositoryInput } from "./services/examples/source-selection";
@@ -230,6 +232,10 @@ function envList(key: string, fallback: string[]): string[] {
 
 rejectObsoleteTutorCurriculumEnv(process.env);
 const runtimeProfile = parseRuntimeProfile(process.env);
+// Since P2.4 the Docker profile compiles in the compile sandbox; its image is a startup check (server/routes.ts).
+const runtimeSettings = parseRuntimeSettings(process.env, runtimeProfile.serverMode, {
+  compileSandboxAvailable: runtimeProfile.serverMode === "docker",
+});
 const capacityTestRunId = parseCapacityTestRunId(
   process.env.CAPACITY_TEST_RUN_ID,
   runtimeProfile.nodeEnv,
@@ -429,6 +435,9 @@ export const config = {
    * Set via UNOSIM_SERVER_MODE env var; falls back to NODE_ENV detection.
    */
   serverMode: runtimeProfile.serverMode,
+
+  /** Runtime backends, default runtime, offered boards and default board (plan 4.11). */
+  runtime: runtimeSettings,
 
   /** Test-only gateway bypass for Docker integration tests. */
   dockerTestBypassGateway: runtimeProfile.dockerTestBypassGateway,
@@ -635,7 +644,7 @@ export const config = {
     /** arduino-cli timeout for one REST compile (ms) */
     timeoutMs: 60_000,
     /** Arduino Fully Qualified Board Name */
-    fqbn: envStr("ARDUINO_FQBN", "arduino:avr:uno"),
+    fqbn: getBoard(runtimeSettings.defaultBoard).fqbn,
     /** Arduino CLI core/library cache directory */
     cacheDir: envStr(
       "ARDUINO_CACHE_DIR",
@@ -653,6 +662,19 @@ export const config = {
     lastCompiledCodeMaxSubjects: 1000,
     /** Max queued compile requests in the unified gatekeeper */
     gatekeeperMaxQueueSize: 500,
+    /**
+     * Compile sandbox of the Docker profile (plan P2.4, 4.10): one container per
+     * compile. Start values from spike P0.2; P7.1 confirms them on the reference host.
+     */
+    sandbox: {
+      image: envStr("COMPILE_SANDBOX_IMAGE", "unosim-compile-sandbox:latest"),
+      memoryMB: envInt("COMPILE_SANDBOX_MEMORY_MB", 512, { min: 256, max: 65_536 }),
+      /** Docker --cpus flag. */
+      cpuLimit: envFloat("COMPILE_SANDBOX_CPU_LIMIT", "1"),
+      pidsLimit: envInt("COMPILE_SANDBOX_PIDS_LIMIT", 128, { min: 32, max: 4_096 }),
+      /** tmpfs for the core cache copy, the build and the outputs. */
+      tmpfsMB: 256,
+    },
   },
 
   // ── Examples ─────────────────────────────────────────────────────
@@ -711,6 +733,11 @@ export const config = {
   },
 };
 
+/** The boards this deployment offers (plan 4.11). */
+export function offeredBoards() {
+  return enabledBoards(config.runtime.boards, config.runtime.defaultBoard, config.runtime.backends);
+}
+
 /** Subset of config safe to expose to the browser via GET /api/config */
 export function getClientConfig() {
   return {
@@ -719,6 +746,9 @@ export function getClientConfig() {
     tutor: {
       provider: config.tutor.provider,
     },
+    boards: offeredBoards().map(({ id, displayName, status, runtimes }) => ({ id, displayName, status, runtimes })),
+    defaultBoard: config.runtime.defaultBoard,
+    runtime: { backends: [...config.runtime.backends], default: config.runtime.defaultRuntime },
   };
 }
 

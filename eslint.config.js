@@ -23,6 +23,8 @@ export default [
       "*.min.css",
       "full_test_output.log",
       "temp/**",
+      // Local output of npm run test:tutor-quality (gitignored, holds frozen harness copies).
+      ".tutor-quality-output/**",
       "*.sqlite",
       "*.db",
       ".vscode/**",
@@ -63,6 +65,19 @@ export default [
       "unicorn/prefer-string-slice": "error",
       "unicorn/prefer-node-protocol": "error",
       "unicorn/prefer-string-raw": "error",
+    },
+  },
+  {
+    // The emulation core describes hardware only and must stay usable without
+    // UnoSim (plan 4.3): no imports from client/, server/ or shared/.
+    files: ["packages/avr-emulator/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          { group: ["@/*", "@shared/*"], message: "@unosim/avr-emulator must not import UnoSim code." },
+          { group: ["**/client/**", "**/server/**", "**/shared/**"], message: "@unosim/avr-emulator must not import UnoSim code." },
+        ],
+      }],
     },
   },
 ];

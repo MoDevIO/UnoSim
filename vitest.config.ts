@@ -25,6 +25,10 @@ const serializedHttpUnitTests = [
   "tests/server/ubuntu-vbox-installer-readiness.test.ts",
   "tests/server/routes/compiler.routes.test.ts",
   "tests/server/routes/compiler-binary-payload.test.ts",
+  "tests/server/routes/compiler-board.routes.test.ts",
+  "tests/server/routes/simulation-runtime-unavailable.test.ts",
+  "tests/server/routes/runtime-readiness.test.ts",
+  "tests/server/routes/compiler-artifact.routes.test.ts",
   "tests/server/routes/api-rate-limit-key.test.ts",
   "tests/server/routes/simulation-connection-lifecycle.test.ts",
   "tests/server/routes/compiler-capacity.test.ts",
@@ -41,6 +45,7 @@ const serializedHttpUnitTests = [
   "tests/server/routes/shutdown-websocket.test.ts",
   "tests/server/routes/test-reset.routes.test.ts",
   "tests/server/routes/tutor.routes.test.ts",
+  "tests/server/routes/tutor-board.routes.test.ts",
   "tests/server/routes/websocket-lifecycle-handlers.test.ts",
   "tests/server/security/access-control.test.ts",
   "tests/server/services/protocol-version.test.ts",
@@ -77,7 +82,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "json-summary", "html", "lcov"],
       reportsDirectory: "coverage",
-      exclude: ["tests/**", "e2e/**", "**/node_modules/**", "**/dist/**"],
+      exclude: ["tests/**", "packages/*/tests/**", "e2e/**", "**/node_modules/**", "**/dist/**"],
     },
     // Policy-Konformität: Flush-on-Failure Mechanismus
     // Bei Test-Fehlschlag wird Debug-Buffer auf Konsole geflushert
@@ -110,6 +115,10 @@ export default defineConfig({
           exclude: [
             "tests/integration/serial-flooding.test.ts",
             "tests/integration/serial-flow.test.ts",
+            "tests/integration/avr-emulator-board-pinmap.test.ts",
+            "tests/integration/runtime-corpus-fixtures.test.ts",
+            "tests/integration/compile-artifact.test.ts",
+            "tests/integration/toolchain-cores.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",
@@ -124,6 +133,7 @@ export default defineConfig({
             "tests/server/services/sandbox-lifecycle.integration.test.ts",
             "tests/server/services/serial-backpressure.test.ts",
             "tests/integration/docker-security-contract.test.ts",
+            "tests/integration/compile-sandbox-contract.test.ts",
             "tests/integration/sandbox-orphan-sweep.test.ts",
             "tests/integration/runtime-output-storm.test.ts",
             "tests/integration/paused-run-budget.test.ts",
@@ -133,6 +143,16 @@ export default defineConfig({
           ],
           environment: "node",
           setupFiles: ["./tests/setup.node.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The emulation core is independent of UnoSim: no UnoSim setup files.
+          name: "unit-emulator",
+          pool: unitPool,
+          include: ["packages/avr-emulator/tests/**/*.test.ts"],
+          environment: "node",
         },
       },
       {
@@ -152,6 +172,10 @@ export default defineConfig({
         test: {
           name: "integration-toolchain",
           include: [
+            "tests/integration/avr-emulator-board-pinmap.test.ts",
+            "tests/integration/runtime-corpus-fixtures.test.ts",
+            "tests/integration/compile-artifact.test.ts",
+            "tests/integration/toolchain-cores.test.ts",
             "tests/integration/compiler-canaries.test.ts",
             "tests/integration/compile-include-boundary.test.ts",
             "tests/integration/sketch-runtime-fidelity.test.ts",
@@ -177,6 +201,7 @@ export default defineConfig({
             "tests/server/services/sandbox-lifecycle.integration.test.ts",
             "tests/server/services/serial-backpressure.test.ts",
             "tests/integration/docker-security-contract.test.ts",
+            "tests/integration/compile-sandbox-contract.test.ts",
             "tests/integration/sandbox-orphan-sweep.test.ts",
             "tests/integration/runtime-output-storm.test.ts",
             "tests/integration/paused-run-budget.test.ts",

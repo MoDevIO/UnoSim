@@ -5,7 +5,8 @@ export type OperationErrorCode =
   | "RATE_LIMITED"
   | "SYSTEM_BUSY"
   | "SIMULATION_ALREADY_ACTIVE"
-  | "SIMULATION_START_FAILED";
+  | "SIMULATION_START_FAILED"
+  | "RUNTIME_UNAVAILABLE";
 
 export type OperationError = {
   code: OperationErrorCode;

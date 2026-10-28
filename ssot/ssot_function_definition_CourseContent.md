@@ -156,6 +156,11 @@ Schema v2 retains the Examples structure and adds an optional Tutor descriptor:
 }
 ~~~
 
+Each examples entry may carry an optional board (a board id such as nano) naming
+the board the Example is written for; an Example without it fits every board and
+an id this version does not know counts as absent (plan P4.6, see the External
+Examples SSOT, section 7.1).
+
 tutor at the root is optional. Example-specific Tutor metadata is not a root
 manifest field. When present, it is authored only in the terminal structured
 annotation of the Example's declared main `.ino` file. The exact existing

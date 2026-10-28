@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
+import { boardIdSchema, findBoardByFqbn } from "./boards";
+import { boundedArray } from "./bounded-array";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 
@@ -12,6 +14,8 @@ export interface Sketch {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const serialPortSchema = z.number().int().min(0).max(INPUT_LIMITS.webSocket.maxSerialPort);
 
 const compilerHeaderSchema = z
   .object({
@@ -27,7 +31,7 @@ const compilerHeaderSchema = z
   })
   .strict();
 
-function rejectEntryHeaderCollision(
+export function rejectEntryHeaderCollision(
   data: { entryFile?: string; headers?: Array<{ name: string }> },
   ctx: z.RefinementCtx,
 ): void {
@@ -37,7 +41,7 @@ function rejectEntryHeaderCollision(
   data.headers.forEach((header, index) => {
     if (normalizeSourcePath(header.name) === entryPath) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         path: ["headers", index, "name"],
         message: "Header path must not collide with the entry file",
       });
@@ -45,32 +49,49 @@ function rejectEntryHeaderCollision(
   });
 }
 
+/** The deprecated `fqbn` must be the FQBN of a catalog board and, with a `board`, the FQBN of that board. */
+function rejectFqbnOfAnotherBoard(data: { board?: string; fqbn?: string }, ctx: z.RefinementCtx): void {
+  if (data.fqbn === undefined) return;
+  const owner = findBoardByFqbn(data.fqbn);
+  if (!owner) {
+    ctx.addIssue({ code: "custom", path: ["fqbn"], message: "fqbn is not the FQBN of a known board" });
+  } else if (data.board !== undefined && owner.id !== data.board) {
+    ctx.addIssue({ code: "custom", path: ["fqbn"], message: "fqbn does not belong to the selected board" });
+  }
+}
+
+/**
+ * The project files of a request besides `code` (the entry file): compile and Tutor see the same
+ * project. Requests with these fields also need `rejectEntryHeaderCollision`.
+ */
+export const projectFilesRequestFields = {
+  entryFile: z.string().refine(
+    (entryFile) => normalizeSourcePath(entryFile) !== undefined,
+    "Entry file must be a safe relative POSIX path",
+  ).optional(),
+  headers: boundedArray(compilerHeaderSchema, INPUT_LIMITS.compile.maxHeaders)
+    .refine(
+      (headers) =>
+        new Set(headers.map((header) => header.name.toLowerCase())).size ===
+        headers.length,
+      "Header names must be unique",
+    )
+    .optional(),
+};
+
 /** Runtime contract for the public REST compiler endpoint. */
 export const compileRequestSchema = z
   .object({
     code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    entryFile: z.string().refine(
-      (entryFile) => normalizeSourcePath(entryFile) !== undefined,
-      "Entry file must be a safe relative POSIX path",
-    ).optional(),
-    headers: z
-      .array(compilerHeaderSchema)
-      .max(INPUT_LIMITS.compile.maxHeaders)
-      .refine(
-        (headers) =>
-          new Set(headers.map((header) => header.name.toLowerCase())).size ===
-          headers.length,
-        "Header names must be unique",
-      )
-      .optional(),
+    ...projectFilesRequestFields,
+    board: boardIdSchema.optional(),
+    /** Deprecated: allowed only together with (or instead of) the board it belongs to. */
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
-    libraries: z
-      .array(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars))
-      .max(INPUT_LIMITS.compile.maxLibraries)
-      .optional(),
+    libraries: boundedArray(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars), INPUT_LIMITS.compile.maxLibraries).optional(),
   })
   .strict()
-  .superRefine(rejectEntryHeaderCollision);
+  .superRefine(rejectEntryHeaderCollision)
+  .superRefine(rejectFqbnOfAnotherBoard);
 
 /**
  * Canonical WebSocket message type identifiers.
@@ -102,15 +123,18 @@ export const WSMessageType = {
 } as const;
 
 // WebSocket message types
-export const wsMessageSchema = z.discriminatedUnion("type", [
+const wsMessageUnion = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("serial_output"),
     data: z.string(),
     isComplete: z.boolean().optional(),
+    /** Hardware serial port: 0 = `Serial` (the default), 1–3 = `Serial1`–`Serial3` (Mega 2560). */
+    port: serialPortSchema.optional(),
   }),
   z.object({
     type: z.literal("serial_input"),
     data: z.string().max(INPUT_LIMITS.webSocket.maxSerialInputChars),
+    port: serialPortSchema.optional(),
   }).strict(),
   z.object({
     type: z.literal("start_simulation"),
@@ -125,9 +149,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
       (entryFile) => normalizeSourcePath(entryFile) !== undefined,
       "Entry file must be a safe relative POSIX path",
     ).optional(),
-    headers: z
-      .array(compilerHeaderSchema)
-      .max(INPUT_LIMITS.compile.maxHeaders)
+    headers: boundedArray(compilerHeaderSchema, INPUT_LIMITS.compile.maxHeaders)
       .refine(
         (headers) =>
           new Set(headers.map((header) => header.name.toLowerCase())).size ===
@@ -268,11 +290,15 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     message: z.string(),
     retryAfter: z.number().int().positive().optional(),
   }).strict(),
-]).superRefine((data, ctx) => {
+]);
+
+function refineWsMessage(data: { type: string; entryFile?: string; headers?: Array<{ name: string }> }, ctx: z.RefinementCtx): void {
   if (data.type === "start_simulation") {
     rejectEntryHeaderCollision(data, ctx);
   }
-});
+}
+
+export const wsMessageSchema = wsMessageUnion.superRefine(refineWsMessage);
 
 export type WSMessage = z.infer<typeof wsMessageSchema>;
 
@@ -300,21 +326,28 @@ export type ServerToClientWSMessage = Exclude<
   ClientToServerWSMessage
 >;
 
-export const clientToServerWSMessageSchema = wsMessageSchema.refine(
-  (message): message is ClientToServerWSMessage =>
-    CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
-      message.type as ClientToServerMessageType,
-    ),
-  { message: "Message type is not allowed from client to server" },
-);
+const isClientToServerType = (type: string): boolean =>
+  (CLIENT_TO_SERVER_MESSAGE_TYPES as readonly string[]).includes(type);
 
-export const serverToClientWSMessageSchema = wsMessageSchema.refine(
-  (message): message is ServerToClientWSMessage =>
-    !CLIENT_TO_SERVER_MESSAGE_TYPES.includes(
-      message.type as ClientToServerMessageType,
-    ),
-  { message: "Message type is not allowed from server to client" },
-);
+/**
+ * The members of the message union that travel in one direction. The direction comes first: a message
+ * of the other direction is refused by its type alone and none of its content is validated. Parsing the
+ * whole union and checking the direction afterwards let a client send server events with large arrays
+ * (a 256 KiB message of empty `pin_state_batch` entries gave 240 000 issues and about 100 MiB of heap).
+ */
+function membersOfDirection(clientToServer: boolean) {
+  return wsMessageUnion.options.filter((member) => isClientToServerType(member.shape.type.value) === clientToServer);
+}
+
+/** Messages the browser is allowed to send to the simulation server. */
+export const clientToServerWSMessageSchema = z
+  .discriminatedUnion("type", membersOfDirection(true) as unknown as typeof wsMessageUnion.options)
+  .superRefine(refineWsMessage) as unknown as z.ZodType<ClientToServerWSMessage>;
+
+/** Messages emitted by the simulation server and consumed by the browser. */
+export const serverToClientWSMessageSchema = z
+  .discriminatedUnion("type", membersOfDirection(false) as unknown as typeof wsMessageUnion.options)
+  .superRefine(refineWsMessage) as unknown as z.ZodType<ServerToClientWSMessage>;
 
 // Parser Message Types
 export type ParserMessage = {
@@ -337,8 +370,14 @@ export type ParserMessage = {
   suggestion?: string;
 };
 
+/** Where a finding of the I/O registry comes from: the static analysis, the running simulation, or both (plan 4.9). */
+export type IOOrigin = "static" | "runtime" | "both";
+export type IOFunction = "pinMode" | "digitalRead" | "digitalWrite" | "analogRead" | "analogWrite";
+
 // I/O Pin Record for Registry Display
 export interface IOPinRecord {
+  /** Origin per function, set where static and runtime findings are merged. */
+  origin?: Partial<Record<IOFunction, IOOrigin>>;
   pin: string;
   defined: boolean;
   // ── Numeric pin id (0-13 digital, 14-19 = A0-A5). Optional for compat. ──

@@ -1,3 +1,4 @@
+import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
 import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -17,7 +18,10 @@ const CodeEditor = lazy(() =>
   }))
 );
 
+import type { BoardId } from "@shared/boards";
+
 interface UseSimulatorUIStateParams {
+  boardId?: BoardId;
   code: string;
   setCode: (code: string) => void;
   tabs: Array<{ id: string; name: string; path?: string; content: string }>;
@@ -70,6 +74,10 @@ interface UseSimulatorUIStateParams {
   setAutoScrollEnabled: (enabled: boolean) => void;
   serialInputValue: string;
   setSerialInputValue: (value: string) => void;
+  /** The port the monitor shows and the number of ports the board has (the selector appears above 1). */
+  serialPort?: number;
+  setSerialPort?: (port: number) => void;
+  serialPortCount?: number;
   handleSerialInputKeyDown: (event: React.KeyboardEvent) => void;
   handleSerialInputSend: () => void;
   baudRate: number;
@@ -81,18 +89,18 @@ interface UseSimulatorUIStateParams {
   debugMessages: Array<{
     id: string;
     timestamp: Date;
-    sender: "server" | "frontend";
+    sender: DebugSender;
     type: string;
     content: string;
-    protocol?: "websocket" | "http";
+    protocol?: DebugProtocol;
   }>;
   setDebugMessages: React.Dispatch<React.SetStateAction<Array<{
     id: string;
     timestamp: Date;
-    sender: "server" | "frontend";
+    sender: DebugSender;
     type: string;
     content: string;
-    protocol?: "websocket" | "http";
+    protocol?: DebugProtocol;
   }>>>;
   debugMessageFilter: string;
   setDebugMessageFilter: (value: string) => void;
@@ -100,10 +108,10 @@ interface UseSimulatorUIStateParams {
   setDebugViewMode: (mode: "table" | "tiles") => void;
   debugMessagesContainerRef: React.RefObject<HTMLDivElement>;
   addDebugMessage: (
-    sender: "server" | "frontend",
+    sender: DebugSender,
     type: string,
     content: string,
-    protocol?: "websocket" | "http",
+    protocol?: DebugProtocol,
   ) => void;
 }
 
@@ -114,6 +122,7 @@ const LoadingPlaceholder = () => (
 );
 
 export function useSimulatorUIState({
+  boardId,
   code,
   setCode,
   tabs,
@@ -160,6 +169,9 @@ export function useSimulatorUIState({
   setAutoScrollEnabled,
   serialInputValue,
   setSerialInputValue,
+  serialPort = 0,
+  setSerialPort,
+  serialPortCount = 1,
   handleSerialInputKeyDown,
   handleSerialInputSend,
   baudRate,
@@ -280,6 +292,7 @@ export function useSimulatorUIState({
   const compileSlot = useMemo(
     () => (
       <OutputPanel
+        boardId={boardId}
         activeOutputTab={activeOutputTab}
         isSuccessState={isSuccessState}
         isModified={isModified}
@@ -313,6 +326,7 @@ export function useSimulatorUIState({
       />
     ),
     [
+      boardId,
       activeOutputTab,
       isSuccessState,
       isModified,
@@ -363,6 +377,9 @@ export function useSimulatorUIState({
           setAutoScrollEnabled={setAutoScrollEnabled}
           serialInputValue={serialInputValue}
           setSerialInputValue={setSerialInputValue}
+          serialPort={serialPort}
+          {...(setSerialPort ? { setSerialPort } : {})}
+          serialPortCount={serialPortCount}
           handleSerialInputKeyDown={handleSerialInputKeyDown}
           handleSerialInputSend={handleSerialInputSend}
           debugMode={debugMode}
@@ -387,6 +404,9 @@ export function useSimulatorUIState({
       setAutoScrollEnabled,
       serialInputValue,
       setSerialInputValue,
+      serialPort,
+      setSerialPort,
+      serialPortCount,
       handleSerialInputKeyDown,
       handleSerialInputSend,
       debugMode,

@@ -12,7 +12,8 @@ gateway is optional.
 - `NODE_ENV=development`, `UNOSIM_SERVER_MODE=local`
 - loopback listener by default
 - local signed session cookie; no external identity provider
-- compilation and simulation run as local processes
+- compilation runs as a local process; sketches run in the browser emulation
+  (see "Browser runtime boundary"), the host mock as a local process
 - intended for one trusted developer on one machine
 
 Local development is not approved for shared, LAN or public access.
@@ -31,7 +32,9 @@ exposes local process execution to clients that can reach the listener.
 
 - `NODE_ENV=production`, `UNOSIM_SERVER_MODE=docker`
 - server runs in Docker
-- every simulation runs in a separate Docker sandbox
+- every compile runs in a separate compile sandbox (see "Compile boundary")
+- every host-mock simulation runs in a separate Docker sandbox; browser runs
+  need no server sandbox
 - a trusted gateway and valid gateway identity are mandatory; authenticating a
   person before the gateway is optional
 - Docker availability and the sandbox image are startup/readiness requirements
@@ -73,9 +76,35 @@ ADR 0001 records the original gateway contract; [ADR
 for user authentication while retaining gateway identity, header and origin
 requirements.
 
+## Browser runtime boundary
+
+With the browser backend ([ADR 0009](adr/0009-browser-emulation-runtime.md),
+`Proposed`) a sketch runs in the user's browser: avr8js interprets the AVR
+machine code of the flash image in a Web Worker. Sketch code is never executed
+as JavaScript and reaches neither the DOM, the network nor the page's storage;
+its effects are the emulated pins, serial ports and EEPROM of the tab. A
+sketch that loops or floods output costs only that tab, no server resource.
+
+Bounds, enforced in the worker and the main thread:
+
+- the worker loads only a flash image that fits the board's flash (at most
+  256 KiB) and whose SHA-256 matches; symbols are checked against the flash
+  size;
+- every command and event carries a run identifier; events of other runs are
+  dropped;
+- a run ends after its run time of 1–300 s without pauses; pending serial
+  output and findings are bounded and drops are counted, serial input is
+  limited to 4 KiB per message and 1 MiB pending;
+- the main thread terminates a worker that misses its heartbeat (3 s) or a
+  confirmation deadline in the visible tab, or reports `error`/`messageerror`.
+
+The artifact is derived from the user's own compile; the server never sends
+the HEX file. The worker module is part of the built client, loaded from the
+same origin.
+
 ## Sandbox boundary
 
-Docker simulations use a dedicated non-root container with:
+Host-mock simulations in Docker use a dedicated non-root container with:
 
 - network disabled,
 - read-only root filesystem,
@@ -106,23 +135,58 @@ start's owner sweep.
 
 ## Compile boundary
 
-`POST /api/compile` runs `arduino-cli` inside the backend container, not in a
-sandbox (the simulation compiles again inside its sandbox). It therefore reads
-files with the backend's permissions. To keep file contents out of compiler
-diagnostics:
+In the Docker profile `POST /api/compile` runs `arduino-cli` in a compile
+sandbox ([ADR 0010](adr/0010-compile-sandbox-and-flash-artifact.md), plan
+P2.4): one short-lived container of the image `unosim-compile-sandbox` per
+compile, started by the backend over the Docker socket like the simulation
+sandboxes.
 
-- includes that name a file outside the submitted project – absolute paths,
-  paths leaving the project, `..` in library includes, computed includes and
-  escaped directive names – are rejected before `arduino-cli` runs;
-- the compiled HEX is never returned to the browser.
+- No network, read-only root filesystem, all capabilities dropped,
+  `no-new-privileges`, memory without swap, CPU and PID limits
+  (`COMPILE_SANDBOX_MEMORY_MB` 512, `COMPILE_SANDBOX_CPU_LIMIT` 1,
+  `COMPILE_SANDBOX_PIDS_LIMIT` 128), one 256 MiB tmpfs without exec for the
+  core cache copy, the build and its outputs.
+- The sketch directory is the only bind mount, read-only. No other project,
+  no backend file and no Docker socket is visible. HEX, ELF and the CLI's
+  standard output leave the container framed on stdout; the container cannot
+  write to the host.
+- The environment is set explicitly (`HOME`, `PATH`); nothing of the
+  backend's environment reaches the toolchain, also not through
+  `.include "/proc/self/environ"`.
+- A time limit of 60 s applies inside the container (`timeout --signal=KILL`)
+  and at the backend; a container whose client was stopped is removed. Every
+  compile container carries the owner label and is removed by the startup
+  sweep like a simulation sandbox.
+- The process executor refuses to start a container of the compile image
+  without these isolation flags or with a writable mount.
+- The backend does not start in the Docker profile without the image. The
+  backend image itself contains no compiler (no `arduino-cli`, no `g++`); a
+  sketch is compiled only in the compile sandbox and, for the host mock, in the
+  simulation sandbox.
 
-Remaining risk: inline-assembler directives such as `.include` can still make
-the assembler report the first characters of each line of a readable file, and
-string concatenation defeats a textual filter. Do not place secrets as files in
-the backend container. A sandboxed REST compile is an open decision
-([open points](OPEN_POINTS.md), S1-ASM). The process environment
-is not reachable this way: `/proc/*/environ` reads as empty for both compilers
-in use.
+The contract test `tests/integration/compile-sandbox-contract.test.ts` (Docker
+gate) checks isolation, the disclosure attempts below and the limits.
+
+Includes that name a file outside the submitted project – absolute paths,
+paths leaving the project, `..` in library includes, computed includes and
+escaped directive names – are still rejected before `arduino-cli` runs, as an
+additional layer in the Docker profile and as the boundary in the local
+profile.
+
+The compiled HEX (`binary`) is never returned to the browser. The response
+carries the flash image as `artifact` (flash range, SHA-256, symbols; browser
+emulation, plan P2.5): in the Docker profile because it was built where no
+backend file was readable, in the local profile because that profile serves
+one trusted developer.
+
+Remaining risk in the local profile: `arduino-cli` runs in the backend process.
+Inline-assembler directives such as `.include` can make the assembler report
+the first characters of each line of a readable file, and `.include
+"/proc/self/environ"` the first characters of environment entries (spike
+P0.2); string concatenation defeats a textual filter. The local profile binds
+to loopback and serves one developer; do not run it for others. In the
+compile sandbox the same directives only reach the files of the public
+image.
 
 ## Test-only gateway bypass
 
@@ -133,7 +197,26 @@ development startup reject the flag.
 
 ## Input and network controls
 
-- HTTP and WebSocket payloads are schema-validated and size-limited.
+- HTTP and WebSocket payloads are schema-validated and size-limited. Arrays of
+  a request or of repository content (headers, libraries, Tutor history,
+  example and curriculum lists) are checked against their length limit before
+  any element is validated (`boundedArray`): Zod 3 would otherwise validate and
+  report every element of an oversized array, and a 1 MiB body of invalid
+  elements cost 500 000 issues and several hundred MiB. `npm audit` still
+  reports `zod < 4.6.6` until the migration to Zod 4 (OPEN_POINTS,
+  `ZOD-ADVISORY`).
+- The direction of a WebSocket message is decided by its `type` before any
+  content is validated: a message of a server-to-client type is refused at once,
+  so a client cannot make the server validate the large arrays of server events
+  (a 256 KiB message of empty `pin_state_batch` entries once cost 240 000
+  issues and about 100 MiB of heap).
+- The parsers read sketch text of up to 128 KiB on the single server process
+  (compile, Tutor, I/O analysis), so their cost must be linear in that text. Two
+  quadratic cases were found and fixed: unterminated block comments (48 KB took
+  1.7 s, 96 KB 6.6 s) and array declarations without a closing bracket or brace
+  in the Tutor's sketch facts (1.3 s). Tests keep the comment scan identical to
+  the former regex and bound the time of such inputs; there is no proof for every
+  other pattern (OPEN_POINTS, `PARSER-COST`).
 - Mutating `/api` requests with a body must be `application/json` (else 415),
   so a foreign page cannot send them as a CORS-simple form or text request.
   Browsers that report `Sec-Fetch-Site: cross-site` or `same-site` are refused
@@ -159,6 +242,12 @@ development startup reject the flag.
   no client-created or changed sketches.
 - External examples are fetched only from configured allowed hosts, validated
   as a complete snapshot and bound to a resolved commit.
+- GitHub ref lookups request only `application/vnd.github.sha`, enforce an
+  independent 256-byte response limit and validate the complete lowercase
+  40-character SHA. Manifest limits remain independent. DNS, allowlist,
+  redirect, timeout and streaming-size checks apply to this representation too.
+  Ref failures log only the request ID and safe error metadata, never bodies
+  or upstream error messages.
 - GitHub ref lookups respect the REST quota: after a 403/429 rate-limit answer
   no request is sent before the announced reset, and browser overrides leave a
   reserve of 10 lookups to the operator's default Course. The optional
@@ -176,13 +265,21 @@ development startup reject the flag.
 
 ## Production checklist
 
-1. Use only the Docker profile and reviewed immutable images.
+1. Use only the Docker profile and reviewed immutable images (backend,
+   compile sandbox and, while the host mock is offered, simulation sandbox).
 2. Keep the backend inaccessible except through the trusted gateway.
 3. Configure TLS, gateway secret, trusted proxy and exact WebSocket origins.
 4. Verify `/api/health` and `/api/readiness` before routing traffic.
 5. Keep Docker sandbox resource limits, rate limits and admission enabled.
-6. Run `npm run test:security:inputs`, `npm run test:docker`, the unit suite,
-   E2E suite, build and security audit before release.
+6. Run `npm run test:security:inputs`, `npm run test:docker` (including the
+   compile sandbox contract), the unit suite, E2E suite, build and security
+   audit before release.
 
 Report security vulnerabilities privately to the instance operators before
 public disclosure.
+
+The read-only `/api/examples/builtin/catalog` endpoint serves only the local
+BuiltInProvider catalog with the same anonymous default-read policy as
+`/api/examples`. It accepts no selection parameters and does not start outbound
+requests or spend source-load/GitHub quotas. External selection and revision
+checks remain on their existing endpoints.

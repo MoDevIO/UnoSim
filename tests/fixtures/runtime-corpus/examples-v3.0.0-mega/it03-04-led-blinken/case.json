@@ -1,0 +1,14 @@
+{
+  "board": "mega2560",
+  "simMs": 700,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "LED on pin 13: 500 ms on, 300 ms off (the same example on the Mega 2560).",
+  "basis": "the output of the example on the Uno (class derived: derived by hand from the sketch source (C++ semantics, avr-gcc: int is 16 bit) and the 'Beobachtung' comment of the example; states sampled in the middle of each phase) holds for the Mega 2560: the sketch uses no feature in which the ATmega328P and the ATmega2560 differ (no pin above 13, A0 as ADC channel 0, 16 MHz, 16-bit int, same core 1.8.8); no recording on a Mega exists",
+  "events": [],
+  "expectState": [
+    [250, "pin", 13, "OUTPUT", 1],
+    [650, "pin", 13, "OUTPUT", 0]
+  ],
+  "tolerances": []
+}

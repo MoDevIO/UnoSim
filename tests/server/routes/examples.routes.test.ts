@@ -53,9 +53,14 @@ describe("request-scoped examples routes", () => {
       schemaVersion: 1 as const, id, title: "Example", category: "Test", main: "main.ino", source: "external" as const,
       revision: requestedRevision ?? null, files: [{ name: "main.ino", path: "main.ino", content: "code" }],
     }));
+    const getBuiltInCatalog = vi.fn(async () => ({
+      schemaVersion: 1 as const,
+      source: { selection: "default" as const, mode: "builtin" as const, repository: null, ref: null, revision: null, status: "builtin" as const, stale: false as const },
+      examples: [],
+    }));
     const app = express();
     app.use(express.json());
-    registerExamplesRoutes(app, { validate, getCatalog, getExample }, {
+    registerExamplesRoutes(app, { validate, getCatalog, getExample, getBuiltInCatalog }, {
       trust: gateway,
       validateRateLimiter: new IdentityRateLimiter("test validate", { maxRequests: validateMax, windowMs: 60_000, blockDurationMs: 60_000 }),
       overrideRateLimiter: new IdentityRateLimiter("test override", { maxRequests: overrideMax, windowMs: 60_000, blockDurationMs: 30_000 }),
@@ -63,8 +68,19 @@ describe("request-scoped examples routes", () => {
     server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server!.once("listening", resolve));
     const address = server.address() as { port: number };
-    return { baseUrl: `http://127.0.0.1:${address.port}`, validate, getCatalog, getExample };
+    return { baseUrl: `http://127.0.0.1:${address.port}`, validate, getCatalog, getExample, getBuiltInCatalog };
   }
+
+  it("serves the built-in catalog anonymously without consulting the external catalog", async () => {
+    const { baseUrl, getCatalog, getBuiltInCatalog, validate } = await start();
+    getCatalog.mockRejectedValue(new Error("External source unavailable"));
+    const response = await request(baseUrl, "GET", "/api/examples/builtin/catalog");
+    expect(response).toMatchObject({ status: 200, body: { schemaVersion: 1, source: { mode: "builtin", revision: null } } });
+    expect(getBuiltInCatalog).toHaveBeenCalledOnce();
+    expect(getCatalog).not.toHaveBeenCalled(); expect(validate).not.toHaveBeenCalled();
+    expect((await request(baseUrl, "GET", "/api/examples/builtin/catalog?repository=owner%2Frepo&ref=main")).body.error.code).toBe("INVALID_SELECTION");
+    expect(getBuiltInCatalog).toHaveBeenCalledOnce();
+  });
 
   it("supports validate and request-scoped catalog with private no-store", async () => {
     const { baseUrl, validate, getCatalog } = await start();

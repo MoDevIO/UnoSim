@@ -125,7 +125,7 @@ dadurch keine Hardware-Anbindung.
 | B2 | Die Simulation kompiliert ein zweites Mal mit g++. | [prepare-phase.ts](../../server/services/sandbox/execution-phases/prepare-phase.ts) | Die Browser-Emulation startet mit dem Artefakt des REST-Compiles. |
 | B3 | `fqbn` wird im Request angenommen, die Argument-Allowlist lässt aber nur `arduino:avr:uno` zu; die Compile-Ausgabe schreibt fest „Board: Arduino UNO“. | [schema.ts](../../shared/schema.ts), [process-executor.ts](../../server/services/process-executor.ts), [cli-runner.ts](../../server/services/compiler/cli-runner.ts) | Board-ID mit Katalog statt freier FQBN (P2.2). |
 | B4 | Das Pin-Modell 0–19 (A0–A5 = 14–19) ist an vielen Stellen fest verdrahtet. | [input-limits.ts](../../shared/input-limits.ts) (`maxPin: 19`), [use-simulation-store.ts](../../client/src/hooks/use-simulation-store.ts), [arduino-board.tsx](../../client/src/components/features/arduino-board.tsx), [io-registry-parser.ts](../../shared/io-registry-parser.ts), [hardware-compatibility-parser.ts](../../shared/parsers/hardware-compatibility-parser.ts), [EXTERNAL_API.md](../EXTERNAL_API.md), [IoRegistry-SSOT](../../ssot/ssot_function_definition_IoRegistry.md) | Eigene Phase für die Board-Generalisierung (Phase 4). Uno bleibt Default, damit bestehende Tests unverändert gelten. |
-| B5 | Der Client ersetzt während eines Laufs die statische Registry vollständig durch den Laufzeit-Snapshot; die IoRegistry-SSOT verlangt dagegen, dass sich beide ergänzen. Beim Host-Mock fällt das kaum auf, weil seine Instrumentierung Zeilen mitliefert. avr8js macht Lese- und Schreibzugriffe auf I/O-Register beobachtbar (`readHooks`, `writeHooks`; auch `IN`, `LDS`, `LD`, `SBIC`, `SBIS` lesen darüber). Ein Lesezugriff auf ein PIN-Register zeigt aber nur den Port, nicht Pin und Arduino-Funktion. | [io-registry-state.ts](../../client/src/lib/io-registry-state.ts), [arduino-registry-logic.ts](../../server/mocks/arduino-mock/arduino-registry-logic.ts), avr8js 0.21.1 `cpu/cpu`, `cpu/instruction` | Zusammenführung mit Herkunft statt Ersetzen (P3.7); Laufzeit-Erkennung über Registerzugriffe, ELF-Symbole nur zur Ergänzung (E7, P0.4, P1.9). |
+| B5 | Der Client ersetzt während eines Laufs die statische Registry vollständig durch den Laufzeit-Snapshot; die IoRegistry-SSOT verlangt dagegen, dass sich beide ergänzen. Beim Host-Mock fällt das kaum auf, weil seine Instrumentierung Zeilen mitliefert. avr8js macht Lese- und Schreibzugriffe auf I/O-Register beobachtbar (`readHooks`, `writeHooks`; auch `IN`, `LDS`, `LD`, `SBIC`, `SBIS` lesen darüber). Ein Lesezugriff auf ein PIN-Register zeigt für sich nur den Port; Pin und Bit liefert erst der zugreifende Befehl (P0.4). | [io-registry-state.ts](../../client/src/lib/io-registry-state.ts), [arduino-registry-logic.ts](../../server/mocks/arduino-mock/arduino-registry-logic.ts), avr8js 0.21.1 `cpu/cpu`, `cpu/instruction` | Zusammenführung mit Herkunft statt Ersetzen (P3.7); Laufzeit-Erkennung über Registerzugriffe mit Befehlsdekodierung, ELF-Symbole nur optional (E7, P0.4, P1.9). |
 | B6 | Pause friert den Prozess per `SIGSTOP` bzw. `docker pause` ein, `millis()` läuft weiter. Das Pausenbudget schützt Serverressourcen. | [PauseResume-SSOT](../../ssot/ssot_function_definition_PauseResume.md) 4.3 und 7.2 | Im Browser hält Pause die simulierte Zeit an; das Pausenbudget gilt nur noch für den Host-Mock. |
 | B7 | Der Client steuert die Simulation ausschließlich über den WebSocket; Capabilities folgen aus der Erreichbarkeit des Backends. | [use-simulation-controller.ts](../../client/src/hooks/use-simulation-controller.ts), [useWebSocketHandler.ts](../../client/src/hooks/useWebSocketHandler.ts), [server-capabilities.ts](../../client/src/lib/server-capabilities.ts) | Laufzeit-Schnittstelle im Client (P3.1). Die Browser-Emulation erzeugt dieselben Nachrichtenformen wie der Server, damit die Auswertung bleibt. |
 | B8 | `UNOSIM_SIMULATION_MODE` ist als entfernte Variable gesperrt. | [config.ts](../../server/config.ts) (`removedRuntimeVariables`) | Neue Variablen heißen `UNOSIM_RUNTIME_*` (Abschnitt 4.11). |
@@ -153,7 +153,7 @@ Abschnitt 5 des Vorschlags.
 | E8 | Pause, Timeout, Limits | 5 | Der Worker setzt sie durch: Pause hält die simulierte Zeit an; Timeout bleibt Laufzeit nach Wanduhr ohne Pausen (1–300 s wie heute), ein Lauf mit Echtzeitfaktor unter 1 endet deshalb nach weniger simulierter Zeit (4.7); Pausenbudget, Simulations-Admission und Start-Rate-Limit nur noch für den Host-Mock | der Server hält für Browser-Läufe keine Ressource; die Bedienung bleibt gleich |
 | E9 | Rückfallebene | – | Host-Mock bleibt für den Uno, wählbar über die angebotenen Backends (Server) und die Einstellung „Simulation engine“ (Nutzer). Standard: lokal ab M1, Docker ab M4 die Browser-Emulation | Rückweg bei Fehlern im Unterricht |
 | E10 | Erster Meilenstein | 6 | wie vorgeschlagen: Die 51 Beispiele aus UnoSim-Examples `v3.0.0` stimmen mit Referenzen überein, die am echten Uno aufgenommen wurden. Ein Beispiel ohne solche Referenz weist die Abnahme aus; es zählt nicht als Hardwarevergleich (7.4) | messbar, deckt den Unterrichtsstoff ab, trennt Hardwarevergleich von Regression |
-| E11 | ATtiny-Core | – | ATTinyCore (SpenceKonde), Version gepinnt, `chip=85`, 8 MHz intern. `Serial` ist dort eine Software-Schnittstelle, die der Emulator am TX-Pin dekodiert; serielle Eingabe erst nach Spike (Analogkomparator) | einziger verbreiteter Core mit `Serial` auf dem ATtiny85; Version, Lizenz und Pflegezustand prüft P0.5 |
+| E11 | ATtiny-Core | – | ATTinyCore (SpenceKonde) 1.5.2, `chip=85`, 8 MHz intern, übrige Menüoptionen auf Standard. `Serial` ist dort eine Software-Schnittstelle, die der Emulator am TX-Pin dekodiert; die serielle Eingabe läuft über ein Modell des Analogkomparators ([Spike P0.5](spike-p0-5-attiny85.md)) | einziger verbreiteter Core mit `Serial` auf dem ATtiny85; LGPL 2.1 wie der Arduino-AVR-Core, derselbe Compiler; seit 2021 kein Release (P0.5) |
 | E12 | Echtzeit | – | Der Worker taktet auf Echtzeit. Ist das Gerät zu langsam, läuft die Simulation langsamer und zeigt den Echtzeitfaktor. Rückstand über 100 ms wird nicht aufgeholt: Der Bezug zur Wanduhr wird neu gesetzt, simuliert wird lückenlos weiter. Läuft der Worker voraus, wartet er. In verborgenen Tabs läuft er weiter (4.7) | `millis()` bleibt in sich stimmig, die UI bleibt bedienbar, kein Kern wird dauernd belegt |
 | E13 | Board pro Sketch | – | Auswahl pro Browser und Arbeitsbereich (localStorage); Beispiele dürfen ein Board angeben (optional, Default `uno`) | entspricht der Arduino IDE; Course Content bleibt abwärtskompatibel |
 | E14 | Verträge | – | WebSocket `1.0.0` bleibt (nur Host-Mock; neue Telemetriefelder optional). REST additiv `1.1.0` (`board`, `artifact`). iframe-API additiv `1.5.0` (Board, Pinbereich je Board). Worker-Protokoll neu und intern, versioniert im Paket | Clients brauchen keine Migration; die Produktversion steigt trotzdem auf 2.0.0 (E16) |
@@ -350,7 +350,7 @@ Ereignisse vom Worker an die UI (alle mit `runId`):
 | `pins` | geänderte Pins seit dem letzten Bild (Modus, Pegel, PWM), Zähler | `pin_state_batch` |
 | `usage` | Pin, Funktion, Modus | Laufzeitanteil von `io_registry` |
 | `telemetry` | simulierte Zeit, Echtzeitfaktor, Pin- und Serial-Raten | `sim_telemetry` mit optionalen Feldern `simTimeMs`, `realTimeFactor` |
-| `diagnostic` | die Fälle aus P1.10: Stack ragt in `.bss` oder Heap, PC außerhalb des Programms, Watchdog-Reset, `sleep` bei gesperrten Interrupts | Systemzeile im Serial Monitor, Debug-Konsole |
+| `diagnostic` | die Fälle aus P1.10: Stack ragt in `.bss` oder Heap, PC außerhalb des Programms, Watchdog-Reset, `sleep` bei gesperrten Interrupts, verworfene serielle Eingabe vor `Serial.begin()` | Systemzeile im Serial Monitor, Debug-Konsole |
 | `fault` | interner Fehler des Emulators | `operation_error` mit `SIMULATION_START_FAILED` bzw. `SIMULATION_FAULT` |
 
 Der Worker sendet höchstens etwa 60 Pakete pro Sekunde: Pins zusammengefasst
@@ -368,8 +368,10 @@ festhängender Worker kann kein `fault` mehr senden:
 
 - `error` und `messageerror` am Worker gelten als Ausfall.
 - Ein Worker mit geladener Maschine sendet etwa alle 500 ms `heartbeat`, auch
-  in der Pause. Bleibt der Heartbeat länger als 3 s aus oder die Bestätigung
-  eines Befehls länger als 2 s, gilt der Worker als ausgefallen.
+  in der Pause. Bleibt der Heartbeat länger als 3 s aus, `ready` länger als
+  15 s, die Bestätigung eines Befehls länger als 5 s oder die von `stop` länger
+  als 2 s, gilt der Worker als ausgefallen (umgesetzt in P3.2, SSOT
+  SimulationRuntime).
 - Bei einem Ausfall beendet der Hauptthread den Worker mit `terminate()`, setzt
   den Lauf auf `stopped`, schreibt eine Systemzeile, meldet `operation_error`
   mit `SIMULATION_FAULT` und erzeugt beim nächsten Start einen neuen Worker.
@@ -449,7 +451,7 @@ Benutzerhandbuch; die bisherige Tabelle gilt dann nur noch für „Legacy“.
 | Offener Eingang (`INPUT`, nicht gesetzt) | liest LOW; am echten Board ist der Pegel undefiniert |
 | `INPUT_PULLUP` | liest HIGH, bis der Nutzer LOW setzt |
 | vom Nutzer gesetzter Pegel | gilt, bis der Sketch den Pin auf OUTPUT schaltet |
-| analoger Eingang | Regler = Spannung 0 bis VCC in 1024 Stufen; mit Standardreferenz liefert `analogRead()` genau den Reglerwert |
+| analoger Eingang | Regler = Spannung 0 bis VCC in 1024 Stufen; mit Standardreferenz liefert `analogRead()` genau den Reglerwert. Interne Referenzen nach Datenblatt; an AREF (`EXTERNAL`) liegt VCC, weil dort am Board nichts angeschlossen ist (P1.6) |
 | PWM | Tastverhältnis 0–255 aus Timer-Modus und Vergleichsregister, keine Signalform |
 | Serial | Bytes am USART, Text als UTF-8; gesendeter Text endet wie heute mit Code 10; Empfangspuffer 64 Byte wie am Uno, nicht abgeholte Bytes gehen verloren |
 | Zeit | exakt in simulierter Zeit; ist das Gerät zu langsam, laufen Uhr und Simulation langsamer als die Wanduhr (Echtzeitfaktor). Der Timeout zählt Wanduhrzeit (4.7) |
@@ -481,26 +483,32 @@ avr8js leitet Lesezugriffe (`IN`, `LDS`, `LD`, `SBIC`, `SBIS`) über
 `readHooks` und Schreibzugriffe über `writeHooks`; die eigenen Hooks rufen
 vorhandene Hooks der Peripherie weiter auf und ändern keine Werte.
 
-| Funktion | Beobachtung | Zuordnung ohne Symbole |
+| Funktion | Beobachtung | Zuordnung (Ergebnis P0.4) |
 |---|---|---|
-| `pinMode` | Schreiben auf DDR, für `INPUT_PULLUP` auch auf PORT | Pin über die geänderten Bits; ein Schreibzugriff ohne Bitänderung (etwa `INPUT` an einem Eingang) ist keinem Pin zuzuordnen |
-| `digitalWrite` | Schreiben auf PORT eines Ausgangs | wie `pinMode` |
-| `digitalRead` | Lesen des PIN-Registers | nur der Port, nicht der Pin |
+| `pinMode` | Schreiben auf DDR, für `INPUT` und `INPUT_PULLUP` auch auf PORT | Pin über die geänderten Bits, sonst über den dekodierten Befehl; ein PORT-Schreibzugriff höchstens 24 Takte nach einem DDR-Schreibzugriff ohne gesetztes Bit gehört zu `pinMode` und nennt Pin und Modus |
+| `digitalWrite` | Schreiben auf PORT | Pin über die geänderten Bits, sonst über den dekodierten Befehl; ohne Pegeländerung über die Pin-Tabelle des Cores nur portgenau |
+| `digitalRead` | Lesen des PIN-Registers | Pin über den dekodierten Befehl (`SBIS`/`SBIC` oder Maske im Folgebefehl) |
 | `analogRead` | ADMUX-Kanal beim Setzen von ADSC | Pin über den ADC-Kanal |
-| `analogWrite` | COM-Bits und OCR des Timer-Kanals | Pin über den Timer-Kanal; die Werte 0 und 255 erscheinen als `digitalWrite` |
+| `analogWrite` | COM-Bits und OCR des Timer-Kanals | Pin über den Timer-Kanal; die Werte 0 und 255 erscheinen als `digitalWrite`; das `pinMode(OUTPUT)` in `analogWrite` zählt nicht |
+
+**Befehlsdekodierung.** Im Hook zeigt `cpu.pc` auf den zugreifenden Befehl.
+`SBI`, `CBI`, `SBIS` und `SBIC` tragen das Bit im Opcode. Ändert ein
+Schreibzugriff kein Bit, liefert der vorangehende `ORI`/`OR`/`ANDI`/`AND` die
+Maske; nach einem Lesezugriff auf ein PIN-Register liefert einer der nächsten
+Befehle auf dem Zielregister (`ANDI`, `AND`, `SBRS`, `SBRC`) das Bit. Gewertet
+werden nur Einbit-Masken; alles andere bleibt portgenau und erscheint nicht in
+der Registry ([Spike P0.4](spike-p0-4-runtime-io.md): alle Paare außer einem
+`digitalWrite` pin-genau, keine Fehlzuordnung außer `analogWrite` mit 0/255).
 
 Direkte Registerzugriffe des Sketches (`PORTB |= …`) erscheinen auf demselben
 Weg; die Herkunft weist sie als Laufzeitbeobachtung aus.
 
-**Verfeinerung über Symbole.** Stehen die Einsprünge der fünf Funktionen im
-ELF, markiert der Worker diese Adressen (Flag je Flash-Wort, O(1) je Befehl)
-und liest beim Einsprung Pin (`r24`) und Wert bzw. Modus (`r22`) nach der
-Aufrufkonvention von avr-gcc. Das ordnet auch `digitalRead` und Aufrufe ohne
-Bitänderung einem Pin zu. Fehlen die Symbole, etwa weil LTO eine Funktion
-eingebettet hat, bleibt die Registry vollständig nutzbar; nur diese
-Verfeinerung entfällt. IoRegistry-SSOT-Testfall 8 (`digitalRead(p)` mit
-berechnetem Pin) braucht die Symbole, sonst bleibt der Pin zur Laufzeit
-unbekannt; die SSOT nennt diese Grenze.
+**Symbole als optionale Ergänzung.** Nach LTO stehen die fünf Funktionen fast
+nie als Symbol im ELF (P0.4: in 1 von 62 Builds). Wo ein Einsprung vorhanden
+ist, darf der Worker ihn markieren (Flag je Flash-Wort, O(1) je Befehl) und
+Pin (`r24`) und Wert bzw. Modus (`r22`) nach der Aufrufkonvention von avr-gcc
+lesen. Die Registry hängt davon nicht ab; IoRegistry-SSOT-Testfall 8
+(`digitalRead(p)` mit berechnetem Pin) löst bereits die Befehlsdekodierung.
 
 Weitere Regeln:
 
@@ -777,22 +785,36 @@ Timeout nach E8, Headless-Modus mit Reizskript.
 
 **P1.9 Laufzeit-IO-Erkennung (L).**
 Nach 4.9 und dem Ergebnis von P0.4: Registerbeobachtung als Grundlage,
-Einsprung-Haken über die Symboltabelle als Verfeinerung, Ereignis nur beim
-ersten Auftreten, Herkunft je Fund.
-*Abnahme:* Die Testfälle 1–11 der IoRegistry-SSOT liefern die erwarteten
-Einträge; Fälle, die ohne Symbole nur portgenau sind, sind mit und ohne
-Symbole getestet.
+Befehlsdekodierung als Verfeinerung (Einbit-Masken, `pinMode`-Fenster von 24
+Takten, `pinMode` in `analogWrite` unterdrückt), Einsprung-Haken über die
+Symboltabelle nur optional, Ereignis nur beim ersten Auftreten, Herkunft je
+Fund.
+*Abnahme:* Die Testfälle 1–11 der IoRegistry-SSOT liefern die Einträge aus dem
+Spike-Bericht P0.4 (Fall 7: `digitalWrite` portgenau); die Grenzfälle
+(Schreiben ohne Bitänderung, `analogWrite` mit 0 und 255, direkte
+Registerzugriffe) sind mit vorkompilierten HEX-Fixtures getestet.
 
 **P1.10 Diagnosen (S).**
 Gemeldet werden als Ereignis `diagnostic`:
 - Stack ragt in `.bss` oder Heap: SP unter `__bss_end` bzw. `__brkval` (falls
-  `malloc` gelinkt ist). Geprüft wird am Ende jeder Scheibe und bei
-  Schreibzugriffen auf SPL/SPH. `PUSH`, `CALL` und Interrupts ändern SP in
+  `malloc` gelinkt ist). Geprüft wird am Ende jedes Rechenabschnitts von 4000
+  Takten (kürzer als eine Scheibe) und bei Schreibzugriffen auf SPL; SPH wird
+  nicht geprüft, weil der Zwischenstand aus altem SPL und neuem SPH falsche
+  Treffer liefern würde. `PUSH`, `CALL` und Interrupts ändern SP in
   avr8js direkt, ohne Hook; ein Überlauf, der vor der nächsten Prüfung
   zurückgeht, bleibt unerkannt.
 - PC außerhalb des Programms (gelöschter Flash).
-- Watchdog-Reset.
-- `sleep` bei gesperrten Interrupts.
+- Watchdog-Reset: avr8js setzt dabei nur PC und SP zurück; der Emulator baut
+  die Maschine wie bei der RESET-Taste neu auf.
+- `sleep` bei gesperrten Interrupts: geprüft wird je Befehl, aber nur, solange
+  das SE-Bit gesetzt ist.
+- `serial-input-discarded` (Port, Anzahl Bytes): serielle Eingabe traf ein,
+  während der Empfänger aus war (vor `Serial.begin()`); der echte Uno verwirft
+  sie ebenso (Messung P1.14). Einmal je Lage gemeldet, erneut erst nachdem der
+  Empfänger zwischendurch aktiv war; nie als Serial-Ausgabe.
+
+Dieselbe Diagnose erscheint höchstens einmal je simulierter Sekunde; eine
+Bedingung wird erst wieder gemeldet, nachdem sie geendet hat.
 
 Nicht erkannt werden Schreibzugriffe über Arraygrenzen, Zugriffe auf
 freigegebenen Speicher, Heap-Fragmentierung und Zeiger, die in I/O-Register
@@ -805,6 +827,11 @@ Befehle und Ereignisse aus 4.5 als versionierte Typen mit `runId`,
 Bestätigungen und `heartbeat`; Prüfung eingehender Befehle; Bündelung auf etwa
 60 Pakete pro Sekunde, Telemetrie einmal pro Sekunde, Grenzen gegen
 Überlastung der UI.
+Umgesetzt unter `packages/avr-emulator/src/protocol/` (`messages.ts`,
+`commands.ts`, `event-batcher.ts`, `run-gate.ts`); `load` trägt zusätzlich
+`sha256`, die Telemetrie die Felder `pinChangesPerSecond`,
+`serialCharsPerSecond` und `serialCharsDropped`. Das Senden des `heartbeat`
+liegt im Worker-Host (P1.12), die Fristen im Hauptthread (P3.2).
 
 **P1.12 Worker-Host (M).**
 Einstieg `@unosim/avr-emulator/worker`: Befehle mit `runId` annehmen, Flash
@@ -814,10 +841,19 @@ interne Fehler als `fault` melden. Der Worker bleibt zwischen Läufen bestehen.
 Die Überwachung von außen (Fristen, `terminate()`, Neuerzeugung) liegt im
 Hauptthread (P3.2), weil ein festhängender Worker sie nicht selbst leisten
 kann.
+Umgesetzt unter `packages/avr-emulator/src/worker/`; `load` trägt neben dem
+gewählten `board` das `artifactBoard`, ein Widerspruch beider wird mit `fault`
+abgelehnt. Der Emulator bekommt das Timeout erst mit `start`
+(`Emulator.configureTimeout`).
 
 **P1.13 Headless-Runner und Werkzeug (S).**
 `runHeadless(image, { simMs, events })` für Tests und Korpus; ein kleines CLI
 für Maintainer ersetzt das Prototyp-Skript; Leistungsmessung als Bericht.
+Umgesetzt unter `packages/avr-emulator/src/headless/`, Werkzeug
+`scripts/emulate.ts` (`npm run emulate`), Bericht
+[report-p1-13-leistung.md](report-p1-13-leistung.md). Das Format der Reize und
+Prüfungen steht in der SimulationRuntime-SSOT (Abschnitt 4); `adcRaw` ist das
+Ergebnis in ADCL/ADCH.
 
 **P1.14 Referenzkorpus (L, parallel bis M1).**
 Format, Klassen und Ablage nach Abschnitt 7.4; Proben für Datentypen,
@@ -825,6 +861,10 @@ Format, Klassen und Ablage nach Abschnitt 7.4; Proben für Datentypen,
 Pull-up und Speicher; die 51 Beispiele mit Reizskripten und
 Zustandsprüfungen; Referenzen der Klasse `hardware`, einmalig am echten Uno
 aufgenommen.
+Umgesetzt unter `tests/fixtures/runtime-corpus/` in drei PRs (Format und
+Läufer, Proben, Beispiele); die Aufnahmen der Klasse `hardware` stehen aus
+(wartet auf Mensch). Das Korpus läuft in Shards im Unit-Gate, nicht im
+Coverage-Durchlauf (`UNOSIM_SKIP_CORPUS`).
 
 ### Phase 2 – Server
 
@@ -835,6 +875,10 @@ Board-Hardware des Pakets. `getClientConfig()` liefert Boards und Backends
 (4.11). Neue SSOT `ssot_function_definition_Boards.md`.
 *Abnahme:* Konsistenztest: jede Board-ID hat Hardware im Paket und eine FQBN
 in der Allowlist.
+Umgesetzt mit dem Paket-Einstieg `@unosim/avr-emulator/boards` (nur Pins, kein
+avr8js). Der Konsistenztest verlangt Hardware im Paket für jedes Board, das
+nicht `planned` ist; für Mega 2560 und ATtiny85 entsteht sie mit P5.2 und P6.4.
+Bis P2.6 meldet `/api/config` die Backends fest als `host-mock`.
 
 **P2.2 Board im Compile-Request (M).**
 `compileRequestSchema` erhält `board` (optional, Default aus der
@@ -846,6 +890,10 @@ Cache-Schlüssel erweitert P2.5 zur vollständigen Build-Identität (E15).
 [worker-protocol.ts](../../shared/worker-protocol.ts) und der
 Compile-Worker reichen Board und Artefakt durch. `CodeParser` erhält das Board
 (Grundlage für Phase 4).
+Umgesetzt: Der Prozess-Executor prüft den Wert nach `--fqbn` gegen den Katalog
+(statt Muster für die Uno-FQBN); der Katalogname des Uno lautet „Arduino UNO“,
+damit die bestehende Ausgabe „Board: Arduino UNO“ unverändert bleibt. Das
+Artefakt kommt mit P2.5.
 
 **P2.3 Toolchain für alle Boards (M).**
 `arduino:avr@1.8.8` deckt Uno, Nano und Mega. ATTinyCore bekommt eine eigene
@@ -856,6 +904,16 @@ Dockerfile, CI-Cache-Schlüssel, `scripts/install-ubuntu-vbox.sh`,
 INSTALL_LOCAL. Der Core-Fingerprint stützt sich auf die gepinnten
 Versionsdateien und geht in die Build-Identität ein (E15). Vorkompilierte
 Core-Caches je FQBN halten den ersten Compile kurz.
+Umgesetzt mit Abweichung: ATTinyCore 1.5.2 kommt nicht über den
+Board-Manager, sondern als Release-Archiv von `SpenceKonde.github.io` mit
+gepinnter SHA-256 (`scripts/attinycore-version`, `install-attinycore.sh`,
+`check-attinycore-version.sh`) als Plattform ins Sketchbook. Grund: Der Index
+(`drazzy.com`) und die Werkzeugabhängigkeit `micronucleus` (`azduino.com`)
+liefern seit dem 20.10.2026 abgelaufene TLS-Zertifikate, und der Board-Manager
+installiert Werkzeuge, die UnoSim nicht braucht; der Core nutzt den avr-gcc von
+`arduino:avr`. Eine `platform.local.txt` schaltet die Post-Build-Hooks ab, die
+in Core und Sketch schreiben (in der Compile-Sandbox read-only); das HEX bleibt
+gleich. Die Build-Identität enthält den Core über `arduino-cli core list`.
 
 **P2.4 Compile-Sandbox (L, Voraussetzung für M4).**
 Image `Dockerfile.compile-sandbox` (`arduino-cli` 1.5.1, gepinnte Cores,
@@ -870,6 +928,25 @@ Profil → direkt. Parallelität über die bestehenden Compile-Grenzen
 Readiness nach 4.11; `check-leaks.sh` prüft auch Compile-Container. Danach
 `arduino-cli` aus dem Backend-Image entfernen.
 *Abnahme:* Sandbox-Vertragstest im Docker-Gate (Abschnitt 7.8).
+Umgesetzt in mehreren PRs. Teil a: Image mit Einstiegsskript
+`scripts/compile-sandbox-entry.sh` (Core-Cache je arduino:avr-FQBN im Image,
+Kopie in den tmpfs, `--output-dir` im Container), `compileInSandbox` und
+`runCliJsonInSandbox` in `sandboxed-cli-runner.ts`, Vertragstest
+`tests/integration/compile-sandbox-contract.test.ts`. Abweichend vom Spike
+schreibt der Container nichts auf den Host: HEX, ELF und die Standardausgabe
+von `arduino-cli` kommen gerahmt (Base64) über stdout zurück, das einzige
+Bind-Mount (Sketch) bleibt read-only; der tmpfs hat `noexec`. Die Auswertung
+der CLI-Ausgabe teilen sich lokaler und Sandbox-Weg (`interpretCliRun`).
+Teil b: `compiler/toolchain.ts` wählt je Profil (Docker → Sandbox, lokal →
+direkt) für Compile und Toolchain-Abfragen (Build-Identität, Fingerabdruck im
+Worker); das Docker-Profil startet nicht ohne das Image (wie beim Host-Mock),
+liefert das Artefakt aus und erlaubt `browser` in `UNOSIM_RUNTIME_BACKENDS`
+(Standard bleibt `host-mock` bis M4); der `ProcessExecutor` verweigert
+Compile-Container ohne Isolation; `check-leaks.sh`, Deployment-Tests,
+Installer, Compose und Kapazitätsskripte kennen das Image.
+Teil c: Das Backend-Image enthält keinen Compiler mehr (`arduino-cli` und, da
+im Docker-Profil ebenfalls ungenutzt, `g++`; 1,62 GB → 726 MB); die CI prüft
+die Lage der Toolchain (keine im Server-Image, gepinnte im Compile-Image).
 
 **P2.5 Artefakt und Build-Identität (L).**
 - Build-Identität nach E15 als eigener Typ. Die Schlüssel des HEX-Caches, des
@@ -884,6 +961,11 @@ Readiness nach 4.11; `check-leaks.sh` prüft auch Compile-Container. Danach
 - Die Route gibt `artifact` nur bei Erfolg und nur bei erlaubter Auslieferung
   aus; der In-Memory-Ergebniscache hält das Artefakt nicht doppelt. Schema in
   `shared/simulation-artifact.ts`, REST-Version `1.1.0`.
+  Umgesetzt in drei PRs (Schema und Identität; Bau und Sidecar; Route). Der
+  Cache-Schlüssel bleibt der Sketch-Hash; die übrigen Teile der Identität
+  (Toolchain, Bibliotheken, Flags, Format) prüft der Sidecar beim Treffer, und
+  ein Eintrag ohne passenden Sidecar wird neu gebaut. So bleiben Worker und
+  direkter Compiler beim gemeinsamen Schlüssel.
 
 *Abnahme:* Tests zeigen, dass bei gleicher Quelle eine geänderte Core-,
 `arduino-cli`- oder Bibliotheksversion oder eine geänderte Boardoption einen
@@ -893,6 +975,9 @@ Neubau auslöst und dass ein unveränderter Build weiter aus dem Cache kommt.
 Variablen und Startprüfungen nach 4.11; Runner-Pool nur bei Host-Mock;
 `start_simulation` ohne Host-Mock → `operation_error` mit `RUNTIME_UNAVAILABLE`;
 Status und Readiness nach Backends.
+Umgesetzt in zwei PRs (Einstellungen und `/api/config`; Verhalten des Servers).
+Bis P3.10 bleibt die Vorauswahl `host-mock`, auch lokal; die Variable
+`UNOSIM_DEFAULT_RUNTIME` stellt sie um.
 
 **P2.7 Board-Kontext für den Tutor (S).**
 Die Tutor-Anfrage trägt die Board-ID; die anwendungseigene Systemvorgabe nennt
@@ -1024,9 +1109,12 @@ Board-Hardware aus P1.3, SVG, Proben für A6/A7, E2E-Smoke; Status `preview`.
 ### Phase 5 – Mega 2560 (M2)
 
 **P5.1 MCU-Profil ATmega2560 (L).**
-Ports A–L, Timer 0–5 (Konfigurationen für 3–5 selbst), USART0–3
-(Konfigurationen für 1–3 selbst), ADC mit 16 Kanälen (MUX5), Datenraum bis
-`0x21FF`, 22-Bit-PC, Interrupt-Vektoren.
+Ports A–L, Timer 0–5, USART0–3, ADC mit 16 Kanälen (MUX5), Datenraum bis
+`0x21FF`, 22-Bit-PC, Interrupt-Vektoren. Nach P0.6 sind alles Konfigurationen
+der vorhandenen avr8js-Klassen, aber für **alle** Peripherien mit den
+Mega-Vektoren (die mitgelieferten Konfigurationen tragen die des 328P),
+dazu die Interrupt-Verdrahtung der Ports (INT0–7, PCINT0–2) und die
+MUX5-Kanalbelegung ([Spike P0.6](spike-p0-6-mega2560.md)).
 
 **P5.2 Board-Hardware Mega (M).**
 Pins 0–69 (A0–A15 = 54–69), PWM 2–13 und 44–46, serielle Pins, LED an 13.
@@ -1042,34 +1130,78 @@ SVG, Parserregeln, Proben, E2E, Leistung mit 256-KB-Flash; Status `preview`.
 
 **P6.1 Toolchain (S).** ATTinyCore aus P2.3 im Compile-Sandbox-Image und,
 solange P2.4 nicht abgeschlossen ist, im Backend-Image.
+Umgesetzt mit P2.3 (nur Compile-Sandbox-Image; P2.4 ist abgeschlossen).
 
 **P6.2 MCU-Profil ATtiny85 (L).**
 Port B, Timer0 mit eigener Konfiguration, ATtinyTimer1, ADC (ADC0–3 an PB5,
 PB2, PB4, PB3; Referenzen VCC, 1,1 V, 2,56 V), Watchdog, Ein-Wort-Vektoren,
-8 MHz; kein USART.
+8 MHz; kein USART. Die Referenzauswahl des ADC liest `REFS2` selbst an Bit 4,
+weil avr8js 0.21.1 es an Bit 3 erwartet (P0.5: sonst 102 statt 200 bei
+2,56 V); der Fehler wird upstream gemeldet.
+Umgesetzt (`mcu/attiny85.ts`, exportiert als `ATTINY85`; registriert erst mit
+der Board-Hardware in P6.4). Weitere Funde: INT0 und PCINT teilen GIMSK/GIFR,
+avr8js verdrahtet das nur für je einen (das Profil umhüllt die Hooks);
+`ATtinyTimer1` erzeugt in der PWM-Konfiguration von ATTinyCore kein Signal an
+OC1x und zählt ohne CTC1 phasenkorrekt statt als Sägezahn (das Profil korrigiert
+beides, siehe README des Pakets). Die Meldungen an avr8js macht ein Mensch.
 
 **P6.3 Software-UART (M).**
-TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite. Serielle Eingabe nur,
-wenn P0.5 sie für machbar hält (Analogkomparator); sonst ist das Eingabefeld
-für dieses Board aus und das Benutzerhandbuch nennt den Grund.
+TX-Pin des Cores dekodieren, Baudrate aus der Bitbreite (größte
+Standard-Bitzeit, zu der die Flankenabstände passen; PB0 nur, solange er
+Ausgang und nicht PWM ist). Serielle Eingabe über ein Modell des
+Analogkomparators (ACSR, Vektor 7) mit einer Wellenform an PB1 in simulierter
+Zeit; Baudrate aus der Ausgabe, sonst aus dem Serial Monitor. Das
+Benutzerhandbuch nennt die Grenzen des Boards: Halbduplex, kein Empfang, wenn
+PB1 anders genutzt wird (P0.5).
+Umgesetzt als `io/software-uart.ts` (`SoftwareUart` mit der Schnittstelle des
+USART für `SerialPorts`): Erkennung verlangt 90 % passende Abstände (die
+Pin-Initialisierung erzeugt Kurzimpulse, der Core dehnt einzelne Bits), die
+Bitbreite wird aus den Abständen gemittelt, Startbits werden in Bitmitte
+geprüft. Anbindung an die Serial-Schicht, die Baudrate des Serial Monitors und
+das Benutzerhandbuch folgen mit der Board-Hardware (P6.4/P6.5).
 
 **P6.4 Board-Hardware und Regeln (M).**
 Pins 0–5, PB5 als RESET sichtbar, aber nicht nutzbar; A0–A3; PWM 0, 1, 4;
 Parserregeln (kein Hardware-Serial, Warnung bei Nutzung des TX-Pins).
+Umgesetzt: `ATTINY85_BOARD` und Registrierung von Profil und Hardware; Serial-
+Port der Art `software` (`SerialPorts` mit `SoftwareUart`); PWM-Beobachtung für
+Timer 1 des ATtiny85; Pinmodell mit Analog-Zweitnamen; die Parser rechnen
+`A<n>` wie ATTinyCore als `0x80 | n` und `analogRead(n)` als Kanal; Regeln für
+RESET (PB5) und die Serial-Pins; Pinbelegung im Toolchain-Gate gegen den Core.
+Freigegebene Teständerungen: fünf Tests, die den ATtiny85 als Beispiel für ein
+Board ohne Hardware nutzten, prüfen den Rückfall jetzt mit einer unbekannten ID.
 
 **P6.5 ATtiny85 freigeben (M).**
 SVG (DIP-8), Proben, E2E; Status `preview`.
+Umgesetzt: Boardansicht (`npm run generate:attiny85-svg`), 5 Korpus-Proben,
+`e2e/attiny85.spec.ts`, Status `preview`, Benutzerhandbuch; Startbefehl des
+Workers mit `serialBaud` aus `Serial.begin()`; Abnahme
+[report-m3-acceptance.md](report-m3-acceptance.md).
 
 ### Phase 7 – Betrieb, Kapazität, Release (M4)
 
 **P7.1 Kapazität (M).**
 Compile-Szenario mit Sandbox in `scripts/calibrate-capacity.ts` und den
 Kapazitätsskripten; Messung auf dem Referenz-Host; Kapazitätsmodell neu.
+Umgesetzt: Compile-Phase der Kalibrierung (`scripts/capacity-compile-load.ts`;
+einzeln, Pool-Breite, Klassen-Burst neu und unverändert; `--skip-compile`),
+Compile-Container im Testprofil mit dem Label des Kapazitätslaufs,
+CAPACITY_MODEL „Compile capacity“ mit Messung auf dem Mac. Die Messung auf
+dem Referenz-Host wartet auf einen Menschen ([Anleitung](human-tests.md)).
 
 **P7.2 Deployment (M).**
 `docker-compose.yml` (Image-Variable, Build), Installer, Deployment-Tests
 (`npm run test:deployment`, `npm run test:deployment:installer`),
 INSTALL_SERVER, INSTALL_UBUNTU_VBOX, Release-Runbook.
+Umgesetzt: Image-Variable, Build und Startprüfung der Compile-Sandbox mit P2.4;
+Compose reicht `UNOSIM_RUNTIME_BACKENDS`, `UNOSIM_DEFAULT_RUNTIME`,
+`UNOSIM_BOARDS`, `UNOSIM_DEFAULT_BOARD` aus `.env` durch (leer = Standard);
+der Gateway-Deployment-Test läuft in der Pilot-Konfiguration (Emulation
+Standard, Nano-Compile mit Artefakt über das Gateway), der Installer-Test mit
+dem Standard; die Rückkehr auf v1.0.1 (9.3) ist einmal geprüft
+([Bericht](report-p7-2-v1-rollback.md)). Die Standardwerte des Docker-Profils
+bleiben bis zur Abnahme von M4 bei `host-mock`; die Pilot-Instanz setzt sie in
+`.env` (P7.3).
 
 **P7.3 Vorabversionen und Erprobung im Unterricht (M).**
 Tags `v2.0.0-beta.N` und `v2.0.0-rc.N` im Integrationsbranch nach 9.2,
@@ -1446,7 +1578,7 @@ des Mocks, Simulationsteil des Kapazitätsmodells.
 | Schwache Schulgeräte schaffen keine Echtzeit | `millis()` und Ausgabe laufen langsamer als die Uhr | P0.3 vor Phase 3; Echtzeitfaktor anzeigen; Scheibengröße anpassen; „Legacy“ als Rückfall |
 | Compile-Sandbox verlangsamt den Stundenbeginn | Wartezeit bei vielen parallelen Compiles | Core-Caches im Image, Cache-Treffer bei unveränderten Beispielen, Kalibrierung P7.1, sonst warme Container |
 | Lücken in avr8js (Mega-Peripherie, Analogkomparator, Schlafmodi) | einzelne Sketches laufen falsch | eigene Profile mit Tests, Korpus, Version pinnen, Fehler upstream melden, Fork als Notlösung |
-| LTO bettet I/O-Funktionen ein | Laufzeitfunde ungenauer, `digitalRead` nur portgenau | Registerweg ist Grundlage (P0.4), Symbole nur Verfeinerung, statische Analyse bleibt Hauptquelle |
+| LTO bettet I/O-Funktionen ein | keine Symbole für Einsprung-Haken (P0.4: 61 von 62 Builds) | Registerweg mit Befehlsdekodierung (P0.4: pin-genau bis auf `digitalWrite` ohne Pegeländerung), statische Analyse bleibt Hauptquelle |
 | Emulator-Fehler lässt den Worker hängen | Lauf reagiert nicht mehr | Überwachung aus dem Hauptthread mit `terminate()` und neuem Worker (4.5) |
 | Veraltetes Kompilat nach Toolchain-Wechsel | Lauf zeigt das Verhalten der alten Toolchain | vollständige Build-Identität mit Prüfung beim Treffer (E15, P2.5) |
 | Pflegezustand von ATTinyCore | Toolchain-Updates schwierig | Version pinnen, P0.5, Alternative bewerten, ATtiny85 bleibt länger `preview` |
@@ -1459,10 +1591,9 @@ des Mocks, Simulationsteil des Kapazitätsmodells.
 ## 11. Offene Punkte nach diesem Plan
 
 - Zeilennummern zur Laufzeit (DWARF-Zeilentabelle und Rücksprungadresse).
-- Serielle Eingabe beim ATtiny85 (Analogkomparator), falls P0.5 sie nicht
-  löst.
-- Zuordnung von `digitalRead` zum Pin ohne ELF-Symbole, falls P0.4 dort eine
-  Lücke zeigt, die für den Unterricht zählt.
+- Zuordnung von `digitalWrite` ohne Pegeländerung über die Pin-Tabelle des
+  Cores (P0.4, IoRegistry-SSOT-Fall 7), z. B. über `lpm`-Zugriffe auf die
+  Pin-Tabellen kurz vor dem PORT-Zugriff.
 - EEPROM über das Neuladen der Seite hinaus speichern.
 - Längere oder unbegrenzte Timeouts im Browser, da der Server nicht mehr
   geschützt werden muss.
@@ -1482,14 +1613,14 @@ Cores zu bestätigen.
 | Flash / SRAM / EEPROM | 32 KB / 2 KB / 1 KB | 32 KB / 2 KB / 1 KB | 256 KB / 8 KB / 4 KB | 8 KB / 512 B / 512 B |
 | SRAM-Adressen / avr8js-Parameter (4.3) | 0x0100–0x08FF / 2048 | 0x0100–0x08FF / 2048 | 0x0200–0x21FF / 8448 | 0x0060–0x025F / 352 |
 | FQBN | `arduino:avr:uno` | `arduino:avr:nano:cpu=atmega328` | `arduino:avr:mega:cpu=atmega2560` | `ATTinyCore:avr:attinyx5:chip=85,clock=8internal` |
-| Core | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | ATTinyCore, Version aus P0.5 |
+| Core | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `arduino:avr@1.8.8` | `ATTinyCore:avr@1.5.2` (P0.5) |
 | Digitale Pins | 0–13, A0–A5 als 14–19 | wie Uno; A6/A7 (20/21) nur analog | 0–53, A0–A15 als 54–69 | 0–5 (PB0–PB5), PB5 ist RESET |
 | PWM | 3, 5, 6, 9, 10, 11 | wie Uno | 2–13, 44–46 | 0, 1, 4 |
 | Analog | A0–A5 | A0–A7 | A0–A15 | A0–A3 an PB5, PB2, PB4, PB3 |
 | Serial (TX/RX) | USART0 1/0 | USART0 1/0 | USART0 1/0, USART1 18/19, USART2 16/17, USART3 14/15 | Software-Serial des Cores, laut Core-Doku TX an AIN0 (PB0), RX an AIN1 (PB1) |
-| `LED_BUILTIN` | 13 | 13 | 13 | Core-abhängig |
+| `LED_BUILTIN` | 13 | 13 | 13 | 1 (PB1) |
 | aus avr8js | alles außer Pull-up | wie Uno | Ports A–L, Timer 0–2, USART0, ADC mit MUX5, 22-Bit-PC | ATtinyTimer1, USI, Port-Klasse |
-| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Timer 3–5, USART1–3, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration, Software-UART-Dekoder, ggf. Analogkomparator |
+| selbst zu schreiben | Pull-up, Pin- und PWM-Beobachtung | wie Uno, A6/A7 | Konfigurationen mit Mega-Vektoren für Timer 0–5, USART0–3 und ADC (MUX5), Port-Interrupts, Datenraum bis `0x21FF` | Port-B-, Timer0- und ADC-Konfiguration mit eigener Referenzauswahl, Software-UART-Dekoder, Analogkomparator |
 | Host-Mock | ja | nein | nein | nein |
 | SVG | vorhanden | neu | neu | neu (DIP-8) |
 

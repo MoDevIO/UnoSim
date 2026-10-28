@@ -3,6 +3,12 @@
 Run this procedure only on the dedicated `UnoSim_Test` staging host. Candidate
 profile values are validation inputs and must not be copied into production.
 
+> **Browser emulation:** Simulation slots, sandbox starts and active
+> simulations here concern the host mock ("Legacy"). A run in the browser
+> emulation uses no server resource after its compile; with it, the compile
+> limits the server. See
+> [CAPACITY_MODEL.md, Compile capacity](CAPACITY_MODEL.md#compile-capacity-browser-emulation).
+
 ## Prepare the host
 
 ```bash

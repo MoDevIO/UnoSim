@@ -1,0 +1,17 @@
+{
+  "board": "attiny85",
+  "simMs": 1500,
+  "provenance": "derived",
+  "toolchain": "arduino-cli 1.5.1, ATTinyCore 1.5.2 (avr-gcc of arduino:avr@1.8.8)",
+  "description": "Data types, int overflow, integer division, Serial.print of a float and UTF-8 text, RAMEND/E2END/FLASHEND and delay() measured by millis() on the ATtiny85 (8 MHz internal).",
+  "basis": "avr-gcc ABI (int 2, long 4, float and double 4 bytes); two's complement wrap-around; Print::printFloat with 2 digits; avr/iotnx5.h: RAMEND 0x25F, E2END 511, FLASHEND 0x1FFF; ATTinyCore wiring.c: timer 0 at prescaler 64 overflows every 2.048 ms, so each millis() reading lags by up to 2.048 ms and an interval of at least 587 ms measures 585 to 589",
+  "events": [],
+  "expectState": [],
+  "tolerances": [
+    {
+      "pattern": "^delay\\(587\\): (\\d+)$",
+      "plusMinus": 2,
+      "reason": "millis() advances only on the timer 0 overflow (2.048 ms at 8 MHz, prescaler 64): each of the two readings lags by up to one overflow"
+    }
+  ]
+}

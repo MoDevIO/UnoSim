@@ -3,6 +3,13 @@ import type { IncomingArduinoMessage } from "@/types/websocket";
 
 interface UseSimulationLifecycleOptions {
   code: string;
+  /**
+   * What counts as the source of the run: the content of every file of the project. An edit of any file
+   * stops the run; opening another tab changes the shown `code` but not this. Without it, `code` itself.
+   */
+  sourceSignature?: string;
+  /** True while a `queued` status belongs to a run that is starting in the browser (not to the server's queue). */
+  isStartingInBrowser?: () => boolean;
   simulationStatus: "idle" | "running" | "compiling" | "queued" | "paused";
   setSimulationStatus: (s: "idle" | "running" | "compiling" | "queued" | "paused") => void;
   sendMessage: (msg: IncomingArduinoMessage) => void;
@@ -16,6 +23,8 @@ interface UseSimulationLifecycleOptions {
 
 export function useSimulationLifecycle({
   code,
+  sourceSignature,
+  isStartingInBrowser,
   simulationStatus,
   setSimulationStatus,
   sendMessage,
@@ -52,19 +61,22 @@ export function useSimulationLifecycle({
     } catch {}
   }, [sendMessage, setSimulationStatus, resetPinUI]);
 
-  // Watch for code edits and stop running/paused simulation (unless suppressed)
+  // Watch for source edits and stop a running, paused or (in the browser) starting simulation (unless suppressed)
+  const watched = sourceSignature ?? code;
   useEffect(() => {
     const prev = prevCodeRef.current;
     if (prev === null) {
-      prevCodeRef.current = code;
+      prevCodeRef.current = watched;
       return;
     }
 
-    if (prev === code) return;
+    if (prev === watched) return;
 
-    prevCodeRef.current = code;
+    prevCodeRef.current = watched;
 
-    if ((simulationStatus === "running" || simulationStatus === "paused") && !skipAutoStopRef.current) {
+    // `queued` of a browser run is the time until the worker confirms it: the confirmation must not start the old source.
+    const startingInBrowser = simulationStatus === "queued" && isStartingInBrowser?.() === true;
+    if ((simulationStatus === "running" || simulationStatus === "paused" || startingInBrowser) && !skipAutoStopRef.current) {
       stopSimulation();
       // preserve detected pin modes when stopping due to edit
       try {
@@ -73,7 +85,7 @@ export function useSimulationLifecycle({
     }
 
     skipAutoStopRef.current = false;
-  }, [code, simulationStatus, stopSimulation, resetPinUI]);
+  }, [watched, simulationStatus, stopSimulation, resetPinUI, isStartingInBrowser]);
 
   // Stop simulation automatically when compiler reports errors
   useEffect(() => {

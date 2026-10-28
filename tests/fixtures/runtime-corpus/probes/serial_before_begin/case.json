@@ -1,0 +1,16 @@
+{
+  "board": "uno",
+  "simMs": 1500,
+  "provenance": "hardware",
+  "toolchain": "arduino-cli 1.5.1, arduino:avr@1.8.8",
+  "description": "Serial input before Serial.begin() is lost; input after it is delivered.",
+  "basis": "Recorded once on Arduino Uno R3 (genuine, USB 2341:0043) (serial output, arduino-cli 1.5.1, arduino:avr@1.8.8). Previous basis: ATmega328P datasheet: the receiver ignores the RX pin while RXEN0 is clear; measured on an Uno R3 in docs/proposals/results/p1-14/serial_before_begin",
+  "events": [
+    [300, "serial", "ABC"],
+    [1100, "serial", "XYZ"]
+  ],
+  "expectState": [],
+  "tolerances": [],
+  "recordedOn": "Arduino Uno R3 (genuine, USB 2341:0043)",
+  "expectDiagnostics": ["serial-input-discarded"]
+}

@@ -4,26 +4,36 @@ Status: current
 
 The Arduino Simulator can be embedded in an `<iframe>` and controlled by its parent page via the [Window.postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
 
-**API Version: 1.4.0**
+**API Version: 1.5.0**
 
 ## Versioning and compatibility
 
-The iframe `postMessage` contract is currently version `1.4.0`. Responses and
+The iframe `postMessage` contract is currently version `1.5.0` (additive over `1.4.0`: board and runtime in `GET_STATE`, pin checks per board, serial ports of the Mega 2560; plan decision E14). Responses and
 events always include this version. Additive fields and message types are
 backward-compatible; removing or changing an existing field requires a new
 major API version and a documented migration period. Historical simulation
 states (`STOPPED` and `QUEUED`) remain accepted for older consumers but are no
 longer emitted by the current contract.
 
-The server REST contract is `1.0.0`, advertised through the `apiVersion` field
+The server REST contract is `1.1.0` (additive over `1.0.0`: `board` and `artifact` in `POST /api/compile`, plan decision E14; `1.0.0` clients stay supported), advertised through the `apiVersion` field
 and the `X-UnoSim-API-Version` response header. Clients may send
-`Accept-Version: 1`, `1.0`, or `1.0.0`; unsupported versions receive HTTP 406
+`Accept-Version: 1`, `1.0`, `1.0.0`, `1.1` or `1.1.0`; unsupported versions receive HTTP 406
 with `error: "unsupported_api_version"` and the supported version list.
 
 The WebSocket contract is `1.0.0`. The server's initial `handshake` message
 includes `protocolVersion`; clients that do not use this field remain
 compatible. A future incompatible WebSocket change requires a new protocol
 version and an explicit migration/parallel-operation period.
+
+### Connection to the server
+
+`START_SIMULATION` compiles on the server. Without a connection it is queued
+(`QUEUED_FOR_COMPILING`) and runs when the server is reachable again. A run in
+the browser emulation (`runtime: "browser"` in `GET_STATE`) needs the server
+only for that compile: once it runs, `STOP_SIMULATION`, `PAUSE_SIMULATION`,
+`RESUME_SIMULATION`, the pin messages and `SERIAL_INPUT` keep working while the
+connection is lost, and its events keep arriving. A run of the host mock
+(`runtime: "host-mock"`) ends when the connection is lost.
 
 ---
 
@@ -143,7 +153,7 @@ iframe.contentWindow.postMessage(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `payload.pin` | `number` | Pin number (digital: 0–13, analog: 14–19 for A0–A5). |
+| `payload.pin` | `number` | Pin number of the selected board: Uno 0–13 digital and 14–19 for A0–A5; Nano additionally 20 and 21 for the analog-only A6 and A7; Mega 2560 0–53 digital and 54–69 for A0–A15; ATtiny85 0–5 for PB0–PB5, where A0–A3 are pins 5, 2, 4 and 3 and PB5 is the RESET pin of the chip (see `GET_STATE` for the board). A pin the board does not have is refused with `success: false` and `error: "pin <n> does not exist on <board name>"` (*since 1.5.0*). |
 | `payload.value` | `number` | Digital: `0` or `1`. Analog: `0–1023`. PWM: `0–255`. |
 
 ---
@@ -163,7 +173,7 @@ iframe.contentWindow.postMessage(
 
 ### `BATCH_SET_PIN_STATE`
 
-Sets multiple pins in a single operation. *Added in v1.1.0.*
+Sets multiple pins in a single operation. *Added in v1.1.0.* Since 1.5.0 the batch is all or nothing: if any pin does not exist on the selected board, no pin is set and the response is `success: false` with the errors joined by `; `.
 
 ```js
 iframe.contentWindow.postMessage(
@@ -201,6 +211,7 @@ iframe.contentWindow.postMessage(
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `payload.data` | `string` | ✅ | Serial data to send to the sketch. |
+| `payload.port` | `number` | – | Serial port: `0` = `Serial` (default), `1`–`3` = `Serial1`–`Serial3` on the Mega 2560 (see `serialPorts` in `GET_STATE`). On the ATtiny85 `Serial` is a software UART (TX PB0, RX PB1) and half duplex: input that arrives while the sketch prints is lost, as on the chip. A port the board does not have is refused with `success: false` and `error: "payload.port must be an integer from 0 to <n>"`. |
 
 ---
 
@@ -255,6 +266,29 @@ iframe.contentWindow.postMessage(
 
 ---
 
+### `GET_STATE`
+
+Requests the selected board, the runtime and the simulation state in one answer. *Added in v1.5.0.*
+
+```js
+iframe.contentWindow.postMessage(
+  { type: "GET_STATE", payload: undefined },
+  "https://your-site.example.com"
+);
+```
+
+**Response `data`**: `{ board, boardName, runtime?, state, serialPorts }`
+
+| Field | Description |
+|---|---|
+| `board` | Board id: `uno`, `nano`, `mega2560`, `attiny85` (more with later releases). |
+| `boardName` | Name for display, for example `"Arduino Nano"`. |
+| `runtime` | `"browser"` (emulation in the page) or `"host-mock"` (server-side simulation, "Legacy"): the runtime of the current run, or of the next one while idle. Absent while no runtime is usable. |
+| `state` | Same values as `GET_SIMULATION_STATE`. |
+| `serialPorts` | Number of serial ports of the board: `1`, on the Mega 2560 `4` (`Serial`, `Serial1`–`Serial3`); on the ATtiny85 the one port is a software UART. |
+
+---
+
 ## Outbound Messages (Simulator → Website)
 
 The simulator sends two types of messages back to the parent frame via `window.parent.postMessage`:
@@ -272,7 +306,7 @@ Every inbound action receives a response. This enables the caller to confirm the
 
 ```ts
 interface SimulatorResponse {
-  version: string;    // API version (e.g. "1.4.0")
+  version: string;    // API version (e.g. "1.5.0")
   type: string;       // The action type the response corresponds to
   success: boolean;   // Whether the action was handled successfully
   data?: unknown;     // Optional data (e.g. pin value for GET_PIN_STATE)
@@ -284,19 +318,19 @@ interface SimulatorResponse {
 
 ```js
 // Response to LOAD_CODE:
-{ version: "1.4.0", type: "LOAD_CODE", success: true }
+{ version: "1.5.0", type: "LOAD_CODE", success: true }
 
 // Response to GET_PIN_STATE:
-{ version: "1.4.0", type: "GET_PIN_STATE", success: true, data: 1 }
+{ version: "1.5.0", type: "GET_PIN_STATE", success: true, data: 1 }
 
 // Response to GET_SIMULATION_STATE:
-{ version: "1.4.0", type: "GET_SIMULATION_STATE", success: true, data: "RUNNING" }
+{ version: "1.5.0", type: "GET_SIMULATION_STATE", success: true, data: "RUNNING" }
 ```
 
 #### Example: Error response (payload validation failed)
 
 ```js
-{ version: "1.4.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
+{ version: "1.5.0", type: "SET_PIN_STATE", success: false, error: "payload.pin and payload.value must be numbers" }
 ```
 
 ---
@@ -309,7 +343,7 @@ Event messages are sent **without request** to inform the parent of state change
 
 ```ts
 interface SimulatorEventMessage {
-  version: string;    // API version (e.g. "1.4.0")
+  version: string;    // API version (e.g. "1.5.0")
   type: string;       // Event type
   success: boolean;   // true for state/data events, false for operation errors
   data?: unknown;     // Event-specific payload
@@ -323,9 +357,21 @@ Fired every time the simulator outputs data over the serial interface (Serial.pr
 ```js
 {
   type: "SERIAL_OUTPUT_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: "Hello World\n"
+}
+```
+
+Output of `Serial1`–`Serial3` (Mega 2560) carries the port; events of `Serial` have no `port` field:
+
+```js
+{
+  type: "SERIAL_OUTPUT_EVENT",
+  version: "1.5.0",
+  success: true,
+  port: 1,
+  data: "hello from Serial1\n"
 }
 ```
 
@@ -336,7 +382,7 @@ Fired when a digital or analog pin changes value during simulation.
 ```js
 {
   type: "PIN_STATE_CHANGE_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: { pin: 13, value: 1 }
 }
@@ -349,7 +395,7 @@ Fired when the simulation changes state.
 ```js
 {
   type: "SIMULATION_STATE_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: true,
   data: { state: "RUNNING", message: "Simulation started" }
 }
@@ -365,12 +411,12 @@ Fired when the server rejects or fails an operation after the corresponding
 WebSocket request has been accepted. The server-provided error data is passed
 through unchanged, including `retryAfter` when present. Error codes are open
 for forward-compatible additions; current codes include `RATE_LIMITED`,
-`SIMULATION_ALREADY_ACTIVE`, and `SYSTEM_BUSY`.
+`SIMULATION_ALREADY_ACTIVE`, `SYSTEM_BUSY`, and `RUNTIME_UNAVAILABLE` (the server does not offer the server-side simulation, see `UNOSIM_RUNTIME_BACKENDS`).
 
 ```js
 {
   type: "OPERATION_ERROR_EVENT",
-  version: "1.4.0",
+  version: "1.5.0",
   success: false,
   data: {
     operation: "start_simulation",
