@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { compileCompatibility, runtimeCompatibility } from "../../../../shared/libraries";
 import {
   attachCatalogLibraries,
   type CatalogPackage,
@@ -24,10 +25,42 @@ function catalogWith(patch: Partial<CatalogPackage>): CatalogPackage[] {
 }
 
 describe("library catalog (SSOT Libraries §3, §12)", () => {
+  it("offers AUnit and the hardware-free packages, each in one exact version", () => {
+    expect(LIBRARY_CATALOG.map((entry) => `${entry.name}@${entry.version}`)).toEqual([
+      "AUnit@1.7.1",
+      "ArduinoJson@6.21.6",
+      "CircularBuffer@1.4.0",
+      "elapsedMillis@1.0.6",
+      "Time@1.6.1",
+    ]);
+  });
+
   it("offers AUnit 1.7.1 with the checksum of the Arduino library index archive", () => {
-    expect(LIBRARY_CATALOG.map((entry) => `${entry.name}@${entry.version}`)).toEqual(["AUnit@1.7.1"]);
     expect(LIBRARY_CATALOG[0]).toMatchObject({ sha256: AUNIT_SHA, includes: ["AUnit.h"], headers: ["AUnit.h", "AUnitVerbose.h"], dependencies: [] });
     expect(LIBRARY_CATALOG[0].archive.url).toBe("https://downloads.arduino.cc/libraries/github.com/bxparks/AUnit-1.7.1.zip");
+  });
+
+  it.each([
+    ["ArduinoJson", "f274ddd00870be901966f19678c1b80f4e20f495009b7b12e193928f04113fae", "bblanchon/ArduinoJson-6.21.6.zip", ["ArduinoJson.h"]],
+    ["CircularBuffer", "3b30610ac51a35d8528d5ea9be16ccfadc4bf32c8e46631d534ced81730f54b4", "rlogiacco/CircularBuffer-1.4.0.zip", ["CircularBuffer.hpp"]],
+    ["elapsedMillis", "275f17009f76a7d48ed4baa2f015b3ed02d144a581a3a88f35ece79ed2d6a081", "pfeerick/elapsedMillis-1.0.6.zip", ["elapsedMillis.h"]],
+    ["Time", "09db5897c234f5726523fb45a11e9b6b76e56940dcc0adbbcd32a9490fa09834", "PaulStoffregen/Time-1.6.1.zip", ["TimeLib.h"]],
+  ])("offers %s with the checksum and archive of the Arduino library index, without dependencies", (name, sha256, archive, includes) => {
+    const entry = LIBRARY_CATALOG.find((candidate) => candidate.name === name);
+
+    expect(entry).toMatchObject({ sha256, includes, dependencies: [] });
+    expect(entry?.archive.url).toBe(`https://downloads.arduino.cc/libraries/github.com/${archive}`);
+  });
+
+  it("states verified compile and browser runs on Uno, Nano and Mega 2560 for the new packages, Legacy as not supported", () => {
+    for (const entry of LIBRARY_CATALOG.filter((candidate) => candidate.name !== "AUnit")) {
+      for (const board of ["uno", "nano", "mega2560"] as const) {
+        expect(compileCompatibility(entry, board).status).toBe("verified");
+        expect(runtimeCompatibility(entry, board, "browser").status).toBe("verified");
+      }
+      expect(runtimeCompatibility(entry, "uno", "host-mock").status).toBe("unsupported");
+      expect(compileCompatibility(entry, "attiny85").status).toBe("untested");
+    }
   });
 
   it("names a package directory without characters the process allowlist refuses", () => {
@@ -120,7 +153,7 @@ describe("built-in package examples (SSOT Libraries §8.2)", () => {
   });
 
   it("give the example the catalog maps to a package that package as direct requirement", () => {
-    const [aunit, blink] = attachCatalogLibraries([record("libraries/AUnit/AUnitMinimal/AUnitMinimal.ino"), record("01-blink.ino")]);
+    const [aunit, blink] = attachCatalogLibraries([record("libraries/AUnit/AUnitMinimal/AUnitMinimal.ino"), record("01-blink.ino")], [LIBRARY_CATALOG[0]]);
 
     expect(aunit.libraries).toEqual([AUNIT]);
     expect(blink).not.toHaveProperty("libraries");
@@ -138,6 +171,10 @@ describe("built-in package examples (SSOT Libraries §8.2)", () => {
     const examples = await new BuiltInProvider().getExamples();
 
     expect(examples.find((example) => example.id === "builtin-libraries-AUnit-AUnitMinimal-AUnitMinimal-ino")?.libraries).toEqual([AUNIT]);
-    expect(examples.filter((example) => example.libraries !== undefined)).toHaveLength(1);
+    for (const entry of LIBRARY_CATALOG) {
+      const example = examples.find((candidate) => candidate.files[0]?.path === entry.examples[0].path);
+      expect(example?.libraries).toEqual([{ name: entry.name, version: entry.version }]);
+    }
+    expect(examples.filter((example) => example.libraries !== undefined)).toHaveLength(LIBRARY_CATALOG.length);
   });
 });

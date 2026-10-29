@@ -64,8 +64,8 @@ eigenen Reverse Proxy gilt [INSTALL_SERVER.md](INSTALL_SERVER.md).
 - [../packages/avr-emulator/README.md](../packages/avr-emulator/README.md) –
   API, Boards, Korrekturen an avr8js und Grenzen des Emulationskerns.
 - [Bibliotheksverwaltung](../ssot/ssot_function_definition_Libraries.md) –
-  Fachvertrag für den kuratierten Katalog, projektbezogene Versionen und AUnit;
-  erste Ausbaustufe umgesetzt.
+  Fachvertrag für den kuratierten Katalog, projektbezogene Versionen, AUnit und
+  vier Pakete ohne zusätzliche Hardware; erste Ausbaustufe umgesetzt.
 
 Bei Änderungen zuerst die zuständige normative Quelle aktualisieren.
 

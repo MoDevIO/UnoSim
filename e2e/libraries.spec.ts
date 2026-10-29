@@ -51,7 +51,8 @@ async function expectLibrariesCount(page: Page, count: number): Promise<void> {
 async function dialogReady(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Libraries" });
   await expect(dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" })).toBeFocused();
-  await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+  // A cancelled animation (an interrupted hover transition) rejects `finished`; it is over all the same.
+  await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))));
   return dialog;
 }
 
@@ -73,13 +74,33 @@ const editorHasFocus = (page: Page) => page.evaluate(() =>
 
 const clipped = (element: HTMLElement) => element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
 
-async function includeAUnit(page: Page): Promise<void> {
+async function includeLibrary(page: Page, query: string, entry: RegExp): Promise<void> {
   const dialog = await openDialog(page);
-  await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("aunit");
-  await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
+  await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill(query);
+  await dialog.getByRole("button", { name: entry }).click();
   await dialog.getByRole("button", { name: "Einbinden" }).click();
   await expect(dialog).toBeHidden();
 }
+
+const includeAUnit = (page: Page) => includeLibrary(page, "aunit", /AUnit 1\.7\.1/);
+
+const RING_BUFFER = `
+CircularBuffer<int, 3> buffer;
+
+void setup() {
+  Serial.begin(115200);
+  for (int value = 1; value <= 5; value++) buffer.push(value);
+  Serial.print("ring");
+  while (!buffer.isEmpty()) {
+    Serial.print(' ');
+    Serial.print(buffer.shift());
+  }
+  Serial.println();
+}
+
+void loop() {
+}
+`;
 
 test.describe("project libraries (SSOT Libraries)", () => {
   test("Einbinden adds AUnit and its include; the browser run prints the AUnit results", async ({ page }) => {
@@ -96,6 +117,35 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await expect(serial).toContainText("TestRunner summary: 1 passed, 1 failed, 0 skipped, 0 timed out, out of 2 test(s).", { timeout: COMPILE_TIMEOUT });
     await expect(serial).toContainText("Assertion failed: (4) == (5).");
     await expect(serial).not.toContainText("/tmp/");
+  });
+
+  test("Einbinden adds a further catalog package; the browser run uses it", async ({ page }) => {
+    await open(page, "browser");
+    await setSketch(page, RING_BUFFER);
+
+    await includeLibrary(page, "ring buffer", /CircularBuffer 1\.4\.0/);
+
+    await expectLibrariesCount(page, 1);
+    expect(await editorValue(page)).toBe(`\n#include <CircularBuffer.hpp>\n${RING_BUFFER}`);
+    await page.getByRole("button", { name: /start simulation/i }).click();
+    await expect(page.locator('[data-testid="serial-output"]')).toContainText("ring 3 4 5", { timeout: COMPILE_TIMEOUT });
+  });
+
+  test("Minimalbeispiel öffnen loads the Time example with its exact requirement and the clock runs", async ({ page }) => {
+    await open(page, "browser");
+    const dialog = await openDialog(page);
+    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("time");
+    await dialog.getByRole("button", { name: /^Time 1\.6\.1/ }).click();
+    await dialog.getByRole("button", { name: "Minimalbeispiel öffnen" }).click();
+    await page.getByRole("button", { name: "Ersetzen" }).click();
+    await expect(dialog).toBeHidden();
+
+    await expect.poll(() => editorValue(page)).toContain("#include <TimeLib.h>");
+    await expectLibrariesCount(page, 1);
+    await page.getByRole("button", { name: /start simulation/i }).click();
+    const serial = page.locator('[data-testid="serial-output"]');
+    await expect(serial).toContainText("2026-01-01 12:00:00", { timeout: COMPILE_TIMEOUT });
+    await expect(serial).toContainText("2026-01-01 12:00:01");
   });
 
   test("a written include gets a hint, and adding the package keeps the source", async ({ page }) => {

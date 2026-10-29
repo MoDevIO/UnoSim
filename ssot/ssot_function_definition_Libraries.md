@@ -678,6 +678,34 @@ Screen, automatische Auswertung der seriellen Testergebnisse oder ein
 automatisches Stoppen nach der Zusammenfassung sind nicht Teil der ersten
 Ausbaustufe.
 
+### 12.1 Weitere Pakete ohne zusätzliche Hardware
+
+Erweiterung vom 2026-10-29: Der Katalog bietet zusätzlich vier Pakete an, die
+ohne angeschlossene Peripherie sinnvoll nutzbar sind. Jedes ist ein fester
+Paketstand aus dem Arduino-Bibliotheksindex ohne Abhängigkeiten; Archiv,
+Größe und SHA-256 stehen in `shared/library-catalog.json` und stimmen mit dem
+Index überein. Für ArduinoJson ist ausdrücklich die 6er-Linie gewählt.
+
+| Paket | Version | Standard-Include | Lizenz | Minimalbeispiel (`public/examples/…`) |
+| --- | --- | --- | --- | --- |
+| ArduinoJson (Benoit Blanchon) | 6.21.6 | `<ArduinoJson.h>` | MIT | `libraries/ArduinoJson/ArduinoJsonMinimal` – Objekt lesen, Wert ändern, ausgeben; ungültige Eingabe melden |
+| CircularBuffer (Roberto Lo Giacco) | 1.4.0 | `<CircularBuffer.hpp>` | LGPL-3.0-or-later | `libraries/CircularBuffer/CircularBufferMinimal` – Puffer mit vier Plätzen füllen, Überlauf, Werte in Reihenfolge auslesen |
+| elapsedMillis (Paul Stoffregen, Peter Feerick) | 1.0.6 | `<elapsedMillis.h>` | MIT | `libraries/elapsedMillis/elapsedMillisMinimal` – zwei Meldungen im Abstand von 250 und 1000 ms ohne `delay()` |
+| Time (Michael Margolis, Paul Stoffregen) | 1.6.1 | `<TimeLib.h>` | LGPL-2.1-or-later | `libraries/Time/TimeMinimal` – Softwareuhr ab 1. Januar 2026, 12:00:00, ohne Echtzeituhr |
+
+Jedes Beispiel verwendet nur seine Bibliothek und den Core; die Ergebnisse
+erscheinen im seriellen Monitor. Die Zuordnung im Katalog gibt dem Beispiel
+die exakte Anforderung nach §8.2.
+
+Kompilierung und Browser-Emulation sind für **Uno, Nano und Mega 2560**
+`verified`: Jedes Minimalbeispiel wird mit dem bereitgestellten Paket echt
+kompiliert und im Emulator ausgeführt, mit geprüften Intervallen,
+Puffer-Reihenfolge und Überlauf, JSON-Ergebnis einschließlich ungültiger
+Eingaben und fortschreitender Uhr. In der Compile-Sandbox ist jedes Paket mit
+seiner Prüfsumme bereitgestellt und läuft auf Mega 2560. Für die
+Legacy-Engine gilt dieselbe Grenze wie bei AUnit (`unsupported`); ATtiny85
+ist ungeprüft und bleibt `untested`.
+
 ## 13. Akzeptanzanforderungen
 
 Die Umsetzung MUSS mindestens folgende beobachtbaren Fälle abdecken:
@@ -707,6 +735,7 @@ Die Umsetzung MUSS mindestens folgende beobachtbaren Fälle abdecken:
 | Board- und Enginewechsel | Status wird passend aktualisiert; Compile- und Laufzeitunterstützung bleiben getrennt |
 | Nicht unterstützte Laufzeit | Alle Startwege sind gesperrt, Compile kann bei unterstütztem Compile-Ziel weiter verwendet werden; Grund wird angezeigt |
 | AUnit im Uno-Browserlauf | Pass und Fail führen zu den richtigen seriellen Ergebnissen und einer lesbaren Zusammenfassung |
+| Weitere Pakete (§12.1) | Minimalbeispiele zeigen auf Uno, Nano und Mega 2560 die beschriebenen seriellen Ergebnisse; Einbinden und Minimalbeispiel öffnen übernehmen die exakte Anforderung und laufen im Browser |
 | AUnit-Runner-Timeout | Offene testing()-Fälle und noch nicht ausgeführte test()-Fälle laufen bei Erreichen der Timeout-Prüfung nach derselben Runner-Frist ab; kein neuer Timeout pro Test; Emulator-Watchdog bleibt getrennt |
 | Schmaler Bildschirm und Tastatur | Suche, Details, Einbinden und Schließen sind ohne abgeschnittene Pflichtaktionen bedienbar |
 
@@ -767,6 +796,11 @@ eigene Oberfläche für AUnit-Testergebnisse.
   – Bibliotheksverwendung, Test-Runner und serielle Ergebnisse.
 - [AUnit 1.7.1: TestRunner](https://github.com/bxparks/AUnit/blob/v1.7.1/src/aunit/TestRunner.h)
   – gemeinsame Timeout-Frist ab Runner-Initialisierung.
+- [ArduinoJson 6](https://arduinojson.org/v6/doc/),
+  [CircularBuffer 1.4.0](https://github.com/rlogiacco/CircularBuffer/tree/1.4.0),
+  [elapsedMillis 1.0.6](https://github.com/pfeerick/elapsedMillis/tree/v1.0.6),
+  [Time 1.6.1](https://github.com/PaulStoffregen/Time/tree/v1.6.1)
+  – Dokumentation der Pakete aus §12.1.
 
 ## 16. Umsetzung der ersten Ausbaustufe
 
@@ -781,6 +815,7 @@ Umgesetzt am 2026-10-28. Die fachlichen Regeln oben bleiben maßgeblich; diese
 | Build-Identität und Caches (§11) | Pakete mit Version und SHA-256 in Sketch-Hash, Build-Identität und Ergebnis-Cache | `tests/server/services/arduino-compiler-artifact.test.ts`, `tests/server/routes/libraries.routes.test.ts` |
 | Transport (§14) | `libraries: [{ name, version }]` im Compile-Request; reine Namen werden mit Diagnose abgelehnt | `tests/server/routes/compiler.routes.test.ts` |
 | Katalog-API und Beispiele (§8.2, §8.3) | `GET /api/libraries`, Zuordnung eingebauter Beispiele, `libraries` in v2-Manifesten, Ablehnung in v1 | `tests/server/examples/example-libraries.test.ts`, `tests/server/services/course-content/course-content-libraries.test.ts` |
+| Weitere Pakete (§12.1) | Katalogeinträge und `public/examples/libraries/{ArduinoJson,CircularBuffer,elapsedMillis,Time}` | `tests/integration/library-catalog-packages.test.ts`, `tests/integration/compile-sandbox-libraries.test.ts`, `e2e/libraries.spec.ts` |
 | Dialog und Bedienung (§5–§8.1) | `client/src/components/features/libraries-dialog.tsx`, `client/src/hooks/use-project-libraries.tsx`, Hinweisleiste, Download-Hinweis, Startsperre | `tests/client/libraries-dialog.ui.test.tsx`, `tests/client/hooks/use-project-libraries.test.tsx`, `e2e/libraries.spec.ts` |
 
 AUnit 1.7.1 ist für **Uno** beim Kompilieren und in der **Browser-Emulation**
@@ -789,5 +824,6 @@ fehlschlagende Assertions, die gemeinsame Runner-Frist einschließlich noch
 nicht gestarteter `test()`-Fälle und die serielle Zusammenfassung ab, lokal
 und in der Compile-Sandbox. Für die Legacy-Engine ist die Laufzeit
 `unsupported`, weil ihr nativer Server-Build keine Projektbibliotheken
-einbindet; alle übrigen Boards bleiben `untested`.
+einbindet; alle übrigen Boards bleiben `untested`. Die Nachweise der Pakete
+aus §12.1 stehen dort.
 

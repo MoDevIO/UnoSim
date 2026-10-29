@@ -35,6 +35,170 @@
         "size": 1428540,
         "root": "AUnit-1.7.1"
       }
+    },
+    {
+      "name": "ArduinoJson",
+      "version": "6.21.6",
+      "description": "A simple and efficient JSON library for embedded C++: parse, change and write JSON documents.",
+      "author": "Benoit Blanchon",
+      "license": "MIT",
+      "documentationUrl": "https://arduinojson.org/v6/doc/",
+      "headers": ["ArduinoJson.h", "ArduinoJson.hpp"],
+      "includes": ["ArduinoJson.h"],
+      "dependencies": [],
+      "sha256": "f274ddd00870be901966f19678c1b80f4e20f495009b7b12e193928f04113fae",
+      "examples": [
+        {
+          "title": "ArduinoJson minimal example",
+          "path": "libraries/ArduinoJson/ArduinoJsonMinimal/ArduinoJsonMinimal.ino"
+        }
+      ],
+      "compatibility": {
+        "compile": [
+          { "board": "uno", "status": "verified" },
+          { "board": "nano", "status": "verified" },
+          { "board": "mega2560", "status": "verified" }
+        ],
+        "runtime": [
+          { "board": "uno", "runtime": "browser", "status": "verified" },
+          { "board": "nano", "runtime": "browser", "status": "verified" },
+          { "board": "mega2560", "runtime": "browser", "status": "verified" },
+          {
+            "board": "uno",
+            "runtime": "host-mock",
+            "status": "unsupported",
+            "reason": "The Legacy engine builds the sketch natively on the server without project libraries."
+          }
+        ]
+      },
+      "archive": {
+        "url": "https://downloads.arduino.cc/libraries/github.com/bblanchon/ArduinoJson-6.21.6.zip",
+        "size": 491729,
+        "root": "ArduinoJson-6.21.6"
+      }
+    },
+    {
+      "name": "CircularBuffer",
+      "version": "1.4.0",
+      "description": "A fixed-size ring buffer for queues and stacks; when it is full, a new value replaces the oldest one.",
+      "author": "Roberto Lo Giacco",
+      "license": "LGPL-3.0-or-later",
+      "documentationUrl": "https://github.com/rlogiacco/CircularBuffer/tree/1.4.0",
+      "headers": ["CircularBuffer.hpp", "CircularBuffer.h"],
+      "includes": ["CircularBuffer.hpp"],
+      "dependencies": [],
+      "sha256": "3b30610ac51a35d8528d5ea9be16ccfadc4bf32c8e46631d534ced81730f54b4",
+      "examples": [
+        {
+          "title": "CircularBuffer minimal example",
+          "path": "libraries/CircularBuffer/CircularBufferMinimal/CircularBufferMinimal.ino"
+        }
+      ],
+      "compatibility": {
+        "compile": [
+          { "board": "uno", "status": "verified" },
+          { "board": "nano", "status": "verified" },
+          { "board": "mega2560", "status": "verified" }
+        ],
+        "runtime": [
+          { "board": "uno", "runtime": "browser", "status": "verified" },
+          { "board": "nano", "runtime": "browser", "status": "verified" },
+          { "board": "mega2560", "runtime": "browser", "status": "verified" },
+          {
+            "board": "uno",
+            "runtime": "host-mock",
+            "status": "unsupported",
+            "reason": "The Legacy engine builds the sketch natively on the server without project libraries."
+          }
+        ]
+      },
+      "archive": {
+        "url": "https://downloads.arduino.cc/libraries/github.com/rlogiacco/CircularBuffer-1.4.0.zip",
+        "size": 54714,
+        "root": "CircularBuffer-1.4.0"
+      }
+    },
+    {
+      "name": "elapsedMillis",
+      "version": "1.0.6",
+      "description": "Timer variables that count elapsed milliseconds or microseconds by themselves, for responsive sketches without delay().",
+      "author": "Paul Stoffregen, Peter Feerick",
+      "license": "MIT",
+      "documentationUrl": "https://github.com/pfeerick/elapsedMillis/tree/v1.0.6",
+      "headers": ["elapsedMillis.h"],
+      "includes": ["elapsedMillis.h"],
+      "dependencies": [],
+      "sha256": "275f17009f76a7d48ed4baa2f015b3ed02d144a581a3a88f35ece79ed2d6a081",
+      "examples": [
+        {
+          "title": "elapsedMillis minimal example",
+          "path": "libraries/elapsedMillis/elapsedMillisMinimal/elapsedMillisMinimal.ino"
+        }
+      ],
+      "compatibility": {
+        "compile": [
+          { "board": "uno", "status": "verified" },
+          { "board": "nano", "status": "verified" },
+          { "board": "mega2560", "status": "verified" }
+        ],
+        "runtime": [
+          { "board": "uno", "runtime": "browser", "status": "verified" },
+          { "board": "nano", "runtime": "browser", "status": "verified" },
+          { "board": "mega2560", "runtime": "browser", "status": "verified" },
+          {
+            "board": "uno",
+            "runtime": "host-mock",
+            "status": "unsupported",
+            "reason": "The Legacy engine builds the sketch natively on the server without project libraries."
+          }
+        ]
+      },
+      "archive": {
+        "url": "https://downloads.arduino.cc/libraries/github.com/pfeerick/elapsedMillis-1.0.6.zip",
+        "size": 12390,
+        "root": "elapsedMillis-1.0.6"
+      }
+    },
+    {
+      "name": "Time",
+      "version": "1.6.1",
+      "description": "A software clock with date and time functions, kept by millis() without a real-time clock module.",
+      "author": "Michael Margolis, Paul Stoffregen",
+      "license": "LGPL-2.1-or-later",
+      "documentationUrl": "https://github.com/PaulStoffregen/Time/tree/v1.6.1",
+      "headers": ["TimeLib.h"],
+      "includes": ["TimeLib.h"],
+      "dependencies": [],
+      "sha256": "09db5897c234f5726523fb45a11e9b6b76e56940dcc0adbbcd32a9490fa09834",
+      "examples": [
+        {
+          "title": "Time minimal example",
+          "path": "libraries/Time/TimeMinimal/TimeMinimal.ino"
+        }
+      ],
+      "compatibility": {
+        "compile": [
+          { "board": "uno", "status": "verified" },
+          { "board": "nano", "status": "verified" },
+          { "board": "mega2560", "status": "verified" }
+        ],
+        "runtime": [
+          { "board": "uno", "runtime": "browser", "status": "verified" },
+          { "board": "nano", "runtime": "browser", "status": "verified" },
+          { "board": "mega2560", "runtime": "browser", "status": "verified" },
+          {
+            "board": "uno",
+            "runtime": "host-mock",
+            "status": "unsupported",
+            "reason": "The Legacy engine builds the sketch natively on the server without project libraries."
+          }
+        ]
+      },
+      "archive": {
+        "url": "https://downloads.arduino.cc/libraries/github.com/PaulStoffregen/Time-1.6.1.zip",
+        "size": 33085,
+        "root": "Time-1.6.1"
+      }
     }
   ]
 }

@@ -1,16 +1,17 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildSimulationImage, loadSimulationImage, runHeadless } from "../../packages/avr-emulator/src/index";
 import { type CompileSandboxSettings, compileInSandbox, readSandboxProvidedLibraries } from "../../server/services/compiler/sandboxed-cli-runner";
-import { resolveCompileLibraries } from "../../server/services/libraries/library-service";
+import { LIBRARY_CATALOG, resolveCompileLibraries } from "../../server/services/libraries/library-service";
 import { ProcessExecutor } from "../../server/services/process-executor";
+import { getBoard } from "../../shared/boards";
 import { getFastTmpBaseDir } from "../../shared/utils/temp-paths";
 
 /**
  * Project libraries in the real compile sandbox image (SSOT Libraries §10): the image
- * provides AUnit with the catalog checksum, a compile uses exactly that package, and a
- * library assertion names the sketch without the container path.
+ * provides every catalog package with its checksum, a compile uses exactly that package,
+ * and a library assertion names the sketch without the container path.
  */
 const enabled = process.env.NODE_ENV === "test" && process.env.UNOSIM_SERVER_MODE === "docker";
 const maybeDescribe = enabled ? describe : describe.skip;
@@ -54,6 +55,29 @@ maybeDescribe("compile sandbox with project libraries", () => {
     expect(output).toMatch(/^sketch\.ino:2: Assertion failed/m);
     expect(output).not.toContain("/sketch/");
   }, 120_000);
+
+  it.each(LIBRARY_CATALOG.filter((entry) => entry.name !== "AUnit").map((entry) => [entry.name, entry] as const))(
+    "provides %s with the catalog checksum and runs its minimal example on Mega 2560",
+    async (_name, entry) => {
+      const provided = await readSandboxProvidedLibraries(new ProcessExecutor(), SETTINGS);
+      const resolution = resolveCompileLibraries([{ name: entry.name, version: entry.version }], "mega2560", provided);
+      expect(resolution.ok).toBe(true);
+      if (!resolution.ok) return;
+
+      const source = readFileSync(resolve(__dirname, "../../public/examples", entry.examples[0].path), "utf8");
+      const result = await compileInSandbox(
+        sketch(entry.name.toLowerCase(), source),
+        { fqbn: getBoard("mega2560").fqbn, libraryDirs: resolution.libraries.map((library) => library.dir) },
+        new ProcessExecutor(),
+        SETTINGS,
+      );
+
+      expect(result.success).toBe(true);
+      const output = runHeadless(loadSimulationImage(buildSimulationImage({ board: "mega2560", hex: result.binary!.toString("utf8") })), { simMs: 1_200 }).serial.get(0) ?? "";
+      expect(output.trim()).not.toBe("");
+    },
+    120_000,
+  );
 
   it("finds no library without the requirement", async () => {
     const result = await compileInSandbox(sketch("bare", "#include <AUnit.h>\nvoid setup() {}\nvoid loop() {}\n"), { fqbn: "arduino:avr:uno" }, new ProcessExecutor(), SETTINGS);

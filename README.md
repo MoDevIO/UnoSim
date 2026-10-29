@@ -78,7 +78,7 @@ npm ci
 arduino-cli core update-index
 arduino-cli core install arduino:avr
 sh scripts/install-attinycore.sh   # optional: only for the ATtiny85
-npm run provision:libraries        # project libraries of the catalog (AUnit), checked by SHA-256
+npm run provision:libraries        # project libraries of the catalog, checked by SHA-256
 npm run dev:full
 ```
 
