@@ -29,6 +29,7 @@ import { useProjectLibraries } from "@/hooks/use-project-libraries";
 import { useChangeGuard } from "@/hooks/use-change-guard";
 import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
 import { downloadNotice } from "@/lib/library-download-notice";
+import { focusReturnTarget } from "@/lib/focus-return";
 import { projectLibrariesSchema } from "@shared/library-requirements";
 import { DEFAULT_BOARD_ID } from "@shared/boards";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
@@ -77,6 +78,7 @@ export function useArduinoSimulatorPage() {
     goToLine?: (line: number) => void;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
     replaceContent?: (text: string) => void;
+    focus?: () => void;
   } | null>(null);
 
   // File system orchestration (currentSketch, code, isModified state)
@@ -336,7 +338,18 @@ export function useArduinoSimulatorPage() {
   });
   const { replaceLibraries } = projectLibraries;
   const [librariesOpen, setLibrariesOpen] = useState(false);
-  const openLibrariesDialog = useCallback(() => setLibrariesOpen(true), []);
+  // Closing returns the focus to the control that opened the dialog, after "Einbinden" to the editor.
+  const librariesFocusReturn = useRef<{ invoker: HTMLElement | null; toEditor: boolean }>({ invoker: null, toEditor: false });
+  const openLibrariesDialog = useCallback(() => {
+    librariesFocusReturn.current = { invoker: focusReturnTarget(document.activeElement), toEditor: false };
+    setLibrariesOpen(true);
+  }, []);
+  const returnLibrariesFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    const { invoker, toEditor } = librariesFocusReturn.current;
+    if (!toEditor && invoker?.isConnected) invoker.focus();
+    else editorRef.current?.focus?.();
+  }, []);
 
   const {
     compilationStatus,
@@ -568,11 +581,13 @@ export function useArduinoSimulatorPage() {
    */
   const openLibraryExample = useCallback(async (exampleId: string) => {
     const unchanged = markProject();
+    const loading = toast({ title: "Beispiel wird geladen …" });
     try {
       const response = await fetch(`/api/examples/${encodeURIComponent(exampleId)}`);
       const detail = response.ok ? ((await response.json()) as { title?: string; files?: Array<{ name: string; path?: string; content: string }>; libraries?: unknown }) : undefined;
       const libraries = projectLibrariesSchema.safeParse(detail?.libraries ?? []);
       if (!detail?.files?.length || !libraries.success) throw new Error("invalid example");
+      loading.dismiss();
       if (!unchanged()) {
         toast({ title: "Beispiel nicht geladen", description: "Der Sketch wurde während des Ladens geändert und bleibt erhalten." });
         return;
@@ -581,6 +596,7 @@ export function useArduinoSimulatorPage() {
       replaceLibraries(libraries.data);
       toast({ title: "Beispiel geladen", description: `${detail.title ?? exampleId} ersetzt den bisherigen Sketch.` });
     } catch {
+      loading.dismiss();
       toast({ title: "Beispiel konnte nicht geladen werden", description: "Der bisherige Sketch bleibt erhalten.", variant: "destructive" });
     }
   }, [handleLoadExample, markProject, replaceLibraries, toast]);
@@ -840,8 +856,11 @@ export function useArduinoSimulatorPage() {
         libraries={projectLibraries.libraries}
         activeFile={projectLibraries.activeFile}
         onInclude={(entry) => {
-          if (projectLibraries.include(entry)) setLibrariesOpen(false);
+          if (!projectLibraries.include(entry)) return;
+          librariesFocusReturn.current.toEditor = true;
+          setLibrariesOpen(false);
         }}
+        onCloseAutoFocus={returnLibrariesFocus}
         onInsertInclude={projectLibraries.insertInclude}
         onOpenExample={(exampleId) => void openLibraryExample(exampleId)}
         />

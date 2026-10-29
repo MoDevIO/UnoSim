@@ -47,10 +47,19 @@ async function expectLibrariesCount(page: Page, count: number): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
-async function includeAUnit(page: Page): Promise<void> {
+async function openDialog(page: Page) {
   await page.getByRole("menuitem", { name: "Sketch" }).click();
   await page.getByRole("menuitem", { name: "Libraries…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Libraries" });
+  return page.getByRole("dialog", { name: "Libraries" });
+}
+
+const editorHasFocus = (page: Page) => page.evaluate(() =>
+  ((globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { hasTextFocus: () => boolean }).hasTextFocus());
+
+const clipped = (element: HTMLElement) => element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
+
+async function includeAUnit(page: Page): Promise<void> {
+  const dialog = await openDialog(page);
   await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("aunit");
   await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
   await dialog.getByRole("button", { name: "Einbinden" }).click();
@@ -89,21 +98,70 @@ test.describe("project libraries (SSOT Libraries)", () => {
 
   test("list entries and the target file are not clipped, also with a long file path", async ({ page }) => {
     await open(page, "browser");
-    await page.getByRole("menuitem", { name: "Sketch" }).click();
-    await page.getByRole("menuitem", { name: "Libraries…" }).click();
-    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const dialog = await openDialog(page);
     const entry = dialog.getByRole("button", { name: /AUnit 1\.7\.1/ });
 
-    const clipped = (element: HTMLElement) => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
     expect(await entry.evaluate(clipped)).toBe(false);
 
     await entry.click();
     const details = dialog.getByRole("region", { name: "AUnit 1.7.1" });
-    const target = details.getByText(/^in \S+$/);
+    const target = details.getByText(/^Zieldatei: /);
     await expect(target).toBeVisible();
     // A file deep in folders, as in the reported screenshot; the details must wrap it, not overflow.
-    await target.evaluate((element) => { element.textContent = `in ${"libraries/AUnit/AUnitMinimal/".repeat(4)}AUnitMinimal.ino`; });
+    await target.evaluate((element) => { element.textContent = `Zieldatei: ${"AUnitMinimalExampleWithAVeryLongName".repeat(4)}.ino`; });
     expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
+  test("the dialog keeps its height while searching and selecting", async ({ page }) => {
+    await open(page, "browser");
+    const dialog = await openDialog(page);
+    // Measured after the open animation, which scales the dialog.
+    const box = async () => {
+      await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+      return (await dialog.boundingBox())?.height;
+    };
+
+    const initial = await box();
+    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("no such library");
+    expect(await box()).toBe(initial);
+    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("");
+    await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
+    expect(await box()).toBe(initial);
+  });
+
+  test("with XXL text on a narrow view, name, status and example title wrap instead of overflowing", async ({ page }) => {
+    await page.addInitScript(() => globalThis.localStorage.setItem("unoFontScale", "1.5"));
+    await page.setViewportSize({ width: 640, height: 800 });
+    await open(page, "browser");
+    await page.getByTitle("Options").click();
+    await page.getByRole("menuitem", { name: /^Libraries \(/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const entry = dialog.getByRole("button", { name: /AUnit 1\.7\.1/ });
+    // Another version in the project gives the longest status.
+    await entry.evaluate((element) => {
+      const status = document.createElement("span");
+      status.textContent = "Andere Version im Projekt";
+      element.insertBefore(status, element.children[1]);
+    });
+
+    const nameLine = entry.getByText("AUnit 1.7.1");
+    expect((await nameLine.boundingBox())?.width ?? 0).toBeGreaterThan(60);
+    expect(await entry.evaluate(clipped)).toBe(false);
+    await entry.click();
+    const details = dialog.getByRole("region", { name: "AUnit 1.7.1" });
+    expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
+  test("closing returns the focus: Escape to the menu that opened it, Einbinden to the editor", async ({ page }) => {
+    await open(page, "browser");
+    await setSketch(page, TESTS);
+
+    await openDialog(page);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menuitem", { name: "Sketch" })).toBeFocused();
+
+    await includeAUnit(page);
+    await expect.poll(() => editorHasFocus(page)).toBe(true);
   });
 
   test("the Legacy engine names why AUnit does not run there and does not start it", async ({ page }) => {
@@ -115,9 +173,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await setSketch(page, TESTS);
     await includeAUnit(page);
 
-    await page.getByRole("menuitem", { name: "Sketch" }).click();
-    await page.getByRole("menuitem", { name: "Libraries…" }).click();
-    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const dialog = await openDialog(page);
     await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
     await expect(dialog.getByText(/^Simulation \(Legacy\): nicht unterstützt – /)).toBeVisible();
     await page.keyboard.press("Escape");

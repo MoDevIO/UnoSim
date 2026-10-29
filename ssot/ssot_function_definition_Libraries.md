@@ -194,6 +194,11 @@ Er enthält eine Suche sowie die Ansichten **Verfügbar** und **Im Projekt**:
   ein Abruffehler sind unterschiedliche, ausdrücklich benannte Zustände.
 - Ein Abruffehler löscht keine Projektabhängigkeiten. Der Dialog bietet einen
   manuellen erneuten Abruf an.
+- Eine gewählte Bibliothek bleibt beim Wechsel der Ansicht gewählt, sofern
+  die andere Ansicht sie ebenfalls listet.
+- Ein Listeneintrag zeigt nur genau die ausgewählte Version als **Im
+  Projekt**; ist eine andere Version desselben Pakets ausgewählt, lautet der
+  Status **Andere Version im Projekt**.
 
 Ein ausgewählter Eintrag zeigt Name, Version, Beschreibung, Autor,
 Standard-Include, Dokumentation, verfügbare Beispiele und den Projektstatus.
@@ -207,8 +212,13 @@ Bedienaufgabe für Studierende.
 
 Die Detailansicht bietet **Einbinden** oder, bei bereits ausgewählter
 Bibliothek ohne Include in der aktiven Datei, **Include einfügen**. Ist die
-Version ausgewählt und das Include dort vorhanden, lautet der Zustand
-**Bereits eingebunden** und erzeugt keine doppelte Änderung.
+Version ausgewählt und das Include dort vorhanden, zeigt sie den erreichten
+Zustand **✓ Bereits eingebunden** als Status, nicht als Schaltfläche; es
+entsteht keine doppelte Änderung. Diese Aktion steht als Hauptaktion an
+fester Stelle direkt unter Name und Autor, darunter die **Zieldatei** mit
+ihrem Dateinamen; der vollständige Pfad lässt sich bei Dateien in Ordnern
+aufklappen. **Minimalbeispiel öffnen** ist eine sekundäre Aktion am Ende der
+Details.
 
 Fehlt die angeforderte Version auf diesem Deployment, zeigt **Im Projekt**
 Name, angeforderte Version und **Nicht verfügbar** mit Begründung. Für diesen
@@ -226,8 +236,14 @@ HTML/CSS-Skizze ist keine alternative Komponentenarchitektur.
 
 Suche, Auswahl, Einbinden und Schließen MÜSSEN per Tastatur erreichbar sein.
 Der Dialog besitzt eine zugängliche Beschriftung und ein geregeltes
-Fokusverhalten. Auf schmalen Bildschirmen dürfen Katalog und Details
-untereinander stehen; Inhalte und Aktionen müssen erreichbar bleiben.
+Fokusverhalten: Nach dem Schließen kehrt der Fokus zum auslösenden
+Bedienelement zurück (bei einem Menüeintrag zu dessen Menü), nach
+**Einbinden** in den Editor. Die Ansichts-Tabs sind ihren Inhaltsbereichen
+zugänglich zugeordnet. Die Dialoghöhe ist fest, damit sich Suche und Listen
+beim Suchen und Auswählen nicht verschieben. Auf schmalen Bildschirmen
+stehen Katalog und Details untereinander; Inhalte und Aktionen müssen
+erreichbar bleiben. Namen, Status und Beispieltitel brechen auch bei großer
+Schrift um und werden nicht abgeschnitten.
 
 ## 6. Aktion „Einbinden“
 
@@ -412,7 +428,8 @@ den bestehenden Ersetzen-/Stop-Lebenszyklus beendet. Lade- oder
 Validierungsfehler erhalten den bisherigen Zustand. Die Bestätigung gilt für
 den Sketch, wie er beim Bestätigen war: Ändern sich Dateien oder
 Bibliotheksauswahl, während das Beispiel noch lädt, bleiben diese Änderungen
-erhalten und das Beispiel wird nicht übernommen. Ein Beispiel mit eigenem
+erhalten und das Beispiel wird nicht übernommen. Während des Ladens zeigt
+UnoSim **Beispiel wird geladen …**. Ein Beispiel mit eigenem
 `setup()` und `loop()` wird nicht als weitere `.ino`-Datei ergänzt und nicht
 automatisch gestartet.
 

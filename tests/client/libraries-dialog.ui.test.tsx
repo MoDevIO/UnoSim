@@ -123,7 +123,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(props.onInsertInclude).toHaveBeenCalledWith(aunit);
   });
 
-  it("disables Bereits eingebunden", async () => {
+  it("states Bereits eingebunden as a status, not as a disabled button", async () => {
     const user = userEvent.setup();
     renderDialog({
       libraries: [{ name: "AUnit", version: "1.7.1" }],
@@ -131,7 +131,8 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    expect(screen.getByRole("button", { name: "Bereits eingebunden" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Bereits eingebunden");
+    expect(screen.queryByRole("button", { name: "Bereits eingebunden" })).toBeNull();
   });
 
   it("marks only the selected version as Im Projekt, another version of the same package differently", () => {
@@ -142,15 +143,61 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(within(listed).getByText("Andere Version im Projekt")).toBeInTheDocument();
   });
 
-  it("puts the target file on its own wrapping line", async () => {
+  it("names the target file below the action and shows its full path on request", async () => {
     const user = userEvent.setup();
     const path = "libraries/AUnit/AUnitMinimal/AUnitMinimal.ino";
     renderDialog({ activeFile: { path, editable: true, content: "void setup(){}\n", localHeaders: [path] } });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    const target = screen.getByText(`in ${path}`);
-    expect(target).toHaveClass("break-all");
-    expect(screen.getByRole("button", { name: "Einbinden" }).parentElement).not.toContainElement(target);
+    const target = screen.getByText("Zieldatei:", { exact: false });
+    expect(target).toHaveTextContent("Zieldatei: AUnitMinimal.ino");
+    expect(screen.getByRole("button", { name: "Einbinden" }).parentElement).toHaveClass("flex-col");
+    expect(screen.getByText(path)).not.toBeVisible();
+    await user.click(target);
+    expect(screen.getByText(path)).toBeVisible();
+    expect(screen.getByText(path)).toHaveClass("break-all");
+  });
+
+  it("names a file at the top level without an expandable path", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    expect(screen.getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
+    expect(screen.queryByText("sketch.ino", { selector: "p.break-all:not(:has(strong))" })).toBeNull();
+  });
+
+  it("keeps name and status of a list entry on separate lines", () => {
+    renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });
+
+    const listed = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
+    expect(within(listed).getByText("AUnit 1.7.1").parentElement).toBe(listed);
+    expect(within(listed).getByText("Andere Version im Projekt").parentElement).toBe(listed);
+  });
+
+  it("links each view tab to its panel and keeps the selection across the views", async () => {
+    const user = userEvent.setup();
+    renderDialog({ libraries: [{ name: "AUnit", version: "1.7.1" }] });
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    const available = screen.getByRole("tab", { name: "Verfügbar" });
+    expect(document.getElementById(available.getAttribute("aria-controls") ?? "")).toBe(screen.getByRole("tabpanel"));
+    await user.click(screen.getByRole("tab", { name: "Im Projekt" }));
+
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", screen.getByRole("tab", { name: "Im Projekt" }).id);
+    expect(screen.getByRole("region", { name: "AUnit 1.7.1" })).toBeInTheDocument();
+  });
+
+  it("puts Einbinden before the description and the example title on a wrapping line", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    const include = screen.getByRole("button", { name: "Einbinden" });
+    const description = within(screen.getByRole("region", { name: "AUnit 1.7.1" })).getByText(aunit.description);
+    expect(include.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("AUnit minimal example")).toHaveClass("break-words");
+    expect(screen.getByText("AUnit minimal example").parentElement).toHaveClass("flex-wrap");
   });
 
   it("keeps a version missing on this deployment visible, without actions", async () => {

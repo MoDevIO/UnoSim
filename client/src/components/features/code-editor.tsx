@@ -169,6 +169,7 @@ interface CodeEditorAPI {
   insertTextAtLine?: (line: number | undefined, text: string) => void;
   /** Replaces the whole text as one change the editor's undo takes back (Libraries "Einbinden"). */
   replaceContent?: (text: string) => void;
+  focus?: () => void;
   formatCode?: () => void;
 }
 
@@ -431,6 +432,7 @@ export function CodeEditor({
           const sel = editor.getSelection();
           handlePasteAction(editor, model, sel);
         },
+        focus: () => editor.focus(),
         goToLine: (ln: number) => {
           editor.focus();
           const model = editor.getModel();

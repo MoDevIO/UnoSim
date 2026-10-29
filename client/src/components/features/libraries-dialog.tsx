@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -5,7 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import type { ActiveLibraryFile, LibraryCatalogState } from "@/hooks/use-project-libraries";
 import { includeAction, projectEntries, type ProjectLibraryEntry } from "@/lib/project-libraries";
@@ -32,6 +33,8 @@ export interface LibrariesDialogProps {
   readonly onInsertInclude: (entry: OfferedLibraryPackage) => void;
   /** Loads an example into the current tab; called only after the replacement was confirmed. */
   readonly onOpenExample: (exampleId: string) => void;
+  /** Where the focus goes once the dialog closed; the default returns it to the focused element before opening. */
+  readonly onCloseAutoFocus?: (event: Event) => void;
 }
 
 type View = "available" | "project";
@@ -74,6 +77,7 @@ export function LibrariesDialog({
   onInclude,
   onInsertInclude,
   onOpenExample,
+  onCloseAutoFocus,
 }: LibrariesDialogProps) {
   const [view, setView] = useState<View>("available");
   const [query, setQuery] = useState("");
@@ -86,12 +90,17 @@ export function LibrariesDialog({
     [libraries, catalog.packages, query],
   );
 
+  // The selection is kept across the views; each view shows it when it lists the entry.
   const selectedPackage = view === "available" ? available.find((entry) => keyOf(entry) === selectedKey) : undefined;
   const selectedProjectEntry = view === "project" ? inProject.find((entry) => keyOf(entry) === selectedKey) : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col gap-3" aria-describedby="libraries-dialog-context">
+      <DialogContent
+        className="flex h-[min(85vh,36rem)] max-w-3xl flex-col gap-3"
+        aria-describedby="libraries-dialog-context"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader className="shrink-0">
           <DialogTitle>Libraries</DialogTitle>
           <DialogDescription id="libraries-dialog-context">
@@ -99,47 +108,52 @@ export function LibrariesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            type="search"
-            aria-label="Bibliotheken durchsuchen"
-            placeholder="Name oder Beschreibung"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="sm:max-w-xs"
-          />
-          <Tabs value={view} onValueChange={(value) => { setView(value as View); setSelectedKey(undefined); }}>
+        <Tabs value={view} onValueChange={(value) => setView(value as View)} className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex shrink-0 flex-col gap-2 md:flex-row md:items-center">
+            <Input
+              type="search"
+              aria-label="Bibliotheken durchsuchen"
+              placeholder="Name oder Beschreibung"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="md:max-w-xs"
+            />
             <TabsList>
               <TabsTrigger value="available">Verfügbar</TabsTrigger>
               <TabsTrigger value="project">Im Projekt</TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
+          </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <UnifiedScrollArea orientation="vertical" className="min-h-0 rounded-md border" viewportClassName="p-1">
-            <CatalogList
-              view={view}
-              catalog={catalog}
-              query={query}
-              available={available}
-              inProject={inProject}
-              libraries={libraries}
-              selectedKey={selectedKey}
-              onSelect={setSelectedKey}
-            />
-          </UnifiedScrollArea>
-          <UnifiedScrollArea orientation="vertical" className="min-h-0 rounded-md border" viewportClassName="p-3">
-            {selectedPackage && (
-              <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedPackage} onRequestExample={setPendingExample} />
-            )}
-            {selectedProjectEntry && (
-              selectedProjectEntry.offered
-                ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
-                : <MissingDetails entry={selectedProjectEntry} catalog={catalog.packages} />
-            )}
-          </UnifiedScrollArea>
-        </div>
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-1">
+            {(["available", "project"] as const).map((value) => (
+              // The list entries are the tab stops; the panel itself is not one.
+              <TabsContent key={value} value={value} tabIndex={-1} className="mt-0 flex min-h-0 flex-col">
+                <UnifiedScrollArea orientation="vertical" className="min-h-0 flex-1 rounded-md border" viewportClassName="p-1">
+                  <CatalogList
+                    view={value}
+                    catalog={catalog}
+                    query={query}
+                    available={available}
+                    inProject={inProject}
+                    libraries={libraries}
+                    selectedKey={selectedKey}
+                    onSelect={setSelectedKey}
+                  />
+                </UnifiedScrollArea>
+              </TabsContent>
+            ))}
+            <UnifiedScrollArea orientation="vertical" className="min-h-0 rounded-md border" viewportClassName="p-3">
+              {selectedPackage && (
+                <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedPackage} onRequestExample={setPendingExample} />
+              )}
+              {selectedProjectEntry && (
+                selectedProjectEntry.offered
+                  ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
+                  : <MissingDetails entry={selectedProjectEntry} catalog={catalog.packages} />
+              )}
+            </UnifiedScrollArea>
+          </div>
+        </Tabs>
 
         <AlertDialog open={pendingExample !== undefined} onOpenChange={(open) => !open && setPendingExample(undefined)}>
           <AlertDialogContent>
@@ -240,12 +254,10 @@ function ListButton(props: { readonly selected: boolean; readonly onSelect: () =
       type="button"
       aria-pressed={props.selected}
       onClick={props.onSelect}
-      className={`multiline-btn flex w-full flex-col items-start rounded px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${props.selected ? "bg-muted" : "hover:bg-muted/60"}`}
+      className={`multiline-btn flex w-full flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${props.selected ? "bg-muted" : "hover:bg-muted/60"}`}
     >
-      <span className="flex w-full items-start justify-between gap-2 text-ui-sm font-medium text-foreground">
-        <span className="min-w-0 break-words">{props.title}</span>
-        {props.badge && <span className="shrink-0 rounded bg-background px-1.5 text-ui-xs text-muted-foreground">{props.badge}</span>}
-      </span>
+      <span className="w-full break-words text-ui-sm font-medium text-foreground">{props.title}</span>
+      {props.badge && <span className="max-w-full break-words rounded bg-background px-1.5 text-ui-xs text-muted-foreground">{props.badge}</span>}
       <span className="line-clamp-2 text-ui-xs text-muted-foreground">{props.detail}</span>
     </button>
   );
@@ -269,34 +281,32 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
 
   return (
     <section aria-label={`${entry.name} ${entry.version}`} className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-ui-md font-semibold text-foreground">{entry.name} {entry.version}</h3>
-          <p className="text-ui-xs text-muted-foreground">{entry.author}</p>
-        </div>
+      <div className="flex flex-col items-start gap-1">
+        <h3 className="break-words text-ui-md font-semibold text-foreground">{entry.name} {entry.version}</h3>
+        <p className="text-ui-xs text-muted-foreground">{entry.author}</p>
         {selected && <span data-testid="library-project-badge" className="rounded bg-muted px-1.5 text-ui-xs">Im Projekt</span>}
       </div>
+      <IncludeButton action={action} activeFile={activeFile} onInclude={() => onInclude(entry)} onInsertInclude={() => onInsertInclude(entry)} />
       <p className="text-ui-sm text-foreground">{entry.description}</p>
       {warnings.length > 0 && (
         <ul className="text-ui-xs text-destructive">
           {warnings.map((warning) => <li key={warning}>{warning}</li>)}
         </ul>
       )}
-      <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-ui-xs">{entry.includes.map((header) => `#include <${header}>`).join("\n")}</code>
+      <code className="w-fit max-w-full break-all rounded bg-muted px-2 py-1 font-mono text-ui-xs">{entry.includes.map((header) => `#include <${header}>`).join("\n")}</code>
       <p className="text-ui-xs text-muted-foreground">
         Lizenz {entry.license} · <a className="underline" href={entry.documentationUrl} target="_blank" rel="noreferrer">Dokumentation</a>
       </p>
       {examples.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           {examples.map((example) => (
-            <div key={example.path} className="flex items-center gap-2">
+            <div key={example.path} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <Button size="sm" variant="outline" onClick={() => example.exampleId && onRequestExample(example.exampleId)}>Minimalbeispiel öffnen</Button>
-              <span className="text-ui-xs text-muted-foreground">{example.title}</span>
+              <span className="min-w-0 break-words text-ui-xs text-muted-foreground">{example.title}</span>
             </div>
           ))}
         </div>
       )}
-      <IncludeButton action={action} activeFile={activeFile} onInclude={() => onInclude(entry)} onInsertInclude={() => onInsertInclude(entry)} />
     </section>
   );
 }
@@ -310,10 +320,10 @@ function IncludeButton(props: {
   if (!props.action) {
     return <p className="text-ui-xs text-muted-foreground">Öffne eine .ino- oder .h-Datei, um die Bibliothek einzubinden.</p>;
   }
-  const withTarget = (button: ReactNode) => (
+  const withTarget = (action: ReactNode) => (
     <div className="flex min-w-0 flex-col items-start gap-1">
-      <div>{button}</div>
-      <p className="min-w-0 max-w-full break-all text-ui-xs text-muted-foreground">in {props.activeFile?.path}</p>
+      {action}
+      <TargetFile path={props.activeFile?.path ?? ""} />
     </div>
   );
   switch (props.action) {
@@ -322,12 +332,30 @@ function IncludeButton(props: {
     case "insert-include":
       return withTarget(<Button size="sm" onClick={props.onInsertInclude}>Include einfügen</Button>);
     case "already-included":
-      return withTarget(<Button size="sm" disabled>Bereits eingebunden</Button>);
+      return withTarget(
+        <p role="status" className="flex items-center gap-1 text-ui-sm font-medium text-foreground">
+          <Check aria-hidden className="h-4 w-4 shrink-0 text-status-success" />
+          Bereits eingebunden
+        </p>,
+      );
     case "other-version":
       return <p className="text-ui-xs text-muted-foreground">Das Projekt legt eine andere Version dieser Bibliothek fest.</p>;
     case "unavailable":
       return <p className="text-ui-xs text-muted-foreground">Nicht verfügbar auf diesem Server.</p>;
   }
+}
+
+/** The file "Einbinden" changes: its name, and the full path on request when it lies in a folder. */
+function TargetFile({ path }: { readonly path: string }) {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const label = <>Zieldatei: <strong className="font-medium text-foreground">{name}</strong></>;
+  if (name === path) return <p className="break-all text-ui-xs text-muted-foreground">{label}</p>;
+  return (
+    <details className="min-w-0 max-w-full text-ui-xs text-muted-foreground">
+      <summary className="cursor-pointer break-all">{label}</summary>
+      <p className="break-all">{path}</p>
+    </details>
+  );
 }
 
 function MissingDetails({ entry, catalog }: { readonly entry: ProjectLibraryEntry; readonly catalog: readonly OfferedLibraryPackage[] }) {
