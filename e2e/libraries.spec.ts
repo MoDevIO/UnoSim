@@ -50,7 +50,10 @@ async function expectLibrariesCount(page: Page, count: number): Promise<void> {
 async function openDialog(page: Page) {
   await page.getByRole("menuitem", { name: "Sketch" }).click();
   await page.getByRole("menuitem", { name: "Libraries…" }).click();
-  return page.getByRole("dialog", { name: "Libraries" });
+  const dialog = page.getByRole("dialog", { name: "Libraries" });
+  // Ready once the dialog moved the focus into its search.
+  await expect(dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" })).toBeFocused();
+  return dialog;
 }
 
 const editorHasFocus = (page: Page) => page.evaluate(() =>
@@ -150,6 +153,26 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await entry.click();
     const details = dialog.getByRole("region", { name: "AUnit 1.7.1" });
     expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
+  test("on a low window with XXL text the dialog scrolls as a whole, so a focused Einbinden is fully visible", async ({ page }) => {
+    await page.addInitScript(() => globalThis.localStorage.setItem("unoFontScale", "1.5"));
+    await page.setViewportSize({ width: 640, height: 360 });
+    await open(page, "browser");
+    await page.getByTitle("Options").click();
+    await page.getByRole("menuitem", { name: /^Libraries \(/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
+
+    const include = dialog.getByRole("button", { name: "Einbinden" });
+    await include.focus();
+    // Every corner of the button is the topmost element there: nothing clips or covers it.
+    const visible = await include.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const corners = [[box.left + 2, box.top + 2], [box.right - 2, box.top + 2], [box.left + 2, box.bottom - 2], [box.right - 2, box.bottom - 2]];
+      return corners.every(([x, y]) => element.contains(document.elementFromPoint(x, y)));
+    });
+    expect(visible).toBe(true);
   });
 
   test("closing returns the focus: Escape to the menu that opened it, Einbinden to the editor", async ({ page }) => {

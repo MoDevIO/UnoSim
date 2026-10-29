@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -83,6 +83,8 @@ export function LibrariesDialog({
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | undefined>();
   const [pendingExample, setPendingExample] = useState<string | undefined>();
+  // "Minimalbeispiel öffnen" that asked; Abbrechen returns the focus to it.
+  const exampleTrigger = useRef<HTMLElement | null>(null);
 
   const available = useMemo(() => catalog.packages.filter((entry) => matches(entry, query)), [catalog.packages, query]);
   const inProject = useMemo(
@@ -97,7 +99,8 @@ export function LibrariesDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex h-[min(85vh,36rem)] max-w-3xl flex-col gap-3"
+        // Fixed height; when the window is too low for the minimum heights of list and details, the dialog scrolls as a whole.
+        className="flex h-[min(85vh,36rem)] max-w-3xl flex-col gap-3 overflow-y-auto"
         aria-describedby="libraries-dialog-context"
         onCloseAutoFocus={onCloseAutoFocus}
       >
@@ -108,7 +111,7 @@ export function LibrariesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={view} onValueChange={(value) => setView(value as View)} className="flex min-h-0 flex-1 flex-col gap-3">
+        <Tabs value={view} onValueChange={(value) => setView(value as View)} className="flex flex-1 flex-col gap-3">
           <div className="flex shrink-0 flex-col gap-2 md:flex-row md:items-center">
             <Input
               type="search"
@@ -124,7 +127,7 @@ export function LibrariesDialog({
             </TabsList>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-1">
+          <div className="grid flex-1 grid-rows-[minmax(6rem,2fr)_minmax(12rem,3fr)] gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-[minmax(12rem,1fr)]">
             {(["available", "project"] as const).map((value) => (
               // The list entries are the tab stops; the panel itself is not one.
               <TabsContent key={value} value={value} tabIndex={-1} className="mt-0 flex min-h-0 flex-col">
@@ -144,11 +147,11 @@ export function LibrariesDialog({
             ))}
             <UnifiedScrollArea orientation="vertical" className="min-h-0 rounded-md border" viewportClassName="p-3">
               {selectedPackage && (
-                <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedPackage} onRequestExample={setPendingExample} />
+                <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedPackage} onRequestExample={(exampleId, trigger) => { exampleTrigger.current = trigger; setPendingExample(exampleId); }} />
               )}
               {selectedProjectEntry && (
                 selectedProjectEntry.offered
-                  ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={setPendingExample} />
+                  ? <PackageDetails boardId={boardId} runtime={runtime} libraries={libraries} activeFile={activeFile} onInclude={onInclude} onInsertInclude={onInsertInclude} entry={selectedProjectEntry.offered} onRequestExample={(exampleId, trigger) => { exampleTrigger.current = trigger; setPendingExample(exampleId); }} />
                   : <MissingDetails entry={selectedProjectEntry} catalog={catalog.packages} />
               )}
             </UnifiedScrollArea>
@@ -156,7 +159,13 @@ export function LibrariesDialog({
         </Tabs>
 
         <AlertDialog open={pendingExample !== undefined} onOpenChange={(open) => !open && setPendingExample(undefined)}>
-          <AlertDialogContent>
+          <AlertDialogContent
+            onCloseAutoFocus={(event) => {
+              if (!exampleTrigger.current?.isConnected) return;
+              event.preventDefault();
+              exampleTrigger.current.focus();
+            }}
+          >
             <AlertDialogHeader>
               <AlertDialogTitle>Aktuellen Sketch ersetzen?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -170,6 +179,7 @@ export function LibrariesDialog({
                   const exampleId = pendingExample;
                   setPendingExample(undefined);
                   if (exampleId) {
+                    exampleTrigger.current = null;
                     onOpenExample(exampleId);
                     onOpenChange(false);
                   }
@@ -265,7 +275,7 @@ function ListButton(props: { readonly selected: boolean; readonly onSelect: () =
 
 interface PackageDetailsProps extends Pick<LibrariesDialogProps, "boardId" | "runtime" | "libraries" | "activeFile" | "onInclude" | "onInsertInclude"> {
   readonly entry: OfferedLibraryPackage;
-  readonly onRequestExample: (exampleId: string) => void;
+  readonly onRequestExample: (exampleId: string, trigger: HTMLElement) => void;
 }
 
 function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onInclude, onInsertInclude, onRequestExample }: PackageDetailsProps) {
@@ -301,7 +311,7 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
         <div className="flex flex-col gap-2">
           {examples.map((example) => (
             <div key={example.path} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <Button size="sm" variant="outline" onClick={() => example.exampleId && onRequestExample(example.exampleId)}>Minimalbeispiel öffnen</Button>
+              <Button size="sm" variant="outline" onClick={(event) => example.exampleId && onRequestExample(example.exampleId, event.currentTarget)}>Minimalbeispiel öffnen</Button>
               <span className="min-w-0 break-words text-ui-xs text-muted-foreground">{example.title}</span>
             </div>
           ))}

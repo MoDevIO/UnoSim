@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { LibrariesDialog, type LibrariesDialogProps } from "@/components/features/libraries-dialog";
@@ -224,6 +224,17 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     await user.click(screen.getByRole("button", { name: "Minimalbeispiel öffnen" }));
     await user.click(screen.getByRole("button", { name: "Ersetzen" }));
     expect(props.onOpenExample).toHaveBeenCalledWith("builtin-aunit");
+  });
+
+  it("returns the focus to Minimalbeispiel öffnen when the replacement is cancelled", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    await user.click(screen.getByRole("button", { name: "Minimalbeispiel öffnen" }));
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Minimalbeispiel öffnen" })).toHaveFocus());
   });
 
   it("can be operated with the keyboard", async () => {

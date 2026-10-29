@@ -240,7 +240,11 @@ Fokusverhalten: Nach dem Schließen kehrt der Fokus zum auslösenden
 Bedienelement zurück (bei einem Menüeintrag zu dessen Menü), nach
 **Einbinden** in den Editor. Die Ansichts-Tabs sind ihren Inhaltsbereichen
 zugänglich zugeordnet. Die Dialoghöhe ist fest, damit sich Suche und Listen
-beim Suchen und Auswählen nicht verschieben. Auf schmalen Bildschirmen
+beim Suchen und Auswählen nicht verschieben. Liste und Details haben eine
+Mindesthöhe; reicht die Fensterhöhe dafür nicht, scrollt der Dialog als
+Ganzes, sodass eine fokussierte Aktion vollständig sichtbar ist. Abbrechen
+der Rückfrage zu **Minimalbeispiel öffnen** gibt den Fokus an diese
+Schaltfläche zurück. Auf schmalen Bildschirmen
 stehen Katalog und Details untereinander; Inhalte und Aktionen müssen
 erreichbar bleiben. Namen, Status und Beispieltitel brechen auch bei großer
 Schrift um und werden nicht abgeschnitten.
