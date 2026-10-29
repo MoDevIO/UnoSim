@@ -3,7 +3,7 @@ import { downloadNotice } from "@/lib/library-download-notice";
 import {
   addRequirement,
   includeAction,
-  projectEntries,
+  libraryListEntries,
   startBlockReason,
 } from "@/lib/project-libraries";
 import type { OfferedLibraryPackage } from "@shared/libraries";
@@ -31,15 +31,34 @@ const aunit: OfferedLibraryPackage = {
 };
 const AUNIT = { name: "AUnit", version: "1.7.1" };
 
-describe("projectEntries (SSOT Libraries §5.2)", () => {
-  it("shows the selection sorted, with a version missing here as not available", () => {
-    const entries = projectEntries([{ name: "Zeta", version: "1.0.0" }, AUNIT], [aunit]);
+describe("libraryListEntries (SSOT Libraries §5.2)", () => {
+  const status = (entry: { name: string; version: string; inProject: boolean; available: boolean }) =>
+    [entry.name, entry.version, entry.inProject, entry.available];
 
-    expect(entries.map((entry) => [entry.name, entry.version, entry.offered !== undefined])).toEqual([["AUnit", "1.7.1", true], ["Zeta", "1.0.0", false]]);
+  it("lists offered packages and required versions missing here once each, sorted", () => {
+    const entries = libraryListEntries([aunit], [{ name: "Zeta", version: "1.0.0" }, AUNIT, { name: "AUnit", version: "1.6.0" }]);
+
+    expect(entries.map(status)).toEqual([
+      ["AUnit", "1.6.0", true, false],
+      ["AUnit", "1.7.1", true, true],
+      ["Zeta", "1.0.0", true, false],
+    ]);
+    expect(entries[1].offered).toBe(aunit);
+    expect(entries[0].offered).toBeUndefined();
+  });
+
+  it("marks an offered version as in the project only by name and exact version", () => {
+    const [offered, required] = libraryListEntries([aunit], [{ name: "AUnit", version: "1.6.0" }]).reverse();
+
+    expect(status(offered)).toEqual(["AUnit", "1.7.1", false, true]);
+    expect(status(required)).toEqual(["AUnit", "1.6.0", true, false]);
   });
 
   it("treats a catalog package the server does not provide as not available", () => {
-    expect(projectEntries([AUNIT], [{ ...aunit, available: false, unavailableReason: "not installed" }])[0].offered).toBeUndefined();
+    const [entry] = libraryListEntries([{ ...aunit, available: false, unavailableReason: "not installed" }], [AUNIT]);
+
+    expect(status(entry)).toEqual(["AUnit", "1.7.1", true, false]);
+    expect(entry.offered?.unavailableReason).toBe("not installed");
   });
 });
 

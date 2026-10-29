@@ -177,37 +177,49 @@ eigenen Button (Änderung vom 2026-10-28). `n` zählt die direkt ausgewählten B
 einschließlich einer angeforderten, auf diesem Deployment fehlenden Version.
 Transitive Abhängigkeiten erhöhen diese Zahl nicht.
 
-Öffnen, Schließen, Suchen und Wechseln der Katalogansicht verändern weder
+Öffnen, Schließen, Suchen und Auswählen eines Eintrags verändern weder
 Quelltext noch Bibliotheksauswahl. Es startet dadurch keine Kompilierung.
 
 ### 5.2 Inhalt
 
 Der Dialog zeigt das aktuelle Board und die gewählte Laufzeit als Kontext.
-Er enthält eine Suche sowie die Ansichten **Verfügbar** und **Im Projekt**:
+Er enthält eine Suche und **eine gemeinsame Bibliotheksliste**; getrennte
+Ansichten mit Umschaltung gibt es nicht (Vereinfachung vom 2026-10-29):
 
-- **Verfügbar** zeigt das vom Server angebotene Bibliotheksangebot.
-- **Im Projekt** zeigt die ausdrückliche Auswahl und ihre festgelegten
-  Versionen. Fehlende Versionen bleiben hier sichtbar.
-- Die Suche berücksichtigt mindestens Name und Kurzbeschreibung und filtert
-  die aktuell gewählte Ansicht.
-- Eine leere Projektauswahl, keine Suchtreffer, ein leerer Katalog, Laden und
-  ein Abruffehler sind unterschiedliche, ausdrücklich benannte Zustände.
+- Die Liste zeigt alle vom Server angebotenen Bibliotheken und zusätzlich die
+  vom Projekt benötigten Versionen, die dieser Server nicht anbietet. Jeder
+  Eintrag erscheint je Name und Version genau einmal.
+- Der Projektstatus steht direkt am Eintrag: **Im Projekt** für eine
+  ausgewählte Version, **Nicht verfügbar** für eine Version, die dieses
+  Deployment nicht bereitstellt. Eine benötigte, fehlende Version trägt
+  beide Angaben. Die Zuordnung erfolgt über Name und exakte Version; eine
+  andere angebotene Version desselben Pakets erscheint nicht als
+  ausgewählt.
+- Name, Version und Status stehen in eigenen Zeilen und bleiben auch bei
+  großer Schrift lesbar.
+- Die Suche berücksichtigt mindestens Name und Kurzbeschreibung. Das
+  Suchfeld steht in derselben Spalte direkt über der Liste; beide haben
+  dieselbe Breite und fluchten links und rechts, auf schmalen Ansichten über
+  die volle Inhaltsbreite des Dialogs.
+- Keine Suchtreffer, ein leerer Katalog, Laden und ein Abruffehler sind
+  unterschiedliche, ausdrücklich benannte Zustände.
 - Ein Abruffehler löscht keine Projektabhängigkeiten. Der Dialog bietet einen
   manuellen erneuten Abruf an.
-- Eine gewählte Bibliothek bleibt beim Wechsel der Ansicht gewählt, sofern
-  die andere Ansicht sie ebenfalls listet.
-- Ein Listeneintrag zeigt nur genau die ausgewählte Version als **Im
-  Projekt**; ist eine andere Version desselben Pakets ausgewählt, lautet der
-  Status **Andere Version im Projekt**.
 
-Ein ausgewählter Eintrag zeigt Name, Version, Beschreibung, Autor,
-Standard-Include, Dokumentation, verfügbare Beispiele und den Projektstatus.
+Ein ausgewählter Eintrag zeigt Name, Version, Autor, die passende Aktion
+beziehungsweise den erreichten Zustand, Beschreibung, relevante
+Kompatibilitätshinweise, Lizenz, Dokumentation und den Beispieleinstieg. Eine
+separate Include-Vorschau gibt es nicht; das eingefügte Include ist danach im
+Editor sichtbar. Das Badge **Im Projekt** erscheint in den Details nur, solange
+nicht **✓ Bereits eingebunden** denselben Stand ausdrückt; in der Liste bleibt
+es erhalten (Reduktion vom 2026-10-29).
 Vom Kompatibilitätsstatus erscheint nur ein ausdrückliches **nicht
 unterstützt** für das aktuelle Board beziehungsweise die gewählte Engine,
 mit Begründung; `verified` und `untested` werden im Dialog nicht angezeigt
 (Vereinfachung vom 2026-10-28). Solange keine Bibliothek gewählt ist, bleibt
-der Detailbereich leer. Direkte Abhängigkeiten sind als **Im Projekt**
-erkennbar. Technische Paketpfade und Installationsschritte sind keine
+der Detailbereich leer. Auf dem Desktop stehen die Details rechts neben der
+Liste, auf schmalen Ansichten darunter. Direkte Abhängigkeiten sind als
+**Im Projekt** erkennbar. Technische Paketpfade und Installationsschritte sind keine
 Bedienaufgabe für Studierende.
 
 Die Detailansicht bietet **Einbinden** oder, bei bereits ausgewählter
@@ -215,20 +227,24 @@ Bibliothek ohne Include in der aktiven Datei, **Include einfügen**. Ist die
 Version ausgewählt und das Include dort vorhanden, zeigt sie den erreichten
 Zustand **✓ Bereits eingebunden** als Status, nicht als Schaltfläche; es
 entsteht keine doppelte Änderung. Diese Aktion steht als Hauptaktion an
-fester Stelle direkt unter Name und Autor, darunter die **Zieldatei** mit
-ihrem Dateinamen; der vollständige Pfad lässt sich bei Dateien in Ordnern
-aufklappen. **Minimalbeispiel öffnen** ist eine sekundäre Aktion am Ende der
-Details.
+fester Stelle direkt unter Name und Autor. Bei **Einbinden** und **Include
+einfügen** folgt darunter die **Zieldatei** mit ihrem Dateinamen; der
+vollständige Pfad lässt sich bei Dateien in Ordnern aufklappen. Bei **✓
+Bereits eingebunden** entfällt die Zieldatei, weil nichts mehr geändert
+wird. **Minimalbeispiel öffnen** ist eine sekundäre Aktion am Ende der
+Details; bei genau einem Beispiel ohne Titel, bei mehreren mit dem jeweiligen
+Titel zur Unterscheidung.
 
-Fehlt die angeforderte Version auf diesem Deployment, zeigt **Im Projekt**
-Name, angeforderte Version und **Nicht verfügbar** mit Begründung. Für diesen
+Fehlt die angeforderte Version auf diesem Deployment, zeigt ihr Eintrag in
+der Liste Name, angeforderte Version und **Nicht verfügbar**, die Details
+zusätzlich die Begründung. Für diesen
 Eintrag werden **Einbinden** und **Include einfügen** nicht angeboten. Eine
 andere verfügbare Version wird weder als Ersatz aktiviert noch als bereits
 eingebunden dargestellt.
 
 ### 5.3 Darstellung und Bedienbarkeit
 
-Die Umsetzung verwendet die gemeinsamen Dialog-, Tab-, Toolbar-, Input- und
+Die Umsetzung verwendet die gemeinsamen Dialog-, Toolbar-, Input- und
 Scroll-Komponenten sowie die semantischen Tokens aus
 [STYLE_GUIDE.md](../client/src/STYLE_GUIDE.md) und der
 [Typografie-SSOT](ssot_function_definition_Typography.md). Die eigenständige
@@ -238,14 +254,13 @@ Suche, Auswahl, Einbinden und Schließen MÜSSEN per Tastatur erreichbar sein.
 Der Dialog besitzt eine zugängliche Beschriftung und ein geregeltes
 Fokusverhalten: Nach dem Schließen kehrt der Fokus zum auslösenden
 Bedienelement zurück (bei einem Menüeintrag zu dessen Menü), nach
-**Einbinden** in den Editor. Die Ansichts-Tabs sind ihren Inhaltsbereichen
-zugänglich zugeordnet. Die Dialoghöhe ist fest, damit sich Suche und Listen
-beim Suchen und Auswählen nicht verschieben. Liste und Details haben eine
+**Einbinden** in den Editor. Die Dialogabmessungen sind fest, damit sich
+Suche und Liste beim Suchen und Auswählen nicht verschieben. Liste und Details haben eine
 Mindesthöhe; reicht die Fensterhöhe dafür nicht, scrollt der Dialog als
 Ganzes, sodass eine fokussierte Aktion vollständig sichtbar ist. Abbrechen
 der Rückfrage zu **Minimalbeispiel öffnen** gibt den Fokus an diese
 Schaltfläche zurück. Auf schmalen Bildschirmen
-stehen Katalog und Details untereinander; Inhalte und Aktionen müssen
+stehen Liste und Details untereinander; Inhalte und Aktionen müssen
 erreichbar bleiben. Namen, Status und Beispieltitel brechen auch bei großer
 Schrift um und werden nicht abgeschnitten.
 
@@ -675,7 +690,7 @@ Die Umsetzung MUSS mindestens folgende beobachtbaren Fälle abdecken:
 | Wiederholtes Einbinden | Keine doppelte Abhängigkeit und keine doppelte Include-Zeile |
 | Vorhandenes Include, fehlende Abhängigkeit | Hinzufügen registriert die Version und erhält den Quelltext |
 | Vorhandene Abhängigkeit, weitere Quelldatei | Include lässt sich dort ergänzen, ohne die Version zu ändern |
-| Fehlende Version im Dialog | Name und angeforderte Version bleiben unter Im Projekt sichtbar; Einbinden und Include einfügen werden nicht angeboten |
+| Fehlende Version im Dialog | Name und angeforderte Version bleiben in der gemeinsamen Liste als Im Projekt und Nicht verfügbar sichtbar; Einbinden und Include einfügen werden nicht angeboten |
 | Eigenes gleichnamiges Headerfile | Ein lokal auflösbarer zitierter Header wird nicht als fremdes Paket umgedeutet |
 | Direktes Include eines transitiven Headers | Kein Hinzufügen-Hinweis und keine automatische direkte Abhängigkeit; unveränderliche transitive Auflösung bleibt wirksam |
 | Mehrdeutiger Katalogheader | Keine automatische Paket- oder Versionswahl |

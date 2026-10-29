@@ -47,13 +47,25 @@ async function expectLibrariesCount(page: Page, count: number): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
+/** Ready once the dialog moved the focus into its search and its open animation, which scales it, is over. */
+async function dialogReady(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "Libraries" });
+  await expect(dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" })).toBeFocused();
+  await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+  return dialog;
+}
+
 async function openDialog(page: Page) {
   await page.getByRole("menuitem", { name: "Sketch" }).click();
   await page.getByRole("menuitem", { name: "Libraries…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Libraries" });
-  // Ready once the dialog moved the focus into its search.
-  await expect(dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" })).toBeFocused();
-  return dialog;
+  return dialogReady(page);
+}
+
+/** The options menu of the file tabs; narrow views have no main menu. */
+async function openDialogFromOptions(page: Page) {
+  await page.getByTitle("Options").click();
+  await page.getByRole("menuitem", { name: /^Libraries \(/ }).click();
+  return dialogReady(page);
 }
 
 const editorHasFocus = (page: Page) => page.evaluate(() =>
@@ -115,14 +127,28 @@ test.describe("project libraries (SSOT Libraries)", () => {
     expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 
+  for (const { width, height } of [{ width: 1280, height: 800 }, { width: 390, height: 800 }]) {
+    test(`search and list are flush on both edges at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await open(page, "browser");
+      const dialog = await openDialogFromOptions(page);
+      const search = await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).boundingBox();
+      const list = await dialog.locator("ul").first().evaluate((element) => {
+        const frame = element.closest(".unified-scroll-area") ?? element;
+        const box = frame.getBoundingClientRect();
+        return { x: box.x, width: box.width };
+      });
+
+      expect(search).not.toBeNull();
+      expect(Math.abs((search?.x ?? 0) - list.x)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs((search?.width ?? 0) - list.width)).toBeLessThanOrEqual(0.5);
+    });
+  }
+
   test("the dialog keeps its height while searching and selecting", async ({ page }) => {
     await open(page, "browser");
     const dialog = await openDialog(page);
-    // Measured after the open animation, which scales the dialog.
-    const box = async () => {
-      await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
-      return (await dialog.boundingBox())?.height;
-    };
+    const box = async () => (await dialog.boundingBox())?.height;
 
     const initial = await box();
     await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("no such library");
@@ -136,14 +162,12 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await page.addInitScript(() => globalThis.localStorage.setItem("unoFontScale", "1.5"));
     await page.setViewportSize({ width: 640, height: 800 });
     await open(page, "browser");
-    await page.getByTitle("Options").click();
-    await page.getByRole("menuitem", { name: /^Libraries \(/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const dialog = await openDialogFromOptions(page);
     const entry = dialog.getByRole("button", { name: /AUnit 1\.7\.1/ });
-    // Another version in the project gives the longest status.
+    // A long status line, as for a required version missing here.
     await entry.evaluate((element) => {
       const status = document.createElement("span");
-      status.textContent = "Andere Version im Projekt";
+      status.textContent = "Im Projekt · Nicht verfügbar";
       element.insertBefore(status, element.children[1]);
     });
 
@@ -159,20 +183,20 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await page.addInitScript(() => globalThis.localStorage.setItem("unoFontScale", "1.5"));
     await page.setViewportSize({ width: 640, height: 360 });
     await open(page, "browser");
-    await page.getByTitle("Options").click();
-    await page.getByRole("menuitem", { name: /^Libraries \(/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const dialog = await openDialogFromOptions(page);
     await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
 
     const include = dialog.getByRole("button", { name: "Einbinden" });
     await include.focus();
-    // Every corner of the button is the topmost element there: nothing clips or covers it.
-    const visible = await include.evaluate((element) => {
+    // Every corner of the button is the topmost element there: nothing clips or covers it, once the focus scroll is over.
+    // The probes sit inside the rounded corners, which belong to the parent.
+    const visible = () => include.evaluate((element) => {
       const box = element.getBoundingClientRect();
-      const corners = [[box.left + 2, box.top + 2], [box.right - 2, box.top + 2], [box.left + 2, box.bottom - 2], [box.right - 2, box.bottom - 2]];
+      const inset = Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) + 2;
+      const corners = [[box.left + inset, box.top + inset], [box.right - inset, box.top + inset], [box.left + inset, box.bottom - inset], [box.right - inset, box.bottom - inset]];
       return corners.every(([x, y]) => element.contains(document.elementFromPoint(x, y)));
     });
-    expect(visible).toBe(true);
+    await expect.poll(visible).toBe(true);
   });
 
   test("closing returns the focus: Escape to the menu that opened it, Einbinden to the editor", async ({ page }) => {

@@ -46,17 +46,17 @@ function renderDialog(overrides: Partial<LibrariesDialogProps> = {}) {
 }
 
 describe("LibrariesDialog (SSOT Libraries §5)", () => {
-  it("names board and engine and lists the offered packages", () => {
+  it("names board and engine and lists the offered packages in one list, without views", () => {
     renderDialog();
 
     expect(screen.getByRole("dialog", { name: "Libraries" })).toBeInTheDocument();
     expect(screen.getByText("Arduino UNO · Emulation")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Verfügbar" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toBeInTheDocument();
     expect(screen.queryByText(/Wähle eine Bibliothek/)).toBeNull();
   });
 
-  it("tells loading, a failed fetch with retry, an empty catalog, no hits and an empty project apart", async () => {
+  it("tells loading, a failed fetch with retry, an empty catalog and no hits apart", async () => {
     const user = userEvent.setup();
     const retry = vi.fn(async () => undefined);
     const { unmount } = render(<LibrariesDialog {...renderProps({ catalog: { status: "loading", packages: [], retry } })} />);
@@ -75,9 +75,6 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     render(<LibrariesDialog {...renderProps()} />);
     await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "servo");
     expect(screen.getByText("Keine Treffer für „servo“.")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Im Projekt" }));
-    await user.clear(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }));
-    expect(screen.getByText("Diesem Projekt sind noch keine Bibliotheken zugeordnet.")).toBeInTheDocument();
   });
 
   it("finds a package by its description", async () => {
@@ -96,8 +93,9 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
     const details = screen.getByRole("region", { name: "AUnit 1.7.1" });
 
-    expect(within(details).getByText("#include <AUnit.h>")).toBeInTheDocument();
+    expect(within(details).queryByText(/#include/)).toBeNull();
     expect(within(details).getByText("Brian T. Park")).toBeInTheDocument();
+    expect(within(details).getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
     expect(within(details).queryByText(/Kompilierung|Simulation \(/)).toBeNull();
     expect(within(details).getByRole("link", { name: "Dokumentation" })).toHaveAttribute("href", aunit.documentationUrl);
     await user.click(within(details).getByRole("button", { name: "Einbinden" }));
@@ -119,6 +117,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const props = renderDialog({ libraries: selected });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
     expect(screen.getByText("Im Projekt", { selector: "[data-testid=library-project-badge]" })).toBeInTheDocument();
+    expect(screen.getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
     await user.click(screen.getByRole("button", { name: "Include einfügen" }));
     expect(props.onInsertInclude).toHaveBeenCalledWith(aunit);
   });
@@ -133,14 +132,40 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Bereits eingebunden");
     expect(screen.queryByRole("button", { name: "Bereits eingebunden" })).toBeNull();
+    // The state says it all: no target file and no second "Im Projekt" in the details; the list keeps its status.
+    expect(screen.queryByText("Zieldatei:", { exact: false })).toBeNull();
+    expect(screen.queryByTestId("library-project-badge")).toBeNull();
+    expect(within(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).getByText("Im Projekt")).toBeInTheDocument();
   });
 
-  it("marks only the selected version as Im Projekt, another version of the same package differently", () => {
+  it("lists an offered and a required missing version once each, marked by name and exact version", () => {
     renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });
 
-    const listed = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
-    expect(within(listed).queryByText("Im Projekt")).toBeNull();
-    expect(within(listed).getByText("Andere Version im Projekt")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^AUnit / })).toHaveLength(2);
+    const offered = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
+    expect(within(offered).queryByText("Im Projekt")).toBeNull();
+    expect(within(offered).queryByText("Nicht verfügbar")).toBeNull();
+    const required = screen.getByRole("button", { name: /AUnit 1\.6\.0/ });
+    expect(within(required).getByText("Im Projekt")).toBeInTheDocument();
+    expect(within(required).getByText("Nicht verfügbar")).toBeInTheDocument();
+  });
+
+  it("marks the selected offered version as Im Projekt and lists it only once", () => {
+    renderDialog({ libraries: [{ name: "AUnit", version: "1.7.1" }] });
+
+    const [listed] = screen.getAllByRole("button", { name: /^AUnit / });
+    expect(screen.getAllByRole("button", { name: /^AUnit / })).toHaveLength(1);
+    expect(within(listed).getByText("Im Projekt")).toBeInTheDocument();
+  });
+
+  it("finds a required missing version by its name", async () => {
+    const user = userEvent.setup();
+    renderDialog({ libraries: [{ name: "Zeta", version: "1.0.0" }] });
+
+    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "zeta");
+
+    expect(screen.getAllByRole("button", { name: /Zeta 1\.0\.0/ })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /AUnit/ })).toBeNull();
   });
 
   it("names the target file below the action and shows its full path on request", async () => {
@@ -168,27 +193,36 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
   });
 
   it("keeps name and status of a list entry on separate lines", () => {
-    renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });
+    renderDialog({ libraries: [{ name: "AUnit", version: "1.7.1" }] });
 
     const listed = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
     expect(within(listed).getByText("AUnit 1.7.1").parentElement).toBe(listed);
-    expect(within(listed).getByText("Andere Version im Projekt").parentElement).toBe(listed);
+    expect(within(listed).getByText("Im Projekt").parentElement?.parentElement).toBe(listed);
   });
 
-  it("links each view tab to its panel and keeps the selection across the views", async () => {
+  it("puts search and list in one column and leaves the details empty without a selection", () => {
+    renderDialog();
+
+    const search = screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" });
+    const list = screen.getByRole("button", { name: /AUnit 1\.7\.1/ }).closest("ul");
+    expect(search.parentElement).toContainElement(list);
+    expect(search).toHaveClass("w-full");
+    expect(screen.queryByRole("region")).toBeNull();
+  });
+
+  it("changes neither source nor selection by searching and selecting", async () => {
     const user = userEvent.setup();
-    renderDialog({ libraries: [{ name: "AUnit", version: "1.7.1" }] });
+    const props = renderDialog();
+
+    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "aunit");
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    const available = screen.getByRole("tab", { name: "Verfügbar" });
-    expect(document.getElementById(available.getAttribute("aria-controls") ?? "")).toBe(screen.getByRole("tabpanel"));
-    await user.click(screen.getByRole("tab", { name: "Im Projekt" }));
-
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", screen.getByRole("tab", { name: "Im Projekt" }).id);
-    expect(screen.getByRole("region", { name: "AUnit 1.7.1" })).toBeInTheDocument();
+    expect(props.onInclude).not.toHaveBeenCalled();
+    expect(props.onInsertInclude).not.toHaveBeenCalled();
+    expect(props.onOpenExample).not.toHaveBeenCalled();
   });
 
-  it("puts Einbinden before the description and the example title on a wrapping line", async () => {
+  it("puts Einbinden before the description and shows a single example without its title", async () => {
     const user = userEvent.setup();
     renderDialog();
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
@@ -196,15 +230,33 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const include = screen.getByRole("button", { name: "Einbinden" });
     const description = within(screen.getByRole("region", { name: "AUnit 1.7.1" })).getByText(aunit.description);
     expect(include.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Minimalbeispiel öffnen" })).toBeInTheDocument();
+    expect(screen.queryByText("AUnit minimal example")).toBeNull();
+  });
+
+  it("names each of several examples, wrapping, and opens the chosen one", async () => {
+    const user = userEvent.setup();
+    const examples = [
+      aunit.examples[0],
+      { title: "AUnit verbose example", path: "libraries/AUnit/AUnitVerbose/AUnitVerbose.ino", exampleId: "builtin-aunit-verbose" },
+    ];
+    const props = renderDialog({ catalog: { status: "ready", packages: [{ ...aunit, examples }], retry: vi.fn(async () => undefined) } });
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    const buttons = screen.getAllByRole("button", { name: "Minimalbeispiel öffnen" });
+    expect(buttons).toHaveLength(2);
+    expect(buttons[1]).toHaveAccessibleDescription("AUnit verbose example");
     expect(screen.getByText("AUnit minimal example")).toHaveClass("break-words");
     expect(screen.getByText("AUnit minimal example").parentElement).toHaveClass("flex-wrap");
+    await user.click(buttons[1]);
+    await user.click(screen.getByRole("button", { name: "Ersetzen" }));
+    expect(props.onOpenExample).toHaveBeenCalledWith("builtin-aunit-verbose");
   });
 
   it("keeps a version missing on this deployment visible, without actions", async () => {
     const user = userEvent.setup();
     renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });
 
-    await user.click(screen.getByRole("tab", { name: "Im Projekt" }));
     await user.click(screen.getByRole("button", { name: /AUnit 1\.6\.0/ }));
 
     expect(within(screen.getByRole("region", { name: "AUnit 1.6.0" })).getByText("Nicht verfügbar")).toBeInTheDocument();
@@ -242,7 +294,6 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const props = renderDialog();
 
     await user.click(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }));
-    await user.tab();
     await user.tab();
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toHaveFocus();
     await user.keyboard("{Enter}");

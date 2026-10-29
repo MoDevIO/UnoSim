@@ -3,6 +3,7 @@ import {
   canonicalLibraries,
   hasEquivalentInclude,
   type IncludeContext,
+  libraryKey,
   type LibraryRequirement,
   type OfferedLibraryPackage,
   resolveLibraryGraph,
@@ -16,17 +17,27 @@ import { ENGINE_LABELS } from "@/lib/runtime/runtime-selection";
  * may start, and the notice of the source download.
  */
 
-export interface ProjectLibraryEntry extends LibraryRequirement {
-  /** The offered package, when this deployment provides exactly this version. */
+/** One entry of the dialog's library list: an offered package or a required version, once per name and version. */
+export interface LibraryListEntry extends LibraryRequirement {
+  /** The catalog package of exactly this version; absent when the server does not offer it. */
   readonly offered?: OfferedLibraryPackage;
+  /** The project selects exactly this name and version. */
+  readonly inProject: boolean;
+  /** This deployment provides it; a required version the server lacks is not available. */
+  readonly available: boolean;
 }
 
-/** The direct selection for "Im Projekt", sorted; a version missing here stays visible. */
-export function projectEntries(libraries: readonly LibraryRequirement[], catalog: readonly OfferedLibraryPackage[]): ProjectLibraryEntry[] {
-  return canonicalLibraries(libraries).map((requirement) => {
-    const offered = catalog.find((entry) => entry.available && entry.name === requirement.name && entry.version === requirement.version);
-    return offered ? { ...requirement, offered } : { ...requirement };
-  });
+/** The offered packages and the required versions missing on this server in one sorted list (§5.2). */
+export function libraryListEntries(catalog: readonly OfferedLibraryPackage[], libraries: readonly LibraryRequirement[]): LibraryListEntry[] {
+  const selected = new Set(libraries.map(libraryKey));
+  const entries = new Map<string, LibraryListEntry>();
+  for (const entry of catalog) {
+    entries.set(libraryKey(entry), { name: entry.name, version: entry.version, offered: entry, inProject: selected.has(libraryKey(entry)), available: entry.available });
+  }
+  for (const requirement of libraries) {
+    if (!entries.has(libraryKey(requirement))) entries.set(libraryKey(requirement), { name: requirement.name, version: requirement.version, inProject: true, available: false });
+  }
+  return canonicalLibraries([...entries.values()]);
 }
 
 /** What the details offer for a package: Einbinden, Include einfügen, Bereits eingebunden, or nothing. */
