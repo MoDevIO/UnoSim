@@ -87,6 +87,25 @@ test.describe("project libraries (SSOT Libraries)", () => {
     expect(await editorValue(page)).toBe(code);
   });
 
+  test("list entries and the target file are not clipped, also with a long file path", async ({ page }) => {
+    await open(page, "browser");
+    await page.getByRole("menuitem", { name: "Sketch" }).click();
+    await page.getByRole("menuitem", { name: "Libraries…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Libraries" });
+    const entry = dialog.getByRole("button", { name: /AUnit 1\.7\.1/ });
+
+    const clipped = (element: HTMLElement) => element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+    expect(await entry.evaluate(clipped)).toBe(false);
+
+    await entry.click();
+    const details = dialog.getByRole("region", { name: "AUnit 1.7.1" });
+    const target = details.getByText(/^in \S+$/);
+    await expect(target).toBeVisible();
+    // A file deep in folders, as in the reported screenshot; the details must wrap it, not overflow.
+    await target.evaluate((element) => { element.textContent = `in ${"libraries/AUnit/AUnitMinimal/".repeat(4)}AUnitMinimal.ino`; });
+    expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
   test("the Legacy engine names why AUnit does not run there and does not start it", async ({ page }) => {
     let compileRequests = 0;
     page.on("request", (request) => {

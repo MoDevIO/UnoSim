@@ -26,6 +26,7 @@ import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useProjectLibraries } from "@/hooks/use-project-libraries";
+import { useChangeGuard } from "@/hooks/use-change-guard";
 import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
 import { downloadNotice } from "@/lib/library-download-notice";
 import { projectLibrariesSchema } from "@shared/library-requirements";
@@ -559,20 +560,30 @@ export function useArduinoSimulatorPage() {
     if (notice) toast({ title: "Nur Quelltext heruntergeladen", description: notice });
   }, [downloadAllFiles, projectLibraries.libraries, toast]);
 
-  /** "Minimalbeispiel öffnen", after the dialog's confirmation: files and libraries of the example replace the sketch together. */
+  const markProject = useChangeGuard([code, tabs, projectLibraries.libraries]);
+
+  /**
+   * "Minimalbeispiel öffnen", after the dialog's confirmation: files and libraries of the example replace the sketch together.
+   * The confirmation covered the sketch as it was; an edit made while the example loads is kept and the example is dropped.
+   */
   const openLibraryExample = useCallback(async (exampleId: string) => {
+    const unchanged = markProject();
     try {
       const response = await fetch(`/api/examples/${encodeURIComponent(exampleId)}`);
       const detail = response.ok ? ((await response.json()) as { title?: string; files?: Array<{ name: string; path?: string; content: string }>; libraries?: unknown }) : undefined;
       const libraries = projectLibrariesSchema.safeParse(detail?.libraries ?? []);
       if (!detail?.files?.length || !libraries.success) throw new Error("invalid example");
+      if (!unchanged()) {
+        toast({ title: "Beispiel nicht geladen", description: "Der Sketch wurde während des Ladens geändert und bleibt erhalten." });
+        return;
+      }
       handleLoadExample(detail.files, detail.title ?? exampleId);
       replaceLibraries(libraries.data);
       toast({ title: "Beispiel geladen", description: `${detail.title ?? exampleId} ersetzt den bisherigen Sketch.` });
     } catch {
       toast({ title: "Beispiel konnte nicht geladen werden", description: "Der bisherige Sketch bleibt erhalten.", variant: "destructive" });
     }
-  }, [handleLoadExample, replaceLibraries, toast]);
+  }, [handleLoadExample, markProject, replaceLibraries, toast]);
 
   const pendingSourceNavigation = useRef<{
     tabId: string;

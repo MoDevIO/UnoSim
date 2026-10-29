@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -45,9 +45,10 @@ function unsupportedText(label: string, statement: CompatibilityStatement): stri
   return `${label}: nicht unterstützt${reason}`;
 }
 
-/** The badge of a catalog entry: selected, or not provided here. */
-function availableBadge(entry: OfferedLibraryPackage, selectedNames: ReadonlySet<string>): string | undefined {
-  if (selectedNames.has(entry.name)) return "Im Projekt";
+/** The badge of a catalog entry: this version selected, another version selected, or not provided here. */
+function availableBadge(entry: OfferedLibraryPackage, libraries: readonly LibraryRequirement[]): string | undefined {
+  if (libraries.some((requirement) => keyOf(requirement) === keyOf(entry))) return "Im Projekt";
+  if (libraries.some((requirement) => requirement.name === entry.name)) return "Andere Version im Projekt";
   return entry.available ? undefined : "Nicht verfügbar";
 }
 
@@ -84,7 +85,6 @@ export function LibrariesDialog({
     () => projectEntries(libraries, catalog.packages).filter((entry) => matches({ name: entry.name, description: entry.offered?.description }, query)),
     [libraries, catalog.packages, query],
   );
-  const selectedNames = new Set(libraries.map((entry) => entry.name));
 
   const selectedPackage = view === "available" ? available.find((entry) => keyOf(entry) === selectedKey) : undefined;
   const selectedProjectEntry = view === "project" ? inProject.find((entry) => keyOf(entry) === selectedKey) : undefined;
@@ -124,7 +124,7 @@ export function LibrariesDialog({
               query={query}
               available={available}
               inProject={inProject}
-              selectedNames={selectedNames}
+              libraries={libraries}
               selectedKey={selectedKey}
               onSelect={setSelectedKey}
             />
@@ -177,12 +177,12 @@ interface CatalogListProps {
   readonly query: string;
   readonly available: readonly OfferedLibraryPackage[];
   readonly inProject: readonly ProjectLibraryEntry[];
-  readonly selectedNames: ReadonlySet<string>;
+  readonly libraries: readonly LibraryRequirement[];
   readonly selectedKey: string | undefined;
   readonly onSelect: (key: string) => void;
 }
 
-function CatalogList({ view, catalog, query, available, inProject, selectedNames, selectedKey, onSelect }: CatalogListProps) {
+function CatalogList({ view, catalog, query, available, inProject, libraries, selectedKey, onSelect }: CatalogListProps) {
   const message = (text: string) => <p className="p-2 text-ui-sm text-muted-foreground">{text}</p>;
 
   if (view === "available") {
@@ -206,7 +206,7 @@ function CatalogList({ view, catalog, query, available, inProject, selectedNames
               onSelect={() => onSelect(keyOf(entry))}
               title={`${entry.name} ${entry.version}`}
               detail={entry.description}
-              badge={availableBadge(entry, selectedNames)}
+              badge={availableBadge(entry, libraries)}
             />
           </li>
         ))}
@@ -240,11 +240,11 @@ function ListButton(props: { readonly selected: boolean; readonly onSelect: () =
       type="button"
       aria-pressed={props.selected}
       onClick={props.onSelect}
-      className={`flex w-full flex-col items-start rounded px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${props.selected ? "bg-muted" : "hover:bg-muted/60"}`}
+      className={`multiline-btn flex w-full flex-col items-start rounded px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${props.selected ? "bg-muted" : "hover:bg-muted/60"}`}
     >
-      <span className="flex w-full items-center justify-between gap-2 text-ui-sm font-medium text-foreground">
-        {props.title}
-        {props.badge && <span className="rounded bg-background px-1.5 text-ui-xs text-muted-foreground">{props.badge}</span>}
+      <span className="flex w-full items-start justify-between gap-2 text-ui-sm font-medium text-foreground">
+        <span className="min-w-0 break-words">{props.title}</span>
+        {props.badge && <span className="shrink-0 rounded bg-background px-1.5 text-ui-xs text-muted-foreground">{props.badge}</span>}
       </span>
       <span className="line-clamp-2 text-ui-xs text-muted-foreground">{props.detail}</span>
     </button>
@@ -310,14 +310,19 @@ function IncludeButton(props: {
   if (!props.action) {
     return <p className="text-ui-xs text-muted-foreground">Öffne eine .ino- oder .h-Datei, um die Bibliothek einzubinden.</p>;
   }
-  const target = <span className="text-ui-xs text-muted-foreground">in {props.activeFile?.path}</span>;
+  const withTarget = (button: ReactNode) => (
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      <div>{button}</div>
+      <p className="min-w-0 max-w-full break-all text-ui-xs text-muted-foreground">in {props.activeFile?.path}</p>
+    </div>
+  );
   switch (props.action) {
     case "include":
-      return <div className="flex items-center gap-2"><Button size="sm" onClick={props.onInclude}>Einbinden</Button>{target}</div>;
+      return withTarget(<Button size="sm" onClick={props.onInclude}>Einbinden</Button>);
     case "insert-include":
-      return <div className="flex items-center gap-2"><Button size="sm" onClick={props.onInsertInclude}>Include einfügen</Button>{target}</div>;
+      return withTarget(<Button size="sm" onClick={props.onInsertInclude}>Include einfügen</Button>);
     case "already-included":
-      return <div className="flex items-center gap-2"><Button size="sm" disabled>Bereits eingebunden</Button>{target}</div>;
+      return withTarget(<Button size="sm" disabled>Bereits eingebunden</Button>);
     case "other-version":
       return <p className="text-ui-xs text-muted-foreground">Das Projekt legt eine andere Version dieser Bibliothek fest.</p>;
     case "unavailable":

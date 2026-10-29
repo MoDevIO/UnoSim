@@ -134,6 +134,25 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(screen.getByRole("button", { name: "Bereits eingebunden" })).toBeDisabled();
   });
 
+  it("marks only the selected version as Im Projekt, another version of the same package differently", () => {
+    renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });
+
+    const listed = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
+    expect(within(listed).queryByText("Im Projekt")).toBeNull();
+    expect(within(listed).getByText("Andere Version im Projekt")).toBeInTheDocument();
+  });
+
+  it("puts the target file on its own wrapping line", async () => {
+    const user = userEvent.setup();
+    const path = "libraries/AUnit/AUnitMinimal/AUnitMinimal.ino";
+    renderDialog({ activeFile: { path, editable: true, content: "void setup(){}\n", localHeaders: [path] } });
+    await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
+
+    const target = screen.getByText(`in ${path}`);
+    expect(target).toHaveClass("break-all");
+    expect(screen.getByRole("button", { name: "Einbinden" }).parentElement).not.toContainElement(target);
+  });
+
   it("keeps a version missing on this deployment visible, without actions", async () => {
     const user = userEvent.setup();
     renderDialog({ libraries: [{ name: "AUnit", version: "1.6.0" }] });

@@ -409,7 +409,10 @@ Abbrechen erhält Dateien, Bibliotheksauswahl und einen laufenden Sketch.
 Erst nach bestätigtem Ersetzen werden die Beispieldateien und ihre direkte
 Bibliotheksauswahl zusammen aktiviert. Dabei wird ein laufender Sketch über
 den bestehenden Ersetzen-/Stop-Lebenszyklus beendet. Lade- oder
-Validierungsfehler erhalten den bisherigen Zustand. Ein Beispiel mit eigenem
+Validierungsfehler erhalten den bisherigen Zustand. Die Bestätigung gilt für
+den Sketch, wie er beim Bestätigen war: Ändern sich Dateien oder
+Bibliotheksauswahl, während das Beispiel noch lädt, bleiben diese Änderungen
+erhalten und das Beispiel wird nicht übernommen. Ein Beispiel mit eigenem
 `setup()` und `loop()` wird nicht als weitere `.ino`-Datei ergänzt und nicht
 automatisch gestartet.
 
