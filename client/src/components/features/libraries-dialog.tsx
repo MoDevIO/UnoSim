@@ -333,10 +333,10 @@ function IncludeButton(props: {
       return withTarget(<Button size="sm" onClick={props.onInsertInclude}>Include einfügen</Button>);
     case "already-included":
       return withTarget(
-        <p role="status" className="flex items-center gap-1 text-ui-sm font-medium text-foreground">
+        <output className="flex items-center gap-1 text-ui-sm font-medium text-foreground">
           <Check aria-hidden className="h-4 w-4 shrink-0 text-status-success" />
           Bereits eingebunden
-        </p>,
+        </output>,
       );
     case "other-version":
       return <p className="text-ui-xs text-muted-foreground">Das Projekt legt eine andere Version dieser Bibliothek fest.</p>;
