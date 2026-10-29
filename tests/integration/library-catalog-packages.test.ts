@@ -73,7 +73,7 @@ describe("catalog packages on Uno, Nano and Mega 2560 + browser emulation (real 
       const fast = at("fast");
       const slow = at("slow");
       expect(fast.length).toBeGreaterThanOrEqual(9);
-      expect(slow.length).toBe(2);
+      expect(slow).toHaveLength(2);
       fast.forEach((time, index) => expect(Math.abs(time - 250 * (index + 1))).toBeLessThanOrEqual(5));
       slow.forEach((time, index) => expect(Math.abs(time - 1_000 * (index + 1))).toBeLessThanOrEqual(5));
     });
