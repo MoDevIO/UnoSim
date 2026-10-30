@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.88% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>62/90</span>
+                <span class='fraction'>64/96</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">31.03% </span>
+                <span class="strong">29.03% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/29</span>
+                <span class='fraction'>9/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>12/20</span>
+                <span class='fraction'>12/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.37% </span>
+                <span class="strong">68.6% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>57/81</span>
+                <span class='fraction'>59/86</span>
             </div>
         
             
@@ -313,7 +313,21 @@
 <a name='L248'></a><a href='#L248'>248</a>
 <a name='L249'></a><a href='#L249'>249</a>
 <a name='L250'></a><a href='#L250'>250</a>
-<a name='L251'></a><a href='#L251'>251</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -491,6 +505,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -520,6 +539,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -593,6 +613,8 @@ import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { registerExamplesRoutes } from "./routes/examples.routes";
+import { registerLibraryRoutes } from "./routes/libraries.routes";
+import { BuiltInProvider } from "./services/examples/built-in-provider";
 import { registerTutorRoutes } from "./routes/tutor.routes";
 import { registerSketchRoutes } from "./routes/sketches.routes";
 import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
@@ -602,7 +624,9 @@ import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
 import { ProcessExecutor } from "./services/process-executor";
 import { removeOrphanedSandboxContainers, sandboxOwner } from "./services/sandbox/orphan-sweep";
-import { artifactDeliveryAllowed, assertCompileSandboxImage } from "./services/compiler/toolchain";
+import { arduinoToolchain, artifactDeliveryAllowed, assertCompileSandboxImage } from "./services/compiler/toolchain";
+import type { ResolvedLibrary } from "@shared/libraries";
+import { libraryIdentity } from "./services/workers/compile-worker-utils";
 &nbsp;
 const WEBSOCKET_CLOSE_GRACE_MS = 250;
 &nbsp;
@@ -639,14 +663,14 @@ async function closeWebSocketClients(wss: WebSocketServer): Promise&lt;void&gt; 
 function <span class="fstat-no" title="function not covered" >hashCode(</span>
   code: string,
   headers?: Array&lt;{ name: string; content: string }&gt;,
-  options?: { fqbn?: string; libraries?: string[]; entryFile?: string },
+  options?: { fqbn?: string; libraries?: readonly ResolvedLibrary[]; entryFile?: string },
 ): string {
   const combinedInput = <span class="cstat-no" title="statement not covered" >JSON.stringify({</span>
     cacheVersion: 1,
     code,
     headers: headers || [],
     fqbn: options?.fqbn || "",
-    libraries: [...(options?.libraries || [])].<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>,
+    libraries: (options?.libraries ?? []).map(libraryIdentity).<span class="fstat-no" title="function not covered" >sort((a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.localeCompare(b))</span>,
     entryFile: options?.entryFile || "sketch.ino",
   });
 <span class="cstat-no" title="statement not covered" >  return createHash("sha256").update(combinedInput).digest("hex");</span>
@@ -739,7 +763,12 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
   });
 &nbsp;
   // --- Examples API endpoint ---
-  const examplesRepository = new ExamplesRepository();
+  const builtInProvider = new BuiltInProvider();
+  const examplesRepository = new ExamplesRepository({ builtInProvider });
+  registerLibraryRoutes(app, {
+<span class="fstat-no" title="function not covered" >    providedLibraries: () =&gt; <span class="cstat-no" title="statement not covered" >a</span>rduinoToolchain().providedLibraries(),</span>
+    builtInExampleIds: <span class="fstat-no" title="function not covered" >async () =&gt; <span class="cstat-no" title="statement not covered" >n</span>ew Map((await builtInProvider.getExamples()).<span class="fstat-no" title="function not covered" >map((e</span>xample) =&gt; <span class="cstat-no" title="statement not covered" >[example.files[0]?.path ?? "", example.id])</span>),</span>
+  });
   registerExamplesRoutes(app, examplesRepository, {
     trust: config.trust,
     disableRateLimit: config.server.disableRateLimit,
@@ -770,6 +799,7 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
     offeredBoards,
+<span class="fstat-no" title="function not covered" >    providedLibraries: () =&gt; <span class="cstat-no" title="statement not covered" >a</span>rduinoToolchain().providedLibraries(),</span>
     // Only images built without access to backend files (compile sandbox) or for the local developer (plan 4.10).
     artifactDelivery: artifactDeliveryAllowed(),
   });
@@ -820,7 +850,7 @@ export async function registerRoutes(app: Express): Promise&lt;Server&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-28T13:20:07.915Z
+                at 2026-10-30T07:40:55.522Z
             </div>
         <script src="../prettify.js"></script>
         <script>

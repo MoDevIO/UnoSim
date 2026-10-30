@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.58% </span>
+                <span class="strong">63.21% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>110/173</span>
+                <span class='fraction'>110/174</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.92% </span>
+                <span class="strong">53.84% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>110/204</span>
+                <span class='fraction'>112/208</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.73% </span>
+                <span class="strong">54.83% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>34/61</span>
+                <span class='fraction'>34/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.81% </span>
+                <span class="strong">71.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>107/149</span>
+                <span class='fraction'>107/150</span>
             </div>
         
             
@@ -990,7 +990,22 @@
 <a name='L925'></a><a href='#L925'>925</a>
 <a name='L926'></a><a href='#L926'>926</a>
 <a name='L927'></a><a href='#L927'>927</a>
-<a name='L928'></a><a href='#L928'>928</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L928'></a><a href='#L928'>928</a>
+<a name='L929'></a><a href='#L929'>929</a>
+<a name='L930'></a><a href='#L930'>930</a>
+<a name='L931'></a><a href='#L931'>931</a>
+<a name='L932'></a><a href='#L932'>932</a>
+<a name='L933'></a><a href='#L933'>933</a>
+<a name='L934'></a><a href='#L934'>934</a>
+<a name='L935'></a><a href='#L935'>935</a>
+<a name='L936'></a><a href='#L936'>936</a>
+<a name='L937'></a><a href='#L937'>937</a>
+<a name='L938'></a><a href='#L938'>938</a>
+<a name='L939'></a><a href='#L939'>939</a>
+<a name='L940'></a><a href='#L940'>940</a>
+<a name='L941'></a><a href='#L941'>941</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1274,6 +1289,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1345,6 +1362,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1597,6 +1615,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1746,6 +1770,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
@@ -1798,6 +1823,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1978,6 +2004,8 @@ interface AppHeaderProps {
   readonly onFormatCode: () =&gt; void;
   readonly onLoadFiles: () =&gt; void;
   readonly onDownloadAllFiles: () =&gt; void;
+  /** Sketch → Libraries… (SSOT Libraries §5.1). */
+  readonly onOpenLibraries?: () =&gt; void;
   readonly onSettings: () =&gt; void;
   readonly onUndo: () =&gt; void;
   readonly onRedo: () =&gt; void;
@@ -2228,6 +2256,8 @@ interface DesktopMenuBarProps {
   readonly onFormatCode: () =&gt; void;
   readonly onLoadFiles: () =&gt; void;
   readonly onDownloadAllFiles: () =&gt; void;
+  /** Sketch → Libraries… (SSOT Libraries §5.1). */
+  readonly onOpenLibraries?: () =&gt; void;
   readonly onSettings: () =&gt; void;
   readonly onUndo: () =&gt; void;
   readonly onRedo: () =&gt; void;
@@ -2303,6 +2333,7 @@ export function DesktopMenuBar({
   onFormatCode,
   onLoadFiles,
   onDownloadAllFiles,
+  onOpenLibraries,
   onSettings,
   onUndo,
   onRedo,
@@ -2524,6 +2555,12 @@ export function DesktopMenuBar({
             &lt;/MenubarShortcut&gt;
           &lt;/MenubarItem&gt;
           &lt;MenubarSeparator /&gt;
+          {onOpenLibraries &amp;&amp; (
+<span class="branch-1 cbranch-no" title="branch not covered" >            &lt;&gt;</span>
+              &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nOpenLibraries()}&gt;L</span>ibraries…&lt;/MenubarItem&gt;
+              &lt;MenubarSeparator /&gt;
+            &lt;/&gt;
+          )}
           &lt;MenubarItem <span class="fstat-no" title="function not covered" >onSelect={() =&gt; <span class="cstat-no" title="statement not covered" >o</span>nOutputPanelToggle()}&gt;</span>
             &lt;div className="flex items-center justify-between w-full"&gt;
               &lt;span&gt;Output Panel&lt;/span&gt;
@@ -2656,6 +2693,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = ({
   onFormatCode,
   onLoadFiles,
   onDownloadAllFiles,
+  onOpenLibraries,
   onSettings,
   onUndo,
   onRedo,
@@ -2760,6 +2798,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = ({
             onFormatCode={onFormatCode}
             onLoadFiles={onLoadFiles}
             onDownloadAllFiles={onDownloadAllFiles}
+            {...(onOpenLibraries ? <span class="branch-0 cbranch-no" title="branch not covered" >{ onOpenLibraries } : {</span>})}
             onSettings={onSettings}
             onUndo={onUndo}
             onRedo={onRedo}
@@ -2851,7 +2890,7 @@ export const AppHeader: React.FC&lt;AppHeaderProps&gt; = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-28T13:20:07.915Z
+                at 2026-10-30T07:40:55.522Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
