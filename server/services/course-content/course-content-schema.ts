@@ -6,9 +6,11 @@ import {
   type ExamplesManifestCore,
 } from "../examples/examples-schema";
 import { boundedArray } from "@shared/bounded-array";
+import { projectLibrariesSchema } from "@shared/libraries";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
-const v2ManifestExampleSchema = manifestExampleSchema.strict();
+/** v2 entries may carry library requirements; v1 entries may not (they would be dropped silently by v1 readers). */
+const v2ManifestExampleSchema = manifestExampleSchema.extend({ libraries: projectLibrariesSchema.optional() }).strict();
 
 export const tutorDescriptorSchema = z.object({
   manifest: z.literal("tutor/manifest.yaml"),
@@ -91,6 +93,10 @@ function parseExamplesCapability(
   raw: Record<string, unknown> | undefined,
   rawExamples: unknown[] | undefined,
 ): CourseContentValidation["examples"] {
+  // Checked before the v1 schema, which would strip the field (SSOT Libraries §8.3).
+  if (raw?.schemaVersion === 1 && rawExamples?.some(namesLibraries)) {
+    return { status: "invalid", reason: "Library requirements need manifest schema version 2" };
+  }
   const coreInput = raw === undefined ? input : withoutTutorData(raw, rawExamples);
   const coreParsed = courseContentCoreSchema.safeParse(coreInput);
   if (!coreParsed.success) return { status: "invalid", reason: "External Examples manifest is invalid" };
@@ -124,6 +130,11 @@ const courseContentCoreSchema = z.union([
     examples: boundedArray(v2ManifestExampleSchema, 1000),
   }).strict(),
 ]);
+
+function namesLibraries(entry: unknown): boolean {
+  const record = asRecord(entry);
+  return record !== undefined && hasOwn(record, "libraries");
+}
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)

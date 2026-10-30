@@ -2,6 +2,7 @@ import { z } from "zod";
 import { boardIdSchema } from "@shared/boards";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import { boundedArray } from "@shared/bounded-array";
+import type { LibraryRequirement } from "@shared/libraries";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const SAFE_FILE_NAME = /^[A-Z0-9][A-Z0-9_.-]{0,127}\.(?:ino|h)$/i;
@@ -30,9 +31,10 @@ export const examplesManifestSchema = z.object({
 });
 
 export type ManifestFile = z.infer<typeof manifestFileSchema>;
-export type ManifestExample = z.infer<typeof manifestExampleSchema>;
+/** A v2 entry may name direct library requirements (SSOT Libraries §8.3); a built-in one gets them from the catalog. */
+export type ManifestExample = z.infer<typeof manifestExampleSchema> & { libraries?: LibraryRequirement[] };
 export type ExamplesManifest = z.infer<typeof examplesManifestSchema>;
-export type ExamplesManifestCore = Omit<ExamplesManifest, "schemaVersion"> & { schemaVersion: 1 | 2 };
+export type ExamplesManifestCore = Omit<ExamplesManifest, "schemaVersion" | "examples"> & { schemaVersion: 1 | 2; examples: ManifestExample[] };
 
 export type ExampleFile = ManifestFile & {
   content: string;

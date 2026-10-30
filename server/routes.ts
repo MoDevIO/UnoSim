@@ -28,6 +28,8 @@ import { registerStatusRoutes } from "./routes/status.routes";
 import { registerConfigRoutes } from "./routes/config.routes";
 import { registerTestResetRoute } from "./routes/test-reset.routes";
 import { registerExamplesRoutes } from "./routes/examples.routes";
+import { registerLibraryRoutes } from "./routes/libraries.routes";
+import { BuiltInProvider } from "./services/examples/built-in-provider";
 import { registerTutorRoutes } from "./routes/tutor.routes";
 import { registerSketchRoutes } from "./routes/sketches.routes";
 import { LastCompiledCodeStore } from "./services/last-compiled-code-store";
@@ -37,7 +39,9 @@ import { createUserAuthorizationMiddleware } from "./security/access-control";
 import { apiVersionMiddleware } from "./services/protocol-version";
 import { ProcessExecutor } from "./services/process-executor";
 import { removeOrphanedSandboxContainers, sandboxOwner } from "./services/sandbox/orphan-sweep";
-import { artifactDeliveryAllowed, assertCompileSandboxImage } from "./services/compiler/toolchain";
+import { arduinoToolchain, artifactDeliveryAllowed, assertCompileSandboxImage } from "./services/compiler/toolchain";
+import type { ResolvedLibrary } from "@shared/libraries";
+import { libraryIdentity } from "./services/workers/compile-worker-utils";
 
 const WEBSOCKET_CLOSE_GRACE_MS = 250;
 
@@ -74,14 +78,14 @@ async function closeWebSocketClients(wss: WebSocketServer): Promise<void> {
 function hashCode(
   code: string,
   headers?: Array<{ name: string; content: string }>,
-  options?: { fqbn?: string; libraries?: string[]; entryFile?: string },
+  options?: { fqbn?: string; libraries?: readonly ResolvedLibrary[]; entryFile?: string },
 ): string {
   const combinedInput = JSON.stringify({
     cacheVersion: 1,
     code,
     headers: headers || [],
     fqbn: options?.fqbn || "",
-    libraries: [...(options?.libraries || [])].sort((a, b) => a.localeCompare(b)),
+    libraries: (options?.libraries ?? []).map(libraryIdentity).sort((a, b) => a.localeCompare(b)),
     entryFile: options?.entryFile || "sketch.ino",
   });
   return createHash("sha256").update(combinedInput).digest("hex");
@@ -174,7 +178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Examples API endpoint ---
-  const examplesRepository = new ExamplesRepository();
+  const builtInProvider = new BuiltInProvider();
+  const examplesRepository = new ExamplesRepository({ builtInProvider });
+  registerLibraryRoutes(app, {
+    providedLibraries: () => arduinoToolchain().providedLibraries(),
+    builtInExampleIds: async () => new Map((await builtInProvider.getExamples()).map((example) => [example.files[0]?.path ?? "", example.id])),
+  });
   registerExamplesRoutes(app, examplesRepository, {
     trust: config.trust,
     disableRateLimit: config.server.disableRateLimit,
@@ -205,6 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     compileRateLimiter: getCompileRateLimiter(),
     disableRateLimit: config.server.disableRateLimit,
     offeredBoards,
+    providedLibraries: () => arduinoToolchain().providedLibraries(),
     // Only images built without access to backend files (compile sandbox) or for the local developer (plan 4.10).
     artifactDelivery: artifactDeliveryAllowed(),
   });

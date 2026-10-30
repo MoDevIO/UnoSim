@@ -13,6 +13,7 @@ import { ChildProcess } from "node:child_process";
 import { fqbnAllowlist } from "@shared/boards";
 import { Logger } from "@shared/logger";
 import { config } from "../config";
+import { SKETCH_FILE_MACRO_PROPERTY } from "./compiler/library-build-flags";
 
 /**
  * Extend globalThis for test process tracking
@@ -31,6 +32,7 @@ interface ExecutionOptions {
   onData?: (data: Buffer) => void;  // for stdout/stderr capture
   onProcess?: (proc: ChildProcess) => void;  // for process lifecycle hooks (tests)
   maxOutputBytes?: number;   // combined captured raw stdout/stderr bytes
+  env?: NodeJS.ProcessEnv;   // added to the inherited environment
 }
 
 /** The process was stopped because it exceeded `maxOutputBytes`; the output captured so far is kept. */
@@ -106,6 +108,12 @@ function requireCatalogFqbn(args: string[]): void {
 
 const valueAfter = (args: string[], flag: string) => args.filter((_, index) => args[index - 1] === flag);
 
+/** `--build-property`: only the fixed `__FILE__` property of project libraries (SSOT Libraries §10). */
+function requireKnownBuildProperties(args: string[]): void {
+  const unknown = valueAfter(args, "--build-property").find((value) => value !== SKETCH_FILE_MACRO_PROPERTY);
+  if (unknown !== undefined) throw new Error(`Build property is not allowed: ${unknown}`);
+}
+
 /**
  * `docker run` of the compile sandbox image (plan P2.4, 4.10) must be isolated:
  * no network, immutable root, no capabilities, no privilege gain, and only
@@ -154,8 +162,14 @@ function validateCommand(command: string, args: string[]): void {
     }
   }
 
+  requireCommandRules(command, args);
+}
+
+/** Rules beyond the argument patterns for the toolchain commands. */
+function requireCommandRules(command: string, args: string[]): void {
   if (command === "arduino-cli") requireCatalogFqbn(args);
   if (command === "docker") requireIsolatedCompileContainer(args);
+  if (command === "arduino-cli" || command === "docker") requireKnownBuildProperties(args);
 }
 
 export class ProcessExecutor {
@@ -181,6 +195,7 @@ export class ProcessExecutor {
       onData,
       onProcess,
       maxOutputBytes = config.sandbox.resources.maxOutputBytes,
+      env,
     } = options;
     if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1) {
       throw new RangeError("maxOutputBytes must be a positive safe integer");
@@ -207,6 +222,7 @@ export class ProcessExecutor {
         stdio: [stdio === "pipe" ? "ignore" : stdio, stdio, stdio],
         detached,
         shell: false, // Critical security: never use shell
+        ...(env ? { env: { ...process.env, ...env } } : {}),
       });
 
       this.activeExecutions.set(proc, detached);

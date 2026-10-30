@@ -38,6 +38,7 @@
     "check": "tsc --noEmit && tsc -p tests/tsconfig.tutor.json --noEmit && tsc -p packages/avr-emulator/tsconfig.json --noEmit && tsc -p packages/avr-emulator/tsconfig.test.json --noEmit",
     "check:node-version": "node scripts/check-node-version.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "provision:libraries": "node scripts/provision-libraries.mjs",
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",
     "test": "npm run test:unit",

@@ -369,8 +369,9 @@ html, body {
 
 /* Controls (buttons, menu items, icon-only controls) should use the scaled control font and align vertically */
 /* .arduino-overlay is excluded: it is a full-board canvas button, not a UI control */
-button:not(.arduino-overlay):not(.parser-message-btn):not([role="checkbox"]),
-[role="button"]:not(.arduino-overlay):not(.parser-message-btn):not([role="checkbox"]) {
+/* .multiline-btn is excluded: a list entry with title and description, its height follows the content */
+button:not(.arduino-overlay):not(.parser-message-btn):not(.multiline-btn):not([role="checkbox"]),
+[role="button"]:not(.arduino-overlay):not(.parser-message-btn):not(.multiline-btn):not([role="checkbox"]) {
   font-size: var(--ui-role-font-size, var(--ui-control-font-size)) !important;
   line-height: var(--ui-role-line-height, var(--ui-button-height)) !important;
   height: var(--ui-button-height) !important;

@@ -652,6 +652,8 @@ export const config = {
     ),
     /** Build artifact cache directory */
     buildCacheDir: envStr("BUILD_CACHE_DIR", path.join(cwd, "storage/cache")),
+    /** Library packages of scripts/provision-libraries.mjs for local compiles (SSOT Libraries §10). */
+    librariesDir: envStr("UNOSIM_LIBRARIES_DIR", path.join(cwd, "storage/libraries")),
     /** LRU eviction trigger for build cache (bytes) */
     buildCacheMaxBytes: envInt("BUILD_CACHE_MAX_BYTES", 2 * 1024 * 1024 * 1024, { min: 1, max: Number.MAX_SAFE_INTEGER }),
     /** Max entries kept in the compile result cache */

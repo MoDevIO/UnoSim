@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject, type RefObject } from "react";
+import type { LibraryRequirement } from "@shared/libraries";
 import { type UseMutationResult } from "@tanstack/react-query";
 import { Logger } from "@shared/logger";
 import type { IOPinRecord, OutputLine, ParserMessage } from "@shared/schema";
@@ -91,6 +92,10 @@ export type CompileAndRunParams = {
   runtimeKind?: RuntimeKind;
   /** The selected board (Tools → Board): compiled for and started on. */
   boardId?: BoardId;
+  /** The project's direct library requirements, sent with every compile (SSOT Libraries §4). */
+  libraries?: readonly LibraryRequirement[];
+  /** Why the library selection may not run with this board and engine (SSOT Libraries §9); undefined lets it start. */
+  startBlockReason?: () => string | undefined;
   /** The host mock can take over when the browser emulation has no image to run. */
   hostMockUsable?: boolean;
   startSimulationRef?: MutableRefObject<(() => void) | null>;
@@ -263,6 +268,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     ...controllerState,
     capabilities: params.capabilities,
     ...(params.boardId ? { boardId: params.boardId } : {}),
+    ...(params.libraries ? { libraries: params.libraries } : {}),
     isCompileResultCurrent,
     // A standalone Compile belongs to the project it was started for: replacing the project ends it, like a compile-to-start.
     claimCompile: (payload) => {
@@ -309,9 +315,10 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
   });
 
   // Opening another tab changes the shown `code`, not the source of the run.
+  // The library selection belongs to the source of a run like the files (SSOT Libraries §11).
   const sourceSignature = useMemo(
-    () => (params.sourceProject ? JSON.stringify(Object.values(params.sourceProject.files)) : undefined),
-    [params.sourceProject],
+    () => (params.sourceProject ? JSON.stringify([Object.values(params.sourceProject.files), params.libraries ?? []]) : undefined),
+    [params.sourceProject, params.libraries],
   );
 
   const simulation = useSimulationController({
@@ -320,6 +327,7 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     ...(params.runtimeKind ? { runtimeKind: params.runtimeKind } : {}),
     ...(params.boardId ? { board: params.boardId } : {}),
     ...(params.hostMockUsable === undefined ? {} : { hostMockUsable: params.hostMockUsable }),
+    ...(params.startBlockReason ? { startBlockReason: params.startBlockReason } : {}),
     code: params.code,
     hasCompilationErrors,
     isModified: params.isModified,
@@ -368,6 +376,12 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       simulation.setSimulationStatus("idle");
       return;
     }
+    // Compile/Upload is a start path: a selection the engine does not support does not even compile for it.
+    const blocked = params.startBlockReason?.();
+    if (blocked) {
+      uiFeedback.showStartFailedToast(blocked);
+      return;
+    }
     params.setDebugMessages([]);
 
     const { code: mainSketchCode, headers, entryFile } = resolveCompileCommand(params);
@@ -400,7 +414,13 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
     setCompilationStatus("compiling");
 
     // Compile with custom handlers for compile + start flow
-    const compilePayload = { code: mainSketchCode, headers, ...(entryFile ? { entryFile } : {}), ...(params.boardId ? { board: params.boardId } : {}) };
+    const compilePayload = {
+      code: mainSketchCode,
+      headers,
+      ...(entryFile ? { entryFile } : {}),
+      ...(params.boardId ? { board: params.boardId } : {}),
+      ...(params.libraries && params.libraries.length > 0 ? { libraries: [...params.libraries] } : {}),
+    };
     compileOwners.current.set(compilePayload, generation);
     pendingCompileStart.current = true;
     compileMutation.mutate(compilePayload, {

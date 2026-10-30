@@ -19,6 +19,7 @@ const CodeEditor = lazy(() =>
 );
 
 import type { BoardId } from "@shared/boards";
+import type { LibraryRequirement } from "@shared/libraries";
 
 interface UseSimulatorUIStateParams {
   boardId?: BoardId;
@@ -35,6 +36,13 @@ interface UseSimulatorUIStateParams {
   handleFilesLoaded: (files: Array<{ name: string; path?: string; content: string }>, replaceAll: boolean) => void;
   handleLoadExample: (files: Array<{ name: string; path?: string; content: string }>, title: string) => void;
   downloadAllFiles: () => void;
+  /** The library selection of a loaded example (SSOT Libraries §8.2). */
+  onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
+  /** "Libraries (n)" of the tab options menu, the include hints and the dialog of the project libraries. */
+  librariesCount?: number;
+  onOpenLibraries?: () => void;
+  libraryHints?: React.ReactNode;
+  librariesDialog?: React.ReactNode;
   formatCode: () => void;
   editorRef: React.RefObject<{
     getValue: () => string;
@@ -135,6 +143,11 @@ export function useSimulatorUIState({
   handleFilesLoaded,
   handleLoadExample,
   downloadAllFiles,
+  onExampleLibraries,
+  librariesCount,
+  onOpenLibraries,
+  libraryHints,
+  librariesDialog,
   formatCode,
   editorRef,
   capabilities,
@@ -233,10 +246,14 @@ export function useSimulatorUIState({
           examplesMenu={
             <ExamplesMenu
               onLoadExample={handleLoadExample}
+              {...(onExampleLibraries ? { onExampleLibraries } : {})}
               capabilities={capabilities}
             />
           }
+          {...(onOpenLibraries ? { onOpenLibraries, librariesCount } : {})}
         />
+        {libraryHints}
+        {librariesDialog}
         <div className="flex-1 min-h-0 w-full">
           <Suspense fallback={<LoadingPlaceholder />}>
             <CodeEditor value={code} onChange={setCode} editorRef={editorRef} />
@@ -254,6 +271,11 @@ export function useSimulatorUIState({
       handleFilesLoaded,
       formatCode,
       handleLoadExample,
+      onExampleLibraries,
+      librariesCount,
+      onOpenLibraries,
+      libraryHints,
+      librariesDialog,
       capabilities,
       code,
       setCode,

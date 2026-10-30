@@ -7,6 +7,7 @@ import { DockerCommandBuilder } from "../docker-command-builder";
 import type { ProcessExecution } from "../process-execution-port";
 import { ProcessExecutor, ProcessOutputLimitError, ProcessTimeoutError } from "../process-executor";
 import { SANDBOX_OWNER_LABEL, sandboxOwner } from "../sandbox/orphan-sweep";
+import { parseProvidedLibraries, type ProvidedLibrary } from "../libraries/library-service";
 import { type BuildFiles, buildCompileArgs, type CLICompileConfig, type CLICompileResult, interpretCliRun, systemFailure } from "./cli-runner";
 
 const logger = new Logger("SandboxedCLIRunner");
@@ -109,7 +110,7 @@ export async function compileInSandbox(
     containerName,
     labels: containerLabels(settings),
     // The build path is the container's own; only FQBN and sketch matter here.
-    command: ["unosim-compile", String(timeoutSeconds), ...buildCompileArgs({ fqbn: config.fqbn }, mountTarget)],
+    command: ["unosim-compile", String(timeoutSeconds), ...buildCompileArgs({ fqbn: config.fqbn, ...(config.libraryDirs ? { libraryDirs: config.libraryDirs } : {}) }, mountTarget)],
   });
 
   const result = await runContainer(processExecutor, command, containerName, {
@@ -154,6 +155,17 @@ function frameFailureMessage(result: { code: number; error?: Error }, timeoutSec
     : "The compile sandbox is not available. Make sure Docker runs and the image is built (npm run build:compile-sandbox).";
 }
 
+/** Where Dockerfile.compile-sandbox provisions the library packages (scripts/provision-libraries.mjs). */
+export const SANDBOX_LIBRARIES_ROOT = "/opt/unosim/libraries";
+
+/** The packages provisioned into the compile sandbox image; none when it has no `provided.json`. */
+export async function readSandboxProvidedLibraries(
+  processExecutor: ProcessExecution = new ProcessExecutor(),
+  settings: CompileSandboxSettings = compileSandboxSettings(),
+): Promise<ProvidedLibrary[]> {
+  return parseProvidedLibraries(await runJsonInSandbox(["cat", `${SANDBOX_LIBRARIES_ROOT}/provided.json`], processExecutor, settings), SANDBOX_LIBRARIES_ROOT);
+}
+
 /**
  * `arduino-cli <args>` with JSON output in a compile container, for the
  * toolchain information of the build identity (plan E15); null on any failure,
@@ -164,8 +176,17 @@ export async function runCliJsonInSandbox(
   processExecutor: ProcessExecution = new ProcessExecutor(),
   settings: CompileSandboxSettings = compileSandboxSettings(),
 ): Promise<unknown> {
+  return runJsonInSandbox(["arduino-cli", ...args], processExecutor, settings);
+}
+
+/** One command with JSON output in a compile container; null on any failure. */
+async function runJsonInSandbox(
+  command: string[],
+  processExecutor: ProcessExecution,
+  settings: CompileSandboxSettings,
+): Promise<unknown> {
   const containerName = `${COMPILE_CONTAINER_PREFIX}${randomUUID()}`;
-  const command = DockerCommandBuilder.buildCompileSandboxCommand({
+  const dockerCommand = DockerCommandBuilder.buildCompileSandboxCommand({
     memoryMB: settings.memoryMB,
     cpuLimit: settings.cpuLimit,
     pidsLimit: settings.pidsLimit,
@@ -173,9 +194,9 @@ export async function runCliJsonInSandbox(
     imageName: settings.image,
     containerName,
     labels: containerLabels(settings),
-    command: ["arduino-cli", ...args],
+    command,
   });
-  const result = await runContainer(processExecutor, command, containerName, { timeout: CONTAINER_GRACE_MS, maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES });
+  const result = await runContainer(processExecutor, dockerCommand, containerName, { timeout: CONTAINER_GRACE_MS, maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES });
   if (result.code !== 0 || !result.stdout) return null;
   try {
     return JSON.parse(result.stdout);

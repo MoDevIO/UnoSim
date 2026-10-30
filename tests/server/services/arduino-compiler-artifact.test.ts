@@ -104,14 +104,19 @@ describe("ArduinoCompiler artifact and build identity", () => {
     expect(second.artifact?.buildId).not.toBe(first.artifact?.buildId);
   });
 
+  // Changed with the project libraries (SSOT Libraries §11, approved 2026-10-28): requests carry
+  // resolved packages; a different checksum of the same version is another build.
   it("builds again when the requested libraries differ", async () => {
     const cli = fakeCli();
     const code = sketch();
+    const aunit = { name: "AUnit", version: "1.7.1", sha256: "a".repeat(64), dir: "/libs/AUnit-1.7.1/AUnit" };
 
     await compile(code, { libraries: [] });
-    await compile(code, { libraries: ["Servo"] });
+    await compile(code, { libraries: [aunit] });
+    await compile(code, { libraries: [{ ...aunit, sha256: "b".repeat(64) }] });
+    await compile(code, { libraries: [{ ...aunit, sha256: "b".repeat(64), dir: "/elsewhere/AUnit" }] });
 
-    expect(cli).toHaveBeenCalledTimes(2);
+    expect(cli).toHaveBeenCalledTimes(3);
   });
 
   it("builds again for another board option, because the FQBN is part of the key", async () => {

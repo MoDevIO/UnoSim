@@ -1,6 +1,6 @@
 // arduino-simulator.tsx
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -25,6 +25,13 @@ import { useDebugConsole } from "@/hooks/use-debug-console";
 import { useEditorCommands } from "@/hooks/use-editor-commands";
 import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
+import { useProjectLibraries } from "@/hooks/use-project-libraries";
+import { useChangeGuard } from "@/hooks/use-change-guard";
+import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
+import { downloadNotice } from "@/lib/library-download-notice";
+import { focusReturnTarget } from "@/lib/focus-return";
+import { projectLibrariesSchema } from "@shared/library-requirements";
+import { DEFAULT_BOARD_ID } from "@shared/boards";
 import { useSimulatorExternalControl } from "@/hooks/useSimulatorExternalControl";
 import { parseStaticIORegistryProject } from "@shared/io-registry-parser";
 import { buildSourceProject } from "@/lib/source-project";
@@ -63,11 +70,15 @@ import { detectParentOrigin } from "@/lib/parent-origin";
 /** Run commands the simulation controller already writes to the debug log when it issues them. */
 const LOGGED_ELSEWHERE: ReadonlySet<string> = new Set(["start_simulation", "stop_simulation", "pause_simulation", "resume_simulation"]);
 
+const LibrariesDialog = lazy(() => import("@/components/features/libraries-dialog").then((module) => ({ default: module.LibrariesDialog })));
+
 export function useArduinoSimulatorPage() {
   const editorRef = useRef<{
     getValue: () => string;
     goToLine?: (line: number) => void;
     insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
+    replaceContent?: (text: string) => void;
+    focus?: () => void;
   } | null>(null);
 
   // File system orchestration (currentSketch, code, isModified state)
@@ -312,6 +323,34 @@ export function useArduinoSimulatorPage() {
   const [hasFirstOutput, setHasFirstOutput] = useState(false);
 
 
+  // Library selection of the open sketch (SSOT Libraries): part of every compile, cleared with a replaced sketch.
+  const projectLibraries = useProjectLibraries({
+    board: boardId,
+    runtime: runtimeSelection.runtimeKind,
+    offeredRuntimes: runtimeSelection.usable,
+    tabs,
+    activeTabId,
+    code,
+    editorRef,
+    setCode,
+    setIsModified,
+    toast,
+  });
+  const { replaceLibraries } = projectLibraries;
+  const [librariesOpen, setLibrariesOpen] = useState(false);
+  // Closing returns the focus to the control that opened the dialog, after "Einbinden" to the editor.
+  const librariesFocusReturn = useRef<{ invoker: HTMLElement | null; toEditor: boolean }>({ invoker: null, toEditor: false });
+  const openLibrariesDialog = useCallback(() => {
+    librariesFocusReturn.current = { invoker: focusReturnTarget(document.activeElement), toEditor: false };
+    setLibrariesOpen(true);
+  }, []);
+  const returnLibrariesFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    const { invoker, toEditor } = librariesFocusReturn.current;
+    if (!toEditor && invoker?.isConnected) invoker.focus();
+    else editorRef.current?.focus?.();
+  }, []);
+
   const {
     compilationStatus,
     setCompilationStatus,
@@ -347,6 +386,8 @@ export function useArduinoSimulatorPage() {
     suppressAutoStopOnce,
     invalidatePendingStart,
   } = useCompileAndRun({
+    libraries: projectLibraries.libraries,
+    startBlockReason: projectLibraries.startBlockReason,
     ...(runtimeSelection.runtimeKind ? { runtimeKind: runtimeSelection.runtimeKind } : {}),
     ...(boardId ? { boardId } : {}),
     hostMockUsable: runtimeSelection.usable.includes("host-mock"),
@@ -439,6 +480,8 @@ export function useArduinoSimulatorPage() {
 
   const onReplaceAllFiles = useCallback(() => {
     invalidatePendingStart();
+    // A replaced sketch starts without libraries; an example sets its own right after (SSOT Libraries §8).
+    replaceLibraries([]);
     if (holdsServerSimulation(simulationStatus)) {
       sendMessage({ type: "stop_simulation" });
     }
@@ -453,6 +496,7 @@ export function useArduinoSimulatorPage() {
     setHasCompiledOnce(false);
   }, [
     invalidatePendingStart,
+    replaceLibraries,
     simulationStatus,
     sendMessage,
     clearOutputs,
@@ -521,6 +565,41 @@ export function useArduinoSimulatorPage() {
     onReplaceAllFiles,
     onLoadExample,
   });
+
+  // "Download all files" stays a source download; the selected libraries are named, not exported (SSOT Libraries §8.1).
+  const downloadAllFilesWithNotice = useCallback(async () => {
+    await downloadAllFiles();
+    const notice = downloadNotice(projectLibraries.libraries);
+    if (notice) toast({ title: "Nur Quelltext heruntergeladen", description: notice });
+  }, [downloadAllFiles, projectLibraries.libraries, toast]);
+
+  const markProject = useChangeGuard([code, tabs, projectLibraries.libraries]);
+
+  /**
+   * "Minimalbeispiel öffnen", after the dialog's confirmation: files and libraries of the example replace the sketch together.
+   * The confirmation covered the sketch as it was; an edit made while the example loads is kept and the example is dropped.
+   */
+  const openLibraryExample = useCallback(async (exampleId: string) => {
+    const unchanged = markProject();
+    const loading = toast({ title: "Beispiel wird geladen …" });
+    try {
+      const response = await fetch(`/api/examples/${encodeURIComponent(exampleId)}`);
+      const detail = response.ok ? ((await response.json()) as { title?: string; files?: Array<{ name: string; path?: string; content: string }>; libraries?: unknown }) : undefined;
+      const libraries = projectLibrariesSchema.safeParse(detail?.libraries ?? []);
+      if (!detail?.files?.length || !libraries.success) throw new Error("invalid example");
+      loading.dismiss();
+      if (!unchanged()) {
+        toast({ title: "Beispiel nicht geladen", description: "Der Sketch wurde während des Ladens geändert und bleibt erhalten." });
+        return;
+      }
+      handleLoadExample(detail.files, detail.title ?? exampleId);
+      replaceLibraries(libraries.data);
+      toast({ title: "Beispiel geladen", description: `${detail.title ?? exampleId} ersetzt den bisherigen Sketch.` });
+    } catch {
+      loading.dismiss();
+      toast({ title: "Beispiel konnte nicht geladen werden", description: "Der bisherige Sketch bleibt erhalten.", variant: "destructive" });
+    }
+  }, [handleLoadExample, markProject, replaceLibraries, toast]);
 
   const pendingSourceNavigation = useRef<{
     tabId: string;
@@ -758,8 +837,35 @@ export function useArduinoSimulatorPage() {
     handleFilesLoaded,
     handleLoadExample,
     downloadAllFiles: () => {
-      void downloadAllFiles();
+      void downloadAllFilesWithNotice();
     },
+    onExampleLibraries: replaceLibraries,
+    librariesCount: projectLibraries.libraries.length,
+    onOpenLibraries: openLibrariesDialog,
+    libraryHints: <LibraryHintsBar hints={projectLibraries.hints} onAdd={projectLibraries.addRequirement} />,
+    // Loaded on first opening: the dialog is not part of the initial load path.
+    librariesDialog: librariesOpen && (
+      <Suspense fallback={null}>
+        <LibrariesDialog
+        open={librariesOpen}
+        onOpenChange={setLibrariesOpen}
+        boardId={boardId ?? DEFAULT_BOARD_ID}
+        boardName={board}
+        runtime={runtimeSelection.runtimeKind}
+        catalog={projectLibraries.catalog}
+        libraries={projectLibraries.libraries}
+        activeFile={projectLibraries.activeFile}
+        onInclude={(entry) => {
+          if (!projectLibraries.include(entry)) return;
+          librariesFocusReturn.current.toEditor = true;
+          setLibrariesOpen(false);
+        }}
+        onCloseAutoFocus={returnLibrariesFocus}
+        onInsertInclude={projectLibraries.insertInclude}
+        onOpenExample={(exampleId) => void openLibraryExample(exampleId)}
+        />
+      </Suspense>
+    ),
     formatCode,
     editorRef,
     capabilities,
@@ -929,7 +1035,8 @@ export function useArduinoSimulatorPage() {
       onRenameFile: openRenameFile,
       formatCode,
       onLoadFiles: openLoadFiles,
-      downloadAllFiles,
+      downloadAllFiles: downloadAllFilesWithNotice,
+      openLibraries: openLibrariesDialog,
       undo,
       redo,
       cut,

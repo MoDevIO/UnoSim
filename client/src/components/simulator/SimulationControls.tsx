@@ -36,6 +36,8 @@ interface SimulationControlsProps {
   readonly onFormatCode: () => void;
   readonly onLoadFiles: () => void;
   readonly onDownloadAllFiles: () => void;
+  /** Sketch → Libraries… (SSOT Libraries §5.1). */
+  readonly onOpenLibraries?: () => void;
   readonly onSettings: () => void;
   readonly onUndo: () => void;
   readonly onRedo: () => void;

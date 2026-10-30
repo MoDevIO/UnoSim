@@ -188,6 +188,7 @@ export function ArduinoSimulatorPageLayout(
     formatCode,
     onLoadFiles,
     downloadAllFiles,
+    openLibraries,
     undo,
     redo,
     cut,
@@ -372,6 +373,7 @@ export function ArduinoSimulatorPageLayout(
         onFormatCode={formatCode}
         onLoadFiles={onLoadFiles}
         onDownloadAllFiles={downloadAllFiles}
+        onOpenLibraries={openLibraries}
         onSettings={openSettings}
         onUndo={undo}
         onRedo={redo}

@@ -97,7 +97,8 @@ function pathDirectory(path: string): string {
   return separator < 0 ? "" : path.slice(0, separator);
 }
 
-function resolveIncludePath(fromFile: string, include: string): string | undefined {
+/** The project path a quoted `#include` in `fromFile` names, relative to that file; undefined when invalid. */
+export function resolveIncludePath(fromFile: string, include: string): string | undefined {
   if (!include || include.includes("\\") || include.includes("\0")) return undefined;
   const base = pathDirectory(fromFile);
   return normalizeSourcePath(base ? `${base}/${include}` : include);

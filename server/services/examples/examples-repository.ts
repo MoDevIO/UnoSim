@@ -210,6 +210,7 @@ function toDetail(example: ExampleRecord, revision: FullCommitSha | null): Examp
     source: example.source,
     revision,
     files: main ? [main, ...remaining] : example.files,
+    ...(example.libraries ? { libraries: example.libraries } : {}),
   };
 }
 

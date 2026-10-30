@@ -59,6 +59,8 @@ interface AppHeaderProps {
   readonly onFormatCode: () => void;
   readonly onLoadFiles: () => void;
   readonly onDownloadAllFiles: () => void;
+  /** Sketch → Libraries… (SSOT Libraries §5.1). */
+  readonly onOpenLibraries?: () => void;
   readonly onSettings: () => void;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
@@ -309,6 +311,8 @@ interface DesktopMenuBarProps {
   readonly onFormatCode: () => void;
   readonly onLoadFiles: () => void;
   readonly onDownloadAllFiles: () => void;
+  /** Sketch → Libraries… (SSOT Libraries §5.1). */
+  readonly onOpenLibraries?: () => void;
   readonly onSettings: () => void;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
@@ -384,6 +388,7 @@ export function DesktopMenuBar({
   onFormatCode,
   onLoadFiles,
   onDownloadAllFiles,
+  onOpenLibraries,
   onSettings,
   onUndo,
   onRedo,
@@ -605,6 +610,12 @@ export function DesktopMenuBar({
             </MenubarShortcut>
           </MenubarItem>
           <MenubarSeparator />
+          {onOpenLibraries && (
+            <>
+              <MenubarItem onSelect={() => onOpenLibraries()}>Libraries…</MenubarItem>
+              <MenubarSeparator />
+            </>
+          )}
           <MenubarItem onSelect={() => onOutputPanelToggle()}>
             <div className="flex items-center justify-between w-full">
               <span>Output Panel</span>
@@ -737,6 +748,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onFormatCode,
   onLoadFiles,
   onDownloadAllFiles,
+  onOpenLibraries,
   onSettings,
   onUndo,
   onRedo,
@@ -841,6 +853,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             onFormatCode={onFormatCode}
             onLoadFiles={onLoadFiles}
             onDownloadAllFiles={onDownloadAllFiles}
+            {...(onOpenLibraries ? { onOpenLibraries } : {})}
             onSettings={onSettings}
             onUndo={onUndo}
             onRedo={onRedo}

@@ -35,6 +35,7 @@ import {
   buildCacheEvictionTargets,
   cleanupCacheLru,
   ensureDirectories,
+  libraryIdentity,
   normalizeLibraries,
 } from "./compile-worker-utils.ts";
 
@@ -114,7 +115,7 @@ async function ensureWorkerDirs(): Promise<void> {
 async function buildCoreFingerprint(task: CompileRequestPayload, fqbn: string): Promise<string> {
   if (!readToolchainInfo) throw new Error("Toolchain information is not loaded");
   const toolchain = await readToolchainInfo();
-  const explicitLibraries = normalizeLibraries(task.libraries).join("|");
+  const explicitLibraries = normalizeLibraries(task.libraries?.map(libraryIdentity)).join("|");
   const payload = `${fqbn}|${toolchain.arduinoCli}|${toolchain.librariesFingerprint}|${explicitLibraries}`;
   return createHash("sha256").update(payload).digest("hex");
 }
@@ -146,6 +147,11 @@ async function acquireCoreCache(coreReadyMarker: string, coreLockPath: string, c
   }
 
   return { coreCacheWarm, acquiredCoreLock, activeBuildCachePath };
+}
+
+/** The resolved library packages of a task, when it has any. */
+function librariesOption(task: CompileRequestPayload): Pick<CompileRequestPayload, "libraries"> {
+  return task.libraries && task.libraries.length > 0 ? { libraries: task.libraries } : {};
 }
 
 /**
@@ -185,7 +191,7 @@ async function processCompileRequest(task: CompileRequestPayload) {
         entryFile: task.entryFile,
         ...(task.board ? { board: task.board } : {}),
         fqbn,
-        libraries: normalizeLibraries(task.libraries),
+        ...librariesOption(task),
         sketchHash,
         coreFingerprint,
         buildPath: sketchBuildPath,

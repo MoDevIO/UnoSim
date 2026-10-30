@@ -3,6 +3,7 @@ import type { PinMode } from "./types/arduino.types";
 import { INPUT_LIMITS, isSafeHeaderName } from "./input-limits";
 import { boardIdSchema, findBoardByFqbn } from "./boards";
 import { boundedArray } from "./bounded-array";
+import { projectLibrariesSchema } from "./library-requirements";
 import { normalizeSourcePath } from "./source-project";
 import type { SourceLocation } from "./source-project";
 
@@ -87,7 +88,8 @@ export const compileRequestSchema = z
     board: boardIdSchema.optional(),
     /** Deprecated: allowed only together with (or instead of) the board it belongs to. */
     fqbn: z.string().min(1).max(INPUT_LIMITS.compile.maxFqbnChars).optional(),
-    libraries: boundedArray(z.string().min(1).max(INPUT_LIMITS.compile.maxLibraryNameChars), INPUT_LIMITS.compile.maxLibraries).optional(),
+    /** Direct project library requirements with exact versions (SSOT Libraries §4). */
+    libraries: projectLibrariesSchema.optional(),
   })
   .strict()
   .superRefine(rejectEntryHeaderCollision)

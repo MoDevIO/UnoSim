@@ -31,12 +31,14 @@ import { processHeaderIncludes } from "./compiler/header-processor";
 import { findUnsafeIncludes } from "./compiler/include-guard";
 import { FIXED_BUILD_FLAGS, type CLICompileConfig, type CLICompileResult } from "./compiler/cli-runner";
 import { arduinoToolchain } from "./compiler/toolchain";
-import { buildSketchHash } from "./workers/compile-worker-utils";
+import { buildSketchHash, libraryIdentity } from "./workers/compile-worker-utils";
 import { type BoardId, findBoardByFqbn } from "@shared/boards";
 import type { SimulationArtifact } from "@shared/simulation-artifact";
 import { type BuildRecord, buildArtifact, readBuildRecord, writeBuildRecord } from "./compiler/artifact-builder";
 import { type BuildIdentity, buildIdOf, createBuildIdentity } from "./compiler/build-identity";
 import { readToolchainInfo } from "./compiler/toolchain-info";
+import { SKETCH_FILE_MACRO_PROPERTY } from "./compiler/library-build-flags";
+import type { ResolvedLibrary } from "@shared/libraries";
 
 // Re-export for backwards compatibility
 export type { CompilationError } from "./compiler/compiler-output-parser";
@@ -72,7 +74,8 @@ export interface CompileRequestOptions {
   /** Catalog board the request compiles for; `fqbn` then is its FQBN. */
   board?: BoardId;
   fqbn?: string;
-  libraries?: string[];
+  /** Resolved project library packages (SSOT Libraries §10). */
+  libraries?: readonly ResolvedLibrary[];
   sketchHash?: string;
   coreFingerprint?: string;
   buildPath?: string;
@@ -112,7 +115,7 @@ export class ArduinoCompiler {
     options?: CompileRequestOptions,
   ): string {
     return options?.sketchHash
-      ?? buildSketchHash({ code, headers, entryFile: options?.entryFile }, options?.fqbn || this.defaultFqbn);
+      ?? buildSketchHash({ code, headers, entryFile: options?.entryFile, ...(options?.libraries ? { libraries: options.libraries } : {}) }, options?.fqbn || this.defaultFqbn);
   }
 
   /**
@@ -279,6 +282,7 @@ export class ArduinoCompiler {
         fqbn,
         buildPath,
         buildCachePath: options?.buildCachePath || this.defaultBuildCachePath,
+        ...(options?.libraries && options.libraries.length > 0 ? { libraryDirs: options.libraries.map((library) => library.dir) } : {}),
       };
       const cliResult = await this.toolchain.compile(sketchFile, cliConfig, this.processExecutor);
 
@@ -340,12 +344,14 @@ export class ArduinoCompiler {
   /** The board and the identity of this build (plan E15): what a cache entry must have been built under. */
   private async identityOf(sketchHash: string, options?: CompileRequestOptions): Promise<{ fqbn: string; board?: BoardId; identity: BuildIdentity }> {
     const fqbn = options?.fqbn || this.defaultFqbn;
+    const libraries = options?.libraries ?? [];
     const identity = createBuildIdentity({
       sketchHash,
       fqbn,
       toolchain: await readToolchainInfo(),
-      requestedLibraries: options?.libraries,
-      buildOptions: FIXED_BUILD_FLAGS,
+      // The resolved packages with their checksums; their directories are no part of the build.
+      requestedLibraries: libraries.map(libraryIdentity),
+      buildOptions: libraries.length > 0 ? [...FIXED_BUILD_FLAGS, SKETCH_FILE_MACRO_PROPERTY] : FIXED_BUILD_FLAGS,
     });
     return { fqbn, board: options?.board ?? findBoardByFqbn(fqbn)?.id, identity };
   }

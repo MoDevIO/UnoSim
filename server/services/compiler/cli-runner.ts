@@ -7,6 +7,8 @@ import type { CompilationError } from "./compiler-output-parser";
 import { limitCompilerDiagnostics, MAX_COMPILER_OUTPUT_BYTES, parseCompilerDiagnostics } from "../compiler-diagnostics";
 import { config as appConfig } from "../../config";
 import { findBoardByFqbn } from "@shared/boards";
+import { cliIsolation } from "./cli-isolation";
+import { SKETCH_FILE_MACRO_PROPERTY } from "./library-build-flags";
 
 const logger = new Logger("CLIRunner");
 
@@ -14,6 +16,8 @@ export interface CLICompileConfig {
   fqbn: string;
   buildPath?: string;
   buildCachePath?: string;
+  /** Directories of the resolved project library packages, as the toolchain sees them (SSOT Libraries §10). */
+  libraryDirs?: readonly string[];
 }
 
 export interface CLICompileResult {
@@ -43,6 +47,10 @@ export function buildCompileArgs(
     ...FIXED_BUILD_FLAGS,
   ];
 
+  if (config.libraryDirs && config.libraryDirs.length > 0) {
+    for (const dir of config.libraryDirs) args.push("--library", dir);
+    args.push("--build-property", SKETCH_FILE_MACRO_PROPERTY);
+  }
   if (config.buildPath) {
     args.push("--build-path", config.buildPath);
   }
@@ -87,6 +95,8 @@ export async function compileWithArduinoCli(
       timeout: appConfig.compilation.timeoutMs,
       stdio: "pipe",
       maxOutputBytes: MAX_COMPILER_OUTPUT_BYTES,
+      // No library of the host sketchbook may take part in the build (SSOT Libraries §10).
+      env: { ...(await cliIsolation()) },
     });
     // A diagnostics flood is a failed compile with truncated output, not a missing CLI.
     const outputLimited = result.error instanceof ProcessOutputLimitError;

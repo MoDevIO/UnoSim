@@ -21,6 +21,8 @@ export type SimulationControllerParams = {
   onStartOrStop?: () => void;
   /** The runtime of the next run (plan P3.1 selection); the host mock when not given. */
   runtimeKind?: RuntimeKind;
+  /** Why the project's libraries may not run with this board and engine (SSOT Libraries §9); blocks every start. */
+  startBlockReason?: () => string | undefined;
   /** The host mock can take over when the browser emulation has no image to run. */
   hostMockUsable?: boolean;
   /** The selected board: the worker refuses an image built for another one. */
@@ -272,9 +274,14 @@ export function useSimulationController(
   const handleStart = useCallback(() => {
     params.onStartOrStop?.();
     if (!canSimulate) return;
+    const blocked = params.startBlockReason?.();
+    if (blocked) {
+      params.uiFeedback.showStartFailedToast(blocked);
+      return;
+    }
     if (!startsInBrowser() && !params.ensureBackendConnected("Simulation starten")) return;
     startSimulation();
-  }, [canSimulate, params.ensureBackendConnected, startSimulation, params.onStartOrStop]);
+  }, [canSimulate, params.ensureBackendConnected, startSimulation, params.onStartOrStop, params.startBlockReason, params.uiFeedback]);
   const handleStop = useCallback(() => {
     params.onStartOrStop?.();
     if (!canSimulate) return;

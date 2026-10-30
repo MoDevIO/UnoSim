@@ -2,8 +2,9 @@ import type { Express, Response } from "express";
 import type { CompilationResult, CompileRequestOptions } from "../services/arduino-compiler";
 import type { Logger } from "@shared/logger";
 import { compileRequestSchema } from "@shared/schema";
-import { type BoardCatalogEntry, type BoardId, enabledBoards, findBoardByFqbn, getBoard } from "@shared/boards";
-import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
+import { type BoardCatalogEntry, type BoardId, DEFAULT_BOARD_ID, enabledBoards, findBoardByFqbn, getBoard } from "@shared/boards";
+import type { LibraryRequirement, ResolvedLibrary } from "@shared/libraries";
+import { INPUT_LIMITS, TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
 import { compileMetricsTracker } from "../services/server-metrics";
 import path from "node:path";
@@ -12,6 +13,7 @@ import type { RateLimitResult } from "../services/rate-limiter";
 import { operationError, SYSTEM_BUSY_MESSAGE } from "@shared/operation-errors";
 import { CompileCapacityError } from "../services/compilation-worker-pool";
 import { safeErrorLogMetadata } from "../services/safe-error-log-metadata";
+import { type ProvidedLibrary, resolveCompileLibraries } from "../services/libraries/library-service";
 
 type CompilerHeader = { name: string; content: string };
 
@@ -33,6 +35,8 @@ type CompilerDeps = {
   artifactDelivery?: boolean;
   /** Boards this deployment offers; the catalog default (plan 4.11) when omitted. */
   offeredBoards?: () => readonly BoardCatalogEntry[];
+  /** The library packages this deployment provides (SSOT Libraries §10); none when omitted. */
+  providedLibraries?: () => Promise<readonly ProvidedLibrary[]>;
 };
 
 type CompileRequestData = {
@@ -41,17 +45,27 @@ type CompileRequestData = {
   entryFile?: string;
   board?: BoardId;
   fqbn?: string;
-  libraries?: string[];
+  libraries?: LibraryRequirement[];
 };
 
 type ParsedCompileRequest =
   | { success: true; data: CompileRequestData }
   | { success: false; error: string };
 
+/** The former `libraries: string[]` names no version: it is refused instead of building with any (SSOT Libraries §14). */
+const UNVERSIONED_LIBRARIES_ERROR =
+  'Library requirements need a name and an exact version, for example {"name":"AUnit","version":"1.7.1"}';
+
+function hasUnversionedLibraries(body: unknown): boolean {
+  const libraries = typeof body === "object" && body !== null ? (body as { libraries?: unknown }).libraries : undefined;
+  return Array.isArray(libraries) && libraries.length <= INPUT_LIMITS.compile.maxLibraries && libraries.some((entry) => typeof entry === "string");
+}
+
 function parseCompileRequest(body: unknown): ParsedCompileRequest {
   const parsedRequest = compileRequestSchema.safeParse(body);
 
   if (!parsedRequest.success) {
+    if (hasUnversionedLibraries(body)) return { success: false, error: UNVERSIONED_LIBRARIES_ERROR };
     const codeMissing = parsedRequest.error.issues.some(
       (issue) => issue.path[0] === "code" && issue.code === "invalid_type",
     );
@@ -86,6 +100,49 @@ function resolveCompileTarget(data: CompileRequestData, offered: readonly BoardC
 function clientResultOf(result: CompilationResult, deliverArtifact: boolean): CompilationResult {
   const { binary: _binary, artifact, ...clientResult } = result;
   return deliverArtifact && result.success && artifact ? { ...clientResult, artifact } : clientResult;
+}
+
+/** The packages a request's requirements resolve to for its board; none without requirements. */
+async function resolveRequestLibraries(
+  libraries: LibraryRequirement[] | undefined,
+  target: { board?: BoardId; fqbn?: string },
+  deps: CompilerDeps,
+): Promise<{ ok: true; libraries: readonly ResolvedLibrary[] | undefined } | { ok: false; messages: readonly string[] }> {
+  if (!libraries || libraries.length === 0) return { ok: true, libraries: undefined };
+  const board = target.board ?? (target.fqbn ? findBoardByFqbn(target.fqbn)?.id : undefined) ?? DEFAULT_BOARD_ID;
+  return resolveCompileLibraries(libraries, board, (await deps.providedLibraries?.()) ?? []);
+}
+
+type PreparedCompile =
+  | { error: string }
+  | { refused: CompilationResult }
+  | { code: string; headers?: CompilerHeader[]; compileOptions: CompileRequestOptions };
+
+/** The validated request with board and resolved libraries: a 400 error, a refused compile, or what to compile. */
+async function prepareCompile(body: unknown, deps: CompilerDeps): Promise<PreparedCompile> {
+  const parsedRequest = parseCompileRequest(body);
+  if (!parsedRequest.success) return { error: parsedRequest.error };
+  const { code, headers, entryFile, libraries } = parsedRequest.data;
+  const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
+  if (target.error) return { error: target.error };
+  const resolution = await resolveRequestLibraries(libraries, target.options, deps);
+  if (!resolution.ok) return { refused: libraryFailure(resolution.messages) };
+  return {
+    code,
+    ...(headers ? { headers } : {}),
+    compileOptions: { libraries: resolution.libraries, ...target.options, ...(entryFile ? { entryFile } : {}) },
+  };
+}
+
+/** A compile refused before the compiler: the library requirements cannot be built here. */
+function libraryFailure(messages: readonly string[]): CompilationResult {
+  return {
+    success: false,
+    output: "",
+    stderr: messages.join("\n"),
+    errors: messages.map((message) => ({ file: "libraries", line: 0, column: 0, type: "error" as const, message })),
+    arduinoCliStatus: "error",
+  };
 }
 
 function isTimedOutCompileResult(result: CompilationResult): boolean {
@@ -173,19 +230,10 @@ export function registerCompilerRoutes(app: Express, deps: CompilerDeps) {
     try {
       if (!enforceCompileRateLimit(res, deps)) return;
 
-      const parsedRequest = parseCompileRequest(req.body);
-      if (!parsedRequest.success) {
-        return res.status(400).json({ error: parsedRequest.error });
-      }
-      const { code, headers, entryFile, libraries } = parsedRequest.data;
-      const target = resolveCompileTarget(parsedRequest.data, (deps.offeredBoards ?? enabledBoards)());
-      if (target.error) return res.status(400).json({ error: target.error });
-
-      const compileOptions = {
-        libraries,
-        ...target.options,
-        ...(entryFile ? { entryFile } : {}),
-      };
+      const prepared = await prepareCompile(req.body, deps);
+      if ("error" in prepared) return res.status(400).json({ error: prepared.error });
+      if ("refused" in prepared) return res.json(prepared.refused);
+      const { code, headers, compileOptions } = prepared;
       // The result cache answers before the compiler: its key carries the compiler's build environment, so a
       // changed toolchain or library set misses it just as it misses the compiler's own caches.
       const environment = await compiler.buildEnvironmentId?.();

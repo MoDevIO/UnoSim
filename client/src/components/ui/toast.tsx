@@ -124,5 +124,5 @@ export {
   ToastTitle,
   ToastDescription,
   ToastClose,
-  // ToastAction, // unused at runtime
+  ToastAction,
 };
