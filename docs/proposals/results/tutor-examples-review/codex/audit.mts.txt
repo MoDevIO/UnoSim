@@ -1,0 +1,44 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {CourseContentLoader} from '/Users/to/Documents/TT_Web/UnoSim/server/services/course-content/course-content-loader.ts';
+import {BuiltInProvider} from '/Users/to/Documents/TT_Web/UnoSim/server/services/examples/built-in-provider.ts';
+import {TutorService,inspectLearningQuestion} from '/Users/to/Documents/TT_Web/UnoSim/server/services/tutor/tutor-service.ts';
+import {CurriculumTutorAdapter} from '/Users/to/Documents/TT_Web/UnoSim/server/services/tutor/curriculum-tutor-adapter.ts';
+import {createTutorProgressionState} from '/Users/to/Documents/TT_Web/UnoSim/server/services/tutor/curriculum/progression-state.ts';
+const root='/Users/to/Documents/TT_Web/UnoSim-Examples';
+const out='/tmp/unosim-examples-tutor-review-20261031';
+const revision='0'.repeat(40);
+const loaded=await new CourseContentLoader({fetchText:async(url)=>readFile(path.join(root,decodeURIComponent(url.pathname.split(`/${revision}/`)[1]!)),'utf8')}).load('local/course-content',revision);
+const builtins=await new BuiltInProvider().getExamples();
+const manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
+const examples=loaded.examples.map(e=>({id:e.id,main:e.main,board:e.board??null,files:e.files.length,focus:e.tutorAnnotation?.focus?.length??0,questions:e.tutorAnnotation?.focus?.flatMap(a=>a.questions).length??0,objectives:e.tutorAnnotation?.learningObjectives??[],headers:e.files.filter(f=>f.name!==e.main).map(f=>f.name)}));
+const provider={listModels:async()=>['review-fake'],generateLearningQuestion:async()=>({model:'review-fake',result:{responseStyle:'normal' as const,question:'Was beobachtest du im aktuellen Sketch?',feedback:'Deine Antwort trifft die Kernidee.',answerRating:5 as const,difficulty:30}})};
+const makeContext=(e:any)=>({revision,tutor:loaded.tutor,exampleId:e.id,exampleTutorAnnotation:e.tutorAnnotation,progressionState:createTutorProgressionState(revision)});
+const chosen=loaded.examples.find(e=>e.id==='it01-01-variable-definieren')!;
+const chosenCode=chosen.files.find(f=>f.name===chosen.main)!.content;
+const tutor=new TutorService(provider,new CurriculumTutorAdapter());
+const blink=loaded.examples.find(e=>e.id==='it03-04-led-blinken')!;
+const changed=await tutor.generateQuestion('void setup() {}\nvoid loop() {}','review-key','review-fake',30,makeContext(blink),undefined,'uno');
+const altered=structuredClone(chosen);
+altered.tutorAnnotation!.focus![0].questions[0].text='Welchen Wert hat die Variable? Warum ist das so?';
+const safetyResult=await tutor.generateQuestion(chosenCode,'review-key','review-fake',30,makeContext(altered),undefined,'uno');
+const easy=await tutor.generateQuestion(chosenCode,'review-key','review-fake',1,makeContext(chosen),undefined,'uno');
+const hard=await tutor.generateQuestion(chosenCode,'review-key','review-fake',100,makeContext(chosen),undefined,'uno');
+async function play(clientMetadata:boolean){
+ const context=makeContext(chosen); const history:any[]=[]; const rows:any[]=[];
+ let current=(await tutor.generateQuestion(chosenCode,'review-key','review-fake',30,context,undefined,'uno')).result;
+ for(let i=0;i<9;i++){
+  const response=await tutor.generateDialogResponse(chosenCode,history,current.question,'Eine fachliche Antwort zum aktuellen Programm.', 'review-key','review-fake',30,context,undefined,'uno');
+  const next=response.result;
+  rows.push({asked:current.question,askedId:current.questionId,next:next.question,nextId:next.questionId,phase:next.learningPhase,state:JSON.parse(JSON.stringify(context.progressionState))});
+  const meta=clientMetadata?next:current;
+  history.push({question:current.question,answer:'Eine fachliche Antwort zum aktuellen Programm.',responseStyle:'normal',answerRating:next.answerRating,...Object.fromEntries(['topicId','conceptId','questionId','indicatorId','questionKind','contentRevision','learningPhase','strategyId','strategySource'].filter(k=>(meta as any)[k]!==undefined).map(k=>[k,(meta as any)[k]]))});
+  current=next;
+ }
+ return rows;
+}
+const correct=await play(false); const client=await play(true);
+const result={remote:{examples:examples.length,tutor:loaded.tutor.status,manifestRepository:manifest.repository,manifestRef:manifest.ref,examplesWithBoard:examples.filter(e=>e.board).length,focusExamples:examples.filter(e=>e.focus).length,focusQuestions:examples.reduce((n,e)=>n+e.questions,0)},builtin:{examples:builtins.length,examplesWithBoard:builtins.filter(e=>e.board).length},examples,changedSketchPlan:changed.result,finalValidationBypass:{result:safetyResult.result,violations:inspectLearningQuestion(safetyResult.result).violations},difficulty:{easy:easy.result.question,hard:hard.result.question},metadataControl:correct,metadataClient:client};
+await writeFile(path.join(out,'audit.json'),JSON.stringify(result,null,2));
+await writeFile(path.join(out,'loaded-examples.json'),JSON.stringify({remote:loaded.examples,builtin:builtins},null,2));
+console.log(JSON.stringify({remote:result.remote,builtin:result.builtin,changedSketchPlan:result.changedSketchPlan,controlQuestionIds:correct.map(r=>r.askedId??'free'),clientQuestionIds:client.map(r=>r.askedId??'free')},null,2));

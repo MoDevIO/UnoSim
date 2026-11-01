@@ -1,0 +1,5 @@
+{
+  "modification": "Both instances of (wert & MASKE_BIT_2) && 1 replaced by (wert & MASKE_BIT_2)",
+  "serial": "wert vorher:  101001\r\nBit 2 gesetzt? 0\r\nwert nachher: 101101\r\nBit 2 gesetzt? 4\r\n",
+  "compileLog": "Sketch uses 1870 bytes (5%) of program storage space. Maximum is 32256 bytes.\nGlobal variables use 234 bytes (11%) of dynamic memory, leaving 1814 bytes for local variables. Maximum is 2048 bytes.\n\n"
+}

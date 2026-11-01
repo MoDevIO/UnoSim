@@ -1,0 +1,33 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {buildSimulationImage,loadSimulationImage,runHeadless} from '/Users/to/Documents/TT_Web/UnoSim/packages/avr-emulator/src/index.ts';
+const root='/tmp/unosim-examples-tutor-review-20261031';
+const data=JSON.parse(await readFile(path.join(root,'loaded-examples.json'),'utf8'));
+const cases:any[]=[
+ {suffix:'01-blink-ino',simMs:1200,expectState:[[250,'pin',13,'OUTPUT',1],[750,'pin',13,'OUTPUT',0],[1100,'pin',13,'OUTPUT',1]]},
+ {suffix:'02-digital-input-ino',simMs:1200,events:[[250,'pin',2,0],[750,'pin',2,1]],output:['released','pressed','released']},
+ {suffix:'03-digital-io-ino',simMs:300,events:[[100,'pin',2,0],[200,'pin',2,1]],expectState:[[50,'pin',13,'OUTPUT',0],[150,'pin',13,'OUTPUT',1],[250,'pin',13,'OUTPUT',0]]},
+ {suffix:'04-analog-input-ino',simMs:350,events:[[0,'adcVolts',0,2.5]],output:['A0: 512','A0: 512']},
+ {suffix:'05-pwm-output-ino',simMs:250,expectState:[[210,'pwm',9,50]]},
+ {suffix:'06-serial-monitor-ino',simMs:2100,timed:true},
+ {suffix:'07-serial-plotter-ino',simMs:1050,output:Array.from({length:11},(_,i)=>'value:'+(i*10))},
+ {suffix:'08-multiple-io-ino',simMs:650,events:[[0,'adcVolts',0,2.5],[300,'pin',2,0]],output:['sensor=512 pwm=127','sensor=512 pwm=127','sensor=512 pwm=128']},
+ {suffix:'09-nonblocking-timing-ino',simMs:1100,output:['tick','tock'],expectState:[[600,'pin',13,'OUTPUT',1],[1050,'pin',13,'OUTPUT',0]]},
+ {suffix:'10-unosim-showcase-ino',simMs:1100,events:[[0,'adcVolts',0,2.5],[700,'pin',2,0]],output:['UnoSim showcase ready','A0=512 PWM=127 button=released','A0=512 PWM=128 button=pressed'],expectState:[[600,'pin',13,'OUTPUT',0],[1050,'pin',13,'OUTPUT',1]]},
+];
+const rows:any[]=[];
+for(const c of cases){
+ const e=data.builtin.find((e:any)=>e.id.endsWith(c.suffix));
+ const hex=await readFile(path.join(root,'compiled',e.id,'build',e.main+'.hex'),'utf8');
+ const r=runHeadless(loadSimulationImage(buildSimulationImage({board:'uno',hex})),c);
+ const serial=(r.serial.get(0)??'').split(/\r?\n/).filter(Boolean);
+ try{
+  assert.deepEqual(r.checks.filter(x=>!x.ok),[]);assert.equal(r.checks.length,c.expectState?.length??0);assert.deepEqual(r.diagnostics,[]);
+  if(c.output)assert.deepEqual(serial,c.output);
+  if(c.timed){assert.equal(serial[0],'UnoSim serial monitor demo');const times=serial.slice(1).map(l=>Number(l.match(/millis = (\d+)/)?.[1]));assert.equal(times.length,3);times.forEach((n,i)=>assert.ok(Math.abs(n-i*1000)<=5));}
+  rows.push({id:e.id,passed:true,serial,checks:r.checks});
+ }catch(error){rows.push({id:e.id,passed:false,serial,checks:r.checks,error:String(error)});}
+}
+await writeFile(path.join(root,'builtin-checks.json'),JSON.stringify(rows,null,2));
+console.log(JSON.stringify({cases:rows.length,passed:rows.filter(r=>r.passed).length,failures:rows.filter(r=>!r.passed)},null,2));

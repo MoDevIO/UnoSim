@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /Users/to/Documents/TT_Web/UnoSim
+
+
+ Test Files  5 passed (5)
+      Tests  218 passed (218)
+   Start at  12:50:44
+   Duration  14.90s (transform 231ms, setup 0ms, import 430ms, tests 24.57s, environment 0ms)
+

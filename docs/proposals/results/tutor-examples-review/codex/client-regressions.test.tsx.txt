@@ -1,0 +1,60 @@
+import {test,expect,vi,afterEach} from '/Users/to/Documents/TT_Web/UnoSim/node_modules/vitest/dist/index.js';
+import {renderHook,act,cleanup} from '/Users/to/Documents/TT_Web/UnoSim/node_modules/@testing-library/react/dist/index.js';
+import {useTutor} from '/Users/to/Documents/TT_Web/UnoSim/client/src/hooks/use-tutor.ts';
+import {getServerCapabilities} from '/Users/to/Documents/TT_Web/UnoSim/client/src/lib/server-capabilities.ts';
+import {setActiveExternalExampleContext,setExternalExamplesOverride,refreshExternalExamplesCatalog,normalizeSelection} from '/Users/to/Documents/TT_Web/UnoSim/client/src/lib/external-examples.ts';
+afterEach(()=>{cleanup();vi.restoreAllMocks();setExternalExamplesOverride(null);});
+test('records the answered question ID in the dialog history',async()=>{
+ const requests:any[]=[];
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(url,init)=>{
+  if(String(url)==='/api/config')return new Response('{}');
+  const body=JSON.parse(String(init?.body)); requests.push({url,body});
+  return new Response(JSON.stringify({question:String(url).endsWith('/question')?'Frage A?':'Frage B?',questionId:String(url).endsWith('/question')?'frage-a':'frage-b',topicId:'beispiel',conceptId:'konzept',responseStyle:'normal',answerRating:5,difficulty:30,provider:'kiconnect',model:'fake'}));
+ });
+ const {result}=renderHook(()=>useTutor(getServerCapabilities(true)));
+ act(()=>result.current.setCredential('review-key'));
+ await act(async()=>result.current.generateQuestion('void setup() {} void loop() {}'));
+ act(()=>result.current.setAnswer('Meine fachliche Antwort.'));
+ await act(async()=>result.current.submitAnswer('void setup() {} void loop() {}'));
+ console.log('RECORDED_HISTORY',JSON.stringify(result.current.history));
+ expect(result.current.history[0].question).toBe('Frage A?');
+ expect(result.current.history[0].questionId).toBe('frage-a');
+});
+test('uses the persisted repository selection before the examples menu is opened',async()=>{
+ const requests:any[]=[];
+ setExternalExamplesOverride(normalizeSelection('owner/repo','main'));
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(url,init)=>{
+  if(String(url)==='/api/config')return new Response('{}');
+  requests.push(JSON.parse(String(init?.body)));
+  return new Response(JSON.stringify({question:'Aktuelle Frage?',difficulty:30,provider:'kiconnect',model:'fake'}));
+ });
+ const {result}=renderHook(()=>useTutor(getServerCapabilities(true)));
+ act(()=>result.current.setCredential('review-key'));
+ await act(async()=>result.current.generateQuestion('void setup() {} void loop() {}'));
+ expect(requests[0].courseContent?.repository).toBe('owner/repo');
+});
+test('refreshing a catalog without choosing an example preserves the active learning dialog',async()=>{
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(url)=>{
+  if(String(url)==='/api/config')return new Response('{}');
+  if(String(url)==='/api/examples')return new Response(JSON.stringify({schemaVersion:1,source:{selection:'default',mode:'repository-ref',repository:'owner/repo',ref:'main',revision:'a'.repeat(40),status:'remote',stale:false},examples:[]}));
+  return new Response(JSON.stringify({question:'Meine Lernfrage?',difficulty:30,provider:'kiconnect',model:'fake'}));
+ });
+ const {result}=renderHook(()=>useTutor(getServerCapabilities(true)));
+ act(()=>result.current.setCredential('review-key'));
+ await act(async()=>result.current.generateQuestion('void setup() {} void loop() {}'));
+ act(()=>result.current.setAnswer('Mein noch nicht abgesendeter Entwurf.'));
+ await act(async()=>refreshExternalExamplesCatalog());
+ expect(result.current.answer).toBe('Mein noch nicht abgesendeter Entwurf.');
+ expect(result.current.question?.question).toBe('Meine Lernfrage?');
+});
+test('reset prevents a late response from resurrecting the old question',async()=>{
+ let release:any; const held=new Promise<Response>(r=>release=r);
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(url)=>String(url)==='/api/config'?new Response('{}'):held);
+ const {result}=renderHook(()=>useTutor(getServerCapabilities(true)));
+ act(()=>result.current.setCredential('review-key'));
+ let pending:any;
+ act(()=>{pending=result.current.generateQuestion('void setup() {} void loop() {}');});
+ act(()=>result.current.resetDialog());
+ await act(async()=>{release(new Response(JSON.stringify({question:'Alte Frage?',difficulty:30,provider:'kiconnect',model:'fake'})));await pending;});
+ expect(result.current.question).toBeNull();
+});
