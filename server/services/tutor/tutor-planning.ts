@@ -1,4 +1,4 @@
-import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
+import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import type { TutorCapability } from "../course-content/course-content-loader";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import type { EffectiveTutorStrategy, StrategyResolution } from "./strategy/effective-tutor-strategy";
@@ -37,6 +37,12 @@ export interface TutorPlan {
   readonly progressionBlockedReason?: ProgressionBlockedReason;
   readonly extensionTargetTopicId?: string;
   readonly expansionBrief?: TutorExpansionBrief;
+}
+
+/** The learner's place in the teacher's focus, and what the free Tutor should still work on. */
+export interface TutorFocusSummary {
+  readonly progress: TutorFocusProgress;
+  readonly openObjectives: readonly string[];
 }
 
 /** Application-owned, normalized guidance for one EXPAND transition. */
@@ -80,6 +86,7 @@ export function isTutorPlanningBlocked(result: TutorPlanningResult | null): resu
 }
 
 export interface TutorPlanningExtension {
+  focusProgress?(input: { readonly code: string; readonly courseContent?: TutorPlanningContentContext; readonly focusAsked: boolean }): TutorFocusSummary | undefined;
   resolveStrategy?(input: { readonly code?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<StrategyResolution>;
   planInitial(input: { readonly code: string; readonly history: readonly TutorDialogTurn[]; readonly difficulty: TutorDifficulty; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null>;
   /**

@@ -114,6 +114,16 @@ Tutor capability, not Examples and not a partial Tutor subset. The Tutor
 falls back completely to built-in-default plus the free Tutor path, with a
 safe diagnostic reason.
 
+A teacher's focus in an Example annotation (CourseContent SSOT 6.3) comes before
+every Topic. It is checked against the current sketch, repeats a question once
+after a weak answer, and reports `focusProgress`. A dialog turn keeps the identity
+of the answered question; feedback and rating come from the response. On the
+server the asked text decides which question a rating belongs to, so that a
+browser-supplied question ID cannot move evidence to another question. All
+quality rules run on the final result, after a planner question, a hint or a
+fallback was applied and before session progress is committed. A planned text
+that fails them is replaced by the provider's checked question, without progress.
+
 The historical curriculum/ files remain fixtures and authoring examples.
 The old independently configured Tutor source variables are obsolete startup
 tombstones and must not be combined with the Course Content source.

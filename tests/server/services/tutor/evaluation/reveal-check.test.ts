@@ -5,7 +5,7 @@ describe("mustNotReveal literal matching (R-REV-2)", () => {
   it.each([
     ["Welcher Wert steht bei `int counter = 3;` im Sketch?"],
     ["Der Wert counter=3 wird ausgegeben."],
-    ["COUNTER   =   3 steht in der Deklaration."],
+    ["COUNTER   =   3 steht in der Definition."],
     ["Was bedeutet **counter = 3**?"],
     ["Wie wirkt sich int counter = 3 aus?"],
   ])("matches the literal in: %s", (text) => {

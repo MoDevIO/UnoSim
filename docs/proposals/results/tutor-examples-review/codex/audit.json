@@ -1,0 +1,1573 @@
+{
+  "remote": {
+    "examples": 51,
+    "tutor": "valid",
+    "manifestRepository": "MoDevIO/UnoSim-Examples",
+    "manifestRef": "v3.0.0",
+    "examplesWithBoard": 0,
+    "focusExamples": 51,
+    "focusQuestions": 228
+  },
+  "builtin": {
+    "examples": 15,
+    "examplesWithBoard": 0
+  },
+  "examples": [
+    {
+      "id": "it01-01-variable-definieren",
+      "main": "it01-01-variable-definieren.ino",
+      "board": null,
+      "files": 1,
+      "focus": 3,
+      "questions": 6,
+      "objectives": [
+        "Die Studierenden sollen Deklaration, Initialisierung und Zuweisung einer Variablen unterscheiden können.",
+        "Sie sollen erklären können, dass eine Zuweisung den alten Wert überschreibt."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it01-02-konstante",
+      "main": "it01-02-konstante.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine Konstante von einer Variablen unterscheiden können.",
+        "Sie sollen erklären können, warum der Compiler eine nachträgliche Änderung ablehnt."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it01-03-datentyp-waehlen",
+      "main": "it01-03-datentyp-waehlen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen einen Datentyp für einen gegebenen Wertebereich auswählen und begründen können.",
+        "Sie sollen die Anzahl der Bitmuster eines Datentyps aus seiner Bitbreite bestimmen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it01-04-zeichen-ascii",
+      "main": "it01-04-zeichen-ascii.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen erklären können, dass `char` ein Zeichen als Zahlencode speichert."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it01-05-global-lokal",
+      "main": "it01-05-global-lokal.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen den Gültigkeitsbereich globaler und lokaler Variablen unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it02-01-arithmetische-operatoren",
+      "main": "it02-01-arithmetische-operatoren.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen die Operatoren +, -, *, / und % anwenden können.",
+        "Sie sollen erklären können, wann ganzzahlig und wann mit Nachkommastellen dividiert wird."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it02-02-vergleichsoperatoren",
+      "main": "it02-02-vergleichsoperatoren.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen Vergleichsoperatoren anwenden und ihr Ergebnis deuten können.",
+        "Sie sollen Zuweisung und Vergleich sicher unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it02-03-boolesche-operatoren",
+      "main": "it02-03-boolesche-operatoren.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen UND, ODER und NICHT auf Wahrheitswerte anwenden können.",
+        "Sie sollen eine Steuerungsanforderung in eine boolesche Verknüpfung übersetzen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it02-04-wertebereich-ueberlauf",
+      "main": "it02-04-wertebereich-ueberlauf.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen erklären können, was beim Überschreiten eines Wertebereichs geschieht.",
+        "Sie sollen daraus ableiten, warum der Datentyp zum Wertebereich passen muss."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it02-05-bitoperatoren",
+      "main": "it02-05-bitoperatoren.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen mit einer Bitmaske ein Bit prüfen und setzen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-01-serielle-ausgabe",
+      "main": "it03-01-serielle-ausgabe.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen Texte und Zahlen seriell ausgeben und das Ausgabeformat wählen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-02-zeichen-einlesen",
+      "main": "it03-02-zeichen-einlesen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen einzelne Zeichen seriell einlesen und ausgeben können.",
+        "Sie sollen den Unterschied zwischen einem Zeichen und seinem Code erklären können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-03-zahl-einlesen",
+      "main": "it03-03-zahl-einlesen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Zahl mit parseInt() einlesen und weiterverarbeiten können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-04-led-blinken",
+      "main": "it03-04-led-blinken.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen einen digitalen Ausgang zyklisch schalten können.",
+        "Sie sollen den Ablauf von setup() und loop() an einem Blinkprogramm erklären können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-05-pins-als-konstanten",
+      "main": "it03-05-pins-als-konstanten.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen Pin-Nummern als Konstanten festlegen und den Nutzen begründen können.",
+        "Sie sollen `const` und `#define` unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-06-digitaler-eingang",
+      "main": "it03-06-digitaler-eingang.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen einen digitalen Eingang mit internem Pullup-Widerstand lesen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-07-zeit-messen",
+      "main": "it03-07-zeit-messen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen mit millis() eine Zeitdifferenz messen können.",
+        "Sie sollen den Datentyp für Zeitwerte begründen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it03-08-map",
+      "main": "it03-08-map.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen map() zur Umrechnung zwischen Wertebereichen anwenden können.",
+        "Sie sollen erklären können, dass map() mit ganzen Zahlen rechnet."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it04-01-analoger-eingang",
+      "main": "it04-01-analoger-eingang.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen einen analogen Messwert einlesen und seinen Wertebereich erklären können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it04-02-spannung-berechnen",
+      "main": "it04-02-spannung-berechnen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen einen Rohwert in eine Spannung umrechnen können.",
+        "Sie sollen erklären können, warum für die Rechnung Kommazahlen nötig sind."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it04-03-pwm-ausgang",
+      "main": "it04-03-pwm-ausgang.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen mit analogWrite() eine mittlere Ausgangsspannung einstellen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it04-04-taster-flanke",
+      "main": "it04-04-taster-flanke.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen einen Taster abfragen und einen Zustandswechsel erkennen können.",
+        "Sie sollen erklären können, warum der alte Zustand dauerhaft gespeichert werden muss."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it04-05-helligkeit-steuern",
+      "main": "it04-05-helligkeit-steuern.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen einen Messwert in einen Stellwert umrechnen und ausgeben können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it05-01-if",
+      "main": "it05-01-if.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine einfache Verzweigung mit if formulieren und ihren Ablauf beschreiben können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it05-02-if-else",
+      "main": "it05-02-if-else.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen mit if/else zwischen zwei Alternativen entscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it05-03-else-if",
+      "main": "it05-03-else-if.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Mehrfachverzweigung mit else if formulieren und die Reihenfolge der Bedingungen begründen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it05-04-switch-menue",
+      "main": "it05-04-switch-menue.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine Menüauswahl mit switch/case umsetzen können.",
+        "Sie sollen die Aufgaben von break und default erklären können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it05-05-intervall-ohne-delay",
+      "main": "it05-05-intervall-ohne-delay.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine zeitgesteuerte Aktion ohne delay() umsetzen können.",
+        "Sie sollen erklären können, warum das Programm dabei weiterläuft."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it06-01-while",
+      "main": "it06-01-while.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine kopfgesteuerte Schleife mit while formulieren und ihren Ablauf beschreiben können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it06-02-do-while",
+      "main": "it06-02-do-while.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine fußgesteuerte Schleife mit do/while einsetzen und von while unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it06-03-for",
+      "main": "it06-03-for.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen for-Schleifen mit verschiedenen Laufgrenzen und Schrittweiten formulieren können.",
+        "Sie sollen erklären können, warum der Datentyp der Laufvariablen wichtig ist."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it06-04-binaerzahl",
+      "main": "it06-04-binaerzahl.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Zählschleife mit bitweisen Operatoren kombinieren können.",
+        "Sie sollen den Vorteil einer Schleife für die Skalierbarkeit eines Programms erklären können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it06-05-verschachtelte-schleifen",
+      "main": "it06-05-verschachtelte-schleifen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen zwei Schleifen verschachteln und ihren Ablauf beschreiben können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-01-funktion-ohne-rueckgabe",
+      "main": "it07-01-funktion-ohne-rueckgabe.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen wiederkehrende Abläufe in Funktionen ohne Rückgabe bündeln können.",
+        "Sie sollen Funktionsdefinition, Funktionsaufruf und Parameter unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-02-funktion-mit-rueckgabe",
+      "main": "it07-02-funktion-mit-rueckgabe.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine Funktion mit Parametern und Rückgabewert schreiben und aufrufen können.",
+        "Sie sollen erklären können, warum die Division im Mittelwert mit 2.0 gerechnet wird."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-03-call-by-value",
+      "main": "it07-03-call-by-value.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen erklären können, dass bei Call-by-value eine Kopie übergeben wird."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-04-call-by-reference",
+      "main": "it07-04-call-by-reference.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Variable über einen Zeiger in einer Funktion verändern können.",
+        "Sie sollen Call-by-value und Call-by-reference unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-05-eindimensionales-array",
+      "main": "it07-05-eindimensionales-array.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen ein eindimensionales Array anlegen, füllen und über den Index auslesen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-06-zweidimensionales-array",
+      "main": "it07-06-zweidimensionales-array.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen ein zweidimensionales Array anlegen und mit zwei Indizes auslesen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it07-07-array-an-funktion",
+      "main": "it07-07-array-an-funktion.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen Arrays an Funktionen übergeben und dort füllen und auswerten können.",
+        "Sie sollen erklären können, warum Arrays immer als Referenz übergeben werden."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it08-01-struct",
+      "main": "it08-01-struct.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine Struktur definieren und auf ihre Felder zugreifen können.",
+        "Sie sollen zwischen dem Strukturtyp und einer Variablen dieses Typs unterscheiden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it08-02-struct-uebergeben",
+      "main": "it08-02-struct-uebergeben.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Struktur als Kopie und über einen Zeiger übergeben und die Wirkung vergleichen können.",
+        "Sie sollen den Punktoperator und den Operator -> richtig einsetzen können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it08-03-array-aus-structs",
+      "main": "it08-03-array-aus-structs.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen ein Array aus Strukturen anlegen und über Funktionen verarbeiten können.",
+        "Sie sollen begründen können, warum Daten als Parameter übergeben werden."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it08-04-typedef",
+      "main": "it08-04-typedef.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen mit typedef einen Alias für eine Struktur festlegen können.",
+        "Sie sollen Strukturen als Parameter und Rückgabewert von Funktionen verwenden können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it08-05-headerdatei",
+      "main": "it08-05-headerdatei.ino",
+      "board": null,
+      "files": 2,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen Datentypen und Funktionen in eine Headerdatei auslagern und einbinden können."
+      ],
+      "headers": ["messung.h"]
+    },
+    {
+      "id": "it08-06-funktion-testen",
+      "main": "it08-06-funktion-testen.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Funktion mit selbst gewählten Testfällen prüfen können.",
+        "Sie sollen begründen können, welche Testfälle Fehler aufdecken."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it11-01-matrix-ausgeben",
+      "main": "it11-01-matrix-ausgeben.ino",
+      "board": null,
+      "files": 1,
+      "focus": 2,
+      "questions": 5,
+      "objectives": [
+        "Die Studierenden sollen eine Matrix als zweidimensionales Array speichern und mit einer Funktion ausgeben können."
+      ],
+      "headers": []
+    },
+    {
+      "id": "it11-02-skalarmultiplikation",
+      "main": "it11-02-skalarmultiplikation.ino",
+      "board": null,
+      "files": 2,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Matrix in einer Funktion elementweise verändern können.",
+        "Sie sollen Funktionen in eine Headerdatei auslagern und wiederverwenden können."
+      ],
+      "headers": ["mat_func.h"]
+    },
+    {
+      "id": "it11-03-matrizen-addieren",
+      "main": "it11-03-matrizen-addieren.ino",
+      "board": null,
+      "files": 2,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen zwei Matrizen elementweise addieren können."
+      ],
+      "headers": ["mat_func.h"]
+    },
+    {
+      "id": "it11-04-matrix-transponieren",
+      "main": "it11-04-matrix-transponieren.ino",
+      "board": null,
+      "files": 2,
+      "focus": 2,
+      "questions": 4,
+      "objectives": [
+        "Die Studierenden sollen eine Matrix transponieren und die Vertauschung der Indizes erklären können."
+      ],
+      "headers": ["mat_func.h"]
+    },
+    {
+      "id": "it11-05-matrizen-multiplizieren",
+      "main": "it11-05-matrizen-multiplizieren.ino",
+      "board": null,
+      "files": 2,
+      "focus": 2,
+      "questions": 6,
+      "objectives": [
+        "Die Studierenden sollen zwei Matrizen nach der Regel Zeile mal Spalte multiplizieren können.",
+        "Sie sollen prüfen können, ob eine Matrix die Einheitsmatrix ist."
+      ],
+      "headers": ["mat_func.h"]
+    }
+  ],
+  "changedSketchPlan": {
+    "feedback": "Deine Antwort trifft die Kernidee.",
+    "question": "Welche Spannung liegt an `PIN_LED` an, solange `HIGH` geschrieben ist?",
+    "difficulty": 30,
+    "responseStyle": "normal",
+    "topic": "Ausgang schalten",
+    "topicId": "inline-it03-04-led-blinken",
+    "conceptId": "ausgang-schalten",
+    "questionId": "ausgang-schalten-q2",
+    "indicatorId": "understands-ausgang-schalten",
+    "questionKind": "recall",
+    "contentRevision": "0000000000000000000000000000000000000000",
+    "strategyId": "precision-policy",
+    "strategySource": "repository",
+    "learningPhase": "LEARN",
+    "activeTopicId": "inline-it03-04-led-blinken",
+    "masteredTopicIds": []
+  },
+  "finalValidationBypass": {
+    "result": {
+      "feedback": "Deine Antwort trifft die Kernidee.",
+      "question": "Welchen Wert hat die Variable? Warum ist das so?",
+      "difficulty": 30,
+      "responseStyle": "normal",
+      "topic": "Deklaration, Definition, Zuweisung",
+      "topicId": "inline-it01-01-variable-definieren",
+      "conceptId": "begriffe",
+      "questionId": "begriffe-q1",
+      "indicatorId": "understands-begriffe",
+      "questionKind": "recall",
+      "contentRevision": "0000000000000000000000000000000000000000",
+      "strategyId": "precision-policy",
+      "strategySource": "repository",
+      "learningPhase": "LEARN",
+      "activeTopicId": "inline-it01-01-variable-definieren",
+      "masteredTopicIds": []
+    },
+    "violations": [
+      {
+        "code": "multiple-primary-questions"
+      }
+    ]
+  },
+  "difficulty": {
+    "easy": "Welche Zeile ist nur eine Deklaration, und welche Zeile ist eine Definition?",
+    "hard": "Welche Zeile ist nur eine Deklaration, und welche Zeile ist eine Definition?"
+  },
+  "metadataControl": [
+    {
+      "asked": "Welche Zeile ist nur eine Deklaration, und welche Zeile ist eine Definition?",
+      "askedId": "begriffe-q1",
+      "next": "Worin unterscheidet sich die Zeile mit `anzahlFehler` von der Zeile, in der `anzahlTeile` deklariert wird?",
+      "nextId": "begriffe-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Worin unterscheidet sich die Zeile mit `anzahlFehler` von der Zeile, in der `anzahlTeile` deklariert wird?",
+      "askedId": "begriffe-q2",
+      "next": "Wie viele Werte kann `anzahlTeile` zu einem Zeitpunkt gleichzeitig speichern?",
+      "nextId": "ueberschreiben-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Wie viele Werte kann `anzahlTeile` zu einem Zeitpunkt gleichzeitig speichern?",
+      "askedId": "ueberschreiben-q2",
+      "next": "Was geschieht mit dem alten Wert von `anzahlTeile`, wenn `anzahlTeile = 5` ausgeführt wird?",
+      "nextId": "ueberschreiben-q1",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Was geschieht mit dem alten Wert von `anzahlTeile`, wenn `anzahlTeile = 5` ausgeführt wird?",
+      "askedId": "ueberschreiben-q1",
+      "next": "Warum meldet der Compiler einen Fehler, wenn `anzahlTeile` an einer Stelle mit großem A geschrieben wird?",
+      "nextId": "namen-q1",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Warum meldet der Compiler einen Fehler, wenn `anzahlTeile` an einer Stelle mit großem A geschrieben wird?",
+      "askedId": "namen-q1",
+      "next": "Welche weitere Variable würdest du für ein Zählprogramm definieren, und mit welchem Startwert?",
+      "nextId": "namen-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Welche weitere Variable würdest du für ein Zählprogramm definieren, und mit welchem Startwert?",
+      "askedId": "namen-q2",
+      "next": "Was beobachtest du im aktuellen Sketch?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": ["inline-it01-01-variable-definieren"],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q2",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "transfer",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {
+          "inline-it01-01-variable-definieren": "DEEPEN"
+        },
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "DEEPEN"
+      }
+    },
+    {
+      "asked": "Was beobachtest du im aktuellen Sketch?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": ["inline-it01-01-variable-definieren"],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q2",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "transfer",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {
+          "inline-it01-01-variable-definieren": "DEEPEN"
+        },
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "DEEPEN"
+      }
+    },
+    {
+      "asked": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": ["inline-it01-01-variable-definieren"],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q2",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "transfer",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {
+          "inline-it01-01-variable-definieren": "DEEPEN"
+        },
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "DEEPEN"
+      }
+    },
+    {
+      "asked": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": ["inline-it01-01-variable-definieren"],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q2",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "transfer",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {
+          "inline-it01-01-variable-definieren": "DEEPEN"
+        },
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "DEEPEN"
+      }
+    }
+  ],
+  "metadataClient": [
+    {
+      "asked": "Welche Zeile ist nur eine Deklaration, und welche Zeile ist eine Definition?",
+      "askedId": "begriffe-q1",
+      "next": "Worin unterscheidet sich die Zeile mit `anzahlFehler` von der Zeile, in der `anzahlTeile` deklariert wird?",
+      "nextId": "begriffe-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Worin unterscheidet sich die Zeile mit `anzahlFehler` von der Zeile, in der `anzahlTeile` deklariert wird?",
+      "askedId": "begriffe-q2",
+      "next": "Wie viele Werte kann `anzahlTeile` zu einem Zeitpunkt gleichzeitig speichern?",
+      "nextId": "ueberschreiben-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Wie viele Werte kann `anzahlTeile` zu einem Zeitpunkt gleichzeitig speichern?",
+      "askedId": "ueberschreiben-q2",
+      "next": "Warum meldet der Compiler einen Fehler, wenn `anzahlTeile` an einer Stelle mit großem A geschrieben wird?",
+      "nextId": "namen-q1",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Warum meldet der Compiler einen Fehler, wenn `anzahlTeile` an einer Stelle mit großem A geschrieben wird?",
+      "askedId": "namen-q1",
+      "next": "Was geschieht mit dem alten Wert von `anzahlTeile`, wenn `anzahlTeile = 5` ausgeführt wird?",
+      "nextId": "ueberschreiben-q1",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Was geschieht mit dem alten Wert von `anzahlTeile`, wenn `anzahlTeile = 5` ausgeführt wird?",
+      "askedId": "ueberschreiben-q1",
+      "next": "Welche weitere Variable würdest du für ein Zählprogramm definieren, und mit welchem Startwert?",
+      "nextId": "namen-q2",
+      "phase": "LEARN",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Welche weitere Variable würdest du für ein Zählprogramm definieren, und mit welchem Startwert?",
+      "askedId": "namen-q2",
+      "next": "Was beobachtest du im aktuellen Sketch?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Was beobachtest du im aktuellen Sketch?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    },
+    {
+      "asked": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "next": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+      "state": {
+        "revision": "0000000000000000000000000000000000000000",
+        "masteredTopicIds": [],
+        "masteryEvidence": {
+          "inline-it01-01-variable-definieren": [
+            {
+              "questionId": "begriffe-q1",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "recall",
+              "rating": 5
+            },
+            {
+              "questionId": "begriffe-q2",
+              "conceptId": "begriffe",
+              "indicatorId": "understands-begriffe",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q2",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "application",
+              "rating": 5
+            },
+            {
+              "questionId": "namen-q1",
+              "conceptId": "namen",
+              "indicatorId": "understands-namen",
+              "kind": "concept",
+              "rating": 5
+            },
+            {
+              "questionId": "ueberschreiben-q1",
+              "conceptId": "ueberschreiben",
+              "indicatorId": "understands-ueberschreiben",
+              "kind": "prediction",
+              "rating": 5
+            }
+          ]
+        },
+        "postMasteryEvidence": {},
+        "retainedPhases": {},
+        "usedExpansionTargetTopicIds": {},
+        "activeTopicId": "inline-it01-01-variable-definieren",
+        "phase": "LEARN"
+      }
+    }
+  ]
+}

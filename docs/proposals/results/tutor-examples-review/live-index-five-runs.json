@@ -1,0 +1,161 @@
+{
+  "model": "openai-gpt5.4-mini",
+  "date": "2026-10-31T13:36:12.531Z",
+  "rows": [
+    {
+      "id": "it07-05-eindimensionales-array",
+      "kind": "partial",
+      "question": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "answer": "Es beginnt mit Index 0 und endet mit Index 4.",
+      "rating": 2,
+      "style": "normal",
+      "feedback": "Der Startindex stimmt, aber der Endindex nicht: `werte` hat nur 4 Elemente.",
+      "next": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "repeated": true,
+      "focus": {
+        "state": "active",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": ["Der Index", "Array und Schleife"]
+      },
+      "afterHint": {
+        "answer": "Es beginnt mit Index 0 und endet mit Index 3.",
+        "rating": 2,
+        "feedback": "Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+        "next": "Welches Element von `werte` liefert `werte[2]`, wenn du von vorn zählst?",
+        "focus": {
+          "state": "active",
+          "understoodAreas": 0,
+          "totalAreas": 2,
+          "openAreas": ["Der Index", "Array und Schleife"]
+        }
+      }
+    },
+    {
+      "id": "it07-05-eindimensionales-array",
+      "kind": "partial",
+      "question": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "answer": "Es beginnt mit Index 0 und endet mit Index 4.",
+      "rating": 2,
+      "style": "normal",
+      "feedback": "Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+      "next": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "repeated": true,
+      "focus": {
+        "state": "active",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": ["Der Index", "Array und Schleife"]
+      },
+      "afterHint": {
+        "answer": "Es beginnt mit Index 0 und endet mit Index 3.",
+        "rating": 2,
+        "feedback": "Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+        "next": "Welches Element von `werte` liefert `werte[2]`, wenn du von vorn zählst?",
+        "focus": {
+          "state": "active",
+          "understoodAreas": 0,
+          "totalAreas": 2,
+          "openAreas": ["Der Index", "Array und Schleife"]
+        }
+      }
+    },
+    {
+      "id": "it07-05-eindimensionales-array",
+      "kind": "partial",
+      "question": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "answer": "Es beginnt mit Index 0 und endet mit Index 4.",
+      "rating": 2,
+      "style": "normal",
+      "feedback": "Der Startindex stimmt, aber der Endindex nicht: `werte` hat nur 4 Elemente.",
+      "next": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "repeated": true,
+      "focus": {
+        "state": "active",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": ["Der Index", "Array und Schleife"]
+      },
+      "afterHint": {
+        "answer": "Es beginnt mit Index 0 und endet mit Index 3.",
+        "rating": 2,
+        "feedback": "Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+        "next": "Welches Element von `werte` liefert `werte[2]`, wenn du von vorn zählst?",
+        "focus": {
+          "state": "active",
+          "understoodAreas": 0,
+          "totalAreas": 2,
+          "openAreas": ["Der Index", "Array und Schleife"]
+        }
+      }
+    },
+    {
+      "id": "it07-05-eindimensionales-array",
+      "kind": "partial",
+      "question": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "answer": "Es beginnt mit Index 0 und endet mit Index 4.",
+      "rating": 2,
+      "style": "normal",
+      "feedback": "Richtig: Der Startindex ist korrekt genannt. Der Endindex stimmt hier nicht mit dem Sketch überein.",
+      "next": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "repeated": true,
+      "focus": {
+        "state": "active",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": ["Der Index", "Array und Schleife"]
+      },
+      "afterHint": {
+        "answer": "Es beginnt mit Index 0 und endet mit Index 3.",
+        "rating": 2,
+        "feedback": "Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+        "next": "Welches Element von `werte` liefert `werte[2]`, wenn du von vorn zählst?",
+        "focus": {
+          "state": "active",
+          "understoodAreas": 0,
+          "totalAreas": 2,
+          "openAreas": ["Der Index", "Array und Schleife"]
+        }
+      }
+    },
+    {
+      "id": "it07-05-eindimensionales-array",
+      "kind": "partial",
+      "question": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "answer": "Es beginnt mit Index 0 und endet mit Index 4.",
+      "rating": 2,
+      "style": "normal",
+      "feedback": "Fast richtig: Der Startindex stimmt, aber der Endindex von `werte` ist nicht korrekt.",
+      "next": "Mit welchem Index beginnt das Array `werte`, und mit welchem endet es?",
+      "repeated": true,
+      "focus": {
+        "state": "active",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": ["Der Index", "Array und Schleife"]
+      },
+      "afterHint": {
+        "answer": "Es beginnt mit Index 0 und endet mit Index 3.",
+        "rating": 2,
+        "feedback": "Der Startindex stimmt, aber der Endindex nicht: Im Sketch hat `werte` 4 Elemente.",
+        "next": "Welches Element von `werte` liefert `werte[2]`, wenn du von vorn zählst?",
+        "focus": {
+          "state": "active",
+          "understoodAreas": 0,
+          "totalAreas": 2,
+          "openAreas": ["Der Index", "Array und Schleife"]
+        }
+      }
+    },
+    {
+      "id": "replaced-sketch",
+      "question": "Welchen Wert hat `zaehler` direkt nach der ersten Ausführung von `loop()` und vor dem ersten `delay(1000)`?",
+      "focus": {
+        "state": "paused",
+        "understoodAreas": 0,
+        "totalAreas": 2,
+        "openAreas": []
+      }
+    }
+  ]
+}

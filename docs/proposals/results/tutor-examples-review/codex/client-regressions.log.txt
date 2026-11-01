@@ -1,0 +1,142 @@
+
+ RUN  v4.1.11 /private/tmp/unosim-examples-tutor-review-20261031
+
+stdout | client-regressions.test.tsx > records the answered question ID in the dialog history
+RECORDED_HISTORY [{"question":"Frage A?","answer":"Meine fachliche Antwort.","topicId":"beispiel","conceptId":"konzept","questionId":"frage-b","responseStyle":"normal","answerRating":5}]
+
+ ❯ client-regressions.test.tsx (4 tests | 4 failed) 30ms
+   × records the answered question ID in the dialog history 20ms
+   × uses the persisted repository selection before the examples menu is opened 3ms
+   × refreshing a catalog without choosing an example preserves the active learning dialog 3ms
+   × reset prevents a late response from resurrecting the old question 3ms
+ ❯ menu-regressions.test.tsx (2 tests | 2 failed) 201ms
+   × a newly loaded built-in example clears the previous tutor dialog 157ms
+   × late example loading preserves a subsequent edit after the menu was closed 43ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  client-regressions.test.tsx > records the answered question ID in the dialog history
+AssertionError: expected 'frage-b' to be 'frage-a' // Object.is equality
+
+Expected: "frage-a"
+Received: "frage-b"
+
+ ❯ client-regressions.test.tsx:21:47
+     19|  console.log('RECORDED_HISTORY',JSON.stringify(result.current.history)…
+     20|  expect(result.current.history[0].question).toBe('Frage A?');
+     21|  expect(result.current.history[0].questionId).toBe('frage-a');
+       |                                               ^
+     22| });
+     23| test('uses the persisted repository selection before the examples menu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  client-regressions.test.tsx > uses the persisted repository selection before the examples menu is opened
+AssertionError: expected undefined to be 'owner/repo' // Object.is equality
+
+- Expected:
+"owner/repo"
+
++ Received:
+undefined
+
+ ❯ client-regressions.test.tsx:34:48
+     32|  act(()=>result.current.setCredential('review-key'));
+     33|  await act(async()=>result.current.generateQuestion('void setup() {} v…
+     34|  expect(requests[0].courseContent?.repository).toBe('owner/repo');
+       |                                                ^
+     35| });
+     36| test('refreshing a catalog without choosing an example preserves the a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  client-regressions.test.tsx > refreshing a catalog without choosing an example preserves the active learning dialog
+AssertionError: expected '' to be 'Mein noch nicht abgesendeter Entwurf.' // Object.is equality
+
+- Expected
++ Received
+
+- Mein noch nicht abgesendeter Entwurf.
+
+ ❯ client-regressions.test.tsx:47:32
+     45|  act(()=>result.current.setAnswer('Mein noch nicht abgesendeter Entwur…
+     46|  await act(async()=>refreshExternalExamplesCatalog());
+     47|  expect(result.current.answer).toBe('Mein noch nicht abgesendeter Entw…
+       |                                ^
+     48|  expect(result.current.question?.question).toBe('Meine Lernfrage?');
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  client-regressions.test.tsx > reset prevents a late response from resurrecting the old question
+AssertionError: expected { question: 'Alte Frage?', …(4) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "difficulty": 30,
+  "model": "fake",
+  "provider": "kiconnect",
+  "question": "Alte Frage?",
+  "responseStyle": "normal",
+}
+
+ ❯ client-regressions.test.tsx:59:34
+     57|  act(()=>result.current.resetDialog());
+     58|  await act(async()=>{release(new Response(JSON.stringify({question:'Al…
+     59|  expect(result.current.question).toBeNull();
+       |                                  ^
+     60| });
+     61|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  menu-regressions.test.tsx > a newly loaded built-in example clears the previous tutor dialog
+AssertionError: expected { question: 'Alte Lernfrage?', …(4) } to be null
+
+- Expected:
+null
+
++ Received:
+{
+  "difficulty": 30,
+  "model": "fake",
+  "provider": "kiconnect",
+  "question": "Alte Lernfrage?",
+  "responseStyle": "normal",
+}
+
+ ❯ menu-regressions.test.tsx:36:34
+     34|  const onLoadExample=vi.fn();render(React.createElement(ExamplesMenu,{…
+     35|  await choose();await waitFor(()=>expect(onLoadExample).toHaveBeenCall…
+     36|  expect(result.current.question).toBeNull();
+       |                                  ^
+     37| });
+     38| test('late example loading preserves a subsequent edit after the menu …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  menu-regressions.test.tsx > late example loading preserves a subsequent edit after the menu was closed
+AssertionError: expected '// late example' to be '// subsequent edit' // Object.is equality
+
+Expected: "// subsequent edit"
+Received: "// late example"
+
+ ❯ menu-regressions.test.tsx:44:49
+     42|  fireEvent.click(screen.getByRole('button',{name:'Examples',exact:true…
+     43|  await act(async()=>release(new Response(JSON.stringify({files:[{name:…
+     44|  expect(screen.getByTestId('code').textContent).toBe('// subsequent ed…
+       |                                                 ^
+     45| });
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  6 failed (6)
+   Start at  13:01:50
+   Duration  1.42s (transform 134ms, setup 0ms, import 472ms, tests 231ms, environment 560ms)
+

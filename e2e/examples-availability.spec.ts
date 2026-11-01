@@ -28,7 +28,7 @@ test.describe("independent built-in examples", () => {
     const detail = page.waitForResponse(response => response.url().endsWith("/api/examples/builtin-01-blink-ino"));
     await page.getByRole("button", { name: /01-blink\.ino/ }).click();
     expect((await detail).status()).toBe(200);
-    await expect.poll(() => editorValue(page)).toContain("const int ledPin = LED_BUILTIN");
+    await expect.poll(() => editorValue(page)).toContain("const byte PIN_LED = LED_BUILTIN");
     await held?.abort();
   });
 

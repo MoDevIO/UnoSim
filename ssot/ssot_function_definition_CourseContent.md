@@ -273,9 +273,41 @@ Topic and needs no sketch-fact activation. `afterFocus` requires `focus` and
 defaults to `free`: once every focus area is mastered, or the focus has no
 question left, the Tutor continues as the free Tutor and no repository Topic
 is used for this Example. With `afterFocus: topics` it continues with the
-fact-matched repository Topics instead. Code terms in question
-texts MUST be written in backticks; the Course Content quality validator
-rejects a backticked term that does not occur in the sketch outside comments.
+fact-matched repository Topics instead.
+
+The current sketch stays the factual authority (section 14) for the focus too.
+Code terms in question texts MUST be written in backticks, and every question
+MUST name at least one; the Course Content quality validator rejects a question
+without a term, a backticked term that does not occur in the sketch outside
+comments, more than one question in a text, and solution code. At runtime a
+question applies only while all its terms occur in the current sketch outside
+comments, and the mastery of an area counts only its applicable questions.
+When fewer than half of the terms of the whole focus remain, the sketch counts
+as another program and no question applies. Without an applicable question the
+focus is paused: the free Tutor answers, no repository Topic takes over, and
+the focus resumes if the code returns.
+
+After a weak answer (rating 1 or 2) the same focus question is asked once more,
+and the provider's feedback carries the hint. A second weak answer moves on. A
+focus that ran out of questions is not reported as understood: the response's
+`focusProgress` distinguishes `active`, `completed`, `open` and `paused`, names
+the open areas, and the free Tutor receives their objectives. The focus text is
+fixed, so adaptive difficulty affects feedback and the free Tutor, not the
+question.
+
+Course Content and the Tutor use the C++ terms ([basic.def], [basic.start.static]):
+every variable definition is also a declaration; `int a;` is a definition without
+an explicit initializer, not one without initialization; `int a = 0;` is a
+definition with an explicit initializer, and its `=` is not an assignment; `a = 3;`
+in a function is an assignment; a global `int` or a local `static int` without an
+explicit initializer starts at zero, a local automatic `int` (no `static`) has no
+specified value; `extern int a;` is a pure declaration. The quality validator rejects
+the complete older claims in Example source and annotations, such as "definition =
+declaration + initialization" or calling `int a;` only a declaration
+(`inline-focus-non-cpp-terms`). It passes negated claims and sentences that merely name
+these terms, and it does not judge a claim without a statement on the same line, so it
+is a guard against the old wording, not a terminology proof. The Tutor's system prompt
+carries these rules.
 
 The server extracts and validates the block at the Course Content loading
 boundary. The annotation travels separately in the immutable server snapshot.

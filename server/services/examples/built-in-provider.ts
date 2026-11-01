@@ -60,6 +60,8 @@ export class BuiltInProvider {
         files: loadedFiles,
         main: name,
         source: "builtin" as const,
+        // The general sketches use Uno pins and rates; a library example states its boards in the catalog.
+        ...(relativeDirectory === "." ? { board: "uno" as const } : {}),
       };
     }));
     return attachCatalogLibraries(examples);

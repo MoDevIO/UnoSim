@@ -1,0 +1,37 @@
+
+ RUN  v4.1.11 /Users/to/Documents/TT_Web/UnoSim
+
+ ❯ |unit-node| tests/server/services/course-content/tutor-quality-directory-validator.test.ts (6 tests | 1 failed) 193ms
+     × returns usage status when no Course Content directory is provided 70ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit-node| tests/server/services/course-content/tutor-quality-directory-validator.test.ts > Tutor Course Content directory validator > returns usage status when no Course Content directory is provided
+AssertionError: expected Error: Command failed: /Users/to/Document… { …(6) } to match object { code: 2 }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": 2,
++ Error {
++   "code": 1,
+  }
+
+ ❯ tests/server/services/course-content/tutor-quality-directory-validator.test.ts:68:7
+     66|       ["scripts/validate-tutor-course-content.mjs"],
+     67|       { cwd: process.cwd() },
+     68|     )).rejects.toMatchObject({ code: 2 });
+       |       ^
+     69|   });
+     70| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 47 passed (48)
+      Tests  1 failed | 522 passed (523)
+   Start at  12:46:54
+   Duration  5.35s (transform 419ms, setup 392ms, import 2.80s, tests 3.87s, environment 3ms)
+

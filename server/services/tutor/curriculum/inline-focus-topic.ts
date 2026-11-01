@@ -1,4 +1,5 @@
 import type { ExampleFocusArea } from "../../course-content/embedded-tutor-annotation";
+import { focusQuestionFilter } from "./focus-applicability";
 import { validateCurriculumTopic, type CurriculumTopic } from "./curriculum-schema";
 
 export const INLINE_FOCUS_TOPIC_PREFIX = "inline-";
@@ -6,17 +7,23 @@ export const INLINE_FOCUS_TOPIC_PREFIX = "inline-";
 /**
  * Builds the Topic for the focus areas a teacher wrote into an Example's annotation. Every focus area
  * is one Concept with its questions; a focus area is mastered once every one of its questions was
- * answered successfully, and progression uses fixed defaults. The questions carry
- * no fact requirements: the teacher authored them for exactly this sketch.
+ * answered successfully, and progression uses fixed defaults. With `code`, only the questions that
+ * still fit the current sketch stay in the Topic, under the IDs they have in the whole focus; a sketch
+ * none of them fits has no focus Topic.
  */
-export function buildInlineFocusTopic(exampleId: string, focus: readonly ExampleFocusArea[]): CurriculumTopic {
+export function buildInlineFocusTopic(exampleId: string, focus: readonly ExampleFocusArea[], code?: string): CurriculumTopic | null {
+  const applies = code === undefined ? () => true : focusQuestionFilter(focus, code);
+  const areas = focus
+    .map((area) => ({ area, questions: area.questions.map((question, index) => ({ question, index })).filter(({ question }) => applies(question.text)) }))
+    .filter(({ questions }) => questions.length > 0);
+  if (areas.length === 0) return null;
   const topic: CurriculumTopic = {
     schemaVersion: 1,
     id: `${INLINE_FOCUS_TOPIC_PREFIX}${toSafeId(exampleId)}`,
     title: "Fokus dieses Beispiels",
     locale: "de-DE",
     activation: { any: [{ fact: "serial-call", values: ["print", "write"] }] },
-    concepts: focus.map((area) => ({
+    concepts: areas.map(({ area, questions }) => ({
       id: area.id,
       title: area.title,
       objective: area.objective,
@@ -25,14 +32,14 @@ export function buildInlineFocusTopic(exampleId: string, focus: readonly Example
       misconceptions: [],
       indicators: [{ id: `understands-${area.id}`.slice(0, 64), description: area.objective }],
       mastery: {
-        minimumSuccessfulProbes: area.questions.length,
+        minimumSuccessfulProbes: questions.length,
         successRatingAtLeast: 3,
         requiredIndicators: [`understands-${area.id}`.slice(0, 64)],
         minimumDistinctQuestionKinds: 1,
         recentWeakAnswersAllowed: 0,
       },
     })),
-    questions: focus.flatMap((area) => area.questions.map((question, index) => ({
+    questions: areas.flatMap(({ area, questions }) => questions.map(({ question, index }) => ({
       id: `${area.id}-q${index + 1}`.slice(0, 64),
       concept: area.id,
       indicator: `understands-${area.id}`.slice(0, 64),
@@ -43,8 +50,8 @@ export function buildInlineFocusTopic(exampleId: string, focus: readonly Example
     }))),
     scaffolds: [],
     progression: {
-      entryConcepts: [focus[0]?.id ?? ""],
-      preferredOrder: focus.map(({ id }) => id),
+      entryConcepts: [areas[0]?.area.id ?? ""],
+      preferredOrder: areas.map(({ area }) => area.id),
       onRating: {
         "1-2": "remediate",
         "3": "clarify-same-indicator",

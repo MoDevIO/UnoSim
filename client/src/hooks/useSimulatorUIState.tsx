@@ -38,6 +38,7 @@ interface UseSimulatorUIStateParams {
   downloadAllFiles: () => void;
   /** The library selection of a loaded example (SSOT Libraries §8.2). */
   onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
+  onBeginExampleLoad?: () => () => boolean;
   /** "Libraries (n)" of the tab options menu, the include hints and the dialog of the project libraries. */
   librariesCount?: number;
   onOpenLibraries?: () => void;
@@ -144,6 +145,7 @@ export function useSimulatorUIState({
   handleLoadExample,
   downloadAllFiles,
   onExampleLibraries,
+  onBeginExampleLoad,
   librariesCount,
   onOpenLibraries,
   libraryHints,
@@ -247,6 +249,7 @@ export function useSimulatorUIState({
             <ExamplesMenu
               onLoadExample={handleLoadExample}
               {...(onExampleLibraries ? { onExampleLibraries } : {})}
+              {...(onBeginExampleLoad ? { onBeginExampleLoad } : {})}
               capabilities={capabilities}
             />
           }
@@ -272,6 +275,7 @@ export function useSimulatorUIState({
       formatCode,
       handleLoadExample,
       onExampleLibraries,
+      onBeginExampleLoad,
       librariesCount,
       onOpenLibraries,
       libraryHints,

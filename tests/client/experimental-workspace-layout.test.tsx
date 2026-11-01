@@ -225,11 +225,11 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("tutor-api-key-action")).not.toHaveAttribute("aria-pressed");
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "aria-label",
-      "Tutor is waiting for your answer",
+      "New question, ends dialog. Tutor is waiting for your answer",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "title",
-      "Tutor is waiting for your answer",
+      "New question, ends dialog. Tutor is waiting for your answer",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
       "text-foreground",
@@ -278,11 +278,11 @@ describe("experimental workspace layout", () => {
     />);
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "aria-label",
-      "Tutor not ready",
+      "New question. Tutor not ready",
     );
     expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
       "title",
-      "Tutor not ready",
+      "New question. Tutor not ready",
     );
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key missing");
     expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key missing");

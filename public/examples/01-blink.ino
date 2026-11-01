@@ -1,13 +1,22 @@
-// Blink: the smallest UnoSim sketch.
-const int ledPin = LED_BUILTIN;
+/*
+ * LED blinken lassen
+ *
+ * Lernziel:
+ * Einen Pin als Ausgang schalten und mit delay() einen festen Takt erzeugen.
+ *
+ * Beobachtung:
+ * Die LED an Pin 13 wechselt alle 500 ms.
+ */
+
+const byte PIN_LED = LED_BUILTIN;
 
 void setup() {
-  pinMode(ledPin, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
 }
 
 void loop() {
-  digitalWrite(ledPin, HIGH);
+  digitalWrite(PIN_LED, HIGH);
   delay(500);
-  digitalWrite(ledPin, LOW);
+  digitalWrite(PIN_LED, LOW);
   delay(500);
 }

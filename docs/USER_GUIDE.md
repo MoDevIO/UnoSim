@@ -76,7 +76,16 @@ Der Server speichert keine Sketches. Sichere deine Dateien mit
 ## Beispiele laden
 
 **Examples** in der Kopfzeile (oder `Cmd/Ctrl+E`) öffnet die Beispielsammlung.
-Ein Beispiel ersetzt den aktuellen Sketch.
+Ein Beispiel ersetzt den aktuellen Sketch und beginnt im Tutor einen neuen Dialog.
+Bearbeitest du den Sketch, während ein Beispiel noch lädt, bleibt deine Änderung
+erhalten und das Beispiel wird nicht übernommen. Nur die Sammlung anzusehen
+ändert nichts an Sketch und Tutor-Dialog.
+
+Die allgemeinen eingebauten Beispiele und die der externen Sammlung sind für den
+**Uno** geschrieben. Ist ein anderes Board gewählt, fragt UnoSim vor dem Laden nach.
+Auf Nano und Mega 2560 laufen sie ebenfalls; auf dem ATtiny85 fehlen ihre Pins,
+und ihre 115200 Baud ergeben dort keine lesbare Ausgabe. Beispiele aus dem
+Bibliotheksdialog nennen ihre geprüften Boards dort selbst.
 
 **Built-in** enthält die eingebauten Beispiele. Diese Liste wird unabhängig
 von **External** geladen und bleibt bedienbar, wenn die externe Quelle langsam
@@ -154,7 +163,8 @@ Beim **ATtiny85** gilt (Arduino-Core ATTinyCore 1.5.2, 8 MHz intern):
   - Wer Pin 0 oder Pin 1 anders benutzt (auch für `analogWrite`), stört
     `Serial`; UnoSim warnt dann.
   - Die Baudrate steht in keinem Register. UnoSim erkennt sie an der Ausgabe;
-    bis dahin gilt der Wert aus `Serial.begin()`. Übliche Rate ist 9600.
+    bis dahin gilt der Wert aus `Serial.begin()`. Verwende 9600: Bei 115200 Baud
+    ist die Ausgabe oft unlesbar.
 - Speicher: 8 KB Flash, 512 Byte SRAM, 512 Byte EEPROM.
 - Die Legacy-Simulation gibt es nicht; `Serial1` bis `Serial3` auch nicht.
 
@@ -200,9 +210,31 @@ Neuladen der Seite musst du ihn erneut eintragen. UnoSim speichert ihn nicht.
    **Send answer** abschicken.
 3. Der Tutor bewertet dein Verständnis und stellt genau eine Folgefrage.
 
-Stammt dein Sketch aus einer Beispielsammlung mit Tutor-Inhalten, folgt der
-Tutor dem dort hinterlegten Lernpfad. Sonst – und auch, wenn GitHub gerade
-nicht erreichbar ist – arbeitet er als freier Tutor direkt mit deinem Sketch.
+Eine neue Lernfrage beendet den bisherigen Dialog. Wenn du ein Beispiel oder
+eigene Dateien lädst, beginnt der Tutor ebenfalls neu; API-Key und Modell
+bleiben erhalten.
+
+Stammt dein Sketch aus einer Beispielsammlung mit Tutor-Inhalten, stellt der
+Tutor zuerst die Fragen der Lehrkraft. Über dem Dialog steht, wer gerade fragt
+und wie viele Bereiche du verstanden hast:
+
+- **Teacher's focus**: Die Fragen der Lehrkraft laufen. Bei einer schwachen
+  Antwort bekommst du einen Hinweis und dieselbe Frage noch einmal.
+- **Teacher's focus completed**: Alle Bereiche sind verstanden, der freie Tutor
+  macht weiter.
+- **Questions used up**: Die Fragen sind gestellt, aber nicht jeder
+  Bereich ist verstanden. Die offenen Bereiche werden genannt, und der freie
+  Tutor arbeitet weiter daran.
+- **Teacher's focus paused**: Dein Sketch enthält den Code des Beispiels nicht
+  mehr. Der freie Tutor fragt dann zu deinem aktuellen Code.
+
+Experimentieren ist erwünscht: Eine Lehrkraftfrage entfällt nur, wenn der Code,
+nach dem sie fragt, nicht mehr im Sketch steht. Die Lehrkraftfragen sind fest.
+Die Schwierigkeit neben dem Fragezeichen (zum Beispiel `D30`) wirkt daher auf
+Rückmeldungen und auf die Fragen des freien Tutors.
+
+Ohne Tutor-Inhalte – und auch, wenn GitHub gerade nicht erreichbar ist – arbeitet
+er als freier Tutor direkt mit deinem Sketch.
 
 ## Einstellungen
 
@@ -255,7 +287,9 @@ Was das für deine Programme bedeutet:
   gestarteter Lauf weiter; Kompilieren, Beispiele und der Tutor brauchen den
   Server.
 
-Gesendeter Text im Serial Monitor endet immer mit dem Zeilenende (Code 10).
+Gesendeter Text im Serial Monitor endet mit dem Zeilenende, das du dort wählst:
+„Newline“ (Code 10, Voreinstellung), „Carriage return“ (Code 13), „Both NL & CR“
+(13 und 10) oder „No line ending“.
 
 ### Legacy: Simulation auf dem Server
 

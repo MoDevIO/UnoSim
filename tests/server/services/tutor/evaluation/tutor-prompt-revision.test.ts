@@ -138,7 +138,7 @@ describe("answer in the follow-up question (Freetutor point B, entry 08)", () =>
   });
 
   it("changes the prompt revision identifier together with the digest (R-ID-2)", () => {
-    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v4");
+    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v6");
   });
 });
 

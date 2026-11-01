@@ -58,7 +58,17 @@ function distinct<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
 }
 
-type DeclaredArray = { name: string; elementType: SketchType; elementCount: number };
+/** `capacity` is the size the array really has, and absent when the text alone does not settle it. */
+type DeclaredArray = { name: string; elementType: SketchType; elementCount: number; capacity?: number };
+
+/** `int a[4]` has 4 elements however few are initialized; `int a[]` as many as a flat initializer lists. */
+function arrayCapacity(sizeText: string, initializer: string | undefined, afterDeclaration: string): number | undefined {
+  if (afterDeclaration.trimStart().startsWith("[")) return undefined;
+  const size = sizeText.trim();
+  if (/^\d+$/.test(size)) return Number(size) > 0 ? Number(size) : undefined;
+  if (size !== "" || !initializer || /[{'"]/.test(initializer)) return undefined;
+  return initializer.split(",").map((item) => item.trim()).filter(Boolean).length;
+}
 
 /** The arrays a sketch declares: element type, name and the number of elements (initializer, else declared size). */
 function declaredArrays(clean: string): DeclaredArray[] {
@@ -79,9 +89,15 @@ function declaredArrays(clean: string): DeclaredArray[] {
     } else if (Number.isSafeInteger(declaredSize) && declaredSize > 0) {
       elementCount = declaredSize;
     }
-    arrays.push({ name, elementType, elementCount });
+    const capacity = arrayCapacity(match[3] ?? "", initializer, clean.slice(afterDeclaration, afterDeclaration + INITIALIZER_HEAD_WINDOW));
+    arrays.push({ name, elementType, elementCount, ...(capacity === undefined ? {} : { capacity }) });
   }
   return arrays;
+}
+
+/** The arrays whose size the sketch text settles. `elementCount` cannot serve here: it counts initializers. */
+export function arrayCapacities(code: string): { name: string; capacity: number }[] {
+  return declaredArrays(stripComments(code)).flatMap(({ name, capacity }) => (capacity ? [{ name, capacity }] : []));
 }
 
 export class DefaultSketchFactExtractor implements SketchFactExtractor {
@@ -105,7 +121,7 @@ export class DefaultSketchFactExtractor implements SketchFactExtractor {
 
     return {
       typesUsed: distinct(types),
-      arrays,
+      arrays: arrays.map(({ name, elementType, elementCount }) => ({ name, elementType, elementCount })),
       serialCalls: distinct(serialCalls),
     };
   }

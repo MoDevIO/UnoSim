@@ -56,12 +56,15 @@ interface ExamplesMenuProps {
   ) => void;
   /** The library selection of a loaded example, called right after `onLoadExample`; empty when it has none. */
   readonly onExampleLibraries?: (libraries: LibraryRequirement[]) => void;
+  /** Marks the project before a load; the returned check is false once the project changed, and the example is dropped. */
+  readonly onBeginExampleLoad?: () => () => boolean;
   readonly capabilities?: ServerCapabilities;
 }
 
 export function ExamplesMenu({
   onLoadExample,
   onExampleLibraries,
+  onBeginExampleLoad,
   capabilities = getServerCapabilities(true),
 }: ExamplesMenuProps) {
   const [groups, setGroups] = useState<Record<ExampleSource, CatalogGroup>>({ builtin: emptyGroup(), external: emptyGroup() });
@@ -277,8 +280,13 @@ export function ExamplesMenu({
     }
     setLoadingExampleId(example.id);
     try {
+      const unchanged = onBeginExampleLoad?.() ?? (() => true);
       const detail = await loadExampleDetail(example);
       if (!capabilitiesRef.current.canUseServerExamples || selection !== selectionRef.current) return;
+      if (!unchanged()) {
+        toast({ title: "Example not loaded: edit kept" });
+        return;
+      }
       const displayName = getExampleDisplayName(example);
       setActiveExternalExampleContext(example.source === "external" && example.repository && example.ref && example.revision
         ? { repository: example.repository, ref: example.ref, revision: example.revision, exampleId: example.id }

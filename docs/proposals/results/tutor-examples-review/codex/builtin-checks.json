@@ -1,0 +1,147 @@
+[
+  {
+    "id": "builtin-01-blink-ino",
+    "passed": true,
+    "serial": [],
+    "checks": [
+      {
+        "expectation": [250, "pin", 13, "OUTPUT", 1],
+        "actual": "OUTPUT 1",
+        "ok": true
+      },
+      {
+        "expectation": [750, "pin", 13, "OUTPUT", 0],
+        "actual": "OUTPUT 0",
+        "ok": true
+      },
+      {
+        "expectation": [1100, "pin", 13, "OUTPUT", 1],
+        "actual": "OUTPUT 1",
+        "ok": true
+      }
+    ]
+  },
+  {
+    "id": "builtin-02-digital-input-ino",
+    "passed": true,
+    "serial": ["released", "pressed", "released"],
+    "checks": []
+  },
+  {
+    "id": "builtin-03-digital-io-ino",
+    "passed": true,
+    "serial": [],
+    "checks": [
+      {
+        "expectation": [50, "pin", 13, "OUTPUT", 0],
+        "actual": "OUTPUT 0",
+        "ok": true
+      },
+      {
+        "expectation": [150, "pin", 13, "OUTPUT", 1],
+        "actual": "OUTPUT 1",
+        "ok": true
+      },
+      {
+        "expectation": [250, "pin", 13, "OUTPUT", 0],
+        "actual": "OUTPUT 0",
+        "ok": true
+      }
+    ]
+  },
+  {
+    "id": "builtin-04-analog-input-ino",
+    "passed": true,
+    "serial": ["A0: 512", "A0: 512"],
+    "checks": []
+  },
+  {
+    "id": "builtin-05-pwm-output-ino",
+    "passed": true,
+    "serial": [],
+    "checks": [
+      {
+        "expectation": [210, "pwm", 9, 50],
+        "actual": "50",
+        "ok": true
+      }
+    ]
+  },
+  {
+    "id": "builtin-06-serial-monitor-ino",
+    "passed": true,
+    "serial": [
+      "UnoSim serial monitor demo",
+      "millis = 0",
+      "millis = 999",
+      "millis = 1999"
+    ],
+    "checks": []
+  },
+  {
+    "id": "builtin-07-serial-plotter-ino",
+    "passed": true,
+    "serial": [
+      "value:0",
+      "value:10",
+      "value:20",
+      "value:30",
+      "value:40",
+      "value:50",
+      "value:60",
+      "value:70",
+      "value:80",
+      "value:90",
+      "value:100"
+    ],
+    "checks": []
+  },
+  {
+    "id": "builtin-08-multiple-io-ino",
+    "passed": true,
+    "serial": [
+      "sensor=512 pwm=127",
+      "sensor=512 pwm=127",
+      "sensor=512 pwm=128"
+    ],
+    "checks": []
+  },
+  {
+    "id": "builtin-09-nonblocking-timing-ino",
+    "passed": true,
+    "serial": ["tick", "tock"],
+    "checks": [
+      {
+        "expectation": [600, "pin", 13, "OUTPUT", 1],
+        "actual": "OUTPUT 1",
+        "ok": true
+      },
+      {
+        "expectation": [1050, "pin", 13, "OUTPUT", 0],
+        "actual": "OUTPUT 0",
+        "ok": true
+      }
+    ]
+  },
+  {
+    "id": "builtin-10-unosim-showcase-ino",
+    "passed": true,
+    "serial": [
+      "UnoSim showcase ready",
+      "A0=512 PWM=127 button=released",
+      "A0=512 PWM=128 button=pressed"
+    ],
+    "checks": [
+      {
+        "expectation": [600, "pin", 13, "OUTPUT", 0],
+        "actual": "OUTPUT 0",
+        "ok": true
+      },
+      {
+        "expectation": [1050, "pin", 13, "OUTPUT", 1],
+        "actual": "OUTPUT 1",
+        "ok": true
+      }
+    ]
+  }
+]

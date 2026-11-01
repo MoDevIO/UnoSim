@@ -1,0 +1,4 @@
+
+> rest-express@2.0.0-beta.1 check
+> tsc --noEmit && tsc -p tests/tsconfig.tutor.json --noEmit && tsc -p packages/avr-emulator/tsconfig.json --noEmit && tsc -p packages/avr-emulator/tsconfig.test.json --noEmit
+

@@ -1,0 +1,572 @@
+
+ RUN  v4.1.11 /Users/to/Documents/TT_Web/UnoSim
+
+ ❯ |unit-node| tests/server/services/course-content/tutor-quality-directory-validator.test.ts (6 tests | 1 failed) 253ms
+     × returns usage status when no Course Content directory is provided 75ms
+ ❯ |unit-node-http| tests/server/routes/tutor.routes.test.ts (32 tests | 32 failed) 960102ms
+     × keeps the internal follow-up provenance out of the public HTTP response (R-FUP-3) 30013ms
+     × returns the validated question and never echoes the request credential 30004ms
+     × rejects a missing credential before invoking the provider service 30003ms
+     × maps provider errors to stable safe error contracts 30003ms
+     × returns only the current provider model list 30001ms
+     × requires a personal credential for model discovery 30004ms
+     × rejects a personal credential over non-loopback HTTP 30004ms
+     × accepts a personal credential over HTTPS through a trusted proxy 30005ms
+     × accepts a personal credential over HTTP in the Docker test gateway bypass profile 30003ms
+     × accepts a dialog answer and returns feedback plus exactly one follow-up question 30003ms
+     × rejects malformed dialog history before invoking the service 30003ms
+     × derives a Course Content session and pins follow-up requests to its revision 30004ms
+     × rejects a browser revision that does not match server resolution 30003ms
+     × reports an example revision the server no longer holds as stale Course Content 30004ms
+     × answers as the free Tutor without a session when the Course Content source is unavailable (SOURCE_UNAVAILABLE) 30002ms
+     × answers as the free Tutor without a session when the Course Content source is unavailable (RATE_LIMITED) 30004ms
+     × answers as the free Tutor without a session when the Course Content source is unavailable (LOAD_CAPACITY_EXCEEDED) 30004ms
+     × aborts the shared route and Course Content signal when the client disconnects 30002ms
+     × creates no session for a provider-free dialog fallback but keeps an existing handle usable 30003ms
+     × commits one session only after a successful request and passes its progression state to the provider call 30002ms
+     × leaves no session behind when the provider fails with provider-timeout 30002ms
+     × leaves no session behind when the provider fails with credential-invalid 30001ms
+     × leaves no session behind when the provider fails with rate-limited 30002ms
+     × leaves no session behind when the provider fails with model-unavailable 30001ms
+     × leaves no session behind when the provider fails with invalid-response 30002ms
+     × leaves no session behind when the provider fails with provider-unavailable 30002ms
+     × leaves no session behind for unexpected failures, invalid Course Content, or a missing credential 30002ms
+     × leaves no session behind when the client disconnects before the provider answers 30002ms
+     × rejects a session handle owned by another subject without touching its progression 30003ms
+     × rejects an expired session handle with the existing context error 30002ms
+     × bounds the sessions of repeated questions without a handle per subject 30003ms
+     × refuses Course Content without an authenticated subject instead of sharing an anonymous owner 30003ms
+ ❯ |unit-node-http| tests/server/routes/tutor-board.routes.test.ts (6 tests | 6 failed) 180028ms
+     × passes the board of a question request as the last argument 30011ms
+     × passes the board of a dialog request as the last argument 30005ms
+     × calls the service as before when no board is sent 30003ms
+     × rejects an unknown board before the service is called 30003ms
+     × passes board, headers and entry file together as the last argument 30002ms
+     × rejects a header that would replace the entry file 30001ms
+ ❯ |unit-node-http| tests/server/routes/examples.routes.test.ts (6 tests | 6 failed) 180025ms
+     × serves the built-in catalog anonymously without consulting the external catalog 30013ms
+     × supports validate and request-scoped catalog with private no-store 30003ms
+     × rejects partial, duplicate, unknown, invalid repository and invalid revision parameters 30002ms
+     × passes exact repository and catalog revision to detail and maps missing examples 30002ms
+     × rate-limits validate and override reads per trusted identity 30002ms
+     × keeps anonymous gateway default reads but rejects anonymous overrides 30002ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 45 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > serves the built-in catalog anonymously without consulting the external catalog
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:74:3
+     72|   }
+     73|
+     74|   it("serves the built-in catalog anonymously without consulting the e…
+       |   ^
+     75|     const { baseUrl, getCatalog, getBuiltInCatalog, validate } = await…
+     76|     getCatalog.mockRejectedValue(new Error("External source unavailabl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > supports validate and request-scoped catalog with private no-store
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:85:3
+     83|   });
+     84|
+     85|   it("supports validate and request-scoped catalog with private no-sto…
+       |   ^
+     86|     const { baseUrl, validate, getCatalog } = await start();
+     87|     const body = { schemaVersion: 1, selection: { repository: "owner/r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > rejects partial, duplicate, unknown, invalid repository and invalid revision parameters
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:102:3
+    100|   });
+    101|
+    102|   it("rejects partial, duplicate, unknown, invalid repository and inva…
+       |   ^
+    103|     const { baseUrl } = await start();
+    104|     expect((await request(baseUrl, "GET", "/api/examples?repository=ow…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > passes exact repository and catalog revision to detail and maps missing examples
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:119:3
+    117|   });
+    118|
+    119|   it("passes exact repository and catalog revision to detail and maps …
+       |   ^
+    120|     const { baseUrl, getExample } = await start();
+    121|     const route = `/api/examples/example?repository=owner%2Frepo&revis…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > rate-limits validate and override reads per trusted identity
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:129:3
+    127|   });
+    128|
+    129|   it("rate-limits validate and override reads per trusted identity", a…
+       |   ^
+    130|     const { baseUrl } = await start(1, 1);
+    131|     const body = { schemaVersion: 1, selection: { repository: "owner/r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/examples.routes.test.ts > request-scoped examples routes > keeps anonymous gateway default reads but rejects anonymous overrides
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/examples.routes.test.ts:139:3
+    137|   });
+    138|
+    139|   it("keeps anonymous gateway default reads but rejects anonymous over…
+       |   ^
+    140|     const { baseUrl } = await start();
+    141|     expect((await request(baseUrl, "GET", "/api/examples")).status).to…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: board > passes the board of a question request as the last argument
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:37:3
+     35|
+     36| describe("Tutor routes: board", () => {
+     37|   it("passes the board of a question request as the last argument", as…
+       |   ^
+     38|     const service = serviceStub();
+     39|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: board > passes the board of a dialog request as the last argument
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:46:3
+     44|   });
+     45|
+     46|   it("passes the board of a dialog request as the last argument", asyn…
+       |   ^
+     47|     const service = serviceStub();
+     48|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: board > calls the service as before when no board is sent
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:55:3
+     53|   });
+     54|
+     55|   it("calls the service as before when no board is sent", async () => {
+       |   ^
+     56|     const service = serviceStub();
+     57|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: board > rejects an unknown board before the service is called
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:66:3
+     64|   });
+     65|
+     66|   it("rejects an unknown board before the service is called", async ()…
+       |   ^
+     67|     const service = serviceStub();
+     68|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: project files > passes board, headers and entry file together as the last argument
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:79:3
+     77|
+     78| describe("Tutor routes: project files", () => {
+     79|   it("passes board, headers and entry file together as the last argume…
+       |   ^
+     80|     const service = serviceStub();
+     81|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor-board.routes.test.ts > Tutor routes: project files > rejects a header that would replace the entry file
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor-board.routes.test.ts:91:3
+     89|   });
+     90|
+     91|   it("rejects a header that would replace the entry file", async () =>…
+       |   ^
+     92|     const service = serviceStub();
+     93|     const post = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > keeps the internal follow-up provenance out of the public HTTP response (R-FUP-3)
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:64:3
+     62|   }
+     63|
+     64|   it("keeps the internal follow-up provenance out of the public HTTP r…
+       |   ^
+     65|     const service = {
+     66|       generateQuestion: vi.fn().mockResolvedValue({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > returns the validated question and never echoes the request credential
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:90:3
+     88|   });
+     89|
+     90|   it("returns the validated question and never echoes the request cred…
+       |   ^
+     91|     const service = {
+     92|       generateQuestion: vi.fn().mockResolvedValue({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > rejects a missing credential before invoking the provider service
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:121:3
+    119|   });
+    120|
+    121|   it("rejects a missing credential before invoking the provider servic…
+       |   ^
+    122|     const service = { generateQuestion: vi.fn() };
+    123|     const listening = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > maps provider errors to stable safe error contracts
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:134:3
+    132|   });
+    133|
+    134|   it("maps provider errors to stable safe error contracts", async () =…
+       |   ^
+    135|     const service = {
+    136|       generateQuestion: vi.fn().mockRejectedValue(new TutorProviderErr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > returns only the current provider model list
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:148:3
+    146|   });
+    147|
+    148|   it("returns only the current provider model list", async () => {
+       |   ^
+    149|     const service = {
+    150|       getAvailableModels: vi.fn().mockResolvedValue(["current-model", …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > requires a personal credential for model discovery
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:160:3
+    158|   });
+    159|
+    160|   it("requires a personal credential for model discovery", async () =>…
+       |   ^
+    161|     const service = { getAvailableModels: vi.fn() };
+    162|     const listening = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > rejects a personal credential over non-loopback HTTP
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:173:3
+    171|   });
+    172|
+    173|   it("rejects a personal credential over non-loopback HTTP", async () …
+       |   ^
+    174|     const service = { getAvailableModels: vi.fn() };
+    175|     const listening = await start(service, true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > accepts a personal credential over HTTPS through a trusted proxy
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:188:3
+    186|   });
+    187|
+    188|   it("accepts a personal credential over HTTPS through a trusted proxy…
+       |   ^
+    189|     const service = { getAvailableModels: vi.fn().mockResolvedValue(["…
+    190|     const listening = await start(service, true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > accepts a personal credential over HTTP in the Docker test gateway bypass profile
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:201:3
+    199|   });
+    200|
+    201|   it("accepts a personal credential over HTTP in the Docker test gatew…
+       |   ^
+    202|     const service = { getAvailableModels: vi.fn().mockResolvedValue(["…
+    203|     const originalBypass = config.dockerTestBypassGateway;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > accepts a dialog answer and returns feedback plus exactly one follow-up question
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:219:3
+    217|   });
+    218|
+    219|   it("accepts a dialog answer and returns feedback plus exactly one fo…
+       |   ^
+    220|     const service = {
+    221|       generateDialogResponse: vi.fn().mockResolvedValue({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > rejects malformed dialog history before invoking the service
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:261:3
+    259|   });
+    260|
+    261|   it("rejects malformed dialog history before invoking the service", a…
+       |   ^
+    262|     const service = { generateDialogResponse: vi.fn() };
+    263|     const listening = await start(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > derives a Course Content session and pins follow-up requests to its revision
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:276:3
+    274|   });
+    275|
+    276|   it("derives a Course Content session and pins follow-up requests to …
+       |   ^
+    277|     const contentA = {
+    278|       repository: "owner/repo" as const,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > rejects a browser revision that does not match server resolution
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:327:3
+    325|   });
+    326|
+    327|   it("rejects a browser revision that does not match server resolution…
+       |   ^
+    328|     const resolver = { resolveTutorContent: vi.fn().mockRejectedValue(…
+    329|     const service = { generateQuestion: vi.fn() };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > reports an example revision the server no longer holds as stale Course Content
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:341:3
+    339|   });
+    340|
+    341|   it("reports an example revision the server no longer holds as stale …
+       |   ^
+    342|     const stale = new ExamplesError("INVALID_REVISION", "Course Conten…
+    343|     const resolver = { resolveTutorContent: vi.fn().mockRejectedValue(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > answers as the free Tutor without a session when the Course Content source is unavailable (SOURCE_UNAVAILABLE)
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > answers as the free Tutor without a session when the Course Content source is unavailable (RATE_LIMITED)
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > answers as the free Tutor without a session when the Course Content source is unavailable (LOAD_CAPACITY_EXCEEDED)
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:356:85
+    354|   });
+    355|
+    356|   it.each(["SOURCE_UNAVAILABLE", "RATE_LIMITED", "LOAD_CAPACITY_EXCEED…
+       |                                                                                     ^
+    357|     "answers as the free Tutor without a session when the Course Conte…
+    358|     async (code) => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor HTTP route > aborts the shared route and Course Content signal when the client disconnects
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:375:3
+    373|   );
+    374|
+    375|   it("aborts the shared route and Course Content signal when the clien…
+       |   ^
+    376|     const content = {
+    377|       repository: "owner/repo" as const,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > creates no session for a provider-free dialog fallback but keeps an existing handle usable
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:469:3
+    467|   });
+    468|
+    469|   it("creates no session for a provider-free dialog fallback but keeps…
+       |   ^
+    470|     const provider = {
+    471|       listModels: vi.fn().mockRejectedValue(new TutorProviderError("cr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > commits one session only after a successful request and passes its progression state to the provider call
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:491:3
+    489|   });
+    490|
+    491|   it("commits one session only after a successful request and passes i…
+       |   ^
+    492|     const service = {
+    493|       generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-mode…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with provider-timeout
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with credential-invalid
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with rate-limited
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with model-unavailable
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with invalid-response
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the provider fails with provider-unavailable
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:518:14
+    516|     ["invalid-response", 502],
+    517|     ["provider-unavailable", 502],
+    518|   ] as const)("leaves no session behind when the provider fails with %…
+       |              ^
+    519|     const service = { generateQuestion: vi.fn().mockRejectedValue(new …
+    520|     const { url, store, resolver } = await startSessions(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind for unexpected failures, invalid Course Content, or a missing credential
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:532:3
+    530|   });
+    531|
+    532|   it("leaves no session behind for unexpected failures, invalid Course…
+       |   ^
+    533|     const service = { generateQuestion: vi.fn().mockRejectedValue(new …
+    534|     const rejecting = { resolveTutorContent: vi.fn().mockRejectedValue…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > leaves no session behind when the client disconnects before the provider answers
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:546:3
+    544|   });
+    545|
+    546|   it("leaves no session behind when the client disconnects before the …
+       |   ^
+    547|     let finishGeneration: ((value: unknown) => void) | undefined;
+    548|     const generation = new Promise((resolve) => { finishGeneration = r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > rejects a session handle owned by another subject without touching its progression
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:575:3
+    573|   });
+    574|
+    575|   it("rejects a session handle owned by another subject without touchi…
+       |   ^
+    576|     const service = {
+    577|       generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-mode…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > rejects an expired session handle with the existing context error
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:592:3
+    590|   });
+    591|
+    592|   it("rejects an expired session handle with the existing context erro…
+       |   ^
+    593|     let now = 1_000;
+    594|     const store = new TutorCourseContentSessionStore(sessionLimits, ()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > bounds the sessions of repeated questions without a handle per subject
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:611:3
+    609|   });
+    610|
+    611|   it("bounds the sessions of repeated questions without a handle per s…
+       |   ^
+    612|     const service = { generateQuestion: vi.fn().mockResolvedValue({ mo…
+    613|     const { url, store } = await startSessions(service);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/45]⎯
+
+ FAIL  |unit-node-http| tests/server/routes/tutor.routes.test.ts > Tutor Course Content session lifecycle > refuses Course Content without an authenticated subject instead of sharing an anonymous owner
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/server/routes/tutor.routes.test.ts:628:3
+    626|   });
+    627|
+    628|   it("refuses Course Content without an authenticated subject instead …
+       |   ^
+    629|     const service = { generateQuestion: vi.fn() };
+    630|     const { url, store, resolver } = await startSessions(service, { wi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/45]⎯
+
+ FAIL  |unit-node| tests/server/services/course-content/tutor-quality-directory-validator.test.ts > Tutor Course Content directory validator > returns usage status when no Course Content directory is provided
+AssertionError: expected Error: Command failed: /Users/to/Document… { …(6) } to match object { code: 2 }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": 2,
++ Error {
++   "code": 1,
+  }
+
+ ❯ tests/server/services/course-content/tutor-quality-directory-validator.test.ts:68:7
+     66|       ["scripts/validate-tutor-course-content.mjs"],
+     67|       { cwd: process.cwd() },
+     68|     )).rejects.toMatchObject({ code: 2 });
+       |       ^
+     69|   });
+     70| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/45]⎯
+
+
+ Test Files  4 failed | 75 passed (79)
+      Tests  45 failed | 682 passed (727)
+   Start at  12:41:00
+   Duration  1324.53s (transform 2.20s, setup 1.50s, import 9.91s, tests 1328.67s, environment 4.47s)
+

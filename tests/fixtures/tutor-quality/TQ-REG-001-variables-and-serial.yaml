@@ -9,7 +9,7 @@ activation:
 concepts:
   - id: variable-values
     title: Variablenwerte
-    objective: Den Zusammenhang zwischen einem deklarierten Integerwert und seiner Verwendung erklären.
+    objective: Den Zusammenhang zwischen dem Integerwert einer Variablen und seiner Verwendung erklären.
     prerequisites: []
     difficulty:
       entry: [1, 50]

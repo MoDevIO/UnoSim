@@ -1,0 +1,45 @@
+import React from '/Users/to/Documents/TT_Web/UnoSim/node_modules/react/index.js';
+import {test,expect,afterEach,beforeEach} from '/Users/to/Documents/TT_Web/UnoSim/node_modules/vitest/dist/index.js';
+import {render,renderHook,act,cleanup,screen,fireEvent,waitFor} from '/Users/to/Documents/TT_Web/UnoSim/node_modules/@testing-library/react/dist/index.js';
+import {ExamplesMenu} from '/Users/to/Documents/TT_Web/UnoSim/client/src/components/features/examples-menu.tsx';
+import {useTutor} from '/Users/to/Documents/TT_Web/UnoSim/client/src/hooks/use-tutor.ts';
+import {getServerCapabilities} from '/Users/to/Documents/TT_Web/UnoSim/client/src/lib/server-capabilities.ts';
+import {setExternalExamplesOverride} from '/Users/to/Documents/TT_Web/UnoSim/client/src/lib/external-examples.ts';
+vi.mock('@/hooks/use-toast',()=>({useToast:()=>({toast:vi.fn()})}));
+vi.mock('@/components/ui/dropdown-menu',async()=>{
+ const React=await import('/Users/to/Documents/TT_Web/UnoSim/node_modules/react/index.js');
+ const C=React.createContext<any>({open:false,setOpen:()=>{}});
+ return {DropdownMenu:({open,onOpenChange,children}:any)=>React.createElement(C.Provider,{value:{open,setOpen:onOpenChange}},children),DropdownMenuTrigger:({children}:any)=>{const c=React.useContext(C);return React.cloneElement(children,{onClick:()=>c.setOpen(!c.open)});},DropdownMenuContent:({children}:any)=>React.useContext(C).open?React.createElement('div',null,children):null};
+});
+const builtinSource={selection:'default',mode:'builtin',repository:null,ref:null,revision:null,status:'builtin',stale:false};
+const item={id:'builtin-demo',title:'Demo',category:'Built-in',main:'demo.ino',source:'builtin',files:[{name:'demo.ino',path:'demo.ino'}]};
+function installFetch(detail?:()=>Promise<Response>){
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(url)=>{
+  const s=String(url);
+  if(s==='/api/config')return new Response('{}');
+  if(s==='/api/tutor/question')return new Response(JSON.stringify({question:'Alte Lernfrage?',difficulty:30,provider:'kiconnect',model:'fake'}));
+  if(s==='/api/examples/builtin/catalog')return new Response(JSON.stringify({schemaVersion:1,source:builtinSource,examples:[item]}));
+  if(s==='/api/examples')return new Response(JSON.stringify({schemaVersion:1,source:builtinSource,examples:[]}));
+  return detail?detail():new Response(JSON.stringify({files:[{name:'demo.ino',content:'// new example'}]}));
+ });
+}
+beforeEach(()=>{setExternalExamplesOverride(null);vi.stubGlobal('React',React);vi.stubGlobal('requestAnimationFrame',(f:any)=>setTimeout(f,0));});
+afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();setExternalExamplesOverride(null);});
+async function choose(){fireEvent.click(screen.getByRole('button',{name:'Examples',exact:true}));fireEvent.click(await screen.findByRole('button',{name:'Built-in',exact:true}));fireEvent.click(screen.getByRole('button',{name:/demo\.ino/}));}
+test('a newly loaded built-in example clears the previous tutor dialog',async()=>{
+ installFetch();
+ const {result}=renderHook(()=>useTutor(getServerCapabilities(true)));
+ act(()=>result.current.setCredential('review-key'));
+ await act(async()=>result.current.generateQuestion('void setup() {} void loop() {}'));
+ const onLoadExample=vi.fn();render(React.createElement(ExamplesMenu,{onLoadExample}));
+ await choose();await waitFor(()=>expect(onLoadExample).toHaveBeenCalled());
+ expect(result.current.question).toBeNull();
+});
+test('late example loading preserves a subsequent edit after the menu was closed',async()=>{
+ let release:any;const held=new Promise<Response>(r=>release=r);installFetch(()=>held);
+ function Harness(){const [code,setCode]=React.useState('// original');return React.createElement(React.Fragment,null,React.createElement(ExamplesMenu,{onLoadExample:(files:any)=>setCode(files[0].content)}),React.createElement('button',{onClick:()=>setCode('// subsequent edit')},'Edit code'),React.createElement('output',{'data-testid':'code'},code));}
+ render(React.createElement(Harness));await choose();
+ fireEvent.click(screen.getByRole('button',{name:'Examples',exact:true}));fireEvent.click(screen.getByRole('button',{name:'Edit code'}));
+ await act(async()=>release(new Response(JSON.stringify({files:[{name:'demo.ino',content:'// late example'}]}))));
+ expect(screen.getByTestId('code').textContent).toBe('// subsequent edit');
+});

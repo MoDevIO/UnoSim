@@ -116,15 +116,17 @@ describe("inline focus annotation", () => {
     }));
     const first = await adapter.planInitial({ code: arraySketch, history: [], difficulty: 30, exampleId: "it07-05-array" });
     if (!first || "kind" in first) throw new Error("no plan");
-    const next = await adapter.planFollowup({
-      code: arraySketch, history: [], currentQuestion: first.question, rating: 1, difficulty: 30, exampleId: "it07-05-array",
-    });
+    const answer = { code: arraySketch, currentQuestion: first.question, difficulty: 30, exampleId: "it07-05-array" };
+    const retry = await adapter.planFollowup({ ...answer, history: [], rating: 1 });
+    expect(retry).toMatchObject({ topicId: "inline-it07-05-array", question: "Erste Frage?" });
+    const next = await adapter.planFollowup({ ...answer, history: [turn(first as Plan, 1)], rating: 1 });
     expect(next).toMatchObject({ topicId: "inline-it07-05-array", question: "Zweite Frage?" });
   });
 
   it("also hands over to the free Tutor when weak answers use up the focus questions", async () => {
     const { questions, last } = await runStrongSession(planner(), 12, 1);
-    expect(questions.length).toBeLessThan(12);
+    // Each of the three questions is asked twice: once more after the first weak answer.
+    expect(questions).toHaveLength(6);
     expect(last).toBeNull();
   });
 

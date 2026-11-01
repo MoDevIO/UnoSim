@@ -1,4 +1,13 @@
-// Emit a changing value that is easy to inspect in the Serial Plotter.
+/*
+ * Serial Plotter
+ *
+ * Lernziel:
+ * Einen Wert so ausgeben, dass der Plotter eine Kurve zeichnet.
+ *
+ * Beobachtung:
+ * Im Plotter pendelt die Kurve value zwischen 0 und 100.
+ */
+
 int value = 0;
 int direction = 1;
 

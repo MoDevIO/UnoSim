@@ -1,0 +1,5 @@
+
+> rest-express@2.0.0-beta.1 check:docs
+> node scripts/check-docs.mjs
+
+Documentation check passed (97 Markdown files).

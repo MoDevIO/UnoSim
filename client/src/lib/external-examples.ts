@@ -80,6 +80,12 @@ interface ExternalExamplesState {
   override: ExternalExamplesSelection | null;
   catalog: ExternalExamplesCatalog | null;
   activeCourseContent: ActiveCourseContentContext | null;
+  /**
+   * Counts the learning situations of this browser tab. It changes when a project is taken over or the
+   * course selection changes, and never because a catalog arrived: looking into the Examples menu keeps the
+   * Tutor dialog (ExternalExamples SSOT 5.1).
+   */
+  learningSituation: number;
 }
 
 const listeners = new Set<() => void>();
@@ -87,9 +93,11 @@ let state: ExternalExamplesState = {
   override: readStoredSelection(),
   catalog: null,
   activeCourseContent: null,
+  learningSituation: 0,
 };
 let requestGeneration = 0;
 let activeController: AbortController | undefined;
+let pendingCatalog: Promise<ExternalExamplesCatalog> | undefined;
 
 export function useExternalExamples() {
   return useSyncExternalStore(subscribe, getState, getState);
@@ -193,7 +201,17 @@ export async function loadBuiltInExamplesCatalog(signal?: AbortSignal): Promise<
   return payload;
 }
 
-export async function refreshExternalExamplesCatalog(
+export function refreshExternalExamplesCatalog(signal?: AbortSignal): Promise<ExternalExamplesCatalog> {
+  const request = fetchExternalExamplesCatalog(signal);
+  pendingCatalog = request;
+  const done = () => {
+    if (pendingCatalog === request) pendingCatalog = undefined;
+  };
+  request.then(done, done);
+  return request;
+}
+
+async function fetchExternalExamplesCatalog(
   signal?: AbortSignal,
 ): Promise<ExternalExamplesCatalog> {
   const generation = ++requestGeneration;
@@ -250,7 +268,7 @@ export function setExternalExamplesOverride(
       globalThis.localStorage.removeItem(EXTERNAL_EXAMPLES_STORAGE_KEY);
     } catch {}
   }
-  state = { ...state, override: selection, catalog: null, activeCourseContent: null };
+  state = { ...state, override: selection, catalog: null, activeCourseContent: null, learningSituation: state.learningSituation + 1 };
   requestGeneration++;
   activeController?.abort();
   emit();
@@ -259,9 +277,27 @@ export function setExternalExamplesOverride(
   } catch {}
 }
 
+/** A project was taken over: `context` names its Course Example, and null stands for any other project. */
 export function setActiveExternalExampleContext(context: ActiveCourseContentContext | null): void {
-  state = { ...state, activeCourseContent: context };
+  state = { ...state, activeCourseContent: context, learningSituation: state.learningSituation + 1 };
   emit();
+}
+
+/** Loads the selected course unless it is known or on its way; the Tutor must not depend on an opened menu. */
+export function ensureExternalExamplesCatalog(): void {
+  if (!state.catalog && !pendingCatalog) refreshExternalExamplesCatalog().catch(() => undefined);
+}
+
+/** The Course Content of the next Tutor session: the loaded Example, else the selected course. Without a catalog the free Tutor answers. */
+export async function resolveTutorCourseContent(signal: AbortSignal): Promise<ActiveCourseContentContext | Omit<ActiveCourseContentContext, "exampleId"> | undefined> {
+  if (state.activeCourseContent) return state.activeCourseContent;
+  if (pendingCatalog) {
+    const giveUp = AbortSignal.any([signal, AbortSignal.timeout(5_000)]);
+    await Promise.race([pendingCatalog.catch(() => undefined), new Promise((resolve) => giveUp.addEventListener("abort", resolve))]);
+  }
+  const source = state.catalog?.source;
+  if (source?.mode !== "repository-ref" || !source.repository || !source.ref || !source.revision) return undefined;
+  return { repository: source.repository, ref: source.ref, revision: source.revision };
 }
 
 function subscribe(listener: () => void): () => void {

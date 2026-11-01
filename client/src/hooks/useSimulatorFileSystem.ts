@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { useFileManager } from "@/hooks/use-file-manager";
+import { setActiveExternalExampleContext } from "@/lib/external-examples";
 import { generateUuidV4 } from "@/lib/uuid";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
@@ -160,6 +161,15 @@ export function useSimulatorFileSystem({
     [onReplaceAllFiles, setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs],
   );
 
+  /** Files the learner opens: another project than any loaded Example, so the Tutor starts over. */
+  const handleUserFilesLoaded = useCallback(
+    (files: SourceFileInput[], replaceAll: boolean) => {
+      if (replaceAll) setActiveExternalExampleContext(null);
+      handleFilesLoaded(files, replaceAll);
+    },
+    [handleFilesLoaded],
+  );
+
   const toastAdapter = useMemo(
     () => (p: { title: string; description?: string; variant?: string }) =>
       toast({
@@ -173,7 +183,7 @@ export function useSimulatorFileSystem({
   const { fileInputRef, onLoadFiles, downloadAllFiles, handleHiddenFileInput } =
     useFileManager({
       tabs,
-      onFilesLoaded: handleFilesLoaded,
+      onFilesLoaded: handleUserFilesLoaded,
       toast: toastAdapter,
     });
 
@@ -207,7 +217,7 @@ export function useSimulatorFileSystem({
     handleTabAdd,
     handleTabClose,
     handleTabRename,
-    handleFilesLoaded,
+    handleFilesLoaded: handleUserFilesLoaded,
     handleLoadExample,
   } as const;
 }

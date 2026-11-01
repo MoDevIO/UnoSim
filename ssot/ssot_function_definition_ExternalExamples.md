@@ -90,8 +90,8 @@ Unicode, Query und Fragment sind ausgeschlossen. Insbesondere ist `main`
 ausdrücklich zulässig. Der Ref ist kein Pfad und keine Raw-URL.
 
 Die Settings MÜSSEN Repository, Ref, den Zustand `Default` oder
-`Browser override` sowie `Apply` und `Reset to default` anbieten. Apply bleibt
-transaktional: Erst nach erfolgreicher serverseitiger Validate-Antwort wird die
+`Browser override` sowie `Validate`, `Apply` und `Reset to default` anbieten.
+Apply bleibt transaktional: Erst nach erfolgreicher serverseitiger Validate-Antwort wird die
 Auswahl gespeichert und aktiviert. Fehler verändern weder bisherige Auswahl
 noch Editorinhalt.
 
@@ -195,8 +195,19 @@ Bei Fehler MUSS ein dauerhafter gruppenbezogener Hinweis mit `Retry` erscheinen.
 Retry lädt nur die betroffene Gruppe; es gibt keine automatische Retry-Schleife.
 `No examples available` gilt nur, wenn beide Gruppen erfolgreich leer sind.
 
-Katalogabrufe, Fehler und Retry dürfen weder Editorinhalt noch Browser-Auswahl
-ändern. Überholte/abgebrochene Antworten dürfen keine neuere Auswahl überschreiben.
+Katalogabrufe, Fehler und Retry dürfen weder Editorinhalt, Browser-Auswahl noch
+einen laufenden Tutor-Dialog samt Antwortentwurf ändern. Überholte/abgebrochene
+Antworten dürfen keine neuere Auswahl überschreiben. Die gewählte Quelle wirkt
+unabhängig vom Menü: Eine neue Lernfrage lädt den Katalog bei Bedarf selbst und
+wartet höchstens 5 s auf einen laufenden Abruf; ein Projektwechsel bricht das
+Warten sofort ab.
+
+Jede tatsächliche Übernahme eines Projekts beginnt eine neue Lernsituation:
+Built-in, Remote- und Bibliotheksbeispiel, auch dasselbe Beispiel erneut, sowie
+**Load Files** mit Ersetzen. Der Tutor verwirft dann Frage, Verlauf, Entwurf und
+laufende Anfragen; aktiver Beispielkontext nur bei einem Remote-Beispiel. Eine
+Detailantwort, die erst nach einer Änderung an Dateien oder Bibliotheksauswahl
+eintrifft, wird auf allen Ladewegen verworfen.
 Auch ein bereits gestarteter Detailabruf aus einer früheren Auswahl darf
 nach einem Quellenwechsel weder Editor noch aktiven Tutor-Beispielkontext setzen.
 Der eingebaute Abruf hat einen eigenen AbortController und verändert weder den
@@ -265,7 +276,9 @@ Pflichtfeld und keine unnötige Breaking-Change eingeführt.
 ### 7.1 Optionales Feld `board` je Beispiel (P4.6)
 
 Ein Beispiel DARF `board` tragen, die ID des Boards, für das es geschrieben ist
-(`uno`, `nano`, `mega2560`, `attiny85`). Das Feld ist optional und
+(`uno`, `nano`, `mega2560`, `attiny85`). Beispiele mit festen Pins eines Boards
+SOLLEN es tragen; die allgemeinen Built-ins sind `uno`, Bibliotheksbeispiele
+nennen ihre Boards im Bibliothekskatalog. Das Feld ist optional und
 abwärtskompatibel: Ein Beispiel ohne `board` passt zu jedem Board, und eine ID,
 die diese UnoSim-Version nicht kennt, gilt als nicht angegeben (ein neueres
 Manifest macht einen älteren Server nicht ungültig). Der Katalog
