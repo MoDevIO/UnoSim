@@ -180,39 +180,45 @@ function buildPlan(
   };
 }
 
-function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Set<string> {
-  const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
+/** The Tutor's way back to a question after an off-topic answer; the question itself stays the same. */
+export const RETURN_TO_SKETCH_PREFIX = "Zurück zum Sketch: ";
+
+const askedText = (question: string): string => question.startsWith(RETURN_TO_SKETCH_PREFIX) ? question.slice(RETURN_TO_SKETCH_PREFIX.length) : question;
+
+/**
+ * The Topic question a dialog turn belongs to. The asked text decides: the turn comes from the browser, and
+ * a rating must never reach another question than the one on screen. Its ID helps for a text the Topic does not hold.
+ */
+export function resolveTurnQuestion(topic: CurriculumTopic, turn: Pick<TutorDialogTurn, "question" | "questionId">): CurriculumQuestion | undefined {
+  const text = askedText(turn.question);
+  return topic.questions.find((question) => question.text === text)
+    ?? (turn.questionId ? topic.questions.find((question) => question.id === turn.questionId) : undefined);
+}
+
+export function collectUsedQuestionIds(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Set<string> {
   const ids = history.flatMap((turn) => {
-    if (turn.questionId) return [turn.questionId];
-    const questionId = byText.get(turn.question);
+    const questionId = resolveTurnQuestion(topic, turn)?.id ?? turn.questionId;
     return questionId ? [questionId] : [];
   });
   return new Set(ids);
 }
 
 function collectObservations(topic: CurriculumTopic, history: readonly TutorDialogTurn[]): Observation[] {
-  const byId = new Map(topic.questions.map((question) => [question.id, question]));
-  const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question] as const] : []));
   return history.flatMap((turn) => {
     if (turn.answerRating === undefined) return [];
-    const question = (turn.questionId ? byId.get(turn.questionId) : undefined) ?? byText.get(turn.question);
+    const question = resolveTurnQuestion(topic, turn);
     return question ? [{ questionId: question.id, conceptId: question.concept, indicatorId: question.indicator, kind: question.kind, rating: turn.answerRating }] : [];
   });
 }
 
-/**
- * The Topic question being answered: by the question ID the dialog recorded for
- * this question text, otherwise by its exact text.
- */
+/** The Topic question being answered: by the question ID the dialog recorded for this text, or by the text. */
 export function findCurriculumQuestion(
   topic: CurriculumTopic,
   currentQuestion: string,
   history: readonly TutorDialogTurn[],
 ): CurriculumQuestion | null {
   const questionId = history.find((turn) => turn.question === currentQuestion)?.questionId;
-  return (questionId ? topic.questions.find((candidate) => candidate.id === questionId) : undefined)
-    ?? topic.questions.find((candidate) => candidate.text === currentQuestion)
-    ?? null;
+  return resolveTurnQuestion(topic, { question: currentQuestion, questionId }) ?? null;
 }
 
 function findQuestion(

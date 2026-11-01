@@ -13,6 +13,8 @@ import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
 import type { TutorPanelState, TutorSketch } from "@/hooks/use-tutor";
+import type { TutorFocusProgress } from "@shared/tutor";
+import { ensureExternalExamplesCatalog } from "@/lib/external-examples";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import {
@@ -172,6 +174,31 @@ export function WorkspaceVisibilityControls({
   );
 }
 
+/** The button's action comes first: the status alone would not say that pressing it replaces the dialog. */
+function tutorQuestionActionLabel(status: string, hasDialog: boolean): string {
+  return `${hasDialog ? "New question, ends dialog" : "New question"}. ${status}`;
+}
+
+/** A teacher writes code terms in backticks. */
+function TutorText({ text }: { readonly text: string }) {
+  let offset = 0;
+  const parts = text.split("`").map((part, index) => {
+    const start = offset;
+    offset += part.length + 1;
+    return index % 2 ? <code key={start}>{part}</code> : part;
+  });
+  return <>{parts}</>;
+}
+
+/** Says who is asking and how far the learner got, in the words of the learner, not of the planner. */
+function tutorFocusStatusText(focus: TutorFocusProgress | null, hasQuestion: boolean): string | null {
+  if (!focus) return hasQuestion ? "Free Tutor" : null;
+  const understood = `${focus.understoodAreas} of ${focus.totalAreas} areas understood`;
+  if (focus.state === "active") return `Teacher's focus: ${understood}`;
+  if (focus.state !== "open") return `Teacher's focus ${focus.state === "paused" ? "paused" : "completed"}`;
+  return `Questions used up: ${understood}. Open: ${focus.openAreas.join(", ")}`;
+}
+
 function TutorPlaceholder({
   className,
   style,
@@ -197,6 +224,7 @@ function TutorPlaceholder({
     isLoading: tutor?.isLoading ?? false,
     error: tutor?.error ?? null,
   });
+  const questionActionLabel = tutorQuestionActionLabel(questionVisualState.label, tutor?.question != null || (tutor?.history.length ?? 0) > 0);
   const tutorIdentityClassName = getStatusTextClass(tutorReady ? "success" : "idle");
   const keyStatusLabel = credentialConfigured ? "API key configured" : "API key missing";
 
@@ -216,17 +244,18 @@ function TutorPlaceholder({
               <ToolbarIconButton
                 type="button"
                 icon={<CircleHelp aria-hidden="true" />}
-                label={questionVisualState.label}
+                label={questionActionLabel}
                 status={questionVisualState.status}
                 animation={questionVisualState.animation}
                 iconSize="lg"
                 onClick={() => {
                   setShowKeyView(false);
+                  ensureExternalExamplesCatalog();
                   tutor.resetDialog();
                   void tutor.generateQuestion(sketch ?? code);
                 }}
                 disabled={tutor.isLoading || !tutor.capabilities.canUseTutor}
-                title={tutor.capabilities.canUseTutor ? questionVisualState.label : "Server connection required"}
+                title={tutor.capabilities.canUseTutor ? questionActionLabel : "Server connection required"}
                 data-testid="tutor-new-question-action"
               />
               <span
@@ -312,6 +341,7 @@ function TutorPanelContent({
 }) {
   const credentialConfigured = tutor.credential.trim().length > 0;
   const canRequest = canTutorRequest(tutor);
+  const focusStatus = tutorFocusStatusText(tutor.focusProgress, tutor.question !== null);
   const dialogScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const autoLoadedForRef = useRef<string | null>(null);
@@ -426,7 +456,7 @@ function TutorPanelContent({
             <div key={`${turn.question}-${index}`} className="space-y-2" data-testid="tutor-history-turn">
               <div className="max-w-[88%] rounded-lg px-4 py-3">
                 <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Tutor</p>
-                <p className="mt-1 leading-relaxed text-foreground">{turn.question}</p>
+                <p className="mt-1 leading-relaxed text-foreground"><TutorText text={turn.question} /></p>
               </div>
               <div className="ml-auto max-w-[88%] rounded-lg px-4 py-3">
                 <p className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Du</p>
@@ -452,12 +482,17 @@ function TutorPanelContent({
             </div>
           ))}
 
+          {focusStatus && (
+            <output className="text-ui-xs text-muted-foreground" aria-live="polite" data-testid="tutor-focus-status">
+              {focusStatus}
+            </output>
+          )}
           {tutor.question && (
             <div className="max-w-[88%] rounded-lg px-4 py-3" data-testid="tutor-question">
               <div className="flex items-center justify-between gap-2 text-ui-xs text-muted-foreground">
                 <span>{tutor.question.responseStyle === "philosophical" ? "Philosophical fallback" : tutor.question.topic ?? "Learning question"}</span>
               </div>
-              <p className="mt-2 font-medium leading-relaxed text-foreground">{tutor.question.question}</p>
+              <p className="mt-2 font-medium leading-relaxed text-foreground"><TutorText text={tutor.question.question} /></p>
               {tutor.question.mermaid && <MermaidPreview source={tutor.question.mermaid} />}
             </div>
           )}
@@ -469,7 +504,7 @@ function TutorPanelContent({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-border bg-background px-4 py-3">
+      <div className="shrink-0 border-t border-border bg-background px-4 py-3 max-md:pr-20">
         <div className="flex w-full flex-col gap-2">
           {tutor.error && <p className={`text-ui-sm ${getStatusTextClass("error")}`} role="alert">{tutor.error}</p>}
           <div className="relative">

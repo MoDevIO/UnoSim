@@ -60,6 +60,19 @@ const tutorLearningMetadataFields = {
   extensionTargetTopicId: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).optional(),
 };
 
+/**
+ * The learner's place in the teacher's focus of an Example: `active` asks its questions, `completed` means
+ * every area was understood, `open` that the questions ran out first, `paused` that the sketch no longer
+ * fits the focus. The free Tutor answers in all but `active`.
+ */
+export const tutorFocusProgressSchema = z.object({
+  state: z.enum(["active", "completed", "open", "paused"]),
+  understoodAreas: z.number().int().min(0).max(8),
+  totalAreas: z.number().int().min(1).max(8),
+  openAreas: boundedArray(z.string().trim().min(1).max(160), 8),
+}).strict();
+export type TutorFocusProgress = z.infer<typeof tutorFocusProgressSchema>;
+
 function withDefaultResponseStyle(value: unknown): unknown {
   if (typeof value !== "object" || value === null || "responseStyle" in value) return value;
   return { ...value, responseStyle: "normal" };
@@ -71,6 +84,7 @@ const tutorContentFields = {
   topic: z.string().trim().min(1).max(120).optional(),
   difficulty: tutorDifficultySchema.optional(),
   mermaid: z.string().trim().min(1).max(12_000).optional(),
+  focusProgress: tutorFocusProgressSchema.optional(),
   ...tutorLearningMetadataFields,
 };
 

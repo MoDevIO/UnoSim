@@ -1,4 +1,4 @@
-import type { TutorDialogTurn, TutorDifficulty } from "@shared/tutor";
+import type { TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import { Logger } from "@shared/logger";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import {
@@ -11,7 +11,10 @@ import {
   buildPlan,
   classifyTopic,
   collectObservations,
+  collectUsedQuestionIds,
   findCurriculumQuestion,
+  isMastered,
+  resolveTurnQuestion,
   type LearningPlanner,
   type Observation,
   type TopicClassification,
@@ -26,6 +29,7 @@ import type {
   TutorPlanningExtension,
   TutorPlanningResult,
   TutorExpansionBrief,
+  TutorFocusSummary,
 } from "./tutor-planning";
 import {
   appendEvidence,
@@ -112,6 +116,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     // planner adds the current answer itself and must not count it twice.
     const answeredHistory = sessionHistory(context.topic, input.history, context.state);
     recordFollowupObservation(context, input);
+    const retry = focusRetryPlan(context, input);
+    if (retry) return retry;
     const stateUpdate = updateStateAfterFollowup(context, input);
     const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
     if (!refreshed) return null;
@@ -183,6 +189,30 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return phase === "LEARN" ? null : exhaustionResult(context, phase);
   }
 
+  /**
+   * Where the learner stands in the teacher's focus of the session's Example. The questions asked and the
+   * areas understood are separate: `open` means that questions ran out before the area was understood.
+   */
+  focusProgress(input: { readonly code: string; readonly courseContent?: TutorPlanningContentContext; readonly focusAsked: boolean }): TutorFocusSummary | undefined {
+    const { courseContent, code, focusAsked } = input;
+    const focus = courseContent?.exampleId === undefined || courseContent.tutor?.status !== "valid"
+      ? undefined
+      : courseContent.exampleTutorAnnotation?.focus;
+    if (!focus || courseContent?.exampleId === undefined) return undefined;
+    const topic = buildInlineFocusTopic(courseContent.exampleId, focus, code);
+    const total = focus.length;
+    if (!topic) return { progress: { state: "paused", understoodAreas: 0, totalAreas: total, openAreas: [] }, openObjectives: [] };
+    const observations = courseContent.progressionState?.masteryEvidence[topic.id] ?? [];
+    const open = topic.concepts.filter((concept) => !isMastered(concept, observations));
+    const understoodAreas = topic.concepts.length - open.length;
+    let state: TutorFocusProgress["state"] = "active";
+    if (!focusAsked) state = open.length === 0 ? "completed" : "open";
+    return {
+      progress: { state, understoodAreas, totalAreas: topic.concepts.length, openAreas: open.map(({ title }) => title) },
+      openObjectives: state === "open" ? open.map(({ objective }) => objective) : [],
+    };
+  }
+
   private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
     if (!supplied) return null;
     try {
@@ -209,9 +239,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
     if (snapshot.tutor?.status !== "valid" || (snapshot.tutor.topics.length === 0 && annotation?.focus === undefined)) return null;
     const facts = this.factExtractor.extract(code);
-    const inline = inlineFocusMatch(exampleContextId, annotation);
+    const inline = inlineFocusMatch(exampleContextId, annotation, code);
     // The teacher's focus runs first; by default the Tutor then continues freely, without repository Topics.
-    const focusThenFree = inline !== undefined && (annotation?.afterFocus ?? "free") === "free";
+    const focusThenFree = exampleContextId !== undefined && annotation?.focus !== undefined && (annotation.afterFocus ?? "free") === "free";
     const matches = focusThenFree ? [] : this.topicMatcher.match(snapshot.tutor.topics, facts);
     const orderedMatches = [...(inline ? [inline] : []), ...orderTopicMatches(matches, annotation)];
     const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
@@ -220,7 +250,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, view, difficulty, learnStrategy.strategy);
     // A finished focus (mastered, or out of questions) hands over to the free Tutor.
-    const open = focusThenFree ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
+    const retryPending = inline !== undefined && focusRetryPending(inline.topic, view);
+    const open = focusThenFree && !retryPending ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
     const selected = selectProgressionMatch(open, view);
     if (!selected) return { state, revision: snapshot.revision, resetsRevision, selection: null };
     const topic = selected.match.topic;
@@ -235,7 +266,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
         facts,
         topic,
         phase,
-        unresolved: selected.classification.status === "unresolved",
+        unresolved: selected.classification.status === "unresolved" && !retryPending,
         strategy: this.resolveSnapshotStrategy(snapshot, annotation, phase),
         ...(extensionTargetTopicId ? { extensionTargetTopicId } : {}),
         ...(expansionBrief ? { expansionBrief } : {}),
@@ -272,7 +303,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (state.revision !== snapshot.revision || snapshot.tutor?.status !== "valid") return "LEARN";
     const facts = this.factExtractor.extract(code);
     const annotation = snapshot.exampleId === undefined ? undefined : snapshot.exampleTutorAnnotation;
-    const inline = inlineFocusMatch(snapshot.exampleId, annotation);
+    const inline = inlineFocusMatch(snapshot.exampleId, annotation, code);
     return [...(inline ? [inline] : []), ...this.topicMatcher.match(snapshot.tutor.topics, facts)].some(({ topic }) => topic.id === state.activeTopicId)
       ? state.phase
       : "LEARN";
@@ -449,9 +480,33 @@ type AdapterContext = {
 };
 
 /** The teacher-authored focus of an Example always comes first and needs no sketch-fact activation. */
-function inlineFocusMatch(exampleId: string | undefined, annotation: ExampleTutorAnnotation | undefined): TopicMatch | undefined {
+function inlineFocusMatch(exampleId: string | undefined, annotation: ExampleTutorAnnotation | undefined, code: string): TopicMatch | undefined {
   if (exampleId === undefined || annotation?.focus === undefined) return undefined;
-  return { topic: buildInlineFocusTopic(exampleId, annotation.focus), score: Number.MAX_SAFE_INTEGER };
+  const topic = buildInlineFocusTopic(exampleId, annotation.focus, code);
+  return topic ? { topic, score: Number.MAX_SAFE_INTEGER } : undefined;
+}
+
+/** The latest focus answer was weak and a first attempt: the learner still answers that question once more. */
+function focusRetryPending(topic: CurriculumTopic, state: TutorProgressionState): boolean {
+  const evidence = state.masteryEvidence[topic.id] ?? [];
+  const last = evidence.at(-1);
+  return last !== undefined && last.rating <= 2 && evidence.filter(({ questionId }) => questionId === last.questionId).length === 1;
+}
+
+/**
+ * After a weak answer the Tutor gives a hint and asks the same focus question once more, so that a learner
+ * can still show the understanding; a second weak answer moves on and leaves the area open.
+ */
+function focusRetryPlan(context: AdapterContext, input: TutorFollowupInput): TutorPlan | null {
+  if (context.phase !== "LEARN" || input.rating > 2 || !context.topic.id.startsWith(INLINE_FOCUS_TOPIC_PREFIX)) return null;
+  const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
+  const concept = question ? context.topic.concepts.find(({ id }) => id === question.concept) : undefined;
+  if (!question || !concept) return null;
+  // The dialog counts too: a request without a stored session has no evidence of the earlier attempt.
+  const recorded = (context.state.masteryEvidence[context.topic.id] ?? []).filter(({ questionId }) => questionId === question.id).length;
+  const inDialog = input.history.filter((turn) => resolveTurnQuestion(context.topic, turn)?.id === question.id).length;
+  if (Math.max(recorded, inDialog + 1) !== 1) return null;
+  return normalizePlan(buildPlan(context.topic, context.revision, concept, question), context.strategy, context.state, "LEARN");
 }
 
 function orderTopicMatches(matches: readonly TopicMatch[], annotation?: ExampleTutorAnnotation): readonly TopicMatch[] {
@@ -495,7 +550,6 @@ function sessionHistory(
   history: readonly TutorDialogTurn[],
   state: TutorProgressionState,
 ): TutorDialogTurn[] {
-  const byText = new Map(topic.questions.flatMap((question) => question.text ? [[question.text, question.id] as const] : []));
   const textById = new Map(topic.questions.map((question) => [question.id, question.text ?? question.template ?? question.id]));
   const mastery = state.masteryEvidence[topic.id] ?? [];
   const storedRatingIds = new Set(mastery.map(({ questionId }) => questionId));
@@ -510,7 +564,7 @@ function sessionHistory(
     ...(rated ? { answerRating: observation.rating } : {}),
   }));
   const dialogTurns = history.map((turn) => {
-    const questionId = turn.questionId ?? byText.get(turn.question);
+    const questionId = resolveTurnQuestion(topic, turn)?.id;
     if (questionId === undefined || !storedRatingIds.has(questionId)) return turn;
     const { answerRating: _storedInstead, ...unrated } = turn;
     return { ...unrated, questionId };
@@ -532,7 +586,7 @@ function classifyWithState(
   strategy: EffectiveTutorStrategy,
 ) {
   const session = sessionHistory(topic, history, state);
-  const usedQuestionIds = new Set(session.flatMap(({ questionId }) => questionId ? [questionId] : []));
+  const usedQuestionIds = collectUsedQuestionIds(topic, session);
   const classification = classifyTopic(topic, facts, collectObservations(topic, session), usedQuestionIds, difficulty, strategy);
   if (state.masteredTopicIds.includes(topic.id) && classification.status !== "inapplicable") {
     return { status: "mastered", masteryDomain: classification.masteryDomain } satisfies TopicClassification;

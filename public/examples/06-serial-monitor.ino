@@ -1,4 +1,13 @@
-// Send a small stream of readable messages to the Serial Monitor.
+/*
+ * Serial Monitor
+ *
+ * Lernziel:
+ * Text und Zahlen seriell ausgeben.
+ *
+ * Beobachtung:
+ * Nach der Begrüßung erscheint jede Sekunde der Wert von millis().
+ */
+
 void setup() {
   Serial.begin(115200);
   Serial.println("UnoSim serial monitor demo");

@@ -10,13 +10,14 @@ import {
   tutorResponseSchema,
   type TutorAnswerRating,
   type TutorDifficulty,
+  type TutorFocusProgress,
   type TutorResponse,
   type TutorCourseContentContext,
 } from "@shared/tutor";
 import type { BoardId } from "@shared/boards";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
-import { refreshExternalExamplesCatalog, useExternalExamples } from "@/lib/external-examples";
+import { refreshExternalExamplesCatalog, resolveTutorCourseContent, useExternalExamples } from "@/lib/external-examples";
 
 interface TutorConfig {
   readonly provider: string;
@@ -40,6 +41,8 @@ export interface TutorPanelState {
   readonly modelsLoading: boolean;
   readonly loadModels: () => Promise<void>;
   readonly question: TutorResponse | null;
+  /** Where the learner stands in the teacher's focus; null without a focus. */
+  readonly focusProgress: TutorFocusProgress | null;
   readonly history: readonly TutorDialogTurn[];
   readonly answer: string;
   readonly setAnswer: (value: string) => void;
@@ -145,15 +148,20 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
+/**
+ * One answered question of the history: identity and learning metadata belong to the question that was
+ * asked, feedback and rating to the response. The response's other metadata describe the next question.
+ */
 function buildDialogTurn(
-  question: string,
+  question: TutorResponse,
   answer: string,
   response: TutorResponse,
 ): TutorDialogTurn {
   const baseTurn = {
-    question,
+    question: question.question,
     answer,
-    ...buildDialogTurnMetadata(response),
+    ...(response.feedback ? { feedback: response.feedback } : {}),
+    ...buildDialogTurnMetadata(question),
   };
   if (response.responseStyle === "philosophical") {
     return { ...baseTurn, responseStyle: "philosophical" };
@@ -165,24 +173,13 @@ function buildDialogTurn(
   };
 }
 
-function buildDialogTurnMetadata(response: TutorResponse): Partial<Omit<TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating">> {
-  const fields = [
-    ["feedback", response.feedback],
-    ["topicId", response.topicId],
-    ["conceptId", response.conceptId],
-    ["questionId", response.questionId],
-    ["indicatorId", response.indicatorId],
-    ["questionKind", response.questionKind],
-    ["strategyId", response.strategyId],
-    ["strategySource", response.strategySource],
-    ["contentRevision", response.contentRevision],
-    ["learningPhase", response.learningPhase],
-    ["activeTopicId", response.activeTopicId],
-    ["masteredTopicIds", response.masteredTopicIds],
-    ["progressionBlockedReason", response.progressionBlockedReason],
-    ["extensionTargetTopicId", response.extensionTargetTopicId],
-  ] as const;
-  return Object.fromEntries(fields.filter(([, value]) => value !== undefined && value !== "")) as Partial<Omit<TutorDialogTurn, "question" | "answer" | "responseStyle" | "answerRating">>;
+const DIALOG_TURN_METADATA = [
+  "topicId", "conceptId", "questionId", "indicatorId", "questionKind", "strategyId", "strategySource",
+  "contentRevision", "learningPhase", "activeTopicId", "masteredTopicIds", "progressionBlockedReason", "extensionTargetTopicId",
+] as const;
+
+function buildDialogTurnMetadata(response: TutorResponse): Partial<Pick<TutorDialogTurn, (typeof DIALOG_TURN_METADATA)[number]>> {
+  return Object.fromEntries(DIALOG_TURN_METADATA.flatMap((field) => (response[field] ? [[field, response[field]]] : [])));
 }
 
 function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly TutorAnswerRating[] {
@@ -191,7 +188,7 @@ function collectAnswerRatings(history: readonly TutorDialogTurn[]): readonly Tut
 
 function buildDialogResponseUpdate(
   currentHistory: readonly TutorDialogTurn[],
-  currentQuestion: string,
+  currentQuestion: TutorResponse,
   submittedAnswer: string,
   response: TutorResponse,
   currentSession: string | undefined,
@@ -238,14 +235,9 @@ function persistConfiguredDifficulty(value: TutorDifficulty): void {
 export function useTutor(
   capabilities: ServerCapabilities = getServerCapabilities(true),
 ): TutorPanelState {
-  const externalExamples = useExternalExamples();
-  const courseContent = useMemo<TutorCourseContentContext | undefined>(() => {
-    if (externalExamples.activeCourseContent) return externalExamples.activeCourseContent;
-    const source = externalExamples.catalog?.source;
-    if (source?.mode !== "repository-ref" || !source.repository || !source.ref || !source.revision) return undefined;
-    return { repository: source.repository, ref: source.ref, revision: source.revision };
-  }, [externalExamples.activeCourseContent, externalExamples.catalog]);
-  const courseContentKey = JSON.stringify(courseContent ?? null);
+  const { learningSituation } = useExternalExamples();
+  // Set when a dialog starts: the dialog stays with its context until the next learning situation.
+  const dialogCourseContent = useRef<TutorCourseContentContext | undefined>(undefined);
   const [courseContentSession, setCourseContentSession] = useState<string | undefined>();
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
@@ -256,26 +248,38 @@ export function useTutor(
   const [availableModels, setAvailableModels] = useState<readonly string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [question, setQuestion] = useState<TutorResponse | null>(null);
+  const [focusProgress, setFocusProgress] = useState<TutorFocusProgress | null>(null);
   const [history, setHistory] = useState<readonly TutorDialogTurn[]>([]);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
   const activeTutorRequests = useRef(new Set<AbortController>());
+  const loadingRequest = useRef<AbortController | null>(null);
   const abortPendingTutorRequests = useCallback(() => {
     for (const controller of activeTutorRequests.current) controller.abort();
     activeTutorRequests.current.clear();
   }, []);
 
-  useEffect(() => {
+  // Credential, model and start difficulty stay; a new project or course is a new learning situation.
+  const clearDialog = useCallback((startDifficulty: TutorDifficulty) => {
     abortPendingTutorRequests();
+    // The aborted request may still wait for the shared catalog; the new situation must not wait with it.
+    loadingRequest.current = null;
+    setIsLoading(false);
+    dialogCourseContent.current = undefined;
     setCourseContentSession(undefined);
     setHistory([]);
     setQuestion(null);
+    setFocusProgress(null);
     setAnswer("");
     setError(null);
-    setEffectiveDifficulty(configuredDifficulty);
-  }, [abortPendingTutorRequests, courseContentKey]);
+    setEffectiveDifficulty(startDifficulty);
+  }, [abortPendingTutorRequests]);
+
+  useEffect(() => {
+    clearDialog(configuredDifficulty);
+  }, [clearDialog, learningSituation]);
 
   useEffect(() => () => abortPendingTutorRequests(), [abortPendingTutorRequests]);
 
@@ -343,7 +347,14 @@ export function useTutor(
     }
   }, [capabilities, credential]);
 
-  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, freshSession = false) => {
+  // An aborted request ends after its successor started; only the newest one ends the loading state.
+  const finishLoading = useCallback((controller: AbortController) => {
+    if (loadingRequest.current !== controller) return;
+    loadingRequest.current = null;
+    setIsLoading(false);
+  }, []);
+
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty) => {
     if (!capabilities.canUseTutor) return;
     setError(null);
     if (!sketch.code.trim()) {
@@ -360,7 +371,11 @@ export function useTutor(
     setIsLoading(true);
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
+    loadingRequest.current = controller;
     try {
+      const courseContent = await resolveTutorCourseContent(controller.signal);
+      if (controller.signal.aborted) return;
+      dialogCourseContent.current = courseContent;
       const response = await fetch("/api/tutor/question", {
         method: "POST",
         credentials: "include",
@@ -371,16 +386,17 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
-          // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3); the
-          // reset state of resetDialog is not visible to this callback yet.
-          ...getCourseContentRequest(freshSession ? undefined : courseContentSession, courseContent),
+          // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3).
+          ...getCourseContentRequest(undefined, courseContent),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
+      if (controller.signal.aborted) return;
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       setQuestion(parsed.data);
+      setFocusProgress(parsed.data.focusProgress ?? null);
       setCourseContentSession(parsed.data.courseContentSession);
       setLastUsedModel(parsed.data.model);
       setAnswer("");
@@ -389,29 +405,34 @@ export function useTutor(
       setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
     } finally {
       activeTutorRequests.current.delete(controller);
-      setIsLoading(false);
+      finishLoading(controller);
     }
-  }, [availableModels, capabilities, courseContent, courseContentSession, credential, selectedModel]);
+  }, [availableModels, capabilities, credential, finishLoading, selectedModel]);
 
-  const resetDialog = useCallback(() => {
-    setHistory([]);
-    setQuestion(null);
-    setAnswer("");
-    setError(null);
-    setEffectiveDifficulty(configuredDifficulty);
-    setCourseContentSession(undefined);
-  }, [configuredDifficulty]);
+  const resetDialog = useCallback(() => clearDialog(configuredDifficulty), [clearDialog, configuredDifficulty]);
 
   const generateQuestion = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
     const sketch = asTutorSketch(input);
     if (question !== null || history.length > 0) {
       resetDialog();
-      await requestQuestion(sketch, configuredDifficulty, true);
+      await requestQuestion(sketch, configuredDifficulty);
       return;
     }
     await requestQuestion(sketch, effectiveDifficulty);
   }, [capabilities, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog]);
+
+  const applyDialogResponse = useCallback((response: TutorResponse, update: ReturnType<typeof buildDialogResponseUpdate>) => {
+    setHistory(update.nextHistory);
+    if (update.answerRatings !== undefined) {
+      setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, update.answerRatings!));
+    }
+    setQuestion(response);
+    setFocusProgress((current) => response.focusProgress ?? current);
+    setCourseContentSession(update.nextSession);
+    if (update.lastUsedModel !== undefined) setLastUsedModel(update.lastUsedModel);
+    setAnswer("");
+  }, []);
 
   const submitAnswer = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
@@ -431,12 +452,13 @@ export function useTutor(
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
     const submittedAnswer = answer.trim();
-    const currentQuestion = question.question;
+    const currentQuestion = question;
     const currentHistory = history;
 
     setIsLoading(true);
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
+    loadingRequest.current = controller;
     try {
       const response = await fetch("/api/tutor/dialog", {
         method: "POST",
@@ -446,27 +468,20 @@ export function useTutor(
         body: JSON.stringify({
           ...sketchRequestFields(sketch),
           history: currentHistory,
-          question: currentQuestion,
+          question: currentQuestion.question,
           answer: submittedAnswer,
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: effectiveDifficulty,
-          ...getCourseContentRequest(courseContentSession, courseContent),
+          ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         }),
       });
       const body: unknown = await response.json().catch(() => null);
+      if (controller.signal.aborted) return;
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
-      const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
-      setHistory(update.nextHistory);
-      if (update.answerRatings !== undefined) {
-        setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, update.answerRatings!));
-      }
-      setQuestion(parsed.data);
-      setCourseContentSession(update.nextSession);
-      if (update.lastUsedModel !== undefined) setLastUsedModel(update.lastUsedModel);
-      setAnswer("");
+      applyDialogResponse(parsed.data, buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession));
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
@@ -474,9 +489,9 @@ export function useTutor(
       setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
     } finally {
       activeTutorRequests.current.delete(controller);
-      setIsLoading(false);
+      finishLoading(controller);
     }
-  }, [answer, availableModels, capabilities, courseContent, courseContentSession, credential, effectiveDifficulty, history, question, selectedModel]);
+  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -512,6 +527,7 @@ export function useTutor(
     modelsLoading,
     loadModels,
     question,
+    focusProgress,
     history,
     answer,
     setAnswer,
@@ -531,6 +547,7 @@ export function useTutor(
     isLoading,
     modelsLoading,
     question,
+    focusProgress,
     history,
     answer,
     submitAnswer,

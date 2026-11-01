@@ -27,6 +27,7 @@ import { useFileSystem } from "@/hooks/useFileSystem";
 import { useSimulatorFileSystem } from "@/hooks/useSimulatorFileSystem";
 import { useProjectLibraries } from "@/hooks/use-project-libraries";
 import { useChangeGuard } from "@/hooks/use-change-guard";
+import { setActiveExternalExampleContext } from "@/lib/external-examples";
 import { LibraryHintsBar } from "@/components/features/project-libraries-controls";
 import { downloadNotice } from "@/lib/library-download-notice";
 import { focusReturnTarget } from "@/lib/focus-return";
@@ -592,6 +593,7 @@ export function useArduinoSimulatorPage() {
         toast({ title: "Beispiel nicht geladen", description: "Der Sketch wurde während des Ladens geändert und bleibt erhalten." });
         return;
       }
+      setActiveExternalExampleContext(null);
       handleLoadExample(detail.files, detail.title ?? exampleId);
       replaceLibraries(libraries.data);
       toast({ title: "Beispiel geladen", description: `${detail.title ?? exampleId} ersetzt den bisherigen Sketch.` });
@@ -840,6 +842,7 @@ export function useArduinoSimulatorPage() {
       void downloadAllFilesWithNotice();
     },
     onExampleLibraries: replaceLibraries,
+    onBeginExampleLoad: markProject,
     librariesCount: projectLibraries.libraries.length,
     onOpenLibraries: openLibrariesDialog,
     libraryHints: <LibraryHintsBar hints={projectLibraries.hints} onAdd={projectLibraries.addRequirement} />,

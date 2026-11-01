@@ -24,7 +24,7 @@ function variableTopic(schemaVersion: 1 | 2 = 1): CurriculumTopic {
     concepts: [{
       id: "variable-values",
       title: "Variablenwerte",
-      objective: "Den Zusammenhang zwischen einem deklarierten Integerwert und seiner Verwendung erklären.",
+      objective: "Den Zusammenhang zwischen dem Integerwert einer Variablen und seiner Verwendung erklären.",
       prerequisites: [],
       difficulty: { entry: [1, 50], transfer: [20, 80] },
       misconceptions: [],

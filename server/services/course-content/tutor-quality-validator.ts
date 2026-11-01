@@ -38,6 +38,10 @@ export type TutorContentQualityIssueCode =
   | "deepen-content-exhausted"
   | "unmasterable-example-activation"
   | "inline-focus-term-not-in-sketch"
+  | "inline-focus-question-without-term"
+  | "inline-focus-multiple-questions"
+  | "inline-focus-complete-solution"
+  | "inline-focus-non-cpp-terms"
   | "invalid-course-content-bundle"
   | "invalid-quality-cases"
   | "quality-case-example-not-found";
