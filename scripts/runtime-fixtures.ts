@@ -64,7 +64,8 @@ function runArduinoCli(id: string, args: readonly string[], env: NodeJS.ProcessE
       if (error.killed) reason = `timed out after ${timeoutMs} ms`;
       else if (typeof error.code === "string") reason = error.message;
       const output = stderr || stdout;
-      reject(new Error(`arduino-cli failed for ${id} (${reason})${output ? `:\n${output}` : ""}`));
+      const message = `arduino-cli failed for ${id} (${reason})`;
+      reject(new Error(output ? `${message}:\n${output}` : message));
     });
   });
 }
@@ -87,7 +88,7 @@ export class CorpusBuildCache {
   }
 
   async dispose(): Promise<void> {
-    while (this.running.size > 0) await Promise.allSettled([...this.running]);
+    while (this.running.size > 0) await Promise.allSettled(this.running);
     await rm(this.path, { recursive: true, force: true });
   }
 
@@ -134,8 +135,10 @@ async function main(args: readonly string[]): Promise<number> {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error: Error) => {
-    process.stderr.write(`${error.message}\n`);
+  try {
+    process.exitCode = await main(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
-  });
+  }
 }

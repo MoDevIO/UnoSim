@@ -476,8 +476,7 @@ function processArrayLoopExpansion(
   sourceExpression: string,
   secondArg: string,
   callLine: number,
-  arrays: Map<string, number[]>,
-  entries: StaticIOCall[],
+  { arrays, entries }: Pick<CallContext, "arrays" | "entries">,
 ): boolean {
   const values = arrays.get(arrayName);
   if (!values) return false;
@@ -586,8 +585,7 @@ function processCallExpression(
         pinExpr,
         secondArg,
         callLine,
-        arrays,
-        entries,
+        ctx,
       );
       if (!expanded) {
         unresolvedCalls.push({
