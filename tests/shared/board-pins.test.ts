@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  boardAnalogPins, boardPinLabel, boardPins, boardPwmPins, findBoardPin, isBoardPin, maxBoardPin, resolveBoardPin,
+  boardAnalogPins, boardPinLabel, boardPins, boardPwmPins, findBoardPin, isBoardPin, resolveBoardPin,
 } from "@shared/board-pins";
 import type { BoardId } from "@shared/boards";
 
@@ -24,17 +24,16 @@ describe("board pins (plan P4.1)", () => {
     expect(findBoardPin("nano", 20)).toMatchObject({ name: "A6", digital: false, analog: true, adcChannel: 6, pwm: false });
     expect(findBoardPin("nano", 21)).toMatchObject({ name: "A7", digital: false, analog: true, adcChannel: 7 });
     expect(boardPwmPins("nano")).toEqual(boardPwmPins("uno"));
-    expect(maxBoardPin("nano")).toBe(21);
-    expect(maxBoardPin("uno")).toBe(19);
   });
 
   it("describes the Mega 2560 with 70 pins, 16 analog inputs and PWM on 2–13 and 44–46", () => {
     expect(boardPins("mega2560")).toHaveLength(70);
-    expect(maxBoardPin("mega2560")).toBe(69);
     expect(boardPwmPins("mega2560")).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 44, 45, 46]);
     expect(boardAnalogPins("mega2560").map((pin) => pin.label)).toEqual(Array.from({ length: 16 }, (_, channel) => `A${channel}`));
     expect(findBoardPin("mega2560", 69)).toMatchObject({ name: "A15", digital: true, analog: true, adcChannel: 15 });
+    expect(resolveBoardPin("mega2560", "A0")).toBe(54);
     expect(resolveBoardPin("mega2560", "A15")).toBe(69);
+    expect(resolveBoardPin("mega2560", "LED_BUILTIN")).toBe(13);
     expect(resolveBoardPin("mega2560", "53")).toBe(53);
     expect(resolveBoardPin("mega2560", "70")).toBeUndefined();
     expect(boardPinLabel("mega2560", 54)).toBe("A0");
@@ -66,6 +65,7 @@ describe("board pins (plan P4.1)", () => {
     expect(resolveBoardPin("uno", "LED_BUILTIN")).toBe(13);
     expect(resolveBoardPin("uno", "A6")).toBeUndefined();
     expect(resolveBoardPin("nano", "A6")).toBe(20);
+    expect(resolveBoardPin("nano", "A7")).toBe(21);
     expect(resolveBoardPin("nano", "22")).toBeUndefined();
     expect(resolveBoardPin("uno", "D13")).toBeUndefined();
   });
@@ -75,7 +75,6 @@ describe("board pins (plan P4.1)", () => {
     expect(boardPins(NO_HARDWARE)).toBeUndefined();
     expect(isBoardPin(NO_HARDWARE, 2)).toBe(false);
     expect(resolveBoardPin(NO_HARDWARE, "0")).toBeUndefined();
-    expect(maxBoardPin(NO_HARDWARE)).toBeUndefined();
     expect(boardPwmPins(NO_HARDWARE)).toEqual([]);
     expect(boardPinLabel(NO_HARDWARE, 3)).toBe("3");
   });

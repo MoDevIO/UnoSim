@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  courseContentManifestSchema,
   parseCourseContentManifest,
   tutorDescriptorSchema,
 } from "../../../../server/services/course-content/course-content-schema";
@@ -31,7 +30,6 @@ describe("Course Content manifest schema", () => {
 
     expect(result.examples.status).toBe("valid");
     expect(result.tutor.status).toBe("absent");
-    expect(courseContentManifestSchema.safeParse(root()).success).toBe(true);
   });
 
   it("accepts schema-v2 root without manifest-level example Tutor metadata", () => {
@@ -40,11 +38,9 @@ describe("Course Content manifest schema", () => {
       tutor: { manifest: "tutor/manifest.yaml" },
     };
 
-    const parsed = courseContentManifestSchema.parse(value);
-    expect("tutor" in parsed ? parsed.tutor?.manifest : undefined).toBe("tutor/manifest.yaml");
     const result = parseCourseContentManifest(value);
     expect(result.examples.status).toBe("valid");
-    expect(result.tutor.status).toBe("valid");
+    expect(result.tutor).toEqual({ status: "valid", descriptor: { manifest: "tutor/manifest.yaml" } });
   });
 
   it("rejects the retired manifest-level example Tutor binding", () => {
@@ -54,7 +50,6 @@ describe("Course Content manifest schema", () => {
       examples: [{ ...example(), tutor: { topics: ["arrays"] } }],
     };
 
-    expect(courseContentManifestSchema.safeParse(value).success).toBe(false);
     expect(parseCourseContentManifest(value).examples.status).toBe("invalid");
   });
 

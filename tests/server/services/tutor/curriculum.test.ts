@@ -1,11 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import {
-  parseManifest,
-  parseTopic,
-} from "../../../../server/services/tutor/curriculum/content-repository";
-import { curriculumManifestSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
+import { validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { DefaultLearningPlanner, isMastered } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import { DefaultTopicMatcher } from "../../../../server/services/tutor/curriculum/topic-matcher";
@@ -13,14 +9,11 @@ import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import type { TutorDialogTurn } from "../../../../shared/tutor";
 import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
+import { parseTopic } from "../../../utils/curriculum-topic";
 
 async function loadPilot() {
   const topicSource = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
-  const manifestSource = await readFile(path.resolve(process.cwd(), "curriculum/manifest.yaml"), "utf8");
-  return {
-    topic: parseTopic(topicSource),
-    manifest: parseManifest(manifestSource),
-  };
+  return { topic: parseTopic(topicSource) };
 }
 
 type NormalTurnMetadata = Partial<Omit<Extract<TutorDialogTurn, { responseStyle: "normal" }>, "responseStyle">>;
@@ -49,9 +42,8 @@ function courseContent(topic: Awaited<ReturnType<typeof loadPilot>>["topic"], re
 }
 
 describe("repository tutor curriculum", () => {
-  it("validates the manifest and the pilot topic", async () => {
-    const { topic, manifest } = await loadPilot();
-    expect(curriculumManifestSchema.parse(manifest).topics).toHaveLength(1);
+  it("validates the pilot topic", async () => {
+    const { topic } = await loadPilot();
     expect(topic.id).toBe("memory-and-data-types");
     expect(topic.concepts.map(({ id }) => id)).toEqual([
       "value-vs-storage",
@@ -69,13 +61,6 @@ describe("repository tutor curriculum", () => {
         : concept),
     };
     expect(() => validateCurriculumTopic(cyclic)).toThrow(/Cyclic concept dependency/);
-  });
-
-  it("rejects unknown fields and YAML custom tags", async () => {
-    const source = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
-    expect(() => parseTopic(source.replace("schemaVersion: 1", "schemaVersion: 1\nunexpected: true"))).toThrow(/Invalid curriculum topic/);
-    expect(() => parseTopic(source.replace("title: Speicher und Datentypen", "title: !!js/function '() => 1'"))).toThrow();
-    expect(() => parseTopic(source.replace("title: Speicher und Datentypen", "title: !custom value"))).toThrow();
   });
 
   it("matches the topic from typed sketch facts without repository regexes", async () => {

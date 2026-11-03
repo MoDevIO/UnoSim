@@ -4,7 +4,6 @@ import {
   isCompileRequest,
   isCompileResponse,
   isReadyMessage,
-  isShutdownMessage,
   createCompileRequest,
   createCompileResponse,
   createReadyMessage,
@@ -57,15 +56,6 @@ describe("worker-protocol", () => {
       expect(isReadyMessage(msg)).toBe(false);
     });
 
-    it("isShutdownMessage identifies shutdown messages", () => {
-      const msg = { type: WorkerCommand.SHUTDOWN };
-      expect(isShutdownMessage(msg)).toBe(true);
-    });
-
-    it("isShutdownMessage rejects non-shutdown messages", () => {
-      const msg = createReadyMessage();
-      expect(isShutdownMessage(msg)).toBe(false);
-    });
   });
 
   describe("factory functions", () => {

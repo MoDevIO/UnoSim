@@ -13,16 +13,12 @@ import { detectSketchEntrypoints } from "@shared/utils/sketch-validation";
 import { isSafeHeaderName } from "@shared/input-limits";
 import { resolvePathWithinRoot } from "../security/safe-paths";
 import { normalizeSourcePath, resolveSourceProject } from "@shared/source-project";
-import { insertForwardDeclarations, planForwardDeclarations } from "./sketch-prototypes";
+import { insertForwardDeclarations } from "./sketch-prototypes";
 
 interface SketchBuildResult {
   sketchDir: string;
   sketchFile: string;
   exeFile: string;
-}
-
-export function extractForwardDeclarations(code: string): string {
-  return planForwardDeclarations(code).declarations;
 }
 
 export class SketchFileBuilder {

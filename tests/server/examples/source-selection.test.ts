@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeRepositoryInput,
   resolveExamplesSelection,
-  toGithubRawRepositoryBase,
 } from "../../../server/services/examples/source-selection";
 
 describe("external examples source selection", () => {
@@ -13,7 +12,6 @@ describe("external examples source selection", () => {
     expect(normalizeRepositoryInput("https://raw.githubusercontent.com/Owner/Repo")).toBeNull();
     expect(normalizeRepositoryInput("https://github.com/owner/repo/tree/main")).toBeNull();
     expect(normalizeRepositoryInput("https://example.test/owner/repo")).toBeNull();
-    expect(toGithubRawRepositoryBase("owner/repo").href).toBe("https://raw.githubusercontent.com/owner/repo/");
   });
 
   it("keeps default and browser selection request-scoped", () => {

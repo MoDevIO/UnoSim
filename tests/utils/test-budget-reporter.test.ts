@@ -17,6 +17,8 @@ type Metrics = {
   durationMs: number;
   counts: Record<string, number>;
   slowestTests: Array<Record<string, unknown>>;
+  files: Array<Record<string, unknown>>;
+  slowestFiles: Array<Record<string, unknown>>;
 };
 
 describe("TestBudgetReporter", () => {
@@ -60,7 +62,7 @@ describe("TestBudgetReporter", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  function runReporter(durationMs: number): Metrics {
+  function runReporter(durationMs: number, modules: unknown[] = []): Metrics {
     vi.spyOn(Date, "now")
       .mockReturnValueOnce(1_000)
       .mockReturnValueOnce(1_000 + durationMs);
@@ -72,7 +74,7 @@ describe("TestBudgetReporter", () => {
       fullName: "example test",
       module: { moduleId: path.join(process.cwd(), "tests/example.test.ts") },
     } as never);
-    reporter.onTestRunEnd([], [], "passed");
+    reporter.onTestRunEnd(modules, [], "passed");
     return JSON.parse(readFileSync(metricsPath, "utf8")) as Metrics;
   }
 
@@ -222,5 +224,56 @@ describe("TestBudgetReporter", () => {
     expect(metrics).toHaveProperty("budgetExceeded");
     expect(metrics).toHaveProperty("startedAt");
     expect(metrics).toHaveProperty("finishedAt");
+  });
+
+  it("ranks file costs including environment, harness, setup and imports instead of only test bodies", () => {
+    const metrics = runReporter(2_000, [
+      {
+        moduleId: path.join(process.cwd(), "tests/client/expensive-setup.test.tsx"),
+        project: { name: "unit-client" },
+        diagnostic: () => ({
+          duration: 10, environmentSetupDuration: 700, prepareDuration: 100,
+          setupDuration: 90, collectDuration: 100,
+        }),
+      },
+      {
+        moduleId: path.join(process.cwd(), "tests/server/expensive-test.test.ts"),
+        project: { name: "unit-node" },
+        diagnostic: () => ({
+          duration: 500, environmentSetupDuration: 0, prepareDuration: 0,
+          setupDuration: 0, collectDuration: 0,
+        }),
+      },
+    ]);
+
+    expect(metrics.slowestFiles).toEqual([
+      {
+        file: "tests/client/expensive-setup.test.tsx", project: "unit-client",
+        durationMs: 1_000, testDurationMs: 10, environmentDurationMs: 700,
+        prepareDurationMs: 100, setupDurationMs: 90, importDurationMs: 100,
+      },
+      {
+        file: "tests/server/expensive-test.test.ts", project: "unit-node",
+        durationMs: 500, testDurationMs: 500, environmentDurationMs: 0,
+        prepareDurationMs: 0, setupDurationMs: 0, importDurationMs: 0,
+      },
+    ]);
+    expect(metrics.files).toHaveLength(2);
+  });
+
+  it("retains every file for comparisons while limiting the slow-file summary to ten entries", () => {
+    const metrics = runReporter(3_000, Array.from({ length: 12 }, (_, index) => ({
+      moduleId: path.join(process.cwd(), `tests/server/file-${index}.test.ts`),
+      project: { name: "unit-node" },
+      diagnostic: () => ({
+        duration: index * 10, environmentSetupDuration: 0, prepareDuration: 0,
+        setupDuration: 0, collectDuration: 0,
+      }),
+    })));
+
+    expect(metrics.files).toHaveLength(12);
+    expect(metrics.slowestFiles).toHaveLength(10);
+    expect(metrics.slowestFiles[0]).toMatchObject({ file: "tests/server/file-11.test.ts", durationMs: 110 });
+    expect(metrics.slowestFiles[9]).toMatchObject({ file: "tests/server/file-2.test.ts", durationMs: 20 });
   });
 });

@@ -7,7 +7,7 @@ import {
   courseContentTutorManifestSchema,
   parseCourseContentManifest,
 } from "../../../../server/services/course-content/course-content-schema";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 
 const fixtureRoot = path.resolve(process.cwd(), "tests/fixtures/course-content");
 

@@ -1,7 +1,7 @@
 /**
  * io-registry-parser.test.ts
  *
- * Unit tests for parseStaticIORegistry() covering all 11 test cases defined
+ * Unit tests for the static I/O registry (project parser, single sketch) covering all 11 test cases defined
  * in ssot_function_definition_IoRegistry.md.
  *
  * TC  1 – literal pin + literal mode (pinMode)
@@ -18,10 +18,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  analyzeStaticIO,
-  parseStaticIORegistry,
-} from "../../shared/io-registry-parser";
+import { analyzeStaticIO, analyzeStaticIOProject } from "../../shared/io-registry-parser";
+import { parseStaticIORegistry } from "../utils/static-io-registry";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -36,7 +34,7 @@ function sketch(lines: string[]): string {
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("parseStaticIORegistry – SSOT test cases", () => {
+describe("static I/O registry – SSOT test cases", () => {
   // ── TC 1 ──────────────────────────────────────────────────────────────────
   it("TC1: pinMode(13, OUTPUT) → pin 13, OUTPUT in pinModeLines", () => {
     const code = sketch([
@@ -329,7 +327,7 @@ describe("parseStaticIORegistry – SSOT test cases", () => {
 // Additional edge-case tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("parseStaticIORegistry – edge cases", () => {
+describe("static I/O registry – edge cases", () => {
   it("sorts output by pinId (0 → 19)", () => {
     const code = sketch([
       "void setup() {",
@@ -554,7 +552,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "pinMode",
             pinId: 2,
-            line: 7,
+            line: 8,
             sourceExpression: "pinArray[i]",
             mode: "OUTPUT",
             loopBody: "braced",
@@ -562,7 +560,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "digitalWrite",
             pinId: 2,
-            line: 7,
+            line: 9,
             sourceExpression: "pinArray[i]",
             loopBody: "braced",
           },
@@ -574,7 +572,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "pinMode",
             pinId: 3,
-            line: 7,
+            line: 8,
             sourceExpression: "pinArray[i]",
             mode: "OUTPUT",
             loopBody: "braced",
@@ -582,7 +580,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "digitalWrite",
             pinId: 3,
-            line: 7,
+            line: 9,
             sourceExpression: "pinArray[i]",
             loopBody: "braced",
           },
@@ -609,7 +607,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "pinMode",
             pinId: 15,
-            line: 7,
+            line: 8,
             sourceExpression: "pinArray[i]",
             mode: "OUTPUT",
             loopBody: "braced",
@@ -617,7 +615,7 @@ describe("analyzeStaticIO – canonical analysis model", () => {
           {
             op: "digitalWrite",
             pinId: 15,
-            line: 7,
+            line: 9,
             sourceExpression: "pinArray[i]",
             loopBody: "braced",
           },
@@ -627,31 +625,31 @@ describe("analyzeStaticIO – canonical analysis model", () => {
     expect(analysis.symbols).toEqual({ LED: 13, sensor: 14, i: 0 });
   });
 
-  it("keeps the legacy registry wrapper output unchanged", () => {
+  it("shows the call lines of a loop in the registry of the project parser (SSOT TC3)", () => {
     expect(parseStaticIORegistry(representativeSketch)).toEqual([
       {
         pin: "2",
         pinId: 2,
         defined: true,
-        pinModeLines: [7],
+        pinModeLines: [8],
         pinModeModes: ["OUTPUT"],
-        digitalWriteLines: [7],
+        digitalWriteLines: [9],
         pinMode: 1,
-        definedAt: { line: 7 },
-        usedAt: [{ line: 7, operation: "digitalWrite" }],
+        definedAt: { line: 8 },
+        usedAt: [{ line: 9, operation: "digitalWrite" }],
       },
       {
         pin: "3",
         pinId: 3,
         defined: true,
-        pinModeLines: [7],
+        pinModeLines: [8],
         pinModeModes: ["OUTPUT"],
-        digitalWriteLines: [7],
+        digitalWriteLines: [9],
         analogWriteLines: [15],
         pinMode: 1,
-        definedAt: { line: 7 },
+        definedAt: { line: 8 },
         usedAt: [
-          { line: 7, operation: "digitalWrite" },
+          { line: 9, operation: "digitalWrite" },
           { line: 15, operation: "analogWrite" },
         ],
       },
@@ -683,12 +681,12 @@ describe("analyzeStaticIO – canonical analysis model", () => {
         pin: "A1",
         pinId: 15,
         defined: true,
-        pinModeLines: [7],
+        pinModeLines: [8],
         pinModeModes: ["OUTPUT"],
-        digitalWriteLines: [7],
+        digitalWriteLines: [9],
         pinMode: 1,
-        definedAt: { line: 7 },
-        usedAt: [{ line: 7, operation: "digitalWrite" }],
+        definedAt: { line: 8 },
+        usedAt: [{ line: 9, operation: "digitalWrite" }],
       },
     ]);
   });
@@ -737,5 +735,94 @@ describe("analyzeStaticIO – canonical analysis model", () => {
       symbols: {},
     });
     expect(parseStaticIORegistry(code)).toEqual([]);
+  });
+});
+
+describe("static I/O analysis – literals and call lines", () => {
+  const project = (code: string) => analyzeStaticIOProject({ entryFile: "main.ino", files: { "main.ino": code } });
+  const pinsAndLines = (analysis: { pins: Array<{ pinId: number; calls: Array<{ line: number }> }> }) =>
+    analysis.pins.map(({ pinId, calls }) => [pinId, calls.map(({ line }) => line)]);
+  const rawStringSketch = sketch([
+    "const int pins[] = {8, 9};",
+    'const char* example = R"EXAMPLE(',
+    "const int pins[] = {",
+    "  2, 3",
+    "};",
+    "pinMode(4, OUTPUT);",
+    ')EXAMPLE";',
+    "void setup() {",
+    "  for (int i = 0; i < 2; i++) {",
+    "    pinMode(pins[i], OUTPUT);",
+    "  }",
+    "}",
+    "void loop() {}",
+  ]);
+
+  it("ignores array declarations and calls inside a raw string literal", () => {
+    expect(pinsAndLines(project(rawStringSketch))).toEqual([[8, [10]], [9, [10]]]);
+    expect(pinsAndLines(analyzeStaticIO(rawStringSketch))).toEqual([[8, [10]], [9, [10]]]);
+    expect(parseStaticIORegistry(rawStringSketch).map(({ pin, pinModeLines }) => [pin, pinModeLines])).toEqual([["8", [10]], ["9", [10]]]);
+  });
+
+  it("ignores calls and braces inside string and character literals, with escapes and prefixes", () => {
+    const code = sketch([
+      String.raw`const char* hint = "digitalWrite(7, HIGH); \" const int pins[] = {5}; ";`,
+      "const int pins[] = {",
+      "  10, 11",
+      "};",
+      "char close = '}';",
+      String.raw`char quote = '\'';`,
+      'const char* wide = u8R"(analogWrite(6, 1);)";',
+      "const long big = 1'000'000;",
+      "void setup() {",
+      "  for (int i = 0; i < 2; i++) digitalWrite(pins[i], HIGH);",
+      '  Serial.println("pinMode(12, OUTPUT)");',
+      "}",
+    ]);
+
+    expect(pinsAndLines(project(code))).toEqual([[10, [10]], [11, [10]]]);
+    expect(pinsAndLines(analyzeStaticIO(code))).toEqual([[10, [10]], [11, [10]]]);
+  });
+
+  it("keeps a real multi-line array next to string literals", () => {
+    const code = sketch([
+      'const char* name = "pins";',
+      "const int pins[] = {",
+      "  A0,",
+      "  A1",
+      "};",
+      "void setup() {",
+      "  for (int i = 0; i < 2; i++) {",
+      "    pinMode(pins[i], INPUT);",
+      "  }",
+      "}",
+    ]);
+
+    expect(pinsAndLines(project(code))).toEqual([[14, [8]], [15, [8]]]);
+    expect(pinsAndLines(analyzeStaticIO(code))).toEqual([[14, [8]], [15, [8]]]);
+  });
+
+  it("reports the call line, not the loop header, for scalar, array and multi-line loops", () => {
+    const code = sketch([
+      "const int leds[] = {6, 7};",
+      "void setup() {",
+      "  for (int i = 2;",
+      "       i < 4;",
+      "       i++) {",
+      "    pinMode(i, OUTPUT);",
+      "  }",
+      "  for (int j = 0; j < 2; j++)",
+      "    digitalWrite(leds[j],",
+      "                 HIGH);",
+      "  for (int k = 8; k < 9; k++) {",
+      "",
+      "    analogWrite(k, 1);",
+      "  }",
+      "}",
+    ]);
+    const expected = [[2, [6]], [3, [6]], [6, [9]], [7, [9]], [8, [13]]];
+
+    expect(pinsAndLines(analyzeStaticIO(code))).toEqual(expected);
+    expect(pinsAndLines(project(code))).toEqual(expected);
   });
 });

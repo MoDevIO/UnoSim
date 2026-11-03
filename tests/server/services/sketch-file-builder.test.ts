@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import {
-  extractForwardDeclarations,
-  SketchFileBuilder,
-} from "../../../server/services/sketch-file-builder";
+import { SketchFileBuilder } from "../../../server/services/sketch-file-builder";
+import { planForwardDeclarations } from "../../../server/services/sketch-prototypes";
+
+const extractForwardDeclarations = (code: string) => planForwardDeclarations(code).declarations;
 import { readFile, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";

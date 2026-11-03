@@ -63,49 +63,6 @@ vi.mock("@/hooks/use-websocket", () => ({
   }),
 }));
 
-vi.mock("@/hooks/use-compilation", () => ({
-  useCompilation: () => ({
-    compilationStatus: "ready",
-    setCompilationStatus: noop,
-    setArduinoCliStatus: noop,
-    hasCompilationErrors: false,
-    setHasCompilationErrors: noop,
-    lastCompilationResult: null,
-    setLastCompilationResult: noop,
-    cliOutput: "",
-    setCliOutput: noop,
-    compileMutation: { isPending: false },
-    startMutation: { isPending: false },
-    stopMutation: { isPending: false },
-    pauseMutation: { isPending: false },
-    resumeMutation: { isPending: false },
-    handleCompile: noop,
-    handleCompileAndStart: noop,
-    handleClearCompilationOutput: noop,
-    clearOutputs: noop,
-  }),
-}));
-
-vi.mock("@/hooks/use-simulation", () => ({
-  useSimulation: () => ({
-    simulationStatus: "stopped",
-    setSimulationStatus: noop,
-    setHasCompiledOnce: noop,
-    simulationTimeout: 0,
-    setSimulationTimeout: noop,
-    startMutation: { isPending: false },
-    stopMutation: { isPending: false },
-    pauseMutation: { isPending: false },
-    resumeMutation: { isPending: false },
-    handleStop: noop,
-    handlePause: noop,
-    handleResume: noop,
-    handleReset: noop,
-    suppressAutoStopOnce: noop,
-    handleStart: noop,
-  }),
-}));
-
 vi.mock("@/hooks/useSimulatorActions", () => ({
   useSimulatorActions: () => ({
     handleStart: noop,
@@ -199,10 +156,6 @@ vi.mock("@/hooks/useSimulatorKeyboardShortcuts", () => ({
   useSimulatorKeyboardShortcuts: () => undefined,
 }));
 
-vi.mock("@/hooks/useSimulatorWebSocketBridge", () => ({
-  useSimulatorWebSocketBridge: () => undefined,
-}));
-
 vi.mock("@/hooks/use-simulation-store", () => ({
   useSimulationStore: () => ({
     pinStates: [],
@@ -250,20 +203,6 @@ vi.mock("@/hooks/use-editor-commands", () => ({
   }),
 }));
 
-vi.mock("@/hooks/use-file-system", () => ({
-  useFileSystem: () => ({
-    code: "",
-    setCode: noop,
-    isModified: false,
-    setIsModified: noop,
-    tabs: [],
-    setTabs: noop,
-    activeTabId: undefined,
-    setActiveTabId: noop,
-    initializeDefaultSketch: noop,
-  }),
-}));
-
 vi.mock("@/hooks/useSimulatorFileSystem", () => ({
   useSimulatorFileSystem: () => ({
     fileInputRef: { current: null },
@@ -298,7 +237,7 @@ vi.mock("@/hooks/use-external-api", () => ({
 }));
 
 vi.mock("@shared/io-registry-parser", () => ({
-  parseStaticIORegistry: () => [],
+  parseStaticIORegistryProject: () => [],
 }));
 
 describe("useArduinoSimulatorPage", () => {

@@ -60,12 +60,6 @@ export async function readProvidedLibraries(root: string): Promise<ProvidedLibra
   }
 }
 
-/** `<name>-<version>/<name>` with characters outside the process argument allowlist replaced. */
-export function providedLibraryDir(entry: LibraryRequirement): string {
-  const safe = (value: string) => value.replaceAll(/[^A-Za-z0-9._-]/g, "_");
-  return `${safe(entry.name)}-${safe(entry.version)}/${safe(entry.name)}`;
-}
-
 function provisioningProblem(entry: CatalogPackage, provided: readonly ProvidedLibrary[]): string | undefined {
   const installed = provided.find((candidate) => libraryKey(candidate) === libraryKey(entry));
   if (!installed) return `${entry.name} ${entry.version} is not installed on this server`;

@@ -41,25 +41,3 @@ export function offCustomEvent<T = any>(
     target.removeEventListener(eventName, handler as EventListener);
   }
 }
-
-/**
- * Dispatch a typed custom event on a target element
- * 
- * @template T The type of the custom event detail
- * @param target The DOM element to dispatch the event on
- * @param eventName The name of the custom event
- * @param detail The detail object to include in the event
- * @param options Optional CustomEventInit options
- */
-export function dispatchCustomEvent<T = any>(
-  target: EventTarget,
-  eventName: string,
-  detail?: T,
-  options?: CustomEventInit,
-): void {
-  const event = new CustomEvent(eventName, {
-    ...options,
-    detail,
-  });
-  target.dispatchEvent(event);
-}

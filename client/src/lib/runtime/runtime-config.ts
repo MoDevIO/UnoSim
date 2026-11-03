@@ -61,7 +61,10 @@ export function loadRuntimeConfig(request: typeof fetch = fetch): Promise<Runtim
   return cachedConfig;
 }
 
-/** Test hook: forget the cached answer. */
+/**
+ * Forgets the cached answer, so a test can load another configuration.
+ * @internal
+ */
 export function resetRuntimeConfigCache(): void {
   cachedConfig = undefined;
 }

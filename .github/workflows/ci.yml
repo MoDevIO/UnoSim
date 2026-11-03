@@ -16,9 +16,58 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  clean-room:
-    name: Clean-room reproducibility
+  clean-room-unit:
+    name: Clean-room unit shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Preserve diagnostics from the other shard when one fails.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      TEST_METRICS_FILE: test-results/unit-shard-${{ matrix.shard }}-metrics.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check:node-version
+      # Same projects and 120 s limit as the local app pass; every file runs
+      # in exactly one shard. HTTP files remain serial within each runner.
+      - run: npm run test:unit:app -- --shard=${{ matrix.shard }}/2
+      - name: Upload clean-room shard metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-room-unit-shard-${{ matrix.shard }}-metrics
+          path: test-results/unit-shard-${{ matrix.shard }}-metrics.json
+          if-no-files-found: error
+          retention-days: 14
+
+  clean-room:
+    # Keep the required check name stable. Only this short result check uses
+    # always(), so a failed/cancelled dependency cannot turn it into "skipped".
+    name: Clean-room reproducibility
+    needs: [clean-room-unit, clean-room-checks]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every clean-room check
+        env:
+          UNIT_SHARDS_RESULT: ${{ needs.clean-room-unit.result }}
+          CHECKS_RESULT: ${{ needs.clean-room-checks.result }}
+        run: |
+          test "$UNIT_SHARDS_RESULT" = success
+          test "$CHECKS_RESULT" = success
+
+  clean-room-checks:
+    name: Clean-room checks and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,11 +78,24 @@ jobs:
       - run: npm run check:node-version
       - run: npm run check
       - name: Dead-code gate (knip, reviewed baseline)
-        run: ./run-tests.sh --knip-gate-only
+        run: |
+          npm run test:knip
+          ./run-tests.sh --knip-gate-only
       - name: Deterministic Tutor quality hard gate
         run: npm run test:tutor-quality
-      - run: npm run test:unit
+      - run: npm run test:unit:emulator
       - run: npm run build
+      - name: Upload clean-room metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-room-metrics
+          path: |
+            run-tests_output.log
+            test-results/tutor-quality-metrics.json
+            test-results/unit-emulator-metrics.json
+          if-no-files-found: warn
+          retention-days: 14
 
   # JOB 1: Schnellläufer (Unit Tests, Linting, TypeCheck)
   build-and-test:
@@ -93,7 +155,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-metrics
-          path: test-results/unit-coverage-metrics.json
+          path: |
+            test-results/unit-coverage-metrics.json
+            test-results/unit-emulator-coverage-metrics.json
           if-no-files-found: error
           retention-days: 14
 

@@ -23,6 +23,8 @@ export default [
       "*.min.css",
       "full_test_output.log",
       "temp/**",
+      // Gitignored local review evidence, outside the TypeScript projects.
+      "local-temp/**",
       // Local output of npm run test:tutor-quality (gitignored, holds frozen harness copies).
       ".tutor-quality-output/**",
       "*.sqlite",

@@ -179,7 +179,7 @@ als Rückfallebene (nur Uno).
 Die statische Pin-/I/O-Analyse wird zentral durch `analyzeStaticIO(code)` in
 `shared/io-registry-parser.ts` erzeugt. `CodeParser.parseAll()` erzeugt dieses
 Ergebnis einmal und übergibt es an die Hardware- und Konfliktparser; die
-Registry-Funktion `parseStaticIORegistry()` bleibt ein kompatibler Wrapper.
+Registry der Seite entsteht projektweit über `parseStaticIORegistryProject()`.
 Nicht eindeutig statisch auflösbare Fälle bleiben konservativ ungelöst und
 können weiterhin nur durch die Runtime-Erkennung sichtbar werden.
 

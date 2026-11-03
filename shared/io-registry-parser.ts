@@ -33,7 +33,7 @@ import {
 import {
   FOR_LOOP_TYPED,
   FOR_LOOP_BARE,
-  stripComments,
+  blankCommentsAndLiterals,
   lineAt,
 } from "@shared/parser-patterns";
 
@@ -255,7 +255,6 @@ function resolvePin(
 interface LoopRange {
   startPos: number;
   endPos: number;
-  startLine: number;
   variable: string;
   values: number[];
   hasBrace: boolean;
@@ -365,7 +364,6 @@ function findLoopRanges(
       ranges.push({
         startPos: m.index,
         endPos,
-        startLine: lineAt(clean, m.index),
         variable,
         values,
         hasBrace,
@@ -453,6 +451,7 @@ function processLoopExpansion(
   op: StaticIOOperation,
   sourceExpression: string,
   secondArg: string,
+  callLine: number,
   entries: StaticIOCall[],
 ): void {
   for (const pinId of loop.values) {
@@ -462,7 +461,7 @@ function processLoopExpansion(
       op,
       sourceExpression,
       secondArg,
-      loop.startLine,
+      callLine,
       entries,
       loop.hasBrace ? "braced" : "braceless",
     );
@@ -476,8 +475,8 @@ function processArrayLoopExpansion(
   op: StaticIOOperation,
   sourceExpression: string,
   secondArg: string,
-  arrays: Map<string, number[]>,
-  entries: StaticIOCall[],
+  callLine: number,
+  { arrays, entries }: Pick<CallContext, "arrays" | "entries">,
 ): boolean {
   const values = arrays.get(arrayName);
   if (!values) return false;
@@ -490,7 +489,7 @@ function processArrayLoopExpansion(
         op,
         sourceExpression,
         secondArg,
-        loop.startLine,
+        callLine,
         entries,
         loop.hasBrace ? "braced" : "braceless",
       );
@@ -585,8 +584,8 @@ function processCallExpression(
         op,
         pinExpr,
         secondArg,
-        arrays,
-        entries,
+        callLine,
+        ctx,
       );
       if (!expanded) {
         unresolvedCalls.push({
@@ -598,7 +597,7 @@ function processCallExpression(
       }
       return;
     }
-    processLoopExpansion(loop, op, pinExpr, secondArg, entries);
+    processLoopExpansion(loop, op, pinExpr, secondArg, callLine, entries);
     return;
   }
 
@@ -750,7 +749,7 @@ export function analyzeStaticIO(code: string, options: StaticIOOptions = {}): St
 }
 
 function analyzeStaticIOForActiveBoard(code: string): StaticIOAnalysis {
-  const clean = stripComments(code);
+  const clean = blankCommentsAndLiterals(code);
   const { values: syms, userSymbols } = buildSymbols(clean);
   const arrays = buildArrays(clean, syms);
   const loops = findLoopRanges(clean, syms);
@@ -802,7 +801,18 @@ function analyzeStaticIOForActiveBoard(code: string): StaticIOAnalysis {
   return { pins, unresolvedCalls, symbols };
 }
 
-/** Project canonical static I/O facts to the existing registry contract. */
+/**
+ * Projects canonical static I/O facts to the registry contract: one IOPinRecord per statically used pin.
+ *
+ * – Populates `pinModeLines`, `digitalReadLines`, `digitalWriteLines`,
+ *   `analogReadLines`, `analogWriteLines` for the extended (eye-on) view.
+ * – Sets `conflict = true` for TC 9 (write on input-mode pin) and
+ *   TC 11 (same pin configured with multiple different modes).
+ * – Dynamically-resolved pins (TC 8) are silently skipped; they will be
+ *   filled in by the runtime path.
+ * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
+ *   compatibility with the existing UI and runtime registry manager.
+ */
 function buildStaticIORegistry(analysis: StaticIOAnalysis): IOPinRecord[] {
   const records: IOPinRecord[] = [];
 
@@ -828,23 +838,6 @@ function buildStaticIORegistry(analysis: StaticIOAnalysis): IOPinRecord[] {
 
   // Sort by pinId (0 → 19)
   return records.sort((a, b) => (a.pinId ?? 0) - (b.pinId ?? 0));
-}
-
-/**
- * Statically parse an Arduino sketch and return an IOPinRecord[] for every pin
- * usage found in the source code.
- *
- * – Populates `pinModeLines`, `digitalReadLines`, `digitalWriteLines`,
- *   `analogReadLines`, `analogWriteLines` for the extended (eye-on) view.
- * – Sets `conflict = true` for TC 9 (write on input-mode pin) and
- *   TC 11 (same pin configured with multiple different modes).
- * – Dynamically-resolved pins (TC 8) are silently skipped; they will be
- *   filled in by the runtime path.
- * – Populates legacy `pinMode`, `definedAt`, `usedAt` fields for backward
- *   compatibility with the existing UI and runtime registry manager.
- */
-export function parseStaticIORegistry(code: string, options: StaticIOOptions = {}): IOPinRecord[] {
-  return withBoard(options.board, () => buildStaticIORegistry(analyzeStaticIOForActiveBoard(code)));
 }
 
 const PROJECT_DEFINE_PATTERN = /^\s*#define\s+([A-Za-z_]\w*)\s+(\w+)/;
@@ -972,7 +965,6 @@ function registerProjectSymbols(
   line: string,
   syms: Map<string, number>,
   userSymbols: Set<string>,
-  arrays: Map<string, number[]>,
   throughIndex = line.length,
 ): void {
   const definitions = [PROJECT_DEFINE_PATTERN, PROJECT_CONST_PATTERN, PROJECT_VAR_PATTERN];
@@ -988,16 +980,23 @@ function registerProjectSymbols(
       }
     }
   }
+}
 
-  for (const declaration of findProjectArrayDeclarations(line)) {
-    if (declaration.index > throughIndex) break;
-    const values = declaration.values
-      .split(",")
-      .map((value) => resolveToken(value.trim(), syms));
-    if (values.every((value): value is number => value !== undefined)) {
-      arrays.set(declaration.name, values);
+/** Registers the array declarations of the whole source that end before `position`; an initializer may span lines. */
+function projectArrayRegistrar(source: string, syms: Map<string, number>, arrays: Map<string, number[]>) {
+  const declarations = findProjectArrayDeclarations(source);
+  let next = 0;
+  return (position: number): void => {
+    while (next < declarations.length && declarations[next].end <= position) {
+      const declaration = declarations[next++];
+      const values = declaration.values
+        .split(",")
+        .map((value) => resolveToken(value.trim(), syms));
+      if (values.every((value): value is number => value !== undefined)) {
+        arrays.set(declaration.name, values);
+      }
     }
-  }
+  };
 }
 
 function annotateProjectEntries(
@@ -1023,10 +1022,12 @@ function annotateProjectEntries(
 function analyzeResolvedStaticIOProject(
   resolved: ResolvedSourceProject,
 ): StaticIOProjectAnalysis {
-  const cleanLines = stripComments(resolved.source).split("\n");
+  const cleanSource = blankCommentsAndLiterals(resolved.source);
+  const cleanLines = cleanSource.split("\n");
   const syms = new Map<string, number>(Object.entries(activeContext.builtinConstants()));
   const userSymbols = new Set<string>();
   const arrays = new Map<string, number[]>();
+  const registerArraysBefore = projectArrayRegistrar(cleanSource, syms, arrays);
   const entries: StaticIOCall[] = [];
   const unresolvedCalls: UnresolvedStaticIOCall[] = [];
   let offset = 0;
@@ -1049,8 +1050,9 @@ function analyzeResolvedStaticIOProject(
       const callPos = offset + match.index;
       // Register only definitions that occur before this call. This preserves
       // source order even when a declaration and a use share one line.
-      registerProjectSymbols(cleanLine, syms, userSymbols, arrays, match.index);
-      const loops = findLoopRanges(resolved.source, syms);
+      registerProjectSymbols(cleanLine, syms, userSymbols, match.index);
+      registerArraysBefore(callPos);
+      const loops = findLoopRanges(cleanSource, syms);
 
       processCallExpression(
         op,
@@ -1069,7 +1071,8 @@ function analyzeResolvedStaticIOProject(
         lineIndex,
       );
     }
-    registerProjectSymbols(cleanLine, syms, userSymbols, arrays);
+    registerProjectSymbols(cleanLine, syms, userSymbols);
+    registerArraysBefore(offset + cleanLine.length);
     offset += cleanLine.length + 1;
   }
 

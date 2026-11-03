@@ -13,7 +13,3 @@ export function canTransition(from: SimulationState, to: SimulationState): boole
   if (from === "error") return false;
   return transitions[from].includes(to);
 }
-
-export function transition(from: SimulationState, to: SimulationState): SimulationState {
-  return canTransition(from, to) ? to : from;
-}

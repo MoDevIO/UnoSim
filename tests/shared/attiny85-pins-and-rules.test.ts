@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { boardAnalogPins, boardPinLabel, boardPins, boardPwmPins, isBoardPin, resolveBoardPin } from "@shared/board-pins";
-import { boardPinAliases } from "@shared/boards";
 import { CodeParser } from "@shared/code-parser";
 import { analyzeStaticIO } from "@shared/io-registry-parser";
 import { pinContext } from "@shared/parsers/pin-context";
@@ -24,8 +23,8 @@ describe("ATtiny85 pins (plan P6.4)", () => {
     expect(resolveBoardPin("attiny85", "A1")).toBe(2);
     expect(resolveBoardPin("attiny85", "a0")).toBe(5);
     expect(resolveBoardPin("attiny85", "LED_BUILTIN")).toBe(1);
+    expect(["A0", "A1", "A2", "A3"].map((name) => resolveBoardPin("attiny85", name))).toEqual([5, 2, 4, 3]);
     expect(resolveBoardPin("attiny85", "A4")).toBeUndefined();
-    expect(boardPinAliases("attiny85")).toMatchObject({ A0: 5, A1: 2, A2: 4, A3: 3, LED_BUILTIN: 1 });
   });
 
   it("gives the parsers the analog names and the software Serial on 0/1", () => {

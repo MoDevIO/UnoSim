@@ -1,5 +1,5 @@
 import type { BoardId } from "@shared/boards";
-import { wsMessageSchema, type WSMessage, type ParserMessage, type IOPinRecord } from "@shared/schema";
+import { serverToClientWSMessageSchema, type WSMessage, type ServerToClientWSMessage, type ParserMessage, type IOPinRecord } from "@shared/schema";
 import type { LibraryRequirement } from "@shared/libraries";
 
 export type IncomingArduinoMessage = WSMessage;
@@ -52,8 +52,9 @@ export interface CompileResult {
   artifact?: unknown;
 }
 
-export function isArduinoMessage(value: unknown): value is WSMessage {
-  return wsMessageSchema.safeParse(value).success;
+/** Guards what arrives from the simulation server: only messages of the server-to-client direction. */
+export function isArduinoMessage(value: unknown): value is ServerToClientWSMessage {
+  return serverToClientWSMessageSchema.safeParse(value).success;
 }
 
 // Helper to check if value is an object with a success boolean property

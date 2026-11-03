@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSourceProject } from "../../client/src/lib/source-project";
-import {
-  parseStaticIORegistry,
-  parseStaticIORegistryProject,
-} from "../../shared/io-registry-parser";
+import { parseStaticIORegistryProject } from "../../shared/io-registry-parser";
+import { parseStaticIORegistry } from "../utils/static-io-registry";
 
 const tabs = [
   { id: "main", name: "main.ino", content: '#include "led_controller.h"' },

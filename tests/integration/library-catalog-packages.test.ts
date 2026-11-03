@@ -31,7 +31,7 @@ function example(name: string): { requirement: LibraryRequirement; code: string 
 
 const lines = (output: string) => output.split(/\r?\n/).filter((line) => line !== "");
 
-describe("catalog packages on Uno, Nano and Mega 2560 + browser emulation (real toolchain)", () => {
+describe.concurrent("catalog packages on Uno, Nano and Mega 2560 + browser emulation (real toolchain)", () => {
   let compiler: ArduinoCompiler;
   let root: string;
 

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
-const SAFE_SHA256 = /^[a-f0-9]{64}$/i;
 
 const hasControlCharacters = (value: string): boolean => {
   for (const character of value) {
@@ -155,21 +154,8 @@ const curriculumTopicV2Schema = z.object({
 
 export const curriculumTopicSchema = z.union([curriculumTopicV1Schema, curriculumTopicV2Schema]);
 
-export const curriculumManifestSchema = z.object({
-  schemaVersion: z.literal(1),
-  curriculumId: idSchema,
-  release: boundedText(64),
-  locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
-  topics: boundedArray(z.object({
-    id: idSchema,
-    path: z.string().regex(/^topics\/[a-z][a-z0-9-]{0,63}\.yaml$/),
-    sha256: z.string().regex(SAFE_SHA256),
-  }).strict(), 64),
-}).strict();
-
 export type FactRequirement = z.infer<typeof factRequirementSchema>;
 export type CurriculumTopic = z.infer<typeof curriculumTopicSchema>;
-export type CurriculumManifest = z.infer<typeof curriculumManifestSchema>;
 export type CurriculumConcept = CurriculumTopic["concepts"][number];
 export type CurriculumQuestion = CurriculumTopic["questions"][number];
 export type CurriculumScaffold = CurriculumTopic["scaffolds"][number];
@@ -269,9 +255,4 @@ function validateProgression(
   for (const conceptId of [...progression.entryConcepts, ...progression.preferredOrder]) {
     if (!concepts.has(conceptId)) throw new Error(`Progression references unknown concept: ${conceptId}`);
   }
-}
-
-export function validateCurriculumManifest(manifest: CurriculumManifest): CurriculumManifest {
-  assertUnique(manifest.topics.map((topic) => topic.id), "topic id");
-  return manifest;
 }

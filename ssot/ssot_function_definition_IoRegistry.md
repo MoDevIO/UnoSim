@@ -55,12 +55,16 @@ Scroll-Komponenten sowie semantische Style-Tokens.
 Die Verwendung der Pins wird durch `analyzeStaticIO(code)` während der Eingabe
 ermittelt und dargestellt. Das kanonische Ergebnis enthält auflösbare Pins,
 aufgelöste Symbole und ungelöste I/O-Aufrufe. Eindeutige konstante Arrays und
-einfache Indexschleifen werden unterstützt. Komplexe oder dynamische Ausdrücke
-werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
+einfache Indexschleifen werden unterstützt, auch mit mehrzeiliger
+Array-Initialisierung. Kommentare sowie String-, Zeichen- und Raw-String-Literale
+(`R"x( … )x"`) gelten nicht als Quelltext: Darin stehende Deklarationen und
+Aufrufe zählen nicht. Jeder Eintrag nennt die Zeile des Aufrufs, auch innerhalb
+einer Schleife (Testfall 3); Einzeldatei- und Projektanalyse stimmen darin
+überein. Komplexe oder dynamische Ausdrücke werden nicht erfunden aufgelöst. Die Runtime-Erkennung ergänzt diese Fälle und
 ist für tatsächlich ausgeführte Zugriffe maßgeblich.
 
 ## Pins je Board (P4.2)
-`analyzeStaticIO`, `analyzeStaticIOProject`, `parseStaticIORegistry` und `parseStaticIORegistryProject` nehmen `{ board }` (Standard `uno`); `CodeParser` reicht sein Board weiter. Pinbereich, `A0…An`, `LED_BUILTIN` und die Schreibweise der Pins in den Registry-Zeilen kommen aus dem Pin-Modell des Boards (`shared/board-pins.ts`, `shared/parsers/pin-context.ts`). Für den Uno bleiben alle Ergebnisse gleich; am Nano lösen `A6` und `A7` zu den Pins 20 und 21 auf, und `analogRead(6)`/`analogRead(7)` meinen diese Eingänge. Die Hardware-Regeln nennen das Board (PWM-Pins) und warnen, wenn ein reiner Analogeingang (A6, A7) digital genutzt wird. Der Mega 2560 nutzt seit P5.2 sein Pin-Modell (Pins 0–69, `A0`–`A15` = 54–69); ein Board ohne Hardwareprofil (ATtiny85 bis P6.4) wird wie der Uno geparst; Der Serial-Parser (`serial-configuration-parser.ts`) kennt das Board: `Serial1`–`Serial3` auf einem Board ohne diese Schnittstelle (Uno, Nano) ergeben die Warnung „Serial<n> does not exist on <Board>…“, auf dem Mega die Warnung „Serial<n>.begin(9600) is missing in setup()“ (bzw. „…is commented out!“), wenn eine Schnittstelle benutzt, aber nie gestartet wird; ein Objekt gleichen Namens im Sketch (`SoftwareSerial Serial1(10, 11);`) und Text in Strings und Kommentaren zählen nicht. Die 115200-Baud-Warnung betrifft nur `Serial`. „Kein Hardware-Serial“ folgt mit P6.4.
+`analyzeStaticIO`, `analyzeStaticIOProject` und `parseStaticIORegistryProject` nehmen `{ board }` (Standard `uno`); `CodeParser` reicht sein Board weiter. Pinbereich, `A0…An`, `LED_BUILTIN` und die Schreibweise der Pins in den Registry-Zeilen kommen aus dem Pin-Modell des Boards (`shared/board-pins.ts`, `shared/parsers/pin-context.ts`). Für den Uno bleiben alle Ergebnisse gleich; am Nano lösen `A6` und `A7` zu den Pins 20 und 21 auf, und `analogRead(6)`/`analogRead(7)` meinen diese Eingänge. Die Hardware-Regeln nennen das Board (PWM-Pins) und warnen, wenn ein reiner Analogeingang (A6, A7) digital genutzt wird. Der Mega 2560 nutzt seit P5.2 sein Pin-Modell (Pins 0–69, `A0`–`A15` = 54–69); ein Board ohne Hardwareprofil (ATtiny85 bis P6.4) wird wie der Uno geparst; Der Serial-Parser (`serial-configuration-parser.ts`) kennt das Board: `Serial1`–`Serial3` auf einem Board ohne diese Schnittstelle (Uno, Nano) ergeben die Warnung „Serial<n> does not exist on <Board>…“, auf dem Mega die Warnung „Serial<n>.begin(9600) is missing in setup()“ (bzw. „…is commented out!“), wenn eine Schnittstelle benutzt, aber nie gestartet wird; ein Objekt gleichen Namens im Sketch (`SoftwareSerial Serial1(10, 11);`) und Text in Strings und Kommentaren zählen nicht. Die 115200-Baud-Warnung betrifft nur `Serial`. „Kein Hardware-Serial“ folgt mit P6.4.
 
 ## Zusammenführung von Statik und Laufzeit (beide Backends)
 Während eines Laufs (laufend oder pausiert) ersetzt der Laufzeit-Snapshot die

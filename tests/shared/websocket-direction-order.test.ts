@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { clientToServerWSMessageSchema, serverToClientWSMessageSchema, WSMessageType } from "../../shared/schema";
 import { INPUT_LIMITS } from "../../shared/input-limits";
 import { decodeClientMessage } from "../../server/services/ws-message-decoder";
+import { isArduinoMessage } from "../../client/src/types/websocket";
 
 /**
  * The direction of a WebSocket message is decided by its type before any content is validated. Parsing the
@@ -63,6 +64,14 @@ describe("WebSocket direction before content", () => {
   it("keeps refusing a client message of a server type and a server message of a client type", () => {
     expect(clientToServerWSMessageSchema.safeParse({ type: "simulation_status", status: "running" }).success).toBe(false);
     expect(serverToClientWSMessageSchema.safeParse({ type: "pause_simulation" }).success).toBe(false);
+  });
+
+  it("lets the browser accept only messages of the server-to-client direction", () => {
+    expect(isArduinoMessage({ type: "simulation_status", status: "running" })).toBe(true);
+    expect(isArduinoMessage({ type: "serial_output", data: "x", port: 1 })).toBe(true);
+    expect(isArduinoMessage({ type: "serial_output", data: "x", port: 4 })).toBe(false);
+    expect(isArduinoMessage({ type: "pause_simulation" })).toBe(false);
+    expect(isArduinoMessage({ type: "start_simulation", code: "x" })).toBe(false);
   });
 
   it("keeps the header collision check of start_simulation", () => {

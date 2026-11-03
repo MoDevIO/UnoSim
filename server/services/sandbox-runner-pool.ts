@@ -410,7 +410,10 @@ export async function initializeSandboxRunnerPool(): Promise<void> {
   await pool.initialize();
 }
 
-/** Reset the singleton — test-only, allows re-initialization with new env vars. */
+/**
+ * Reset the singleton, so a test can initialize it again with new env vars.
+ * @internal
+ */
 export function _resetPoolSingleton(): void {
   if (poolInstance) {
     poolInstance.shutdown().catch(() => {});

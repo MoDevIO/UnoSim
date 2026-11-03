@@ -47,7 +47,6 @@ describe("compile-worker file canary", () => {
     expect(typeof protocol.isCompileRequest).toBe("function");
     expect(typeof protocol.isCompileResponse).toBe("function");
     expect(typeof protocol.isReadyMessage).toBe("function");
-    expect(typeof protocol.isShutdownMessage).toBe("function");
     expect(typeof protocol.createCompileRequest).toBe("function");
     expect(typeof protocol.createCompileResponse).toBe("function");
     expect(typeof protocol.createReadyMessage).toBe("function");

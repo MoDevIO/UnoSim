@@ -61,7 +61,7 @@ Der Betrieb stellt sie mit vier Variablen ein (`server/runtime-settings.ts`, gep
 
 ## 5. Pin-Aliasse
 
-`boardPinAliases(id)` liefert die Pin-Namen, die die Sketch-Parser auflösen (`A0` → 14, `LED_BUILTIN`), aus der Pinbelegung des Pakets. Der Mega 2560 hat `A0`–`A15` auf den Pins 54–69 und `LED_BUILTIN` 13 (seit P5.2), der ATtiny85 `A0`–`A3` auf den Pins 5, 2, 4, 3 und `LED_BUILTIN` 1 (seit P6.4). Eine ID ohne Hardwareprofil hat keine Aliasse.
+Pin-Namen im Sketch (`A0` → 14, `LED_BUILTIN`) stammen aus der Pinbelegung des Pakets: `resolveBoardPin(id, name)` löst sie für Client und I/O-Registry auf, die Sketch-Parser rechnen über den Pin-Kontext `pinContext(id)` (Abschnitt 5.1). Der Mega 2560 hat `A0`–`A15` auf den Pins 54–69 und `LED_BUILTIN` 13 (seit P5.2), der ATtiny85 `A0`–`A3` auf den Pins 5, 2, 4, 3 und `LED_BUILTIN` 1 (seit P6.4). Eine ID ohne Hardwareprofil hat keine Aliasse.
 
 Die zusätzlichen SDA/SCL-Buchsen der Mega-R3-Grafik sind zweite Kontakte
 derselben Pins D20/D21. Sie zeigen denselben Zustand und dieselbe
@@ -79,7 +79,6 @@ Die Pinlisten, Labels und Fähigkeiten eines Boards stammen aus der Pinbelegung 
 | `boardPwmPins`, `boardAnalogPins` | PWM-Pins (`~`) und Analogeingänge in Bauteilfolge |
 | `boardPinLabel(id, pin)` | Name wie im Sketch (`14` → `A0`) |
 | `resolveBoardPin(id, name)` | `13`, `A0`, `LED_BUILTIN` → Pinnummer; `A6` gibt es nur am Nano; am ATtiny85 `A1` → 2 |
-| `maxBoardPin(id)` | höchste Pinnummer des Boards |
 
 Am Nano sind A6 und A7 (Pins 20 und 21) reine Analogeingänge ohne digitale Funktion (`digital: false`).
 

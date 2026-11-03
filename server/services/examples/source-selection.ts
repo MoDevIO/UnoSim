@@ -41,10 +41,6 @@ export function normalizeRepositoryInput(
   return parseCanonicalCandidate(`${segments[0]}/${segments[1].replace(/\.git$/i, "")}`);
 }
 
-export function toGithubRawRepositoryBase(repository: RepositorySlug): URL {
-  return new URL(`https://raw.githubusercontent.com/${repository}/`);
-}
-
 export function resolveExamplesSelection(
   selection: ExamplesRequestSelection,
   defaults: ExamplesDefaultConfig,

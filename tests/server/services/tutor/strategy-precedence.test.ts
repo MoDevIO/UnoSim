@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../../../../server/services/tutor/strategy/effective-tutor-strategy";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import type { LLMProvider } from "../../../../server/services/tutor/llm-provider";

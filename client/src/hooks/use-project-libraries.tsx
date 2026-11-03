@@ -3,6 +3,7 @@ import type { BoardId, RuntimeKind } from "@shared/boards";
 import type { LibraryIncludeHint, LibraryRequirement, OfferedLibraryPackage } from "@shared/libraries";
 import { ToastAction } from "@/components/ui/toast";
 import type { ToastFn } from "@/hooks/use-toast";
+import type { LibraryRules } from "@/lib/library-rules";
 import { buildSourceProject, type ClientSourceTab } from "@/lib/source-project";
 
 /**
@@ -59,12 +60,6 @@ interface UndoRecord {
   readonly dismiss: () => void;
 }
 
-/** The library rules, loaded with the catalog: without a catalog there is nothing to include or check. */
-interface LibraryRules {
-  readonly shared: typeof import("@shared/libraries");
-  readonly local: typeof import("@/lib/project-libraries");
-}
-
 const sameLibraries = (a: readonly LibraryRequirement[], b: readonly LibraryRequirement[]) =>
   a.length === b.length && a.every((entry, index) => entry.name === b[index]?.name && entry.version === b[index]?.version);
 
@@ -80,16 +75,15 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
   const loadCatalog = useCallback(async () => {
     setCatalogStatus("loading");
     try {
-      // Schema and rules come with the catalog: they are not part of the initial load path.
-      const [response, { libraryCatalogResponseSchema }, shared, local] = await Promise.all([
+      // Schema and rules come with the catalog: without one there is nothing to include or check.
+      const [response, { libraryCatalogResponseSchema }, { libraryRules }] = await Promise.all([
         fetch("/api/libraries"),
         import("@shared/library-catalog-schema"),
-        import("@shared/libraries"),
-        import("@/lib/project-libraries"),
+        import("@/lib/library-rules"),
       ]);
       const parsed = response.ok ? libraryCatalogResponseSchema.safeParse(await response.json()) : undefined;
       if (!parsed?.success) throw new Error("invalid library catalog");
-      setRules({ shared, local });
+      setRules(libraryRules);
       setPackages(parsed.data.packages);
       setCatalogStatus("ready");
     } catch {

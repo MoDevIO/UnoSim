@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { createTutorProgressionState, markTopicMastered } from "../../../../server/services/tutor/curriculum/progression-state";
 import { isTutorPlan, type TutorPlanningResult } from "../../../../server/services/tutor/tutor-planning";
 import type { TutorDialogTurn } from "../../../../shared/tutor";

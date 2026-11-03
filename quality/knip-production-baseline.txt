@@ -1,0 +1,6 @@
+# Known Knip findings of the production profile (currently none).
+# The 32 findings of the initial inventory (2026-11-02) were all resolved on
+# 2026-11-03; see docs/TESTING_STANDARDS.md.
+# Normalized as: <category> :: <symbol/type information> <repository path>
+# Source line/column positions are intentionally excluded.
+# Do not add new findings merely to make the quality gate pass.

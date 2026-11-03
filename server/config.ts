@@ -754,8 +754,6 @@ export function getClientConfig() {
   };
 }
 
-export type UnoSimConfig = typeof config;
-
 /** Read the compile limit for components that support runtime test overrides. */
 export function getCompileMaxConcurrent(): number {
   return parseEnvInt("COMPILE_MAX_CONCURRENT", process.env.COMPILE_MAX_CONCURRENT, config.compilation.maxConcurrent, { min: 1, max: 256 });

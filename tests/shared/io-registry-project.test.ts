@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeStaticIO,
   analyzeStaticIOProject,
-  parseStaticIORegistry,
   parseStaticIORegistryProject,
 } from "../../shared/io-registry-parser";
 import { resolveSourceProject } from "../../shared/source-project";
@@ -238,11 +237,6 @@ describe("project-wide static I/O analysis", () => {
       calls: calls.map(({ file: _file, sourceOrder: _order, ...call }) => call),
     }))).toEqual(legacy.pins);
     expect(project.unresolvedCalls).toEqual(legacy.unresolvedCalls);
-    const projectRegistry = parseStaticIORegistryProject({
-      entryFile: "main.ino",
-      files: { "main.ino": code },
-    }).map(({ pinModeLocations: _pm, digitalWriteLocations: _dw, ...record }) => record);
-    expect(projectRegistry).toEqual(parseStaticIORegistry(code));
   });
 
   it("projects source locations into the project registry", () => {
