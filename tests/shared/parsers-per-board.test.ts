@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CodeParser } from "@shared/code-parser";
-import { analyzeStaticIO, parseStaticIORegistry, parseStaticIORegistryProject } from "@shared/io-registry-parser";
+import { analyzeStaticIO, parseStaticIORegistryProject } from "@shared/io-registry-parser";
+import { parseStaticIORegistry } from "../utils/static-io-registry";
 import { pinContext } from "@shared/parsers/pin-context";
 import type { BoardId } from "@shared/boards";
 

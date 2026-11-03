@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useCompilation } from "../../../client/src/hooks/use-compilation";
+import { useCompileAndRun } from "../../../client/src/hooks/use-compile-and-run";
+import type { IncomingArduinoMessage } from "../../../client/src/types/websocket";
 import { apiRequest } from "../../../client/src/lib/queryClient";
 
 vi.mock("@/lib/queryClient", () => ({
@@ -45,7 +46,6 @@ const buildParams = () => {
     setParserPanelDismissed: vi.fn(),
     resetPinUI: vi.fn(),
     setIoRegistry: vi.fn(),
-    setHasCompiledOnce: vi.fn(),
     setIsModified: vi.fn(),
     setDebugMessages: vi.fn(),
     addDebugMessage: vi.fn(),
@@ -53,11 +53,15 @@ const buildParams = () => {
     isBackendUnreachableError: vi.fn(() => false),
     triggerErrorGlitch: vi.fn(),
     toast: vi.fn(),
-    startSimulation: vi.fn(),
+    sendMessage: vi.fn(),
+    sendMessageImmediate: vi.fn(() => true),
+    serialEventQueueRef: { current: [] as Array<{ payload: IncomingArduinoMessage; receivedAt: number }> },
+    pendingPinConflicts: [] as number[],
+    setPendingPinConflicts: vi.fn(),
   };
 };
 
-describe("useCompilation", () => {
+describe("useCompileAndRun compile actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -69,7 +73,7 @@ describe("useCompilation", () => {
   it("returns initial compilation state", () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     expect(result.current.compilationStatus).toBe("ready");
     expect(result.current.arduinoCliStatus).toBe("idle");
@@ -82,7 +86,7 @@ describe("useCompilation", () => {
   it("clears compilation output and parser messages", () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setCliOutput("old output");
@@ -116,7 +120,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -147,7 +151,7 @@ describe("useCompilation", () => {
     params.code = "";
 
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleCompileAndStart();
@@ -165,7 +169,7 @@ describe("useCompilation", () => {
     params.tabs = [];
     params.code = "";
 
-    const { result } = renderHook(() => useCompilation(params), {
+    const { result } = renderHook(() => useCompileAndRun(params), {
       wrapper: createWrapper(),
     });
 
@@ -197,7 +201,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -230,7 +234,7 @@ describe("useCompilation", () => {
 
     apiRequestMock.mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -274,7 +278,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -299,106 +303,12 @@ describe("useCompilation", () => {
     await act(async () => {});
   });
 
-  it("handleCompileAndStart starts simulation on success", async () => {
-    vi.useFakeTimers();
-    const params = buildParams();
-    const wrapper = createWrapper();
-
-    const apiRequestMock = apiRequest as unknown as {
-      mockResolvedValue: (value: unknown) => void;
-    };
-
-    apiRequestMock.mockResolvedValue({
-      headers: { get: () => "application/json" },
-      json: vi.fn().mockResolvedValue({
-        success: true,
-        output: "Compiled successfully",
-        parserMessages: [],
-      }),
-      text: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
-
-    await act(async () => {
-      result.current.handleCompileAndStart();
-      vi.runOnlyPendingTimers();
-    });
-
-    // Run only pending timers to process Promise.resolve() microtasks and wait for assertions
-    await act(async () => {
-      vi.runOnlyPendingTimers();
-      await waitFor(() => {
-        expect(params.startSimulation).toHaveBeenCalled();
-      });
-    });
-
-    expect(result.current.compilationStatus).toBe("compiling");
-    expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
-    expect(params.setIsModified).toHaveBeenCalledWith(false);
-
-    // Flush all pending state updates including component effects
-    await act(async () => {
-      vi.runOnlyPendingTimers();
-    });
-    vi.useRealTimers();
-  });
-
-  it("handleCompileAndStart does not start simulation on error", async () => {
-    vi.useFakeTimers();
-    const params = buildParams();
-    const wrapper = createWrapper();
-
-    const apiRequestMock = apiRequest as unknown as {
-      mockResolvedValue: (value: unknown) => void;
-    };
-
-    apiRequestMock.mockResolvedValue({
-      headers: { get: () => "application/json" },
-      json: vi.fn().mockResolvedValue({
-        success: false,
-        errors: "Compilation failed",
-        parserMessages: [],
-      }),
-      text: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
-
-    await act(async () => {
-      result.current.handleCompileAndStart();
-      vi.runOnlyPendingTimers();
-    });
-
-    // Run only pending timers to process Promise.resolve() microtasks and wait for assertions
-    await act(async () => {
-      vi.runOnlyPendingTimers();
-      await waitFor(() => {
-        expect(result.current.compilationStatus).toBe("error");
-      });
-    });
-
-    expect(params.startSimulation).not.toHaveBeenCalled();
-    expect(params.toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Compilation Completed with Errors",
-        variant: "destructive",
-      }),
-    );
-
-    // Flush all pending state updates including component effects
-    await act(async () => {
-      vi.runOnlyPendingTimers();
-    });
-    vi.useRealTimers();
-  });
-
   it("checks backend connection before compiling", () => {
     const params = buildParams();
     params.ensureBackendConnected.mockReturnValue(false);
     const wrapper = createWrapper();
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleCompileAndStart();
@@ -428,7 +338,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -463,7 +373,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -502,7 +412,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -530,7 +440,7 @@ describe("useCompilation", () => {
 
     apiRequestMock.mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -571,7 +481,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -608,7 +518,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -643,7 +553,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -682,7 +592,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompile();
@@ -729,7 +639,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompileAndStart();
@@ -769,7 +679,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompileAndStart();
@@ -809,7 +719,7 @@ describe("useCompilation", () => {
       text: vi.fn(),
     });
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompileAndStart();
@@ -827,82 +737,6 @@ describe("useCompilation", () => {
     await act(async () => {});
   });
 
-  it("handles compile and start success calling startSimulation", async () => {
-    const params = buildParams();
-    const wrapper = createWrapper();
-
-    const apiRequestMock = apiRequest as unknown as {
-      mockResolvedValue: (value: unknown) => void;
-    };
-
-    apiRequestMock.mockResolvedValue({
-      headers: { get: () => "application/json" },
-      json: vi.fn().mockResolvedValue({
-        success: true,
-        output: "Compilation successful",
-        parserMessages: [],
-      }),
-      text: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
-
-    await act(async () => {
-      result.current.handleCompileAndStart();
-    });
-
-    await waitFor(() => {
-      expect(params.startSimulation).toHaveBeenCalled();
-    });
-
-    expect(params.setHasCompiledOnce).toHaveBeenCalledWith(true);
-    expect(params.setIsModified).toHaveBeenCalledWith(false);
-
-    // Flush pending effects
-    await act(async () => {});
-  });
-
-  it("handles compile and start failure without calling startSimulation", async () => {
-    const params = buildParams();
-    const wrapper = createWrapper();
-
-    const apiRequestMock = apiRequest as unknown as {
-      mockResolvedValue: (value: unknown) => void;
-    };
-
-    apiRequestMock.mockResolvedValue({
-      headers: { get: () => "application/json" },
-      json: vi.fn().mockResolvedValue({
-        success: false,
-        output: "Compilation error",
-        errors: "Error details",
-        parserMessages: [],
-      }),
-      text: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
-
-    await act(async () => {
-      result.current.handleCompileAndStart();
-    });
-
-    await waitFor(() => {
-      expect(params.toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Compilation Completed with Errors",
-          description: "Simulation will not start due to compilation errors.",
-          variant: "destructive",
-        }),
-      );
-    });
-
-    expect(params.startSimulation).not.toHaveBeenCalled();
-
-    // Flush pending effects
-    await act(async () => {});
-  });
-
   it("handles compile and start API error", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
@@ -913,7 +747,7 @@ describe("useCompilation", () => {
 
     (apiRequestMock as any).mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(() => useCompilation(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     await act(async () => {
       result.current.handleCompileAndStart();
@@ -929,7 +763,8 @@ describe("useCompilation", () => {
       );
     });
 
-    expect(params.startSimulation).not.toHaveBeenCalled();
+    expect(params.sendMessageImmediate).not.toHaveBeenCalled();
+    expect(params.sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "start_simulation" }));
 
     // Flush pending effects
     await act(async () => {});

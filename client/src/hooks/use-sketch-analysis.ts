@@ -1,11 +1,7 @@
 import type { BoardId } from "@shared/boards";
 import { analogChannelPin, isAnalogPin } from "@/lib/active-board";
 import { useMemo } from "react";
-import {
-  analyzeStaticIO,
-  analyzeStaticIOProject,
-  type StaticIOCall,
-} from "@shared/io-registry-parser";
+import { analyzeStaticIOProject, type StaticIOCall } from "@shared/io-registry-parser";
 import type { PinMode } from "@shared/types/arduino.types";
 import type { SourceProject } from "@shared/source-project";
 
@@ -36,16 +32,14 @@ function isVisibleAnalogRead(call: StaticIOCall): boolean {
   return call.op === "analogRead" && call.loopBody !== "braceless";
 }
 
-function analyzeSource(source: string | SourceProject | null | undefined, board?: BoardId) {
-  const options = board ? { board } : {};
-  if (typeof source === "string") return analyzeStaticIO(source, options);
-  if (source) return analyzeStaticIOProject(source, options);
+function analyzeSource(source: SourceProject | null | undefined, board?: BoardId) {
+  if (source) return analyzeStaticIOProject(source, board ? { board } : {});
   return { pins: [], unresolvedCalls: [], symbols: {} };
 }
 
 // Hook: pure projection of the canonical static I/O analysis for board state.
 export function useSketchAnalysis(
-  source: string | SourceProject | null | undefined,
+  source: SourceProject | null | undefined,
   board?: BoardId,
 ): SketchAnalysisResult {
   return useMemo(() => {

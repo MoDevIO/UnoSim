@@ -4,7 +4,7 @@
  * 
  * Covers:
  * - Concurrency guarantees (atomic slot allocation)
- * - Priority inversion testing (HIGH priority bypasses waiting LOW tasks)
+ * - Priority inversion testing (HIGH priority bypasses waiting NORMAL tasks)
  * - Owner protection (multi-owner scenarios with isolated release)
  * - Resilience (timeouts, rejections, null resolvers)
  * - Boundary conditions (maxQueueSize=1, maxConcurrent=1)
@@ -143,7 +143,7 @@ describe("UnifiedGatekeeper", () => {
   });
 
   describe("Priority Inversion Prevention", () => {
-    it("should grant HIGH priority task before queued LOW priority tasks", async () => {
+    it("should grant HIGH priority task before queued NORMAL priority tasks", async () => {
       const gk = new UnifiedGatekeeper(2); // Two slots for easier testing
       const executionOrder: string[] = [];
 
@@ -151,8 +151,8 @@ describe("UnifiedGatekeeper", () => {
       const blocker1 = await gk.acquireCompileSlot(TaskPriority.NORMAL, 15000, "blocker1");
       const blocker2 = await gk.acquireCompileSlot(TaskPriority.NORMAL, 15000, "blocker2");
 
-      // Queue LOW then HIGH - HIGH should be inserted before LOW
-      const lowPromise = gk.acquireCompileSlot(TaskPriority.LOW, 15000, "low1");
+      // Queue NORMAL then HIGH - HIGH should be inserted before NORMAL
+      const normalPromise = gk.acquireCompileSlot(TaskPriority.NORMAL, 15000, "normal1");
       const highPromise = gk.acquireCompileSlot(TaskPriority.HIGH, 15000, "high1");
 
       // Let them queue
@@ -170,19 +170,19 @@ describe("UnifiedGatekeeper", () => {
       executionOrder.push("high1");
       releaseHigh();
 
-      // Release second blocker - now LOW can proceed
+      // Release second blocker - now NORMAL can proceed
       blocker2();
 
-      const releaseLow = await Promise.race([
-        lowPromise,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("LOW timeout")), 500)),
+      const releaseNormal = await Promise.race([
+        normalPromise,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("NORMAL timeout")), 500)),
       ]);
 
-      executionOrder.push("low1");
-      releaseLow();
+      executionOrder.push("normal1");
+      releaseNormal();
 
-      // HIGH should have been granted before LOW
-      expect(executionOrder).toEqual(["high1", "low1"]);
+      // HIGH should have been granted before NORMAL
+      expect(executionOrder).toEqual(["high1", "normal1"]);
 
       gk.stopLockMonitoring();
     });
@@ -213,21 +213,21 @@ describe("UnifiedGatekeeper", () => {
       gk.stopLockMonitoring();
     });
 
-    it("should insert HIGH/NORMAL/LOW in correct priority order", async () => {
+    it("should insert HIGH before queued NORMAL tasks and keep NORMAL in FIFO order", async () => {
       const gk = new UnifiedGatekeeper(1);
       const executionOrder: string[] = [];
 
       const release1 = await gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "t1");
       executionOrder.push("t1");
 
-      // Queue in reverse priority order
-      const lowPromise = gk.acquireCompileSlot(TaskPriority.LOW, 5000, "low");
-      const highPromise = gk.acquireCompileSlot(TaskPriority.HIGH, 5000, "high");
+      // Queue NORMAL, NORMAL, then HIGH
       const normalPromise = gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "normal");
+      const laterPromise = gk.acquireCompileSlot(TaskPriority.NORMAL, 5000, "later");
+      const highPromise = gk.acquireCompileSlot(TaskPriority.HIGH, 5000, "high");
 
       release1();
 
-      // Should execute in priority order: HIGH, NORMAL, LOW
+      // Should execute HIGH first, then the NORMAL tasks in arrival order
       const releaseHigh = await highPromise;
       executionOrder.push("high");
       releaseHigh();
@@ -236,11 +236,11 @@ describe("UnifiedGatekeeper", () => {
       executionOrder.push("normal");
       releaseNormal();
 
-      const releaseLow = await lowPromise;
-      executionOrder.push("low");
-      releaseLow();
+      const releaseLater = await laterPromise;
+      executionOrder.push("later");
+      releaseLater();
 
-      expect(executionOrder).toEqual(["t1", "high", "normal", "low"]);
+      expect(executionOrder).toEqual(["t1", "high", "normal", "later"]);
 
       gk.stopLockMonitoring();
     });

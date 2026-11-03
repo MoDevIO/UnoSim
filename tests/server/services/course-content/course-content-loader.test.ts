@@ -236,6 +236,48 @@ describe("unified Course Content loader", () => {
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
 
+  describe("Tutor files of the bundle", () => {
+    async function tutorWith(topics: Array<{ id: string; source: string }>) {
+      const entries = topics.flatMap(({ id, source }) => [
+        `  - id: ${id}`,
+        `    path: tutor/topics/${id}.yaml`,
+        `    sha256: ${digest(source)}`,
+      ]);
+      const { fetchText } = fetcherFor({
+        [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example], tutor: { manifest: "tutor/manifest.yaml" } }),
+        [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}",
+        [`/owner/repo/${revision}/tutor/manifest.yaml`]: ["schemaVersion: 1", "topics:", ...entries, "strategies: []", ""].join("\n"),
+        ...Object.fromEntries(topics.map(({ id, source }) => [`/owner/repo/${revision}/tutor/topics/${id}.yaml`, source])),
+      });
+      return (await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision)).tutor;
+    }
+
+    it("accepts the pilot topic", async () => {
+      const topic = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
+
+      expect(await tutorWith([{ id: "memory-and-data-types", source: topic }])).toMatchObject({ status: "valid" });
+    });
+
+    it.each([
+      ["an unknown field", (topic: string) => topic.replace("schemaVersion: 1", "schemaVersion: 1\nunexpected: true")],
+      ["a YAML language tag", (topic: string) => topic.replace("title: Speicher und Datentypen", "title: !!js/function '() => 1'")],
+      ["a custom YAML tag", (topic: string) => topic.replace("title: Speicher und Datentypen", "title: !custom value")],
+    ])("rejects a topic with %s", async (_case, change) => {
+      const topic = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
+      const changed = change(topic);
+
+      expect(changed).not.toBe(topic);
+      expect(await tutorWith([{ id: "memory-and-data-types", source: changed }])).toMatchObject({ status: "invalid" });
+    });
+
+    it("rejects a manifest that lists a topic id twice", async () => {
+      const topic = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
+      const entry = { id: "memory-and-data-types", source: topic };
+
+      expect(await tutorWith([entry, entry])).toMatchObject({ status: "invalid" });
+    });
+  });
+
   it("rejects a bundle whose embedded annotation references an unknown Tutor item", async () => {
     const { fetchText } = fetcherFor({
       [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({

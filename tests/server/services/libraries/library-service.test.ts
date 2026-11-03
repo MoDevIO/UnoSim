@@ -11,7 +11,6 @@ import {
   parseProvidedLibraries,
   type ProvidedLibrary,
   readProvidedLibraries,
-  providedLibraryDir,
   resolveCompileLibraries,
 } from "../../../../server/services/libraries/library-service";
 
@@ -63,10 +62,6 @@ describe("library catalog (SSOT Libraries §3, §12)", () => {
     }
   });
 
-  it("names a package directory without characters the process allowlist refuses", () => {
-    expect(providedLibraryDir({ name: "AUnit", version: "1.7.1" })).toBe("AUnit-1.7.1/AUnit");
-    expect(providedLibraryDir({ name: "Adafruit GFX Library", version: "1.11.9" })).toBe("Adafruit_GFX_Library-1.11.9/Adafruit_GFX_Library");
-  });
 });
 
 describe("resolveCompileLibraries (SSOT Libraries §10)", () => {

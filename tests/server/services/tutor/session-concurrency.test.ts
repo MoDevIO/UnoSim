@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { createTutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { TutorService } from "../../../../server/services/tutor/tutor-service";

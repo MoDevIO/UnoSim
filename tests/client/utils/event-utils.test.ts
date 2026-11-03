@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import {
   onCustomEvent,
   offCustomEvent,
-  dispatchCustomEvent,
 } from "../../../client/src/utils/event-utils";
 
 describe("event-utils", () => {
@@ -34,22 +33,4 @@ describe("event-utils", () => {
     expect(() => offCustomEvent(undefined, "test", vi.fn())).not.toThrow();
   });
 
-  it("dispatchCustomEvent sends event with detail", () => {
-    const target = new EventTarget();
-    const handler = vi.fn();
-    target.addEventListener("my-event", handler);
-
-    dispatchCustomEvent(target, "my-event", { foo: 42 });
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect((handler.mock.calls[0][0] as CustomEvent).detail).toEqual({ foo: 42 });
-  });
-
-  it("dispatchCustomEvent works without detail", () => {
-    const target = new EventTarget();
-    const handler = vi.fn();
-    target.addEventListener("empty-event", handler);
-
-    dispatchCustomEvent(target, "empty-event");
-    expect(handler).toHaveBeenCalledTimes(1);
-  });
 });

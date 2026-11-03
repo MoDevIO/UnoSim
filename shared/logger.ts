@@ -231,7 +231,10 @@ export class Logger {
 }
 
 // ============ GLOBALE FEHLERBEHANDLUNG ============
-// Registriert globale Handler für Prozess-Fehler und Test-Fehlschlag
+/**
+ * Registriert Handler, die den Debug-Puffer bei einem Prozessfehler ausgeben (Test-Setup).
+ * @internal
+ */
 export function initializeGlobalErrorHandlers(): void {
   if (globalThis.process === undefined) return;
 
@@ -247,13 +250,18 @@ export function initializeGlobalErrorHandlers(): void {
 }
 
 /**
- * Manuell für Vitest-Integration aufrufen
+ * Gibt den Debug-Puffer für einen fehlgeschlagenen Test aus (Test-Setup).
+ * @internal
  */
 export function markTestAsFailed(testName?: string): void {
   // testsFailed flag removed; simply flush buffer immediately
   flushDebugOnFailure(testName ? `Test failed: ${testName}` : "Test failed");
 }
 
+/**
+ * Setzt das Log-Level zur Laufzeit; im Produkt bestimmt es `LOG_LEVEL` beim Start.
+ * @internal
+ */
 export function setLogLevel(level: LogLevel): void {
   globalLogLevel = level;
 }

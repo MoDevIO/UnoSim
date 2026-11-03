@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BOARD_MCU, boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
+import { BOARD_MCU } from "@unosim/avr-emulator/boards";
 
 /**
  * Board catalog of UnoSim (plan 4.3, P2.1): the product side of a board. The
@@ -10,8 +10,8 @@ export const BOARD_IDS = ["uno", "nano", "mega2560", "attiny85"] as const;
 export type BoardId = (typeof BOARD_IDS)[number];
 export const boardIdSchema = z.enum(BOARD_IDS);
 
-// Every catalog id is a board of the emulation package: `boardPinAliases` hands a `BoardId` to a
-// function that takes a `BoardHardwareId`, which compiles only if the first is a subset. The test
+// Every catalog id is a board of the emulation package: `boardTutorFacts` indexes `BOARD_MCU`,
+// a record over `BoardHardwareId`, with a `BoardId`, which compiles only if the first is a subset. The test
 // `tests/shared/boards.test.ts` checks the other direction.
 
 export const RUNTIME_KINDS = ["browser", "host-mock"] as const;
@@ -90,20 +90,4 @@ export const AVR_DATA_TYPE_BYTES = { char: 1, short: 2, int: 2, long: 4, longLon
 /** What the Tutor's deterministic context says about the board a sketch is written for (plan P2.7). */
 export function boardTutorFacts(id: BoardId): { id: BoardId; displayName: string; mcu: string; dataTypeBytes: typeof AVR_DATA_TYPE_BYTES } {
   return { id, displayName: getBoard(id).displayName, mcu: BOARD_MCU[id], dataTypeBytes: AVR_DATA_TYPE_BYTES };
-}
-
-/**
- * Pin names of a board and their pins (`A0` → 14, ATtiny85 `A1` → 2,
- * `LED_BUILTIN`), taken from the pin map of the emulation package; a board
- * without hardware profile has none.
- */
-export function boardPinAliases(id: BoardId): Readonly<Record<string, number>> | undefined {
-  if (!hasBoardHardware(id)) return undefined;
-  const hardware = boardHardware(id);
-  const aliases: Record<string, number> = { LED_BUILTIN: hardware.ledBuiltin };
-  for (const pin of hardware.pins) {
-    const name = pin.analogName ?? pin.label;
-    if (/^A\d+$/.test(name)) aliases[name] = pin.pin;
-  }
-  return aliases;
 }

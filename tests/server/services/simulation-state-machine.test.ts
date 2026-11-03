@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canTransition, transition } from "../../../server/services/simulation-state-machine";
+import { canTransition } from "../../../server/services/simulation-state-machine";
 
 describe("simulation state machine", () => {
   it("allows only lifecycle transitions", () => {
@@ -10,8 +10,4 @@ describe("simulation state machine", () => {
     expect(canTransition("error", "starting")).toBe(false);
   });
 
-  it("keeps the current state for invalid transitions", () => {
-    expect(transition("running", "starting")).toBe("running");
-    expect(transition("paused", "stopped")).toBe("stopped");
-  });
 });

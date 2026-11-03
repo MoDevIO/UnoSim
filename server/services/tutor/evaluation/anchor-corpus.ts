@@ -76,11 +76,6 @@ export interface TutorQualityCorpus extends TutorQualityCorpusSource {
   readonly digest: string;
 }
 
-export interface CorpusEvolutionComparison {
-  readonly valid: boolean;
-  readonly reason?: "version-not-increased" | "version-changed-without-semantic-change";
-}
-
 function fail(message: string): never {
   throw new Error(`Invalid Tutor Quality corpus: ${message}`);
 }
@@ -384,18 +379,4 @@ export function parseTutorQualityCorpus(
 
   const normalized = { corpusId: source.corpusId, corpusVersion: source.corpusVersion, scenarios } satisfies TutorQualityCorpusSource;
   return { ...normalized, digest: tutorQualityCorpusDigest(normalized) };
-}
-
-export function compareTutorQualityCorpusVersions(
-  previous: TutorQualityCorpus,
-  current: TutorQualityCorpus,
-): CorpusEvolutionComparison {
-  const changed = previous.digest !== current.digest;
-  if (!changed && previous.corpusVersion !== current.corpusVersion) {
-    return { valid: false, reason: "version-changed-without-semantic-change" };
-  }
-  if (changed && current.corpusVersion <= previous.corpusVersion) {
-    return { valid: false, reason: "version-not-increased" };
-  }
-  return { valid: true };
 }

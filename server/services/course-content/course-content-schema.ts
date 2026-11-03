@@ -16,16 +16,6 @@ export const tutorDescriptorSchema = z.object({
   manifest: z.literal("tutor/manifest.yaml"),
 }).strict();
 
-const v2ManifestSchema = z.object({
-  schemaVersion: z.literal(2),
-  repository: z.string().max(256).optional(),
-  ref: z.string().max(128).optional(),
-  examples: boundedArray(v2ManifestExampleSchema, 1000),
-  tutor: tutorDescriptorSchema.optional(),
-}).strict();
-
-export const courseContentManifestSchema = z.union([examplesManifestSchema, v2ManifestSchema]);
-
 export type TutorDescriptor = z.infer<typeof tutorDescriptorSchema>;
 
 export const courseContentTopicEntrySchema = z.object({

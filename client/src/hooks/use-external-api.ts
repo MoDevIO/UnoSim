@@ -300,7 +300,7 @@ export function useExternalApi(params: UseExternalApiParams): void {
 /**
  * Gets the currently configured allowed origin for external API communication.
  * Defaults to "*" if useExternalApi has not been called yet.
- * @internal Used by other hooks to send events with the correct origin.
+ * The event senders of this module use it to address the correct origin.
  */
 function getAllowedOrigin(): string {
   return _allowedOriginRef.value;

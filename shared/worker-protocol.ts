@@ -122,13 +122,6 @@ export function isReadyMessage(msg: WorkerMessage<unknown>): msg is ReadyMessage
 }
 
 /**
- * Type guard to check if a message is a shutdown signal
- */
-export function isShutdownMessage(msg: WorkerMessage<unknown>): msg is ShutdownMessage {
-  return msg.type === WorkerCommand.SHUTDOWN;
-}
-
-/**
  * Helper to create a compile request message
  */
 export function createCompileRequest(

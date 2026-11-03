@@ -2,8 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useSimulationControls } from "../../../client/src/hooks/use-simulation-controls";
+import { useCompileAndRun } from "../../../client/src/hooks/use-compile-and-run";
+import { apiRequest } from "../../../client/src/lib/queryClient";
+import type { IncomingArduinoMessage } from "../../../client/src/types/websocket";
 import { getServerCapabilities } from "@/lib/server-capabilities";
+
+vi.mock("@/lib/queryClient", () => ({
+  apiRequest: vi.fn(),
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -18,25 +24,37 @@ const createWrapper = () => {
   );
 };
 
+// Start, Stop, Pause, Resume and Reset as the page uses them: through useCompileAndRun.
 const buildParams = () => {
   return {
+    editorRef: { current: { getValue: () => "void setup() {}\nvoid loop() {}" } },
+    tabs: [{ id: "sketch", name: "sketch.ino", content: "void setup() {}\nvoid loop() {}" }],
+    activeTabId: "sketch",
+    code: "void setup() {}\nvoid loop() {}",
+    setSerialOutput: vi.fn(),
+    clearSerialOutput: vi.fn(),
+    setParserMessages: vi.fn(),
+    setParserPanelDismissed: vi.fn(),
+    setIoRegistry: vi.fn(),
+    setIsModified: vi.fn(),
+    setDebugMessages: vi.fn(),
+    isBackendUnreachableError: vi.fn(() => false),
+    triggerErrorGlitch: vi.fn(),
     ensureBackendConnected: vi.fn(() => true),
     sendMessage: vi.fn(),
     resetPinUI: vi.fn(),
-    clearOutputs: vi.fn(),
     addDebugMessage: vi.fn(),
-    serialEventQueueRef: { current: [] as Array<{ payload: any; receivedAt: number }> },
+    serialEventQueueRef: { current: [] as Array<{ payload: IncomingArduinoMessage; receivedAt: number }> },
     toast: vi.fn(),
     pendingPinConflicts: [] as number[],
     setPendingPinConflicts: vi.fn(),
-    setCliOutput: vi.fn(),
     isModified: false,
-    handleCompileAndStart: vi.fn(),
-    startSimulationRef: { current: null as null | (() => void) },
   };
 };
 
-describe("useSimulationControls", () => {
+const recompiles = () => expect(apiRequest).toHaveBeenCalledWith("POST", "/api/compile", expect.anything());
+
+describe("useCompileAndRun simulation actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -48,7 +66,7 @@ describe("useSimulationControls", () => {
   it("blocks all simulation actions offline even if the connection guard is stale", () => {
     const params = { ...buildParams(), capabilities: getServerCapabilities(false) };
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
@@ -60,25 +78,25 @@ describe("useSimulationControls", () => {
 
     expect(params.ensureBackendConnected).not.toHaveBeenCalled();
     expect(params.sendMessage).not.toHaveBeenCalled();
-    expect(params.clearOutputs).not.toHaveBeenCalled();
-    expect(params.handleCompileAndStart).not.toHaveBeenCalled();
+    expect(params.clearSerialOutput).not.toHaveBeenCalled();
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 
   it("returns initial state and assigns startSimulationRef", () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     expect(result.current.simulationStatus).toBe("idle");
     expect(result.current.hasCompiledOnce).toBe(false);
     expect(result.current.simulationTimeout).toBe(60);
-    expect(typeof params.startSimulationRef.current).toBe("function");
+    expect(typeof result.current.startSimulationRef.current).toBe("function");
   });
 
   it("handleStart starts simulation and sends message", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
@@ -98,7 +116,7 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.serialEventQueueRef.current = [{ payload: "x", receivedAt: 1 }];
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStop();
@@ -115,7 +133,7 @@ describe("useSimulationControls", () => {
     vi.useFakeTimers();
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => result.current.handleStart());
     await waitFor(() => expect(result.current.simulationStatus).toBe("running"));
@@ -127,17 +145,19 @@ describe("useSimulationControls", () => {
     await waitFor(() => expect(result.current.simulationStatus).toBe("running"));
 
     act(() => result.current.handleReset());
+    // Reset stops a held run through the stop mutation, which runs after the current task.
+    await act(async () => vi.advanceTimersByTimeAsync(0));
     expect(result.current.simulationStatus).toBe("idle");
-    expect(params.clearOutputs).toHaveBeenCalled();
-    act(() => vi.advanceTimersByTime(100));
-    expect(params.handleCompileAndStart).toHaveBeenCalledOnce();
+    expect(params.clearSerialOutput).toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(100));
+    recompiles();
   });
 
   it("handleReset clears outputs and recompiles after delay", async () => {
     vi.useFakeTimers();
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("running");
@@ -147,22 +167,20 @@ describe("useSimulationControls", () => {
       result.current.handleReset();
     });
 
-    expect(params.clearOutputs).toHaveBeenCalled();
+    expect(params.clearSerialOutput).toHaveBeenCalled();
     expect(params.resetPinUI).toHaveBeenCalledWith({ keepDetected: true });
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(120);
     });
 
-    await waitFor(() => {
-      expect(params.handleCompileAndStart).toHaveBeenCalled();
-    });
+    recompiles();
   });
 
   it("handlePause pauses simulation", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("running");
@@ -187,7 +205,7 @@ describe("useSimulationControls", () => {
   it("handleResume resumes simulation from paused", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("paused");
@@ -213,27 +231,23 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.pendingPinConflicts = [2, 14, 15];
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
     });
 
     await waitFor(() => {
-      expect(params.setCliOutput).toHaveBeenCalled();
+      expect(result.current.cliOutput).toContain("Pin usage conflict");
     });
-
-    const setCliCall = params.setCliOutput.mock.calls[0][0];
-    const outputValue = typeof setCliCall === "function" ? setCliCall("") : setCliCall;
-    expect(outputValue).toContain("Pin usage conflict");
-    expect(outputValue).toContain("2, A0, A1");
+    expect(result.current.cliOutput).toContain("2, A0, A1");
     expect(params.setPendingPinConflicts).toHaveBeenCalledWith([]);
   });
 
   it("waits for server confirmation before showing the success toast", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
@@ -253,7 +267,7 @@ describe("useSimulationControls", () => {
       throw new Error("Network error");
     });
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
@@ -276,7 +290,7 @@ describe("useSimulationControls", () => {
       throw new Error("Network error");
     });
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setHasCompiledOnce(true);
@@ -301,7 +315,7 @@ describe("useSimulationControls", () => {
       throw new Error("Pause failed");
     });
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("running");
@@ -327,7 +341,7 @@ describe("useSimulationControls", () => {
       throw new Error("Resume failed");
     });
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("paused");
@@ -351,7 +365,7 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.ensureBackendConnected = vi.fn(() => false);
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStart();
@@ -365,7 +379,7 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.ensureBackendConnected = vi.fn(() => false);
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStop();
@@ -379,7 +393,7 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.ensureBackendConnected = vi.fn(() => false);
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handlePause();
@@ -393,7 +407,7 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.ensureBackendConnected = vi.fn(() => false);
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleResume();
@@ -407,20 +421,20 @@ describe("useSimulationControls", () => {
     const params = buildParams();
     params.ensureBackendConnected = vi.fn(() => false);
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleReset();
     });
 
     expect(params.ensureBackendConnected).toHaveBeenCalledWith("Reset simulation");
-    expect(params.clearOutputs).not.toHaveBeenCalled();
+    expect(params.clearSerialOutput).not.toHaveBeenCalled();
   });
 
   it("startMutation uses simulationTimeout parameter", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationTimeout(120);
@@ -443,7 +457,7 @@ describe("useSimulationControls", () => {
   it("normalizes an obsolete unlimited timeout before sending it to the server", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationTimeout(0);
@@ -460,12 +474,12 @@ describe("useSimulationControls", () => {
   it("startSimulationRef can trigger start mutation directly", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
-    expect(params.startSimulationRef.current).not.toBeNull();
+    expect(result.current.startSimulationRef.current).not.toBeNull();
 
     act(() => {
-      params.startSimulationRef.current?.();
+      result.current.startSimulationRef.current?.();
     });
 
     await waitFor(() => {
@@ -476,7 +490,7 @@ describe("useSimulationControls", () => {
   it("stopMutation resets pin UI with keepDetected option", async () => {
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.handleStop();
@@ -491,7 +505,7 @@ describe("useSimulationControls", () => {
     vi.useFakeTimers();
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("running");
@@ -515,7 +529,7 @@ describe("useSimulationControls", () => {
     vi.useFakeTimers();
     const params = buildParams();
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useSimulationControls(params), { wrapper });
+    const { result } = renderHook(() => useCompileAndRun(params), { wrapper });
 
     act(() => {
       result.current.setSimulationStatus("running");
@@ -524,6 +538,7 @@ describe("useSimulationControls", () => {
     act(() => {
       result.current.handleReset();
     });
+    await act(async () => vi.advanceTimersByTimeAsync(0));
 
     expect(params.sendMessage).toHaveBeenCalledWith({ type: "stop_simulation" });
     expect(result.current.simulationStatus).toBe("idle");

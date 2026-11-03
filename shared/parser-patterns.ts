@@ -92,6 +92,82 @@ export function stripComments(code: string): string {
   return result;
 }
 
+const IDENTIFIER_CHAR = /[\w.]/;
+const RAW_STRING_PREFIX = /^(?:u8|u|U|L)?R$/;
+
+/** Start of the token that ends right before `pos` (identifier or number characters). */
+function tokenStart(code: string, pos: number): number {
+  let start = pos;
+  while (start > 0 && IDENTIFIER_CHAR.test(code[start - 1])) start--;
+  return start;
+}
+
+/** End (exclusive) of a quoted literal opened at `open`; an unterminated one ends at the line break. */
+function quotedLiteralEnd(code: string, open: number): number {
+  const quote = code[open];
+  for (let i = open + 1; i < code.length; i++) {
+    if (code[i] === "\\") i++;
+    else if (code[i] === quote) return i + 1;
+    else if (code[i] === "\n") return i;
+  }
+  return code.length;
+}
+
+/** End (exclusive) of a raw string `R"delim( … )delim"` whose quote is at `quote`, or undefined if it is none. */
+function rawStringEnd(code: string, quote: number): number | undefined {
+  const open = code.indexOf("(", quote + 1);
+  const delimiter = open < 0 ? "" : code.slice(quote + 1, open);
+  if (open < 0 || delimiter.length > 16 || /[\s\\)]/.test(delimiter)) return undefined;
+  const close = code.indexOf(")" + delimiter + '"', open + 1);
+  return close < 0 ? code.length : close + delimiter.length + 2;
+}
+
+/**
+ * The span [start, end) of the comment or literal at `i`, or undefined if none starts there. An unterminated
+ * block comment stays text, as in `stripComments`; once no closer follows, none follows a later opener either.
+ */
+function commentOrLiteralAt(code: string, i: number, scan: { blockCloser: boolean }): [number, number] | undefined {
+  const char = code[i];
+  if (char === "/" && code[i + 1] === "/") {
+    const end = code.indexOf("\n", i);
+    return [i, end < 0 ? code.length : end];
+  }
+  if (char === "/" && code[i + 1] === "*" && scan.blockCloser) {
+    const close = code.indexOf("*/", i + 2);
+    scan.blockCloser = close >= 0;
+    return close < 0 ? undefined : [i, close + 2];
+  }
+  if (char === '"') {
+    const prefix = tokenStart(code, i);
+    const rawEnd = RAW_STRING_PREFIX.test(code.slice(prefix, i)) ? rawStringEnd(code, i) : undefined;
+    return rawEnd === undefined ? [i, quotedLiteralEnd(code, i)] : [prefix, rawEnd];
+  }
+  // A quote after a number is a digit separator (1'000), not a character literal.
+  if (char === "'" && !/^\d/.test(code.slice(tokenStart(code, i), i))) return [i, quotedLiteralEnd(code, i)];
+  return undefined;
+}
+
+/**
+ * Blanks comments and string, character and raw-string literals with spaces,
+ * keeping every newline, so positions and line numbers stay those of the source.
+ */
+export function blankCommentsAndLiterals(code: string): string {
+  let result = "";
+  let from = 0;
+  let i = 0;
+  const scan = { blockCloser: true };
+  while (i < code.length) {
+    const span = commentOrLiteralAt(code, i, scan);
+    if (span) {
+      result += code.slice(from, span[0]) + code.slice(span[0], span[1]).replaceAll(/[^\n]/g, " ");
+      from = i = span[1];
+    } else {
+      i++;
+    }
+  }
+  return result + code.slice(from);
+}
+
 /**
  * Find line number for a pattern in code.
  * @param code - Full source code

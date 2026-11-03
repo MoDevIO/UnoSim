@@ -42,6 +42,7 @@
     "check:raw-hex": "node scripts/check-raw-hex.cjs",
     "lint:colors": "npm run check:raw-hex",
     "test": "npm run test:unit",
+    "test:knip": "node --test tests/scripts/knip-*.test.mjs",
     "test:fast": "npm run test:unit",
     "test:unit": "npm run test:unit:app && npm run test:unit:emulator",
     "test:unit:app": "TEST_BUDGET_SUITE=unit TEST_BUDGET_WARN_MS=75000 TEST_BUDGET_FAIL_MS=120000 LOG_LEVEL=warn vitest run --project=unit-client --project=unit-node --project=unit-node-http --reporter=default --reporter=./scripts/test-budget-reporter.mjs",

@@ -9,7 +9,7 @@ import {
   BUILT_IN_TUTOR_STRATEGY,
   type EffectiveTutorStrategy,
 } from "../../../../server/services/tutor/strategy/effective-tutor-strategy";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { DefaultLearningPlanner } from "../../../../server/services/tutor/curriculum/learning-planner";
 import { DefaultSketchFactExtractor } from "../../../../server/services/tutor/curriculum/sketch-facts";
 import type { CurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";

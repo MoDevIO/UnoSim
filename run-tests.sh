@@ -229,10 +229,16 @@ fi
 run_task "Static Analysis" "npm run check"
 fi
 
-# 2. Dead-code check (knip) — known findings are tracked in a reviewed baseline
+# 2. Full graph and production graph (tests must not keep production code alive).
 STEP=$((STEP+1))
 echo -e "\n${B}▸ [$STEP/$TOTAL_STEPS] Dead-Code Check (knip)${RS}"
-KNIP_BASELINE_FILE="${KNIP_BASELINE_FILE:-quality/knip-baseline.txt}"
+for KNIP_PROFILE in full production; do
+echo "    Profile: $KNIP_PROFILE"
+if [ "$KNIP_PROFILE" = production ]; then
+    KNIP_ACTIVE_BASELINE="${KNIP_PRODUCTION_BASELINE_FILE:-quality/knip-production-baseline.txt}"
+else
+    KNIP_ACTIVE_BASELINE="${KNIP_BASELINE_FILE:-quality/knip-baseline.txt}"
+fi
 KNIP_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/unosim-knip.XXXXXX")
 if [ $? -ne 0 ] || [ -z "$KNIP_TMP_DIR" ] || [ ! -d "$KNIP_TMP_DIR" ]; then
     echo -e "  ${FAIL} Dead-Code Check                    FAIL: could not create scratch directory"
@@ -245,8 +251,8 @@ knip_gate_fail() {
     exit 1
 }
 
-if [ ! -f "$KNIP_BASELINE_FILE" ] || [ ! -r "$KNIP_BASELINE_FILE" ]; then
-    knip_gate_fail "baseline missing or unreadable: $KNIP_BASELINE_FILE"
+if [ ! -f "$KNIP_ACTIVE_BASELINE" ] || [ ! -r "$KNIP_ACTIVE_BASELINE" ]; then
+    knip_gate_fail "baseline missing or unreadable: $KNIP_ACTIVE_BASELINE"
 fi
 
 # Baseline records are data, never generated or updated by this pipeline.
@@ -261,6 +267,7 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
     }
     function valid_record(category, detail, fields, field_count) {
         field_count = split(detail, fields, " ")
+        if (category == "Unused files") return field_count == 1 && valid_path(fields[1])
         if (field_count < 2 || !valid_path(fields[field_count])) return 0
 
         if (category == "Unused exports") {
@@ -269,6 +276,9 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
         }
         if (category == "Unused exported types") {
             return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Unused exported enum members") {
+            return field_count == 3 && fields[2] ~ /^[[:alpha:]_][[:alnum:]_.]*$/
         }
         if (category == "Duplicate exports") {
             if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
@@ -299,24 +309,31 @@ if ! awk -v errors="$KNIP_TMP_DIR/baseline-errors" '
     END {
         if (invalid) exit 1
     }
-' "$KNIP_BASELINE_FILE" > "$KNIP_TMP_DIR/baseline.raw"; then
+' "$KNIP_ACTIVE_BASELINE" > "$KNIP_TMP_DIR/baseline.raw"; then
     if [ -s "$KNIP_TMP_DIR/baseline-errors" ]; then
         sed 's/^/    /' "$KNIP_TMP_DIR/baseline-errors"
     fi
-    knip_gate_fail "invalid baseline: $KNIP_BASELINE_FILE"
+    knip_gate_fail "invalid baseline: $KNIP_ACTIVE_BASELINE"
 fi
 
 LC_ALL=C sort -u "$KNIP_TMP_DIR/baseline.raw" > "$KNIP_TMP_DIR/baseline.sorted"
 KNIP_BASELINE_COUNT=$(wc -l < "$KNIP_TMP_DIR/baseline.raw" | tr -d '[:space:]')
 KNIP_BASELINE_UNIQUE_COUNT=$(wc -l < "$KNIP_TMP_DIR/baseline.sorted" | tr -d '[:space:]')
 if [ "$KNIP_BASELINE_COUNT" -ne "$KNIP_BASELINE_UNIQUE_COUNT" ]; then
-    knip_gate_fail "duplicate finding records in baseline: $KNIP_BASELINE_FILE"
+    knip_gate_fail "duplicate finding records in baseline: $KNIP_ACTIVE_BASELINE"
 fi
 
-KNIP_OUT=$(npx knip 2>&1)
+if [ "$KNIP_PROFILE" = production ]; then
+    # Dependency checks stay in the full graph, where dev tools are legitimate.
+    KNIP_OUT=$(npx knip --no-config-hints --production --include files,exports,types,nsExports,nsTypes,enumMembers,namespaceMembers,duplicates,unresolved 2>&1)
+else
+    # Production-marked roots can be redundant in the full graph. Configuration
+    # suggestions are not dead-code findings; unknown issue output still fails.
+    KNIP_OUT=$(npx knip --no-config-hints 2>&1)
+fi
 KNIP_EXIT=$?
 if [ -n "$KNIP_OUT" ] || [ "$KNIP_EXIT" -ne 0 ]; then
-    printf '=== knip output (exit %s) ===\n' "$KNIP_EXIT" >> "$LOG_FILE"
+    printf '=== knip %s output (exit %s) ===\n' "$KNIP_PROFILE" "$KNIP_EXIT" >> "$LOG_FILE"
     if [ -n "$KNIP_OUT" ]; then
         printf '%s\n' "$KNIP_OUT" >> "$LOG_FILE"
     fi
@@ -336,6 +353,7 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
     }
     function valid_record(category, detail, fields, field_count) {
         field_count = split(detail, fields, " ")
+        if (category == "Unused files") return field_count == 1 && valid_path(fields[1])
         if (field_count < 2 || !valid_path(fields[field_count])) return 0
 
         if (category == "Unused exports") {
@@ -344,6 +362,9 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
         }
         if (category == "Unused exported types") {
             return field_count == 3 && fields[2] == "type"
+        }
+        if (category == "Unused exported enum members") {
+            return field_count == 3 && fields[2] ~ /^[[:alpha:]_][[:alnum:]_.]*$/
         }
         if (category == "Duplicate exports") {
             if (field_count != 2 || fields[1] !~ /^[^|]+\|[^|]+$/) return 0
@@ -368,7 +389,8 @@ if ! awk -v records="$KNIP_TMP_DIR/current.raw" -v errors="$KNIP_TMP_DIR/parse-e
             count = line
             sub(/^.* \(/, "", count)
             sub(/\)$/, "", count)
-            if (category != "Unused exports" && category != "Unused exported types" && category != "Duplicate exports") {
+            if (category != "Unused files" && category != "Unused exports" && category != "Unused exported types" &&
+                category != "Unused exported enum members" && category != "Duplicate exports") {
                 fail("unrecognized section heading: " line)
             }
             if (category == "" || seen[category]++) {
@@ -448,10 +470,15 @@ if [ "$KNIP_NEW_COUNT" -gt 0 ]; then
 fi
 
 echo -e "  ${OK} Dead-Code Check                    new: 0, baseline: $KNIP_KNOWN_COUNT, resolved: $KNIP_RESOLVED_COUNT"
+if [ "$KNIP_PROFILE" = production ] && [ "$KNIP_KNOWN_COUNT" -gt 0 ]; then
+    echo -e "    ${WARN} Reviewed production findings remain (see $KNIP_ACTIVE_BASELINE for reasons):"
+    sed 's/^/      /' "$KNIP_TMP_DIR/known"
+fi
 if [ "$KNIP_RESOLVED_COUNT" -gt 0 ]; then
     echo -e "    ${OK} Baseline improved: $KNIP_RESOLVED_COUNT known finding(s) resolved"
 fi
 rm -rf "$KNIP_TMP_DIR"
+done
 if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
     exit 0
 fi

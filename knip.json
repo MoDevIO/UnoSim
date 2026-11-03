@@ -6,16 +6,48 @@
   "workspaces": {
     ".": {
       "entry": [
-        "client/src/types/external-api.ts",
-        "shared/worker-protocol.ts",
-        "server/config.ts",
-        "playwright.scalability.config.ts",
-        "scripts/capacity-mixed-load.ts",
-        "scripts/tutor-catalog-eval.ts"
+        "client/src/main.tsx!",
+        "client/src/lib/runtime/emulator.worker.ts!",
+        "server/index.ts!",
+        "server/services/workers/compile-worker.ts!",
+        "client/src/types/external-api.ts!",
+        "scripts/calibrate-capacity.ts!",
+        "scripts/capacity-validation-config.ts!",
+        "scripts/capacity-mixed-load.ts!",
+        "scripts/emulate.ts!",
+        "scripts/record-hardware.ts!",
+        "scripts/runtime-fixtures.ts!",
+        "scripts/tutor-catalog-eval.ts!",
+        "scripts/tutor-quality-real-provider-eval.ts!",
+        "scripts/validate-tutor-course-content.mjs!",
+        "scripts/deployment/gateway-deployment.ts!",
+        "scripts/deployment/installer-deployment.ts!",
+        "scripts/generate-attiny85-svg.mjs!",
+        "scripts/generate-mega-svg.mjs!",
+        "scripts/generate-nano-svg.mjs!",
+        "scripts/check-bundle-budget.mjs!",
+        "scripts/check-docs.mjs!",
+        "scripts/check-node-version.mjs!",
+        "scripts/check-raw-hex.cjs!",
+        "scripts/provision-libraries.mjs!",
+        "scripts/coverage-guard.mjs!",
+        "scripts/start-local-dev.mjs!",
+        "scripts/wait-for-backend.mjs!",
+        "scripts/test-budget-reporter.mjs!",
+        "playwright.scalability.config.ts"
+      ],
+      "project": [
+        "client/src/**/*.{ts,tsx,css}!",
+        "server/**/*.ts!",
+        "shared/**/*.ts!",
+        "scripts/**/*.{ts,mjs,cjs}!",
+        "tests/**/*.{ts,tsx,mjs}",
+        "e2e/**/*.ts",
+        "*.config.{ts,js,mjs}"
       ]
     },
     "packages/avr-emulator": {
-      "project": ["src/**/*.ts", "tests/**/*.ts"]
+      "project": ["src/**/*.ts!", "tests/**/*.ts"]
     }
   }
 }

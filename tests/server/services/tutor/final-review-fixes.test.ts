@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { prepareTutorCourseContentSession, TutorCourseContentSessionStore } from "../../../../server/services/course-content/course-content-session";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { createTutorProgressionState, markTopicMastered, type TutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
 import { TutorProviderError, type LLMProvider } from "../../../../server/services/tutor/llm-provider";

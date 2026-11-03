@@ -2,8 +2,9 @@
 //   npm run fixtures:runtime            rebuild tests/fixtures/runtime-corpus/hex/<board>/<case>.hex
 //   npm run fixtures:runtime -- --check compare a rebuild with the checked-in files
 // The toolchain (arduino-cli, arduino:avr core, ATTinyCore) is the pinned one of the CI toolchain gate.
-import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,43 +48,94 @@ export function hexPath(ref: CorpusCaseRef, root = CORPUS_ROOT): string {
   return join(root, "hex", ref.board, `${ref.id}.hex`);
 }
 
-/** Compiles the sketch of a case in a scratch copy (so build artifacts never land in the repository) and returns its HEX. */
-export function compileCase(ref: CorpusCaseRef): string {
-  const work = mkdtempSync(join(tmpdir(), "unosim-corpus-"));
-  try {
-    const sketch = join(work, ref.id);
-    cpSync(ref.dir, sketch, { recursive: true, filter: (source) => !/(case\.json|expected\..*\.txt)$/.test(source) });
-    const out = join(work, "out");
-    const args = ["compile", "--fqbn", CORPUS_FQBN[ref.board], "--output-dir", out, sketch];
+/** Time limit of one `arduino-cli compile`; the process is killed when it passes. */
+const COMPILE_TIMEOUT_MS = 300_000;
+
+/** Runs `arduino-cli`; a failure names the case, the reason (exit code, timeout, missing tool) and the compiler output. */
+function runArduinoCli(id: string, args: readonly string[], env: NodeJS.ProcessEnv, timeoutMs: number): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
     // The maintainer tool and the CI toolchain job use the arduino-cli they installed on the PATH.
-    const result = spawnSync("arduino-cli", args, { encoding: "utf8", timeout: 300_000 }); // NOSONAR S4036
-    if (result.status !== 0) throw new Error(`arduino-cli failed for ${ref.id}:\n${result.stderr || result.stdout}`);
-    return readFileSync(join(out, `${ref.id}.ino.hex`), "utf8");
-  } finally {
-    rmSync(work, { recursive: true, force: true });
+    execFile("arduino-cli", args, { encoding: "utf8", env, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => { // NOSONAR S4036
+      if (!error) {
+        resolvePromise();
+        return;
+      }
+      let reason = `exit code ${error.code}`;
+      if (error.killed) reason = `timed out after ${timeoutMs} ms`;
+      else if (typeof error.code === "string") reason = error.message;
+      const output = stderr || stdout;
+      reject(new Error(`arduino-cli failed for ${id} (${reason})${output ? `:\n${output}` : ""}`));
+    });
+  });
+}
+
+/**
+ * The build cache of one corpus run: compiles share reusable core artifacts without writing to the user's
+ * global arduino-cli cache. Concurrent cold compiles may initially build the same core. `dispose()` waits for all compiles still
+ * running (a timed-out test does not stop its process) and then removes the cache, also after failures.
+ */
+export class CorpusBuildCache {
+  readonly path = mkdtempSync(join(tmpdir(), "unosim-corpus-cache-"));
+  private readonly running = new Set<Promise<string>>();
+
+  /** Compiles the sketch of a case in a scratch copy (so build artifacts never land in the repository) and returns its HEX. */
+  compile(ref: CorpusCaseRef, timeoutMs = COMPILE_TIMEOUT_MS): Promise<string> {
+    const compile = this.compileCase(ref, timeoutMs);
+    this.running.add(compile);
+    void compile.catch(() => undefined).finally(() => this.running.delete(compile));
+    return compile;
+  }
+
+  async dispose(): Promise<void> {
+    while (this.running.size > 0) await Promise.allSettled([...this.running]);
+    await rm(this.path, { recursive: true, force: true });
+  }
+
+  private async compileCase(ref: CorpusCaseRef, timeoutMs: number): Promise<string> {
+    const work = await mkdtemp(join(tmpdir(), "unosim-corpus-"));
+    try {
+      const sketch = join(work, ref.id);
+      await cp(ref.dir, sketch, { recursive: true, filter: (source) => !/(case\.json|expected\..*\.txt)$/.test(source) });
+      const out = join(work, "out");
+      const env = { ...process.env, ARDUINO_BUILD_CACHE_PATH: this.path };
+      await runArduinoCli(ref.id, ["compile", "--fqbn", CORPUS_FQBN[ref.board], "--output-dir", out, sketch], env, timeoutMs);
+      return await readFile(join(out, `${ref.id}.ino.hex`), "utf8");
+    } finally {
+      await rm(work, { recursive: true, force: true });
+    }
   }
 }
 
-function main(args: readonly string[]): number {
+async function main(args: readonly string[]): Promise<number> {
   const check = args.includes("--check");
   const only = args.find((arg) => !arg.startsWith("--"));
   let mismatches = 0;
-  for (const dir of listCaseDirs()) {
-    const ref = readCaseRef(dir);
-    if (only && ref.id !== only) continue;
-    const hex = compileCase(ref);
-    const target = hexPath(ref);
-    if (check) {
-      const same = existsSync(target) && readFileSync(target, "utf8") === hex;
-      if (!same) mismatches++;
-      process.stdout.write(`${same ? "ok      " : "DIFFERS "}${ref.board}/${ref.id}\n`);
-    } else {
-      mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, hex);
-      process.stdout.write(`written ${ref.board}/${ref.id}\n`);
+  const cache = new CorpusBuildCache();
+  try {
+    for (const dir of listCaseDirs()) {
+      const ref = readCaseRef(dir);
+      if (only && ref.id !== only) continue;
+      const hex = await cache.compile(ref);
+      const target = hexPath(ref);
+      if (check) {
+        const same = existsSync(target) && readFileSync(target, "utf8") === hex;
+        if (!same) mismatches++;
+        process.stdout.write(`${same ? "ok      " : "DIFFERS "}${ref.board}/${ref.id}\n`);
+      } else {
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, hex);
+        process.stdout.write(`written ${ref.board}/${ref.id}\n`);
+      }
     }
+  } finally {
+    await cache.dispose();
   }
   return mismatches === 0 ? 0 : 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error: Error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

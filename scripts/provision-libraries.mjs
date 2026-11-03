@@ -25,7 +25,7 @@ function option(name) {
 const root = resolve(option("--root") ?? process.env.UNOSIM_LIBRARIES_DIR ?? join(repoRoot, "storage", "libraries"));
 const catalogFile = resolve(option("--catalog") ?? join(repoRoot, "shared", "library-catalog.json"));
 
-/** Same as providedLibraryDir in server/services/libraries/library-service.ts. */
+/** `<name>-<version>/<name>`, characters outside the process argument allowlist replaced; provided.json records it. */
 const safe = (value) => value.replaceAll(/[^A-Za-z0-9._-]/g, "_");
 const packageDir = (entry) => `${safe(entry.name)}-${safe(entry.version)}/${safe(entry.name)}`;
 const MARKER = ".unosim-package.json";

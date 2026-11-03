@@ -1,5 +1,5 @@
 import { CodeParser } from "../../../shared/code-parser";
-import { parseStaticIORegistry } from "../../../shared/io-registry-parser";
+import { parseStaticIORegistry } from "../../utils/static-io-registry";
 
 const parser = new CodeParser();
 
@@ -65,7 +65,7 @@ describe("static I/O parser message regressions", () => {
         severity: 2,
         message: "Variable 'pinArray[i]' used in digitalRead/digitalWrite but no pinMode() call found for this variable.",
         suggestion: "pinMode(pinArray[i], INPUT);",
-        line: 3,
+        line: 4,
       }),
     ]);
   });

@@ -3,9 +3,9 @@ import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import {
-  compareTutorQualityCorpusVersions,
   parseTutorQualityCorpus,
   tutorQualityCorpusDigest,
+  type TutorQualityCorpus,
   type TutorQualityCorpusSource,
 } from "../../../../../server/services/tutor/evaluation/anchor-corpus";
 import { canonicalDigest } from "../../../../../server/services/tutor/evaluation/canonical";
@@ -13,6 +13,21 @@ import {
   ANCHOR_COURSE_CONTENT_FIXTURE_IDS,
   createAnchorCourseContent,
 } from "../../../../../server/services/tutor/evaluation/anchor-course-content";
+
+/** Corpus evolution rule R-COR-1 (TutorQualityEvaluation SSOT §6.1), checked by this gate against the last released corpus. */
+function compareTutorQualityCorpusVersions(
+  previous: Pick<TutorQualityCorpus, "corpusVersion" | "digest">,
+  current: Pick<TutorQualityCorpus, "corpusVersion" | "digest">,
+): { valid: boolean; reason?: "version-not-increased" | "version-changed-without-semantic-change" } {
+  const changed = previous.digest !== current.digest;
+  if (!changed && previous.corpusVersion !== current.corpusVersion) {
+    return { valid: false, reason: "version-changed-without-semantic-change" };
+  }
+  if (changed && current.corpusVersion <= previous.corpusVersion) {
+    return { valid: false, reason: "version-not-increased" };
+  }
+  return { valid: true };
+}
 
 const references = {
   sketches: new Set(["variable.ino"]),

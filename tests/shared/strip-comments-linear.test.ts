@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripComments } from "../../shared/parser-patterns";
+import { blankCommentsAndLiterals, stripComments } from "../../shared/parser-patterns";
 import { analyzeStaticIO } from "../../shared/io-registry-parser";
 
 /**
@@ -39,6 +39,32 @@ describe("stripComments", () => {
   ])("takes no noticeable time for %s (up to the 128 KiB a request may carry)", (_label, code) => {
     const started = performance.now();
     stripComments(code);
+    analyzeStaticIO(code);
+
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+});
+
+describe("blankCommentsAndLiterals", () => {
+  it("blanks comments and literals, keeps newlines and positions, and leaves an unterminated block comment alone", () => {
+    const code = 'a("x\\"y") /* c\n */ \'}\' 1\'000 R"d(\n})d" // e';
+    const blanked = blankCommentsAndLiterals(code);
+
+    expect(blanked).toHaveLength(code.length);
+    expect(blanked.split("\n").map((line) => line.length)).toEqual(code.split("\n").map((line) => line.length));
+    expect(blanked.replaceAll(/\s+/g, " ").trim()).toBe("a( ) 1'000");
+    expect(blankCommentsAndLiterals("a /* never closed\nb")).toBe("a /* never closed\nb");
+  });
+
+  it.each([
+    ["unterminated block comment openers", "/*a".repeat(40_000)],
+    ["unterminated raw string openers", 'R"x('.repeat(30_000)],
+    ["unterminated strings", '"a'.repeat(60_000)],
+    ["quotes only", "'".repeat(120_000)],
+    ["digit separators", "1'".repeat(60_000)],
+  ])("takes no noticeable time for %s (up to the 128 KiB a request may carry)", (_label, code) => {
+    const started = performance.now();
+    blankCommentsAndLiterals(code);
     analyzeStaticIO(code);
 
     expect(performance.now() - started).toBeLessThan(250);

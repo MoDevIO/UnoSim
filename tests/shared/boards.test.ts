@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { BOARD_HARDWARE_IDS, boardHardware, hasBoardHardware } from "@unosim/avr-emulator/boards";
-import type { BoardId } from "../../shared/boards";
+import { BOARD_HARDWARE_IDS, hasBoardHardware } from "@unosim/avr-emulator/boards";
 import {
-  BOARD_CATALOG, BOARD_IDS, BOARD_STATUSES, DEFAULT_BOARD_ID, RUNTIME_KINDS, boardIdSchema, boardPinAliases, enabledBoards, findBoardByFqbn, fqbnAllowlist, getBoard,
+  BOARD_CATALOG, BOARD_IDS, BOARD_STATUSES, DEFAULT_BOARD_ID, RUNTIME_KINDS, boardIdSchema, enabledBoards, findBoardByFqbn, fqbnAllowlist, getBoard,
 } from "../../shared/boards";
 
 describe("board catalog (plan 4.3, P2.1)", () => {
@@ -75,34 +74,6 @@ describe("board catalog (plan 4.3, P2.1)", () => {
     it("offers the requested boards plus the default board, in catalog order", () => {
       expect(enabledBoards(["nano", "attiny85"]).map((board) => board.id)).toEqual(["uno", "nano", "attiny85"]);
       expect(enabledBoards(["mega2560"], "nano").map((board) => board.id)).toEqual(["nano", "mega2560"]);
-    });
-  });
-
-  describe("boardPinAliases", () => {
-    it("derives A0..A5 and LED_BUILTIN for the Uno from the package pin map", () => {
-      const uno = boardPinAliases("uno");
-
-      expect(uno).toMatchObject({ A0: 14, A5: 19, LED_BUILTIN: 13 });
-      expect(Object.keys(uno ?? {})).toHaveLength(7);
-      for (const [alias, pin] of Object.entries(uno ?? {})) {
-        if (alias.startsWith("A")) expect(boardHardware("uno").pins.find((p) => p.pin === pin)?.label).toBe(alias);
-      }
-    });
-
-    it("adds A6 and A7 for the Nano", () => {
-      expect(boardPinAliases("nano")).toMatchObject({ A6: 20, A7: 21 });
-    });
-
-    it("derives A0..A15 at pins 54..69 for the Mega 2560", () => {
-      const mega = boardPinAliases("mega2560");
-
-      expect(mega).toMatchObject({ A0: 54, A8: 62, A15: 69, LED_BUILTIN: 13 });
-      expect(Object.keys(mega ?? {})).toHaveLength(17);
-    });
-
-    it("has none for boards without a hardware profile yet", () => {
-      // Every catalog board has hardware since P6.4; an id without it has no aliases.
-      expect(boardPinAliases("no-hardware" as BoardId)).toBeUndefined();
     });
   });
 });

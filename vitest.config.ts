@@ -191,8 +191,11 @@ export default defineConfig({
           ],
           environment: "node",
           setupFiles: ["./tests/setup.node.ts"],
+          // Files stay serial: several prepare the shared library directory in beforeAll.
           fileParallelism: false,
           maxWorkers: 1,
+          // Concurrent tests within a file: each runs one arduino-cli process at a time.
+          maxConcurrency: 6,
         },
       },
       {

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { courseContentTutorManifestSchema } from "../../../../server/services/course-content/course-content-schema";
-import { parseTopic } from "../../../../server/services/tutor/curriculum/content-repository";
+import { parseTopic } from "../../../utils/curriculum-topic";
 import { curriculumTopicSchema } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 
 describe("mastery progression schema compatibility", () => {

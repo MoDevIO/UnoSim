@@ -2,7 +2,7 @@ import { useCallback, type Dispatch, type SetStateAction } from "react";
 
 import type { ToastFn } from "@/hooks/use-toast";
 import type { IncomingArduinoMessage } from "@/types/websocket";
-import type { SimulationStatus } from "@/hooks/use-simulation-controls";
+import type { SimulationStatus } from "@shared/types/arduino.types";
 import type { PinState } from "@/hooks/use-simulation-store";
 import type { ServerCapabilities } from "@/lib/server-capabilities";
 

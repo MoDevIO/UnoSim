@@ -21,7 +21,7 @@ const CASES: readonly { name: string; simMs: number; events?: unknown[]; expectS
   { name: "10-unosim-showcase", simMs: 1100, events: [[0, "adcVolts", 0, 2.5], [700, "pin", 2, 0]] },
 ];
 
-describe("built-in examples on the Uno + browser emulation (real toolchain)", () => {
+describe.concurrent("built-in examples on the Uno + browser emulation (real toolchain)", () => {
   let compiler: ArduinoCompiler;
   let root: string;
 

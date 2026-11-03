@@ -21,7 +21,6 @@ import { EventEmitter } from "node:events";
 export enum TaskPriority {
   HIGH = 0,    // System health checks, cleanup, user interactions
   NORMAL = 1,  // Regular compilations
-  LOW = 2,     // Background work
 }
 
 interface CacheLockEntry {
@@ -549,6 +548,10 @@ export function getUnifiedGatekeeper(maxConcurrent?: number): UnifiedGatekeeper 
   return unifiedGatekeeperInstance;
 }
 
+/**
+ * Drops the singleton and stops its lock monitoring, so each test starts with a fresh gatekeeper.
+ * @internal
+ */
 export function resetUnifiedGatekeeper(): void {
   const instance = unifiedGatekeeperInstance;
   if (instance) {

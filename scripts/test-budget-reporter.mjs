@@ -45,7 +45,7 @@ export default class TestBudgetReporter {
     });
   }
 
-  onTestRunEnd(_testModules, unhandledErrors, reason) {
+  onTestRunEnd(testModules, unhandledErrors, reason) {
     const finishedAt = Date.now();
     const durationMs = finishedAt - this.startedAt;
     const suite = process.env.TEST_BUDGET_SUITE ?? "vitest";
@@ -63,6 +63,26 @@ export default class TestBudgetReporter {
       return result;
     }, {});
     const slowestTests = [...this.tests]
+      .sort((left, right) => right.durationMs - left.durationMs)
+      .slice(0, TOP_TEST_COUNT);
+    const files = testModules.map((module) => {
+      const diagnostic = module.diagnostic();
+      const phases = {
+        testDurationMs: diagnostic.duration,
+        environmentDurationMs: diagnostic.environmentSetupDuration,
+        prepareDurationMs: diagnostic.prepareDuration,
+        setupDurationMs: diagnostic.setupDuration,
+        importDurationMs: diagnostic.collectDuration,
+      };
+      return {
+        file: relative(process.cwd(), module.moduleId),
+        project: module.project.name,
+        // Per-file work, not elapsed suite time: files can run concurrently.
+        durationMs: Math.round(Object.values(phases).reduce((sum, duration) => sum + duration, 0)),
+        ...Object.fromEntries(Object.entries(phases).map(([name, duration]) => [name, Math.round(duration)])),
+      };
+    });
+    const slowestFiles = [...files]
       .sort((left, right) => right.durationMs - left.durationMs)
       .slice(0, TOP_TEST_COUNT);
 
@@ -83,6 +103,8 @@ export default class TestBudgetReporter {
       counts,
       unhandledErrorCount: unhandledErrors.length,
       slowestTests,
+      files,
+      slowestFiles,
     };
 
     mkdirSync(dirname(artifactPath), { recursive: true });
@@ -107,6 +129,10 @@ export default class TestBudgetReporter {
       console.log(
         `  ${test.durationMs.toString().padStart(6)} ms  ${test.name}`,
       );
+    }
+    console.log(`Langsamste ${slowestFiles.length} Dateien (inklusive Setup und Imports):`);
+    for (const file of slowestFiles) {
+      console.log(`  ${file.durationMs.toString().padStart(6)} ms  [${file.project}] ${file.file}`);
     }
 
     if (warningExceeded && !failureExceeded) {

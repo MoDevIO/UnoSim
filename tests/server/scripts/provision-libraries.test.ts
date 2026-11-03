@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { providedLibraryDir } from "../../../server/services/libraries/library-service";
 
 const script = resolve(__dirname, "../../../scripts/provision-libraries.mjs");
 const run = promisify(execFile);
+const DEMO_DIR = "Demo_Lib-2.0.0/Demo_Lib";
 
 describe("scripts/provision-libraries.mjs (SSOT Libraries §10)", () => {
   const work = mkdtempSync(join(tmpdir(), "unosim-provision-test-"));
@@ -57,7 +57,8 @@ describe("scripts/provision-libraries.mjs (SSOT Libraries §10)", () => {
     const before = requests;
     await run(process.execPath, args);
 
-    const dir = providedLibraryDir({ name: "Demo Lib", version: "2.0.0" });
+    // `<name>-<version>/<name>`, characters outside the process argument allowlist replaced.
+    const dir = DEMO_DIR;
     expect(existsSync(join(root, dir, "src", "Demo.h"))).toBe(true);
     expect(JSON.parse(readFileSync(join(root, "provided.json"), "utf8"))).toEqual({
       schemaVersion: 1,
@@ -71,6 +72,6 @@ describe("scripts/provision-libraries.mjs (SSOT Libraries §10)", () => {
 
     await expect(run(process.execPath, [script, "--root", root, "--catalog", catalog("bad", "0".repeat(64))])).rejects.toThrow(/does not match the catalog/);
     expect(existsSync(join(root, "provided.json"))).toBe(false);
-    expect(existsSync(join(root, providedLibraryDir({ name: "Demo Lib", version: "2.0.0" })))).toBe(false);
+    expect(existsSync(join(root, DEMO_DIR))).toBe(false);
   });
 });

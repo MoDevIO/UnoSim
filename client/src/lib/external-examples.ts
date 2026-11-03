@@ -103,6 +103,10 @@ export function useExternalExamples() {
   return useSyncExternalStore(subscribe, getState, getState);
 }
 
+/**
+ * The current module state, for tests that observe it without rendering.
+ * @internal
+ */
 export function getExternalExamplesState(): ExternalExamplesState {
   return state;
 }
