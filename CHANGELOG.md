@@ -16,6 +16,14 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 - Usage-row RX/TX and PWM markers now follow the selected board, including
   the ATtiny software UART directions and all four Mega serial ports.
 
+### Fixed
+
+- **Legacy: pause halts `millis()` and `micros()` without a jump.** After a
+  resume the clock went on from a value that still contained the paused time
+  and then dropped back (with a 500 ms pause: `223, 833, 343`). The runtime
+  now freezes its clock before the server stops the process, and goes on from
+  the frozen value after the resume.
+
 ## v2.0.0-beta.1 – 2026-10-24
 
 First pre-release of version 2 from the integration branch `feature/browser-emulation`

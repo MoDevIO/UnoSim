@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { validatePausedBudget } from "../../../server/config";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
+import { acknowledgingWriteStdin } from "../../utils/time-freeze-ack";
 
 const success = { code: 0, stdout: "", stderr: "", error: null };
 const PAUSE_BUDGET_MS = 1_000;
@@ -14,6 +15,7 @@ function fixture() {
     hasProcess: vi.fn(() => true), clearListeners: vi.fn(), getPid: vi.fn(() => null),
   };
   const runner = new SandboxRunner({ processController: pc, maxPausedMs: PAUSE_BUDGET_MS });
+  pc.writeStdin.mockImplementation(acknowledgingWriteStdin(runner));
   const internals = runner as any;
   const s = internals.executionState;
   const output = vi.fn();

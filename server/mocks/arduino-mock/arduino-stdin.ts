@@ -3,13 +3,14 @@
  *
  * Exports the C++ code for reading and dispatching stdin protocol commands:
  *  - [[SET_PIN:X:Y]] — sets a pin value externally
- *  - [[PAUSE_TIME]] / [[RESUME_TIME:N]] — freeze/unfreeze the time counter
+ *  - [[PAUSE_TIME:N]] / [[RESUME_TIME:N]] — freeze/thaw the clock; acknowledged with
+ *    [[TIME_FROZEN:N:ms]] / [[TIME_RESUMED:N:ms]] (N is the runner's pause number)
  *  - Normal serial input is forwarded to Serial.mockInput()
  *
  * Dependencies (must appear earlier in the assembled C++ source):
- *  - `cerrMutex`, `processIsPaused`, `pausedTimeMs`, `totalPausedTimeMs` (ARDUINO_GLOBALS)
+ *  - `cerrMutex` (ARDUINO_GLOBALS)
  *  - `pinValues[]` (ARDUINO_PIN_STATE_INIT)
- *  - `millis()` (ARDUINO_TIMING_AND_RANDOM)
+ *  - `freezeTime()`, `thawTime()` (ARDUINO_TIMING_AND_RANDOM)
  *  - `Serial` global instance (ARDUINO_SERIAL_CLASS)
  *  - `keepReading` (ARDUINO_GLOBALS)
  */
@@ -29,22 +30,17 @@ void setExternalPinValue(int pin, int value) {
     }
 }
 
-// Helper functions for pause/resume timing
-void handlePauseTimeCommand() {
-    // compute current time while still running; only then flip pause flag
-    unsigned long currentMs = millis();  // Get current time before freezing
-    pausedTimeMs.store(currentMs);
-    processIsPaused.store(true);
+// Pause/resume timing. The runner stops the process only after [[TIME_FROZEN]].
+void handlePauseTimeCommand(unsigned long pause) {
+    unsigned long frozenMs = freezeTime();
     { std::lock_guard<std::mutex> lock(cerrMutex);
-      std::cerr << "[[TIME_FROZEN:" << currentMs << "]]" << std::endl; }
+      std::cerr << "[[TIME_FROZEN:" << pause << ":" << frozenMs << "]]" << std::endl; }
 }
 
-void handleResumeTimeCommand(unsigned long pauseDurationMs) {
-    processIsPaused.store(false);
-    // Accumulate total paused time so micros()/millis() can subtract it
-    totalPausedTimeMs += pauseDurationMs;
+void handleResumeTimeCommand(unsigned long pause) {
+    unsigned long resumedMs = thawTime();
     { std::lock_guard<std::mutex> lock(cerrMutex);
-      std::cerr << "[[TIME_RESUMED:" << totalPausedTimeMs << "]]" << std::endl; }
+      std::cerr << "[[TIME_RESUMED:" << pause << ":" << resumedMs << "]]" << std::endl; }
 }
 
 // Non-blocking check for stdin pin commands - called from delay() and txDelay()
@@ -74,27 +70,20 @@ void checkStdinForPinCommands() {
             if (stdinBufPos > 0) {
                 stdinBuffer[stdinBufPos] = '\0';
                 
-                // Check for pause/resume commands
-                if (sscanf(stdinBuffer, "[[PAUSE_TIME]]") == 0 && 
-                    strncmp(stdinBuffer, "[[PAUSE_TIME]]", 14) == 0) {
-                    handlePauseTimeCommand();
+                unsigned long pause;
+                int pin, value;
+                if (sscanf(stdinBuffer, "[[PAUSE_TIME:%lu]]", &pause) == 1) {
+                    handlePauseTimeCommand(pause);
+                } else if (sscanf(stdinBuffer, "[[RESUME_TIME:%lu]]", &pause) == 1) {
+                    handleResumeTimeCommand(pause);
+                } else if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
+                    // Special pin value command
+                    setExternalPinValue(pin, value);
                 } else {
-                    // Check for resume time with duration parameter
-                    unsigned long pauseDurationMs;
-                    if (sscanf(stdinBuffer, "[[RESUME_TIME:%lu]]", &pauseDurationMs) == 1) {
-                        handleResumeTimeCommand(pauseDurationMs);
-                    } else {
-                        // Check for special pin value command: [[SET_PIN:X:Y]]
-                        int pin, value;
-                        if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &pin, &value) == 2) {
-                            setExternalPinValue(pin, value);
-                        } else {
-                            // Normal serial input (add newline back for serial input)
-                            Serial.mockInput(stdinBuffer, stdinBufPos);
-                            char newline = 10;
-                            Serial.mockInput(&newline, 1);
-                        }
-                    }
+                    // Normal serial input (add newline back for serial input)
+                    Serial.mockInput(stdinBuffer, stdinBufPos);
+                    char newline = 10;
+                    Serial.mockInput(&newline, 1);
                 }
                 stdinBufPos = 0;
             }

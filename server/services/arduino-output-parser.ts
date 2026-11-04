@@ -20,6 +20,7 @@ export type ParsedStderrOutput =
   | { type: "pin_mode"; pin: number; mode: number }
   | { type: "pin_value"; pin: number; value: number }
   | { type: "pin_pwm"; pin: number; value: number }
+  | { type: "time_frozen"; pause: number }
   | { type: "debug_marker"; marker: string }
   | { type: "text"; line: string }
   | { type: "ignored" };
@@ -45,9 +46,9 @@ export class ArduinoOutputParser {
     digitalRead: /\[\[DREAD:(\d+):(\d+)\]\]/,
     pinSet: /\[\[PIN_SET:(\d+):(\d+)\]\]/,
     stdinRecv: /\[\[STDIN_RECV:([^\]]+)\]\]/, // NOSONAR S5843
-    // Pause/Resume timing markers - should be ignored
-    timeFrozen: /\[\[TIME_FROZEN:(\d+)\]\]/,
-    timeResumed: /\[\[TIME_RESUMED:(\d+)\]\]/,
+    // Pause/resume acknowledgements: [[TIME_FROZEN:<pause>:<ms>]] / [[TIME_RESUMED:<pause>:<ms>]]
+    timeFrozen: /\[\[TIME_FROZEN:(\d+):\d+\]\]/,
+    timeResumed: /\[\[TIME_RESUMED:\d+:\d+\]\]/,
   };
 
   /**
@@ -107,6 +108,12 @@ export class ArduinoOutputParser {
       };
     }
 
+    // The runner stops the process for a pause only after this acknowledgement.
+    const timeFrozenMatch = ArduinoOutputParser.PATTERNS.timeFrozen.exec(line);
+    if (timeFrozenMatch) {
+      return { type: "time_frozen", pause: Number.parseInt(timeFrozenMatch[1]) };
+    }
+
     // Priority 4: Serial events
     const serialEventMatch = ArduinoOutputParser.PATTERNS.serialEvent.exec(line);
     if (serialEventMatch) {
@@ -125,7 +132,6 @@ export class ArduinoOutputParser {
       ArduinoOutputParser.PATTERNS.digitalRead.test(line) ||
       ArduinoOutputParser.PATTERNS.pinSet.test(line) ||
       ArduinoOutputParser.PATTERNS.stdinRecv.test(line) ||
-      ArduinoOutputParser.PATTERNS.timeFrozen.test(line) ||
       ArduinoOutputParser.PATTERNS.timeResumed.test(line)
     ) {
       return { type: "ignored" };

@@ -239,6 +239,7 @@ import { existsSync, renameSync } from "node:fs";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { LocalCompiler } from "../../../server/services/local-compiler";
 import { config } from "../../../server/config";
+import { acknowledgingWriteStdin } from "../../utils/time-freeze-ack";
 
 // Typed aliases to avoid `as any` for common mocks
 const spawnMock = vi.mocked(spawn);
@@ -891,9 +892,10 @@ describe("SandboxRunner", () => {
         .spyOn((runner as any).processExecutor, "execute")
         .mockResolvedValue({ code: 0 });
       const kill = vi.spyOn(pc, "kill");
+      vi.spyOn(pc, "writeStdin").mockImplementation(acknowledgingWriteStdin(runner));
 
       expect(runner.pause()).toBe(true);
-      await Promise.resolve();
+      expect(await runner.controlResult).toBe(true);
       expect(execute).toHaveBeenCalledWith(
         "docker",
         ["pause", "unosim-sandbox-test"],

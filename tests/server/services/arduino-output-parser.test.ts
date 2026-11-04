@@ -85,11 +85,18 @@ describe("ArduinoOutputParser", () => {
       }
     });
 
+    it("reads the runtime's frozen-clock acknowledgement with its pause number", () => {
+      expect(parser.parseStderrLine("[[TIME_FROZEN:3:1234]]", processStartTime)).toEqual({ type: "time_frozen", pause: 3 });
+      // The format before pause numbers is not an acknowledgement.
+      expect(parser.parseStderrLine("[[TIME_FROZEN:1234]]", processStartTime).type).not.toBe("time_frozen");
+    });
+
     it("should mark debug markers as ignored", () => {
       const debugLines = [
         "[[DREAD:13:1]]",
         "[[PIN_SET:13:1]]",
         "[[STDIN_RECV:test]]",
+        "[[TIME_RESUMED:2:1234]]",
       ];
 
       debugLines.forEach((line) => {
