@@ -1,8 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildSimulationImage, loadSimulationImage, runHeadless } from "../../packages/avr-emulator/src/index";
 import { ArduinoCompiler } from "../../server/services/arduino-compiler";
@@ -14,7 +13,7 @@ import type { ResolvedLibrary } from "../../shared/libraries";
  * Evidence for AUnit 1.7.1 on Uno + browser emulation (SSOT Libraries §12): the
  * package from the isolated provisioning compiles, and the emulator runs passing,
  * failing and timed-out tests with the serial summary of the original library.
- * Provisions storage/libraries first (downloads AUnit once).
+ * tests/global-setup.toolchain.ts provisions storage/libraries (downloads AUnit once).
  */
 const AUNIT = { name: "AUnit", version: "1.7.1" };
 
@@ -24,13 +23,12 @@ describe("AUnit 1.7.1 on Uno + browser emulation (real toolchain)", () => {
   let libraries: readonly ResolvedLibrary[];
 
   beforeAll(async () => {
-    execFileSync(process.execPath, [resolve(__dirname, "../../scripts/provision-libraries.mjs"), "--root", config.compilation.librariesDir], { stdio: "pipe" });
     const resolution = resolveCompileLibraries([AUNIT], "uno", await readProvidedLibraries(config.compilation.librariesDir));
     if (!resolution.ok) throw new Error(resolution.messages.join("; "));
     libraries = resolution.libraries;
     compiler = new ArduinoCompiler();
     root = await mkdtemp(join(tmpdir(), "unosim-aunit-it-"));
-  }, 180_000);
+  });
 
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });

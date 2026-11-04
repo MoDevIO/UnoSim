@@ -14,7 +14,7 @@ void loop() {
   delay(100);
 }`;
 
-test('connection loss during a server-side run returns the UI to idle and a new run works after reconnect', async ({ page }) => {
+test('connection loss during a server-side run returns the UI to idle and a new run works after reconnect', { tag: '@server-runs' }, async ({ page }) => {
   const sockets: Array<{ page: WebSocketRoute; server: WebSocketRoute }> = [];
   // While the "network" is down, reconnect attempts fail like an unreachable server.
   let networkDown = false;

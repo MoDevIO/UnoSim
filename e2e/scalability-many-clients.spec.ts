@@ -107,7 +107,7 @@ const FRAME_ATTACH_TIMEOUT_MS = 30_000; // how long to wait for Playwright to re
 
 // ── Test ──────────────────────────────────────────────────────────────────────
 
-test.describe("Scalability: many-client iframe load", () => {
+test.describe("Scalability: many-client iframe load", { tag: "@server-runs" }, () => {
   // Serial: the test itself loads many iframes; parallelism would multiply load.
   test.describe.configure({ mode: "serial" });
 

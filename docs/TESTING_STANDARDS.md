@@ -217,15 +217,21 @@ but not in the emulator coverage pass (`UNOSIM_SKIP_CORPUS=1` in
 instrumentation. The toolchain gate rebuilds every fixture; its budget is
 300 s (`test:integration`).
 
-Within the toolchain gate the files stay serial (`fileParallelism: false`):
-several prepare the shared library directory in `beforeAll`. Tests within a
+Within the toolchain gate two files run at a time (`maxWorkers: 2`): the
+corpus runs next to the remaining files. The shared library directory is
+provisioned once in `tests/global-setup.toolchain.ts`, never by the files
+themselves. A third worker saved 3 s, since the compiles already keep the CPU
+busy. Tests within a
 file run concurrently, bounded by the project's `maxConcurrency: 6`. The
 corpus file compiles through `CorpusBuildCache` (`scripts/runtime-fixtures.ts`):
 asynchronous `arduino-cli` calls (a synchronous call would serialize the
 concurrent tests), one temporary sketch copy per case and one build cache per
 run, passed only to the started processes as `ARDUINO_BUILD_CACHE_PATH`. Core
-artifacts can be reused within the run (concurrent cold compiles may initially
-build the same core), the corpus adds no entries to the user's global cache, and
+artifacts are reused within the run. The first compile of each FQBN runs alone
+and builds the core. The others wait for it, since concurrent cold compiles
+replaced the core archive while another compile linked against it (lto1:
+"resolution sub id ... not in object file", seen once in a full pipeline run).
+The corpus adds no entries to the user's global cache, and
 `dispose()` removes the cache after all running compiles, also after failures.
 A compile is killed after 100 s, before its 120 s test timeout. `--jobs` is
 left at its default: with six concurrent cases, values 0, 1 and 2 differed by
@@ -250,6 +256,14 @@ environment and removes the shared cache. No corpus scratch directories
 remained after the three runs. The existing pin-map test's global cache use
 is separate from the corpus cache.
 
+With two files at a time, the gate took 80.7 s, 80.3 s and 78.6 s in three
+consecutive runs (AC power, same date; 121.6 s serial in the pipeline run just
+before). The first CI run with serial files and concurrent tests took 100.6 s.
+
+The Docker gate stays serial. Running its contract files two at a time saved
+33 s, but one of six runs failed in a file that asserts timing windows. With
+those files kept serial, it saved only 7 s, too little for a second project.
+
 ### Browser emulation (M1)
 
 `e2e/browser-emulation.spec.ts` runs the whole path in a real browser against a
@@ -265,6 +279,16 @@ This also refreshes board SVGs and compiled workers after a pull; an existing
 server is owned by the run and never reuses an already running application.
 Keep port 3000 free for direct Playwright runs; `run-tests.sh` handles this in
 its pre-flight stage. No separate manual build is required before the E2E step.
+
+Playwright runs two projects against the one server. Tests tagged
+`@server-runs` run sketches in the server's stateful sandbox pool (host-mock
+engine), or load the server with many clients. They form the `server-runs`
+project, one test at a time. All other tests use the browser emulation, the
+local default. The `browser` project runs them file by file in parallel
+workers (`workers: 4` in total). A new test that starts a server-side run gets
+the tag. `snapshotPathTemplate` keeps the screenshot baselines' names
+without the project name. Locally the 84 tests took 61–63 s in three runs
+without retries, against 203 s serial.
 
 ---
 

@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -16,7 +15,7 @@ import type { LibraryRequirement } from "../../shared/libraries";
  * Evidence for the hardware-free catalog packages (SSOT Libraries §12): each
  * minimal example compiles with its provisioned package and runs in the browser
  * emulation of Uno, Nano and Mega 2560, with observable serial results. Extra
- * sketches cover invalid JSON. Provisions storage/libraries first.
+ * sketches cover invalid JSON. tests/global-setup.toolchain.ts provisions storage/libraries.
  */
 const BOARDS: readonly BoardId[] = ["uno", "nano", "mega2560"];
 
@@ -36,10 +35,9 @@ describe.concurrent("catalog packages on Uno, Nano and Mega 2560 + browser emula
   let root: string;
 
   beforeAll(async () => {
-    execFileSync(process.execPath, [resolve(__dirname, "../../scripts/provision-libraries.mjs"), "--root", config.compilation.librariesDir], { stdio: "pipe" });
     compiler = new ArduinoCompiler();
     root = await mkdtemp(join(tmpdir(), "unosim-catalog-it-"));
-  }, 300_000);
+  });
 
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });

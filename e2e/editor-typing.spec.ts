@@ -5,9 +5,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Keys are typed with a small delay like a person would; Monaco finishes auto-closing and re-tokenizing between
 // key presses, which a zero-delay burst does not give it.
+// The page fills an empty editor with the default sketch once /api/sketches answers, so the editor is cleared
+// only after that sketch has arrived.
 async function freshEditor(page: Page) {
   await page.goto("/");
-  await page.waitForFunction(() => Boolean((globalThis as any).__MONACO_EDITOR__));
+  await page.waitForFunction(() => Boolean((globalThis as any).__MONACO_EDITOR__?.getValue()));
   await page.evaluate(() => (globalThis as any).__MONACO_EDITOR__.setValue(""));
   await page.locator('[data-testid="code-editor"]').click();
 }
