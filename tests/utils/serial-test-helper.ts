@@ -29,6 +29,27 @@ export function extractPlainText(outputs: string[] | string): string {
 }
 
 /**
+ * One output part as the WebSocket output buffer sends it: a part ends its line unless isComplete is false,
+ * so recorded text keeps line boundaries and joins the fragments of one line without a break.
+ */
+function recordedPart(part: string, isComplete?: boolean): string {
+  return isComplete === false ? part : `${part}\n`;
+}
+
+/** Records runtime output like runSketchWithOutput, for runs a test controls itself, and offers its complete lines. */
+export function outputRecorder() {
+  const parts: string[] = [];
+  return {
+    onOutput: (part: string, isComplete?: boolean) => {
+      parts.push(recordedPart(part, isComplete));
+    },
+    text: () => parts.join(""),
+    /** Complete lines only; a line still being written is left out. */
+    lines: () => parts.join("").split(/\r?\n/).slice(0, -1),
+  };
+}
+
+/**
  * Wait for specific serial output to appear.
  *
  * CRITICAL DESIGN NOTES:
@@ -181,9 +202,9 @@ export async function runSketchWithOutput(
 
     const runPromise = runner.runSketch({
       code: sketch,
-      onOutput: (chunk: string | Buffer) => {
+      onOutput: (chunk: string | Buffer, isComplete?: boolean) => {
         const line = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-        outputs.push(line);
+        outputs.push(recordedPart(line, isComplete));
         log("onOutput:", line);
         if (line.includes("--- Simulation timeout")) {
           // Always surface timeout output so test failures are easier to diagnose
@@ -282,4 +303,31 @@ export async function runSketchWithOutput(
   });
 
   return result;
+}
+
+/**
+ * Checks a counter sequence a sketch printed one per line, closed by `===END <total>===`. Every counter
+ * 0 … total−1 must appear once, in order, as a complete line matching `line` (its first group is the counter),
+ * so a missing start, end or middle, a duplicate or a truncated line fails. A missing end marker or a total of
+ * zero fails as well: an empty sequence never passes.
+ */
+export function expectCompleteCounterSequence(text: string, line: RegExp): { total: number } {
+  const lines = text.split(/\r?\n/);
+  const end = lines.map((candidate) => /^===END (\d+)===$/.exec(candidate)).find(Boolean);
+  if (!end) throw new Error(`No end marker "===END <total>===" in ${text.length} characters of output`);
+  const total = Number(end[1]);
+  if (total === 0) throw new Error("The sketch reported an empty counter sequence");
+  const counters = lines.flatMap((candidate) => {
+    const match = line.exec(candidate);
+    return match ? [Number(match[1])] : [];
+  });
+  const firstWrong = counters.findIndex((counter, index) => counter !== index);
+  if (firstWrong !== -1) {
+    throw new Error(`Counter ${firstWrong} expected at position ${firstWrong}, got ${counters[firstWrong]} (${counters.length} of ${total} received)`);
+  }
+  if (counters.length < total) {
+    throw new Error(`Received ${counters.length} of ${total} counters; the last ${total - counters.length} are missing`);
+  }
+  if (counters.length > total) throw new Error(`Received ${counters.length} counters, but the sketch reported ${total}`);
+  return { total };
 }

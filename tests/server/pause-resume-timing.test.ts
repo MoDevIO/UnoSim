@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
+import { outputRecorder } from "../utils/serial-test-helper";
+import { sleep, waitFor, within } from "../utils/wait";
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
 
-// Globaler Timeout für diese Suite erhöhen
-vi.setConfig({ testTimeout: 60000 });
+const PAUSE_WINDOW_MS = 500;
 
 maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
   let runner: SandboxRunner;
@@ -15,97 +16,62 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
   });
 
   afterEach(async () => {
-    // Kurze Beruhigungsphase für den Event-Loop
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    if (runner.isRunning) {
-      await runner.stop();
-    }
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   it("should freeze time during pause", async () => {
-    const code = `
-      void setup() { Serial.begin(9600); }
-      void loop() {
-        Serial.print("TIME:");
-        Serial.println(millis());
-        delay(50);
-      }
-    `;
-
-    const timeValues: number[] = [];
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(async () => {
-        await runner.stop();
-        reject(new Error("Test timeout: freeze time"));
-      }, 45000);
-
-      runner.runSketch({
-        code,
-        onOutput: async (line) => {
-          const matchRe = /TIME:(\d+)/;
-          const match = matchRe.exec(line);
-          if (match) {
-            const t = Number.parseInt(match[1]);
-            timeValues.push(t);
-
-            if (timeValues.length === 5) {
-              runner.pause();
-              await runner.controlResult;
-              const valAtPause = timeValues.at(-1) ?? t;
-              
-              // Wir warten 500ms in der "echten" Welt
-              setTimeout(() => {
-                // In dieser Zeit darf millis() in der Simulation nicht signifikant steigen
-                const currentVal = timeValues.at(-1);
-                try {
-                  expect(currentVal).toBeLessThanOrEqual(valAtPause + 20);
-                  runner.resume();
-                } catch (e) { reject(e); }
-              }, 500);
-            }
-
-            if (timeValues.length > 10) {
-              clearTimeout(timeout);
-              runner.stop().then(resolve);
-            }
-          }
-        },
-        onError: reject
-      });
+    const output = outputRecorder();
+    const times = () => output.lines().flatMap((line) => {
+      const match = /^TIME:(\d+)$/.exec(line);
+      return match ? [Number(match[1])] : [];
     });
+    await runner.runSketch({
+      code: `
+        void setup() { Serial.begin(9600); }
+        void loop() {
+          Serial.print("TIME:");
+          Serial.println(millis());
+          delay(50);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError: () => {},
+      timeoutSec: 30,
+    });
+    await waitFor(() => times().length >= 5, 30_000, "five TIME lines");
+
+    expect(runner.pause()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed pause")).toBe(true);
+    const atPause = times();
+    const valAtPause = atPause.at(-1)!;
+
+    // Observation window in real time: the simulated millis() must not advance significantly.
+    await sleep(PAUSE_WINDOW_MS);
+    expect(times().at(-1)).toBeLessThanOrEqual(valAtPause + 20);
+
+    expect(runner.resume()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed resume")).toBe(true);
+    // The run goes on after the confirmed resume. The readings right after it are not checked yet: in Docker
+    // mode the first one still contains the paused time and the next ones drop back (see TESTING_STANDARDS.md).
+    await waitFor(() => times().length >= atPause.length + 5, 15_000, "five TIME lines after the resume");
+    expect(times().length).toBeGreaterThanOrEqual(atPause.length + 5);
   });
 
   it("should clear pause state on stop", async () => {
-    const code = `void setup() { Serial.begin(9600); } void loop() { Serial.println(micros()); delay(100); }`;
-
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(async () => {
-        await runner.stop();
-        reject(new Error("Test timeout: stop cleanup"));
-      }, 30000);
-
-      let sawOutput = false;
-      runner.runSketch({
-        code,
-        onOutput: () => { sawOutput = true; },
-        timeoutSec: 10,
-      });
-
-      const check = setInterval(async () => {
-        if (sawOutput) {
-          clearInterval(check);
-          try {
-            runner.pause();
-            await runner.controlResult;
-            expect(runner.isPaused).toBe(true);
-            await runner.stop();
-            expect(runner.isPaused).toBe(false);
-            expect((runner as any).pauseStartTime).toBeNull();
-            clearTimeout(timeout);
-            resolve();
-          } catch (err) { reject(err); }
-        }
-      }, 200);
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `void setup() { Serial.begin(9600); } void loop() { Serial.println(micros()); delay(100); }`,
+      onOutput: output.onOutput,
+      timeoutSec: 10,
     });
+    await waitFor(() => output.lines().length > 0, 30_000, "the first serial output");
+
+    expect(runner.pause()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed pause")).toBe(true);
+    expect(runner.isPaused).toBe(true);
+    await runner.stop();
+    expect(runner.isPaused).toBe(false);
+    expect((runner as any).pauseStartTime).toBeNull();
   });
-});
+}, 60_000);

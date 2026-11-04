@@ -8,30 +8,18 @@ import {
   extractPlainText,
   runSketchWithOutput,
 } from "../utils/serial-test-helper";
+import { waitFor, within } from "../utils/wait";
 
 const enabled = process.env.NODE_ENV === "test" &&
   process.env.UNOSIM_SERVER_MODE === "docker" &&
   process.env.UNOSIM_DOCKER_TEST_BYPASS_GATEWAY === "1";
 const maybeDescribe = enabled ? describe : describe.skip;
 
-async function waitForContainerName(runner: SandboxRunner): Promise<string> {
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
-    const name = (runner as any).executionState?.currentContainerName as string | undefined;
-    if (name) return name;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error("Sandbox container was not created in time");
-}
+const waitForContainerName = (runner: SandboxRunner) =>
+  waitFor(() => (runner as any).executionState?.currentContainerName as string | undefined, 10_000, "the sandbox container");
 
-async function waitForOutput(output: string[], target: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (extractPlainText(output).includes(target)) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error(`Timed out waiting for sandbox output ${target}: ${extractPlainText(output)}`);
-}
+const waitForOutput = (output: string[], target: string, timeoutMs: number) =>
+  waitFor(() => extractPlainText(output).includes(target), timeoutMs, () => `sandbox output ${target} (got: ${extractPlainText(output)})`);
 
 async function runSecurityProbe(sketch: string): Promise<string> {
   const runner = new SandboxRunner();
@@ -60,12 +48,12 @@ maybeDescribe("Docker sandbox security contract", () => {
       })).toBe(true);
       const name = await waitForContainerName(runner);
       expect(runner.pause()).toBe(true);
-      expect(await runner.controlResult).toBe(true);
+      expect(await within(runner.controlResult, 10_000, "the confirmed docker pause")).toBe(true);
       const paused = await executor.execute("docker", ["inspect", name], { timeout: 5000 });
       expect(paused.code).toBe(0);
       expect(JSON.parse(paused.stdout ?? "[]")[0].State.Paused).toBe(true);
       expect(runner.resume()).toBe(true);
-      expect(await runner.controlResult).toBe(true);
+      expect(await within(runner.controlResult, 10_000, "the confirmed docker unpause")).toBe(true);
       const resumed = await executor.execute("docker", ["inspect", name], { timeout: 5000 });
       expect(resumed.code).toBe(0);
       expect(JSON.parse(resumed.stdout ?? "[]")[0].State.Paused).toBe(false);
@@ -79,7 +67,7 @@ maybeDescribe("Docker sandbox security contract", () => {
         code: "#include <cstdlib>\nvoid setup() {} void loop() { exit(0); }", timeoutSec: 5,
         onOutput: () => {}, onError: () => {}, onExit: () => exit(),
       });
-      await exited;
+      await within(exited, 15_000, "the natural exit of the second run");
       await pool.releaseRunner(runner);
       expect(runner.hasPendingContainerCleanup).toBe(false);
       expect(await pool.acquireRunner()).toBe(runner);
@@ -102,19 +90,10 @@ maybeDescribe("Docker sandbox security contract", () => {
     try {
       const containerName = await waitForContainerName(runner);
       const executor = new ProcessExecutor();
-      let inspect = await executor.execute("docker", ["inspect", containerName], {
-        timeout: 5_000,
-        stdio: "pipe",
-      });
-      const inspectDeadline = Date.now() + 10_000;
-      while (inspect.code !== 0 && Date.now() < inspectDeadline) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        inspect = await executor.execute("docker", ["inspect", containerName], {
-          timeout: 5_000,
-          stdio: "pipe",
-        });
-      }
-      expect(inspect.code).toBe(0);
+      const inspect = await waitFor(async () => {
+        const result = await executor.execute("docker", ["inspect", containerName], { timeout: 5_000, stdio: "pipe" });
+        return result.code === 0 ? result : undefined;
+      }, 10_000, "docker inspect of the running sandbox");
       const details = JSON.parse(inspect.stdout ?? "[]")[0];
       expect(details.HostConfig.NetworkMode).toBe("none");
       expect(details.HostConfig.ReadonlyRootfs).toBe(true);
@@ -136,18 +115,38 @@ maybeDescribe("Docker sandbox security contract", () => {
   it("kills a silent container at the configured finite timeout", async () => {
     const runner = new SandboxRunner();
     const output: string[] = [];
-    await runner.runSketch({
-      code: "void setup() {}\nvoid loop() { delay(100); }",
-      timeoutSec: 1,
-      onOutput: (line) => output.push(line),
-      onError: () => {},
-      onExit: () => {},
-    });
+    let runtimeStartedAt: number | undefined;
+    let timedOutAt: number | undefined;
+    let exited!: () => void;
+    const exit = new Promise<void>((resolve) => { exited = resolve; });
+    try {
+      await runner.runSketch({
+        code: "void setup() {}\nvoid loop() { delay(100); }",
+        timeoutSec: 1,
+        // The runtime timeout starts with the runtime marker, which also reports the compile success.
+        onCompileSuccess: () => { runtimeStartedAt = Date.now(); },
+        onOutput: (line) => {
+          output.push(line);
+          if (line.includes("Simulation timeout (1s)")) timedOutAt ??= Date.now();
+        },
+        onError: () => {},
+        onExit: () => exited(),
+      });
+      const name = await waitForContainerName(runner);
 
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
-
-    expect(output.join("\n")).toContain("Simulation timeout (1s)");
-    expect(runner.isRunning).toBe(false);
+      await waitFor(() => timedOutAt, 20_000, () => `the timeout message (got: ${output.join(" | ")})`);
+      await within(exit, 10_000, "the exit of the timed-out sandbox");
+      expect(runtimeStartedAt, "runtime start").toBeDefined();
+      expect(timedOutAt! - runtimeStartedAt!).toBeGreaterThanOrEqual(990);
+      expect(timedOutAt! - runtimeStartedAt!).toBeLessThan(10_000);
+      await waitFor(() => !runner.isRunning, 5_000, "the runner to leave the running state");
+      await runner.stop();
+      expect(runner.hasPendingContainerCleanup).toBe(false);
+      const inspect = await new ProcessExecutor().execute("docker", ["inspect", name], { timeout: 5_000, stdio: "pipe" });
+      expect(inspect.code, "the timed-out container is removed").not.toBe(0);
+    } finally {
+      await runner.stop();
+    }
   }, 30_000);
 
   it("keeps source read-only and caps sketch writes in per-run scratch", async () => {
