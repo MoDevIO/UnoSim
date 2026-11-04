@@ -1,8 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
+import { ProcessExecutor } from "../../../server/services/process-executor";
+import { outputRecorder } from "../../utils/serial-test-helper";
+import { sleep, waitFor, within } from "../../utils/wait";
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
+
+const ignorePinMessages = (err: string) => {
+  if (!err.includes("[[PIN_")) console.error("integration onError:", err);
+};
+
+/** Paused state of the run's container as Docker reports it; undefined once the container is gone. */
+async function containerPaused(runner: SandboxRunner): Promise<boolean | undefined> {
+  const name = (runner as any).executionState?.currentContainerName as string | undefined;
+  if (!name) return undefined;
+  const inspect = await new ProcessExecutor().execute("docker", ["inspect", name], { timeout: 5_000, stdio: "pipe" });
+  return inspect.code === 0 ? JSON.parse(inspect.stdout ?? "[]")[0]?.State?.Paused === true : undefined;
+}
 
 maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => {
   let runner: SandboxRunner;
@@ -12,342 +27,147 @@ maybeDescribe("SandboxRunner — lifecycle integration (real processes)", () => 
   });
 
   afterEach(async () => {
-    // Ensure runner is stopped and cleaned up between tests
-    try {
-      if (runner?.isRunning) await runner.stop();
-    } catch {
-      // swallow cleanup errors to not mask test results
-    }
+    // stop() also removes a container whose process has already ended, so it always runs.
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   it("spawn & output: delivers serial output from the child process", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-      }
-
-      void loop() {
-        Serial.println("HELLO");
-        delay(50);
-      }
-    `;
-
-    const received: string[] = [];
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
-        reject(new Error("timeout waiting for output"));
-      }, 60000); // increased timeout for CI/slow environments
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          received.push(line);
-          if (received.filter((l) => l.includes("HELLO")).length >= 3) {
-            clearTimeout(timeout);
-            // Basic sanity: lines contain the printed word
-            expect(received.some((l) => l.includes("HELLO"))).toBe(true);
-            runner.stop().then(() => resolve()).catch(reject);
-          }
-        },
-        onError: (err) => {
-          console.error("integration onError:", err);
-          // ignore transient stderr markers used by runner internals
-          if (err.includes("[[PIN_")) return;
-        },
-        onExit: (exitCode) => {
-          console.error("integration onExit:", exitCode);
-        },
-        timeoutSec: 10,
-      });
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() { Serial.begin(9600); }
+        void loop() { Serial.println("HELLO"); delay(50); }
+      `,
+      onOutput: output.onOutput,
+      onError: ignorePinMessages,
+      onExit: () => {},
+      timeoutSec: 10,
     });
-  }, 60000);
 
-  it("lifecycle signals: SIGSTOP pauses and SIGCONT resumes the process output", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-      }
+    const hellos = () => output.lines().filter((line) => line === "HELLO").length;
+    await waitFor(() => hellos() >= 3, 60_000, "three HELLO lines");
+    expect(hellos()).toBeGreaterThanOrEqual(3);
+  }, 60_000);
 
-      void loop() {
-        Serial.println("PING");
-        delay(50);
-      }
-    `;
-
-    const lines: Array<{ text: string; time: number }> = [];
-    // Track whether we've already kicked off the pause/resume sequence to
-    // guard against re-entrance when lines arrive while timers are pending.
-    let pauseSequenceStarted = false;
-
-    // Helper: read /proc/<pid>/status on Linux to verify the process is truly
-    // in state T (stopped).  Falls back to a simple truthy result on macOS.
-    async function isProcessStopped(pid: number): Promise<boolean> {
-      try {
-        const { readFile } = await import("node:fs/promises");
-        const status = await readFile(`/proc/${pid}/status`, "utf8");
-        // State line looks like: "State:\tT (stopped)"
-        return /^State:\s*T/m.test(status);
-      } catch {
-        // /proc not available (macOS / non-Linux) — trust the signal was delivered
-        return true;
-      }
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      let cleanupDone = false;
-
-      const cleanup = async (err?: unknown) => {
-        if (cleanupDone) return;
-        cleanupDone = true;
-        clearTimeout(outerTimeout);
-        // CRITICAL: always send SIGCONT before stop() so the process is not
-        // left in a frozen state — a stopped process cannot be killed and
-        // will show up as a zombie in check-leaks.sh.
-        try { runner.resume(); } catch {}
-        try { await runner.stop(); } catch {}
-        if (err) reject(err instanceof Error ? err : new Error(String(err))); // NOSONAR S6551
-        else resolve();
-      };
-
-      const outerTimeout = setTimeout(() => {
-        console.error("[SIGSTOP-TEST] outer timeout fired — lines collected:", lines.length);
-        cleanup(new Error("timeout in pause/resume test"));
-      }, 22000);
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          const now = Date.now();
-          lines.push({ text: line, time: now });
-          console.log(`[SIGSTOP-TEST] line ${lines.length}: "${line}" at ${now}`);
-
-          // Wait for a generous warm-up buffer (6 lines) before starting the
-          // pause/resume sequence.  This avoids triggering on lines that
-          // arrived from the OS pipe buffer after a previous SIGSTOP.
-          if (lines.length === 6 && !pauseSequenceStarted) {
-            pauseSequenceStarted = true;
-
-            (async () => {
-              try {
-                const beforePauseCount = lines.length;
-                const pid = (runner as any).processController.getPid() as number | null;
-
-                console.log(`[SIGSTOP-TEST] sending SIGSTOP at t=${Date.now()}, pid=${pid}, lines=${beforePauseCount}`);
-                const paused = runner.pause();
-                expect(paused).toBe(true);
-
-                // Settle: wait for any in-flight pipe data to drain through the
-                // batcher.  Without this, lines that were already in the OS-level
-                // pipe buffer can still arrive ~50 ms after SIGSTOP.
-                await new Promise<void>(r => setTimeout(r, 200)); // NOSONAR S2004
-
-                // Verify the OS process is genuinely suspended.
-                if (pid != null) {
-                  const stopped = await isProcessStopped(pid);
-                  console.log(`[SIGSTOP-TEST] process stopped check: ${stopped} (pid=${pid})`);
-                  // Non-fatal on macOS where /proc is absent; we still proceed.
-                }
-
-                // Record count after settle; allow one stray line from the pipe buffer.
-                const afterPauseCount = lines.length;
-                console.log(`[SIGSTOP-TEST] after settle — beforePause=${beforePauseCount}, afterPause=${afterPauseCount}`);
-                expect(afterPauseCount).toBeLessThanOrEqual(beforePauseCount + 1);
-
-                // Optionally wait again to confirm output really stopped.
-                await new Promise<void>(r => setTimeout(r, 300)); // NOSONAR S2004
-                const frozenCount = lines.length;
-                console.log(`[SIGSTOP-TEST] frozen check — count=${frozenCount}`);
-                expect(frozenCount).toBeLessThanOrEqual(afterPauseCount + 1);
-
-                // Resume and wait generously for new lines.
-                console.log(`[SIGSTOP-TEST] sending SIGCONT at t=${Date.now()}`);
-                const resumed = runner.resume();
-                expect(resumed).toBe(true);
-
-                await new Promise<void>(r => setTimeout(r, 1500)); // NOSONAR S2004
-                console.log(`[SIGSTOP-TEST] after resume — lines=${lines.length}, frozenAt=${frozenCount}`);
-                expect(lines.length).toBeGreaterThan(frozenCount);
-
-                await cleanup();
-              } catch (err) {
-                await cleanup(err);
-              }
-            })();
+  it("lifecycle signals: pause freezes the container and its output, resume brings fresh output", async () => {
+    const output = outputRecorder();
+    await runner.runSketch({
+      // Serial input is accepted only while the run is not paused, so the echo is produced after the resume.
+      code: `
+        void setup() { Serial.begin(9600); }
+        void loop() {
+          Serial.println("PING");
+          while (Serial.available()) {
+            if (Serial.read() == 'R') Serial.println("ECHO AFTER RESUME");
           }
-        },
-        onError: (err) => {
-          if (err.includes("[[PIN_")) return;
-          console.error("[SIGSTOP-TEST] onError:", err);
-        },
-        onExit: (code) => {
-          console.log(`[SIGSTOP-TEST] process exited with code=${code}`);
-        },
-        timeoutSec: 18,
-      });
+          delay(50);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError: ignorePinMessages,
+      onExit: () => {},
+      timeoutSec: 18,
     });
-  }, 28000);
+
+    // A warm-up of six lines keeps the pause away from the start of the output.
+    await waitFor(() => output.lines().length >= 6, 20_000, "six PING lines");
+
+    expect(runner.pause()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed docker pause")).toBe(true);
+    expect(await containerPaused(runner)).toBe(true);
+
+    // Observation windows: a paused container produces no output (one line may still be in the pipe).
+    const atPause = output.lines().length;
+    await sleep(200);
+    const afterSettle = output.lines().length;
+    expect(afterSettle).toBeLessThanOrEqual(atPause + 1);
+    await sleep(300);
+    const frozen = output.lines().length;
+    expect(frozen).toBeLessThanOrEqual(afterSettle + 1);
+
+    expect(runner.resume()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed docker unpause")).toBe(true);
+    expect(await containerPaused(runner)).toBe(false);
+    runner.sendSerialInput("R");
+    await waitFor(() => output.lines().includes("ECHO AFTER RESUME"), 10_000, "the echo of input sent after the resume");
+    expect(output.lines().length).toBeGreaterThan(frozen);
+  }, 40_000);
 
   it("stop() reliably terminates the child process and prevents further output", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-      }
-
-      void loop() {
-        Serial.println("GOODBYE");
-        delay(50);
-      }
-    `;
-
-    const captured: string[] = [];
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        try {
-          runner.stop();
-        } finally {
-          reject(new Error("timeout in stop() test"));
-        }
-      }, 15000);
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          captured.push(line);
-
-          // Be resilient: stop shortly after the first serial output (avoids flaky timing)
-          if (captured.length === 1) {
-            setTimeout(() => {
-              runner.stop().catch(() => {}); // NOSONAR S2004
-            }, 50);
-          }
-        },
-        onError: (_err) => {}, 
-        timeoutSec: 10,
-      });
-
-      // Poll for first output (max 2s) then ensure stop prevented further output
-      const start = Date.now();
-      const pollForOutput = () => {
-        if (captured.length > 0) {
-          const afterStopCount = captured.length;
-          // Wait another 500ms to ensure no additional output arrives (more lenient)
-          setTimeout(() => {
-            try {
-              // allow one stray line due to scheduling; the important part is that the
-              // count doesn't grow indefinitely after stop
-              if (captured.length > afterStopCount) {
-                console.warn(`Captured ${captured.length} lines after stop (expected ${afterStopCount})`);
-              }
-              expect(captured.length).toBeLessThanOrEqual(afterStopCount + 1);
-              clearTimeout(timeout);
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          }, 500);
-        } else if (Date.now() - start > 15000) {
-          // Failed to observe any output before timeout — treat as test failure
-          clearTimeout(timeout);
-          reject(new Error("no serial output observed before stop (timeout 15s)"));
-        } else {
-          setTimeout(pollForOutput, 50);
-        }
-      };
-      setTimeout(pollForOutput, 50);
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() { Serial.begin(9600); }
+        void loop() { Serial.println("GOODBYE"); delay(50); }
+      `,
+      onOutput: output.onOutput,
+      onError: () => {},
+      onExit: () => {},
+      timeoutSec: 10,
     });
-  }, 20000);
+    await waitFor(() => output.lines().length > 0, 15_000, "the first serial output");
+
+    await runner.stop();
+    expect(runner.isRunning).toBe(false);
+    expect(runner.hasPendingContainerCleanup).toBe(false);
+    const afterStop = output.lines().length;
+    // Observation window: no output may follow a completed stop() (one line may still be in the pipe).
+    await sleep(500);
+    expect(output.lines().length).toBeLessThanOrEqual(afterStop + 1);
+  }, 20_000);
 
   it("regression: stopping immediately while data flows does not cause unhandled errors", async () => {
-    const code = `
-      void setup() { Serial.begin(9600); }
-      void loop() { Serial.println("RACE"); delay(20); }
-    `;
-
-    // Track if any uncaught error happens during test
-    let uncaught: any = null;
-    const uex = (err: any) => { uncaught = err; };
-    process.once('uncaughtException', uex);
-    process.once('unhandledRejection', uex);
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('timeout in race regression test')), 18000);
-
-      let seen = false;
-      const runnerResolve = () => {
-        clearTimeout(timeout);
-        process.removeListener('uncaughtException', uex);
-        process.removeListener('unhandledRejection', uex);
-        if (uncaught) return reject(uncaught);
-        resolve();
-      };
-
-      void runner.runSketch({
-        code,
+    const errors: unknown[] = [];
+    const record = (error: unknown) => errors.push(error);
+    process.on("uncaughtException", record);
+    process.on("unhandledRejection", record);
+    try {
+      let stopped: Promise<void> | undefined;
+      await runner.runSketch({
+        code: `
+          void setup() { Serial.begin(9600); }
+          void loop() { Serial.println("RACE"); delay(20); }
+        `,
         onOutput: (line) => {
           if (line.startsWith("--- Simulation timeout") || line.startsWith("--- Sandbox startup timeout")) return;
-          if (!seen) {
-            seen = true;
-            // Immediately stop when first data arrives — replicate race window
-            runner.stop().catch(() => {});
-            // finish shortly after to ensure no asynchronous unhandled errors occur
-            setTimeout(runnerResolve, 300);
-          }
+          // Stop as soon as data flows, to replicate the race window.
+          stopped ??= runner.stop();
         },
-        onError: (err) => { console.error("race onError", err); },
-        onExit: (code) => { console.error("race onExit", code); },
+        onError: (err) => console.error("race onError", err),
+        onExit: () => {},
         timeoutSec: 5,
       });
 
-      // Safety: if no output observed in time, fail
-      setTimeout(() => {
-        if (!seen) {
-          clearTimeout(timeout);
-          process.removeListener('uncaughtException', uex);
-          process.removeListener('unhandledRejection', uex);
-          reject(new Error('no output observed to trigger race'));
-        }
-      }, 18000); // allow measured Dell sandbox startup before runtime output
-    });
-    expect(uncaught).toBeNull();
-}, 20000);
+      await waitFor(() => stopped !== undefined, 18_000, "output to trigger the race");
+      await within(stopped, 20_000, "stop() after the first output");
+      // Observation window for asynchronous errors after the stop.
+      await sleep(300);
+    } finally {
+      process.off("uncaughtException", record);
+      process.off("unhandledRejection", record);
+    }
+    expect(errors).toEqual([]);
+  }, 25_000);
 
   it("error handling: process can exit with non-zero code and onExit receives that code", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-        // Force an immediate non-zero exit
-        exit(42);
-      }
-      void loop() { }
-    `;
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("timeout waiting for non-zero exit"));
-      }, 15000);
-
-      runner.runSketch({
-        code,
-        onOutput: () => {},
-        onError: () => {},
-        onExit: (exitCode) => {
-          try {
-            // On some platforms/CI we have observed -1 or null instead of real code
-            if (exitCode !== 42) {
-              console.warn(`Unexpected exitCode ${exitCode}, proceeding anyway`);
-            }
-            expect([42, -1, null]).toContain(exitCode);
-            clearTimeout(timeout);
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        },
-        timeoutSec: 5,
-      });
+    let exitCode!: (code: number | null) => void;
+    const exited = new Promise<number | null>((resolve) => { exitCode = resolve; });
+    await runner.runSketch({
+      code: `
+        void setup() {
+          Serial.begin(9600);
+          exit(42);
+        }
+        void loop() { }
+      `,
+      onOutput: () => {},
+      onError: () => {},
+      onExit: (code) => exitCode(code),
+      timeoutSec: 5,
     });
-  }, 15000);
+
+    // On some platforms/CI we have observed -1 or null instead of the real code.
+    expect([42, -1, null]).toContain(await within(exited, 15_000, "the exit of the sketch"));
+  }, 20_000);
 });

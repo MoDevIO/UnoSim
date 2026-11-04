@@ -221,8 +221,10 @@ export default defineConfig({
           environment: "node",
           setupFiles: ["./tests/setup.node.ts"],
           globalSetup: ["./tests/global-setup.docker.ts"],
-          fileParallelism: false,
-          maxWorkers: 1,
+          // Two files at a time, each in its own worker; tests within a file stay serial (shared runner and
+          // hooks). Containers carry this run's owner label and UUID names, sketches UUID directories.
+          fileParallelism: true,
+          maxWorkers: 2,
         },
       },
       {

@@ -32,10 +32,8 @@ maybeDescribe('Serial Backpressure (Arduino TX Buffer)', () => {
   });
 
   afterEach(async () => {
-    if (runner) {
-      await runner.stop();
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   /**

@@ -260,9 +260,6 @@ With two files at a time, the gate took 80.7 s, 80.3 s and 78.6 s in three
 consecutive runs (AC power, same date; 121.6 s serial in the pipeline run just
 before). The first CI run with serial files and concurrent tests took 100.6 s.
 
-The Docker gate stays serial. Running its contract files two at a time saved
-33 s, but one of six runs failed in a file that asserts timing windows. With
-those files kept serial, it saved only 7 s, too little for a second project.
 
 ### Browser emulation (M1)
 
@@ -344,6 +341,95 @@ Without `RUN_HEAVY_TESTS=1` (or `true`), the regular pipeline deliberately skips
 this resource-intensive check and reports it as skipped. This keeps every local
 default run fast while still making the stronger isolation check reproducible on
 developer machines and in a dedicated CI job.
+
+### Docker gate
+
+`npm run test:docker` (project `integration-docker`, budget 240 s) runs two
+files at a time (`fileParallelism: true`, `maxWorkers: 2`). Tests within a file
+stay serial, because several files share one runner through their hooks.
+
+**Shared resources.** Every container name and sketch directory is a UUID.
+`tests/global-setup.docker.ts` gives each test run its own
+`UNOSIM_INSTANCE_ID`, which the workers inherit. All sandbox containers of the
+run therefore carry the label `unosim.owner=instance.<id>`, and the teardown
+removes only containers with that label. Containers of a development server or
+of another test run on the same Docker daemon stay untouched. Before
+2026-11-04, the teardown removed every container named `unosim-sandbox-*`.
+Compile-sandbox tests that set their own owner label clean up their own
+containers.
+
+**Waiting and cleanup.** Tests wait for confirmed events instead of fixed
+pauses, using `waitFor`/`within` from `tests/utils/wait.ts`. Each wait is
+bounded and names what it waited for:
+
+- Pause and resume are confirmed through `controlResult`, and the container's
+  `State.Paused` is checked with `docker inspect`.
+- After a resume, the lifecycle test sends serial input and waits for its
+  echo. The runner rejects input while paused, so the echo was produced after
+  the resume.
+- The pin test waits for fresh, complete readings `P2=1 P3=0` and then
+  `P2=1 P3=1` after the resume.
+- The timeout test waits for the timeout message and the exit. It still proves
+  the lower bound: at least 990 ms between the runtime start
+  (`onCompileSuccess`) and the message, for a 1 s timeout.
+
+Every `afterEach` awaits `runner.stop()` without an `isRunning` guard, because
+`stop()` also removes the container of a run that has already ended. It then
+asserts that no container cleanup is pending.
+
+The real observation windows stay in place: the 12 s container lifetime, the
+3 s pause budget, the 500 ms window of frozen `millis()`, the windows without
+output after pause and stop, and the `delay(500)` measurements.
+
+**Serial output in tests.** `runSketchWithOutput` and `outputRecorder`
+(`tests/utils/serial-test-helper.ts`) record output by the contract of the
+WebSocket output buffer: a part ends its line unless `isComplete` is
+`false`. Before 2026-11-04 the helper ignored `isComplete` and joined
+complete lines without a break.
+
+As a result, T-FLOOD-02 found no counter lines at all ("Lines received: 0") and
+still passed, because zero gaps and the end marker were enough. Both flooding
+sketches now close with `===END <total>===`. `expectCompleteCounterSequence`
+requires each counter `0 … total−1` exactly once, in order, as a complete line.
+A missing end marker, a total of zero, a missing start, middle or end, a
+duplicate or a truncated line all fail. There is no minimum data rate.
+
+**Evidence.**
+
+- Unit tests (`tests/utils/serial-test-helper.test.ts`) cover:
+  - complete and fragmented output;
+  - CRLF line endings;
+  - missing counters and a missing end marker;
+  - lost elements at the start, middle and end;
+  - duplicates and truncated lines.
+- The three recording tests fail with the previous helper ("No end marker",
+  `'012===END 3==='`) and pass after the fix.
+- In a real Docker run:
+  - Before the fix, T-FLOOD-02 checked 0 lines and passed.
+  - After the fix, T-FLOOD-01 checks 109–111 lines and T-FLOOD-02 checks
+    798–827.
+  - With a skipped counter 500, T-FLOOD-02 fails ("Counter 500 expected at
+    position 500, got 501").
+  - With a sequence starting at 1, T-FLOOD-01 fails ("Counter 0 expected at
+    position 0, got 1").
+- Injected faults fail the event-based tests:
+  - A `resume()` that skips `docker unpause` fails: the container stays paused.
+  - A 30 s timeout instead of 1 s fails: no timeout message within 20 s.
+  - A no-op container cleanup fails: cleanup is still pending.
+
+**Measurements** (local, 2026-11-04): the gate took 124.6 s serial with the
+corrected tests. With two workers it took 54.6 s, 55.4 s, 55.1 s and 56.2 s in
+four consecutive runs, with 43 tests in 13 files each time, all passing, and no
+container left afterwards. CI duration: see the pull request.
+
+**Known product defect, not covered yet.** In Docker mode, `millis()` is not
+monotonic after a resume. The runner writes `[[PAUSE_TIME]]` only after
+`docker pause` has frozen the container, so the sketch reads it after the
+unpause. As a result, the first reading after the resume still contains the
+paused time, and the following readings drop back. Measured with a 500 ms
+pause: `…, 169, 223, 833, 343, 398, …`. The pause/resume timing test therefore
+checks only the frozen window and the continued output. It does not yet check
+the readings right after the resume.
 
 ### Sandbox contract gate
 

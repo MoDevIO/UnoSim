@@ -13,11 +13,11 @@
  * - Budget per tick (50ms): 576 bytes
  * - Burst budget (3×): 1728 bytes
  * - txDelay for 200 chars: 17.4ms → capped to 10ms → 5 iterations/tick = 1005 bytes/tick
- * - Expected steady-state drops: ~429 bytes/tick ≈ 8580 bytes/s
+ * - Steady-state surplus: ~429 bytes/tick ≈ 8580 bytes/s, buffered rather than dropped
  */
 
 import { SandboxRunner } from '../../server/services/sandbox-runner';
-import { extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
+import { expectCompleteCounterSequence, extractPlainText, runSketchWithOutput } from '../utils/serial-test-helper';
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
@@ -33,10 +33,8 @@ maybeDescribe('Serial Output Flooding', () => {
   });
 
   afterEach(async () => {
-    if (runner) {
-      await runner.stop();
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   /**
@@ -50,9 +48,9 @@ maybeDescribe('Serial Output Flooding', () => {
    * - txDelay(205) = (10 * 205 * 1000) / 115200 = 17.8ms → capped to 10ms
    * - Rate: ~100 lines/s × 205 bytes = ~20500 bytes/s
    * - Budget: 11520 bytes/s
-   * - Expected drops: ~9000 bytes/s (≈ 44% of data dropped)
-   * 
-   * We verify: numbered lines have GAPS (missing numbers = dropped lines).
+   * - The surplus is buffered (FIFO), not dropped
+   *
+   * We verify: every numbered line up to the total the sketch reports arrives complete.
    */
   test('T-FLOOD-01: Long strings are throttled without drops (200-char lines for 2s)', async () => {
     const sketch = String.raw`
@@ -64,9 +62,11 @@ void loop() {
   static unsigned long counter = 0;
   static unsigned long start = millis();
   
-  // Run for 2 seconds then exit
+  // Run for 2 seconds, report how many lines were printed, then exit
   if (millis() - start > 2000) {
-    Serial.println("===END===");
+    Serial.print("===END ");
+    Serial.print(counter);
+    Serial.println("===");
     delay(100);
     exit(0);
   }
@@ -92,57 +92,11 @@ void loop() {
     expect(result.success).toBe(true);
 
     const fullOutput = extractPlainText(result.outputs);
-    
-    // Extract all line numbers from output
-    const lineNumbers: number[] = [];
-    const regex = /(\d{6}):/g;
-    let match;
-    while ((match = regex.exec(fullOutput)) !== null) {
-      lineNumbers.push(Number.parseInt(match[1], 10));
-    }
-
-    log(`[T-FLOOD-01] Total received lines: ${lineNumbers.length}`);
-    log(`[T-FLOOD-01] First line: ${lineNumbers[0]}, Last line: ${lineNumbers.at(-1)}`);
-    log(`[T-FLOOD-01] Total bytes received: ${fullOutput.length}`);
-    
-    // There must be some output
-    expect(lineNumbers.length).toBeGreaterThan(0);
-    
-    // Check for gaps (dropped lines)
-    let gaps = 0;
-    let totalMissing = 0;
-    for (let i = 1; i < lineNumbers.length; i++) {
-      const expected = lineNumbers[i - 1] + 1;
-      if (lineNumbers[i] !== expected) {
-        gaps++;
-        totalMissing += lineNumbers[i] - expected;
-      }
-    }
-
-    log(`[T-FLOOD-01] Gaps detected: ${gaps}`);
-    log(`[T-FLOOD-01] Total missing lines: ${totalMissing}`);
-    log(`[T-FLOOD-01] Last counter value: ${lineNumbers.at(-1)}`);
-    
-    // The last counter value shows how many lines the C++ mock produced.
-    // With txDelay of 10ms, that's ~200 lines in 2 seconds.
-    const totalProduced = lineNumbers.at(-1) + 1;
-    const dropRate = totalMissing / totalProduced;
-    
-    log(`[T-FLOOD-01] Total produced by C++: ~${totalProduced}`);
-    log(`[T-FLOOD-01] Drop rate: ${(dropRate * 100).toFixed(1)}%`);
-    
-    // NOTE: With FIFO buffering strategy (Phase 7r2+), we buffer instead of aggressively drop.
-    // At 115200 baud, 200-char lines don't cause drops - they get buffered for delivery.
-    // This is CORRECT per the new semantics: preserve low-baudrate data completeness.
-    // Expected: 0 drops (data is buffered, not dropped)
-    //
-    // The old "tail wins" strategy would have dropped ~43% here.
-    // The new "FIFO + memory safety" strategy only drops if MAX_QUEUE_BYTES (100KB) is exceeded.
-    // This specific test doesn't hit that limit, so we expect no drops.
-    expect(totalMissing).toBe(0);
-
-    // And the output must contain the END marker
-    expect(fullOutput).toContain('===END===');
+    // Every line 000000 … total-1 arrives complete (6-digit counter, ':' and 193 'X'), none dropped:
+    // with FIFO buffering (Phase 7r2+) data is buffered rather than dropped, and this test stays below
+    // MAX_QUEUE_BYTES (100 KB). The old "tail wins" strategy would have dropped about 43 % here.
+    const { total } = expectCompleteCounterSequence(fullOutput, /^(\d{6}):X{193}$/);
+    log(`[T-FLOOD-01] Complete sequence of ${total} lines, ${fullOutput.length} bytes`);
   }, 30000);
 
   /**
@@ -162,7 +116,9 @@ void loop() {
   static unsigned long start = millis();
   
   if (millis() - start > 1000) {
-    Serial.println("===END===");
+    Serial.print("===END ");
+    Serial.print(counter);
+    Serial.println("===");
     delay(100);
     exit(0);
   }
@@ -176,28 +132,8 @@ void loop() {
     expect(result.success).toBe(true);
 
     const fullOutput = extractPlainText(result.outputs);
-    
-    // Extract counters
-    const lines = fullOutput.split(/\n|\r\n/).filter(l => /^\d+$/.test(l.trim()));
-    
-    log(`[T-FLOOD-02] Lines received: ${lines.length}`);
-    log(`[T-FLOOD-02] Total bytes: ${fullOutput.length}`);
-    
-    // Check for gaps 
-    let gaps = 0;
-    const numbers = lines.map(l => Number.parseInt(l.trim(), 10)).filter(n => !Number.isNaN(n));
-    for (let i = 1; i < numbers.length; i++) {
-      if (numbers[i] !== numbers[i-1] + 1) {
-        gaps++;
-      }
-    }
-    
-    log(`[T-FLOOD-02] Gaps: ${gaps}`);
-    
-    // With short strings at 115200 baud, txDelay naturally throttles to baudrate.
-    // No drops expected (or very few due to startup burst).
-    // We allow a small tolerance for the first tick transition.
-    expect(gaps).toBeLessThan(3);
-    expect(fullOutput).toContain('===END===');
+    // txDelay throttles short lines to the baudrate, so every counter 0 … total-1 arrives.
+    const { total } = expectCompleteCounterSequence(fullOutput, /^(\d+)$/);
+    log(`[T-FLOOD-02] Complete sequence of ${total} lines, ${fullOutput.length} bytes`);
   }, 30000);
 });

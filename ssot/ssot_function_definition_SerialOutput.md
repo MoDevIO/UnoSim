@@ -734,9 +734,13 @@ Datei: `tests/integration/serial-flooding.test.ts`
 
 | Test-ID | Szenario | Ergebnis |
 |---------|----------|----------|
-| T-FLOOD-01 | 200-Zeichen-Strings, 2s | ~80-85% Drop-Rate |
-| T-FLOOD-02 | Kurze Strings ("X\n"), 1s | 0 Drops |
-| T-FLOOD-03 | 500-Zeichen-Strings, 2s | ~90-93% Drop-Rate |
+| T-FLOOD-01 | 200-Zeichen-Zeilen mit Zähler, 2s | vollständige Sequenz, 0 Drops (FIFO-Pufferung) |
+| T-FLOOD-02 | Kurze Zählerzeilen, 1s | vollständige Sequenz, 0 Drops |
+
+Stand 2026-11-04: Beide Sketches schließen mit `===END <Gesamtzahl>===`. Der Test verlangt jeden Zähler
+`0 … Gesamtzahl−1` genau einmal, in Reihenfolge und als vollständige Zeile
+(`expectCompleteCounterSequence`, `tests/utils/serial-test-helper.ts`). Die früheren Drop-Raten und
+T-FLOOD-03 gehören zur abgelösten „tail wins“-Strategie.
 
 ### F.5 Extreme-Baudrate Unit Tests (NEU)
 

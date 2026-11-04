@@ -1,37 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
+import { outputRecorder } from "../utils/serial-test-helper";
+import { waitFor, within } from "../utils/wait";
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
 
-vi.setConfig({ testTimeout: 30000 });
-
-/** Flags mutated by the resume/pin helpers to communicate state back to the test. */
-interface ResumeFlags {
-  resumedOnce: boolean;
-  pinSetAfterResume: boolean;
-}
-
-/** After 1 s, resumes and sets pins 2 and 3 to HIGH sequentially. */
-function resumeAndSetMultiplePins(
-  runner: SandboxRunner,
-  flags: ResumeFlags,
-): void {
-  setTimeout(() => {
-    console.log("📍 Resuming...");
-    runner.resume();
-    flags.resumedOnce = true;
-
-    setTimeout(() => {
-      console.log("📍 Setting pin 2 to HIGH...");
-      runner.setPinValue(2, 1);
-      setTimeout(() => {
-        console.log("📍 Setting pin 3 to HIGH...");
-        runner.setPinValue(3, 1);
-      }, 200);
-    }, 500);
-  }, 1000);
-}
+const onError = (err: string) => {
+  if (err.includes("[[PIN_") || err.includes("[[STDIN_RECV")) return;
+  console.error("Stderr:", err);
+};
 
 maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   let runner: SandboxRunner;
@@ -41,163 +19,76 @@ maybeDescribe("Pause/Resume - digitalRead after Resume", () => {
   });
 
   afterEach(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    if (runner.isRunning) {
-      runner.stop();
-    }
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   it("should read pin value correctly BEFORE pause", async () => {
-    // Test that digitalRead works at all before pause.
-    // add BOOTED marker so onOutput fires immediately after start
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-        Serial.println("BOOTED");
-        pinMode(2, INPUT);
-        Serial.println("START");
-      }
-      void loop() {
-        int val = digitalRead(2);
-        Serial.print("PIN2=");
-        Serial.println(val);
-        delay(100);
-      }
-    `;
-
-    const output: string[] = [];
-
-    await new Promise<void>((resolve, reject) => {
-      // timers
-      const timeout = setTimeout(() => {
-        runner.stop();
-        process.stderr.write("[TEST] timeout reached, outputs seen:" + JSON.stringify(output) + "\n");
-        reject(new Error("Timeout waiting for output"));
-      }, 60000); // increased for CI / slower environments
-      const healthTimer = setTimeout(() => {
-        console.error("[TEST] still waiting 10s, running=", runner.isRunning, "paused=", runner.isPaused, "output=", output);
-      }, 10000);
-
-      // prepare callbacks first (avoid any race with runSketch)
-      let firstLine = true;
-      const onOutput = (line: string) => {
-          console.log("[OUT]", line);
-          output.push(line);
-          if (firstLine) {
-            firstLine = false;
-            // now that the sketch has produced output, process should exist
-            runner.setPinValue(2, 1);
-          }
-          const fullOutput = output.join("");
-          if (fullOutput.includes("PIN2=1")) {
-            clearTimeout(timeout);
-            clearTimeout(healthTimer);
-            console.log("- Status before stop: running=", runner.isRunning, "paused=", runner.isPaused);
-            runner.stop().then(resolve, reject);
-          }
-        };
-
-        const onError = (err: string) => {
-          // Ignore pin state messages
-          if (err.includes("[[PIN_")) return;
-          if (err.includes("[[STDIN_RECV")) return;
-          console.error("Error:", err);
-        };
-
-        // start simulation after listeners are ready
-        runner.runSketch({
-          code,
-          onOutput,
-          onError,
-          onExit: () => {},
-          timeoutSec: 10,
-        });
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() {
+          Serial.begin(9600);
+          pinMode(2, INPUT);
+          Serial.println("START");
+        }
+        void loop() {
+          Serial.print("PIN2=");
+          Serial.println(digitalRead(2));
+          delay(100);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError,
+      onExit: () => {},
+      timeoutSec: 10,
     });
 
-    const fullOutput = output.join("");
-    expect(fullOutput).toContain("PIN2=1");
-    console.log("✅ digitalRead works BEFORE pause");
-  }, 60000);
-
+    // The first output shows the process is up and reads its input.
+    await waitFor(() => output.lines().includes("START"), 60_000, "the START line");
+    runner.setPinValue(2, 1);
+    await waitFor(() => output.lines().includes("PIN2=1"), 15_000, () => `a PIN2=1 line (got: ${output.text()})`);
+    expect(output.lines()).toContain("PIN2=1");
+  }, 75_000);
 
   it("should handle multiple pin changes after resume", async () => {
-    const code = `
-      void setup() {
-        Serial.begin(9600);
-        pinMode(2, INPUT);
-        pinMode(3, INPUT);
-        Serial.println("READY");
-      }
-      void loop() {
-        int val2 = digitalRead(2);
-        int val3 = digitalRead(3);
-        Serial.print("P2=");
-        Serial.print(val2);
-        Serial.print(" P3=");
-        Serial.println(val3);
-        delay(150);
-      }
-    `;
-
-    const output: string[] = [];
-    let ready = false;
-    let pausedOnce = false;
-    const resumeFlags: ResumeFlags = { resumedOnce: false, pinSetAfterResume: false };
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
-        const fullOutput = output.join("");
-        console.log("Final output:", fullOutput);
-        reject(new Error("Timeout - did not see expected pin values after resume"));
-      }, 30000);
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          output.push(line);
-          const fullOutput = output.join("");
-          
-          if (fullOutput.includes("READY") && !ready) {
-            ready = true;
-            console.log("📍 Ready, waiting for initial output...");
-          }
-
-          // After seeing P2=0, pause
-          if (fullOutput.includes("P2=0") && ready && !pausedOnce) {
-            pausedOnce = true;
-            console.log("📍 Pausing...");
-            runner.pause();
-            
-            resumeAndSetMultiplePins(runner, resumeFlags);
-          }
-
-          // Check for P2=1 P3=1
-          if (resumeFlags.resumedOnce && fullOutput.includes("P2=1") && fullOutput.includes("P3=1")) {
-            console.log("✅ SUCCESS: Both pins read correctly after resume!");
-            clearTimeout(timeout);
-            runner.stop();
-            resolve();
-          }
-        },
-        onError: (err) => {
-          if (err.includes("[[PIN_")) return;
-          if (err.includes("[[STDIN_RECV")) {
-            console.log("📍 C++ stdin:", err);
-            return;
-          }
-          console.error("Stderr:", err);
-        },
-        onExit: () => {},
-        onPinState: (pin, type, value) => {
-          console.log(`📍 Pin: ${pin}=${value} (${type})`);
-        },
-        timeoutSec: 30,
-      });
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() {
+          Serial.begin(9600);
+          pinMode(2, INPUT);
+          pinMode(3, INPUT);
+          Serial.println("READY");
+        }
+        void loop() {
+          Serial.print("P2=");
+          Serial.print(digitalRead(2));
+          Serial.print(" P3=");
+          Serial.println(digitalRead(3));
+          delay(150);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError,
+      onExit: () => {},
+      timeoutSec: 30,
     });
+    await waitFor(() => output.lines().includes("P2=0 P3=0"), 30_000, "a first complete reading P2=0 P3=0");
 
-    const fullOutput = output.join("");
-    expect(fullOutput).toContain("P2=1");
-    expect(fullOutput).toContain("P3=1");
-  });
+    expect(runner.pause()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed pause")).toBe(true);
+    expect(runner.resume()).toBe(true);
+    expect(await within(runner.controlResult, 10_000, "the confirmed resume")).toBe(true);
+
+    // Each change set after the resume must show up in a fresh, complete reading of both pins.
+    const afterResume = output.lines().length;
+    const freshReading = (reading: string) =>
+      waitFor(() => output.lines().slice(afterResume).includes(reading), 10_000, () => `a fresh reading "${reading}" after the resume (got: ${output.lines().slice(afterResume).join(" | ")})`);
+    runner.setPinValue(2, 1);
+    await freshReading("P2=1 P3=0");
+    runner.setPinValue(3, 1);
+    await freshReading("P2=1 P3=1");
+    expect(output.lines().slice(afterResume)).toContain("P2=1 P3=1");
+  }, 60_000);
 });

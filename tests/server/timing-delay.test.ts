@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
+import { outputRecorder } from "../utils/serial-test-helper";
+import { waitFor } from "../utils/wait";
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
@@ -12,10 +14,8 @@ maybeDescribe("Timing - delay() accuracy", () => {
   });
 
   afterEach(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    if (runner.isRunning) {
-      runner.stop();
-    }
+    await runner.stop();
+    expect(runner.hasPendingContainerCleanup).toBe(false);
   });
 
   it("should measure multiple consecutive delays accurately", async () => {
@@ -42,40 +42,21 @@ maybeDescribe("Timing - delay() accuracy", () => {
       }
     `;
 
-    const measurements: number[] = [];
-
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        runner.stop();
-        reject(new Error("Timeout waiting for measurements"));
-      }, 20000);
-
-      runner.runSketch({
-        code,
-        onOutput: (line) => {
-          console.log(`Output: ${line}`);
-          
-          // Parse "Delay N: 500ms" pattern
-          const match = /Delay\s+\d+:\s*(\d+)ms/.exec(line);
-          if (match) {
-            const elapsed = Number.parseInt(match[1], 10);
-            measurements.push(elapsed);
-            console.log(`Measured delay: ${elapsed}ms`);
-            
-            // After 3 consecutive delays, we're done
-            if (measurements.length >= 3) {
-              clearTimeout(timeout);
-              runner.stop();
-              resolve();
-            }
-          }
-        },
-        onError: (err) => {
-          if (err.includes("[[PIN_")) return;
-          console.error(`Error: ${err}`);
-        },
-      });
+    const output = outputRecorder();
+    const delays = () => output.lines().flatMap((line) => {
+      const match = /^Delay\s+\d+:\s*(\d+)ms$/.exec(line);
+      return match ? [Number.parseInt(match[1], 10)] : [];
     });
+    await runner.runSketch({
+      code,
+      onOutput: output.onOutput,
+      onError: (err) => {
+        if (err.includes("[[PIN_")) return;
+        console.error(`Error: ${err}`);
+      },
+    });
+    await waitFor(() => delays().length >= 3, 20_000, () => `three delay measurements (got: ${output.text()})`);
+    const measurements = delays();
 
     console.log("\n=== CONSECUTIVE DELAYS TEST ===");
     console.log(`Measurements: ${measurements.join(", ")}`);
