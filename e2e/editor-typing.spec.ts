@@ -3,13 +3,30 @@ import { expect, test, type Page } from "@playwright/test";
 // Typing comfort of the sketch editor (real Monaco, real key presses): Enter continues the indentation,
 // brackets and quotes close themselves, Tab indents by two spaces.
 
-// Keys are typed with a small delay like a person would; Monaco finishes auto-closing and re-tokenizing between
-// key presses, which a zero-delay burst does not give it.
+// The page fills an empty editor with the default sketch once /api/sketches answers, so the editor is cleared
+// only after that sketch has arrived.
 async function freshEditor(page: Page) {
   await page.goto("/");
-  await page.waitForFunction(() => Boolean((globalThis as any).__MONACO_EDITOR__));
+  await page.waitForFunction(() => Boolean((globalThis as any).__MONACO_EDITOR__?.getValue()));
   await page.evaluate(() => (globalThis as any).__MONACO_EDITOR__.setValue(""));
   await page.locator('[data-testid="code-editor"]').click();
+}
+
+// Monaco decides auto-closing and the indentation on Enter from tokens it refreshes in idle callbacks. Every key
+// waits for an idle callback first, so a loaded machine (a CI runner, or 6x CPU throttling) never types on
+// stale tokens; a fixed delay between keys was not enough there.
+const idle = (page: Page) => page.evaluate(() => new Promise((resolve) => requestIdleCallback(resolve)));
+
+async function typeKeys(page: Page, keys: string) {
+  for (const key of keys) {
+    await idle(page);
+    await page.keyboard.type(key);
+  }
+}
+
+async function pressEnter(page: Page) {
+  await idle(page);
+  await page.keyboard.press("Enter");
 }
 
 const text = (page: Page) => page.evaluate(() => (globalThis as any).__MONACO_EDITOR__.getValue() as string);
@@ -17,29 +34,29 @@ const text = (page: Page) => page.evaluate(() => (globalThis as any).__MONACO_ED
 test.describe("editor typing comfort", () => {
   test("Enter after an opening brace indents and puts the closing brace below", async ({ page }) => {
     await freshEditor(page);
-    await page.keyboard.type("void setup() {", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("Serial.begin(9600);", { delay: 25 });
+    await typeKeys(page, "void setup() {");
+    await pressEnter(page);
+    await typeKeys(page, "Serial.begin(9600);");
 
     expect(await text(page)).toBe("void setup() {\n  Serial.begin(9600);\n}");
   });
 
   test("Enter after a statement keeps the indentation, nested blocks go one level deeper", async ({ page }) => {
     await freshEditor(page);
-    await page.keyboard.type("void loop() {", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("if (x) {", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("y();", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("z();", { delay: 25 });
+    await typeKeys(page, "void loop() {");
+    await pressEnter(page);
+    await typeKeys(page, "if (x) {");
+    await pressEnter(page);
+    await typeKeys(page, "y();");
+    await pressEnter(page);
+    await typeKeys(page, "z();");
 
     expect(await text(page)).toBe("void loop() {\n  if (x) {\n    y();\n    z();\n  }\n}");
   });
 
   test("typing a closing bracket steps over the automatic one on the same line", async ({ page }) => {
     await freshEditor(page);
-    await page.keyboard.type("int a[] = {1, 2};", { delay: 25 });
+    await typeKeys(page, "int a[] = {1, 2};");
 
     expect(await text(page)).toBe("int a[] = {1, 2};");
   });
@@ -48,18 +65,18 @@ test.describe("editor typing comfort", () => {
     await freshEditor(page);
     await page.evaluate(() => (globalThis as any).__MONACO_EDITOR__.setValue("void f() {\n    a(); b();\n}"));
     await page.evaluate(() => (globalThis as any).__MONACO_EDITOR__.setPosition({ lineNumber: 2, column: 10 }));
-    await page.keyboard.press("Enter");
+    await pressEnter(page);
 
     expect((await text(page)).split("\n")[2]).toMatch(/^ {4}b\(\);$/);
   });
 
   test("Enter after a line comment keeps the indentation", async ({ page }) => {
     await freshEditor(page);
-    await page.keyboard.type("void f() {", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("// note", { delay: 25 });
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("a();", { delay: 25 });
+    await typeKeys(page, "void f() {");
+    await pressEnter(page);
+    await typeKeys(page, "// note");
+    await pressEnter(page);
+    await typeKeys(page, "a();");
 
     expect(await text(page)).toBe("void f() {\n  // note\n  a();\n}");
   });
@@ -68,8 +85,8 @@ test.describe("editor typing comfort", () => {
     await freshEditor(page);
     const lines = ["a();", "if (x)", "b();", "else", "c();", "for (;;)", "d();", "while (y)", "e();", "f();"];
     for (const [index, line] of lines.entries()) {
-      await page.keyboard.type(line, { delay: 25 });
-      if (index < lines.length - 1) await page.keyboard.press("Enter");
+      await typeKeys(page, line);
+      if (index < lines.length - 1) await pressEnter(page);
     }
 
     expect(await text(page)).toBe(
@@ -81,8 +98,8 @@ test.describe("editor typing comfort", () => {
     await freshEditor(page);
     const lines = ["if (a)", "x();", "else if (b)", "y();", "else", "z();", "w();"];
     for (const [index, line] of lines.entries()) {
-      await page.keyboard.type(line, { delay: 25 });
-      if (index < lines.length - 1) await page.keyboard.press("Enter");
+      await typeKeys(page, line);
+      if (index < lines.length - 1) await pressEnter(page);
     }
 
     expect(await text(page)).toBe("if (a)\n  x();\nelse if (b)\n  y();\nelse\n  z();\nw();");
@@ -90,7 +107,7 @@ test.describe("editor typing comfort", () => {
 
   test("parentheses and quotes close themselves, typing the closer steps over it", async ({ page }) => {
     await freshEditor(page);
-    await page.keyboard.type('Serial.println("hi");', { delay: 25 });
+    await typeKeys(page, 'Serial.println("hi");');
 
     expect(await text(page)).toBe('Serial.println("hi");');
   });
@@ -98,7 +115,7 @@ test.describe("editor typing comfort", () => {
   test("Tab indents by two spaces", async ({ page }) => {
     await freshEditor(page);
     await page.keyboard.press("Tab");
-    await page.keyboard.type("a();", { delay: 25 });
+    await typeKeys(page, "a();");
 
     expect(await text(page)).toBe("  a();");
   });

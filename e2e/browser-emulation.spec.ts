@@ -203,7 +203,7 @@ test.describe("browser emulation (M1)", () => {
     }
   });
 
-  test("host-mock fallback: with the Legacy engine selected the server simulates and the browser emulation stays unused", async ({ page }) => {
+  test("host-mock fallback: with the Legacy engine selected the server simulates and the browser emulation stays unused", { tag: "@server-runs" }, async ({ page }) => {
     const traffic = await openWithEngine(page, "host-mock");
 
     await startFromEditor(page, COUNTER);

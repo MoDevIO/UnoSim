@@ -30,11 +30,18 @@ export default defineConfig({
     [path.resolve(__dirname, "e2e/race-condition-reporter.ts")],
   ],
 
-  // E2E-Szenarien teilen sich absichtlich einen Backend-Port und einen
-  // zustandsbehafteten Sandbox-Pool. Serielle Ausführung verhindert, dass
-  // parallele Browser-Kontexte Compile-/WebSocket-Zustände vermischen.
-  workers: 1,
+  // All scenarios share one backend. Only the tests tagged @server-runs run
+  // sketches in the server's stateful sandbox pool (or load it with many
+  // clients); they run one at a time in their own project. Every other test
+  // uses the browser emulation and runs file by file in parallel workers.
+  workers: 4,
   fullyParallel: false,
+  projects: [
+    { name: "browser", grepInvert: /@server-runs/ },
+    { name: "server-runs", grep: /@server-runs/, workers: 1 },
+  ],
+  // The default template adds the project name; the baselines predate the projects.
+  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{-snapshotSuffix}{ext}",
   retries: 1, // 1 Retry für flaky Cold-Start-Timing-Probleme
 
   expect: {

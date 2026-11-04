@@ -72,16 +72,22 @@ function runArduinoCli(id: string, args: readonly string[], env: NodeJS.ProcessE
 
 /**
  * The build cache of one corpus run: compiles share reusable core artifacts without writing to the user's
- * global arduino-cli cache. Concurrent cold compiles may initially build the same core. `dispose()` waits for all compiles still
+ * global arduino-cli cache. The first compile of each FQBN runs alone and fills the cache with its core; the
+ * others wait for it, since concurrent cold compiles replace the core archive while another compile links
+ * against it (lto1: "resolution sub id ... not in object file"). `dispose()` waits for all compiles still
  * running (a timed-out test does not stop its process) and then removes the cache, also after failures.
  */
 export class CorpusBuildCache {
   readonly path = mkdtempSync(join(tmpdir(), "unosim-corpus-cache-"));
   private readonly running = new Set<Promise<string>>();
+  private readonly coreBuilt = new Map<string, Promise<unknown>>();
 
   /** Compiles the sketch of a case in a scratch copy (so build artifacts never land in the repository) and returns its HEX. */
   compile(ref: CorpusCaseRef, timeoutMs = COMPILE_TIMEOUT_MS): Promise<string> {
-    const compile = this.compileCase(ref, timeoutMs);
+    const fqbn = CORPUS_FQBN[ref.board];
+    const coreBuilt = this.coreBuilt.get(fqbn);
+    const compile = coreBuilt ? coreBuilt.then(() => this.compileCase(ref, timeoutMs)) : this.compileCase(ref, timeoutMs);
+    if (!coreBuilt) this.coreBuilt.set(fqbn, compile.catch(() => undefined));
     this.running.add(compile);
     void compile.catch(() => undefined).finally(() => this.running.delete(compile));
     return compile;
