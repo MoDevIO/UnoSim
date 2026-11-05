@@ -23,6 +23,11 @@ import { cleanupExecutionContainer, flushMessageQueue } from "./sandbox/executio
 import { delegateParsedLineToStreamHandler } from "./sandbox/execution-phases/stream-phase";
 import { config } from "../config";
 
+/** How long a pause waits for the runtime to confirm its frozen clock, like a docker control command. */
+const TIME_FREEZE_TIMEOUT_MS = 5000;
+
+type ControlOutcome = { code: number | null; error?: Error | null };
+
 export class SandboxRunner {
   private static missingDockerSocketLogEmitted = false;
 
@@ -42,6 +47,9 @@ export class SandboxRunner {
 
   private controlCompletion?: Promise<boolean>;
   private controlPending = false;
+  /** Number of the latest pause; the runtime echoes it in its acknowledgements. */
+  private pauseNumber = 0;
+  private cancelTimeFreeze: (() => void) | null = null;
   /** Total time one run may spend paused before the runner ends it. */
   private readonly maxPausedMs: number;
   private pauseBudgetTimer: NodeJS.Timeout | null = null;
@@ -296,9 +304,13 @@ export class SandboxRunner {
     });
   }
 
-  private controlDocker(operation: "pause" | "unpause", commit: () => void): void {
+  /**
+   * Stops or continues the process (docker pause/unpause, or SIGSTOP/SIGCONT without a container) and commits the
+   * new state once that succeeded. A pause first waits for `timeFrozen`.
+   */
+  private control(operation: "pause" | "unpause", commit: () => void, timeFrozen?: Promise<boolean>): void {
     const s = this.executionState;
-    const containerName = s.currentContainerName!;
+    const containerName = s.currentContainerName;
     const generation = s.runGeneration;
     const expectedState = this.state;
     const abort = s.runAbort;
@@ -306,22 +318,54 @@ export class SandboxRunner {
       !abort?.signal.aborted && !s.processKilled && s.currentContainerName === containerName &&
       !s.terminationRequested && this.state === expectedState && this.processController.hasProcess();
     this.controlPending = true;
-    const finish = async (result: Awaited<ReturnType<ProcessExecutor["execute"]>>): Promise<boolean> => {
+    const target = containerName ? `Docker ${operation} for ${containerName}` : operation;
+    const finish = async (result: ControlOutcome): Promise<boolean> => {
       if (!isCurrent()) return false;
       this.controlPending = false;
       if (result.code !== 0 || result.error) {
-        this.logger.warn(`Docker ${operation} failed for ${containerName} (code ${result.code}): ${String(result.error ?? "nonzero exit")}`);
+        this.logger.warn(`${target} failed (code ${result.code}): ${String(result.error ?? "nonzero exit")}`);
         await this.stop();
         return false;
       }
       commit();
       return true;
     };
-    this.controlCompletion = this.processExecutor.execute("docker", [operation, containerName], {
-      timeout: 5000, stdio: "pipe",
-    }).then(finish, (error: unknown) => finish({
+    const act = async (): Promise<ControlOutcome> => {
+      if (timeFrozen && !(await timeFrozen)) {
+        return { code: -1, error: new Error("the runtime did not confirm the frozen clock") };
+      }
+      if (!isCurrent()) return { code: -1, error: null };
+      if (!containerName) {
+        this.processController.kill(operation === "pause" ? "SIGSTOP" : "SIGCONT");
+        return { code: 0, error: null };
+      }
+      return this.processExecutor.execute("docker", [operation, containerName], { timeout: 5000, stdio: "pipe" });
+    };
+    this.controlCompletion = act().then(finish, (error: unknown) => finish({
       code: -1, error: error instanceof Error ? error : new Error(String(error)),
     }));
+  }
+
+  /**
+   * Asks the runtime to freeze its clock and resolves with its acknowledgement. Only then may the process be
+   * stopped: a stopped process reads the request only after the resume, and its clock would jump.
+   */
+  private requestTimeFreeze(pause: number): Promise<boolean> {
+    const s = this.executionState;
+    return new Promise((resolve) => {
+      const onFrozen = (acknowledged: number) => { if (acknowledged === pause) done(true); };
+      const timer = setTimeout(() => done(false), TIME_FREEZE_TIMEOUT_MS);
+      const done = (frozen: boolean) => {
+        clearTimeout(timer);
+        if (s.onTimeFrozen === onFrozen) s.onTimeFrozen = null;
+        if (this.cancelTimeFreeze === cancel) this.cancelTimeFreeze = null;
+        resolve(frozen);
+      };
+      const cancel = () => done(false);
+      s.onTimeFrozen = onFrozen;
+      this.cancelTimeFreeze = cancel;
+      if (!this.processController.writeStdin(`[[PAUSE_TIME:${pause}]]\n`)) done(false);
+    });
   }
 
   private commitPause(): void {
@@ -331,7 +375,6 @@ export class SandboxRunner {
     s.pinStateBatcher?.pause();
     s.serialOutputBatcher?.pause();
     this.registryManager.pauseTelemetry();
-    if (!s.processKilled) this.processController.writeStdin("[[PAUSE_TIME]]\n");
     s.pauseStartTime = Date.now();
     this.registryManager.markPauseTime(s.pauseStartTime);
     this.startPauseBudget();
@@ -369,13 +412,8 @@ export class SandboxRunner {
 
   pause(): boolean {
     if (this.controlPending || this.executionState.terminationRequested || this.state !== SimulationState.RUNNING || !this.processController.hasProcess()) return false;
-    if (this.executionState.currentContainerName) {
-      this.controlDocker("pause", () => this.commitPause());
-    } else {
-      this.processController.kill("SIGSTOP");
-      this.commitPause();
-      this.controlCompletion = undefined;
-    }
+    this.pauseNumber += 1;
+    this.control("pause", () => this.commitPause(), this.requestTimeFreeze(this.pauseNumber));
     return true;
   }
 
@@ -384,7 +422,7 @@ export class SandboxRunner {
     this.clearPauseBudget();
     const pauseDuration = Date.now() - (this.pauseStartTime ?? Date.now());
     s.totalPausedTime += pauseDuration;
-    if (!s.processKilled) this.processController.writeStdin(`[[RESUME_TIME:${pauseDuration}]]\n`);
+    if (!s.processKilled) this.processController.writeStdin(`[[RESUME_TIME:${this.pauseNumber}]]\n`);
     s.pauseStartTime = null;
     this.registryManager.markPauseTime(null);
     this.state = SimulationState.RUNNING;
@@ -402,11 +440,11 @@ export class SandboxRunner {
   resume(): boolean {
     if (this.controlPending || this.executionState.terminationRequested || this.state !== SimulationState.PAUSED || !this.processController.hasProcess()) return false;
     if (this.executionState.currentContainerName) {
-      this.controlDocker("unpause", () => this.commitResume());
+      this.control("unpause", () => this.commitResume());
     } else {
       this.processController.kill("SIGCONT");
       this.commitResume();
-      this.controlCompletion = undefined;
+      this.controlCompletion = Promise.resolve(true);
     }
     return true;
   }
@@ -448,6 +486,7 @@ export class SandboxRunner {
     // Cancels a run that is still preparing or waiting for a start slot.
     s.runAbort?.abort();
     this.controlPending = false;
+    this.cancelTimeFreeze?.();
     this.clearPauseBudget();
     if (this.state === SimulationState.STOPPED || s.processKilled) {
       await this.cleanupDockerContainer(s.currentContainerName);
@@ -519,6 +558,7 @@ export class SandboxRunner {
     s.runAbort?.abort();
     this.controlPending = false;
     this.controlCompletion = undefined;
+    this.cancelTimeFreeze?.();
     this.clearPauseBudget();
     if (s.currentContainerName) {
       await this.cleanupDockerContainer(s.currentContainerName);

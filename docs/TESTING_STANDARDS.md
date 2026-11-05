@@ -422,14 +422,25 @@ corrected tests. With two workers it took 54.6 s, 55.4 s, 55.1 s and 56.2 s in
 four consecutive runs, with 43 tests in 13 files each time, all passing, and no
 container left afterwards. CI duration: see the pull request.
 
-**Known product defect, not covered yet.** In Docker mode, `millis()` is not
-monotonic after a resume. The runner writes `[[PAUSE_TIME]]` only after
-`docker pause` has frozen the container, so the sketch reads it after the
-unpause. As a result, the first reading after the resume still contains the
-paused time, and the following readings drop back. Measured with a 500 ms
-pause: `…, 169, 223, 833, 343, 398, …`. The pause/resume timing test therefore
-checks only the frozen window and the continued output. It does not yet check
-the readings right after the resume.
+**Clock across pauses.** `tests/server/pause-resume-timing.test.ts` reads
+`millis()` and `micros()` every 20 ms across three 600 ms pauses and three
+pauses resumed at once. `tests/utils/clock-samples.ts` fails on any step
+backwards or above 300 ms, overflow-aware at the width of `unsigned long`
+that the sketch reports, and when the two clocks step apart. The first test
+also checks that the readings right after a resume go on from the frozen
+value.
+
+- Before the fix the runner wrote `[[PAUSE_TIME]]` only after `docker pause`,
+  so the sketch froze its clock after the unpause, at a value that already
+  contained the paused time. The test failed in 3 of 3 Docker runs with
+  `millis() stepped by +670 ms` (+672, +681).
+- Now the runtime freezes its clock and acknowledges with
+  `[[TIME_FROZEN:n:ms]]` before the runner stops the process, and it measures
+  the pause itself (SSOT PauseResume 4.3). The test passes in Docker and
+  without a container (`UNOSIM_SERVER_MODE=local`).
+- Unit tests in `sandbox-runner-control-ownership.test.ts` fix the order:
+  no `docker pause` or `SIGSTOP` before the acknowledgement of the same pause
+  number, the run ends after 5 s without it, and Stop drops the wait.
 
 ### Sandbox contract gate
 

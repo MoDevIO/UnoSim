@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SandboxRunner } from "../../../server/services/sandbox-runner";
 import { cleanupDockerContainer } from "../../../server/services/sandbox/execution-phases/cleanup-phase";
 import { wsMessageSchema } from "../../../shared/schema";
+import { acknowledgingWriteStdin } from "../../utils/time-freeze-ack";
 
 const failure = { code: 1, stdout: "", stderr: "synthetic Docker failure", error: null };
 const success = { code: 0, stdout: "", stderr: "", error: null };
@@ -21,6 +22,7 @@ function fixture(stateName = "running") {
     state: stateName, currentContainerName: "unosim-synthetic-run-A", runGeneration: 1,
     runAbort: new AbortController(), processKilled: false, pauseStartTime: Date.now() - 100,
   });
+  pc.writeStdin.mockImplementation(acknowledgingWriteStdin(runner));
   const execute = vi.spyOn(internals.processExecutor, "execute").mockResolvedValue(failure);
   const warn = vi.spyOn(internals.logger, "warn");
   return { runner, pc, s, execute, warn, timeout: internals.timeoutManager };
@@ -83,6 +85,7 @@ describe("Docker lifecycle ownership", () => {
     let complete!: (value: typeof success) => void;
     f.execute.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
     expect(f.runner[operation]()).toBe(true);
+    await flush();
     expect(f.runner.isPaused).toBe(operation === "resume");
     complete(success);
     await flush();
@@ -109,6 +112,7 @@ describe("Docker lifecycle ownership", () => {
     f.execute.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }))
       .mockResolvedValue(success);
     f.runner.pause();
+    await flush();
     await f.runner.stop();
     await f.runner.resetForReuse();
     Object.assign(f.s, { state: "running", currentContainerName: "unosim-synthetic-run-B",
@@ -175,6 +179,7 @@ describe("Docker lifecycle ownership", () => {
     f.execute.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }))
       .mockResolvedValue(success);
     f.runner.pause();
+    await flush();
     (f.runner as any).dockerManager.setupDockerTimeout(1, {
       onOutput: vi.fn(), onError: vi.fn(), onPinState: vi.fn(),
     });
@@ -182,6 +187,92 @@ describe("Docker lifecycle ownership", () => {
     complete(success);
     await flush();
     expect(f.runner.isPaused).toBe(false);
+  });
+
+  describe("frozen clock before a pause", () => {
+    const pauseRequests = (pc: ReturnType<typeof fixture>["pc"]) =>
+      pc.writeStdin.mock.calls.map(([data]) => data).filter((data) => data.startsWith("[[PAUSE_TIME:"));
+
+    it("stops the container only after the runtime confirmed this pause's frozen clock", async () => {
+      const f = fixture();
+      f.pc.writeStdin.mockImplementation(() => true);
+      f.execute.mockResolvedValue(success);
+      expect(f.runner.pause()).toBe(true);
+      await flush();
+      expect(pauseRequests(f.pc)).toEqual(["[[PAUSE_TIME:1]]\n"]);
+      expect(f.execute).not.toHaveBeenCalled();
+
+      f.s.onTimeFrozen(0);
+      f.s.onTimeFrozen(2);
+      await flush();
+      expect(f.execute).not.toHaveBeenCalled();
+      expect(f.runner.isPaused).toBe(false);
+
+      f.s.onTimeFrozen(1);
+      expect(await f.runner.controlResult).toBe(true);
+      expect(f.execute).toHaveBeenCalledWith("docker", ["pause", "unosim-synthetic-run-A"], expect.anything());
+      expect(f.runner.isPaused).toBe(true);
+      expect(f.s.onTimeFrozen).toBeNull();
+    });
+
+    it("numbers the pauses of a run and resumes the clock of the same pause", async () => {
+      const f = fixture();
+      f.execute.mockResolvedValue(success);
+      for (const pause of [1, 2]) {
+        f.runner.pause();
+        expect(await f.runner.controlResult).toBe(true);
+        f.runner.resume();
+        expect(await f.runner.controlResult).toBe(true);
+        expect(f.pc.writeStdin).toHaveBeenCalledWith(`[[PAUSE_TIME:${pause}]]\n`);
+        expect(f.pc.writeStdin).toHaveBeenLastCalledWith(`[[RESUME_TIME:${pause}]]\n`);
+      }
+    });
+
+    it("sends SIGSTOP without a container only after the acknowledgement", async () => {
+      const f = fixture();
+      delete f.s.currentContainerName;
+      f.pc.writeStdin.mockImplementation(() => true);
+      f.runner.pause();
+      await flush();
+      expect(f.pc.kill).not.toHaveBeenCalled();
+
+      f.s.onTimeFrozen(1);
+      expect(await f.runner.controlResult).toBe(true);
+      expect(f.pc.kill).toHaveBeenCalledWith("SIGSTOP");
+      expect(f.runner.isPaused).toBe(true);
+      expect(f.execute).not.toHaveBeenCalled();
+    });
+
+    it("ends the run when the runtime does not confirm the frozen clock in time", async () => {
+      const f = fixture();
+      f.pc.writeStdin.mockImplementation(() => true);
+      f.execute.mockResolvedValue(success);
+      f.runner.pause();
+      const result = f.runner.controlResult;
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(f.pc.kill).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await result).toBe(false);
+      expect(f.execute).not.toHaveBeenCalledWith("docker", ["pause", "unosim-synthetic-run-A"], expect.anything());
+      expect(f.warn).toHaveBeenCalledWith(expect.stringContaining("did not confirm the frozen clock"));
+      expect(f.runner.simulationState).toBe("stopped");
+      expect(f.pc.kill).toHaveBeenCalledWith("SIGKILL");
+      expect(f.s.onTimeFrozen).toBeNull();
+    });
+
+    it("drops a pending acknowledgement wait on stop", async () => {
+      const f = fixture();
+      f.pc.writeStdin.mockImplementation(() => true);
+      f.execute.mockResolvedValue(success);
+      f.runner.pause();
+      const result = f.runner.controlResult;
+      await f.runner.stop();
+      expect(await result).toBe(false);
+      expect(f.s.onTimeFrozen).toBeNull();
+      expect(f.execute).not.toHaveBeenCalledWith("docker", ["pause", "unosim-synthetic-run-A"], expect.anything());
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 
   it.each(["pause_simulation", "resume_simulation"])("confirms the current error contract rejects %s", (operation) => {

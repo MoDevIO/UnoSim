@@ -21,12 +21,15 @@ std::atomic<bool> keepReading(true);
 // this mutex the two threads can interleave output and corrupt protocol framing.
 static std::mutex cerrMutex;
 
-// Pause/Resume timing state
-static std::atomic<bool> processIsPaused(false);
-static std::atomic<unsigned long> pausedTimeMs(0);
+// Pause/Resume timing state, guarded by timeMutex. The runtime measures each
+// pause itself: the clock freezes when it handles [[PAUSE_TIME:n]] (before the
+// runner stops the process) and thaws when it handles [[RESUME_TIME:n]].
+static std::mutex timeMutex;
+static bool timeFrozen = false;
+static unsigned long long frozenMicros = 0;
+static std::chrono::steady_clock::time_point frozenAt;
+static std::chrono::steady_clock::duration totalPausedTime{0};
 static auto processStartTime = std::chrono::steady_clock::now();
-// accumulated duration (ms) of all pauses — subtract when calculating elapsed time
-static unsigned long totalPausedTimeMs = 0;
 
 // Forward declaration
 void checkStdinForPinCommands();
@@ -38,37 +41,46 @@ void delayMicroseconds(unsigned int us) {
     std::this_thread::sleep_for(std::chrono::microseconds(us)); 
 }
 
-unsigned long millis() { 
-    // If paused, return the frozen time value
-    if (processIsPaused.load()) {
-        return pausedTimeMs.load();
-    }
-    
-    // Normal operation: calculate elapsed time since start
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - processStartTime
-    ).count();
-    
-    // Subtract total paused time that has been accumulated
-    return static_cast<unsigned long>(elapsed) - totalPausedTimeMs;
+// Simulated time in microseconds: real time since start minus all paused time.
+// millis() and micros() share it, so they never disagree.
+static unsigned long long simulatedMicros() {
+    std::lock_guard<std::mutex> lock(timeMutex);
+    if (timeFrozen) return frozenMicros;
+    auto running = std::chrono::steady_clock::now() - processStartTime - totalPausedTime;
+    return static_cast<unsigned long long>(
+        std::chrono::duration_cast<std::chrono::microseconds>(running).count());
+}
+
+// Both wrap around at the width of unsigned long, like the Arduino counters.
+unsigned long millis() {
+    return static_cast<unsigned long>(simulatedMicros() / 1000ULL);
 }
 
 unsigned long micros() {
-    // If paused, return the frozen time value (in microseconds)
-    if (processIsPaused.load()) {
-        // pausedTimeMs is stored in milliseconds, convert once
-        return pausedTimeMs.load() * 1000UL;
+    return static_cast<unsigned long>(simulatedMicros());
+}
+
+// Freezes the clock at its current value; returns that value in ms.
+static unsigned long freezeTime() {
+    std::lock_guard<std::mutex> lock(timeMutex);
+    if (!timeFrozen) {
+        frozenAt = std::chrono::steady_clock::now();
+        auto running = frozenAt - processStartTime - totalPausedTime;
+        frozenMicros = static_cast<unsigned long long>(
+            std::chrono::duration_cast<std::chrono::microseconds>(running).count());
+        timeFrozen = true;
     }
-    
-    // Normal operation: calculate elapsed time since start
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
-        now - processStartTime
-    ).count();
-    
-    // Subtract total paused time (converted to µs)
-    return static_cast<unsigned long>(elapsed) - (totalPausedTimeMs * 1000UL);
+    return static_cast<unsigned long>(frozenMicros / 1000ULL);
+}
+
+// Thaws the clock: it goes on from the frozen value; returns that value in ms.
+static unsigned long thawTime() {
+    std::lock_guard<std::mutex> lock(timeMutex);
+    if (timeFrozen) {
+        totalPausedTime += std::chrono::steady_clock::now() - frozenAt;
+        timeFrozen = false;
+    }
+    return static_cast<unsigned long>(frozenMicros / 1000ULL);
 }
 
 // Random Functions

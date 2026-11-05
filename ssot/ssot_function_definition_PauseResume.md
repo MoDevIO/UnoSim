@@ -71,7 +71,7 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 
 **Verhalten:**
 
-1. **Prozess einfrieren:** Der C++-Prozess erhält das Signal `SIGSTOP` (nicht `SIGKILL`)
+1. **Prozess einfrieren:** Der Runner sendet `[[PAUSE_TIME:n]]`; die Laufzeit friert ihre Uhr ein und bestätigt mit `[[TIME_FROZEN:n:ms]]`. Erst dann hält der Runner den Prozess an (`docker pause`, ohne Container `SIGSTOP`, nie `SIGKILL`). Bleibt die Bestätigung 5 s aus, endet der Lauf wie bei einem fehlgeschlagenen `docker pause`.
 2. **Serial Output:** Keine neuen Ausgaben mehr (Buffer wird nicht geleert)
 3. **Pin-Zustände:** Bleiben unverändert sichtbar auf dem Arduino Board
 4. **Timeout-Timer:** Wird pausiert (kein Fortschritt)
@@ -97,34 +97,17 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 ❌ **Kompilations-Status wird geändert** (bleibt "success")  
 ❌ **Prozess wird terminiert** (nur suspendiert)
 
-### 4.3 Bekannte Einschränkung: `millis()` läuft weiter (nur Host-Mock)
+### 4.3 Zeit in der Pause
 
 > **Browser-Emulation (Standard lokal ab M1):** Die Pause hält die **simulierte Zeit** an, also auch `millis()` und `micros()`. Es laufen keine Rechenscheiben mehr; beim Fortsetzen wird der Bezug zur Wanduhr neu gesetzt. Pins dürfen in der Pause gesetzt werden und wirken beim Fortsetzen, serielle Eingabe ist in der Pause gesperrt. Ein Pausenbudget gibt es nicht; der Timeout zählt Wanduhrzeit ohne Pausen. Der Abschnitt unten beschreibt nur die Host-Mock-Simulation („Legacy“).
 
-⚠️ **WICHTIG (Host-Mock):** Die Arduino-Funktion `millis()` gibt die Zeit seit Programmstart zurück, basierend auf der realen Systemzeit. Während der Pause:
+**Host-Mock:** Auch hier hält die Pause `millis()` und `micros()` an. Die Laufzeit führt eine eigene Uhr: Wanduhrzeit seit Programmstart minus aller Pausen. Beide Funktionen lesen dieselbe Uhr in Mikrosekunden, `millis()` ist ihr Tausendstel.
 
-- **Prozess wird eingefroren** (SIGSTOP) → Code-Ausführung stoppt ✓
-- **Systemzeit läuft weiter** → `millis()` erhöht sich weiterhin ✗
-
-**Praktische Auswirkung:**
-```cpp
-// Beispiel: Counter mit millis()
-unsigned long lastTime = millis();
-if (millis() - lastTime >= 1000) {
-  counter++;
-  lastTime = millis();
-}
-```
-
-Wenn zwischen Pause und Resume 5 Sekunden vergehen, wird `millis()` um 5000ms größer sein. Timer-basierte Logik kann dadurch Intervalle überspringen oder falsche Zeitberechnungen durchführen.
-
-**Empfehlung:**  
-Die Pause-Funktion ist ideal für:
-- ✅ Code-Ablauf beobachten und debuggen
-- ✅ Pin-Werte während der Ausführung ändern
-- ✅ Serial Output analysieren
-
-Für zeitkritische Debugging-Szenarien mit `millis()`, `micros()` oder `delay()` sollte die Simulation gestoppt und neu gestartet werden.
+- `[[PAUSE_TIME:n]]` friert die Uhr ein, **bevor** der Prozess angehalten wird (siehe 4.1). Ein angehaltener Prozess kann nichts lesen; früher las er den Befehl erst nach dem Fortsetzen und fror einen Wert ein, der die Pausendauer schon enthielt.
+- `[[RESUME_TIME:n]]` nach `docker unpause` bzw. `SIGCONT` taut die Uhr auf (Bestätigung `[[TIME_RESUMED:n:ms]]`). Die Laufzeit misst die Pausendauer selbst, vom Einfrieren bis zum Auftauen; die Uhr geht ohne Sprung beim eingefrorenen Wert weiter.
+- `n` ist die laufende Nummer der Pause; eine verspätete Bestätigung einer früheren Pause zählt nicht.
+- Zwischen Einfrieren und Anhalten sowie zwischen Fortsetzen und Auftauen läuft der Sketch einige Millisekunden mit stehender Uhr weiter. `delay()` schläft in Wanduhrzeit.
+- Die Zähler laufen wie `unsigned long` über; auf dem Server sind das 64 Bit (siehe USER_GUIDE, Legacy).
 
 ---
 
@@ -137,7 +120,7 @@ Für zeitkritische Debugging-Szenarien mit `millis()`, `micros()` oder `delay()`
 
 **Verhalten:**
 
-1. **Prozess aufwecken:** Der C++-Prozess erhält das Signal `SIGCONT`
+1. **Prozess aufwecken:** `docker unpause` bzw. `SIGCONT`, danach `[[RESUME_TIME:n]]`; die Uhr geht beim eingefrorenen Wert weiter (siehe 4.3)
 2. **Serial Output:** Wird sofort wieder aktualisiert (falls Sketch schreibt)
 3. **Pin-Zustände:** Aktualisieren sich wieder (falls Sketch ändert)
 4. **Timeout-Timer:** Wird fortgesetzt (Restzeit läuft)
@@ -218,7 +201,8 @@ private pausedTimeoutRemainingMs: number | null = null;
 **Neue Methoden:**
 ```typescript
 pause(): boolean {
-  // SIGSTOP senden, isPaused = true
+  // [[PAUSE_TIME:n]] senden, auf [[TIME_FROZEN:n:ms]] warten,
+  // dann docker pause bzw. SIGSTOP, isPaused = true
   // Timeout-Restzeit speichern
 }
 
@@ -421,6 +405,9 @@ useEffect(() => {
 - Resume drücken, Sketch läuft weiter
 - Stop während Pause, Simulation stoppt sauber
 - Code ändern während Pause, Simulation stoppt
+
+**Docker-Tests (Host-Mock):**
+- `millis()` und `micros()` steigen über mehrere Pausen und schnelle Pause/Resume-Zyklen ohne Rückwärtssprung und ohne Sprung um die Pausendauer (`tests/server/pause-resume-timing.test.ts`)
 
 **Stress-Tests:**
 - Schnelle Pause/Resume-Zyklen

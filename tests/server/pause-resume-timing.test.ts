@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SandboxRunner } from "../../server/services/sandbox-runner";
+import { clockSamples, expectSteadyClock } from "../utils/clock-samples";
 import { outputRecorder } from "../utils/serial-test-helper";
 import { sleep, waitFor, within } from "../utils/wait";
 
 const _skipHeavy = process.env.SKIP_HEAVY_TESTS !== "0" && process.env.SKIP_HEAVY_TESTS !== "false";
 const maybeDescribe = _skipHeavy ? describe.skip : describe;
 
-const PAUSE_WINDOW_MS = 500;
+const PAUSE_WINDOW_MS = 600;
+/** Largest clock step between two readings that a 20 ms loop may show on a loaded machine. */
+const MAX_CLOCK_STEP_MS = 300;
 
 maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
   let runner: SandboxRunner;
@@ -52,10 +55,66 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
 
     expect(runner.resume()).toBe(true);
     expect(await within(runner.controlResult, 10_000, "the confirmed resume")).toBe(true);
-    // The run goes on after the confirmed resume. The readings right after it are not checked yet: in Docker
-    // mode the first one still contains the paused time and the next ones drop back (see TESTING_STANDARDS.md).
+    // The clock goes on from the frozen value: the paused time is not added, and nothing drops back.
     await waitFor(() => times().length >= atPause.length + 5, 15_000, "five TIME lines after the resume");
-    expect(times().length).toBeGreaterThanOrEqual(atPause.length + 5);
+    const frozen = times().at(atPause.length - 1)!;
+    const afterResume = times().slice(atPause.length, atPause.length + 5);
+    expect(afterResume[0]).toBeGreaterThanOrEqual(frozen);
+    expect(afterResume[0] - frozen).toBeLessThan(PAUSE_WINDOW_MS / 2);
+    for (let i = 1; i < afterResume.length; i++) expect(afterResume[i]).toBeGreaterThanOrEqual(afterResume[i - 1]);
+  });
+
+  it("keeps millis() and micros() continuous across repeated and rapid pauses", async () => {
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() {
+          Serial.begin(115200);
+          Serial.print("BITS:");
+          Serial.println(sizeof(unsigned long) * 8);
+        }
+        void loop() {
+          unsigned long us = micros();
+          unsigned long ms = millis();
+          Serial.print("T:");
+          Serial.print(ms);
+          Serial.print(":");
+          Serial.println(us);
+          delay(20);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError: () => {},
+      timeoutSec: 30,
+    });
+    const samples = () => clockSamples(output.lines());
+    const bitsLine = await waitFor(() => output.lines().find((line) => line.startsWith("BITS:")), 30_000, "the BITS line");
+    const bits = Number(bitsLine.slice("BITS:".length));
+    const moreSamples = (count: number, label: string) => {
+      const target = samples().length + count;
+      return waitFor(() => samples().length >= target, 15_000, () => `${count} clock samples ${label} (got ${samples().length})`);
+    };
+    const confirmed = async (control: () => boolean, label: string) => {
+      expect(control()).toBe(true);
+      expect(await within(runner.controlResult, 10_000, label)).toBe(true);
+    };
+    await moreSamples(5, "before the first pause");
+
+    for (let pause = 1; pause <= 3; pause++) {
+      await confirmed(() => runner.pause(), `pause ${pause}`);
+      await sleep(PAUSE_WINDOW_MS);
+      await confirmed(() => runner.resume(), `resume ${pause}`);
+      await moreSamples(5, `after resume ${pause}`);
+    }
+    for (let pause = 1; pause <= 3; pause++) {
+      await confirmed(() => runner.pause(), `rapid pause ${pause}`);
+      await confirmed(() => runner.resume(), `rapid resume ${pause}`);
+      await moreSamples(3, `after rapid resume ${pause}`);
+    }
+
+    // Each pause lasted at least PAUSE_WINDOW_MS, so a step of that size means the paused time leaked into the clock.
+    const largestStep = expectSteadyClock(samples(), bits, MAX_CLOCK_STEP_MS);
+    expect(largestStep).toBeLessThan(PAUSE_WINDOW_MS);
   });
 
   it("should clear pause state on stop", async () => {

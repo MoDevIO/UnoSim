@@ -141,6 +141,8 @@ export interface ExecutionState {
   runAbort?: AbortController | null;
   /** Budget of the current run for sketch-controlled runtime text lines. */
   runtimeTextLimiter?: RuntimeTextLimiter | null;
+  /** Receives the runtime's [[TIME_FROZEN]] acknowledgement while a pause waits for it. */
+  onTimeFrozen?: ((pause: number) => void) | null;
 }
 
 /**

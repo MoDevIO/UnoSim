@@ -188,6 +188,18 @@ describe("stream-phase.ts", () => {
       expect(state.backpressurePaused).toBe(true);
     });
 
+    it("hands a frozen-clock acknowledgement to the waiting pause only", () => {
+      const state = createBaseState();
+      const onTimeFrozen = vi.fn();
+      state.onTimeFrozen = onTimeFrozen;
+      const deps = createStreamDependencies();
+
+      delegateParsedLineToStreamHandler({ type: "time_frozen", pause: 4 }, state, { onOutput: vi.fn(), onError: vi.fn() }, deps as any);
+
+      expect(onTimeFrozen).toHaveBeenCalledWith(4);
+      expect(deps.streamHandler.handleParsedLine).not.toHaveBeenCalled();
+    });
+
     it("marks stream state as paused when execution state is paused", () => {
       const state = createBaseState();
       state.state = "paused" as any;

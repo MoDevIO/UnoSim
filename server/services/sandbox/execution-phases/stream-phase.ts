@@ -86,6 +86,10 @@ export function delegateParsedLineToStreamHandler(
   deps: StreamDependencies,
 ): void {
   if (!state) return;
+  if (parsed.type === "time_frozen") {
+    state.onTimeFrozen?.(parsed.pause);
+    return;
+  }
 
   const streamState = {
     pinStateBatcher: state.pinStateBatcher,
