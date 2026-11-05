@@ -152,7 +152,19 @@
 <a name='L87'></a><a href='#L87'>87</a>
 <a name='L88'></a><a href='#L88'>88</a>
 <a name='L89'></a><a href='#L89'>89</a>
-<a name='L90'></a><a href='#L90'>90</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -186,7 +198,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -264,12 +288,15 @@ std::atomic&lt;bool&gt; keepReading(true);
 // this mutex the two threads can interleave output and corrupt protocol framing.
 static std::mutex cerrMutex;
 &nbsp;
-// Pause/Resume timing state
-static std::atomic&lt;bool&gt; processIsPaused(false);
-static std::atomic&lt;unsigned long&gt; pausedTimeMs(0);
+// Pause/Resume timing state, guarded by timeMutex. The runtime measures each
+// pause itself: the clock freezes when it handles [[PAUSE_TIME:n]] (before the
+// runner stops the process) and thaws when it handles [[RESUME_TIME:n]].
+static std::mutex timeMutex;
+static bool timeFrozen = false;
+static unsigned long long frozenMicros = 0;
+static std::chrono::steady_clock::time_point frozenAt;
+static std::chrono::steady_clock::duration totalPausedTime{0};
 static auto processStartTime = std::chrono::steady_clock::now();
-// accumulated duration (ms) of all pauses — subtract when calculating elapsed time
-static unsigned long totalPausedTimeMs = 0;
 &nbsp;
 // Forward declaration
 void checkStdinForPinCommands();
@@ -281,37 +308,46 @@ void delayMicroseconds(unsigned int us) {
     std::this_thread::sleep_for(std::chrono::microseconds(us)); 
 }
 &nbsp;
-unsigned long millis() { 
-    // If paused, return the frozen time value
-    if (processIsPaused.load()) {
-        return pausedTimeMs.load();
-    }
-    
-    // Normal operation: calculate elapsed time since start
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast&lt;std::chrono::milliseconds&gt;(
-        now - processStartTime
-    ).count();
-    
-    // Subtract total paused time that has been accumulated
-    return static_cast&lt;unsigned long&gt;(elapsed) - totalPausedTimeMs;
+// Simulated time in microseconds: real time since start minus all paused time.
+// millis() and micros() share it, so they never disagree.
+static unsigned long long simulatedMicros() {
+    std::lock_guard&lt;std::mutex&gt; lock(timeMutex);
+    if (timeFrozen) return frozenMicros;
+    auto running = std::chrono::steady_clock::now() - processStartTime - totalPausedTime;
+    return static_cast&lt;unsigned long long&gt;(
+        std::chrono::duration_cast&lt;std::chrono::microseconds&gt;(running).count());
+}
+&nbsp;
+// Both wrap around at the width of unsigned long, like the Arduino counters.
+unsigned long millis() {
+    return static_cast&lt;unsigned long&gt;(simulatedMicros() / 1000ULL);
 }
 &nbsp;
 unsigned long micros() {
-    // If paused, return the frozen time value (in microseconds)
-    if (processIsPaused.load()) {
-        // pausedTimeMs is stored in milliseconds, convert once
-        return pausedTimeMs.load() * 1000UL;
+    return static_cast&lt;unsigned long&gt;(simulatedMicros());
+}
+&nbsp;
+// Freezes the clock at its current value; returns that value in ms.
+static unsigned long freezeTime() {
+    std::lock_guard&lt;std::mutex&gt; lock(timeMutex);
+    if (!timeFrozen) {
+        frozenAt = std::chrono::steady_clock::now();
+        auto running = frozenAt - processStartTime - totalPausedTime;
+        frozenMicros = static_cast&lt;unsigned long long&gt;(
+            std::chrono::duration_cast&lt;std::chrono::microseconds&gt;(running).count());
+        timeFrozen = true;
     }
-    
-    // Normal operation: calculate elapsed time since start
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast&lt;std::chrono::microseconds&gt;(
-        now - processStartTime
-    ).count();
-    
-    // Subtract total paused time (converted to µs)
-    return static_cast&lt;unsigned long&gt;(elapsed) - (totalPausedTimeMs * 1000UL);
+    return static_cast&lt;unsigned long&gt;(frozenMicros / 1000ULL);
+}
+&nbsp;
+// Thaws the clock: it goes on from the frozen value; returns that value in ms.
+static unsigned long thawTime() {
+    std::lock_guard&lt;std::mutex&gt; lock(timeMutex);
+    if (timeFrozen) {
+        totalPausedTime += std::chrono::steady_clock::now() - frozenAt;
+        timeFrozen = false;
+    }
+    return static_cast&lt;unsigned long&gt;(frozenMicros / 1000ULL);
 }
 &nbsp;
 // Random Functions
@@ -337,7 +373,7 @@ long random(long min, long max) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-04T09:57:35.163Z
+                at 2026-11-05T14:50:05.050Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -166,18 +166,8 @@
 <a name='L101'></a><a href='#L101'>101</a>
 <a name='L102'></a><a href='#L102'>102</a>
 <a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a>
-<a name='L105'></a><a href='#L105'>105</a>
-<a name='L106'></a><a href='#L106'>106</a>
-<a name='L107'></a><a href='#L107'>107</a>
-<a name='L108'></a><a href='#L108'>108</a>
-<a name='L109'></a><a href='#L109'>109</a>
-<a name='L110'></a><a href='#L110'>110</a>
-<a name='L111'></a><a href='#L111'>111</a>
-<a name='L112'></a><a href='#L112'>112</a>
-<a name='L113'></a><a href='#L113'>113</a>
-<a name='L114'></a><a href='#L114'>114</a>
-<a name='L115'></a><a href='#L115'>115</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L104'></a><a href='#L104'>104</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -279,30 +269,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Arduino Stdin Command Handler — extracted from arduino-mock.ts
  *
  * Exports the C++ code for reading and dispatching stdin protocol commands:
  *  - [[SET_PIN:X:Y]] — sets a pin value externally
- *  - [[PAUSE_TIME]] / [[RESUME_TIME:N]] — freeze/unfreeze the time counter
+ *  - [[PAUSE_TIME:N]] / [[RESUME_TIME:N]] — freeze/thaw the clock; acknowledged with
+ *    [[TIME_FROZEN:N:ms]] / [[TIME_RESUMED:N:ms]] (N is the runner's pause number)
  *  - Normal serial input is forwarded to Serial.mockInput()
  *
  * Dependencies (must appear earlier in the assembled C++ source):
- *  - `cerrMutex`, `processIsPaused`, `pausedTimeMs`, `totalPausedTimeMs` (ARDUINO_GLOBALS)
+ *  - `cerrMutex` (ARDUINO_GLOBALS)
  *  - `pinValues[]` (ARDUINO_PIN_STATE_INIT)
- *  - `millis()` (ARDUINO_TIMING_AND_RANDOM)
+ *  - `freezeTime()`, `thawTime()` (ARDUINO_TIMING_AND_RANDOM)
  *  - `Serial` global instance (ARDUINO_SERIAL_CLASS)
  *  - `keepReading` (ARDUINO_GLOBALS)
  */
@@ -322,22 +301,17 @@ void setExternalPinValue(int pin, int value) {
     }
 }
 &nbsp;
-// Helper functions for pause/resume timing
-void handlePauseTimeCommand() {
-    // compute current time while still running; only then flip pause flag
-    unsigned long currentMs = millis();  // Get current time before freezing
-    pausedTimeMs.store(currentMs);
-    processIsPaused.store(true);
+// Pause/resume timing. The runner stops the process only after [[TIME_FROZEN]].
+void handlePauseTimeCommand(unsigned long pause) {
+    unsigned long frozenMs = freezeTime();
     { std::lock_guard&lt;std::mutex&gt; lock(cerrMutex);
-      std::cerr &lt;&lt; "[[TIME_FROZEN:" &lt;&lt; currentMs &lt;&lt; "]]" &lt;&lt; std::endl; }
+      std::cerr &lt;&lt; "[[TIME_FROZEN:" &lt;&lt; pause &lt;&lt; ":" &lt;&lt; frozenMs &lt;&lt; "]]" &lt;&lt; std::endl; }
 }
 &nbsp;
-void handleResumeTimeCommand(unsigned long pauseDurationMs) {
-    processIsPaused.store(false);
-    // Accumulate total paused time so micros()/millis() can subtract it
-    totalPausedTimeMs += pauseDurationMs;
+void handleResumeTimeCommand(unsigned long pause) {
+    unsigned long resumedMs = thawTime();
     { std::lock_guard&lt;std::mutex&gt; lock(cerrMutex);
-      std::cerr &lt;&lt; "[[TIME_RESUMED:" &lt;&lt; totalPausedTimeMs &lt;&lt; "]]" &lt;&lt; std::endl; }
+      std::cerr &lt;&lt; "[[TIME_RESUMED:" &lt;&lt; pause &lt;&lt; ":" &lt;&lt; resumedMs &lt;&lt; "]]" &lt;&lt; std::endl; }
 }
 &nbsp;
 // Non-blocking check for stdin pin commands - called from delay() and txDelay()
@@ -367,27 +341,20 @@ void checkStdinForPinCommands() {
             if (stdinBufPos &gt; 0) {
                 stdinBuffer[stdinBufPos] = '\0';
                 
-                // Check for pause/resume commands
-                if (sscanf(stdinBuffer, "[[PAUSE_TIME]]") == 0 &amp;&amp; 
-                    strncmp(stdinBuffer, "[[PAUSE_TIME]]", 14) == 0) {
-                    handlePauseTimeCommand();
+                unsigned long pause;
+                int pin, value;
+                if (sscanf(stdinBuffer, "[[PAUSE_TIME:%lu]]", &amp;pause) == 1) {
+                    handlePauseTimeCommand(pause);
+                } else if (sscanf(stdinBuffer, "[[RESUME_TIME:%lu]]", &amp;pause) == 1) {
+                    handleResumeTimeCommand(pause);
+                } else if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &amp;pin, &amp;value) == 2) {
+                    // Special pin value command
+                    setExternalPinValue(pin, value);
                 } else {
-                    // Check for resume time with duration parameter
-                    unsigned long pauseDurationMs;
-                    if (sscanf(stdinBuffer, "[[RESUME_TIME:%lu]]", &amp;pauseDurationMs) == 1) {
-                        handleResumeTimeCommand(pauseDurationMs);
-                    } else {
-                        // Check for special pin value command: [[SET_PIN:X:Y]]
-                        int pin, value;
-                        if (sscanf(stdinBuffer, "[[SET_PIN:%d:%d]]", &amp;pin, &amp;value) == 2) {
-                            setExternalPinValue(pin, value);
-                        } else {
-                            // Normal serial input (add newline back for serial input)
-                            Serial.mockInput(stdinBuffer, stdinBufPos);
-                            char newline = 10;
-                            Serial.mockInput(&amp;newline, 1);
-                        }
-                    }
+                    // Normal serial input (add newline back for serial input)
+                    Serial.mockInput(stdinBuffer, stdinBufPos);
+                    char newline = 10;
+                    Serial.mockInput(&amp;newline, 1);
                 }
                 stdinBufPos = 0;
             }
@@ -412,7 +379,7 @@ void serialInputReader() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-04T09:57:35.163Z
+                at 2026-11-05T14:50:05.050Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
