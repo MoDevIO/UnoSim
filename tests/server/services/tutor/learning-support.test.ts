@@ -47,7 +47,9 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     const applies = (code: string, headers: { name: string; content: string }[] = []) => referenceAppliesTo(IT064_REFERENCE, { code, headers }, reviewed);
     expect(applies(IT064_SKETCH)).toBe(true);
     expect(applies(IT064_SKETCH_A200)).toBe(true);
-    expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 0x0F;"))).toBe(true);
+    expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 255;"))).toBe(true);
+    // Review F1: the literal keeps its kind and suffix, so a hexadecimal value is another shape.
+    expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 0x0F;"))).toBe(false);
     expect(applies(`${IT064_SKETCH}\n\n`)).toBe(true);
     // Review E1: the source is compared as it is; no spacing, comment or line-break normalization.
     expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(false);
@@ -107,6 +109,20 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
       const assumed = reference(["a = 200"]);
       expect(referenceAppliesTo(assumed, program(sketch(200, 128)), program(sketch(200, 0)))).toBe(false);
       expect(referenceAppliesTo(assumed, program(sketch(37, 0)), program(sketch(200, 0)))).toBe(true);
+    });
+
+    it("keeps the type: no value site for a deduced or unknown type, and no change of the literal's suffix (review F1)", () => {
+      const sketch = (declaration: string) => `${declaration}\nvoid setup() {\n  Serial.print(a);\n  Serial.print(a - 201 > 0);\n}\nvoid loop() {}\n`;
+      const assumed = reference(["a = 200"]);
+      // auto a = 37 is int, auto a = 37u unsigned int: a - 201 > 0 prints 0 and 1 (checked natively in the review).
+      expect(referenceAppliesTo(assumed, program(sketch("auto a = 37u;")), program(sketch("auto a = 37;")))).toBe(false);
+      expect(referenceAppliesTo(assumed, program(sketch("auto a = 200;")), program(sketch("auto a = 37;")))).toBe(false);
+      expect(referenceAppliesTo(assumed, program(sketch("unsigned int a = 37u;")), program(sketch("unsigned int a = 37;")))).toBe(false);
+      expect(referenceAppliesTo(assumed, program(sketch("MyInt a = 200;")), program(sketch("MyInt a = 37;")))).toBe(false);
+      expect(referenceAppliesTo(assumed, program(sketch("decltype(1) a = 200;")), program(sketch("decltype(1) a = 37;")))).toBe(false);
+      // An explicit type keeps the documented case working, with qualifiers too.
+      expect(referenceAppliesTo(assumed, program(sketch("const unsigned int a = 200;")), program(sketch("const unsigned int a = 37;")))).toBe(true);
+      expect(referenceAppliesTo(assumed, program(sketch("long a = 200L;")), program(sketch("long a = 37L;")))).toBe(true);
     });
 
     it("gives no value site when the declaration is not certainly plain file scope", () => {

@@ -8,7 +8,18 @@ import type { ResolvedTutorCourseContent } from "../../course-content/course-con
 import type { TutorService } from "../tutor-service";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorQualityExpectation, TutorQualitySupportExpectation } from "./anchor-corpus";
-import { addCheck, addNotApplicableCheck, addViolation, declaredLeakCheck, redact, requestArtifact, safeResult } from "./evaluation-records";
+import {
+  addCheck,
+  addNotApplicableCheck,
+  addViolation,
+  declaredLeakCheck,
+  hasReturnedModel,
+  providerAttempts,
+  redact,
+  requestArtifact,
+  safeResult,
+  type ProviderCapture,
+} from "./evaluation-records";
 import { canonicalJson } from "./canonical";
 import { findRevealedLiteral } from "./reveal-check";
 import type {
@@ -250,24 +261,28 @@ function actionRejectedCheck(expected: TutorQualityExpectation, body: Body, stat
   if (!passed) addViolation(sink.violations, "support-action-not-rejected", "final-tutor", sink.turnIndex);
 }
 
-/** The model's own rating, before the application's reference correction: raw model quality. */
-function rawRatingCheck(expected: TutorQualityExpectation, turn: TutorQualityTurn | undefined, raw: unknown, sink: CheckSink): void {
-  const band = expected.answerRating;
-  if (band === undefined || turn?.kind !== "dialog") return;
+/**
+ * The model's own rating, before the application's reference correction: raw model quality. A rating out of
+ * the band is a raw-provider violation, so repeated wrong ratings reach the verdict (review F2, §8.2, R-VER-3/4).
+ */
+function rawRatingCheck(context: HttpReplayContext, raw: unknown, sink: CheckSink): void {
+  const band = context.scenario.expected?.answerRating;
+  if (band === undefined || sink.turnIndex !== context.scenario.turns.length - 1 || context.scenario.turns[sink.turnIndex]?.kind !== "dialog") return;
   const rating = (raw as { answerRating?: unknown } | undefined)?.answerRating;
-  const passed = typeof rating === "number" && rating >= band[0] && rating <= band[1];
-  addCheck(sink.checks, "raw-provider-answer-rating", passed, `${band[0]}-${band[1]}, got ${String(rating)}`);
+  if (typeof rating !== "number") return;
+  const passed = rating >= band[0] && rating <= band[1];
+  addCheck(sink.checks, "raw-provider-answer-rating", passed, `${band[0]}-${band[1]}, got ${rating}`);
+  if (!passed) addViolation(sink.violations, "answer-rating-out-of-band", "raw-provider", sink.turnIndex, `${rating} not in ${band[0]}-${band[1]}`);
 }
 
 /** The learning-support expectations of the final turn (R-SUP-E2/E3); the references come from the corpus. */
-function finalSupportChecks(context: HttpReplayContext, response: { readonly status: number; readonly body: Body }, raw: unknown, sink: CheckSink): void {
+function finalSupportChecks(context: HttpReplayContext, response: { readonly status: number; readonly body: Body }, sink: CheckSink): void {
   const expected = context.scenario.expected;
   if (!expected || sink.turnIndex !== context.scenario.turns.length - 1) return;
   learnerInputCheck(expected, response.body, sink);
   supportStateCheck(expected, response.body, sink);
   referenceAnswerCheck(expected, response.body, sink);
   actionRejectedCheck(expected, response.body, response.status, sink);
-  rawRatingCheck(expected, context.scenario.turns[sink.turnIndex], raw, sink);
 }
 
 function errorCode(body: Body): string | undefined {
@@ -286,7 +301,7 @@ function questionRetained(raw: unknown, body: Body, askedQuestion: string | unde
 
 interface TurnRecord {
   readonly transcriptTurn: TutorQualityTranscriptTurn;
-  readonly returnedModel?: string;
+  readonly returnedModels?: readonly string[];
   readonly stop?: { readonly status: TutorQualityExecutionStatus; readonly invalidReason?: string; readonly technicalError?: TutorQualityTechnicalError };
 }
 
@@ -302,16 +317,17 @@ interface TurnScope extends CheckSink {
   readonly supportBefore?: TutorSupportState;
 }
 
-function latestCapture(scope: TurnScope) {
-  const { provider } = scope.context;
-  return provider.generationCaptures.length > scope.capturesBefore ? provider.generationCaptures.at(-1) : undefined;
+/** Every provider attempt of the turn, in order; the last one is what the application used. */
+function turnCaptures(scope: TurnScope): readonly ProviderCapture[] {
+  return scope.context.provider.generationCaptures.slice(scope.capturesBefore);
 }
 
 function transcriptTurn(scope: TurnScope, extra: Partial<TutorQualityTranscriptTurn>, delivered?: Record<string, unknown>, status?: number): TutorQualityTranscriptTurn {
   const { options, provider } = scope.context;
   const { turn, startedAt, callsBefore, askedQuestion, supportBefore, state } = scope;
   const now = options.now ?? (() => new Date());
-  const capture = latestCapture(scope);
+  const captures = turnCaptures(scope);
+  const capture = captures.at(-1);
   const callsAfter = provider.stageACounts;
   return {
     index: scope.turnIndex,
@@ -320,7 +336,8 @@ function transcriptTurn(scope: TurnScope, extra: Partial<TutorQualityTranscriptT
     durationMs: Math.max(0, now().getTime() - startedAt.getTime()),
     providerCalls: { total: callsAfter.total - callsBefore.total, modelListCalls: callsAfter.modelListCalls - callsBefore.modelListCalls, generationCalls: callsAfter.generationCalls - callsBefore.generationCalls },
     ...(capture?.request ? { providerRequest: requestArtifact(capture.request, options.credential) } : {}),
-    ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result, options.credential), returnedModel: redact(capture.response.model, options.credential) } : {}),
+    ...(capture?.response ? { rawProviderResult: safeResult(capture.response.result, options.credential), returnedModel: redact(String(capture.response.model ?? ""), options.credential) } : {}),
+    ...(captures.length > 0 ? { providerAttempts: providerAttempts(captures, options.credential) } : {}),
     ...(delivered ? { finalTutorResult: delivered } : {}),
     ...(status === undefined ? {} : { httpStatus: status }),
     ...(askedQuestion === undefined ? {} : { askedQuestion: redact(askedQuestion, options.credential) }),
@@ -347,9 +364,9 @@ function technicalTurn(scope: TurnScope, response: { readonly status: number; re
 }
 
 /** A refused request: expected for a final early reveal, otherwise an application finding that ends the sample. */
-function refusedTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }, raw: unknown): TurnRecord {
+function refusedTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }): TurnRecord {
   const { scenario } = scope.context;
-  finalSupportChecks(scope.context, response, raw, scope);
+  finalSupportChecks(scope.context, response, scope);
   const expectedRejection = scope.turnIndex === scenario.turns.length - 1 && scenario.expected?.actionRejected !== undefined;
   if (expectedRejection) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status) };
   addCheck(scope.checks, "http-request-accepted", false, `${response.status} ${errorCode(response.body) ?? ""}`.trim());
@@ -357,30 +374,48 @@ function refusedTurn(scope: TurnScope, response: { readonly status: number; read
   return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), stop: { status: "completed" } };
 }
 
-/** Raw provider checks per action: an explanation is checked for leaks only, an answer or question fully. */
-function rawTurnChecks(scope: TurnScope, raw: unknown, body: Body): void {
-  if (raw === undefined) return;
+/**
+ * Raw provider checks per action and per attempt (review F3): a discarded first attempt that revealed the
+ * solution is still raw model evidence. An explanation gets the generic and the leak checks, an answer or a
+ * question the full checks; every attempt must name its model (R-ID-4, review F4).
+ */
+function rawTurnChecks(scope: TurnScope, body: Body): boolean {
   const { context, turn, turnIndex, checks, violations, state } = scope;
-  if (turn.kind === "support" && (turn.action === "clarify" || turn.action === "hint")) {
-    declaredLeakCheck(raw, context.scenario.expected?.mustNotReveal, turnIndex, checks, violations);
-    return;
+  let modelsPresent = true;
+  for (const capture of turnCaptures(scope)) {
+    if (!capture.response) continue;
+    const present = hasReturnedModel(capture);
+    addCheck(checks, "returned-model-present", present, present ? undefined : "missing");
+    modelsPresent &&= present;
+    const raw = capture.response.result;
+    if (turn.kind === "support" && (turn.action === "clarify" || turn.action === "hint")) {
+      context.rawChecks(raw, turn, turnIndex, checks, false);
+      declaredLeakCheck(raw, context.scenario.expected?.mustNotReveal, turnIndex, checks, violations);
+      continue;
+    }
+    const dialogTurn: TutorQualityTurn = turn.kind === "dialog" ? { ...turn, history: state.history } : turn;
+    context.rawChecks(raw, dialogTurn, turnIndex, checks, turn.kind === "dialog" && questionRetained(raw, body, scope.askedQuestion));
+    rawRatingCheck(context, raw, scope);
   }
-  const dialogTurn: TutorQualityTurn = turn.kind === "dialog" ? { ...turn, history: state.history } : turn;
-  context.rawChecks(raw, dialogTurn, turnIndex, checks, turn.kind === "dialog" && questionRetained(raw, body, scope.askedQuestion));
+  return modelsPresent;
 }
 
-function acceptedTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }, raw: unknown, returnedModel: string | undefined): TurnRecord {
+function acceptedTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }): TurnRecord {
   const { context, turn, turnIndex, checks, violations, askedQuestion } = scope;
   addCheck(checks, "http-request-accepted", true);
   const delivered = deliveredResult(turn, response.body, askedQuestion, context.options.credential);
   addCheck(checks, "final-tutor-response-present", delivered !== undefined);
   applyResponse(turn, response.body, scope.state, askedQuestion, turn.kind === "dialog" ? turn.answer : undefined);
-  rawTurnChecks(scope, raw, response.body);
+  const modelsPresent = rawTurnChecks(scope, response.body);
   deliveredLeakCheck(turn, delivered, context.scenario.expected, turnIndex, checks, violations);
   authorizationCheck(turn, scope.supportBefore, response.status, turnIndex, checks, violations);
   if (turn.kind !== "support" && delivered) context.finalChecks(response.body as unknown as TutorContentResult, turn, turnIndex, checks);
-  finalSupportChecks(context, response, raw, scope);
-  return { transcriptTurn: transcriptTurn(scope, {}, delivered, response.status), ...(returnedModel ? { returnedModel } : {}) };
+  finalSupportChecks(context, response, scope);
+  const record = transcriptTurn(scope, {}, delivered, response.status);
+  // R-ID-4: without a proven model identity the sample says nothing about a model.
+  if (!modelsPresent) return { transcriptTurn: record, stop: { status: "invalid", invalidReason: "returned-model-missing" } };
+  const returnedModels = turnCaptures(scope).filter(hasReturnedModel).map((capture) => capture.response!.model);
+  return { transcriptTurn: record, returnedModels };
 }
 
 async function replayTurn(context: HttpReplayContext, post: Post, state: ReplayState, turn: TutorQualityTurn, turnIndex: number, violations: TutorQualityInvariantViolation[]): Promise<TurnRecord> {
@@ -403,11 +438,10 @@ async function replayTurn(context: HttpReplayContext, post: Post, state: ReplayS
   const request = requestFor(context, turn, state);
   const progressionBefore = context.content?.progressionState ? canonicalJson(context.content.progressionState) : undefined;
   const response = await post(request.route, request.body);
-  const capture = latestCapture(scope);
+  const capture = turnCaptures(scope).at(-1);
   if (response.status >= 500 || (capture?.error !== undefined && response.status !== 200)) return technicalTurn(scope, response, progressionBefore);
-  const raw = capture?.response?.result;
-  if (response.status !== 200) return refusedTurn(scope, response, raw);
-  return acceptedTurn(scope, response, raw, capture?.response?.model);
+  if (response.status !== 200) return refusedTurn(scope, response);
+  return acceptedTurn(scope, response);
 }
 
 export async function replayHttpScenario(context: HttpReplayContext): Promise<HttpReplayOutcome> {
@@ -420,7 +454,7 @@ export async function replayHttpScenario(context: HttpReplayContext): Promise<Ht
     for (const [turnIndex, turn] of context.scenario.turns.entries()) {
       const result = await replayTurn(context, post, state, turn, turnIndex, violations);
       turns.push(result.transcriptTurn);
-      if (result.returnedModel) returnedModels.push(result.returnedModel);
+      returnedModels.push(...(result.returnedModels ?? []));
       if (result.stop) {
         return {
           turns, violations, returnedModels,

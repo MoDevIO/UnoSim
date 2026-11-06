@@ -34,6 +34,10 @@ interface Script {
   readonly failSupport?: boolean;
   /** The model asks the answered question again. */
   readonly sameQuestion?: boolean;
+  /** The first explanation reveals the result with a replacement sketch and two questions; the retry is safe. */
+  readonly unsafeFirstExplanation?: boolean;
+  /** The provider names no model. */
+  readonly emptyModel?: boolean;
 }
 
 const EXPLANATIONS = [
@@ -41,8 +45,12 @@ const EXPLANATIONS = [
   "Schau nur auf den Serial.print-Aufruf innerhalb der Schleife: Gesucht ist ein einzelnes Zeichen.",
 ];
 
+const UNSAFE_EXPLANATION = "Das Ergebnis ist 1. ```cpp\nvoid setup() {}\nvoid loop() {}\n```";
+
 function scriptedProvider(script: Script): LLMProvider {
   let explanations = 0;
+  let supportCalls = 0;
+  const model = script.emptyModel ? "" : "fake-model";
   return {
     async listModels() {
       return ["fake-model", "judge-model"];
@@ -53,13 +61,17 @@ function scriptedProvider(script: Script): LLMProvider {
         const question = promptPart(userPrompt, "Aktuelle Tutorfrage:\n");
         const rating = question === IT064_CONCEPT_QUESTION ? (script.conceptRating ?? 5) : script.rate(answer);
         const next = script.sameQuestion && question !== IT064_CONCEPT_QUESTION ? question : "Was gibt der zweite Durchlauf aus?";
-        return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: next } };
+        return { model, result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: next } };
       }
       if (userPrompt.startsWith("Erzeuge eine einzige Lernfrage")) {
-        return { model: "fake-model", result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
+        return { model, result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
       }
       if (script.failSupport) throw Object.assign(new Error("timeout"), { kind: "timeout" });
-      return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: script.explanation ?? EXPLANATIONS[explanations++ % EXPLANATIONS.length], question: promptPart(userPrompt, "Aktuelle Frage:\n") } };
+      supportCalls += 1;
+      if (script.unsafeFirstExplanation && supportCalls % 2 === 1) {
+        return { model, result: { responseStyle: "normal" as const, feedback: UNSAFE_EXPLANATION, question: "Welche Stelle? Welcher Ausdruck?" } };
+      }
+      return { model, result: { responseStyle: "normal" as const, feedback: script.explanation ?? EXPLANATIONS[explanations++ % EXPLANATIONS.length], question: promptPart(userPrompt, "Aktuelle Frage:\n") } };
     },
   };
 }
@@ -168,5 +180,36 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     expect(transcripts[0]?.executionStatus).toBe("technical-failure");
     expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.technicalFailures).toBe(1);
     expect(report.qualityVerdict.verdict).not.toBe("fail");
+  });
+
+  it("makes repeated wrong raw ratings a raw-provider finding of the verdict, apart from the correct application (review F2)", async () => {
+    const { report, transcripts } = await run("TQ-SUP-IT064-ANSWER-1", { rate: () => 1 }, 3);
+    expect(transcripts.map(({ executionStatus }) => executionStatus)).toEqual(["completed", "completed", "completed"]);
+    expect(transcripts.every(({ invariantViolations }) => invariantViolations.some(({ code, source }) => code === "answer-rating-out-of-band" && source === "raw-provider"))).toBe(true);
+    expect(report.byScenario["TQ-SUP-IT064-ANSWER-1"]?.checkLayers.application.fail).toBe(0);
+    expect(report.qualityVerdict.verdict).toBe("fail");
+    expect(report.qualityVerdict.findings).toEqual([expect.objectContaining({ key: "raw-provider/answer-rating-out-of-band", samples: [0, 1, 2] })]);
+  });
+
+  it("keeps a discarded unsafe first attempt as raw evidence while the delivered retry is safe (review F3)", async () => {
+    const { report, transcripts } = await run("TQ-SUP-IT064-CLARIFY", { rate: () => 5, unsafeFirstExplanation: true });
+    const transcript = transcripts[0]!;
+    expect(transcript.executionStatus).toBe("completed");
+    const clarify = transcript.turns[2]!;
+    expect(clarify.providerAttempts?.map(({ attempt }) => attempt)).toEqual([1, 2]);
+    expect(clarify.providerAttempts?.[0]?.rawProviderResult?.feedback).toContain("Das Ergebnis ist 1");
+    expect(clarify.finalTutorResult?.feedback).not.toContain("Das Ergebnis ist 1");
+    const rawCodes = transcript.invariantViolations.filter(({ source }) => source === "raw-provider").map(({ code }) => code);
+    expect(rawCodes).toEqual(expect.arrayContaining(["solution-revealed", "complete-solution", "multiple-primary-questions"]));
+    expect(transcript.invariantViolations.filter(({ source }) => source === "final-tutor")).toEqual([]);
+    expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.checkLayers.application.fail).toBe(0);
+    expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.checkLayers.rawModel.fail).toBeGreaterThan(0);
+  });
+
+  it("gives no quality result without a proven model identity (review F4, R-ID-4)", async () => {
+    const { report, transcripts } = await run("TQ-SUP-IT064-ANSWER-1", { rate: () => 5, emptyModel: true });
+    expect(transcripts[0]).toMatchObject({ executionStatus: "invalid", invalidReason: "returned-model-missing" });
+    expect(transcripts[0]?.metadata.returnedModels).toEqual([]);
+    expect(report.qualityVerdict.verdict).toBe("inconclusive");
   });
 });

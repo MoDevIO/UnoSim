@@ -13,7 +13,8 @@ const NON_CHAT_MODEL = /embed|rerank|whisper|(?:^|[-_:/.])(?:tts|e5)(?:[-_:/.]|$
 
 export function rankTutorModels(models: readonly string[], preferred: readonly string[]): readonly string[] {
   const available = new Set(models);
-  const configured = preferred.filter((model) => available.has(model));
+  // The start rejects a non-chat model in the list; the filter keeps that true for any caller (review F5).
+  const configured = preferred.filter((model) => available.has(model) && !NON_CHAT_MODEL.test(model));
   const rest = models.filter((model) => !configured.includes(model) && !NON_CHAT_MODEL.test(model));
   return [...configured, ...rest];
 }
@@ -26,6 +27,7 @@ export function parseTutorAutoModels(value: string | undefined): readonly string
   if (models.length > MAX_AUTO_MODELS) throw new Error(`Invalid UNOSIM_TUTOR_AUTO_MODELS: at most ${MAX_AUTO_MODELS} models`);
   for (const model of models) {
     if (!tutorModelSchema.safeParse(model).success) throw new Error(`Invalid UNOSIM_TUTOR_AUTO_MODELS: ${JSON.stringify(model)} is no model ID`);
+    if (NON_CHAT_MODEL.test(model)) throw new Error(`Invalid UNOSIM_TUTOR_AUTO_MODELS: ${JSON.stringify(model)} is no chat model (embedding, reranking or speech)`);
   }
   if (new Set(models).size !== models.length) throw new Error("Invalid UNOSIM_TUTOR_AUTO_MODELS: a model is listed twice");
   return models;

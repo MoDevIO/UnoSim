@@ -34,6 +34,11 @@ describe("rankTutorModels", () => {
     expect(rankTutorModels(["e5-mistral-7b-instruct", "text-embedding-3"], [])).toEqual([]);
   });
 
+  it("never chooses an embedding model even when the operator lists it (review F5)", () => {
+    expect(rankTutorModels(PROVIDER_LIST, ["e5-mistral-7b-instruct", "openai-gpt5.4-mini"])[0]).toBe("openai-gpt5.4-mini");
+    expect(rankTutorModels(PROVIDER_LIST, ["qwen-qwen3-embedding-8b"])).not.toContain("qwen-qwen3-embedding-8b");
+  });
+
   it("selects only IDs of the current provider response", () => {
     expect(rankTutorModels([], ["openai-gpt5.5"])).toEqual([]);
   });
@@ -44,6 +49,7 @@ describe("parseTutorAutoModels", () => {
     expect(parseTutorAutoModels(undefined)).toEqual([]);
     expect(parseTutorAutoModels(" openai-gpt5.5 , mistralai-mistral-small-4-119b-2603,")).toEqual(["openai-gpt5.5", "mistralai-mistral-small-4-119b-2603"]);
     expect(() => parseTutorAutoModels("bad model")).toThrow(/no model ID/);
+    expect(() => parseTutorAutoModels("e5-mistral-7b-instruct,openai-gpt5.4-mini")).toThrow(/no chat model/);
     expect(() => parseTutorAutoModels("a,a")).toThrow(/twice/);
     expect(() => parseTutorAutoModels(Array.from({ length: 17 }, (_, index) => `m${index}`).join(","))).toThrow(/at most 16/);
   });

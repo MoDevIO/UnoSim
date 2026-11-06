@@ -1,4 +1,4 @@
-import type { LLMProviderRequest } from "../llm-provider";
+import type { LLMProviderRequest, ProviderQuestionResult } from "../llm-provider";
 import { TutorProviderError } from "../llm-provider";
 import { sha256 } from "./canonical";
 import { findRevealedLiteral } from "./reveal-check";
@@ -10,6 +10,42 @@ import type {
 } from "./real-provider-evaluation";
 
 /** Records shared by the service and the HTTP execution of the Tutor quality evaluation (Evaluation SSOT §11). */
+
+/** One provider call as the counting provider saw it: the request and its result or error. */
+export interface ProviderCapture {
+  readonly request: LLMProviderRequest;
+  readonly response?: ProviderQuestionResult;
+  readonly error?: unknown;
+}
+
+/**
+ * One provider attempt of a turn (review F3). The application may retry after an unusable result and
+ * deliver only the last one; every attempt is raw model evidence, including the discarded ones.
+ */
+export interface TutorQualityProviderAttempt {
+  readonly attempt: number;
+  readonly systemPromptDigest: string;
+  readonly userPromptDigest: string;
+  readonly rawProviderResult?: Record<string, unknown>;
+  readonly returnedModel?: string;
+  readonly technicalError?: TutorQualityTechnicalError;
+}
+
+export function providerAttempts(captures: readonly ProviderCapture[], credential?: string): TutorQualityProviderAttempt[] {
+  return captures.map((capture, index) => ({
+    attempt: index + 1,
+    systemPromptDigest: sha256(capture.request.systemPrompt),
+    userPromptDigest: sha256(capture.request.userPrompt),
+    ...(capture.response ? { rawProviderResult: safeResult(capture.response.result, credential), returnedModel: redact(String(capture.response.model ?? ""), credential) } : {}),
+    ...(capture.error === undefined ? {} : { technicalError: technicalError(capture.error) }),
+  }));
+}
+
+/** R-ID-4: a provider result names a non-empty model. */
+export function hasReturnedModel(capture: ProviderCapture): boolean {
+  const model = capture.response?.model;
+  return typeof model === "string" && model.trim().length > 0;
+}
 
 export class EvaluationBudgetExceeded extends Error {
   constructor() {

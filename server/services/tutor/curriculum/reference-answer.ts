@@ -74,8 +74,9 @@ export interface ReviewedProgram {
  * change the meaning (a comment marker inside a string, a line break that ends a preprocessor directive).
  *
  * The one allowed change is the initial value of a variable the question itself sets (`assumptions`, e.g.
- * `a = 200`), and only at its single file-scope declaration with a plain literal (`byte a = 37;`); every
- * other assignment to that variable stays fixed. Where that declaration cannot be identified safely, no
+ * `a = 200`), and only at its single file-scope declaration with an explicitly named type and a plain
+ * literal (`byte a = 37;`); the replacement keeps the literal's kind and suffix, so the type cannot change.
+ * Every other assignment to that variable stays fixed. Where that declaration cannot be identified safely, no
  * value may change. Anything else makes the reference inapplicable, so it neither grades nor is shown.
  */
 export function referenceAppliesTo(reference: ReferenceAnswer, current: ReviewedProgram, reviewed: ReviewedProgram | undefined): boolean {
@@ -106,22 +107,48 @@ export function codeContainsLine(code: string, line: string): boolean {
   });
 }
 
-/** A plain integer or character literal, the only initial value that may replace the reviewed one. */
-const INITIAL_VALUE_PATTERNS = [
-  /^-?0[xX][0-9a-fA-F]+[uUlL]{0,3}/,
-  /^-?(?:0[bB]|B)[01]+[uUlL]{0,3}/,
-  /^-?\d+[uUlL]{0,3}/,
-  /^'(?:[^'\\\n]|\\[^\n])'/,
+/**
+ * A plain integer or character literal, the only initial value that may replace the reviewed one. The kind
+ * (hexadecimal, binary, decimal, character) and the suffix are part of its shape: a replacement keeps both,
+ * so `37` may become `200`, but never `37u` (review F1).
+ */
+const INITIAL_VALUE_PATTERNS: readonly (readonly [kind: string, pattern: RegExp])[] = [
+  ["hex", /^-?0[xX][0-9a-fA-F]+([uUlL]{0,3})/],
+  ["binary", /^-?(?:0[bB]|B)[01]+([uUlL]{0,3})/],
+  ["decimal", /^-?\d+([uUlL]{0,3})/],
+  ["character", /^'(?:[^'\\\n]|\\[^\n])'()/],
 ];
 
+interface InitialValue {
+  readonly text: string;
+  /** Kind and suffix: what may not change. */
+  readonly shape: string;
+}
+
 /** The literal at the start of `text`, if it starts with one. */
-function leadingInitialValue(text: string): string | undefined {
-  for (const pattern of INITIAL_VALUE_PATTERNS) {
-    const match = pattern.exec(text)?.[0];
-    if (match !== undefined) return match;
+function leadingInitialValue(text: string): InitialValue | undefined {
+  for (const [kind, pattern] of INITIAL_VALUE_PATTERNS) {
+    const match = pattern.exec(text);
+    if (match) return { text: match[0], shape: `${kind}:${match[1] ?? ""}` };
   }
   return undefined;
 }
+
+/**
+ * The declaration names its type explicitly with these words. A type deduced from the initializer (`auto`,
+ * `decltype`) or any other name (a typedef, a macro, a class) is not certain, so its value may not change.
+ */
+const EXPLICIT_TYPES = new Set([
+  "bool", "boolean", "byte", "char", "short", "int", "long", "word", "float", "double", "size_t",
+  "int8_t", "uint8_t", "int16_t", "uint16_t", "int32_t", "uint32_t", "int64_t", "uint64_t",
+]);
+const TYPE_QUALIFIERS = new Set(["const", "volatile", "static", "unsigned", "signed"]);
+
+function hasExplicitType(typeWords: string): boolean {
+  const words = typeWords.trim().split(/\s+/);
+  return words.every((word) => EXPLICIT_TYPES.has(word) || TYPE_QUALIFIERS.has(word)) && words.some((word) => EXPLICIT_TYPES.has(word));
+}
+
 const ASSUMED_VARIABLE = /^\s*([A-Za-z_]\w*)\s*=\s*\S/;
 
 function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
@@ -136,16 +163,23 @@ function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
  * uncertain, so the scan stops there. A declaration inside a comment never counts. When no single safe
  * declaration exists for a variable, it gets no site, and its value may not change.
  */
-function initialValueSites(code: string, variables: ReadonlySet<string>): readonly { readonly start: number; readonly end: number }[] {
+/** Where the reviewed program's initial value of an assumed variable stands, and the shape a replacement keeps. */
+interface ValueSite {
+  readonly start: number;
+  readonly end: number;
+  readonly shape: string;
+}
+
+function initialValueSites(code: string, variables: ReadonlySet<string>): readonly ValueSite[] {
   if (variables.size === 0) return [];
-  const candidates = new Map<string, { start: number; end: number }[]>();
+  const candidates = new Map<string, ValueSite[]>();
   let offset = 0;
   let inBlockComment = false;
   for (const line of code.split("\n")) {
     const site = inBlockComment ? undefined : declarationSite(line, variables);
     if (site) {
       const list = candidates.get(site.name) ?? [];
-      list.push({ start: offset + site.start, end: offset + site.end });
+      list.push({ start: offset + site.start, end: offset + site.end, shape: site.shape });
       candidates.set(site.name, list);
     }
     const scanned = scanPreambleLine(line, inBlockComment);
@@ -183,20 +217,20 @@ const PREAMBLE_TOKENS = /\/\*|\*\/|\/\/|[{"']/g;
 const CONDITIONAL_DIRECTIVE = /^\s*#\s*(?:if|ifdef|ifndef|elif|else|endif)\b/;
 const DECLARATION = /^(\s*(?:[A-Za-z_]\w*\s+)+)([A-Za-z_]\w*)(\s*=\s*)(\S+?)(\s*;\s*(?:\/\/.*)?)$/;
 
-function declarationSite(line: string, variables: ReadonlySet<string>): { name: string; start: number; end: number } | undefined {
+function declarationSite(line: string, variables: ReadonlySet<string>): ({ name: string } & ValueSite) | undefined {
   const match = DECLARATION.exec(line);
-  if (!match || !variables.has(match[2]!)) return undefined;
-  const value = match[4]!;
-  if (leadingInitialValue(value) !== value) return undefined;
+  if (!match || !variables.has(match[2]!) || !hasExplicitType(match[1]!)) return undefined;
+  const value = leadingInitialValue(match[4]!);
+  if (value?.text !== match[4]) return undefined;
   const start = match[1]!.length + match[2]!.length + match[3]!.length;
-  return { name: match[2]!, start, end: start + value.length };
+  return { name: match[2]!, start, end: start + value.text.length, shape: value.shape };
 }
 
 /**
  * The current source equals the reviewed one character for character, except that each site may hold
- * another plain literal. Only whitespace at the very end is ignored.
+ * another plain literal of the same shape. Only whitespace at the very end is ignored.
  */
-function matchesReviewedSource(current: string, reviewed: string, sites: readonly { readonly start: number; readonly end: number }[]): boolean {
+function matchesReviewedSource(current: string, reviewed: string, sites: readonly ValueSite[]): boolean {
   const text = current.trimEnd();
   const reference = reviewed.trimEnd();
   let position = 0;
@@ -206,8 +240,8 @@ function matchesReviewedSource(current: string, reviewed: string, sites: readonl
     if (!text.startsWith(fixed, position)) return false;
     position += fixed.length;
     const value = leadingInitialValue(text.slice(position));
-    if (value === undefined) return false;
-    position += value.length;
+    if (value?.shape !== site.shape) return false;
+    position += value.text.length;
     from = site.end;
   }
   const rest = reference.slice(from);

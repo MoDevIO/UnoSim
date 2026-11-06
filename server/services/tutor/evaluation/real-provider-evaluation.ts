@@ -38,6 +38,10 @@ import {
   addViolation,
   declaredLeakCheck,
   EvaluationBudgetExceeded,
+  hasReturnedModel,
+  providerAttempts,
+  type ProviderCapture,
+  type TutorQualityProviderAttempt,
   redact,
   requestArtifact,
   safeResult,
@@ -166,7 +170,10 @@ export interface TutorQualityTranscriptTurn {
   readonly durationMs: number;
   readonly providerCalls: TutorQualityStageAProviderCallCounts;
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
+  /** The delivered (last) attempt's raw result; every attempt is in `providerAttempts`. */
   readonly rawProviderResult?: Record<string, unknown>;
+  /** Every provider attempt of the turn in order, including discarded ones and errors (review F3). */
+  readonly providerAttempts?: readonly TutorQualityProviderAttempt[];
   readonly finalTutorResult?: Record<string, unknown>;
   /** Where the final follow-up question came from (R-FUP-1); recorded by TutorService at the decision site. */
   readonly followUpSource?: TutorFollowUpSource;
@@ -326,12 +333,6 @@ export interface TutorQualityEvaluationResult {
   readonly report: TutorQualityEvaluationReport;
   readonly transcripts: readonly TutorQualityTranscript[];
   readonly semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[];
-}
-
-interface ProviderCapture {
-  readonly request: LLMProviderRequest;
-  readonly response?: ProviderQuestionResult;
-  readonly error?: unknown;
 }
 
 export class CountingProvider implements LLMProvider, StructuredLLMProvider {
@@ -796,27 +797,27 @@ async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutor
   }
 }
 
-function latestCapture(provider: CountingProvider, beforeGenerationCount: number): ProviderCapture | undefined {
-  return provider.generationCaptures.length > beforeGenerationCount
-    ? provider.generationCaptures.at(-1)
-    : undefined;
+function turnCaptures(provider: CountingProvider, beforeGenerationCount: number): readonly ProviderCapture[] {
+  return provider.generationCaptures.slice(beforeGenerationCount);
 }
 
-function processCapture(
-  capture: ProviderCapture | undefined,
+/** Every attempt of the turn is raw evidence (review F3); each one must name its model (R-ID-4). */
+function processCaptures(
+  captures: readonly ProviderCapture[],
   context: SampleTurnContext,
   checks: TutorQualityDeterministicCheck[],
 ): ProcessedCapture {
-  if (!capture?.response) return {};
-  const returnedModel = capture.response.model;
-  if (typeof returnedModel === "string" && returnedModel.trim().length > 0) {
-    addCheck(checks, "returned-model-present", true);
+  let returnedModel: string | undefined;
+  let invalidReason: string | undefined;
+  for (const capture of captures) {
+    if (!capture.response) continue;
+    const present = hasReturnedModel(capture);
+    addCheck(checks, "returned-model-present", present, present ? undefined : "missing");
+    if (present) returnedModel = capture.response.model;
+    else invalidReason = "returned-model-missing";
     deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
-    return { returnedModel };
   }
-  addCheck(checks, "returned-model-present", false, "missing");
-  deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
-  return { invalidReason: "returned-model-missing" };
+  return { ...(returnedModel ? { returnedModel } : {}), ...(invalidReason ? { invalidReason } : {}) };
 }
 
 function processFinalResult(
@@ -860,11 +861,12 @@ function buildTranscriptTurn(
   startedAt: Date,
   callsBefore: TutorQualityStageAProviderCallCounts,
   finishedAt: Date,
-  capture: ProviderCapture | undefined,
+  captures: readonly ProviderCapture[],
   invocation: InvokedTutorTurn,
   checks: readonly TutorQualityDeterministicCheck[],
 ): TutorQualityTranscriptTurn {
   const { options, provider, turn, turnIndex } = context;
+  const capture = captures.at(-1);
   return {
     index: turnIndex,
     input: safeTurn(turn, options.credential),
@@ -876,6 +878,7 @@ function buildTranscriptTurn(
       rawProviderResult: safeResult(capture.response.result, options.credential),
       ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
     } : {}),
+    ...(captures.length > 0 ? { providerAttempts: providerAttempts(captures, options.credential) } : {}),
     ...(invocation.finalResult ? { finalTutorResult: safeResult(invocation.finalResult, options.credential) } : {}),
     ...(invocation.finalResult && invocation.followUpSource ? { followUpSource: invocation.followUpSource } : {}),
     deterministicChecks: checks,
@@ -890,12 +893,12 @@ async function executeSampleTurn(context: SampleTurnContext): Promise<SampleTurn
   const beforeGenerationCount = context.provider.generationCaptures.length;
   const invocation = await invokeTutorTurn(context);
   if (invocation.invalidReason) return { invalidReason: invocation.invalidReason, executionStatus: "invalid", stop: true };
-  const capture = latestCapture(context.provider, beforeGenerationCount);
-  const captureResult = processCapture(capture, context, checks);
+  const captures = turnCaptures(context.provider, beforeGenerationCount);
+  const captureResult = processCaptures(captures, context, checks);
   processFinalResult(context, invocation, checks);
   const finishedAt = (context.options.now ?? (() => new Date()))();
   return {
-    transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, capture, invocation, checks),
+    transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, captures, invocation, checks),
     returnedModel: captureResult.returnedModel,
     ...(invocation.error ? { executionStatus: "technical-failure" as const, terminalError: invocation.error } : {}),
     ...(captureResult.invalidReason ? { executionStatus: "invalid" as const, invalidReason: captureResult.invalidReason } : {}),
