@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor";
+import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor-requests";
 
 describe("Tutor requests: board (plan P2.7)", () => {
   const question = { code: "void setup(){} void loop(){}" };
