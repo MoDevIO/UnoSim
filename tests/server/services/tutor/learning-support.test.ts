@@ -319,6 +319,24 @@ describe("learning-support store (R-SUP-1, R-SUP-6)", () => {
     expect(store.view("a", session)?.question?.clarifications).toBe(1);
   });
 
+  it("rejects new actions once the session is full instead of forgetting a spent id (review N5)", async () => {
+    const store = new TutorSupportStore(limits);
+    const session = store.open("a", newSupportQuestion("Frage?", "ctx"));
+    const clarify = (actionId: string) => store.run("a", session, actionId, "f", async (view) => {
+      const next = withClarification(view.question!, `t${actionId}`);
+      return { body: next.clarifications, update: { question: next } };
+    });
+    expect(await clarify("first")).toEqual({ status: "ok", body: 1 });
+    // 4 096 actions per session (MAX_SPENT_ACTIONS), far above a learning dialog.
+    for (let hint = 1; hint < 4_096; hint += 1) {
+      await store.run("a", session, `hint-${hint}`, "f", async () => ({ body: "hint", update: {} }));
+    }
+    expect(await store.run("a", session, "one-more", "f", async () => ({ body: "hint", update: {} }))).toEqual({ status: "exhausted" });
+    expect(await clarify("first")).toEqual({ status: "spent" });
+    expect(await store.run("a", session, "hint-1", "f", async () => ({ body: "again", update: {} }))).toEqual({ status: "spent" });
+    expect(store.view("a", session)?.question?.clarifications).toBe(1);
+  });
+
   it("saturates the unlock counters at two clarifications and three attempts (R-SUP-1)", () => {
     let question = newSupportQuestion("Frage?", "ctx");
     for (let round = 0; round < 5; round += 1) question = withAnswerAttempt(withClarification(question, `t${round}`));

@@ -41,7 +41,9 @@ export type SupportActionOutcome<T> =
   | { readonly status: "missing" }
   | { readonly status: "conflict" }
   /** The action already ran; its result is no longer kept, so it is neither repeated nor counted again. */
-  | { readonly status: "spent" };
+  | { readonly status: "spent" }
+  /** The session has run as many actions as it can remember; a new action needs a new question (review N5). */
+  | { readonly status: "exhausted" };
 
 type SessionEntry = {
   readonly identity: string;
@@ -50,13 +52,14 @@ type SessionEntry = {
   question: SupportQuestion | null;
   skippedQuestions: string[];
   readonly results: Map<string, { readonly fingerprint: string; readonly body: unknown }>;
-  /** Every applied action id of the session, kept longer than the results (review R7). */
+  /** Every applied action id of the session, never forgotten while the session lives (reviews R7, N5). */
   readonly spent: Set<string>;
   readonly pending: Map<string, { readonly fingerprint: string; readonly result: Promise<SupportActionOutcome<unknown>> }>;
   queue: Promise<unknown>;
 };
 
 const MAX_REMEMBERED_ACTIONS = 32;
+/** Actions one session can take; far above a learning dialog, bounded for memory. */
 const MAX_SPENT_ACTIONS = 4_096;
 const MAX_SKIPPED_QUESTIONS = 32;
 const MAX_CLARIFICATION_TEXTS = 4;
@@ -175,6 +178,8 @@ export class TutorSupportStore {
     if (running) {
       return running.fingerprint === fingerprint ? running.result as Promise<SupportActionOutcome<T>> : { status: "conflict" };
     }
+    // Forgetting a spent id would let it count again, so a full session takes no new action (review N5).
+    if (entry.spent.size + entry.pending.size >= MAX_SPENT_ACTIONS) return { status: "exhausted" };
     const execute = async (): Promise<SupportActionOutcome<T>> => {
       if (this.sessions.get(handle) !== entry) return { status: "missing" };
       const { body, update } = await action({ handle, courseSession: entry.courseSession, question: entry.question, skippedQuestions: [...entry.skippedQuestions] });
@@ -185,7 +190,6 @@ export class TutorSupportStore {
       }
       entry.results.set(actionId, { fingerprint, body });
       entry.spent.add(actionId);
-      if (entry.spent.size > MAX_SPENT_ACTIONS) entry.spent.delete(firstOf(entry.spent));
       while (entry.results.size > MAX_REMEMBERED_ACTIONS) entry.results.delete(firstOf(entry.results.keys()));
       entry.expiresAt = this.now() + this.limits.ttlMs;
       this.touch(handle, entry);

@@ -203,6 +203,10 @@ async function runSupportAction<T>(
       return result;
     });
     if (signal.aborted) return;
+    if (outcome.status === "exhausted") {
+      responseError(res, 400, "SUPPORT_SESSION_INVALID", "Diese Lernhilfe hat ihr Aktionslimit erreicht. Bitte eine neue Lernfrage anfordern.");
+      return;
+    }
     if (outcome.status === "missing") {
       responseError(res, 400, "SUPPORT_SESSION_INVALID", "Der Lernhilfe-Zustand ist abgelaufen. Bitte eine neue Lernfrage anfordern.");
       return;
