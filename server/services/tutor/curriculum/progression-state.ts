@@ -15,6 +15,8 @@ export interface TutorProgressionState {
   postMasteryEvidence: Record<string, Observation[]>;
   retainedPhases: Record<string, "DEEPEN" | "EXPAND">;
   usedExpansionTargetTopicIds: Record<string, string[]>;
+  /** Questions left without evidence, by skipping or after the reference answer (LearningQuestions R-SUP-5). */
+  leftQuestionIds: Record<string, string[]>;
   progressionBlockedReason?: ProgressionBlockedReason;
 }
 
@@ -33,6 +35,7 @@ export function createTutorProgressionState(revision: string): TutorProgressionS
     postMasteryEvidence: {},
     retainedPhases: {},
     usedExpansionTargetTopicIds: {},
+    leftQuestionIds: {},
   };
 }
 
@@ -43,10 +46,13 @@ export function cloneTutorProgressionState(state: TutorProgressionState): TutorP
     masteryEvidence: cloneEvidence(state.masteryEvidence),
     postMasteryEvidence: cloneEvidence(state.postMasteryEvidence),
     retainedPhases: { ...state.retainedPhases },
-    usedExpansionTargetTopicIds: Object.fromEntries(
-      Object.entries(state.usedExpansionTargetTopicIds).map(([topicId, targetIds]) => [topicId, [...targetIds]]),
-    ),
+    usedExpansionTargetTopicIds: cloneIdLists(state.usedExpansionTargetTopicIds),
+    leftQuestionIds: cloneIdLists(state.leftQuestionIds ?? {}),
   };
+}
+
+function cloneIdLists(lists: Record<string, string[]>): Record<string, string[]> {
+  return Object.fromEntries(Object.entries(lists).map(([topicId, ids]) => [topicId, [...ids]]));
 }
 
 export function commitTutorProgressionState(target: TutorProgressionState, source: TutorProgressionState): void {
@@ -57,9 +63,8 @@ export function commitTutorProgressionState(target: TutorProgressionState, sourc
   target.masteryEvidence = cloneEvidence(source.masteryEvidence);
   target.postMasteryEvidence = cloneEvidence(source.postMasteryEvidence);
   target.retainedPhases = { ...source.retainedPhases };
-  target.usedExpansionTargetTopicIds = Object.fromEntries(
-    Object.entries(source.usedExpansionTargetTopicIds).map(([topicId, targetIds]) => [topicId, [...targetIds]]),
-  );
+  target.usedExpansionTargetTopicIds = cloneIdLists(source.usedExpansionTargetTopicIds);
+  target.leftQuestionIds = cloneIdLists(source.leftQuestionIds ?? {});
   target.progressionBlockedReason = source.progressionBlockedReason;
 }
 
@@ -77,6 +82,7 @@ export function resetTutorProgressionState(state: TutorProgressionState, revisio
   state.postMasteryEvidence = {};
   state.retainedPhases = {};
   state.usedExpansionTargetTopicIds = {};
+  state.leftQuestionIds = {};
   state.progressionBlockedReason = undefined;
   state.revision = revision;
 }
@@ -96,6 +102,13 @@ export function markTopicMastered(state: TutorProgressionState, topicId: string)
   if (!state.masteredTopicIds.includes(topicId)) state.masteredTopicIds.push(topicId);
 }
 
+/** The question counts as used for planning but adds no evidence: it was skipped or answered with help. */
+export function markQuestionLeft(state: TutorProgressionState, topicId: string, questionId: string): void {
+  const left = state.leftQuestionIds[topicId] ?? [];
+  if (!left.includes(questionId)) left.push(questionId);
+  state.leftQuestionIds[topicId] = left;
+}
+
 export function markExpansionTargetUsed(state: TutorProgressionState, sourceTopicId: string, targetTopicId: string): void {
   const targets = state.usedExpansionTargetTopicIds[sourceTopicId] ?? [];
   if (!targets.includes(targetTopicId)) targets.push(targetTopicId);
@@ -103,7 +116,7 @@ export function markExpansionTargetUsed(state: TutorProgressionState, sourceTopi
 }
 
 export function deepeningCriteria(topic: CurriculumTopic): TopicDeepening {
-  return topic.schemaVersion === 2 && topic.deepening ? topic.deepening : DEFAULT_DEEPENING;
+  return topic.schemaVersion !== 1 && topic.deepening ? topic.deepening : DEFAULT_DEEPENING;
 }
 
 export function hasMetDeepeningCriteria(topic: CurriculumTopic, observations: readonly Observation[]): boolean {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
+import { referenceAnswerSchema } from "./reference-answer";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 
@@ -70,7 +71,7 @@ const conceptSchema = z.object({
   mastery: masterySchema,
 }).strict();
 
-const questionSchema = z.object({
+const questionFields = {
   id: idSchema,
   concept: idSchema,
   indicator: idSchema,
@@ -80,14 +81,27 @@ const questionSchema = z.object({
   text: boundedText(1_000).optional(),
   template: boundedText(1_000).optional(),
   slots: boundedArray(idSchema, 8).optional(),
-}).strict().superRefine((value, context) => {
+};
+
+function checkQuestionText(value: { readonly text?: string; readonly template?: string; readonly slots?: readonly string[] }, context: z.RefinementCtx): void {
   if ((value.text === undefined) === (value.template === undefined)) {
     context.addIssue({ code: "custom", message: "Exactly one of text or template is required" });
   }
   if (value.template === undefined && value.slots !== undefined) {
     context.addIssue({ code: "custom", message: "Slots require a template" });
   }
-});
+}
+
+const questionSchema = z.object(questionFields).strict().superRefine(checkQuestionText);
+
+/** Schema version 3 adds a reviewed reference answer (CourseContent SSOT 6.4); a template question has none. */
+const questionV3Schema = z.object({ ...questionFields, reference: referenceAnswerSchema.optional() }).strict()
+  .superRefine((value, context) => {
+    checkQuestionText(value, context);
+    if (value.reference !== undefined && value.template !== undefined) {
+      context.addIssue({ code: "custom", path: ["reference"], message: "A reference answer requires a fixed question text" });
+    }
+  });
 
 const scaffoldSchema = z.object({
   id: idSchema,
@@ -152,7 +166,12 @@ const curriculumTopicV2Schema = z.object({
   extensions: boundedArray(topicExtensionSchema, 8).optional(),
 }).strict();
 
-export const curriculumTopicSchema = z.union([curriculumTopicV1Schema, curriculumTopicV2Schema]);
+const curriculumTopicV3Schema = curriculumTopicV2Schema.extend({
+  schemaVersion: z.literal(3),
+  questions: boundedArray(questionV3Schema, 64, 1),
+}).strict();
+
+export const curriculumTopicSchema = z.union([curriculumTopicV1Schema, curriculumTopicV2Schema, curriculumTopicV3Schema]);
 
 export type FactRequirement = z.infer<typeof factRequirementSchema>;
 export type CurriculumTopic = z.infer<typeof curriculumTopicSchema>;

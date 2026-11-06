@@ -112,4 +112,30 @@ export interface TutorPlanningExtension {
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
   }): Promise<TutorPlanningResult | null>;
+  /**
+   * After a weak answer the question stays open (LearningQuestions R-SUP-3): records the answer as evidence,
+   * unless it was given after the reference answer was shown, and returns the plan of the same question.
+   */
+  planRetry?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly rating: TutorAnswerRating;
+    readonly assisted: boolean;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<TutorPlanningResult | null>;
+  /**
+   * The question is left without evidence, by skipping or after the reference answer (R-SUP-4, R-SUP-5): it
+   * counts as used, so it is not asked again right away, and adds nothing to mastery.
+   */
+  leaveQuestion?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<void>;
 }

@@ -38,6 +38,7 @@ import {
   deepeningCriteria,
   hasMetDeepeningCriteria,
   markExpansionTargetUsed,
+  markQuestionLeft,
   markTopicMastered,
   resetTutorProgressionState,
   type DidacticPhase,
@@ -123,6 +124,22 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
     return this.continueFollowup(context, refreshed, input, stateUpdate, answeredHistory);
+  }
+
+  async planRetry(input: TutorFollowupInput & { readonly assisted: boolean }): Promise<TutorPlanningResult | null> {
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    if (!context) return null;
+    if (context.blocked) return context.blocked;
+    // An answer after the reference answer was shown repeats it; it is no evidence (R-SUP-5).
+    if (!input.assisted) recordFollowupObservation(context, input);
+    return answeredQuestionPlan(context, input.currentQuestion, input.history);
+  }
+
+  async leaveQuestion(input: Omit<TutorFollowupInput, "rating">): Promise<void> {
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    if (!context || context.blocked) return;
+    const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
+    if (question) markQuestionLeft(context.state, context.topic.id, question.id);
   }
 
   private continueFollowup(
@@ -386,7 +403,7 @@ function resolveExtensionTarget(
 ): string | undefined {
   if (!previousTopicId || previousPhase !== "EXPAND" || previousTopicId === nextTopicId) return undefined;
   const previousTopic = topics.find(({ id }) => id === previousTopicId);
-  return previousTopic?.schemaVersion === 2 && previousTopic.extensions?.some(({ topic }) => topic === nextTopicId)
+  return previousTopic !== undefined && previousTopic.schemaVersion !== 1 && previousTopic.extensions?.some(({ topic }) => topic === nextTopicId)
     ? nextTopicId
     : undefined;
 }
@@ -397,7 +414,7 @@ function resolveExpansionBrief(
   phase: DidacticPhase,
   state: TutorProgressionState,
 ): TutorExpansionBrief | undefined {
-  if (phase !== "EXPAND" || topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  if (phase !== "EXPAND" || topic.schemaVersion === 1 || !topic.extensions) return undefined;
   const usedTargets = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
   const extension = topic.extensions.find(({ topic: targetTopicId }) =>
     topics.some(({ id }) => id === targetTopicId) && !usedTargets.has(targetTopicId),
@@ -563,13 +580,20 @@ function sessionHistory(
     responseStyle: "normal",
     ...(rated ? { answerRating: observation.rating } : {}),
   }));
+  // A skipped question, or one closed after the reference answer, stays used but without a rating (R-SUP-5).
+  const leftTurns = (state.leftQuestionIds?.[topic.id] ?? []).map((questionId): TutorDialogTurn => ({
+    question: textById.get(questionId) ?? questionId,
+    questionId,
+    answer: "",
+    responseStyle: "normal",
+  }));
   const dialogTurns = history.map((turn) => {
     const questionId = resolveTurnQuestion(topic, turn)?.id;
     if (questionId === undefined || !storedRatingIds.has(questionId)) return turn;
     const { answerRating: _storedInstead, ...unrated } = turn;
     return { ...unrated, questionId };
   });
-  return [...evidenceTurns, ...dialogTurns];
+  return [...evidenceTurns, ...leftTurns, ...dialogTurns];
 }
 
 /** The question being answered, as a used turn without a rating of its own. */
@@ -609,7 +633,7 @@ function expansionQuestionText(objective: string): string {
 // the application already recorded as delivered for this Topic; the text is built
 // by the same function that generated it.
 function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgressionState, currentQuestion: string): string | undefined {
-  if (topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  if (topic.schemaVersion === 1 || !topic.extensions) return undefined;
   const delivered = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
   return topic.extensions.find(({ topic: targetTopicId, objective }) =>
     delivered.has(targetTopicId) && expansionQuestionText(objective) === currentQuestion,
@@ -620,7 +644,7 @@ function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgression
 // application delivered for this Topic, or a Topic question. Reserves nothing in the state.
 function answeredQuestionPlan(context: AdapterContext, currentQuestion: string, history: readonly TutorDialogTurn[]): TutorPlan | null {
   const expansionTargetId = answeredExpansionTarget(context.topic, context.state, currentQuestion);
-  const extension = expansionTargetId && context.topic.schemaVersion === 2
+  const extension = expansionTargetId && context.topic.schemaVersion !== 1
     ? context.topic.extensions?.find(({ topic }) => topic === expansionTargetId)
     : undefined;
   if (extension) {
