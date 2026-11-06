@@ -107,7 +107,21 @@ export function codeContainsLine(code: string, line: string): boolean {
 }
 
 /** A plain integer or character literal, the only initial value that may replace the reviewed one. */
-const INITIAL_VALUE = /^-?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|B[01]+|\d+)[uUlL]{0,3}|^'(?:[^'\\\n]|\\[^\n])'/;
+const INITIAL_VALUE_PATTERNS = [
+  /^-?0[xX][0-9a-fA-F]+[uUlL]{0,3}/,
+  /^-?(?:0[bB]|B)[01]+[uUlL]{0,3}/,
+  /^-?\d+[uUlL]{0,3}/,
+  /^'(?:[^'\\\n]|\\[^\n])'/,
+];
+
+/** The literal at the start of `text`, if it starts with one. */
+function leadingInitialValue(text: string): string | undefined {
+  for (const pattern of INITIAL_VALUE_PATTERNS) {
+    const match = pattern.exec(text)?.[0];
+    if (match !== undefined) return match;
+  }
+  return undefined;
+}
 const ASSUMED_VARIABLE = /^\s*([A-Za-z_]\w*)\s*=\s*\S/;
 
 function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
@@ -173,8 +187,7 @@ function declarationSite(line: string, variables: ReadonlySet<string>): { name: 
   const match = DECLARATION.exec(line);
   if (!match || !variables.has(match[2]!)) return undefined;
   const value = match[4]!;
-  const literal = INITIAL_VALUE.exec(value);
-  if (literal?.[0] !== value) return undefined;
+  if (leadingInitialValue(value) !== value) return undefined;
   const start = match[1]!.length + match[2]!.length + match[3]!.length;
   return { name: match[2]!, start, end: start + value.length };
 }
@@ -192,7 +205,7 @@ function matchesReviewedSource(current: string, reviewed: string, sites: readonl
     const fixed = reference.slice(from, site.start);
     if (!text.startsWith(fixed, position)) return false;
     position += fixed.length;
-    const value = INITIAL_VALUE.exec(text.slice(position))?.[0];
+    const value = leadingInitialValue(text.slice(position));
     if (value === undefined) return false;
     position += value.length;
     from = site.end;

@@ -357,6 +357,29 @@ function parseSupportAfter(value: unknown, label: string): TutorQualitySupportEx
   return value as TutorQualitySupportExpectation;
 }
 
+function parseLearnerInput(value: unknown, label: string, final: TutorQualityTurnSource | undefined): TutorLearnerInput | undefined {
+  if (value === undefined) return undefined;
+  const parsed = tutorLearnerInputSchema.safeParse(value);
+  if (!parsed.success) fail(`${label}.expected.learnerInput is invalid`);
+  if (final?.kind !== "dialog") fail(`${label}.expected.learnerInput requires the final turn to be a dialog turn`);
+  return parsed.data;
+}
+
+function parseReferenceAnswer(value: unknown, label: string, final: TutorQualityTurnSource | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  assertNonEmptyString(value, `${label}.expected.referenceAnswer`);
+  if ([...value].length > MAX_REFERENCE_ANSWER_LENGTH) fail(`${label}.expected.referenceAnswer is too long`);
+  if (final?.kind !== "support" || final.action !== "reveal") fail(`${label}.expected.referenceAnswer requires a final reveal turn`);
+  return value;
+}
+
+function parseActionRejected(value: unknown, label: string, final: TutorQualityTurnSource | undefined): "SUPPORT_LOCKED" | undefined {
+  if (value === undefined) return undefined;
+  if (value !== "SUPPORT_LOCKED") fail(`${label}.expected.actionRejected is invalid`);
+  if (final?.kind !== "support") fail(`${label}.expected.actionRejected requires a final support turn`);
+  return value;
+}
+
 /** The learning-support expectations (R-SUP-E4): http scenarios only, each bound to the kind of the final turn. */
 function parseSupportExpectations(
   value: Record<string, unknown>,
@@ -364,28 +387,15 @@ function parseSupportExpectations(
   turns: readonly TutorQualityTurnSource[],
 ): Pick<TutorQualityExpectation, "learnerInput" | "supportAfter" | "referenceAnswer" | "actionRejected"> {
   const final = turns.at(-1);
-  let learnerInput: TutorLearnerInput | undefined;
-  if (value.learnerInput !== undefined) {
-    const parsed = tutorLearnerInputSchema.safeParse(value.learnerInput);
-    if (!parsed.success) fail(`${label}.expected.learnerInput is invalid`);
-    if (final?.kind !== "dialog") fail(`${label}.expected.learnerInput requires the final turn to be a dialog turn`);
-    learnerInput = parsed.data;
-  }
-  if (value.referenceAnswer !== undefined) {
-    assertNonEmptyString(value.referenceAnswer, `${label}.expected.referenceAnswer`);
-    if ([...value.referenceAnswer].length > MAX_REFERENCE_ANSWER_LENGTH) fail(`${label}.expected.referenceAnswer is too long`);
-    if (final?.kind !== "support" || final.action !== "reveal") fail(`${label}.expected.referenceAnswer requires a final reveal turn`);
-  }
-  if (value.actionRejected !== undefined) {
-    if (value.actionRejected !== "SUPPORT_LOCKED") fail(`${label}.expected.actionRejected is invalid`);
-    if (final?.kind !== "support") fail(`${label}.expected.actionRejected requires a final support turn`);
-  }
+  const learnerInput = parseLearnerInput(value.learnerInput, label, final);
+  const referenceAnswer = parseReferenceAnswer(value.referenceAnswer, label, final);
+  const actionRejected = parseActionRejected(value.actionRejected, label, final);
   const supportAfter = value.supportAfter === undefined ? undefined : parseSupportAfter(value.supportAfter, label);
   return {
     ...(learnerInput === undefined ? {} : { learnerInput }),
     ...(supportAfter === undefined ? {} : { supportAfter }),
-    ...(typeof value.referenceAnswer === "string" ? { referenceAnswer: value.referenceAnswer } : {}),
-    ...(value.actionRejected === "SUPPORT_LOCKED" ? { actionRejected: "SUPPORT_LOCKED" as const } : {}),
+    ...(referenceAnswer === undefined ? {} : { referenceAnswer }),
+    ...(actionRejected === undefined ? {} : { actionRejected }),
   };
 }
 
@@ -472,6 +482,14 @@ function requireBoundStrategyTurns(
   });
 }
 
+function parseTransportFields(rawScenario: Record<string, unknown>, label: string): { transport: TutorQualityTransport; referenceProvenance?: string } {
+  const transport = rawScenario.transport ?? "service";
+  if (transport !== "service" && transport !== "http") fail(`${label}.transport must be service or http`);
+  if (rawScenario.referenceProvenance === undefined) return { transport };
+  assertNonEmptyString(rawScenario.referenceProvenance, `${label}.referenceProvenance`);
+  return { transport, referenceProvenance: rawScenario.referenceProvenance };
+}
+
 function parseScenario(
   rawScenario: unknown,
   index: number,
@@ -494,10 +512,7 @@ function parseScenario(
     assertNonEmptyString(rawScenario.model, `${label}.model`);
     if (rawScenario.model === "auto") fail(`${label}.model must be a fixed model id`);
   }
-  const transport = rawScenario.transport ?? "service";
-  if (transport !== "service" && transport !== "http") fail(`${label}.transport must be service or http`);
-  if (rawScenario.referenceProvenance !== undefined) assertNonEmptyString(rawScenario.referenceProvenance, `${label}.referenceProvenance`);
-  const referenceProvenance = rawScenario.referenceProvenance as string | undefined;
+  const { transport, referenceProvenance } = parseTransportFields(rawScenario, label);
   const turns = parseTurns(rawScenario.turns, label);
   const expected = parseExpected(rawScenario.expected, label, turns);
   checkTransport(transport, turns, expected, referenceProvenance, label);
