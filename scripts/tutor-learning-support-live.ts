@@ -218,7 +218,8 @@ function sampleSummary(sample: number, checks: readonly Check[]): string {
   const modelFailed = model.filter(({ passed }) => !passed).map(({ id }) => id);
   const summary = `sample ${sample}: application ${application.length - failed.length}/${application.length}`;
   const failedPart = failed.length === 0 ? "" : ` (failed: ${failed.join(", ")})`;
-  const modelPart = `; model ${model.length - modelFailed.length}/${model.length}${modelFailed.length === 0 ? "" : ` (wrong: ${modelFailed.join(", ")})`}`;
+  const modelWrong = modelFailed.length === 0 ? "" : ` (wrong: ${modelFailed.join(", ")})`;
+  const modelPart = `; model ${model.length - modelFailed.length}/${model.length}` + modelWrong;
   return summary + failedPart + modelPart;
 }
 

@@ -14,35 +14,39 @@ export interface LiveEvaluationOptions {
   readonly credentialEnv: string;
 }
 
+type MutableOptions = { -readonly [K in keyof LiveEvaluationOptions]?: LiveEvaluationOptions[K] };
+
+/** Checks one option and stores it; every value is checked, nothing is clamped. */
+const OPTION_PARSERS: ReadonlyMap<string, (value: string, options: MutableOptions) => void> = new Map(Object.entries({
+  "--samples": (value: string, options: MutableOptions) => {
+    if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > MAX_LIVE_SAMPLES) {
+      throw new Error(`--samples must be an integer from 1 to ${MAX_LIVE_SAMPLES}`);
+    }
+    options.samples = Number(value);
+  },
+  "--model": (value: string, options: MutableOptions) => {
+    if (!tutorModelSchema.safeParse(value).success) throw new Error("--model is not a valid model identifier");
+    options.model = value;
+  },
+  "--output-dir": (value: string, options: MutableOptions) => { options.outputDir = value; },
+  "--credential-env": (value: string, options: MutableOptions) => {
+    if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(value)) throw new Error("--credential-env must be an environment-variable name");
+    options.credentialEnv = value;
+  },
+}));
+
 /** Strict command line: every value is checked, nothing is silently clamped or defaulted to a pass. */
 export function parseLiveEvaluationOptions(argv: readonly string[]): LiveEvaluationOptions {
-  let samples = 3;
-  let model = "auto";
-  let outputDir: string | undefined;
-  let credentialEnv = "UNOSIM_TUTOR_EVAL_CREDENTIAL";
   if (argv.length % 2 !== 0) throw new Error("Every option requires a value");
+  const options: MutableOptions = {};
   for (let index = 0; index < argv.length; index += 2) {
-    const flag = argv[index];
-    const value = argv[index + 1]!;
-    if (flag === "--samples") {
-      if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > MAX_LIVE_SAMPLES) {
-        throw new Error(`--samples must be an integer from 1 to ${MAX_LIVE_SAMPLES}`);
-      }
-      samples = Number(value);
-    } else if (flag === "--model") {
-      if (!tutorModelSchema.safeParse(value).success) throw new Error("--model is not a valid model identifier");
-      model = value;
-    } else if (flag === "--output-dir") {
-      outputDir = value;
-    } else if (flag === "--credential-env") {
-      if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(value)) throw new Error("--credential-env must be an environment-variable name");
-      credentialEnv = value;
-    } else {
-      throw new Error(`Unknown option ${flag}`);
-    }
+    const flag = argv[index]!;
+    const parse = OPTION_PARSERS.get(flag);
+    if (!parse) throw new Error(`Unknown option ${flag}`);
+    parse(argv[index + 1]!, options);
   }
-  if (!outputDir) throw new Error("--output-dir is required");
-  return { samples, model, outputDir, credentialEnv };
+  if (!options.outputDir) throw new Error("--output-dir is required");
+  return { samples: options.samples ?? 3, model: options.model ?? "auto", outputDir: options.outputDir, credentialEnv: options.credentialEnv ?? "UNOSIM_TUTOR_EVAL_CREDENTIAL" };
 }
 
 export type LiveCheck = { readonly id: string; readonly layer: "application" | "model"; readonly passed: boolean; readonly detail: string };
