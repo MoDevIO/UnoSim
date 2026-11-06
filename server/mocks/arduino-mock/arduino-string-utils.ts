@@ -11,7 +11,7 @@
  *
  * Dependencies (must appear earlier in the assembled C++ source):
  *  - `cerrMutex` (ARDUINO_GLOBALS)
- *  - `millis()` (ARDUINO_TIMING_AND_RANDOM)
+ *  - `millis()`, `waitSimulatedMicros()` (ARDUINO_TIMING_AND_RANDOM)
  *  - `String` class (ARDUINO_STRING_CLASS)
  */
 
@@ -486,10 +486,7 @@ inline void delay(unsigned long ms) {
     // Flush serial buffer FIRST so output appears before the delay
     Serial.flush();
     
-    // Direct sleep without chunking to avoid overhead from repeated system calls.
-    // The previous implementation split into 10ms chunks and called checkStdinForPinCommands()
-    // ~100 times per second, which added ~2ms per iteration (~200ms overhead for 1000ms delay).
-    // Real Arduino blocks completely during delay, so this matches expected behavior.
-    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    // Blocks like the real board, in simulated time: a pause does not count as waiting.
+    waitSimulatedMicros(static_cast<unsigned long long>(ms) * 1000ULL);
 }
 `;

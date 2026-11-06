@@ -106,7 +106,8 @@ Die **Pause/Resume-Funktionalität** ermöglicht es dem Benutzer, die laufende A
 - `[[PAUSE_TIME:n]]` friert die Uhr ein, **bevor** der Prozess angehalten wird (siehe 4.1). Ein angehaltener Prozess kann nichts lesen; früher las er den Befehl erst nach dem Fortsetzen und fror einen Wert ein, der die Pausendauer schon enthielt.
 - `[[RESUME_TIME:n]]` nach `docker unpause` bzw. `SIGCONT` taut die Uhr auf (Bestätigung `[[TIME_RESUMED:n:ms]]`). Die Laufzeit misst die Pausendauer selbst, vom Einfrieren bis zum Auftauen; die Uhr geht ohne Sprung beim eingefrorenen Wert weiter.
 - `n` ist die laufende Nummer der Pause; eine verspätete Bestätigung einer früheren Pause zählt nicht.
-- Zwischen Einfrieren und Anhalten sowie zwischen Fortsetzen und Auftauen läuft der Sketch einige Millisekunden mit stehender Uhr weiter. `delay()` schläft in Wanduhrzeit.
+- Zwischen Einfrieren und Anhalten sowie zwischen Fortsetzen und Auftauen läuft der Sketch einige Millisekunden mit stehender Uhr weiter.
+- `delay()` und `delayMicroseconds()` warten auf diese Uhr, nicht auf die Wanduhr. Ein Warten, das eine Pause unterbricht, läuft nach dem Fortsetzen mit seiner Restzeit weiter; `delay(1000)` dauert also auch über eine Pause hinweg 1000 ms in `millis()`.
 - Die Zähler laufen wie `unsigned long` über; auf dem Server sind das 64 Bit (siehe USER_GUIDE, Legacy).
 
 ---

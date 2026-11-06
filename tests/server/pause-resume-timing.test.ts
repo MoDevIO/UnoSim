@@ -117,6 +117,60 @@ maybeDescribe("SandboxRunner - Pause/Resume Timing", () => {
     expect(largestStep).toBeLessThan(PAUSE_WINDOW_MS);
   });
 
+  it("lets delay() and delayMicroseconds() wait their full simulated time when a pause interrupts them", async () => {
+    const output = outputRecorder();
+    await runner.runSketch({
+      code: `
+        void setup() { Serial.begin(115200); }
+        void loop() {
+          unsigned long t0 = millis();
+          delay(500);
+          Serial.print("D:");
+          Serial.println(millis() - t0);
+          unsigned long u0 = micros();
+          for (int i = 0; i < 50; i++) delayMicroseconds(10000);
+          Serial.print("U:");
+          Serial.println(micros() - u0);
+        }
+      `,
+      onOutput: output.onOutput,
+      onError: () => {},
+      timeoutSec: 30,
+    });
+    const waits = (kind: "D" | "U") => output.lines().flatMap((line) => line.startsWith(`${kind}:`) ? [Number(line.slice(2))] : []);
+    const nextLine = (kind: "D" | "U") => {
+      const target = waits(kind).length + 1;
+      return waitFor(() => waits(kind).length >= target, 15_000, `the next ${kind} line`);
+    };
+    const pauseFor = async (ms: number) => {
+      expect(runner.pause()).toBe(true);
+      expect(await within(runner.controlResult, 10_000, "the confirmed pause")).toBe(true);
+      await sleep(ms);
+      expect(runner.resume()).toBe(true);
+      expect(await within(runner.controlResult, 10_000, "the confirmed resume")).toBe(true);
+    };
+
+    // A D line starts the delayMicroseconds() loop, a U line starts delay(): each pause lands in one of them.
+    await nextLine("D");
+    await pauseFor(PAUSE_WINDOW_MS);
+    await nextLine("U");
+    await pauseFor(PAUSE_WINDOW_MS);
+    await nextLine("D");
+    await pauseFor(0);
+    await nextLine("U");
+    await pauseFor(0);
+    await nextLine("D");
+    await nextLine("U");
+
+    // Before the fix both slept in wall-clock time, so the paused time counted as waiting: a wait cut by a
+    // 600 ms pause ended almost at once after the resume (e.g. "delay: 169" for delay(1000)).
+    for (const ms of waits("D")) expect(ms).toBeGreaterThanOrEqual(500);
+    for (const us of waits("U")) expect(us).toBeGreaterThanOrEqual(500_000);
+    // Nor does a pause make them wait longer than the requested time plus the loop's own overhead.
+    for (const ms of waits("D")) expect(ms).toBeLessThan(500 + PAUSE_WINDOW_MS / 2);
+    for (const us of waits("U")) expect(us).toBeLessThan((500 + PAUSE_WINDOW_MS / 2) * 1_000);
+  });
+
   it("should clear pause state on stop", async () => {
     const output = outputRecorder();
     await runner.runSketch({
