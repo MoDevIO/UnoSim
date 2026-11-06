@@ -8,43 +8,65 @@ import {
 } from "./curriculum/reference-answer";
 
 /**
- * Typed inputs that ask for help instead of answering (LearningQuestions R-SUP-1): they are not a wrong
- * answer and use no answer attempt.
+ * How a typed input is recognized (LearningQuestions R-SUP-1, review N3). The input is reduced to its core
+ * first: lower case, no punctuation, and without the filler words that only add emphasis or time ("noch",
+ * "immer", "wirklich", "genau", "da" …). The intents are then recognized by their structure, not by fixed
+ * sentences: a negated "know" (help), a negated "understand", a request to explain addressed to the Tutor,
+ * a question about what to do or what is meant (clarification). So "Ich verstehe die Frage immer noch
+ * nicht." is the same input as "Ich verstehe die Frage nicht.".
  */
+const FILLER_WORDS = new Set([
+  "noch", "immer", "wirklich", "leider", "echt", "gar", "ueberhaupt", "so", "ganz", "genau", "bitte", "mal",
+  "eben", "halt", "da", "hier", "jetzt", "dann", "denn", "eigentlich", "einfach", "irgendwie", "total",
+  "nochmal", "nochmals", "sorry", "hm", "hmm", "aeh", "ehrlich", "gesagt", "also", "nun", "mir", "uns",
+]);
+
+/** Typed inputs that ask for help instead of answering: no wrong answer and no answer attempt. */
 const HELP_REQUESTS = [
-  /^(?:ich )?weiss (?:es |das |ich )?(?:leider )?nicht\b/,
-  /^keine (?:ahnung|idee)\b/,
+  /^(?:ich )?weiss (?:(?:es|das|ich|die antwort|die loesung) ){0,2}nicht$/,
+  /^(?:ich )?(?:habe |hab )?(?:keine|null) (?:ahnung|idee)\b/,
   /^kein plan\b/,
-  /^(?:ich )?(?:brauche )?(?:einen )?(?:hilfe|tipp|hinweis)\b/,
-  /^k\.? ?a\.?$/,
-  /^\?+$/,
-  /^(?:ich )?(?:komme|komm) (?:hier )?nicht weiter\b/,
-  /^hilf mir\b/,
+  /^(?:ich )?(?:brauche |brauch |moechte |will |haette gern )?(?:einen |eine )?(?:hilfe|tipp|hinweis)\b/,
+  /^(?:ich )?(?:komme|komm) nicht weiter\b/,
+  /^(?:ich )?(?:schaffe|schaff|kann) (?:es |das )?nicht$/,
+  /^hilf\b/,
+  /^ka$/,
 ];
 
-/** Questions about the question: the learner asks what is meant, not what the answer is. */
+/** Questions about the question: the learner asks what is meant or what to do, not what the answer is. */
+const EXPLAIN = "(?:erklaer|erlaeuter|beschreib|formulier|umformulier|praezisier|verdeutlich)[a-z]*";
+const UNDERSTAND = "(?:versteh|kapier|check|blick)e?";
+/** Words that may stand between "understand" and "nicht": what is not understood, never an answer. */
+const NOT_UNDERSTOOD_OBJECT = "(?:ich|es|das|die|den|dich|sie|du|frage|aufgabe|teil|satz|schritt|code|deine|deinen|ausdruck|hinweis|erklaerung|begriff)";
 const CLARIFICATION_REQUESTS = [
-  /\b(?:verstehe|kapiere) (?:ich )?(?:die|deine) frage nicht\b/,
-  /\b(?:verstehe|kapiere) (?:ich )?(?:das|es|die aufgabe)? ?nicht\b/,
-  /\b(?:kannst|koenntest|könntest) du (?:mir )?(?:bitte )?(?:die frage|die aufgabe|das|es)? ?(?:bitte )?(?:erklaeren|erklären|genauer|anders|nochmal|noch einmal)\b/,
-  /\b(?:erklaere?|erkläre?) (?:mir )?(?:bitte )?(?:die frage|die aufgabe|das)\b/,
-  /\bwas (?:muss|soll) ich (?:hier |da |jetzt )?(?:machen|tun|antworten|rechnen|angeben)\b/,
-  /\bwie (?:ist|war) (?:das|die frage|die aufgabe) gemeint\b/,
-  /\bwas ist (?:hier )?(?:die aufgabe|gefragt)\b/,
+  // A negated "understand": "verstehe die Frage nicht", "versteh ich nicht", "kapiere den Ausdruck nicht".
+  new RegExp(String.raw`\b${UNDERSTAND}(?: ${NOT_UNDERSTOOD_OBJECT}){0,3} nicht\b`),
+  // A request to explain: addressed to the Tutor, as an imperative, or naming the question or the task.
+  new RegExp(String.raw`\b(?:kannst|koenntest|wuerdest|koennen|koenntet) (?:du|sie)\b.*\b(?:${EXPLAIN}|genauer|anders|deutlicher|einfacher)\b`),
+  new RegExp(String.raw`^${EXPLAIN}\b`),
+  new RegExp(String.raw`\b(?:die frage|die aufgabe) ${EXPLAIN}\b`),
+  // A question about the task itself.
+  /\bwas (?:muss|soll|darf|kann) ich\b/,
+  /\bwie (?:ist|war) (?:das|die frage|die aufgabe|es) gemeint\b/,
+  /\bwas ist (?:die aufgabe|gefragt)\b/,
   /\bworum geht es\b/,
-  /\bfrage (?:ist )?(?:unklar|nicht klar|verwirrend)\b/,
-  /\bwas (?:genau )?(?:ist|wird) (?:hier )?(?:gemeint|gefragt|gesucht)\b/,
+  /\b(?:frage|aufgabe) (?:ist )?(?:unklar|nicht klar|verwirrend|unverstaendlich)\b/,
+  /^(?:das ist |ist )?(?:unklar|verwirrend|unverstaendlich)$/,
   /\bwas bedeutet\b/,
-  /\bkannst du (?:die frage |das )?(?:genauer|anders|nochmal|noch einmal) (?:erklaeren|erklären|formulieren)\b/,
 ];
 
 /** A question word followed later by a word that asks about the meaning: "Was ist mit … gemeint?". */
 const ASKS_ABOUT = /\b(?:was|wie|welche[nrs]?) (?:ist|wird|soll|meinst|bedeutet|heisst)?/;
 const ABOUT_MEANING = /\b(?:gemeint|gefragt|gesucht|meinst du)\b/;
 
-/** Lower case, single spaces, "ß" as "ss": the patterns stay simple. */
-function normalizeInput(input: string): string {
-  return input.trim().toLocaleLowerCase("de-DE").replaceAll("ß", "ss").split(/\s/).filter(Boolean).join(" ");
+/** The core of an input: lower case, "ß" as "ss", umlauts spelled out, no punctuation and no filler words. */
+function inputCore(input: string): string {
+  return input.trim().toLocaleLowerCase("de-DE")
+    .replaceAll("ß", "ss").replaceAll("ä", "ae").replaceAll("ö", "oe").replaceAll("ü", "ue")
+    .replaceAll(/[^\p{L}\p{N}&|<>=+\-*/%!~^]+/gu, " ")
+    .split(" ")
+    .filter((word) => word.length > 0 && !FILLER_WORDS.has(word))
+    .join(" ");
 }
 
 /**
@@ -52,7 +74,8 @@ function normalizeInput(input: string): string {
  * answer such as `1` or a hedged answer such as `Ist es 1?` stays an answer.
  */
 export function classifyLearnerInput(input: string): TutorLearnerInput {
-  const text = normalizeInput(input);
+  if (/^\s*\?+\s*$/.test(input)) return "help";
+  const text = inputCore(input);
   if (HELP_REQUESTS.some((pattern) => pattern.test(text))) return "help";
   if (text.length > 300) return "answer";
   if (CLARIFICATION_REQUESTS.some((pattern) => pattern.test(text))) return "clarification";

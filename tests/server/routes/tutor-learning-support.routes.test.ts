@@ -561,4 +561,23 @@ describe("learning support over HTTP: follow-up review of 73fcc08b0", () => {
     expect(answered.body).toMatchObject({ answerRating: 5, feedback: "Richtig, mit i = 0 wird Bit 0 geprüft." });
     expect(answered.body.support.referenceAvailable).toBe(false);
   });
+
+  it("N3: counts repeated and reworded questions about the question as clarifications, unlocking skip after two", async () => {
+    const { post } = await start({ rate: conceptThen(1, "Nein.") });
+    const dialog = await toPredictionQuestion(post);
+    const inputs = [
+      ["Ich verstehe das noch nicht.", "clarification"],
+      ["Ich verstehe die Frage immer noch nicht.", "clarification"],
+      ["Was soll ich da genau machen?", "clarification"],
+      ["Kannst du mir die Aufgabe erläutern?", "clarification"],
+      ["Ich weiß es wirklich nicht.", "help"],
+    ] as const;
+    for (const [text, kind] of inputs) {
+      const response = await dialog.answer(text);
+      expect(response.body.learnerInput).toBe(kind);
+      expect(response.body.answerRating).toBeUndefined();
+      expect(dialog.state.support.answerAttempts).toBe(0);
+    }
+    expect(dialog.state.support).toMatchObject({ clarifications: 2, canSkip: true });
+  });
 });
