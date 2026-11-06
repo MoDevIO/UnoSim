@@ -48,31 +48,72 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     expect(applies(IT064_SKETCH)).toBe(true);
     expect(applies(IT064_SKETCH_A200)).toBe(true);
     expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 0x0F;"))).toBe(true);
-    expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(true);
-    expect(applies(IT064_SKETCH.replace("// ist Bit i gesetzt?", "/* Bit i? */"))).toBe(true);
-    expect(applies(IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--)\n  {"))).toBe(true);
+    expect(applies(`${IT064_SKETCH}\n\n`)).toBe(true);
+    // Review E1: the source is compared as it is; no spacing, comment or line-break normalization.
+    expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("// ist Bit i gesetzt?", "/* Bit i? */"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--)\n  {"))).toBe(false);
     // Review R1: the negation keeps every fragment but changes the first print to 0.
     expect(applies(IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "bitRead(a, i)"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("int i = 7", "int i = 6"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("i >= 0", "i > 0"))).toBe(false);
-    // The print moved before the loop.
     const moved = IT064_SKETCH.replace("    Serial.print(a & (1 << i) && 1);   // ist Bit i gesetzt?\n", "").replace("  for (int i = 7;", "  Serial.print(a & (1 << i) && 1);\n  for (int i = 7;");
     expect(applies(moved)).toBe(false);
-    // A line that is only left in a comment does not count.
     expect(applies(IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "// Serial.print(a & (1 << i) && 1);"))).toBe(false);
     // Review N1: a line inserted between the protected lines makes the first output 0.
     expect(applies(IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--) {\n    i = 0;"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("Serial.begin(115200);", "Serial.begin(115200);\n  a = 0;"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("void loop() {", "#define print println\nvoid loop() {"))).toBe(false);
-    // Only a literal value of the assumed variable may change, not the expression or another variable.
+    // Only a plain literal at the assumed variable's declaration may change, not the expression or the type.
     expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 37 + 1;"))).toBe(false);
     expect(applies(IT064_SKETCH.replace("byte a = 37;", "int a = 200;"))).toBe(false);
     expect(referenceAppliesTo({ ...IT064_REFERENCE, assumptions: undefined }, { code: IT064_SKETCH_A200 }, reviewed)).toBe(false);
-    // Project files count as well, and without a reviewed program nothing applies.
+    // Project files and the board count as well, and without a reviewed program nothing applies.
     expect(applies(IT064_SKETCH, [{ name: "bits.h", content: "#define print println" }])).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, { ...reviewed, board: "mega2560" }, reviewed)).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, { ...reviewed, board: "uno" }, reviewed)).toBe(true);
+    expect(referenceAppliesTo(IT064_REFERENCE, reviewed, { ...reviewed, board: "nano" })).toBe(false);
     expect(referenceAppliesTo(IT064_REFERENCE, reviewed, undefined)).toBe(false);
     expect(referenceAppliesTo(IT064_REFERENCE, { code: "int a;" }, { code: "int a;" })).toBe(false);
+  });
+
+  describe("review E1/E2 counter-examples (local-temp/tutor-review-20261106/recheck-e6197b4b9)", () => {
+    const reference = (assumptions?: string[]) => ({ answer: "1", explanation: "Geprüft.", requiresCode: ["Serial.print(a);"], ...(assumptions ? { assumptions } : {}) });
+    const program = (code: string) => ({ code });
+
+    it("does not take a comment marker inside a string for a comment", () => {
+      const code = (left: string) => `void setup() {\n  Serial.print(strcmp("${left}", "/*a*/") == 0);\n  Serial.print(a);\n}\nvoid loop() {}\n`;
+      expect(referenceAppliesTo(reference(), program(code("/*b*/")), program(code("/*a*/")))).toBe(false);
+    });
+
+    it("keeps the line break that ends a preprocessor directive", () => {
+      const reviewed = "int a = 200;\nvoid setup() {\n#define UNUSED\n  a = 0;\n  Serial.print(a);\n}\nvoid loop() {}\n";
+      const current = "int a = 200;\nvoid setup() {\n#define UNUSED a = 0;\n  Serial.print(a);\n}\nvoid loop() {}\n";
+      expect(referenceAppliesTo(reference(["a = 200"]), program(current), program(reviewed))).toBe(false);
+    });
+
+    it("lets the assumption change only the initial value, never a later assignment of the same variable", () => {
+      const sketch = (initial: number, later: number) => `int a = ${initial};\nvoid setup() {\n  a = ${later};\n  Serial.print(a);\n}\nvoid loop() {}\n`;
+      const assumed = reference(["a = 200"]);
+      expect(referenceAppliesTo(assumed, program(sketch(200, 128)), program(sketch(200, 0)))).toBe(false);
+      expect(referenceAppliesTo(assumed, program(sketch(37, 0)), program(sketch(200, 0)))).toBe(true);
+    });
+
+    it("gives no value site when the declaration is not certainly plain file scope", () => {
+      const assumed = reference(["a = 200"]);
+      const variants = [
+        (value: number) => `#define SET \\\nint a = ${value};\nvoid setup() {\n  Serial.print(a);\n}\nvoid loop() {}\n`,
+        (value: number) => `#if 0\nint a = ${value};\n#endif\nint b;\nvoid setup() {\n  Serial.print(a);\n}\nvoid loop() {}\n`,
+        (value: number) => `/* start\nint a = ${value};\n*/ int a = 1;\nvoid setup() {\n  Serial.print(a);\n}\nvoid loop() {}\n`,
+        (value: number) => `int a = ${value};\nint a2 = 0; int a = ${value};\nvoid setup() {\n  Serial.print(a);\n}\nvoid loop() {}\n`,
+        (value: number) => `void setup() {\n  int a = ${value};\n  Serial.print(a);\n}\nvoid loop() {}\n`,
+      ];
+      for (const variant of variants) {
+        expect(referenceAppliesTo(assumed, program(variant(200)), program(variant(200)))).toBe(true);
+        expect(referenceAppliesTo(assumed, program(variant(128)), program(variant(200)))).toBe(false);
+      }
+    });
   });
 
   it("reject a code block, a replacement sketch, a URL and unknown fields", () => {
@@ -198,6 +239,17 @@ describe("learner inputs (LearningQuestions R-SUP-1)", () => {
     ["Ich kapiere den Ausdruck immer noch nicht", "clarification"],
     ["Die Frage ist mir immer noch unklar.", "clarification"],
     ["Was darf ich hier denn überhaupt annehmen?", "clarification"],
+    // Review E3: the learner's own explanation is an answer; a request to explain is a clarification.
+    ["Erklärung: Im ersten Durchlauf ist i = 7, daher 1 << i = 128 und das Ergebnis ist 1.", "answer"],
+    ["Erkläre mir den ersten Durchlauf.", "clarification"],
+    ["Meine Erklärung: Bit 7 ist gesetzt, also 1.", "answer"],
+    ["Erklär mir das bitte nochmal.", "clarification"],
+    ["Beschreibung: Die Schleife zählt von 7 bis 0 herunter.", "answer"],
+    ["Beschreib mir, was die Schleife tut.", "clarification"],
+    ["Formulierung: a & (1 << i) prüft, ob Bit i gesetzt ist.", "answer"],
+    ["Formuliere die Frage bitte anders.", "clarification"],
+    ["Ich erkläre es so: 200 hat Bit 7 gesetzt, also 1.", "answer"],
+    ["Kannst du mir das erklären?", "clarification"],
     // Answers that only look similar stay answers.
     ["Ich verstehe es so, dass i nicht bei 7 bleibt.", "answer"],
     ["Das lässt sich mit der Verschiebung erklären: 1.", "answer"],

@@ -32,8 +32,8 @@ const focusQuestionSchema = z.object({
   /** Reviewed reference answer (schemaVersion 3, CourseContent SSOT 6.4), bound to this Example's program. */
   reference: referenceAnswerSchema.optional(),
 }).strict().superRefine((value, context) => {
-  if (value.reference?.reviewedCode !== undefined) {
-    context.addIssue({ code: "custom", path: ["reference", "reviewedCode"], message: "A focus reference is bound to its Example and has no reviewedCode" });
+  if (value.reference?.reviewedCode !== undefined || value.reference?.reviewedBoard !== undefined) {
+    context.addIssue({ code: "custom", path: ["reference"], message: "A focus reference is bound to its Example and has no reviewedCode or reviewedBoard" });
   }
 });
 

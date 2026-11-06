@@ -609,3 +609,18 @@ describe("learning support over HTTP: follow-up review of 73fcc08b0", () => {
     expect((await dialog.act("hint")).status).toBe(200);
   });
 });
+
+describe("learning support over HTTP: review of e6197b4b9", () => {
+  it("E3: rates the learner's own explanation as an answer, and treats a request to explain as a clarification", async () => {
+    const { post } = await start({ rate: conceptThen(5, "Richtig.") });
+    const dialog = await toPredictionQuestion(post);
+    const own = await dialog.answer("Erklärung: Im ersten Durchlauf ist i = 7, daher 1 << i = 128 und das Ergebnis ist 1.");
+    expect(own.body.learnerInput).toBe("answer");
+    expect(own.body.answerRating).toBe(5);
+    const second = await toPredictionQuestion(post);
+    const request = await second.answer("Erkläre mir den ersten Durchlauf.");
+    expect(request.body.learnerInput).toBe("clarification");
+    expect(request.body.answerRating).toBeUndefined();
+    expect(second.state.support).toMatchObject({ answerAttempts: 0, clarifications: 1 });
+  });
+});

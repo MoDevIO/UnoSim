@@ -34,7 +34,11 @@ const HELP_REQUESTS = [
 ];
 
 /** Questions about the question: the learner asks what is meant or what to do, not what the answer is. */
-const EXPLAIN = "(?:erklaer|erlaeuter|beschreib|formulier|umformulier|praezisier|verdeutlich)[a-z]*";
+/**
+ * A request to explain uses the verb ("erkläre", "erläutern", "beschreib"), never the noun: "Erklärung: …" or
+ * "Meine Beschreibung: …" introduces the learner's own answer (review E3).
+ */
+const EXPLAIN = "(?:erklaer|erlaeuter|beschreib|formulier|umformulier|praezisier|verdeutlich)(?:e|en|n|st)?";
 const UNDERSTAND = "(?:versteh|kapier|check|blick)e?";
 /** Words that may stand between "understand" and "nicht": what is not understood, never an answer. */
 const NOT_UNDERSTOOD_OBJECT = "(?:ich|es|das|die|den|dich|sie|du|frage|aufgabe|teil|satz|schritt|code|deine|deinen|ausdruck|hinweis|erklaerung|begriff)";

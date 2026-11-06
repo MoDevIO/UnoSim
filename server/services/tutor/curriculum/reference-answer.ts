@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
-import { stripComments } from "@shared/parser-patterns";
+import { DEFAULT_BOARD_ID, boardIdSchema, type BoardId } from "@shared/boards";
 
 const CONTROL_CHARACTER = /\p{Cc}/u;
 /** Code may contain line breaks and tabs, but no other control character. */
@@ -20,8 +20,8 @@ const referenceText = (max: number) => z.string().trim().min(1)
  * - `accept` lists short answers that are certainly correct; other equivalent answers stay acceptable.
  * - `assumptions` are the values the question itself sets (e.g. `a = 200`); they apply before the sketch's.
  * - `requiresCode` are the code lines the answer depends on, in order; they must be part of the reviewed code.
- * - `reviewedCode` is the complete program the answer was reviewed for. A Topic question needs it; a focus
- *   question has none, because its Example is the reviewed program.
+ * - `reviewedCode` (and `reviewedBoard`) is the complete program the answer was reviewed for. A Topic question
+ *   needs it; a focus question has none, because its Example (with its board) is the reviewed program.
  */
 export const referenceAnswerSchema = z.object({
   answer: referenceText(300),
@@ -32,6 +32,8 @@ export const referenceAnswerSchema = z.object({
   reviewedCode: z.string().min(1).max(MAX_REVIEWED_CODE_LENGTH)
     .refine((value) => !CODE_CONTROL_CHARACTER.test(value), "Reviewed code contains a control character")
     .optional(),
+  /** The board `reviewedCode` was reviewed for; absent means the default board. */
+  reviewedBoard: boardIdSchema.optional(),
 }).strict().superRefine((value, context) => {
   if (/```/.test(value.answer) || /```/.test(value.explanation)) {
     context.addIssue({ code: "custom", message: "A reference answer must not contain a code block" });
@@ -56,120 +58,128 @@ export function normalizeReferenceAnswer(value: string): string {
 const LEADING_MARKS = new Set(["\"", "'", "„", "“", "`", " "]);
 const TRAILING_MARKS = new Set(["\"", "'", "„", "“", "`", ".", "!", " "]);
 
-/** A program as the Tutor sees it: the entry code and the further project files. */
+/** A program as the Tutor sees it: the entry code, the further project files and the board it runs on. */
 export interface ReviewedProgram {
   readonly code: string;
   readonly headers?: readonly { readonly name: string; readonly content: string }[];
+  /** Absent means the default board. */
+  readonly board?: BoardId;
 }
 
 /**
- * Whether the reference still fits the learner's current program (CourseContent SSOT 6.4, review N1). The
- * reference is bound to the complete program it was reviewed for: outside comments and spacing, the current
- * program must be that program token for token, with every project file. The one change allowed is the
- * literal value assigned to a variable the question itself sets (`assumptions`, e.g. `a = 200`), because
- * the question's value applies anyway. Any other change, such as an inserted `i = 0;`, a negated expression
- * or a moved line, cannot be judged safely, so the reference must neither grade nor be shown.
+ * Whether the reference still fits the learner's current program (CourseContent SSOT 6.4, reviews N1, E1,
+ * E2). The reference is bound to the exact program it was reviewed for: the same board, the same project
+ * files and the same source text, character for character (only whitespace at the very end of a file is
+ * ignored). No comment, spacing or line-break normalization is applied, because in C++ each of them can
+ * change the meaning (a comment marker inside a string, a line break that ends a preprocessor directive).
+ *
+ * The one allowed change is the initial value of a variable the question itself sets (`assumptions`, e.g.
+ * `a = 200`), and only at its single file-scope declaration with a plain literal (`byte a = 37;`); every
+ * other assignment to that variable stays fixed. Where that declaration cannot be identified safely, no
+ * value may change. Anything else makes the reference inapplicable, so it neither grades nor is shown.
  */
 export function referenceAppliesTo(reference: ReferenceAnswer, current: ReviewedProgram, reviewed: ReviewedProgram | undefined): boolean {
   if (!reviewed) return false;
-  const reviewedTokens = codeTokens(reviewed.code);
-  if (!reference.requiresCode.every((line) => containsTokens(reviewedTokens, codeTokens(line)))) return false;
-  if (!sameTokens(reviewedTokens, codeTokens(current.code), assumedVariables(reference))) return false;
+  if ((current.board ?? DEFAULT_BOARD_ID) !== (reviewed.board ?? DEFAULT_BOARD_ID)) return false;
+  if (!reference.requiresCode.every((line) => codeContainsLine(reviewed.code, line))) return false;
+  if (!matchesReviewedSource(current.code, reviewed.code, initialValueSites(reviewed.code, assumedVariables(reference)))) return false;
   const reviewedHeaders = reviewed.headers ?? [];
   const currentHeaders = current.headers ?? [];
   if (reviewedHeaders.length !== currentHeaders.length) return false;
   return reviewedHeaders.every(({ name, content }) => {
     const match = currentHeaders.find((header) => header.name === name);
-    return match !== undefined && sameTokens(codeTokens(content), codeTokens(match.content), new Set());
+    return match !== undefined && matchesReviewedSource(match.content, content, []);
   });
 }
 
-/** Whether `line` is part of `code`, outside comments and spacing; used to validate `requiresCode`. */
+/**
+ * Whether `line` is a whole line of `code`, apart from indentation and a trailing `//` comment. This only
+ * checks authored `requiresCode` data; it never decides whether a reference applies.
+ */
 export function codeContainsLine(code: string, line: string): boolean {
-  return containsTokens(codeTokens(code), codeTokens(line));
+  const required = line.trim();
+  return code.split("\n").some((candidate) => {
+    const text = candidate.trim();
+    if (!text.startsWith(required)) return false;
+    const rest = text.slice(required.length);
+    return rest === "" || /^\s*\/\//.test(rest);
+  });
 }
 
-/** The kinds of C++ tokens, tried in this order at each position; the last one takes any other character. */
-const TOKEN_PATTERNS = [
-  /"(?:\\.|[^"\\])*"/y,
-  /'(?:\\.|[^'\\])*'/y,
-  /[A-Za-z_]\w*/y,
-  /\d[\w.]*/y,
-  /<<=|>>=|<<|>>|&&|\|\||\+\+|--|->|::/y,
-  /[-+*/%&|^!=<>]=/y,
-  /\S/y,
-];
-const LITERAL = /^(?:\d[\w.]*|'(?:\\.|[^'\\])*'|true|false|HIGH|LOW)$/;
-const ASSUMED_VARIABLE = /^\s*([A-Za-z_]\w*)\s*=/;
-
-function codeTokens(code: string): string[] {
-  const text = stripComments(code);
-  const tokens: string[] = [];
-  let position = 0;
-  while (position < text.length) {
-    if (/\s/.test(text[position]!)) {
-      position += 1;
-      continue;
-    }
-    const token = nextToken(text, position);
-    tokens.push(token);
-    position += token.length;
-  }
-  return tokens;
-}
-
-function nextToken(text: string, position: number): string {
-  for (const pattern of TOKEN_PATTERNS) {
-    pattern.lastIndex = position;
-    const match = pattern.exec(text);
-    if (match) return match[0];
-  }
-  return text[position]!;
-}
+/** A plain integer or character literal, the only initial value that may replace the reviewed one. */
+const INITIAL_VALUE = /^-?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|B[01]+|\d+)[uUlL]{0,3}|^'(?:[^'\\\n]|\\[^\n])'/;
+const ASSUMED_VARIABLE = /^\s*([A-Za-z_]\w*)\s*=\s*\S/;
 
 function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
   return new Set((reference.assumptions ?? []).flatMap((assumption) => ASSUMED_VARIABLE.exec(assumption)?.[1] ?? []));
 }
 
-function containsTokens(tokens: readonly string[], part: readonly string[]): boolean {
-  if (part.length === 0) return false;
-  for (let start = 0; start + part.length <= tokens.length; start += 1) {
-    if (part.every((token, offset) => tokens[start + offset] === token)) return true;
-  }
-  return false;
-}
-
-/** Length of a literal at `index` (with an optional sign), or 0 when there is none. */
-function literalLength(tokens: readonly string[], index: number): number {
-  const signed = tokens[index] === "-" || tokens[index] === "+" ? 1 : 0;
-  return LITERAL.test(tokens[index + signed] ?? "") ? signed + 1 : 0;
-}
-
-/** A literal that is the whole value of `<assumed variable> = <literal>;` in the reviewed code. */
-function assumedLiteralLength(tokens: readonly string[], index: number, variables: ReadonlySet<string>): number {
-  if (index < 2 || tokens[index - 1] !== "=" || !variables.has(tokens[index - 2]!)) return 0;
-  const length = literalLength(tokens, index);
-  return length > 0 && tokens[index + length] === ";" ? length : 0;
-}
-
-function sameTokens(reviewed: readonly string[], current: readonly string[], variables: ReadonlySet<string>): boolean {
-  let r = 0;
-  let c = 0;
-  while (r < reviewed.length && c < current.length) {
-    const assumed = assumedLiteralLength(reviewed, r, variables);
-    if (assumed > 0) {
-      const given = literalLength(current, c);
-      if (given === 0 || current[c + given] !== ";") return false;
-      r += assumed;
-      c += given;
-    } else if (reviewed[r] === current[c]) {
-      r += 1;
-      c += 1;
-    } else {
-      return false;
+/**
+ * The offsets of the initial values that may change: for each assumed variable, the literal of its only
+ * declaration `<type words> name = <literal>;` among the lines before the first `{`. Those lines must be
+ * plain file scope: no line continuation, conditional directive, string, character or block comment before
+ * the declaration, so the declaration cannot be part of a macro, a literal, a comment or a disabled branch. When this is not certain for a
+ * variable, it gets no site, and its value may not change.
+ */
+function initialValueSites(code: string, variables: ReadonlySet<string>): readonly { readonly start: number; readonly end: number }[] {
+  if (variables.size === 0) return [];
+  const candidates = new Map<string, { start: number; end: number }[]>();
+  let offset = 0;
+  for (const line of code.split("\n")) {
+    const site = declarationSite(line, variables);
+    if (site) {
+      const list = candidates.get(site.name) ?? [];
+      list.push({ start: offset + site.start, end: offset + site.end });
+      candidates.set(site.name, list);
     }
+    const plain = codeBeforeLineComment(line);
+    if (plain === undefined || /[{"']|\/\*/.test(plain) || line.trimEnd().endsWith("\\") || CONDITIONAL_DIRECTIVE.test(line)) break;
+    offset += line.length + 1;
   }
-  return r === reviewed.length && c === current.length;
+  return [...candidates.values()].flatMap((sites) => (sites.length === 1 ? sites : [])).sort((a, b) => a.start - b.start);
+}
+
+/** The part of a line before a `//` comment, or undefined when a quote makes that uncertain. */
+function codeBeforeLineComment(line: string): string | undefined {
+  const comment = line.indexOf("//");
+  const code = comment < 0 ? line : line.slice(0, comment);
+  return comment >= 0 && /["']/.test(code) ? undefined : code;
+}
+
+/** A conditional directive may leave a later declaration out of the program. */
+const CONDITIONAL_DIRECTIVE = /^\s*#\s*(?:if|ifdef|ifndef|elif|else|endif)\b/;
+const DECLARATION = /^(\s*(?:[A-Za-z_]\w*\s+)+)([A-Za-z_]\w*)(\s*=\s*)(\S+?)(\s*;\s*(?:\/\/.*)?)$/;
+
+function declarationSite(line: string, variables: ReadonlySet<string>): { name: string; start: number; end: number } | undefined {
+  const match = DECLARATION.exec(line);
+  if (!match || !variables.has(match[2]!)) return undefined;
+  const value = match[4]!;
+  const literal = INITIAL_VALUE.exec(value);
+  if (literal?.[0] !== value) return undefined;
+  const start = match[1]!.length + match[2]!.length + match[3]!.length;
+  return { name: match[2]!, start, end: start + value.length };
+}
+
+/**
+ * The current source equals the reviewed one character for character, except that each site may hold
+ * another plain literal. Only whitespace at the very end is ignored.
+ */
+function matchesReviewedSource(current: string, reviewed: string, sites: readonly { readonly start: number; readonly end: number }[]): boolean {
+  const text = current.trimEnd();
+  const reference = reviewed.trimEnd();
+  let position = 0;
+  let from = 0;
+  for (const site of sites) {
+    const fixed = reference.slice(from, site.start);
+    if (!text.startsWith(fixed, position)) return false;
+    position += fixed.length;
+    const value = INITIAL_VALUE.exec(text.slice(position))?.[0];
+    if (value === undefined) return false;
+    position += value.length;
+    from = site.end;
+  }
+  const rest = reference.slice(from);
+  return text.startsWith(rest, position) && position + rest.length === text.length;
 }
 
 export type ReferenceGrade = "accepted" | "contradicted" | "open";

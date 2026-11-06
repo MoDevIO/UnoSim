@@ -107,8 +107,8 @@ function identityOf(res: Response): string | undefined {
 }
 
 function referenceOf(question: string, sketch: SketchFields, content: PinnedTutorCourseContent | undefined): QuestionReference {
-  // The reference must fit the whole project: the entry code and every header (review N1).
-  return resolveQuestionReference(question, { code: sketch.code, headers: sketch.headers ?? [] }, content);
+  // The reference must fit the whole project: the entry code, every header and the board (reviews N1, E1).
+  return resolveQuestionReference(question, { code: sketch.code, headers: sketch.headers ?? [], board: sketch.board }, content);
 }
 
 function referenceView(reference: QuestionReference): TutorReferenceView {

@@ -230,7 +230,13 @@ function annotatedExample(snapshot: RevisionCacheEntry, exampleId: string): Pick
   return {
     exampleTutorAnnotation: snapshot.exampleTutorAnnotations?.get(exampleId),
     ...(example && main
-      ? { exampleProgram: { code: main.content, headers: example.files.filter((file) => file !== main).map(({ name, content }) => ({ name, content })) } }
+      ? {
+        exampleProgram: {
+          code: main.content,
+          headers: example.files.filter((file) => file !== main).map(({ name, content }) => ({ name, content })),
+          ...(example.board ? { board: example.board } : {}),
+        },
+      }
       : {}),
   };
 }

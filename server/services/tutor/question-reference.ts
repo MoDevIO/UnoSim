@@ -36,7 +36,7 @@ function findReference(question: string, courseContent?: TutorPlanningContentCon
   for (const topic of courseContent.tutor.topics) {
     if (topic.schemaVersion !== 3) continue;
     const reference = topic.questions.find((candidate) => candidate.text === text)?.reference;
-    if (reference) return { reference, reviewed: reference.reviewedCode === undefined ? undefined : { code: reference.reviewedCode } };
+    if (reference) return { reference, reviewed: reference.reviewedCode === undefined ? undefined : { code: reference.reviewedCode, headers: [], board: reference.reviewedBoard } };
   }
   return undefined;
 }
