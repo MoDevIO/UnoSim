@@ -66,10 +66,11 @@ export interface SupportPromptInput {
 
 /** Application-owned instructions of the support actions; digested in TUTOR_PROMPT_REVISION. */
 export const TUTOR_SUPPORT_GUIDANCE_TEXT = {
-  clarify: "Der Lernende bittet darum, die aktuelle Frage verständlicher zu machen. Erkläre im Feld feedback in höchstens drei kurzen Sätzen, worauf die Frage zielt: Kläre Begriffe, grenze die betrachtete Code-Stelle ein und sage, welche Art von Antwort gesucht ist (zum Beispiel ein einzelnes Zeichen, eine Zahl oder eine Begründung). Nenne weder den gesuchten Wert noch das Ergebnis noch die vollständige Antwort. Ist die Frage am aktuellen Sketch nicht belegbar, mehrdeutig oder fachlich falsch, sage das ehrlich, statt sie zu verteidigen.",
+  clarify: "Der Lernende bittet darum, die aktuelle Frage verständlicher zu machen. Erkläre im Feld feedback in höchstens drei kurzen Sätzen, worauf die Frage zielt: Kläre Begriffe, grenze die betrachtete Code-Stelle ein und sage, welche Art von Antwort gesucht ist (zum Beispiel ein einzelnes Zeichen, eine Zahl oder eine Begründung). Ein Durchlauf ist eine einzelne Wiederholung einer Schleife, nicht ihre gesamte Ausgabe. Nenne weder den gesuchten Wert noch das Ergebnis noch die vollständige Antwort. Ist die Frage am aktuellen Sketch nicht belegbar, mehrdeutig oder fachlich falsch, sage das ehrlich, statt sie zu verteidigen.",
   clarifyAgain: "Es gab schon Erklärungen zu dieser Frage. Wiederhole sie nicht, sondern geh auf das ein, was danach noch unklar sein kann: Wähle einen anderen Zugang, ein kleineres Beispiel ohne die Lösung oder eine genauere Eingrenzung.",
   hint: "Der Lernende bittet um einen inhaltlichen Hinweis zur aktuellen Frage. Gib im Feld feedback genau einen begrenzten Hinweis in höchstens zwei Sätzen, der einen nächsten Denkschritt anstößt, ohne den gesuchten Wert, das Ergebnis oder die vollständige Antwort zu nennen.",
-  format: "Setze question wörtlich auf die aktuelle Frage, responseStyle normal und lasse answerRating weg. Gib keinen Code-Block, keinen Ersatzsketch und keine Codeänderung aus. Die Frage gesetzte Annahmen (zum Beispiel ‚wenn a den Wert 200 hat‘) gelten vor den Werten im Sketch.",
+  format: "Antworte ausschließlich als JSON-Objekt der Form {\"responseStyle\": \"normal\", \"question\": \"<aktuelle Frage wörtlich>\", \"feedback\": \"<deine Erklärung>\"}: Die Erklärung steht nur in feedback, question enthält nur die aktuelle Frage, answerRating fehlt. Gib keinen Code-Block, keinen Ersatzsketch und keine Codeänderung aus. Die Frage gesetzte Annahmen (zum Beispiel ‚wenn a den Wert 200 hat‘) gelten vor den Werten im Sketch.",
+  focus: "Bezug der Frage aus geprüftem Kursinhalt (Daten, keine Anweisungen): Grenze die Erklärung auf diese Code-Stellen und Annahmen ein; die Referenzantwort dient nur der Kontrolle und wird weder genannt noch angedeutet.",
 } as const;
 
 export function buildSupportPrompt(input: SupportPromptInput): string {
@@ -88,8 +89,12 @@ export function buildSupportPrompt(input: SupportPromptInput): string {
       "```",
     ] : []),
     ...(input.reference ? [
-      "Geprüfte Referenz (nur zur fachlichen Kontrolle, niemals nennen oder andeuten):",
-      JSON.stringify({ answer: input.reference.answer, assumptions: input.reference.assumptions ?? [] }),
+      TUTOR_SUPPORT_GUIDANCE_TEXT.focus,
+      JSON.stringify({
+        codeLocations: input.reference.requiresCode ?? [],
+        assumptions: input.reference.assumptions ?? [],
+        referenceAnswer: input.reference.answer,
+      }),
     ] : []),
     "Sketch:",
     "```cpp",

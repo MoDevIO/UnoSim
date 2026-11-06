@@ -32,7 +32,8 @@ const EXPLANATIONS = [
 interface Script {
   rate: (answer: string, question: string) => { rating: 1 | 2 | 3 | 4 | 5; feedback: string };
   freeQuestions: string[];
-  failNext: boolean;
+  /** How many of the next provider calls fail with an invalid response. */
+  failNext: number;
   delay?: Promise<void>;
 }
 
@@ -48,8 +49,8 @@ function scriptedProvider(script: Script) {
   let explanations = 0;
   const generateLearningQuestion = vi.fn(async ({ userPrompt }: LLMProviderRequest) => {
     await script.delay;
-    if (script.failNext) {
-      script.failNext = false;
+    if (script.failNext > 0) {
+      script.failNext -= 1;
       throw new TutorProviderError("invalid-response");
     }
     if (userPrompt.startsWith("Erzeuge eine einzige Lernfrage")) {
@@ -77,7 +78,7 @@ let server: http.Server | undefined;
 afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
 
 async function start(script: Partial<Script> = {}) {
-  const fullScript: Script = { rate: () => ({ rating: 5, feedback: "Stimmt." }), freeQuestions: [], failNext: false, ...script };
+  const fullScript: Script = { rate: () => ({ rating: 5, feedback: "Stimmt." }), freeQuestions: [], failNext: 0, ...script };
   const provider = scriptedProvider(fullScript);
   const resolver = { resolveTutorContent: vi.fn(async () => it064Content()) };
   const app = express();
@@ -336,11 +337,26 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
     expect(c.body.explanation).not.toBe(d.body.explanation);
   });
 
+  it("asks the provider once more after an invalid answer, and counts nothing when that fails too", async () => {
+    const { post, script, provider } = await start();
+    const dialog = await toPredictionQuestion(post);
+    const calls = provider.generateLearningQuestion.mock.calls.length;
+    script.failNext = 1;
+    const recovered = await dialog.act("clarify");
+    expect(recovered.status).toBe(200);
+    expect(recovered.body.support.clarifications).toBe(1);
+    expect(provider.generateLearningQuestion.mock.calls).toHaveLength(calls + 2);
+    script.failNext = 2;
+    const failed = await dialog.act("hint");
+    expect(failed.status).toBe(502);
+    expect(provider.generateLearningQuestion.mock.calls).toHaveLength(calls + 4);
+  });
+
   it("does not count a failed provider call; the retry of the same action then counts once", async () => {
     const { post, script } = await start();
     const dialog = await toPredictionQuestion(post);
     const actionId = randomUUID();
-    script.failNext = true;
+    script.failNext = 2;
     const failed = await dialog.act("clarify", { actionId });
     expect(failed.status).toBe(502);
     const retried = await dialog.act("clarify", { actionId });

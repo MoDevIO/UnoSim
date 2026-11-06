@@ -65,7 +65,11 @@ function recordingProvider(inner: LLMProvider) {
   return { provider, raw };
 }
 
-type Check = { readonly id: string; readonly passed: boolean; readonly detail: string };
+/**
+ * `application` checks decide the outcome: what the learner receives. `model` checks are diagnostics of the
+ * provider's own judgement, which the application corrects with the reviewed reference.
+ */
+type Check = { readonly id: string; readonly layer: "application" | "model"; readonly passed: boolean; readonly detail: string };
 
 async function startServer(provider: LLMProvider) {
   const app = express();
@@ -145,6 +149,7 @@ const namesResult = (text: string) => NAMES_RESULT.some((pattern) => pattern.tes
 type Post = Awaited<ReturnType<typeof startServer>>["post"];
 type Raw = ReturnType<typeof recordingProvider>["raw"];
 type CheckFn = (id: string, passed: boolean, detail: string) => void;
+const layerOf = (id: string): Check["layer"] => (id.startsWith("model-") ? "model" : "application");
 
 function lastModelRating(raw: Raw): { readonly rating?: number; readonly feedback?: string } {
   const last = [...raw].reverse().find(({ kind }) => kind === "dialog")?.result as { answerRating?: number; feedback?: string } | undefined;
@@ -196,7 +201,7 @@ async function checkSupportCycle(post: Post, credential: string, model: string, 
 async function runSample(post: Post, credential: string, model: string, raw: Raw) {
   const log: unknown[] = [];
   const checks: Check[] = [];
-  const check: CheckFn = (id, passed, detail) => checks.push({ id, passed, detail });
+  const check: CheckFn = (id, passed, detail) => checks.push({ id, layer: layerOf(id), passed, detail });
   await checkGrading(post, credential, model, raw, log, check);
   await checkSupportCycle(post, credential, model, log, check);
   return { log, checks, models: [...new Set(raw.map(({ model: used }) => used))] };
@@ -211,9 +216,20 @@ function technicalFailure(error: unknown): string {
 }
 
 function sampleSummary(sample: number, checks: readonly Check[]): string {
-  const failed = checks.filter(({ passed }) => !passed).map(({ id }) => id);
-  const passed = `${checks.length - failed.length}/${checks.length} checks passed`;
-  return failed.length === 0 ? `sample ${sample}: ${passed}` : `sample ${sample}: ${passed} (failed: ${failed.join(", ")})`;
+  const application = checks.filter(({ layer }) => layer === "application");
+  const failed = application.filter(({ passed }) => !passed).map(({ id }) => id);
+  const model = checks.filter(({ layer }) => layer === "model");
+  const modelFailed = model.filter(({ passed }) => !passed).map(({ id }) => id);
+  const summary = `sample ${sample}: application ${application.length - failed.length}/${application.length}`;
+  const failedPart = failed.length === 0 ? "" : ` (failed: ${failed.join(", ")})`;
+  const modelPart = `; model ${model.length - modelFailed.length}/${model.length}${modelFailed.length === 0 ? "" : ` (wrong: ${modelFailed.join(", ")})`}`;
+  return summary + failedPart + modelPart;
+}
+
+/** A provider error in any step makes the sample technical: it says nothing about the application's behavior. */
+function providerFailure(log: readonly unknown[]): string | undefined {
+  const failed = log.find((entry) => ((entry as { status?: number }).status ?? 0) >= 500) as { status: number; body?: { error?: { code?: string } } } | undefined;
+  return failed ? `${failed.status} ${failed.body?.error?.code ?? ""}`.trim() : undefined;
 }
 
 /** Runs every sample; a failed check makes the run fail, a technical failure inconclusive. */
@@ -226,9 +242,14 @@ async function runSamples(options: Options, credential: string, report: Record<s
     for (let sample = 1; sample <= options.samples; sample += 1) {
       try {
         const result = await runSample(post, credential, options.model, raw);
-        samples.push({ sample, ...result });
-        console.log(sampleSummary(sample, result.checks));
-        if (result.checks.some(({ passed }) => !passed)) outcome = "fail";
+        const technical = providerFailure(result.log);
+        samples.push({ sample, ...(technical ? { technicalFailure: technical } : {}), ...result });
+        console.log(technical ? `sample ${sample}: technical failure ${technical} during the dialog` : sampleSummary(sample, result.checks));
+        if (technical) {
+          if (outcome !== "fail") outcome = "inconclusive";
+        } else if (result.checks.some(({ layer, passed }) => layer === "application" && !passed)) {
+          outcome = "fail";
+        }
       } catch (error) {
         const failure = technicalFailure(error);
         samples.push({ sample, technicalFailure: failure });

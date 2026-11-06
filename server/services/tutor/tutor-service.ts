@@ -927,32 +927,15 @@ export class TutorService {
       const sketchText = tutorSketchText(input.code, source);
       const model = await this.resolveModel(input.requestedModel, requestCredential, input.signal);
       throwIfTutorRequestAborted(input.signal);
-      const providerResult = await this.provider.generateLearningQuestion(
-        {
-          model,
-          systemPrompt: TUTOR_SYSTEM_PROMPT,
-          userPrompt: buildSupportPrompt({
-            kind: input.kind,
-            question: input.question,
-            code: sketchText,
-            context: buildTutorContext(input.code, source),
-            earlierClarifications: input.earlierClarifications,
-            ...(input.learnerQuestion ? { learnerQuestion: input.learnerQuestion } : {}),
-            ...(input.reference ? { reference: input.reference } : {}),
-          }),
-        },
-        requestCredential,
-        ...(input.signal ? [input.signal] : []),
-      );
-      throwIfTutorRequestAborted(input.signal);
-      const validated = validateLearningQuestion(providerResult.result);
-      const explanation = validateSupportExplanation(validated, {
-        kind: input.kind,
-        question: input.question,
-        earlierClarifications: input.earlierClarifications,
-        ...(input.reference ? { reference: input.reference } : {}),
-      });
-      return { explanation, model: providerResult.model };
+      const attempt = () => this.requestSupportExplanation(input, model, requestCredential, sketchText, source);
+      // An invalid provider answer may be requested once more (LearningQuestions 9), never endlessly.
+      try {
+        return await attempt();
+      } catch (error) {
+        if (!(error instanceof TutorProviderError) || error.kind !== "invalid-response") throw error;
+        throwIfTutorRequestAborted(input.signal);
+        return attempt();
+      }
     }, input.signal);
   }
 
@@ -1250,6 +1233,40 @@ export class TutorService {
     const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
     throwIfTutorRequestAborted(signal);
     return result;
+  }
+
+  private async requestSupportExplanation(
+    input: TutorSupportExplanationInput,
+    model: string,
+    credential: string,
+    sketchText: string,
+    source: TutorSource,
+  ): Promise<{ readonly explanation: string; readonly model: string }> {
+    const providerResult = await this.provider.generateLearningQuestion(
+      {
+        model,
+        systemPrompt: TUTOR_SYSTEM_PROMPT,
+        userPrompt: buildSupportPrompt({
+          kind: input.kind,
+          question: input.question,
+          code: sketchText,
+          context: buildTutorContext(input.code, source),
+          earlierClarifications: input.earlierClarifications,
+          ...(input.learnerQuestion ? { learnerQuestion: input.learnerQuestion } : {}),
+          ...(input.reference ? { reference: input.reference } : {}),
+        }),
+      },
+      credential,
+      ...(input.signal ? [input.signal] : []),
+    );
+    throwIfTutorRequestAborted(input.signal);
+    const explanation = validateSupportExplanation(validateLearningQuestion(providerResult.result), {
+      kind: input.kind,
+      question: input.question,
+      earlierClarifications: input.earlierClarifications,
+      ...(input.reference ? { reference: input.reference } : {}),
+    });
+    return { explanation, model: providerResult.model };
   }
 
   async getAvailableModels(credential: string | undefined, signal?: AbortSignal): Promise<readonly string[]> {
