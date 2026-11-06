@@ -2022,8 +2022,13 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   vollständigen Stichproben. Live-Ergebnis vor diesen Korrekturen: In allen
   vollständig gelaufenen Stichproben lieferte die Anwendung „1“ und „200 = 1“
   als richtig und „0“ als falsch aus, während das Modell selbst „200 = 1“
-  durchweg ablehnte. Eine vollständige Live-Abnahme des korrigierten Stands
-  steht aus.
+  durchweg ablehnte. Am Stand mit den Korrekturen N1–N5 (2026-11-06,
+  `a9d6d2844`): mit `mistralai-mistral-small-4-119b-2603` (kein Zielmodell)
+  3 von 3 Stichproben mit 12/12 Anwendungsprüfungen, Ergebnis „pass“ (das
+  Modell selbst lehnte „1“ bzw. „200 = 1“ in jeder Stichprobe mindestens einmal
+  ab). Mit dem Zielmodell `qwen3-omni-30b-a3b-instruct` (Automatik) endeten alle
+  3 Stichproben mit `504 PROVIDER_TIMEOUT`, Ergebnis „inconclusive“. Die
+  Live-Abnahme mit dem Zielmodell steht damit weiter aus.
   Vorhandene Tutor-Route-Tests und Evaluationsinfrastruktur erweitern, keine
   separate zweite Fachlogik bauen. GUI-nahe Session-/Kursbindung mit allen
   Aktionen durchspielen: 2 Klärungen → Skip, 3 Antworten → freiwilliger Abruf,
