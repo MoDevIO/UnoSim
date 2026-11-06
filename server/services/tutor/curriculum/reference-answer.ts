@@ -89,12 +89,42 @@ export function codeContainsLine(code: string, line: string): boolean {
   return containsTokens(codeTokens(code), codeTokens(line));
 }
 
-const TOKEN = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[A-Za-z_]\w*|\d[\w.]*|<<=|>>=|<<|>>|&&|\|\||\+\+|--|->|::|[-+*/%&|^!=<>]=|\S/g;
+/** The kinds of C++ tokens, tried in this order at each position; the last one takes any other character. */
+const TOKEN_PATTERNS = [
+  /"(?:\\.|[^"\\])*"/y,
+  /'(?:\\.|[^'\\])*'/y,
+  /[A-Za-z_]\w*/y,
+  /\d[\w.]*/y,
+  /<<=|>>=|<<|>>|&&|\|\||\+\+|--|->|::/y,
+  /[-+*/%&|^!=<>]=/y,
+  /\S/y,
+];
 const LITERAL = /^(?:\d[\w.]*|'(?:\\.|[^'\\])*'|true|false|HIGH|LOW)$/;
 const ASSUMED_VARIABLE = /^\s*([A-Za-z_]\w*)\s*=/;
 
 function codeTokens(code: string): string[] {
-  return stripComments(code).match(TOKEN) ?? [];
+  const text = stripComments(code);
+  const tokens: string[] = [];
+  let position = 0;
+  while (position < text.length) {
+    if (/\s/.test(text[position]!)) {
+      position += 1;
+      continue;
+    }
+    const token = nextToken(text, position);
+    tokens.push(token);
+    position += token.length;
+  }
+  return tokens;
+}
+
+function nextToken(text: string, position: number): string {
+  for (const pattern of TOKEN_PATTERNS) {
+    pattern.lastIndex = position;
+    const match = pattern.exec(text);
+    if (match) return match[0];
+  }
+  return text[position]!;
 }
 
 function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
