@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { wsMessageSchema, type WSMessage } from "@shared/schema";
 import { Logger } from "@shared/logger";
 import { getWebSocketManager, type ConnectionState } from "@/lib/websocket-manager";
@@ -23,11 +23,15 @@ const logger = new Logger("WebSocketHook");
  * 3. All messages flow through this single connection
  * 4. Type `__wsManager().getState()` in console to check state
  */
-export function useWebSocket() {
+export function useWebSocket({ receiveMessages = true }: { readonly receiveMessages?: boolean } = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
-  const [messageQueue, setMessageQueue] = useState<WSMessage[]>([]);
+  // The queue lives in a ref: consuming it must not set state. Emptying a state queue raced with
+  // the appends still pending at a lower priority; React re-applied them and the same messages
+  // were processed again, after a Stop in a loop until "Maximum update depth exceeded".
+  const queueRef = useRef<WSMessage[]>([]);
+  const [queueVersion, setQueueVersion] = useState(0);
   const [hasEverConnected, setHasEverConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   
@@ -62,7 +66,7 @@ export function useWebSocket() {
     });
     
     // Subscribe to messages
-    const unsubMessage = manager.on("message", (data: WSMessage) => {
+    const unsubMessage = !receiveMessages ? () => {} : manager.on("message", (data: WSMessage) => {
       if (!isMountedRef.current) return;
       
       try {
@@ -70,8 +74,8 @@ export function useWebSocket() {
         const validated = wsMessageSchema.parse(data);
         logger.debug(`[WS HOOK] Message received: ${validated.type}`);
         
-        // Add to queue instead of replacing
-        setMessageQueue((prev) => [...prev, validated]);
+        queueRef.current.push(validated);
+        setQueueVersion((version) => version + 1);
         setLastMessage(validated);
       } catch (error) {
         logger.error(`[WS HOOK] Invalid message schema: ${error}`);
@@ -98,7 +102,7 @@ export function useWebSocket() {
       // The manager persists across component lifecycles.
       // Disconnect only happens on page unload or explicit user action.
     };
-  }, []);
+  }, [receiveMessages]);
 
   /**
    * Send a message through the WebSocket
@@ -129,12 +133,11 @@ export function useWebSocket() {
     return sent;
   }, []);
 
-  // Function to consume and clear the message queue
-  const consumeMessages = useCallback(() => {
-    const messages = [...messageQueue];
-    setMessageQueue([]);
-    return messages;
-  }, [messageQueue]);
+  // The messages queued so far; a new array whenever messages arrive (the version marks every change of the ref).
+  const messageQueue = useMemo(() => [...queueRef.current], [queueVersion]);
+
+  /** Takes every queued message out of the queue, each exactly once. */
+  const consumeMessages = useCallback(() => queueRef.current.splice(0), []);
 
   return {
     isConnected,

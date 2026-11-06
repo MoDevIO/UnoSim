@@ -528,18 +528,17 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
     };
   }, []);
 
-  // Moved messageQueue consumer (preserves original behaviour, no logic change)
+  // Takes the queued messages out once and logs each before it is processed.
   useEffect(() => {
     if (messageQueue.length === 0) return;
 
-    // Log all messages to debug console BEFORE consuming them
-    messageQueue.forEach((msg) => {
+    const messages = consumeMessages();
+
+    for (const msg of messages) {
       // Events of a browser run are fed into this stream by the page itself; they did not come from the server.
       const fromBrowser = getRuntimeHub().isBrowserEvent(msg);
       addDebugMessage(fromBrowser ? "browser" : "server", msg.type || "unknown", JSON.stringify(msg, null, 2), fromBrowser ? "worker" : "websocket");
-    });
-
-    const messages = consumeMessages();
+    }
 
     for (const message of messages) {
       processMessage(message);
