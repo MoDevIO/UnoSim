@@ -9,6 +9,7 @@ import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { createTutorService } from "../../../server/services/tutor/tutor-service-factory";
 import { TutorSupportStore } from "../../../server/services/tutor/learning-support-store";
 import { TutorProviderError, type LLMProviderRequest } from "../../../server/services/tutor/llm-provider";
+import { ExamplesError } from "../../../server/services/examples/examples-error";
 import {
   IT064_CONCEPT_QUESTION,
   IT064_PREDICTION_QUESTION,
@@ -112,7 +113,7 @@ async function start(script: Partial<Script> = {}) {
     });
     return { status: response.status, body: await response.json() as Record<string, any> };
   };
-  return { post, provider, script: fullScript, url: base, storeRuns, responses };
+  return { post, provider, script: fullScript, url: base, storeRuns, responses, resolver };
 }
 
 const course = { repository: "ttbombadil/unosim-examples", ref: "main", revision: "6".repeat(40), exampleId: "it06-04-binaerzahl" };
@@ -579,5 +580,32 @@ describe("learning support over HTTP: follow-up review of 73fcc08b0", () => {
       expect(dialog.state.support.answerAttempts).toBe(0);
     }
     expect(dialog.state.support).toMatchObject({ clarifications: 2, canSkip: true });
+  });
+
+  it("N4: asks for a new question when the Course source is back for a question asked without it, and commits nothing", async () => {
+    const { post, resolver } = await start();
+    resolver.resolveTutorContent.mockRejectedValueOnce(new ExamplesError("SOURCE_UNAVAILABLE", "simulated outage"));
+    const free = await post("/api/tutor/question", { code: IT064_SKETCH, credential: "key", courseContent: course, learningSupport: true });
+    expect(free.status).toBe(200);
+    expect(free.body.courseContentSession).toBeUndefined();
+    const binding = { supportSession: free.body.support.session, questionHandle: free.body.support.questionHandle };
+    // The browser has no Course session yet, so it sends the Course selection again; the source answers now.
+    for (const [route, extra] of [
+      ["/api/tutor/support", { action: "hint" }],
+      ["/api/tutor/dialog", { question: free.body.question, answer: "Damit die Ausgabe startet." }],
+    ] as const) {
+      const recovered = await post(route, { code: IT064_SKETCH, credential: "key", history: [], courseContent: course, ...binding, actionId: randomUUID(), ...extra });
+      expect(recovered.status).toBe(400);
+      expect(recovered.body.error.code).toBe("SUPPORT_SESSION_INVALID");
+      expect(recovered.body.courseContentSession).toBeUndefined();
+    }
+    // Without Course Content the free dialog itself keeps working.
+    const stillFree = await post("/api/tutor/support", { code: IT064_SKETCH, credential: "key", history: [], ...binding, action: "hint", actionId: randomUUID() });
+    expect(stillFree.status).toBe(200);
+    expect(stillFree.body.support.clarifications).toBe(0);
+    // A new question pairs the support session with the recovered Course session, and both work together.
+    const dialog = await openDialog(post);
+    expect((await dialog.act("hint")).status).toBe(200);
+    expect((await dialog.act("hint")).status).toBe(200);
   });
 });

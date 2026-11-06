@@ -20,6 +20,7 @@ import {
   withAnswerAttempt,
   withClarification,
   type SupportQuestion,
+  type SupportSessionView,
   type SupportUpdate,
   type TutorSupportStore,
 } from "../services/tutor/learning-support-store";
@@ -50,10 +51,33 @@ export interface TutorSupportContext {
   readonly logger: Pick<Logger, "warn" | "error">;
 }
 
-/** Why a support action cannot run on the server's state; mapped to a 409 without counting anything. */
+/**
+ * Why a support action cannot run on the server's state; answered without counting or committing anything.
+ * `SUPPORT_SESSION_INVALID` (400) asks for a new learning question, the others (409) for the current one.
+ */
 class SupportActionRejected extends Error {
-  constructor(readonly code: "SUPPORT_CONFLICT" | "SUPPORT_LOCKED", message: string) {
+  constructor(readonly code: "SUPPORT_CONFLICT" | "SUPPORT_LOCKED" | "SUPPORT_SESSION_INVALID", message: string) {
     super(message);
+  }
+
+  get status(): 400 | 409 {
+    return this.code === "SUPPORT_SESSION_INVALID" ? 400 : 409;
+  }
+}
+
+/**
+ * The support session is bound to the Course session it was opened with (review R5). A session opened while
+ * the Course source was unavailable is bound to the free Tutor; once the source answers again, the request
+ * brings Course Content that is new to this question. The question then belongs to another context, so the
+ * learner starts a new question instead of getting a success whose Course session the support session would
+ * reject afterwards (review N4). Nothing is committed for such a request.
+ */
+function checkCourseBinding(view: SupportSessionView, content: TutorRequestContent | undefined): void {
+  if (view.courseSession === null && content !== undefined && content.session === undefined) {
+    throw new SupportActionRejected("SUPPORT_SESSION_INVALID", "Der Kursinhalt ist wieder verfügbar. Bitte eine neue Lernfrage anfordern.");
+  }
+  if (view.courseSession !== (content?.session ?? null)) {
+    throw new SupportActionRejected("SUPPORT_CONFLICT", "Lernhilfe und Kurs-Kontext gehören zu verschiedenen Dialogen.");
   }
 }
 
@@ -173,9 +197,7 @@ async function runSupportAction<T>(
     const outcome = await context.supportStore.run(identity, request.supportSession, request.actionId, requestFingerprint(request), async (view) => {
       // Aborted while waiting in the session's queue: nothing runs and nothing is applied (review R6).
       signal.throwIfAborted();
-      if (view.courseSession !== (content?.session ?? null)) {
-        throw new SupportActionRejected("SUPPORT_CONFLICT", "Lernhilfe und Kurs-Kontext gehören zu verschiedenen Dialogen.");
-      }
+      checkCourseBinding(view, content);
       const result = await run(view);
       signal.throwIfAborted();
       return result;
@@ -197,7 +219,7 @@ async function runSupportAction<T>(
   } catch (error) {
     if (signal.aborted) return;
     if (error instanceof SupportActionRejected) {
-      responseError(res, 409, error.code, error.message);
+      responseError(res, error.status, error.code, error.message);
       return;
     }
     if (error instanceof TutorProviderError) {

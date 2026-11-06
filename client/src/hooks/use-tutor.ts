@@ -117,7 +117,7 @@ function getErrorMessage(body: unknown): string {
     ["COURSE_CONTENT_STALE", "The course content was updated. Reload the example from the Examples menu to continue."],
     ["SUPPORT_LOCKED", "This action is not available for the question yet."],
     ["SUPPORT_CONFLICT", "The question has changed in the meantime. Continue with the current question."],
-    ["SUPPORT_SESSION_INVALID", "The learning session has expired. Start a new learning question."],
+    ["SUPPORT_SESSION_INVALID", "The learning session has expired or the course content is available again. Start a new learning question."],
   ]);
   return errorMessages.get(getErrorCode(body) ?? "") ?? "The Tutor request failed.";
 }
