@@ -361,15 +361,20 @@ reference:
   explanation: "Im ersten Durchlauf ist i = 7, also 1 << 7 = 128. 200 & 128 = 128, und 128 && 1 ist wahr: Serial.print gibt 1 aus."
   accept: ["1", "200 = 1"]          # optional, short answers that are certainly correct
   assumptions: ["a = 200"]          # optional, values the question itself sets
-  requiresCode:                     # required, the complete lines the answer depends on, in order
+  requiresCode:                     # required, the code lines the answer depends on, in order
     - "for (int i = 7; i >= 0; i--) {"
     - "Serial.print(a & (1 << i) && 1);"
+  # reviewedCode: "..."             # Topic questions only (required there): the complete reviewed program
 ~~~
 
 `answer` (300), `explanation` (1 500), up to 8 `accept` entries (120), up to 6
 `assumptions` (160) and 1 to 8 `requiresCode` lines (160) are bounded,
 URL-free and control-character free; a code block or a replacement sketch makes
-the reference invalid. The server looks the reference up by the exact text of
+the reference invalid. A reference is bound to the complete program it was
+reviewed for: a focus reference to its Example (it must not carry
+`reviewedCode`), a Topic reference to its required `reviewedCode` (at most
+8 000 characters, line breaks and tabs as the only control characters), which
+must contain every `requiresCode` entry. The server looks the reference up by the exact text of
 the asked question. `accept` is no universal rubric: an answer listed there
 gets 5 with a confirming feedback, and a single number that contradicts a
 numeric `answer` gets at most 2 with a neutral hint; when the reference decides,
@@ -382,11 +387,15 @@ the existing atomic Tutor-validation boundary and never invalidates otherwise
 valid Examples.
 
 Reference applicability is checked against the current editor/project code
-(every `requiresCode` entry must still be a complete line of the code, outside
-comments, whitespace-insensitive, in the given order; a changed line such as a
-negated expression or another loop start makes the reference inapplicable) and
-the question's explicit assumptions, not merely the immutable Example
-revision or the presence of a variable name. Editing `a = 37` to `a = 200`
+and the question's explicit assumptions, not merely the immutable Example
+revision or the presence of a variable name: outside comments and spacing, the
+current program, with every project file, must equal the reviewed program token
+for token. The only allowed difference is the literal value assigned to a
+variable the question itself sets (`assumptions`, e.g. `byte a = 37;` edited to
+`byte a = 200;` for `a = 200`). Any other change, such as a negated expression,
+another loop start, a moved line or an inserted `i = 0;` between otherwise
+unchanged lines, makes the reference inapplicable, because whether it still
+holds cannot be judged safely. Editing `a = 37` to `a = 200`
 must not leave a reference for the old value active. A prediction question
 explicitly assuming `a = 200` must use that assumption even when the Example
 default is 37. Stale references must not reject correct learner answers or be

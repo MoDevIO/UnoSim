@@ -12,7 +12,9 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   reviewed reference answer with explanation can be requested. None of these
   is rated or counts as understanding. The server keeps the counters, so a
   retry or a parallel request does not count twice. Course content can add
-  reference answers with annotation and Topic `schemaVersion: 3`.
+  reference answers with annotation and Topic `schemaVersion: 3`; a reference
+  applies only while the learner's program is the reviewed one, apart from the
+  value the question itself sets.
 
 - I/O Registry now has **Programmed Pins (n)**, **All Pins**, and **Pin Infos**
   tabs. The usage views retain runtime provenance, conflict markers, and

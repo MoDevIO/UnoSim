@@ -1877,6 +1877,12 @@ teilweise erbracht und sonst offen; KI:connect antwortete ab 2026-11-06 14:00
 auf Generierungen nur noch mit Timeouts. Die Liste ist die zentrale
 Abarbeitungsliste für diese Änderung. Die drei weiteren Tutor-/Content-SSOTs
 verweisen darauf, statt eigene konkurrierende Fortschrittslisten zu führen.
+Die Nachprüfung am Stand `73fcc08b0` bestätigte R1–R9 und fand fünf Restfälle
+(N1–N5: Referenz trotz eingefügter Zeile, verlorene späte Antwort bei normalen
+Topics, erneute Verständnisnachfragen als Antwort, Lernhilfe nach Erholung der
+Kursquelle, verdrängte verbrauchte Aktions-IDs). Alle fünf sind korrigiert und
+mit Regressionstests belegt, die am Stand `73fcc08b0` scheitern; die erneute
+Abnahme durch das Review steht aus.
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
 passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-Qualität.
 
@@ -1909,7 +1915,13 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   *Review R5, R6, R7 korrigiert:* Lernhilfe-Session fest an die Course-Session
   gebunden, Abbruch in der Warteschlange vor Ausführung und Übernahme geprüft,
   verbrauchte Aktions-IDs über den Ergebnis-Cache hinaus gesperrt; Zähler
-  sättigen bei 3/2. Erneute Abnahme offen.
+  sättigen bei 3/2. *Nachprüfung N4, N5 korrigiert:* Eine während eines
+  Kursausfalls frei gebundene Lernhilfe nimmt nach Erholung der Kursquelle
+  keinen neuen Kurs-Kontext an, sondern verlangt ohne Zählung und ohne neue
+  Course-Session eine neue Lernfrage (`SUPPORT_SESSION_INVALID`); ohne
+  Kursinhalt läuft der freie Dialog weiter. Verbrauchte Aktions-IDs werden nie
+  vergessen; nach 4 096 Aktionen nimmt die Session keine neue Aktion mehr an
+  und verlangt eine neue Lernfrage. Erneute Abnahme offen.
   *Belege:* `shared/tutor.ts`, `shared/tutor-support.ts`,
   `server/services/tutor/learning-support-store.ts`,
   `server/routes/tutor-support.routes.ts`; HTTP-Tests für Kompatibilität,
@@ -1929,7 +1941,14 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   falschem JSON zurück; korrigiert durch Code-Stellen und Annahmen der Referenz
   als Bezug, genaues JSON-Format und eine kontrollierte Neuanforderung
   (danach 6 von 6 Klärungen am richtigen Ausdruck, keine mit Ergebnis).
-  Erneute Abnahme offen.
+  *Nachprüfung N3 korrigiert:* Eingaben werden auf ihren Kern reduziert
+  (Kleinschreibung, ohne Satzzeichen und Füllwörter wie „noch“, „immer“,
+  „wirklich“, „genau“, „da“) und nach ihrer Struktur eingeordnet: verneintes
+  Wissen ist Hilfe; verneintes Verstehen, eine an den Tutor gerichtete
+  Erklärbitte und eine Frage nach der Aufgabe sind Klärungen. Wiederholte und
+  umformulierte Nachfragen („Ich verstehe die Frage immer noch nicht.“, „Was soll
+  ich da genau machen?“) zählen damit als Klärung; ähnlich klingende Antworten
+  bleiben Antworten. Erneute Abnahme offen.
   *Belege:* `learning-support.ts` (Einordnung getippter Eingaben, Prüfung auf
   Code, erkennbare Referenzantwort und wiederholte Klärung),
   `learning-support.test.ts`, HTTP-Tests. Die fachliche Qualität der
@@ -1940,9 +1959,15 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Zahlenantworten, „Ich weiß nicht“, Meta-Fragen und ausgebliebene Provider-
   Antworten ergänzen; vorzeitige Lösung und falsche Aufgabenprämissen prüfen.
 - [ ] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
-  *Review R1, R3 korrigiert:* `requiresCode` ist Pflicht und verlangt
-  vollständige, unveränderte Codezeilen in Reihenfolge; entscheidet die
-  Referenz, gilt ihr Feedback statt des Modelltexts. Erneute Abnahme offen.
+  *Review R1, R3 korrigiert:* entscheidet die Referenz, gilt ihr Feedback
+  statt des Modelltexts. *Nachprüfung N1 korrigiert:* Eine Referenz ist an das
+  vollständige geprüfte Programm gebunden (Fokusfrage: das Example selbst;
+  Topic-Frage: Pflichtfeld `reviewedCode`, das die `requiresCode`-Zeilen
+  enthalten muss). Sie gilt nur, solange das aktuelle Programm diesem Token für
+  Token entspricht (Kommentare und Abstände ausgenommen, alle Projektdateien
+  eingeschlossen); einzige erlaubte Änderung ist der Literalwert einer Variablen,
+  die die Frage selbst setzt (`assumptions`). Eine eingefügte Zeile wie `i = 0;`
+  macht die Referenz unanwendbar. Erneute Abnahme offen.
   *Belege:* Annotation- und Topic-Schema 3 (`reference-answer.ts`,
   `embedded-tutor-annotation.ts`, `curriculum-schema.ts`), Schema- und
   Anwendbarkeitstests; `npm run validate:tutor-course-content` akzeptiert IT06.4
@@ -1961,7 +1986,10 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
 - [ ] **TUT-05 – Wiederholung, Überspringen und Lernfortschritt anpassen.**
   *Review R2 korrigiert:* Die beantwortete Fokusfrage bleibt bei der
   Topic-Auswahl gebunden, sodass auch die richtige dritte Antwort auf die
-  letzte Fokusfrage verbucht wird. Erneute Abnahme offen.
+  letzte Fokusfrage verbucht wird. *Nachprüfung N2 korrigiert:* Dasselbe gilt
+  für normale Topics: Die gebundene Frage hält ihren Topic auch dann gewählt,
+  wenn er keine weitere Frage hat, sodass eine richtige spätere Antwort nach
+  zwei schwachen verbucht wird. Erneute Abnahme offen.
   *Belege:* `planRetry`/`leaveQuestion` im Planer, `leftQuestionIds` im
   Progression-Zustand; `learning-support-planning.test.ts` (Topic, freier
   Tutor, offener Abschluss), HTTP-Tests für den Lehrerfokus und das

@@ -222,7 +222,9 @@ Verständnisnachweis:
   Antwortfeld bekommt ebenfalls einen Hinweis und zählt nicht als Antwort.
 - **Show reference answer**: nach drei eigenen Antworten auf dieselbe Frage
   verfügbar, aber nur, wenn die Lehrkraft eine geprüfte Musterantwort
-  hinterlegt hat; sonst sagt der Tutor, dass es keine gibt.
+  hinterlegt hat und dein Programm noch das geprüfte ist (nur der Wert, den
+  die Frage selbst nennt, darf abweichen); sonst sagt der Tutor, dass es keine
+  passende gibt.
 - **Skip question**: nach zwei Erklärungen der Frage verfügbar; der Tutor
   stellt dann eine andere Frage.
 
