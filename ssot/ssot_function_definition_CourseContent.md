@@ -4,6 +4,10 @@ Status: current
 Zielrolle: feature-contract
 Scope: unified repository-controlled Examples and optional Tutor content
 
+> Planned extension (2026-11-06): section 6.4 describes reference answers for
+> the learning-support contract in LearningQuestions 3.10. It is not implemented
+> by this documentation change. Existing schema versions remain closed.
+
 This document is the normative contract for the single Course Content source.
 It complements the detailed Examples contract in
 ssot_function_definition_ExternalExamples.md and the Tutor behavior contract
@@ -287,13 +291,18 @@ as another program and no question applies. Without an applicable question the
 focus is paused: the free Tutor answers, no repository Topic takes over, and
 the focus resumes if the code returns.
 
-After a weak answer (rating 1 or 2) the same focus question is asked once more,
-and the provider's feedback carries the hint. A second weak answer moves on. A
+In the existing implementation, after a weak answer (rating 1 or 2) the same
+focus question is asked once more, and the provider's feedback carries the
+hint. A second weak answer moves on. The planned support cycle in
+LearningQuestions 3.10 replaces that limit: retrying and clarification retain
+the question identity; two learner-requested clarifications allow skipping,
+and three answer attempts allow the voluntary reference-answer request. A
 focus that ran out of questions is not reported as understood: the response's
 `focusProgress` distinguishes `active`, `completed`, `open` and `paused`, names
-the open areas, and the free Tutor receives their objectives. The focus text is
-fixed, so adaptive difficulty affects feedback and the free Tutor, not the
-question.
+the open areas, and the free Tutor receives their objectives. In the existing
+implementation the focus text is fixed, so adaptive difficulty affects feedback
+and the free Tutor, not the question. The planned learner-requested clarification
+may reword that question while preserving its identity and learning objective.
 
 Course Content and the Tutor use the C++ terms ([basic.def], [basic.start.static]):
 every variable definition is also a declaration; `int a;` is a definition without
@@ -322,6 +331,41 @@ activate. An unterminated or otherwise malformed marker has the same safe
 deterministic outcome: no teacher metadata is exposed or executed, and the
 Tutor capability falls back completely when validation cannot establish a
 valid annotation boundary.
+
+### 6.4 Planned reference-answer content (not implemented)
+
+The learning-support rules and thresholds are owned by
+[LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen).
+The implementation backlog is its section 21 (TUT-01 to TUT-08).
+Examples, Topics and built-in questions should support reviewed reference
+answers with an explanation, explicitly bound to the question and its
+applicable sketch/board/assumptions. References are bounded plain educational
+data, never repository prompts, executable expressions, templates or replacement
+sketches. Equivalent correct answers remain acceptable; a single literal
+answer is not a universal grading rubric.
+
+Adding these data requires an explicit versioned extension of annotation and
+Topic schemas, validators, loader, normalized question identity and authoring
+fixtures. Existing v1/v2 payloads MUST NOT silently accept new fields. Old
+content without references remains valid; a missing reference is not a Tutor
+bundle validation failure. Malformed newly declared reference data follows
+the existing atomic Tutor-validation boundary and never invalidates otherwise
+valid Examples.
+
+Reference applicability is checked against the current editor/project code
+and the question's explicit assumptions, not merely the immutable Example
+revision or the presence of a variable name. Editing `a = 37` to `a = 200`
+must not leave a reference for the old value active. A prediction question
+explicitly assuming `a = 200` must use that assumption even when the Example
+default is 37. Stale references must not reject correct learner answers or be
+shown as verified solutions. Where no applicable, supported reference exists,
+the Tutor reports that limitation rather than inventing an authoritative answer.
+
+Repository strategies cannot lower the application-owned clarification or
+answer-attempt thresholds, request an early solution, count assistance as
+mastery, or disable the regular no-answer-reveal rules. Reference fields are
+not question text: validators and guards must distinguish a legitimate,
+authorized reference answer from a question that reveals its own answer.
 
 ## 7. Tutor manifest and Tutor bundle atomicity
 
