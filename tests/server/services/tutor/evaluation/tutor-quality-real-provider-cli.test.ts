@@ -24,6 +24,11 @@ import { TutorProviderError, type LLMProvider } from "../../../../../server/serv
 // The fake provider rates every answer with the lower bound of the case's
 // expected.answerRating band (5 when the case declares none); it never inspects
 // prompt content.
+const SUPPORT_EXPLANATIONS = [
+  "Gemeint ist der allererste Schleifendurchlauf, in dem die Zählvariable ihren Startwert hat.",
+  "Schau nur auf den Serial.print-Aufruf innerhalb der Schleife: Gesucht ist ein einzelnes Zeichen.",
+];
+
 function fakeRatingFor(scenario: { readonly expected?: { readonly answerRating?: readonly [number, number] } }): 1 | 2 | 3 | 4 | 5 {
   return (scenario.expected?.answerRating?.[0] ?? 5) as 1 | 2 | 3 | 4 | 5;
 }
@@ -101,16 +106,22 @@ describe("Tutor Quality real-provider CLI contract", () => {
       let generationCalls = 0;
       for (const scenario of scenarios) {
         const rating = fakeRatingFor(scenario);
+        let explanations = 0;
         const provider: LLMProvider = {
           async listModels() {
             return ["pilot-model"];
           },
-          async generateLearningQuestion() {
+          async generateLearningQuestion({ userPrompt }) {
+            // http scenarios (R-SUP-E4): the IT06.4 focus concept question is answered well, so the scripted
+            // prediction answers reach their question; support actions get distinct explanations.
+            const support = !userPrompt.startsWith("Führe den sokratischen") && !userPrompt.startsWith("Erzeuge");
+            const concept = userPrompt.includes("Aktuelle Tutorfrage:\nWelche Aufgabe hat `1 << i`");
             return {
               model: "pilot-model",
               result: {
                 responseStyle: "normal" as const,
-                answerRating: rating,
+                answerRating: concept ? 5 : rating,
+                ...(support ? { feedback: SUPPORT_EXPLANATIONS[explanations++ % SUPPORT_EXPLANATIONS.length] } : {}),
                 question: "Welche konkrete Beobachtung ist im aktuellen Sketch belegt?",
               },
             };

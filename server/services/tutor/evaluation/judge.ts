@@ -110,7 +110,24 @@ function getString(value: unknown): string | undefined {
 }
 
 function isTutorTurn(value: unknown): value is TutorQualityTurn {
-  return isRecord(value) && (value.kind === "initial" || value.kind === "dialog");
+  return isRecord(value) && (value.kind === "initial" || value.kind === "dialog" || value.kind === "support");
+}
+
+/**
+ * Judge eligibility (R-SUP-E4): a rated answer (`dialog`) and an explanation of the asked question
+ * (`clarify`, `hint`). A `reveal` shows the reviewed reference and a `skip` asks a new question; neither is
+ * judged. For an explanation, the learner's request stands in for the answer.
+ */
+const SUPPORT_REQUESTS: Readonly<Partial<Record<string, string>>> = {
+  clarify: "Ich bitte darum, die Frage verständlicher zu erklären.",
+  hint: "Ich bitte um einen Hinweis zur Frage.",
+};
+
+function judgedExchange(turn: { readonly input: TutorQualityTurn; readonly askedQuestion?: string }): { readonly question: string; readonly learnerAnswer: string } | undefined {
+  if (turn.input.kind === "dialog") return { question: turn.input.question, learnerAnswer: turn.input.answer };
+  if (turn.input.kind !== "support") return undefined;
+  const request = SUPPORT_REQUESTS[turn.input.action];
+  return request && turn.askedQuestion ? { question: turn.askedQuestion, learnerAnswer: request } : undefined;
 }
 
 export function buildJudgeInput(
@@ -119,7 +136,9 @@ export function buildJudgeInput(
 ): TutorQualityJudgeInput | undefined {
   if (transcript.executionStatus !== "completed" || !scenario.judge) return undefined;
   const turn = transcript.turns.at(-1);
-  if (!turn || !isTutorTurn(turn.input) || turn.input.kind !== "dialog" || !isRecord(turn.finalTutorResult)) return undefined;
+  if (!turn || !isTutorTurn(turn.input) || !isRecord(turn.finalTutorResult)) return undefined;
+  const exchange = judgedExchange(turn);
+  if (!exchange) return undefined;
   const feedback = getString(turn.finalTutorResult.feedback);
   const followUpQuestion = getString(turn.finalTutorResult.question);
   if (!feedback || !followUpQuestion) return undefined;
@@ -129,8 +148,8 @@ export function buildJudgeInput(
   return {
     sketch: scenario.sketch,
     facts: scenario.judge.facts,
-    question: turn.input.question,
-    learnerAnswer: turn.input.answer,
+    question: exchange.question,
+    learnerAnswer: exchange.learnerAnswer,
     tutor: {
       feedback,
       followUpQuestion,
