@@ -441,6 +441,11 @@ value.
 - Unit tests in `sandbox-runner-control-ownership.test.ts` fix the order:
   no `docker pause` or `SIGSTOP` before the acknowledgement of the same pause
   number, the run ends after 5 s without it, and Stop drops the wait.
+- A further test pauses inside `delay(500)` and inside 50 calls of
+  `delayMicroseconds(10000)`, for 600 ms and at once, and requires each wait
+  to last at least its full simulated time and less than 300 ms more. While
+  both slept in wall-clock time, a pause counted as waiting: the test failed
+  in 3 of 3 Docker runs (`delay(500)` measured 16, 23 and 46 ms).
 
 ### Sandbox contract gate
 

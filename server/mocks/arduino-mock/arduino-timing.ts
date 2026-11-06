@@ -37,10 +37,6 @@ void checkStdinForPinCommands();
 
 export const ARDUINO_TIMING_AND_RANDOM = `
 // Timing Functions - with pause/resume support
-void delayMicroseconds(unsigned int us) { 
-    std::this_thread::sleep_for(std::chrono::microseconds(us)); 
-}
-
 // Simulated time in microseconds: real time since start minus all paused time.
 // millis() and micros() share it, so they never disagree.
 static unsigned long long simulatedMicros() {
@@ -58,6 +54,20 @@ unsigned long millis() {
 
 unsigned long micros() {
     return static_cast<unsigned long>(simulatedMicros());
+}
+
+// Waits until the simulated clock has advanced by us. A pause stops the clock,
+// so a wait it interrupts goes on for its remaining time after the resume.
+// Each sleep is at most the remaining simulated time, so it never overshoots.
+static void waitSimulatedMicros(unsigned long long us) {
+    const unsigned long long target = simulatedMicros() + us;
+    for (unsigned long long now = simulatedMicros(); now < target; now = simulatedMicros()) {
+        std::this_thread::sleep_for(std::chrono::microseconds(target - now));
+    }
+}
+
+void delayMicroseconds(unsigned int us) {
+    waitSimulatedMicros(us);
 }
 
 // Freezes the clock at its current value; returns that value in ms.

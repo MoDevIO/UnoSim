@@ -28,6 +28,10 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   and then dropped back (with a 500 ms pause: `223, 833, 343`). The runtime
   now freezes its clock before the server stops the process, and goes on from
   the frozen value after the resume.
+- **Legacy: a pause no longer shortens `delay()` and `delayMicroseconds()`.**
+  They slept in wall-clock time, so the paused time counted as waiting: a
+  `delay(1000)` cut by a pause could end after 169 ms of `millis()`. They now
+  wait in simulated time and go on with their remaining time after a resume.
 
 ## v2.0.0-beta.1 – 2026-10-24
 
