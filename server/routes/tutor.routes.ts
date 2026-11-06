@@ -3,7 +3,7 @@ import {
   tutorDialogRequestSchema,
   tutorModelsRequestSchema,
   tutorQuestionRequestSchema,
-} from "@shared/tutor";
+} from "@shared/tutor-requests";
 import { config } from "../config";
 import { Logger } from "@shared/logger";
 import { getTutorRateLimiter } from "../services/rate-limiter";

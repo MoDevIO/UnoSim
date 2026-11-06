@@ -13,8 +13,11 @@ import {
   type TutorFocusProgress,
   type TutorResponse,
   type TutorCourseContentContext,
+  type TutorSupportAction,
+  type TutorSupportState,
 } from "@shared/tutor";
 import type { BoardId } from "@shared/boards";
+import type { TutorReferenceView } from "@shared/tutor-support";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { refreshExternalExamplesCatalog, resolveTutorCourseContent, useExternalExamples } from "@/lib/external-examples";
@@ -44,6 +47,13 @@ export interface TutorPanelState {
   /** Where the learner stands in the teacher's focus; null without a focus. */
   readonly focusProgress: TutorFocusProgress | null;
   readonly history: readonly TutorDialogTurn[];
+  /** Everything the learner sees in order: answers, clarifications, hints, the reference answer and skips. */
+  readonly transcript: readonly TutorTranscriptEntry[];
+  /** Server-owned learning-support state of the asked question (LearningQuestions 3.10). */
+  readonly support: TutorSupportState | null;
+  /** Set when skipping ended the dialog because no further question was left. */
+  readonly completed: boolean;
+  readonly requestSupport: (action: TutorSupportAction, sketch: string | TutorSketch) => Promise<void>;
   readonly answer: string;
   readonly setAnswer: (value: string) => void;
   readonly submitAnswer: (sketch: string | TutorSketch) => Promise<void>;
@@ -63,6 +73,14 @@ export interface TutorSketch {
   readonly entryFile?: string;
   readonly board?: BoardId;
 }
+
+/** One entry of what the learner sees, in the order it happened. */
+export type TutorTranscriptEntry =
+  | { readonly kind: "turn"; readonly turn: TutorDialogTurn; readonly assisted?: true }
+  | { readonly kind: "clarification"; readonly question: string; readonly text: string; readonly learnerText?: string }
+  | { readonly kind: "hint"; readonly question: string; readonly text: string; readonly learnerText?: string }
+  | { readonly kind: "reference"; readonly question: string; readonly reference: TutorReferenceView }
+  | { readonly kind: "skip"; readonly question: string };
 
 const asTutorSketch = (sketch: string | TutorSketch): TutorSketch => (typeof sketch === "string" ? { code: sketch } : sketch);
 
@@ -85,6 +103,9 @@ function getErrorMessage(body: unknown): string {
     ["INVALID_PROVIDER_RESPONSE", "The Tutor service returned an invalid response."],
     ["INVALID_REQUEST", "The Tutor request is invalid."],
     ["COURSE_CONTENT_STALE", "The course content was updated. Reload the example from the Examples menu to continue."],
+    ["SUPPORT_LOCKED", "This action is not available for the question yet."],
+    ["SUPPORT_CONFLICT", "The question has changed in the meantime. Continue with the current question."],
+    ["SUPPORT_SESSION_INVALID", "The learning session has expired. Start a new learning question."],
   ]);
   return errorMessages.get(getErrorCode(body) ?? "") ?? "The Tutor request failed.";
 }
@@ -213,6 +234,16 @@ function buildDialogResponseUpdate(
   };
 }
 
+/** The id of a learner action; the same action (same question, kind and input) keeps its id until it succeeded. */
+function actionIdFor(pending: { current: { readonly key: string; readonly actionId: string } | null }, key: string): string {
+  if (pending.current?.key !== key) pending.current = { key, actionId: globalThis.crypto.randomUUID() };
+  return pending.current.actionId;
+}
+
+function supportBinding(support: TutorSupportState, actionId: string) {
+  return { supportSession: support.session, questionHandle: support.questionHandle, actionId };
+}
+
 function readConfiguredDifficulty(): TutorDifficulty {
   try {
     const stored = globalThis.localStorage?.getItem(TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY);
@@ -250,6 +281,11 @@ export function useTutor(
   const [question, setQuestion] = useState<TutorResponse | null>(null);
   const [focusProgress, setFocusProgress] = useState<TutorFocusProgress | null>(null);
   const [history, setHistory] = useState<readonly TutorDialogTurn[]>([]);
+  const [transcript, setTranscript] = useState<readonly TutorTranscriptEntry[]>([]);
+  const [support, setSupport] = useState<TutorSupportState | null>(null);
+  const [completed, setCompleted] = useState(false);
+  // A retry of the same action keeps its id, so the server counts it once (LearningQuestions R-SUP-1).
+  const pendingAction = useRef<{ readonly key: string; readonly actionId: string } | null>(null);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,6 +306,10 @@ export function useTutor(
     dialogCourseContent.current = undefined;
     setCourseContentSession(undefined);
     setHistory([]);
+    setTranscript([]);
+    setSupport(null);
+    setCompleted(false);
+    pendingAction.current = null;
     setQuestion(null);
     setFocusProgress(null);
     setAnswer("");
@@ -388,6 +428,7 @@ export function useTutor(
           difficulty: requestDifficulty,
           // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3).
           ...getCourseContentRequest(undefined, courseContent),
+          learningSupport: true,
         }),
       });
       const body: unknown = await response.json().catch(() => null);
@@ -396,6 +437,8 @@ export function useTutor(
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
       setQuestion(parsed.data);
+      setSupport(parsed.data.support ?? null);
+      setCompleted(false);
       setFocusProgress(parsed.data.focusProgress ?? null);
       setCourseContentSession(parsed.data.courseContentSession);
       setLastUsedModel(parsed.data.model);
@@ -454,6 +497,9 @@ export function useTutor(
     const submittedAnswer = answer.trim();
     const currentQuestion = question;
     const currentHistory = history;
+    const currentSupport = support;
+    const actionKey = currentSupport ? `${currentSupport.questionHandle}|answer|${submittedAnswer}` : "";
+    const binding = currentSupport ? supportBinding(currentSupport, actionIdFor(pendingAction, actionKey)) : {};
 
     setIsLoading(true);
     const controller = new AbortController();
@@ -474,6 +520,7 @@ export function useTutor(
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: effectiveDifficulty,
           ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
+          ...binding,
         }),
       });
       const body: unknown = await response.json().catch(() => null);
@@ -481,7 +528,28 @@ export function useTutor(
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
-      applyDialogResponse(parsed.data, buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession));
+      if (currentSupport) pendingAction.current = null;
+      if (parsed.data.support) setSupport(parsed.data.support);
+      const learnerInput = parsed.data.learnerInput ?? "answer";
+      if (learnerInput !== "answer") {
+        // A typed question about the question, or a request for help: no rating, the question stays (R-SUP-1).
+        setTranscript((current) => [...current, {
+          kind: learnerInput === "clarification" ? "clarification" : "hint",
+          question: currentQuestion.question,
+          text: parsed.data.feedback ?? "",
+          learnerText: submittedAnswer,
+        }]);
+        setCourseContentSession(parsed.data.courseContentSession ?? courseContentSession);
+        setAnswer("");
+        return;
+      }
+      const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
+      setTranscript((current) => [...current, {
+        kind: "turn",
+        turn: update.nextHistory.at(-1)!,
+        ...(currentSupport?.referenceShown ? { assisted: true as const } : {}),
+      }]);
+      applyDialogResponse(parsed.data, update);
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
@@ -491,7 +559,56 @@ export function useTutor(
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel]);
+  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel, support]);
+
+  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch) => {
+    if (!capabilities.canUseTutor || !question || !support) return;
+    setError(null);
+    const sketch = asTutorSketch(input);
+    if (!credential.trim()) {
+      setError("Enter your personal Tutor API key first.");
+      return;
+    }
+    const requestedModel = getRequestedModel(selectedModel, availableModels);
+    const currentQuestion = question;
+    const actionId = actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}`);
+    setIsLoading(true);
+    const controller = new AbortController();
+    activeTutorRequests.current.add(controller);
+    loadingRequest.current = controller;
+    try {
+      // Loaded on the first support action only; it is not part of the page's start.
+      const { sendTutorSupportAction, supportOutcome } = await import("@/lib/tutor-support-request");
+      const result = await sendTutorSupportAction({
+        ...sketchRequestFields(sketch),
+        history,
+        action,
+        credential,
+        ...(requestedModel ? { model: requestedModel } : {}),
+        difficulty: effectiveDifficulty,
+        ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
+        ...supportBinding(support, actionId),
+      }, controller.signal, getTutorFailure);
+      if (!result || controller.signal.aborted) return;
+      pendingAction.current = null;
+      setCourseContentSession(result.courseContentSession ?? courseContentSession);
+      if (result.focusProgress) setFocusProgress(result.focusProgress);
+      const outcome = supportOutcome(result, currentQuestion.question);
+      setTranscript((current) => [...current, outcome.entry]);
+      if (outcome.next !== undefined) {
+        setAnswer("");
+        setQuestion(outcome.next);
+        setCompleted(outcome.next === null);
+      }
+      setSupport(result.support ?? null);
+    } catch (requestError) {
+      if (controller.signal.aborted || isAbortError(requestError)) return;
+      setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
+    } finally {
+      activeTutorRequests.current.delete(controller);
+      finishLoading(controller);
+    }
+  }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel, support]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -529,6 +646,10 @@ export function useTutor(
     question,
     focusProgress,
     history,
+    transcript,
+    support,
+    completed,
+    requestSupport,
     answer,
     setAnswer,
     submitAnswer,
@@ -537,6 +658,10 @@ export function useTutor(
     error,
     generateQuestion,
   }), [
+    transcript,
+    support,
+    completed,
+    requestSupport,
     capabilities,
     config,
     credential,

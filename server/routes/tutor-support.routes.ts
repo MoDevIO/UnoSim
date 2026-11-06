@@ -1,13 +1,11 @@
 import type { Express, Request, Response } from "express";
+import type { TutorContentResult, TutorDialogTurn, TutorSupportState } from "@shared/tutor";
 import {
   tutorSupportRequestSchema,
-  type TutorContentResult,
-  type TutorDialogTurn,
   type TutorReferenceView,
   type TutorSupportRequest,
   type TutorSupportResponse,
-  type TutorSupportState,
-} from "@shared/tutor";
+} from "@shared/tutor-support";
 import type { BoardId } from "@shared/boards";
 import type { Logger } from "@shared/logger";
 import { config } from "../config";

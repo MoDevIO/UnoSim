@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
-import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
 import { boundedArray } from "./bounded-array";
 
 export const tutorModelSchema = z
@@ -112,32 +110,19 @@ export const tutorSupportStateSchema = z.object({
 export type TutorSupportState = z.infer<typeof tutorSupportStateSchema>;
 
 /** Binds an action to the server's support session and question; a retry repeats the same `actionId`. */
-const tutorSupportBindingFields = {
+export const tutorSupportBindingFields = {
   supportSession: z.uuid(),
   questionHandle: z.uuid(),
   actionId: z.uuid(),
 };
 
-export const tutorReferenceViewSchema = z.discriminatedUnion("status", [
-  z.object({
-    status: z.literal("available"),
-    answer: z.string().trim().min(1).max(300),
-    explanation: z.string().trim().min(1).max(1_500),
-    assumptions: boundedArray(z.string().trim().min(1).max(160), 6).optional(),
-  }).strict(),
-  z.object({
-    status: z.literal("unavailable"),
-    reason: z.enum(["no-reference", "not-applicable"]),
-  }).strict(),
-]);
-export type TutorReferenceView = z.infer<typeof tutorReferenceViewSchema>;
 
 function withDefaultResponseStyle(value: unknown): unknown {
   if (typeof value !== "object" || value === null || "responseStyle" in value) return value;
   return { ...value, responseStyle: "normal" };
 }
 
-const tutorContentFields = {
+export const tutorContentFields = {
   feedback: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxFeedbackChars).optional(),
   question: z.string().trim().min(1).max(2_000),
   topic: z.string().trim().min(1).max(120).optional(),
@@ -182,29 +167,7 @@ export function calculateNextTutorDifficulty(
   return clampTutorDifficulty(currentDifficulty + dampedStep);
 }
 
-export const tutorQuestionRequestSchema = z
-  .object({
-    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    /** Header files and entry file name of the project, as in `POST /api/compile`; `code` is the entry file. */
-    ...projectFilesRequestFields,
-    /** Board the sketch is written for; the Tutor's context then names it, its data type sizes and its pins. */
-    board: boardIdSchema.optional(),
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-    model: tutorModelSchema.optional(),
-    difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
-    courseContent: tutorCourseContentContextSchema.optional(),
-    courseContentSession: tutorCourseContentSessionSchema.optional(),
-    /** Opts into the learning-support cycle (LearningQuestions 3.10); the response then carries `support`. */
-    learningSupport: z.literal(true).optional(),
-  })
-  .strict()
-  .superRefine(rejectEntryHeaderCollision);
 
-export const tutorModelsRequestSchema = z
-  .object({
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-  })
-  .strict();
 
 export const tutorModelsResponseSchema = z
   .object({
@@ -242,51 +205,8 @@ export const tutorDialogTurnSchema = z.preprocess(
 
 export type TutorDialogTurn = z.infer<typeof tutorDialogTurnSchema>;
 
-export const tutorDialogRequestSchema = z
-  .object({
-    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    ...projectFilesRequestFields,
-    board: boardIdSchema.optional(),
-    history: boundedArray(tutorDialogTurnSchema, INPUT_LIMITS.tutor.maxHistoryEntries),
-    question: z.string().trim().min(1).max(2_000),
-    answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-    model: tutorModelSchema.optional(),
-    difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
-    courseContent: tutorCourseContentContextSchema.optional(),
-    courseContentSession: tutorCourseContentSessionSchema.optional(),
-    // Compatibility rule (LearningQuestions 9.1): without these three fields the dialog keeps the MVP behavior.
-    supportSession: tutorSupportBindingFields.supportSession.optional(),
-    questionHandle: tutorSupportBindingFields.questionHandle.optional(),
-    actionId: tutorSupportBindingFields.actionId.optional(),
-  })
-  .strict()
-  .superRefine(rejectEntryHeaderCollision)
-  .superRefine((value, context) => {
-    const bound = [value.supportSession, value.questionHandle, value.actionId].filter((field) => field !== undefined).length;
-    if (bound !== 0 && bound !== 3) {
-      context.addIssue({ code: "custom", path: ["supportSession"], message: "supportSession, questionHandle and actionId belong together" });
-    }
-  });
 
-/** An explicit support action on the asked question; it carries no learner answer (LearningQuestions 9.1). */
-export const tutorSupportRequestSchema = z
-  .object({
-    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    ...projectFilesRequestFields,
-    board: boardIdSchema.optional(),
-    history: boundedArray(tutorDialogTurnSchema, INPUT_LIMITS.tutor.maxHistoryEntries),
-    action: tutorSupportActionSchema,
-    ...tutorSupportBindingFields,
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-    model: tutorModelSchema.optional(),
-    difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
-    courseContent: tutorCourseContentContextSchema.optional(),
-    courseContentSession: tutorCourseContentSessionSchema.optional(),
-  })
-  .strict()
-  .superRefine(rejectEntryHeaderCollision);
-export type TutorSupportRequest = z.infer<typeof tutorSupportRequestSchema>;
+
 
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),
@@ -318,35 +238,3 @@ export const tutorResponseSchema = z.preprocess(
 );
 
 export type TutorResponse = z.infer<typeof tutorResponseSchema>;
-
-/** The next question after a skip; its learning metadata as in a question response. */
-const tutorNextQuestionSchema = z.object({
-  ...tutorContentFields,
-  responseStyle: z.literal("normal"),
-}).strict();
-
-/**
- * The result of a support action (LearningQuestions 9.1): `explanation` for clarify and hint, `reference` for
- * reveal, and for skip either the `next` question or `completed` with the open areas. None carries a rating.
- */
-export const tutorSupportResponseSchema = z.object({
-  action: tutorSupportActionSchema,
-  explanation: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxFeedbackChars).optional(),
-  reference: tutorReferenceViewSchema.optional(),
-  next: tutorNextQuestionSchema.optional(),
-  completed: z.literal(true).optional(),
-  focusProgress: tutorFocusProgressSchema.optional(),
-  support: tutorSupportStateSchema.optional(),
-  provider: z.string().min(1).max(64),
-  model: z.string().min(1).max(128),
-  courseContentSession: tutorCourseContentSessionSchema.optional(),
-}).strict().superRefine((value, context) => {
-  const issue = (message: string) => context.addIssue({ code: "custom", message });
-  if ((value.action === "clarify" || value.action === "hint") && value.explanation === undefined) issue(`${value.action} needs an explanation`);
-  if (value.action === "reveal" && value.reference === undefined) issue("reveal needs a reference view");
-  if (value.action !== "reveal" && value.reference !== undefined) issue("only reveal shows a reference");
-  if (value.action === "skip" && (value.next === undefined) === (value.completed === undefined)) issue("skip needs either next or completed");
-  if (value.action !== "skip" && (value.next !== undefined || value.completed !== undefined)) issue("only skip moves to another question");
-  if (value.action !== "skip" && value.support === undefined) issue(`${value.action} needs the support state`);
-});
-export type TutorSupportResponse = z.infer<typeof tutorSupportResponseSchema>;
