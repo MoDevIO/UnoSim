@@ -118,3 +118,38 @@ describe("skipping without a further Course Content question (R-SUP-4)", () => {
     expect(scripted.generateLearningQuestion).not.toHaveBeenCalled();
   });
 });
+
+describe("follow-up review of 73fcc08b0: N2", () => {
+  const OUTPUT_SKETCH = "int counter = 3;\nvoid setup() { Serial.begin(9600); Serial.print(counter); Serial.println(counter); }\nvoid loop() {}";
+
+  it("records a correct later answer to the last question of an exhausted Topic, after two weak ones", async () => {
+    let rating: 1 | 2 | 3 | 4 | 5 = 2;
+    const generateLearningQuestion = vi.fn(async () => ({
+      model: "m",
+      result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?", feedback: "Rückmeldung.", answerRating: rating },
+    }));
+    const content = createAnchorCourseContent("variables");
+    const service = createTutorService({ listModels: vi.fn().mockResolvedValue(["m"]), generateLearningQuestion });
+    let asked = (await service.generateQuestion(OUTPUT_SKETCH, "key", undefined, 30, content)).result;
+    const avoided: string[] = [];
+    for (let skip = 0; skip < 2; skip += 1) {
+      avoided.push(asked.question);
+      const next = await service.generateNextQuestion({
+        code: OUTPUT_SKETCH, credential: "key", requestedModel: undefined, difficulty: 30, courseContent: content,
+        options: { leave: { question: asked.question, history: [] }, avoidQuestions: avoided },
+      });
+      if (next.completed) throw new Error("The Topic has a third question");
+      asked = next.result;
+    }
+    const last = asked;
+    const history: { question: string; questionId?: string; answer: string; answerRating: 1 | 2 | 3 | 4 | 5; responseStyle: "normal" }[] = [];
+    for (const given of [2, 2, 5] as const) {
+      rating = given;
+      const response = await service.generateDialogResponse(OUTPUT_SKETCH, history, last.question, "Antwort", "key", undefined, 30, content, undefined, undefined, { assisted: false });
+      if (given < 5) expect(response).toMatchObject({ retained: true, result: { question: last.question, questionId: last.questionId } });
+      history.push({ question: last.question, questionId: last.questionId, answer: "Antwort", answerRating: given, responseStyle: "normal" });
+    }
+    expect(content.progressionState?.masteryEvidence["variables-and-serial"]?.map(({ questionId, rating: recorded }) => [questionId, recorded]))
+      .toEqual([[last.questionId, 2], [last.questionId, 2], [last.questionId, 5]]);
+  });
+});

@@ -233,9 +233,9 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   /**
-   * `boundQuestion` is the question the learner just answered or acts on: while it belongs to the teacher's
-   * focus, the focus stays selected for it, so its outcome is recorded even when the focus has no other
-   * question left (LearningQuestions R-SUP-3).
+   * `boundQuestion` is the question the learner just answered or acts on: while it belongs to a Topic (the
+   * teacher's focus or a repository Topic), that Topic stays selected for it, so its outcome is recorded even
+   * when the Topic has no other question left (LearningQuestions R-SUP-3, review N2).
    */
   private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string, boundQuestion?: string) {
     if (!supplied) return null;
@@ -273,10 +273,13 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const view = resetsRevision ? createTutorProgressionState(snapshot.revision) : state;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, view, difficulty, learnStrategy.strategy);
+    // The question the learner acts on keeps its Topic selected, focus or not, even when that Topic has no
+    // other question left: its answer must still be recorded (LearningQuestions R-SUP-3, review N2).
+    const bound = boundQuestion === undefined ? undefined : classifications.find(({ match }) => boundToTopic(match.topic, view, boundQuestion, history));
     // A finished focus (mastered, or out of questions) hands over to the free Tutor.
-    const retryPending = inline !== undefined && (focusRetryPending(inline.topic, view) || boundToFocus(inline.topic, view, boundQuestion));
+    const retryPending = bound !== undefined || (inline !== undefined && focusRetryPending(inline.topic, view));
     const open = focusThenFree && !retryPending ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
-    const selected = selectProgressionMatch(open, view);
+    const selected = bound ?? selectProgressionMatch(open, view);
     if (!selected) return { state, revision: snapshot.revision, resetsRevision, selection: null };
     const topic = selected.match.topic;
     const phase = phaseForTopic(view, topic.id, selected.classification.status);
@@ -517,11 +520,10 @@ function focusRetryPending(topic: CurriculumTopic, state: TutorProgressionState)
   return last !== undefined && last.rating <= 2 && evidence.filter(({ questionId }) => questionId === last.questionId).length === 1;
 }
 
-/** The bound question is a focus question that was not left; its answer still belongs to the focus. */
-function boundToFocus(topic: CurriculumTopic, state: TutorProgressionState, boundQuestion: string | undefined): boolean {
-  if (boundQuestion === undefined) return false;
-  const question = topic.questions.find(({ text }) => text === boundQuestion);
-  return question !== undefined && !(state.leftQuestionIds?.[topic.id] ?? []).includes(question.id);
+/** The bound question is a question of this Topic that was not left; its answer still belongs to the Topic. */
+function boundToTopic(topic: CurriculumTopic, state: TutorProgressionState, boundQuestion: string, history: readonly TutorDialogTurn[]): boolean {
+  const question = findCurriculumQuestion(topic, boundQuestion, history);
+  return question !== null && !(state.leftQuestionIds?.[topic.id] ?? []).includes(question.id);
 }
 
 /**
