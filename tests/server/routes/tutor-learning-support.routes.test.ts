@@ -313,7 +313,7 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
     });
     expect(repeated.body).toEqual(first.body);
     expect(repeated.body.support.answerAttempts).toBe(1);
-    expect(provider.generateLearningQuestion.mock.calls.length).toBe(calls + 1);
+    expect(provider.generateLearningQuestion.mock.calls).toHaveLength(calls + 1);
 
     const other = await post("/api/tutor/dialog", {
       code: IT064_SKETCH, credential: "key", history: [], question: IT064_PREDICTION_QUESTION, answer: "8",
@@ -365,7 +365,7 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
     request.on("error", () => undefined);
     request.end(payload);
     try {
-      await vi.waitFor(() => expect(provider.generateLearningQuestion.mock.calls.length).toBe(calls + 1));
+      await vi.waitFor(() => expect(provider.generateLearningQuestion.mock.calls).toHaveLength(calls + 1));
       const signal = provider.generateLearningQuestion.mock.calls[calls]?.[2] as AbortSignal;
       request.destroy();
       await vi.waitFor(() => expect(signal.aborted).toBe(true));

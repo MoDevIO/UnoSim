@@ -68,7 +68,7 @@ describe("useTutor learning support", () => {
     await act(async () => { await result.current.submitAnswer(SKETCH); });
     expect(result.current.history).toEqual([]);
     expect(result.current.transcript).toEqual([
-      { kind: "clarification", question: QUESTION, text: "Gemeint ist der Durchlauf mit i = 7.", learnerText: "Was ist gemeint?" },
+      { id: expect.any(String), kind: "clarification", question: QUESTION, text: "Gemeint ist der Durchlauf mit i = 7.", learnerText: "Was ist gemeint?" },
     ]);
     expect(result.current.support?.clarifications).toBe(1);
     expect(result.current.effectiveDifficulty).toBe(30);

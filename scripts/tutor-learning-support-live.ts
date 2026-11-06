@@ -47,14 +47,18 @@ function parseOptions(argv: readonly string[]): Options {
 }
 
 /** Records the model's own result next to what the application delivered; nothing else changes. */
+function promptKind(userPrompt: string): "dialog" | "question" | "support" {
+  if (userPrompt.startsWith("Führe den sokratischen")) return "dialog";
+  return userPrompt.startsWith("Erzeuge") ? "question" : "support";
+}
+
 function recordingProvider(inner: LLMProvider) {
   const raw: { readonly kind: string; readonly result: unknown; readonly model: string }[] = [];
   const provider: LLMProvider = {
     listModels: (credential, signal) => inner.listModels(credential, signal),
     async generateLearningQuestion(request: LLMProviderRequest, credential, signal) {
       const response = await inner.generateLearningQuestion(request, credential, signal);
-      const kind = request.userPrompt.startsWith("Führe den sokratischen") ? "dialog" : request.userPrompt.startsWith("Erzeuge") ? "question" : "support";
-      raw.push({ kind, result: response.result, model: response.model });
+      raw.push({ kind: promptKind(request.userPrompt), result: response.result, model: response.model });
       return response;
     },
   };
@@ -130,52 +134,115 @@ async function dialogAtPrediction(post: Awaited<ReturnType<typeof startServer>>[
 
 /** Feedback that calls a correct answer wrong, or names the solution in a clarification. */
 const CALLS_WRONG = /\b(falsch|nicht\s+(?:richtig|korrekt)|stimmt\s+nicht|0\s+ausgegeben|wird\s+0)\b/i;
-const NAMES_RESULT = /(gibt\s+(?:eine\s+)?1\s+aus|ausgegeben\s+wird\s+(?:eine\s+)?1\b|200\s*=\s*1\b|ergebnis\s+ist\s+1\b|antwort\s+ist\s+1\b)/i;
+const NAMES_RESULT = [
+  /gibt\s+(?:eine\s+)?1\s+aus/i,
+  /ausgegeben\s+wird\s+(?:eine\s+)?1\b/i,
+  /200\s*=\s*1\b/,
+  /(?:ergebnis|antwort)\s+ist\s+1\b/i,
+];
+const namesResult = (text: string) => NAMES_RESULT.some((pattern) => pattern.test(text));
 
-async function runSample(post: Awaited<ReturnType<typeof startServer>>["post"], credential: string, model: string, raw: ReturnType<typeof recordingProvider>["raw"]) {
-  const log: unknown[] = [];
-  const checks: Check[] = [];
-  const check = (id: string, passed: boolean, detail: string) => checks.push({ id, passed, detail });
-  const rawRating = () => {
-    const last = [...raw].reverse().find(({ kind }) => kind === "dialog")?.result as { answerRating?: number; feedback?: string } | undefined;
-    return { rating: last?.answerRating, feedback: last?.feedback };
-  };
+type Post = Awaited<ReturnType<typeof startServer>>["post"];
+type Raw = ReturnType<typeof recordingProvider>["raw"];
+type CheckFn = (id: string, passed: boolean, detail: string) => void;
 
+function lastModelRating(raw: Raw): { readonly rating?: number; readonly feedback?: string } {
+  const last = [...raw].reverse().find(({ kind }) => kind === "dialog")?.result as { answerRating?: number; feedback?: string } | undefined;
+  return { rating: last?.answerRating, feedback: last?.feedback };
+}
+
+/** Grades 1, 200 = 1 and 0, each in a dialog of its own: the model's own rating and the delivered one. */
+async function checkGrading(post: Post, credential: string, model: string, raw: Raw, log: unknown[], check: CheckFn): Promise<void> {
   for (const [answerText, correct] of [["1", true], ["200 = 1", true], ["0", false]] as const) {
     const dialog = await dialogAtPrediction(post, credential, model, log);
     check(`reach-prediction:${answerText}`, dialog.state.question === IT064_PREDICTION_QUESTION, dialog.state.question);
     if (dialog.state.question !== IT064_PREDICTION_QUESTION) continue;
     const response = await dialog.answer(answerText);
-    const modelView = rawRating();
+    const modelView = lastModelRating(raw);
     const rating = response.body.answerRating as number | undefined;
     const feedback = String(response.body.feedback ?? "");
+    const modelDetail = `model rating ${modelView.rating}: ${modelView.feedback}`;
+    const appDetail = `rating ${rating}: ${feedback}`;
     if (correct) {
-      check(`model-accepts:${answerText}`, (modelView.rating ?? 0) >= 4 && !CALLS_WRONG.test(modelView.feedback ?? ""), `model rating ${modelView.rating}: ${modelView.feedback}`);
-      check(`application-accepts:${answerText}`, (rating ?? 0) >= 4 && !CALLS_WRONG.test(feedback), `rating ${rating}: ${feedback}`);
+      check(`model-accepts:${answerText}`, (modelView.rating ?? 0) >= 4 && !CALLS_WRONG.test(modelView.feedback ?? ""), modelDetail);
+      check(`application-accepts:${answerText}`, (rating ?? 0) >= 4 && !CALLS_WRONG.test(feedback), appDetail);
     } else {
-      check(`model-rejects:${answerText}`, (modelView.rating ?? 5) <= 2, `model rating ${modelView.rating}: ${modelView.feedback}`);
-      check(`application-rejects:${answerText}`, (rating ?? 5) <= 2 && response.body.question === IT064_PREDICTION_QUESTION, `rating ${rating}: ${feedback}`);
+      check(`model-rejects:${answerText}`, (modelView.rating ?? 5) <= 2, modelDetail);
+      check(`application-rejects:${answerText}`, (rating ?? 5) <= 2 && response.body.question === IT064_PREDICTION_QUESTION, appDetail);
     }
   }
-
-  const dialog = await dialogAtPrediction(post, credential, model, log);
-  if (dialog.state.question === IT064_PREDICTION_QUESTION) {
-    const first = await dialog.act("clarify");
-    const second = await dialog.act("clarify");
-    const explanations = [first.body.explanation, second.body.explanation].map(String);
-    check("clarify-counts", dialog.state.support?.clarifications === 2 && dialog.state.support?.answerAttempts === 0, JSON.stringify(dialog.state.support));
-    check("clarify-hides-result", explanations.every((text) => !NAMES_RESULT.test(text)), explanations.join(" | "));
-    check("clarify-second-differs", explanations[0] !== explanations[1], explanations.join(" | "));
-    check("skip-unlocked-reference-locked", dialog.state.support?.canSkip === true && dialog.state.support?.canRevealReference === false, JSON.stringify(dialog.state.support));
-    for (const wrong of ["0", "2", "128"]) await dialog.answer(wrong);
-    check("three-attempts-unlock", dialog.state.support?.answerAttempts === 3 && dialog.state.support?.canRevealReference === true, JSON.stringify(dialog.state.support));
-    const revealed = await dialog.act("reveal");
-    check("reveal-reference", revealed.body.reference?.status === "available" && revealed.body.reference?.answer === "1", JSON.stringify(revealed.body.reference));
-  } else {
-    check("reach-prediction:support", false, dialog.state.question);
-  }
-  return { log, checks, models: [...new Set(raw.map(({ model }) => model))] };
 }
+
+/** Two clarifications, three own answers and the reference answer on one prediction question. */
+async function checkSupportCycle(post: Post, credential: string, model: string, log: unknown[], check: CheckFn): Promise<void> {
+  const dialog = await dialogAtPrediction(post, credential, model, log);
+  if (dialog.state.question !== IT064_PREDICTION_QUESTION) {
+    check("reach-prediction:support", false, dialog.state.question);
+    return;
+  }
+  const first = await dialog.act("clarify");
+  const second = await dialog.act("clarify");
+  const explanations = [first.body.explanation, second.body.explanation].map(String);
+  check("clarify-counts", dialog.state.support?.clarifications === 2 && dialog.state.support?.answerAttempts === 0, JSON.stringify(dialog.state.support));
+  check("clarify-hides-result", explanations.every((text) => !namesResult(text)), explanations.join(" | "));
+  check("clarify-second-differs", explanations[0] !== explanations[1], explanations.join(" | "));
+  check("skip-unlocked-reference-locked", dialog.state.support?.canSkip === true && dialog.state.support?.canRevealReference === false, JSON.stringify(dialog.state.support));
+  for (const wrong of ["0", "2", "128"]) await dialog.answer(wrong);
+  check("three-attempts-unlock", dialog.state.support?.answerAttempts === 3 && dialog.state.support?.canRevealReference === true, JSON.stringify(dialog.state.support));
+  const revealed = await dialog.act("reveal");
+  check("reveal-reference", revealed.body.reference?.status === "available" && revealed.body.reference?.answer === "1", JSON.stringify(revealed.body.reference));
+}
+
+async function runSample(post: Post, credential: string, model: string, raw: Raw) {
+  const log: unknown[] = [];
+  const checks: Check[] = [];
+  const check: CheckFn = (id, passed, detail) => checks.push({ id, passed, detail });
+  await checkGrading(post, credential, model, raw, log, check);
+  await checkSupportCycle(post, credential, model, log, check);
+  return { log, checks, models: [...new Set(raw.map(({ model: used }) => used))] };
+}
+
+type Outcome = "pass" | "fail" | "inconclusive";
+
+function technicalFailure(error: unknown): string {
+  const response = (error as { response?: { status: number; body: { error?: { code?: string } } } }).response;
+  if (!response) return String(error);
+  return `${response.status} ${response.body.error?.code ?? ""}`.trim();
+}
+
+function sampleSummary(sample: number, checks: readonly Check[]): string {
+  const failed = checks.filter(({ passed }) => !passed).map(({ id }) => id);
+  const passed = `${checks.length - failed.length}/${checks.length} checks passed`;
+  return failed.length === 0 ? `sample ${sample}: ${passed}` : `sample ${sample}: ${passed} (failed: ${failed.join(", ")})`;
+}
+
+/** Runs every sample; a failed check makes the run fail, a technical failure inconclusive. */
+async function runSamples(options: Options, credential: string, report: Record<string, unknown>): Promise<{ readonly outcome: Outcome; readonly models: readonly string[] }> {
+  const { provider, raw } = recordingProvider(new KiconnectProvider());
+  const { server, post } = await startServer(provider);
+  const samples = report.samples as unknown[];
+  let outcome: Outcome = "pass";
+  try {
+    for (let sample = 1; sample <= options.samples; sample += 1) {
+      try {
+        const result = await runSample(post, credential, options.model, raw);
+        samples.push({ sample, ...result });
+        console.log(sampleSummary(sample, result.checks));
+        if (result.checks.some(({ passed }) => !passed)) outcome = "fail";
+      } catch (error) {
+        const failure = technicalFailure(error);
+        samples.push({ sample, technicalFailure: failure });
+        console.log(`sample ${sample}: technical failure ${failure}`);
+        if (outcome !== "fail") outcome = "inconclusive";
+      }
+    }
+  } finally {
+    server.close();
+  }
+  return { outcome, models: [...new Set(raw.map(({ model }) => model))] };
+}
+
+const EXIT_CODES: Readonly<Record<Outcome, number>> = { pass: 0, fail: 2, inconclusive: 3 };
 
 async function main(): Promise<number> {
   const options = parseOptions(process.argv.slice(2));
@@ -196,39 +263,21 @@ async function main(): Promise<number> {
     report.outcome = "inconclusive";
     report.reason = `${options.credentialEnv} is not set`;
     await writeFile(reportPath, JSON.stringify(report, null, 2));
-    console.log(`inconclusive: ${report.reason}; report ${reportPath}`);
-    return 3;
+    console.log(`inconclusive: ${options.credentialEnv} is not set; report ${reportPath}`);
+    return EXIT_CODES.inconclusive;
   }
-  const { provider, raw } = recordingProvider(new KiconnectProvider());
-  const { server, post } = await startServer(provider);
-  let outcome: "pass" | "fail" | "inconclusive" = "pass";
-  try {
-    for (let sample = 1; sample <= options.samples; sample += 1) {
-      try {
-        const result = await runSample(post, credential, options.model, raw);
-        (report.samples as unknown[]).push({ sample, ...result });
-        const failed = result.checks.filter(({ passed }) => !passed);
-        console.log(`sample ${sample}: ${result.checks.length - failed.length}/${result.checks.length} checks passed${failed.length ? ` (failed: ${failed.map(({ id }) => id).join(", ")})` : ""}`);
-        if (failed.length > 0) outcome = "fail";
-      } catch (error) {
-        const response = (error as { response?: { status: number; body: { error?: { code?: string } } } }).response;
-        (report.samples as unknown[]).push({ sample, technicalFailure: response ? `${response.status} ${response.body.error?.code ?? ""}` : String(error) });
-        console.log(`sample ${sample}: technical failure ${response ? `${response.status} ${response.body.error?.code ?? ""}` : String(error)}`);
-        outcome = outcome === "fail" ? "fail" : "inconclusive";
-      }
-    }
-  } finally {
-    server.close();
-  }
-  report.returnedModels = [...new Set(raw.map(({ model }) => model))];
+  const { outcome, models } = await runSamples(options, credential, report);
+  report.returnedModels = models;
   report.outcome = outcome;
   report.finishedAt = new Date().toISOString();
   await writeFile(reportPath, JSON.stringify(report, null, 2));
-  console.log(`${outcome}; models ${JSON.stringify(report.returnedModels)}; report ${reportPath}`);
-  return outcome === "pass" ? 0 : outcome === "fail" ? 2 : 3;
+  console.log(`${outcome}; models ${JSON.stringify(models)}; report ${reportPath}`);
+  return EXIT_CODES[outcome];
 }
 
-main().then((code) => { process.exitCode = code; }, (error: unknown) => {
+try {
+  process.exitCode = await main();
+} catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
-});
+}

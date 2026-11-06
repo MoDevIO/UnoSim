@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
-import type { TutorTranscriptEntry } from "@/hooks/use-tutor";
+import type { TutorTranscriptContent, TutorTranscriptEntry } from "@/hooks/use-tutor";
 import {
   TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS,
   TUTOR_SKIP_AFTER_CLARIFICATIONS,
@@ -47,15 +47,15 @@ function TutorTurn({ turn, assisted }: { readonly turn: TutorDialogTurn; readonl
 export function TutorTranscript({ transcript }: { readonly transcript: readonly TutorTranscriptEntry[] }) {
   return (
     <>
-      {transcript.map((entry, index) => entry.kind === "turn"
-        ? <TutorTurn key={`turn-${index}`} turn={entry.turn} assisted={entry.assisted} />
-        : <TutorAssistanceEntry key={`${entry.kind}-${index}`} entry={entry} />)}
+      {transcript.map((entry) => entry.kind === "turn"
+        ? <TutorTurn key={entry.id} turn={entry.turn} assisted={entry.assisted} />
+        : <TutorAssistanceEntry key={entry.id} entry={entry} />)}
     </>
   );
 }
 
 /** A clarification, hint, reference answer or skip in the dialog; none of them is rated. */
-function TutorAssistanceEntry({ entry }: { readonly entry: Exclude<TutorTranscriptEntry, { kind: "turn" }> }) {
+function TutorAssistanceEntry({ entry }: { readonly entry: Exclude<TutorTranscriptContent, { kind: "turn" }> }) {
   if (entry.kind === "skip") {
     return <p className="text-ui-xs text-muted-foreground" data-testid="tutor-skip-note">Question skipped, not rated: <TutorText text={entry.question} /></p>;
   }
@@ -102,6 +102,13 @@ function TutorAssistanceEntry({ entry }: { readonly entry: Exclude<TutorTranscri
  * The learner's actions besides answering (LearningQuestions 3.10, 10.7): each shows why it is not yet
  * available, so nobody has to guess wrong answers to unlock it. The server decides; the counts come from it.
  */
+function revealReason(support: TutorSupportState, attemptsLeft: number): string {
+  if (!support.canRevealReference) return `Reference answer after ${TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS} own answers (${attemptsLeft} more).`;
+  return support.referenceAvailable
+    ? "Reference answer with explanation available on request."
+    : "No reviewed reference answer exists for this question.";
+}
+
 export function TutorSupportActions({ support, busy, onAction }: {
   readonly support: TutorSupportState;
   readonly busy: boolean;
@@ -116,7 +123,8 @@ export function TutorSupportActions({ support, busy, onAction }: {
         Own answers: {support.answerAttempts} · Clarifications: {support.clarifications}
         {support.referenceShown ? " · Reference answer shown" : ""}
       </p>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Help with this question">
+      <fieldset className="flex flex-wrap gap-2 border-0 p-0 m-0">
+        <legend className="sr-only">Help with this question</legend>
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction("clarify")} data-testid="tutor-action-clarify">
           Explain the question
         </Button>
@@ -145,11 +153,9 @@ export function TutorSupportActions({ support, busy, onAction }: {
         >
           Skip question
         </Button>
-      </div>
+      </fieldset>
       <p id={`${reasonId}-reveal`} className="text-ui-xs text-muted-foreground" data-testid="tutor-reveal-reason">
-        {support.canRevealReference
-          ? support.referenceAvailable ? "Reference answer with explanation available on request." : "No reviewed reference answer exists for this question."
-          : `Reference answer after ${TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS} own answers (${attemptsLeft} more).`}
+        {revealReason(support, attemptsLeft)}
       </p>
       <p id={`${reasonId}-skip`} className="text-ui-xs text-muted-foreground" data-testid="tutor-skip-reason">
         {support.canSkip ? "You may skip this question; it is not rated." : `Skipping after ${TUTOR_SKIP_AFTER_CLARIFICATIONS} explanations of the question (${clarificationsLeft} more).`}

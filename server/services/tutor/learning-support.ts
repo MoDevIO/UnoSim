@@ -12,34 +12,42 @@ import {
  * answer and use no answer attempt.
  */
 const HELP_REQUESTS = [
-  /^(?:ich\s+)?(?:weiß|weiss)\s+(?:es\s+|das\s+|ich\s+)?(?:leider\s+)?nicht\b/i,
-  /^keine\s+(?:ahnung|idee)\b/i,
-  /^kein\s+plan\b/i,
-  /^(?:ich\s+)?(?:brauche\s+)?(?:einen\s+)?(?:hilfe|tipp|hinweis)\b/i,
-  /^k\.?\s?a\.?$/i,
+  /^(?:ich )?weiss (?:es |das |ich )?(?:leider )?nicht\b/,
+  /^keine (?:ahnung|idee)\b/,
+  /^kein plan\b/,
+  /^(?:ich )?(?:brauche )?(?:einen )?(?:hilfe|tipp|hinweis)\b/,
+  /^k\.? ?a\.?$/,
   /^\?+$/,
 ];
 
 /** Questions about the question: the learner asks what is meant, not what the answer is. */
-const CLARIFICATION_REQUEST = [
-  /\b(?:was|wie)\s+(?:ist|wird|soll|meinst|bedeutet|heißt|heisst)\b.{0,60}\b(?:gemeint|gefragt|gesucht|frage|du)\b/i,
-  /\b(?:verstehe|kapiere)\s+(?:ich\s+)?(?:die|deine)\s+frage\s+nicht\b/i,
-  /\bfrage\s+(?:ist\s+)?(?:unklar|nicht\s+klar|verwirrend)\b/i,
-  /\bwas\s+(?:genau\s+)?(?:ist|wird)\s+(?:hier\s+)?(?:gemeint|gefragt|gesucht)\b/i,
-  /\b(?:welche[nrs]?|welchen)\s+.{1,40}\s+(?:meinst|gemeint)\b/i,
-  /\bwas\s+bedeutet\b/i,
-  /\bkannst\s+du\s+(?:die\s+frage\s+)?(?:das\s+)?(?:genauer|anders|nochmal|noch\s+einmal)\s+(?:erklären|formulieren)\b/i,
+const CLARIFICATION_REQUESTS = [
+  /\b(?:verstehe|kapiere) (?:ich )?(?:die|deine) frage nicht\b/,
+  /\bfrage (?:ist )?(?:unklar|nicht klar|verwirrend)\b/,
+  /\bwas (?:genau )?(?:ist|wird) (?:hier )?(?:gemeint|gefragt|gesucht)\b/,
+  /\bwas bedeutet\b/,
+  /\bkannst du (?:die frage |das )?(?:genauer|anders|nochmal|noch einmal) (?:erklaeren|erklären|formulieren)\b/,
 ];
+
+/** A question word followed later by a word that asks about the meaning: "Was ist mit … gemeint?". */
+const ASKS_ABOUT = /\b(?:was|wie|welche[nrs]?) (?:ist|wird|soll|meinst|bedeutet|heisst)?/;
+const ABOUT_MEANING = /\b(?:gemeint|gefragt|gesucht|meinst du)\b/;
+
+/** Lower case, single spaces, "ß" as "ss": the patterns stay simple. */
+function normalizeInput(input: string): string {
+  return input.trim().toLocaleLowerCase("de-DE").replaceAll("ß", "ss").split(/\s/).filter(Boolean).join(" ");
+}
 
 /**
  * How a typed input is treated: `help` and `clarification` are not rated and use no answer attempt. A short
  * answer such as `1` or a hedged answer such as `Ist es 1?` stays an answer.
  */
 export function classifyLearnerInput(input: string): TutorLearnerInput {
-  const text = input.trim();
+  const text = normalizeInput(input);
   if (HELP_REQUESTS.some((pattern) => pattern.test(text))) return "help";
-  if (text.length <= 300 && CLARIFICATION_REQUEST.some((pattern) => pattern.test(text))) return "clarification";
-  return "answer";
+  if (text.length > 300) return "answer";
+  if (CLARIFICATION_REQUESTS.some((pattern) => pattern.test(text))) return "clarification";
+  return ASKS_ABOUT.test(text) && ABOUT_MEANING.test(text) ? "clarification" : "answer";
 }
 
 export type SupportExplanationKind = "clarify" | "hint";

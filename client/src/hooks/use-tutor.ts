@@ -75,12 +75,24 @@ export interface TutorSketch {
 }
 
 /** One entry of what the learner sees, in the order it happened. */
-export type TutorTranscriptEntry =
+export type TutorTranscriptContent =
   | { readonly kind: "turn"; readonly turn: TutorDialogTurn; readonly assisted?: true }
   | { readonly kind: "clarification"; readonly question: string; readonly text: string; readonly learnerText?: string }
   | { readonly kind: "hint"; readonly question: string; readonly text: string; readonly learnerText?: string }
   | { readonly kind: "reference"; readonly question: string; readonly reference: TutorReferenceView }
   | { readonly kind: "skip"; readonly question: string };
+
+/** A transcript entry with the id the view uses as its key. */
+export type TutorTranscriptEntry = TutorTranscriptContent & { readonly id: string };
+
+const withEntryId = (entry: TutorTranscriptContent): TutorTranscriptEntry => ({ ...entry, id: globalThis.crypto.randomUUID() });
+
+/** A typed question about the question or a request for help: shown with its explanation, not rated (R-SUP-1). */
+function typedHelpEntry(response: TutorResponse, question: string, learnerText: string): TutorTranscriptContent | null {
+  const input = response.learnerInput ?? "answer";
+  if (input === "answer") return null;
+  return { kind: input === "clarification" ? "clarification" : "hint", question, text: response.feedback ?? "", learnerText };
+}
 
 const asTutorSketch = (sketch: string | TutorSketch): TutorSketch => (typeof sketch === "string" ? { code: sketch } : sketch);
 
@@ -498,8 +510,9 @@ export function useTutor(
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    const actionKey = currentSupport ? `${currentSupport.questionHandle}|answer|${submittedAnswer}` : "";
-    const binding = currentSupport ? supportBinding(currentSupport, actionIdFor(pendingAction, actionKey)) : {};
+    const binding = currentSupport
+      ? supportBinding(currentSupport, actionIdFor(pendingAction, `${currentSupport.questionHandle}|answer|${submittedAnswer}`))
+      : {};
 
     setIsLoading(true);
     const controller = new AbortController();
@@ -528,27 +541,18 @@ export function useTutor(
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
-      if (currentSupport) pendingAction.current = null;
+      pendingAction.current = null;
       if (parsed.data.support) setSupport(parsed.data.support);
-      const learnerInput = parsed.data.learnerInput ?? "answer";
-      if (learnerInput !== "answer") {
-        // A typed question about the question, or a request for help: no rating, the question stays (R-SUP-1).
-        setTranscript((current) => [...current, {
-          kind: learnerInput === "clarification" ? "clarification" : "hint",
-          question: currentQuestion.question,
-          text: parsed.data.feedback ?? "",
-          learnerText: submittedAnswer,
-        }]);
+      const helpEntry = typedHelpEntry(parsed.data, currentQuestion.question, submittedAnswer);
+      if (helpEntry) {
+        setTranscript((current) => [...current, withEntryId(helpEntry)]);
         setCourseContentSession(parsed.data.courseContentSession ?? courseContentSession);
         setAnswer("");
         return;
       }
       const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
-      setTranscript((current) => [...current, {
-        kind: "turn",
-        turn: update.nextHistory.at(-1)!,
-        ...(currentSupport?.referenceShown ? { assisted: true as const } : {}),
-      }]);
+      const assisted = currentSupport?.referenceShown ? { assisted: true as const } : {};
+      setTranscript((current) => [...current, withEntryId({ kind: "turn", turn: update.nextHistory.at(-1)!, ...assisted })]);
       applyDialogResponse(parsed.data, update);
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
@@ -594,7 +598,7 @@ export function useTutor(
       setCourseContentSession(result.courseContentSession ?? courseContentSession);
       if (result.focusProgress) setFocusProgress(result.focusProgress);
       const outcome = supportOutcome(result, currentQuestion.question);
-      setTranscript((current) => [...current, outcome.entry]);
+      setTranscript((current) => [...current, withEntryId(outcome.entry)]);
       if (outcome.next !== undefined) {
         setAnswer("");
         setQuestion(outcome.next);

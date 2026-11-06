@@ -349,7 +349,7 @@ describe("experimental workspace layout", () => {
       tutor={{
         ...tutor,
         history: [{ question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4 }],
-        transcript: [{ kind: "turn", turn: { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4, responseStyle: "normal" } }],
+        transcript: [{ id: "turn-1", kind: "turn", turn: { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4, responseStyle: "normal" } }],
         sessionRating: 4,
         ratedAnswerCount: 1,
       }}

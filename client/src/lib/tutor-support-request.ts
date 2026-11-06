@@ -1,6 +1,6 @@
 import { tutorSupportResponseSchema, type TutorSupportResponse } from "@shared/tutor-support";
 import type { TutorResponse } from "@shared/tutor";
-import type { TutorTranscriptEntry } from "@/hooks/use-tutor";
+import type { TutorTranscriptContent } from "@/hooks/use-tutor";
 
 /**
  * Sends one support action (`POST /api/tutor/support`, LearningQuestions 9.1) and checks the response.
@@ -28,7 +28,7 @@ export async function sendTutorSupportAction(
 
 /** What the learner sees of a support result, and the question that follows a skip. */
 export function supportOutcome(result: TutorSupportResponse, question: string): {
-  readonly entry: TutorTranscriptEntry;
+  readonly entry: TutorTranscriptContent;
   readonly next?: TutorResponse | null;
 } {
   switch (result.action) {

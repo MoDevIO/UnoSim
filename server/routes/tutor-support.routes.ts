@@ -127,7 +127,7 @@ function activeQuestion(
   questionText: string | undefined,
   key: string,
 ): SupportQuestion {
-  if (!question || question.outcome !== "open") {
+  if (question?.outcome !== "open") {
     throw new SupportActionRejected("SUPPORT_CONFLICT", "Diese Frage ist nicht mehr offen.");
   }
   if (question.handle !== questionHandle || (questionText !== undefined && questionText !== question.text)) {
@@ -143,7 +143,7 @@ type DialogRequest = SketchFields & {
   readonly credential?: string;
   readonly model?: string;
   readonly difficulty: number;
-  readonly courseContent?: TutorSupportRequest["courseContent"];
+  readonly courseContent?: NonNullable<TutorSupportRequest["courseContent"]>;
   readonly courseContentSession?: string;
   readonly supportSession?: string;
   readonly questionHandle?: string;
@@ -157,7 +157,7 @@ type DialogRequest = SketchFields & {
 async function runSupportAction<T>(
   req: Request,
   res: Response,
-  request: Record<string, unknown> & { readonly supportSession: string; readonly actionId: string; readonly courseContent?: TutorSupportRequest["courseContent"]; readonly courseContentSession?: string },
+  request: Record<string, unknown> & { readonly supportSession: string; readonly actionId: string; readonly courseContent?: NonNullable<TutorSupportRequest["courseContent"]>; readonly courseContentSession?: string },
   signal: AbortSignal,
   context: TutorSupportContext,
   action: (content: TutorRequestContent | undefined) => (view: Parameters<Parameters<TutorSupportStore["run"]>[4]>[0]) => Promise<{ readonly body: T; readonly update: SupportUpdate }>,
@@ -200,10 +200,96 @@ function sourceOf(request: SketchFields): TutorSource | BoardId | undefined {
   return tutorSource(request)[0];
 }
 
+type SessionView = Parameters<Parameters<TutorSupportStore["run"]>[4]>[0];
+type ActionResult<T> = { readonly body: T; readonly update: SupportUpdate };
+
+/** What every action of one request shares: the request, its Course Content, the signal and the context. */
+interface ActionScope<R extends SketchFields> {
+  readonly request: R & { readonly credential?: string; readonly model?: string };
+  readonly content: TutorRequestContent | undefined;
+  readonly signal: AbortSignal;
+  readonly context: TutorSupportContext;
+  readonly view: SessionView;
+  readonly question: SupportQuestion;
+  readonly reference: QuestionReference;
+}
+
+function availableReference(reference: QuestionReference) {
+  return reference.status === "available" ? { reference: reference.reference } : {};
+}
+
+/** A clarification or a hint from the provider; a clarification counts once it was delivered (R-SUP-2). */
+async function explain<R extends SketchFields>(scope: ActionScope<R>, kind: "clarify" | "hint", learnerQuestion?: string) {
+  const { request, question, signal } = scope;
+  const explained = await scope.context.service.generateSupportExplanation({
+    kind,
+    code: request.code,
+    question: question.text,
+    credential: request.credential,
+    requestedModel: request.model,
+    earlierClarifications: question.clarificationTexts,
+    ...(learnerQuestion ? { learnerQuestion } : {}),
+    ...availableReference(scope.reference),
+    courseContent: scope.content?.content,
+    signal,
+    source: sourceOf(request),
+  });
+  signal.throwIfAborted();
+  const next = kind === "clarify" ? withClarification(question, explained.explanation) : question;
+  return { explained, next, support: supportStateView(scope.view.handle, next, scope.reference.status === "available") };
+}
+
+/** A typed question about the question, or a request for help: no rating and no answer attempt (R-SUP-1). */
+async function answerTypedHelp(scope: ActionScope<DialogRequest>, input: "clarification" | "help"): Promise<ActionResult<Record<string, unknown>>> {
+  const { explained, next, support } = await explain(scope, input === "clarification" ? "clarify" : "hint", input === "clarification" ? scope.request.answer : undefined);
+  const session = commitTutorSession(scope.content, scope.context.sessionStore);
+  return {
+    update: { question: next },
+    body: {
+      responseStyle: "normal" as const,
+      feedback: explained.explanation,
+      question: scope.question.text,
+      learnerInput: input,
+      provider: config.tutor.provider,
+      model: explained.model,
+      support,
+      ...(session ? { courseContentSession: session } : {}),
+    },
+  };
+}
+
+/** An answer: counts one attempt; a weak one keeps the question open, a strong one asks the next (R-SUP-3). */
+async function answerQuestion(scope: ActionScope<DialogRequest>, key: string): Promise<ActionResult<Record<string, unknown>>> {
+  const { request, question, content, signal, context } = scope;
+  const generated = await context.service.generateDialogResponse(
+    request.code, request.history, question.text, request.answer, request.credential, request.model, request.difficulty,
+    content?.content, signal, sourceOf(request),
+    { ...availableReference(scope.reference), assisted: question.referenceShown },
+  );
+  signal.throwIfAborted();
+  // Only an answer to the subject counts; a reply that leads away from the sketch does not (R-SUP-1).
+  const answered = { ...question, answerAttempts: question.answerAttempts + (generated.result.responseStyle === "normal" ? 1 : 0) };
+  const nextQuestion = generated.retained ? answered : newSupportQuestion(generated.result.question, key);
+  const nextReference = generated.retained ? scope.reference : referenceOf(nextQuestion.text, request, content?.content);
+  const session = generated.withoutProvider ? content?.session : commitTutorSession(content, context.sessionStore);
+  // An answer after the reference answer repeats it: feedback, but no rating (R-SUP-5).
+  const result = question.referenceShown ? withoutRating(generated.result) : generated.result;
+  return {
+    update: { question: nextQuestion },
+    body: {
+      ...result,
+      learnerInput: "answer" as const,
+      provider: config.tutor.provider,
+      model: generated.model,
+      support: supportStateView(scope.view.handle, nextQuestion, nextReference.status === "available"),
+      ...(session ? { courseContentSession: session } : {}),
+    },
+  };
+}
+
 /**
  * An answer in the learning-support cycle (`POST /api/tutor/dialog` with a support binding). A typed question
- * about the question is a clarification and a typed request for help gets a hint; neither is rated or uses an
- * answer attempt (R-SUP-1). An answer counts one attempt; a weak one keeps the question open (R-SUP-3).
+ * about the question is a clarification and a typed request for help gets a hint (R-SUP-1).
  */
 export async function handleSupportedDialog(
   req: Request,
@@ -216,76 +302,9 @@ export async function handleSupportedDialog(
   await runSupportAction<Record<string, unknown>>(req, res, { ...request, ...binding }, signal, context, (content) => async (view) => {
     const key = contextKey(request, content?.content);
     const question = activeQuestion(view.question, binding.questionHandle, request.question, key);
-    const reference = referenceOf(question.text, request, content?.content);
+    const scope: ActionScope<DialogRequest> = { request, content, signal, context, view, question, reference: referenceOf(question.text, request, content?.content) };
     const input = classifyLearnerInput(request.answer);
-    if (input !== "answer") {
-      const explained = await context.service.generateSupportExplanation({
-        kind: input === "clarification" ? "clarify" : "hint",
-        code: request.code,
-        question: question.text,
-        credential: request.credential,
-        requestedModel: request.model,
-        earlierClarifications: question.clarificationTexts,
-        ...(input === "clarification" ? { learnerQuestion: request.answer } : {}),
-        ...(reference.status === "available" ? { reference: reference.reference } : {}),
-        courseContent: content?.content,
-        signal,
-        source: sourceOf(request),
-      });
-      signal.throwIfAborted();
-      const next = input === "clarification" ? withClarification(question, explained.explanation) : question;
-      const session = commitTutorSession(content, context.sessionStore);
-      return {
-        update: { question: next },
-        body: {
-          responseStyle: "normal" as const,
-          feedback: explained.explanation,
-          question: question.text,
-          learnerInput: input,
-          provider: config.tutor.provider,
-          model: explained.model,
-          support: supportStateView(view.handle, next, reference.status === "available"),
-          ...(session ? { courseContentSession: session } : {}),
-        },
-      };
-    }
-    const generated = await context.service.generateDialogResponse(
-      request.code,
-      request.history,
-      question.text,
-      request.answer,
-      request.credential,
-      request.model,
-      request.difficulty,
-      content?.content,
-      signal,
-      sourceOf(request),
-      { ...(reference.status === "available" ? { reference: reference.reference } : {}), assisted: question.referenceShown },
-    );
-    signal.throwIfAborted();
-    // Only an answer to the subject counts; a reply that leads away from the sketch does not (R-SUP-1).
-    const counted = generated.result.responseStyle === "normal" ? 1 : 0;
-    const answered = { ...question, answerAttempts: question.answerAttempts + counted };
-    const nextQuestion = generated.retained
-      ? answered
-      : newSupportQuestion(generated.result.question, key);
-    const nextReference = generated.retained ? reference : referenceOf(nextQuestion.text, request, content?.content);
-    const session = generated.withoutProvider ? content?.session : commitTutorSession(content, context.sessionStore);
-    // An answer after the reference answer repeats it: feedback, but no rating (R-SUP-5).
-    const result: TutorContentResult = question.referenceShown && generated.result.responseStyle === "normal"
-      ? withoutRating(generated.result)
-      : generated.result;
-    return {
-      update: { question: nextQuestion },
-      body: {
-        ...result,
-        learnerInput: "answer" as const,
-        provider: config.tutor.provider,
-        model: generated.model,
-        support: supportStateView(view.handle, nextQuestion, nextReference.status === "available"),
-        ...(session ? { courseContentSession: session } : {}),
-      },
-    };
+    return input === "answer" ? answerQuestion(scope, key) : answerTypedHelp(scope, input);
   });
 }
 
@@ -295,10 +314,80 @@ function withoutRating(result: TutorContentResult): TutorContentResult {
   return rest;
 }
 
+type SupportScope = ActionScope<TutorSupportRequest>;
+
+async function clarifyOrHint(scope: SupportScope, kind: "clarify" | "hint"): Promise<ActionResult<TutorSupportResponse>> {
+  const { explained, next, support } = await explain(scope, kind);
+  return {
+    update: { question: next },
+    body: supportBody({ provider: config.tutor.provider, action: kind, explanation: explained.explanation, model: explained.model, support }, scope.content, scope.context),
+  };
+}
+
+/** The reviewed reference answer after three own answers; without one nothing is shown or counted (R-SUP-3). */
+function reveal(scope: SupportScope): ActionResult<TutorSupportResponse> {
+  const { question, reference, view } = scope;
+  const available = reference.status === "available";
+  if (!supportStateView(view.handle, question, available).canRevealReference) {
+    throw new SupportActionRejected("SUPPORT_LOCKED", "Die Musterantwort ist erst nach drei eigenen Antwortversuchen verfügbar.");
+  }
+  const next = available ? { ...question, referenceShown: true } : question;
+  return {
+    update: { question: next },
+    body: supportBody({
+      provider: config.tutor.provider,
+      action: "reveal",
+      reference: referenceView(reference),
+      model: scope.request.model ?? "reference",
+      support: supportStateView(view.handle, next, available),
+    }, scope.content, scope.context),
+  };
+}
+
+/** Leaves the question unrated after two clarifications and asks another one, or completes (R-SUP-4). */
+async function skip(scope: SupportScope, key: string): Promise<ActionResult<TutorSupportResponse>> {
+  const { request, question, view, signal, content, context } = scope;
+  if (!supportStateView(view.handle, question, scope.reference.status === "available").canSkip) {
+    throw new SupportActionRejected("SUPPORT_LOCKED", "Überspringen ist erst nach zwei beantworteten Klärungsnachfragen möglich.");
+  }
+  const next = await context.service.generateNextQuestion({
+    code: request.code,
+    credential: request.credential,
+    requestedModel: request.model,
+    difficulty: request.difficulty,
+    courseContent: content?.content,
+    signal,
+    source: sourceOf(request),
+    options: { leave: { question: question.text, history: request.history }, avoidQuestions: [...view.skippedQuestions, question.text] },
+  });
+  signal.throwIfAborted();
+  const left = { skippedQuestion: question.text };
+  if (next.completed) {
+    const focus = next.focusProgress ? { focusProgress: next.focusProgress } : {};
+    return {
+      update: { question: { ...question, outcome: "skipped" }, ...left },
+      body: supportBody({ provider: config.tutor.provider, action: "skip", completed: true, model: next.model, ...focus }, content, context),
+    };
+  }
+  const asked = newSupportQuestion(next.result.question, key);
+  const { answerRating: _rating, focusProgress, ...nextContent } = next.result;
+  return {
+    update: { question: asked, ...left },
+    body: supportBody({
+      provider: config.tutor.provider,
+      action: "skip",
+      next: { ...nextContent, responseStyle: "normal" },
+      model: next.model,
+      support: supportStateView(view.handle, asked, referenceOf(asked.text, request, content?.content).status === "available"),
+      ...(focusProgress ? { focusProgress } : {}),
+    }, content, context),
+  };
+}
+
 /** The explicit support actions on the asked question: `POST /api/tutor/support` (LearningQuestions 9.1, 11.3). */
 export function registerTutorSupportRoute(
   app: Express,
-  context: TutorSupportContext & { readonly rateLimiter?: Parameters<typeof enforceTutorRateLimit>[1]["rateLimiter"]; readonly disableRateLimit?: boolean },
+  context: TutorSupportContext & { readonly rateLimiter?: NonNullable<Parameters<typeof enforceTutorRateLimit>[1]["rateLimiter"]>; readonly disableRateLimit?: boolean },
 ): void {
   app.post("/api/tutor/support", async (req, res) => {
     const signal = bindRequestAbortSignal(req, res);
@@ -313,82 +402,10 @@ export function registerTutorSupportRoute(
     await runSupportAction(req, res, request, signal, context, (content) => async (view) => {
       const key = contextKey(request, content?.content);
       const question = activeQuestion(view.question, request.questionHandle, undefined, key);
-      const reference = referenceOf(question.text, request, content?.content);
-      const available = reference.status === "available";
-      const base = { provider: config.tutor.provider };
-      switch (request.action) {
-        case "clarify":
-        case "hint": {
-          const explained = await context.service.generateSupportExplanation({
-            kind: request.action,
-            code: request.code,
-            question: question.text,
-            credential: request.credential,
-            requestedModel: request.model,
-            earlierClarifications: question.clarificationTexts,
-            ...(available ? { reference: reference.reference } : {}),
-            courseContent: content?.content,
-            signal,
-            source: sourceOf(request),
-          });
-          signal.throwIfAborted();
-          const next = request.action === "clarify" ? withClarification(question, explained.explanation) : question;
-          return {
-            update: { question: next },
-            body: supportBody({ ...base, action: request.action, explanation: explained.explanation, model: explained.model, support: supportStateView(view.handle, next, available) }, content, context),
-          };
-        }
-        case "reveal": {
-          const view0 = supportStateView(view.handle, question, available);
-          if (!view0.canRevealReference) {
-            throw new SupportActionRejected("SUPPORT_LOCKED", "Die Musterantwort ist erst nach drei eigenen Antwortversuchen verfügbar.");
-          }
-          // Nothing is shown without a reviewed, applicable reference, so nothing counts as shown (R-SUP-3).
-          const next = available ? { ...question, referenceShown: true } : question;
-          return {
-            update: { question: next },
-            body: supportBody({ ...base, action: "reveal", reference: referenceView(reference), model: request.model ?? "reference", support: supportStateView(view.handle, next, available) }, content, context),
-          };
-        }
-        case "skip": {
-          if (!supportStateView(view.handle, question, available).canSkip) {
-            throw new SupportActionRejected("SUPPORT_LOCKED", "Überspringen ist erst nach zwei beantworteten Klärungsnachfragen möglich.");
-          }
-          const next = await context.service.generateNextQuestion({
-            code: request.code,
-            credential: request.credential,
-            requestedModel: request.model,
-            difficulty: request.difficulty,
-            courseContent: content?.content,
-            signal,
-            source: sourceOf(request),
-            options: { leave: { question: question.text, history: request.history }, avoidQuestions: [...view.skippedQuestions, question.text] },
-          });
-          signal.throwIfAborted();
-          const skipped: SupportQuestion = { ...question, outcome: "skipped" };
-          if (next.completed) {
-            return {
-              update: { question: skipped, skippedQuestion: question.text },
-              body: supportBody({ ...base, action: "skip", completed: true, model: next.model, ...(next.focusProgress ? { focusProgress: next.focusProgress } : {}) }, content, context),
-            };
-          }
-          const asked = newSupportQuestion(next.result.question, key);
-          const { answerRating: _rating, focusProgress, ...nextContent } = next.result.responseStyle === "normal"
-            ? next.result
-            : { ...next.result, responseStyle: "normal" as const };
-          return {
-            update: { question: asked, skippedQuestion: question.text },
-            body: supportBody({
-              ...base,
-              action: "skip",
-              next: { ...nextContent, responseStyle: "normal" },
-              model: next.model,
-              support: supportStateView(view.handle, asked, referenceOf(asked.text, request, content?.content).status === "available"),
-              ...(focusProgress ? { focusProgress } : {}),
-            }, content, context),
-          };
-        }
-      }
+      const scope: SupportScope = { request, content, signal, context, view, question, reference: referenceOf(question.text, request, content?.content) };
+      if (request.action === "reveal") return reveal(scope);
+      if (request.action === "skip") return skip(scope, key);
+      return clarifyOrHint(scope, request.action);
     });
   });
 }
