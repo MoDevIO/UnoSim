@@ -208,7 +208,26 @@ Neuladen der Seite musst du ihn erneut eintragen. UnoSim speichert ihn nicht.
 1. Mit dem Fragezeichen-Symbol in der Tutor-Spalte eine neue Lernfrage anfordern.
 2. Die Antwort in das Feld **Your answer …** schreiben und mit
    **Send answer** abschicken.
-3. Der Tutor bewertet dein Verständnis und stellt genau eine Folgefrage.
+3. Der Tutor bewertet dein Verständnis. Ist die Antwort richtig, stellt er
+   eine Folgefrage; sonst gibt er einen Hinweis, und dieselbe Frage bleibt
+   offen, bis du sie beantwortest oder überspringst.
+
+Unter der Frage stehen vier Hilfen. Keine davon wird bewertet, keine zählt als
+Verständnisnachweis:
+
+- **Explain the question**: Der Tutor erklärt, was gefragt ist, ohne die
+  Antwort zu nennen. Du kannst auch einfach eine Rückfrage wie „Was ist mit dem
+  ersten Durchlauf gemeint?“ eintippen.
+- **Give me a hint**: ein kurzer inhaltlicher Hinweis. „Ich weiß nicht“ im
+  Antwortfeld bekommt ebenfalls einen Hinweis und zählt nicht als Antwort.
+- **Show reference answer**: nach drei eigenen Antworten auf dieselbe Frage
+  verfügbar, aber nur, wenn die Lehrkraft eine geprüfte Musterantwort
+  hinterlegt hat; sonst sagt der Tutor, dass es keine gibt.
+- **Skip question**: nach zwei Erklärungen der Frage verfügbar; der Tutor
+  stellt dann eine andere Frage.
+
+Unter den Hilfen steht, wie viele Antworten bzw. Erklärungen bis zur Freigabe
+noch fehlen. Änderst du den Code, zählt die Frage von vorn.
 
 Eine neue Lernfrage beendet den bisherigen Dialog. Wenn du ein Beispiel oder
 eigene Dateien lädst, beginnt der Tutor ebenfalls neu; API-Key und Modell
@@ -219,7 +238,7 @@ Tutor zuerst die Fragen der Lehrkraft. Über dem Dialog steht, wer gerade fragt
 und wie viele Bereiche du verstanden hast:
 
 - **Teacher's focus**: Die Fragen der Lehrkraft laufen. Bei einer schwachen
-  Antwort bekommst du einen Hinweis und dieselbe Frage noch einmal.
+  Antwort bekommst du einen Hinweis, und die Frage bleibt offen.
 - **Teacher's focus completed**: Alle Bereiche sind verstanden, der freie Tutor
   macht weiter.
 - **Questions used up**: Die Fragen sind gestellt, aber nicht jeder

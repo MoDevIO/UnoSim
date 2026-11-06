@@ -1,0 +1,234 @@
+import express from "express";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import type { AddressInfo } from "node:net";
+import { registerTutorRoutes } from "../server/routes/tutor.routes";
+import { KiconnectProvider } from "../server/services/tutor/kiconnect-provider";
+import type { LLMProvider, LLMProviderRequest } from "../server/services/tutor/llm-provider";
+import { createTutorService } from "../server/services/tutor/tutor-service-factory";
+import { TUTOR_PROMPT_REVISION } from "../server/services/tutor/tutor-service";
+import {
+  IT064_CONCEPT_QUESTION,
+  IT064_PREDICTION_QUESTION,
+  IT064_SKETCH,
+  it064Content,
+} from "../server/services/tutor/evaluation/learning-support-fixtures";
+
+/**
+ * Live evaluation of the learning-support cycle at the HTTP boundary (TutorQualityEvaluation 15,
+ * LearningQuestions TUT-07/TUT-08): the production Tutor routes with the real provider, the IT06.4 Course
+ * Content and the same request fields and session binding as the browser. Each sample replays the dialog,
+ * carrying forward what the previous responses returned.
+ *
+ * The expected values come from the reviewed IT06.4 reference, computed independently of the Tutor model:
+ * 1 << 7 = 128, 200 & 128 = 128, (200 & 128) && 1 is true, so the first print is 1.
+ *
+ * Usage: tsx scripts/tutor-learning-support-live.ts --output-dir <dir> [--samples 3] [--model auto]
+ *        [--credential-env UNOSIM_TUTOR_EVAL_CREDENTIAL]
+ * Exit codes: 0 every check passed, 2 a check failed, 3 inconclusive (no valid credential or provider error).
+ */
+
+type Options = { samples: number; model: string; output: string | undefined; credentialEnv: string };
+
+function parseOptions(argv: readonly string[]): Options {
+  const options: Options = { samples: 3, model: "auto", output: undefined, credentialEnv: "UNOSIM_TUTOR_EVAL_CREDENTIAL" };
+  for (let index = 0; index < argv.length; index += 2) {
+    const [flag, value] = [argv[index], argv[index + 1]];
+    if (!value) throw new Error(`${flag} requires a value`);
+    if (flag === "--samples") options.samples = Math.max(1, Math.min(10, Number.parseInt(value, 10)));
+    else if (flag === "--model") options.model = value;
+    else if (flag === "--output-dir") options.output = value;
+    else if (flag === "--credential-env" && /^[A-Z][A-Z0-9_]{1,63}$/.test(value)) options.credentialEnv = value;
+    else throw new Error(`Unknown option ${flag}`);
+  }
+  if (!options.output) throw new Error("--output-dir is required");
+  return options;
+}
+
+/** Records the model's own result next to what the application delivered; nothing else changes. */
+function recordingProvider(inner: LLMProvider) {
+  const raw: { readonly kind: string; readonly result: unknown; readonly model: string }[] = [];
+  const provider: LLMProvider = {
+    listModels: (credential, signal) => inner.listModels(credential, signal),
+    async generateLearningQuestion(request: LLMProviderRequest, credential, signal) {
+      const response = await inner.generateLearningQuestion(request, credential, signal);
+      const kind = request.userPrompt.startsWith("Führe den sokratischen") ? "dialog" : request.userPrompt.startsWith("Erzeuge") ? "question" : "support";
+      raw.push({ kind, result: response.result, model: response.model });
+      return response;
+    },
+  };
+  return { provider, raw };
+}
+
+type Check = { readonly id: string; readonly passed: boolean; readonly detail: string };
+
+async function startServer(provider: LLMProvider) {
+  const app = express();
+  app.use(express.json());
+  app.use((_req, res, next) => {
+    res.locals.unosimIdentity = { subject: "eval.learning-support", roles: ["user"] };
+    next();
+  });
+  registerTutorRoutes(app, {
+    service: createTutorService(provider),
+    courseContent: { resolveTutorContent: async () => it064Content() },
+    disableRateLimit: true,
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const post = async (route: string, body: unknown) => {
+    const response = await fetch(`${base}${route}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json() as Record<string, any> };
+  };
+  return { server, post };
+}
+
+const COURSE = { repository: "ttbombadil/unosim-examples", ref: "main", revision: "6".repeat(40), exampleId: "it06-04-binaerzahl" };
+
+/** One dialog as the browser runs it, from a new question to the IT06.4 prediction question. */
+async function dialogAtPrediction(post: Awaited<ReturnType<typeof startServer>>["post"], credential: string, model: string, log: unknown[]) {
+  const modelField = model === "auto" ? {} : { model };
+  const first = await post("/api/tutor/question", { code: IT064_SKETCH, credential, ...modelField, courseContent: COURSE, learningSupport: true });
+  log.push({ step: "question", status: first.status, body: first.body });
+  if (first.status !== 200) throw Object.assign(new Error(`question request failed with ${first.status}`), { response: first });
+  const state = { question: first.body.question as string, support: first.body.support, session: first.body.courseContentSession as string, model: first.body.model as string };
+  const answer = async (text: string) => {
+    const response = await post("/api/tutor/dialog", {
+      code: IT064_SKETCH, credential, ...modelField, history: [], question: state.question, answer: text, courseContentSession: state.session,
+      supportSession: state.support.session, questionHandle: state.support.questionHandle, actionId: randomUUID(),
+    });
+    log.push({ step: "answer", answer: text, status: response.status, body: response.body });
+    if (response.status === 200) {
+      state.question = response.body.question;
+      state.support = response.body.support;
+    }
+    return response;
+  };
+  const act = async (action: string) => {
+    const response = await post("/api/tutor/support", {
+      code: IT064_SKETCH, credential, ...modelField, history: [], action, courseContentSession: state.session,
+      supportSession: state.support.session, questionHandle: state.support.questionHandle, actionId: randomUUID(),
+    });
+    log.push({ step: action, status: response.status, body: response.body });
+    if (response.status === 200 && response.body.support) state.support = response.body.support;
+    return response;
+  };
+  if (state.question === IT064_CONCEPT_QUESTION) {
+    // The concept question first: a complete answer; if the model keeps the question, skip it by two clarifications.
+    await answer("Sie bildet eine Maske, in der nur Bit i gesetzt ist; a & (1 << i) prüft damit genau dieses Bit von a.");
+    if (state.question === IT064_CONCEPT_QUESTION) {
+      await act("clarify");
+      await act("clarify");
+      const skipped = await act("skip");
+      if (skipped.body.next) state.question = skipped.body.next.question;
+    }
+  }
+  return { state, answer, act };
+}
+
+/** Feedback that calls a correct answer wrong, or names the solution in a clarification. */
+const CALLS_WRONG = /\b(falsch|nicht\s+(?:richtig|korrekt)|stimmt\s+nicht|0\s+ausgegeben|wird\s+0)\b/i;
+const NAMES_RESULT = /(gibt\s+(?:eine\s+)?1\s+aus|ausgegeben\s+wird\s+(?:eine\s+)?1\b|200\s*=\s*1\b|ergebnis\s+ist\s+1\b|antwort\s+ist\s+1\b)/i;
+
+async function runSample(post: Awaited<ReturnType<typeof startServer>>["post"], credential: string, model: string, raw: ReturnType<typeof recordingProvider>["raw"]) {
+  const log: unknown[] = [];
+  const checks: Check[] = [];
+  const check = (id: string, passed: boolean, detail: string) => checks.push({ id, passed, detail });
+  const rawRating = () => {
+    const last = [...raw].reverse().find(({ kind }) => kind === "dialog")?.result as { answerRating?: number; feedback?: string } | undefined;
+    return { rating: last?.answerRating, feedback: last?.feedback };
+  };
+
+  for (const [answerText, correct] of [["1", true], ["200 = 1", true], ["0", false]] as const) {
+    const dialog = await dialogAtPrediction(post, credential, model, log);
+    check(`reach-prediction:${answerText}`, dialog.state.question === IT064_PREDICTION_QUESTION, dialog.state.question);
+    if (dialog.state.question !== IT064_PREDICTION_QUESTION) continue;
+    const response = await dialog.answer(answerText);
+    const modelView = rawRating();
+    const rating = response.body.answerRating as number | undefined;
+    const feedback = String(response.body.feedback ?? "");
+    if (correct) {
+      check(`model-accepts:${answerText}`, (modelView.rating ?? 0) >= 4 && !CALLS_WRONG.test(modelView.feedback ?? ""), `model rating ${modelView.rating}: ${modelView.feedback}`);
+      check(`application-accepts:${answerText}`, (rating ?? 0) >= 4 && !CALLS_WRONG.test(feedback), `rating ${rating}: ${feedback}`);
+    } else {
+      check(`model-rejects:${answerText}`, (modelView.rating ?? 5) <= 2, `model rating ${modelView.rating}: ${modelView.feedback}`);
+      check(`application-rejects:${answerText}`, (rating ?? 5) <= 2 && response.body.question === IT064_PREDICTION_QUESTION, `rating ${rating}: ${feedback}`);
+    }
+  }
+
+  const dialog = await dialogAtPrediction(post, credential, model, log);
+  if (dialog.state.question === IT064_PREDICTION_QUESTION) {
+    const first = await dialog.act("clarify");
+    const second = await dialog.act("clarify");
+    const explanations = [first.body.explanation, second.body.explanation].map(String);
+    check("clarify-counts", dialog.state.support?.clarifications === 2 && dialog.state.support?.answerAttempts === 0, JSON.stringify(dialog.state.support));
+    check("clarify-hides-result", explanations.every((text) => !NAMES_RESULT.test(text)), explanations.join(" | "));
+    check("clarify-second-differs", explanations[0] !== explanations[1], explanations.join(" | "));
+    check("skip-unlocked-reference-locked", dialog.state.support?.canSkip === true && dialog.state.support?.canRevealReference === false, JSON.stringify(dialog.state.support));
+    for (const wrong of ["0", "2", "128"]) await dialog.answer(wrong);
+    check("three-attempts-unlock", dialog.state.support?.answerAttempts === 3 && dialog.state.support?.canRevealReference === true, JSON.stringify(dialog.state.support));
+    const revealed = await dialog.act("reveal");
+    check("reveal-reference", revealed.body.reference?.status === "available" && revealed.body.reference?.answer === "1", JSON.stringify(revealed.body.reference));
+  } else {
+    check("reach-prediction:support", false, dialog.state.question);
+  }
+  return { log, checks, models: [...new Set(raw.map(({ model }) => model))] };
+}
+
+async function main(): Promise<number> {
+  const options = parseOptions(process.argv.slice(2));
+  const credential = process.env[options.credentialEnv]?.trim();
+  const report: Record<string, unknown> = {
+    evidence: "http-live",
+    startedAt: new Date().toISOString(),
+    requestedModel: options.model,
+    promptRevision: TUTOR_PROMPT_REVISION.id,
+    case: "IT06.4 prediction question with a = 200 (LearningQuestions R-SUP-8)",
+    referenceProvenance: "server/services/tutor/evaluation/learning-support-fixtures.ts, computed by hand: 1 << 7 = 128, 200 & 128 = 128, 128 && 1 -> 1",
+    samples: [],
+  };
+  const outputDir = options.output!;
+  await mkdir(outputDir, { recursive: true });
+  const reportPath = path.join(outputDir, `report-${Date.now()}.json`);
+  if (!credential) {
+    report.outcome = "inconclusive";
+    report.reason = `${options.credentialEnv} is not set`;
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`inconclusive: ${report.reason}; report ${reportPath}`);
+    return 3;
+  }
+  const { provider, raw } = recordingProvider(new KiconnectProvider());
+  const { server, post } = await startServer(provider);
+  let outcome: "pass" | "fail" | "inconclusive" = "pass";
+  try {
+    for (let sample = 1; sample <= options.samples; sample += 1) {
+      try {
+        const result = await runSample(post, credential, options.model, raw);
+        (report.samples as unknown[]).push({ sample, ...result });
+        const failed = result.checks.filter(({ passed }) => !passed);
+        console.log(`sample ${sample}: ${result.checks.length - failed.length}/${result.checks.length} checks passed${failed.length ? ` (failed: ${failed.map(({ id }) => id).join(", ")})` : ""}`);
+        if (failed.length > 0) outcome = "fail";
+      } catch (error) {
+        const response = (error as { response?: { status: number; body: { error?: { code?: string } } } }).response;
+        (report.samples as unknown[]).push({ sample, technicalFailure: response ? `${response.status} ${response.body.error?.code ?? ""}` : String(error) });
+        console.log(`sample ${sample}: technical failure ${response ? `${response.status} ${response.body.error?.code ?? ""}` : String(error)}`);
+        outcome = outcome === "fail" ? "fail" : "inconclusive";
+      }
+    }
+  } finally {
+    server.close();
+  }
+  report.returnedModels = [...new Set(raw.map(({ model }) => model))];
+  report.outcome = outcome;
+  report.finishedAt = new Date().toISOString();
+  await writeFile(reportPath, JSON.stringify(report, null, 2));
+  console.log(`${outcome}; models ${JSON.stringify(report.returnedModels)}; report ${reportPath}`);
+  return outcome === "pass" ? 0 : outcome === "fail" ? 2 : 3;
+}
+
+main().then((code) => { process.exitCode = code; }, (error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

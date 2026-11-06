@@ -4,9 +4,11 @@ Status: current
 Zielrolle: feature-contract
 Scope: unified repository-controlled Examples and optional Tutor content
 
-> Planned extension (2026-11-06): section 6.4 describes reference answers for
-> the learning-support contract in LearningQuestions 3.10. It is not implemented
-> by this documentation change. Existing schema versions remain closed.
+> Extension (2026-11-06): section 6.4 describes reference answers for the
+> learning-support contract in LearningQuestions 3.10. They are implemented as
+> annotation `schemaVersion: 3` and Topic `schemaVersion: 3`; versions 1 and 2
+> remain closed. Acceptance with live samples is still open (LearningQuestions
+> section 21, TUT-08).
 
 This document is the normative contract for the single Course Content source.
 It complements the detailed Examples contract in
@@ -265,6 +267,10 @@ focus:
 afterFocus: free
 ~~~
 
+Schema version 3 retains every version 2 field and additionally allows an
+optional reviewed `reference` on a focus question (section 6.4); versions 1
+and 2 MUST NOT contain it.
+
 `focus` is an ordered list of 1 to 8 focus areas with unique safe IDs. Each
 has a bounded `title` (160) and `objective` (500) and 1 to 6 `questions`, each
 with a `kind` (`recall`, `concept`, `application`, `prediction`, `transfer`)
@@ -291,18 +297,19 @@ as another program and no question applies. Without an applicable question the
 focus is paused: the free Tutor answers, no repository Topic takes over, and
 the focus resumes if the code returns.
 
-In the existing implementation, after a weak answer (rating 1 or 2) the same
-focus question is asked once more, and the provider's feedback carries the
-hint. A second weak answer moves on. The planned support cycle in
-LearningQuestions 3.10 replaces that limit: retrying and clarification retain
-the question identity; two learner-requested clarifications allow skipping,
-and three answer attempts allow the voluntary reference-answer request. A
+In the learning-support cycle (LearningQuestions 3.10, every request of the
+browser) a weak answer (rating 1 or 2) keeps the focus question open with its
+identity; the provider's feedback carries the hint. Clarification keeps the
+question too; two learner-requested clarifications allow skipping, and three
+answer attempts allow the voluntary reference-answer request. A request
+without the support binding keeps the MVP rule: the same focus question is
+asked once more after a weak answer, and a second weak answer moves on. A
 focus that ran out of questions is not reported as understood: the response's
 `focusProgress` distinguishes `active`, `completed`, `open` and `paused`, names
-the open areas, and the free Tutor receives their objectives. In the existing
-implementation the focus text is fixed, so adaptive difficulty affects feedback
-and the free Tutor, not the question. The planned learner-requested clarification
-may reword that question while preserving its identity and learning objective.
+the open areas, and the free Tutor receives their objectives. The focus text is fixed, so
+adaptive difficulty affects feedback and the free Tutor, not the question. A
+learner-requested clarification explains that question in other words while it
+keeps its identity and learning objective.
 
 Course Content and the Tutor use the C++ terms ([basic.def], [basic.start.static]):
 every variable definition is also a declaration; `int a;` is a definition without
@@ -332,7 +339,7 @@ deterministic outcome: no teacher metadata is exposed or executed, and the
 Tutor capability falls back completely when validation cannot establish a
 valid annotation boundary.
 
-### 6.4 Planned reference-answer content (not implemented)
+### 6.4 Reference-answer content (schema version 3)
 
 The learning-support rules and thresholds are owned by
 [LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen).
@@ -344,16 +351,35 @@ data, never repository prompts, executable expressions, templates or replacement
 sketches. Equivalent correct answers remain acceptable; a single literal
 answer is not a universal grading rubric.
 
-Adding these data requires an explicit versioned extension of annotation and
-Topic schemas, validators, loader, normalized question identity and authoring
-fixtures. Existing v1/v2 payloads MUST NOT silently accept new fields. Old
+A reference is attached to one question with a fixed text: a focus question in
+annotation `schemaVersion: 3`, or a Topic question (with `text`, not
+`template`) in Topic `schemaVersion: 3`:
+
+~~~yaml
+reference:
+  answer: "1"
+  explanation: "Im ersten Durchlauf ist i = 7, also 1 << 7 = 128. 200 & 128 = 128, und 128 && 1 ist wahr: Serial.print gibt 1 aus."
+  accept: ["1", "200 = 1"]          # optional, short answers that are certainly correct
+  assumptions: ["a = 200"]          # optional, values the question itself sets
+  requiresCode: ["a & (1 << i) && 1", "int i = 7"]   # optional, fragments the current code must keep
+~~~
+
+`answer` (300), `explanation` (1 500), up to 8 `accept` entries (120), up to 6
+`assumptions` (160) and up to 8 `requiresCode` fragments (160) are bounded,
+URL-free and control-character free; a code block or a replacement sketch makes
+the reference invalid. The server looks the reference up by the exact text of
+the asked question. `accept` is no universal rubric: an answer listed there is
+never rated below 4, and a single number that contradicts a numeric `answer` is
+never rated above 2; every other answer stays with the Tutor's judgement.
+Existing v1/v2 payloads MUST NOT silently accept new fields. Old
 content without references remains valid; a missing reference is not a Tutor
 bundle validation failure. Malformed newly declared reference data follows
 the existing atomic Tutor-validation boundary and never invalidates otherwise
 valid Examples.
 
 Reference applicability is checked against the current editor/project code
-and the question's explicit assumptions, not merely the immutable Example
+(every `requiresCode` fragment outside comments, whitespace-insensitive) and
+the question's explicit assumptions, not merely the immutable Example
 revision or the presence of a variable name. Editing `a = 37` to `a = 200`
 must not leave a reference for the old value active. A prediction question
 explicitly assuming `a = 200` must use that assumption even when the Example
@@ -454,7 +480,9 @@ checked, URL-free, and passed only as structured didactic context.
 Curriculum Topic `schemaVersion: 1` remains exactly this contract and has no
 `deepening` or `extensions` fields. Curriculum Topic `schemaVersion: 2`
 retains every v1 semantic and may add the optional bounded `deepening` and
-`extensions` fields defined in section 9.2. A future implementation MUST
+`extensions` fields defined in section 9.2. Curriculum Topic
+`schemaVersion: 3` retains every v2 semantic and may add a reviewed
+`reference` to a question with a fixed text (section 6.4). A future implementation MUST
 support both versions. A v1 Topic therefore continues to work unchanged and
 uses the normative application default for deepening; strict v1 validation
 does not reinterpret v2-only fields.

@@ -6,9 +6,10 @@ semantic-layer design (see the historical glossary entries in §2). Implementati
 plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
 
 > **Conformance.** Appendix A records conformance of the existing evaluation
-> baseline. Section 15 is a planned extension dated 2026-11-06 and is **not yet
-> implemented**; existing corpus/CLI schemas do not acquire its fields by this
-> documentation change. The central implementation TODO list is LearningQuestions
+> baseline. Section 15 is an extension dated 2026-11-06: its HTTP
+> replay exists as a separate live script, the corpus/report extension
+> (R-SUP-E4) is **not yet implemented**, and existing corpus/CLI schemas do not
+> acquire its fields. The central implementation TODO list is LearningQuestions
 > section 21. A deviation found later in the implemented baseline is
 > listed there with its owner until it is fixed. While it is listed, the
 > affected statement must not be read as a current runtime invariant.
@@ -825,7 +826,7 @@ dashboard, workflow engine, or statistics platform.
 The planned bounded, in-session assistance flags of LearningQuestions R-SUP-5
 are distinct from an exposure-tracking platform or persistent learner profile.
 
-## 15. Planned learning-support and HTTP dialog evaluation (not implemented)
+## 15. Learning-support and HTTP dialog evaluation
 
 The didactic source is
 [LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen).
@@ -884,6 +885,19 @@ returned model, sample count, question/context identity, each action and its
 count/availability transition, and reference provenance. Existing redaction,
 call budgets and technical-failure/inconclusive semantics remain in force.
 
+**Implementation status (2026-11-06).** `npm run eval:tutor-learning-support:live
+-- --output-dir <dir>` (`scripts/tutor-learning-support-live.ts`) replays the
+IT06.4 dialog over the production Tutor routes on loopback with the real
+provider, the server-issued Course and support sessions and the browser's
+request fields (R-SUP-E1, R-SUP-E3). Per sample it checks the model's own
+rating and the delivered rating for `1`, `200 = 1` and `0`, two clarifications,
+three attempts and the reference answer, against the hand-computed reference,
+and reports requested and returned model, prompt revision, every step and its
+support state. Exit codes follow R-VER-8 (0 pass, 2 fail, 3 inconclusive). Not
+implemented: the strict corpus/action fields, Judge eligibility and the L2
+allowlist updates of R-SUP-E4, and a second Judge. A live run on 2026-11-06 was
+inconclusive because the provider rejected both local credentials (HTTP 401).
+
 These transcripts show whether scripted interactions are handled correctly;
 they do not measure a learning effect in real students. Missing provider
 credentials or an unavailable live run must be reported, not replaced by a
@@ -892,9 +906,8 @@ mock pass or counted as completed live acceptance.
 ## Appendix A – Conformance status (non-normative)
 
 The historical audits below cover the implemented baseline. They do not cover
-the planned learning-support/HTTP extension in section 15. All corresponding
-implementation and acceptance tasks remain open in LearningQuestions section 21
-(2026-11-06).
+the learning-support/HTTP extension in section 15; its status is recorded there
+and in LearningQuestions section 21 (2026-11-06).
 
 Verified against `main` @ `425bf362` plus the conformance fix that follows it
 (PRs #128–#132 of `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since

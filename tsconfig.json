@@ -40,7 +40,8 @@
     "scripts/runtime-fixtures.ts",
     "scripts/record-hardware.ts",
     "scripts/record-hardware-lib.ts",
-    "scripts/tutor-catalog-eval.ts"
+    "scripts/tutor-catalog-eval.ts",
+    "scripts/tutor-learning-support-live.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

@@ -6,10 +6,11 @@ Ziel-SSOT für das fachliche Verhalten des KI-gestützten Lernfragen-Panels in U
 Provider-spezifische Implementierungsdetails, API-Zugangsdaten und institutionelle Betriebsvereinbarungen sind nicht Teil dieses fachlichen Vertrags.
 
 > Erweiterungsstand 2026-11-06: Abschnitt 3.10 spezifiziert Antwortversuche,
-> Klärungsnachfragen, Musterantworten und Überspringen als **noch umzusetzenden
-> Zielvertrag**. Die Abgrenzungen in 9.1 und 11.3 sowie die TODO-Liste in
-> Abschnitt 21 gehören dazu. Dieses Dokumentationsupdate implementiert keine
-> dieser Funktionen; die bestehenden MVP-Schemas werden dadurch nicht erweitert.
+> Klärungsnachfragen, Musterantworten und Überspringen. Die Abgrenzungen in 9.1
+> und 11.3 sowie die TODO-Liste in Abschnitt 21 gehören dazu. Die Funktionen sind
+> umgesetzt und mit Service-, HTTP-, Client- und E2E-Tests belegt (Abschnitt 21);
+> **die Abnahme mit wiederholten Live-Samples des tatsächlich verwendeten Modells
+> ist offen** (TUT-01, TUT-07, TUT-08).
 
 ## Governance-Grenzen
 
@@ -123,8 +124,8 @@ safe diagnostic reason.
 
 A teacher's focus in an Example annotation (CourseContent SSOT 6.3) comes before
 every Topic. It is checked against the current sketch and reports `focusProgress`.
-The existing implementation repeats a question once after a weak answer; the
-planned support cycle in section 3.10 replaces that retry limit. A dialog turn keeps the identity
+In the support cycle of section 3.10 a weak answer keeps the question open; a
+request without the support binding keeps the MVP rule of one repetition. A dialog turn keeps the identity
 of the answered question; feedback and rating come from the response. On the
 server the asked text decides which question a rating belongs to, so that a
 browser-supplied question ID cannot move evidence to another question. All
@@ -852,7 +853,7 @@ Für den MVP gilt:
 
 ### 3.10 Antwortversuche, Klärung, Musterantwort und Überspringen
 
-**Status: Zielvertrag, noch nicht implementiert (Entscheidung 2026-11-06).**
+**Status: umgesetzt (2026-11-06), Live-Abnahme offen (Abschnitt 21, TUT-08).**
 Die Regeln R-SUP-1 bis R-SUP-8 gelten für Lehrerfokus, Topic-Fragen und den
 freien Tutor. Sie ersetzen bei Umsetzung die bisherige einmalige Wiederholung
 einer Lehrerfrage. Die Abnahme und die noch offenen Arbeiten stehen in
@@ -1228,8 +1229,8 @@ Der Browser darf diesen Prompt nicht verändern.
 Die Provider-Antwort darf nicht ungeprüft an das Frontend weitergereicht werden.
 
 Die fachliche Tutor-Antwort im bestehenden MVP-Frage-/Antwortmodus hat folgenden
-Vertrag. Dieser Typ bildet die noch nicht implementierten Hilfeaktionen aus
-3.10 nicht ab; deren Erweiterung ist in 9.1 und Abschnitt 21 beschrieben:
+Vertrag. Die Hilfeaktionen aus 3.10 erweitern ihn um die in 9.1 beschriebenen
+Felder:
 
 ```ts
 interface TutorResponse {
@@ -1268,10 +1269,20 @@ Optionale Felder mit `null`, unbekanntem Typ oder ungültigem Inhalt werden verw
 
 Eine ungültige Provider-Antwort darf einmal kontrolliert neu angefordert oder als Fehler verworfen werden. Endlose automatische Retries sind nicht zulässig.
 
-### 9.1 Zielvertrag für Hilfeaktionen (noch nicht implementiert)
+### 9.1 Vertrag der Hilfeaktionen
 
 Die API MUSS die fachlichen Aktionen `answer`, `clarify`, `hint`, `reveal`
-und `skip` explizit unterscheiden. Eine Klärung darf keine künstliche
+und `skip` explizit unterscheiden. Umsetzung: `POST /api/tutor/question` mit
+`learningSupport: true` eröffnet den serverseitigen Lernhilfezustand und
+antwortet mit `support` (Session, Frage-Handle, Zähler, Freischaltungen,
+Referenzverfügbarkeit, Ergebnis). `POST /api/tutor/dialog` bindet eine Antwort
+mit `supportSession`, `questionHandle` und `actionId`; die Antwort nennt mit
+`learnerInput`, ob eine Eingabe als Antwort, Klärung oder Hilfebitte behandelt
+wurde. `POST /api/tutor/support` führt `clarify`, `hint`, `reveal` und `skip` aus
+(`shared/tutor-support.ts`). Kompatibilitätsregel: Ohne diese drei Felder
+behält der Dialog das MVP-Verhalten; gesperrte Aktionen antworten mit 409
+`SUPPORT_LOCKED`, fremde oder veraltete Bindungen mit 409 `SUPPORT_CONFLICT`
+bzw. 400 `SUPPORT_SESSION_INVALID`. Eine Klärung darf keine künstliche
 Studierendenantwort erfordern. Die Umsetzung erweitert Requests, Responses,
 Historie und Sessionzustand mit geschlossenen, validierten Schemas;
 unbekannte Aktionen und zusätzliche Felder bleiben ungültig. Bestehende
@@ -1501,9 +1512,9 @@ Sie umfasst höchstens das definierte Sliding Window und enthält keine Credenti
 - die Sessionbewertung zurücksetzen,
 - den aktiven Topic, die didaktische Phase, die Mastery-Evidenz und die
   Deepening-Evidenz zurücksetzen.
-- nach Umsetzung von 3.10 auch Frageidentitäten, Antwortversuchs- und
-  Klärungszähler, Freischaltungen und Nutzungskennzeichen für Lösungshilfe
-  bzw. Überspringen zurücksetzen.
+- auch Frageidentitäten, Antwortversuchs- und Klärungszähler,
+  Freischaltungen und Nutzungskennzeichen für Lösungshilfe bzw. Überspringen
+  zurücksetzen (neue Lernhilfe-Session; die alte läuft per TTL ab).
 
 Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 
@@ -1538,7 +1549,7 @@ Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
 
 Bei Fehlern bleiben bestehende Historie und Antwortentwurf unverändert.
 
-### 11.3 Zielablauf der Lernhilfe (noch nicht implementiert)
+### 11.3 Ablauf der Lernhilfe
 
 1. Der Nutzer wählt eine explizite Aktion zur aktiven Frage.
 2. Der Server prüft Aktion, Session-/Fragebindung, aktuellen Kontext und die
@@ -1853,14 +1864,28 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 
 ## 21. TODO – Tutoränderung: fachliche Bewertung und Lernhilfe
 
-Stand 2026-11-06: Der Zielvertrag ist dokumentiert; **alle folgenden
-Implementierungs- und Abnahmepunkte sind offen**. Die Liste ist die zentrale
+Stand 2026-11-06 (Branch `feature/tutor-learning-support-spec`): TUT-02 bis
+TUT-06 sind umgesetzt und belegt. **Offen sind die Live-Nachweise mit dem
+tatsächlich verwendeten Modell** (TUT-01, TUT-07, TUT-08): Beide in der lokalen
+Umgebung hinterlegten KI:connect-Zugänge wurden am 2026-11-06 mit HTTP 401
+abgelehnt, sodass weder die beobachtete Fehlbewertung live reproduziert noch
+wiederholte Live-Samples erhoben werden konnten. Die Liste ist die zentrale
 Abarbeitungsliste für diese Änderung. Die drei weiteren Tutor-/Content-SSOTs
 verweisen darauf, statt eigene konkurrierende Fortschrittslisten zu führen.
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
 passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-Qualität.
 
 - [ ] **TUT-01 – Fachliche Fehlbewertung IT06.4 reproduzieren und korrigieren.**
+  *Stand:* Korrektur umgesetzt, Live-Reproduktion offen. Wahrscheinliche Ursache
+  im Code: Die Bewertungsregel verlangte, jede Angabe „am Sketch“ zu prüfen; der
+  Sketch setzt `a = 37`, die Frage `a = 200` (37 & 128 = 0). Korrektur: Von der
+  Frage gesetzte Werte gelten vor denen des Sketches, eine nur verlangte Zahl
+  braucht keine Begründung (Prompt-Revision v7); die geprüfte Referenz geht in
+  die Bewertung ein und korrigiert sie deterministisch („1“, „200 = 1“ ≥ 4;
+  „0“ ≤ 2). Belege: `answered-question-context.test.ts`,
+  `question-quality-regressions.test.ts`, `tutor-learning-support.routes.test.ts`
+  (Editorwert 200, Frageannahme bei `a = 37`, nicht mehr passender Code). Die
+  Bestätigung der Ursache am echten Modell steht aus.
   In `server/services/tutor/tutor-service.ts`, beantwortetem Fragekontext und
   Providerübergabe die tatsächliche Ursache untersuchen. Fixtures im vorhandenen
   `evals/tutor-quality/`-Korpus sowie Regressionen in
@@ -1870,20 +1895,35 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Operatoren korrekt auswerten und aktuelle Editorwerte sowie hypothetische
   Frageannahmen gegenüber ursprünglichem `a = 37` berücksichtigen. Bewertungs-
   und Begründungsanforderungen nicht nachträglich vermischen.
-- [ ] **TUT-02 – Aktionsschemas und maßgeblichen Sessionzustand umsetzen.**
+- [x] **TUT-02 – Aktionsschemas und maßgeblichen Sessionzustand umsetzen.**
+  *Belege:* `shared/tutor.ts`, `shared/tutor-support.ts`,
+  `server/services/tutor/learning-support-store.ts`,
+  `server/routes/tutor-support.routes.ts`; HTTP-Tests für Kompatibilität,
+  Grenzen 2/3, Duplikate, parallele Requests, Provider-Fehler, Abbruch, fremde
+  Sessions, manipulierte Zähler und Handles, Kontextwechsel und Neustart.
   `shared/tutor.ts`, `server/routes/tutor.routes.ts`,
   `server/services/course-content/course-content-session.ts` und die
   Service-/Planungsgrenze erweitern. Aktionen, Frage-/Kontextbindung,
   Zähler und Freischaltungen aus 9.1 geschlossen abbilden; kompatible Requests,
   Grenzen 2/3, doppelte/parallele Requests, Fehler, Abbruch, fremde Sessions,
   manipulierte Zähler und Reset in Shared-/Route-/Sessiontests nachweisen.
-- [ ] **TUT-03 – Klärung und Hinweise ohne Bewertung implementieren.**
+- [x] **TUT-03 – Klärung und Hinweise ohne Bewertung implementieren.**
+  *Belege:* `learning-support.ts` (Einordnung getippter Eingaben, Prüfung auf
+  Code, erkennbare Referenzantwort und wiederholte Klärung),
+  `learning-support.test.ts`, HTTP-Tests. Die fachliche Qualität der
+  Erklärungen eines echten Modells gehört zu TUT-08.
   Frageidentität trotz verständlicher Umformulierung erhalten, Rückfragen im
   Texteingabefeld korrekt behandeln und keine Sterne/Difficulty-/Mastery-
   Änderung erzeugen. Zweite Klärung muss weiterhelfen. Tests für kurze gültige
   Zahlenantworten, „Ich weiß nicht“, Meta-Fragen und ausgebliebene Provider-
   Antworten ergänzen; vorzeitige Lösung und falsche Aufgabenprämissen prüfen.
-- [ ] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
+- [x] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
+  *Belege:* Annotation- und Topic-Schema 3 (`reference-answer.ts`,
+  `embedded-tutor-annotation.ts`, `curriculum-schema.ts`), Schema- und
+  Anwendbarkeitstests; `npm run validate:tutor-course-content` akzeptiert IT06.4
+  mit Schema 3 und Referenz und lehnt dieselbe Referenz unter Schema 2 ab.
+  Ohne Referenz meldet `reveal` den Grund (`no-reference`, `not-applicable`).
+  Die Referenzen selbst stehen noch nicht im Kurs-Repository UnoSim-Examples.
   Den in der CourseContent-SSOT 6.4 beschriebenen versionierten Datenvertrag
   für Referenzantwort und Erklärung umsetzen, einschließlich
   `server/services/course-content/embedded-tutor-annotation.ts`,
@@ -1893,14 +1933,21 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   müssen zur Referenz passen. Fehlende/ungültige Referenz transparent behandeln.
   Abruf erst nach drei Versuchen, aktionsbezogene Lösungsfilter und keinen
   vollständigen Ersatzsketch nachweisen.
-- [ ] **TUT-05 – Wiederholung, Überspringen und Lernfortschritt anpassen.**
+- [x] **TUT-05 – Wiederholung, Überspringen und Lernfortschritt anpassen.**
+  *Belege:* `planRetry`/`leaveQuestion` im Planer, `leftQuestionIds` im
+  Progression-Zustand; `learning-support-planning.test.ts` (Topic, freier
+  Tutor, offener Abschluss), HTTP-Tests für den Lehrerfokus und das
+  Sliding Window.
   `server/services/tutor/curriculum-tutor-adapter.ts`, Planner und
   `progression-state.ts` gemäß R-SUP-3 bis R-SUP-7 anpassen. Die bisherige
   Zweitantwort-Weiterleitung ersetzen. Nach zwei Klärungen ohne Antwortversuch
   überspringen können; kein vorzeitiger Musterabruf, keine negative Skip-
   Bewertung und keine Mastery durch Hilfe. Lehrerfokus, Topic, freie Fragen,
   offener Abschluss und aus dem Sliding Window entfernte Texte separat testen.
-- [ ] **TUT-06 – GUI und Bedienbarkeit umsetzen.**
+- [x] **TUT-06 – GUI und Bedienbarkeit umsetzen.**
+  *Belege:* `use-tutor.ts`, `tutor-dialog-parts.tsx`;
+  `tutor-learning-support.test.tsx`, `e2e/tutor-learning.spec.ts` (kompletter
+  Ablauf per Tastatur, schmale Ansicht mit XXL-Schrift).
   `client/src/hooks/use-tutor.ts` und Tutoransicht in
   `client/src/components/simulator/ExperimentalWorkspace.tsx` erweitern.
   Getrennte Aktionen, verständliche Schwellen, zugeordnetes Feedback und
@@ -1908,6 +1955,10 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Fokus, Lade-/Fehlerzustände und schmale Ansichten beachten. Client-Tests und
   `e2e/tutor-learning.spec.ts` um komplette Abläufe und Grenzfälle erweitern.
 - [ ] **TUT-07 – Vollständige HTTP-Verläufe automatisieren.**
+  *Stand:* Mit gefälschtem Provider automatisiert
+  (`tutor-learning-support.routes.test.ts`, 15 Verläufe). Der Live-Verlauf über
+  HTTP ist als `npm run eval:tutor-learning-support:live` umgesetzt, lief aber
+  wegen des abgelehnten Zugangs nur bis HTTP 401 (Ergebnis „inconclusive“).
   Vorhandene Tutor-Route-Tests und Evaluationsinfrastruktur erweitern, keine
   separate zweite Fachlogik bauen. GUI-nahe Session-/Kursbindung mit allen
   Aktionen durchspielen: 2 Klärungen → Skip, 3 Antworten → freiwilliger Abruf,
@@ -1915,6 +1966,9 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Ohne Provider-Mock gezielt denselben IT06.4-Verlauf gegen das tatsächlich
   verwendete Modell wiederholen; echte Antworten der vorigen Schritte mitführen.
 - [ ] **TUT-08 – Qualitätsgates, Live-Evidenz und Dokumentation abnehmen.**
+  *Stand:* Deterministische Gates und Dokumentation umgesetzt; offen sind die
+  Live-Samples und die Korpus-/Report-Erweiterung aus TutorQualityEvaluation 15
+  (R-SUP-E4).
   Die geplanten Ergänzungen der TutorQualityGates-/TutorQualityEvaluation-SSOTs
   umsetzen. Mehrere Samples mit festem, tatsächlich verwendetem Modell und
   fachlich unabhängigen Referenzen prüfen; Service-, HTTP- und UI-Evidenz

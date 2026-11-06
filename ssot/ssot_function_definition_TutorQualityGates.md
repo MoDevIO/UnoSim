@@ -2,9 +2,9 @@
 
 Status: normative for deterministic Tutor quality gates.
 
-> Planned extension (2026-11-06): section 8 specifies the additional gates for
-> LearningQuestions 3.10. Those gates are not implemented yet. The central
-> implementation TODO list is LearningQuestions section 21.
+> Extension (2026-11-06): section 8 specifies the additional gates for
+> LearningQuestions 3.10; they are implemented as deterministic tests (listed in
+> section 8). The central TODO list is LearningQuestions section 21.
 
 ## 1. Scope and quality model
 
@@ -154,7 +154,7 @@ measurement, adaptive Strategy selection, and a broad fact-extractor expansion.
 Those belong to later layers and may consume Stage 1 scenario traces and stable
 case IDs without changing the deterministic contract.
 
-## 8. Planned learning-support gates (not implemented)
+## 8. Learning-support gates
 
 The authoritative didactic contract is
 [LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen),
@@ -186,6 +186,12 @@ The deterministic tests MUST exercise:
   reveal the sought answer or provide a replacement sketch;
 - reference applicability to actual code, board and question assumptions;
   old schemas and content without references remain usable.
+
+Implemented in `tests/server/routes/tutor-learning-support.routes.test.ts`
+(HTTP), `tests/server/services/tutor/learning-support.test.ts`,
+`learning-support-planning.test.ts`, the IT06.4 cases in
+`answered-question-context.test.ts` and `question-quality-regressions.test.ts`,
+`tests/client/tutor-learning-support.test.tsx` and `e2e/tutor-learning.spec.ts`.
 
 These cases use the real production state machine, schemas and planner with
 only the provider faked. Route tests additionally exercise the real HTTP
