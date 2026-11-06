@@ -365,17 +365,19 @@ reference:
     - "for (int i = 7; i >= 0; i--) {"
     - "Serial.print(a & (1 << i) && 1);"
   # reviewedCode: "..."             # Topic questions only (required there): the complete reviewed program
+  # reviewedBoard: uno              # Topic questions only, optional: the board it was reviewed for
 ~~~
 
 `answer` (300), `explanation` (1 500), up to 8 `accept` entries (120), up to 6
 `assumptions` (160) and 1 to 8 `requiresCode` lines (160) are bounded,
 URL-free and control-character free; a code block or a replacement sketch makes
-the reference invalid. A reference is bound to the complete program it was
-reviewed for: a focus reference to its Example (it must not carry
-`reviewedCode`), a Topic reference to its required `reviewedCode` (at most
-8 000 characters, line breaks and tabs as the only control characters), which
-must contain every `requiresCode` entry. The server looks the reference up by the exact text of
-the asked question. `accept` is no universal rubric: an answer listed there
+the reference invalid. A reference is bound to the exact program and board it
+was reviewed for: a focus reference to its Example and the Example's board (it
+must carry neither `reviewedCode` nor `reviewedBoard`), a Topic reference to its
+required `reviewedCode` (at most 8 000 characters, line breaks and tabs as the
+only control characters), which must contain every `requiresCode` entry as a
+whole line, and its optional `reviewedBoard` (default `uno`). The server looks
+the reference up by the exact text of the asked question. `accept` is no universal rubric: an answer listed there
 gets 5 with a confirming feedback, and a single number that contradicts a
 numeric `answer` gets at most 2 with a neutral hint; when the reference decides,
 its feedback replaces the model's wording. Every other answer stays with the
@@ -386,16 +388,23 @@ bundle validation failure. Malformed newly declared reference data follows
 the existing atomic Tutor-validation boundary and never invalidates otherwise
 valid Examples.
 
-Reference applicability is checked against the current editor/project code
-and the question's explicit assumptions, not merely the immutable Example
-revision or the presence of a variable name: outside comments and spacing, the
-current program, with every project file, must equal the reviewed program token
-for token. The only allowed difference is the literal value assigned to a
-variable the question itself sets (`assumptions`, e.g. `byte a = 37;` edited to
-`byte a = 200;` for `a = 200`). Any other change, such as a negated expression,
-another loop start, a moved line or an inserted `i = 0;` between otherwise
-unchanged lines, makes the reference inapplicable, because whether it still
-holds cannot be judged safely. Editing `a = 37` to `a = 200`
+Reference applicability is checked against the current editor/project code,
+the board and the question's explicit assumptions, not merely the immutable
+Example revision or the presence of a variable name: every project file must
+equal the reviewed one character for character (only whitespace at the end of
+a file is ignored), with the same board. No comment, spacing or line-break
+normalization is applied, because each can change the meaning in C++ (a comment
+marker inside a string literal, the line break that ends a `#define`). The only
+allowed difference is the initial value of a variable the question itself sets
+(`assumptions`, e.g. `byte a = 37;` edited to `byte a = 200;` for `a = 200`),
+and only at its single declaration `<type words> name = <plain literal>;` in the
+file-scope preamble before the first `{`. The preamble is read like C++: closed
+block and line comments (such as an Example's header comment) are allowed; a
+string or character literal, a line continuation or a conditional directive
+ends the safe preamble. A later assignment to the same variable never becomes
+variable. Where no single safe declaration exists, no value may change. Any
+other change, such as a negated expression, an inserted `i = 0;`, a moved line
+or a reformatted line, makes the reference inapplicable. Editing `a = 37` to `a = 200`
 must not leave a reference for the old value active. A prediction question
 explicitly assuming `a = 200` must use that assumption even when the Example
 default is 37. Stale references must not reject correct learner answers or be

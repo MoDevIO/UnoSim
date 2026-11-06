@@ -13,8 +13,15 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   is rated or counts as understanding. The server keeps the counters, so a
   retry or a parallel request does not count twice. Course content can add
   reference answers with annotation and Topic `schemaVersion: 3`; a reference
-  applies only while the learner's program is the reviewed one, apart from the
-  value the question itself sets.
+  applies only while the learner's program and board are exactly the reviewed
+  ones, apart from the initial value the question itself sets.
+- **Tutor model choice for operators:** `UNOSIM_TUTOR_AUTO_MODELS` names the
+  exact models **Automatic** prefers, in order; no model family is preferred
+  by the application any more, and embedding models are never chosen. The
+  key view names the model of the last answer.
+- **Tutor quality evaluation over HTTP:** corpus cases with
+  `transport: http` replay the learning-support dialog over the Tutor routes
+  and report application, raw-model and technical results apart.
 
 - I/O Registry now has **Programmed Pins (n)**, **All Pins**, and **Pin Infos**
   tabs. The usage views retain runtime provenance, conflict markers, and

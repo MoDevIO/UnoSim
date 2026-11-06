@@ -347,10 +347,20 @@ Akzeptanzkriterien steht in
 | `UNOSIM_GITHUB_TOKEN` | leer | siehe oben |
 | `UNOSIM_LLM_BASE_URL` | `https://chat.kiconnect.nrw/api/v1` | OpenAI-kompatibler Endpunkt für den Tutor |
 | `UNOSIM_LLM_TIMEOUT_MS` | `30000` | maximale Dauer eines Tutor-Aufrufs |
+| `UNOSIM_TUTOR_AUTO_MODELS` | `openai-gpt5.4-mini,mistralai-mistral-small-4-119b-2603` | exakte Modell-IDs, die **Automatic** in dieser Reihenfolge bevorzugt; leer = Reihenfolge der Provider-Liste |
 | `TUTOR_RATE_LIMIT_MAX_REQUESTS` | `20` | Tutor-Anfragen pro Identität und Fenster |
 | `TUTOR_RATE_LIMIT_WINDOW_MS` | `60000` | Fenster für das Tutor-Limit |
 | `TUTOR_SESSION_TTL_MS` | `3600000` | absolute Lebensdauer einer Tutor-Sitzung |
 | `TUTOR_SESSION_MAX_PER_SUBJECT` | `5` | gleichzeitige Tutor-Sitzungen pro Identität |
+
+Für **Automatic** nimmt der Server das erste Modell aus
+`UNOSIM_TUTOR_AUTO_MODELS`, das KI:connect gerade anbietet; eine manuelle
+Modellwahl der Person hat Vorrang. Die Voreinstellung beruht auf dem
+Vergleich vom 06.11.2026 mit festen Modellen (LearningQuestions TUT-07):
+`openai-gpt5.4-mini` lief vollständig, `mistralai-mistral-small-4-119b-2603`
+fast vollständig und am schnellsten. `openai-gpt5.5` ist mit dem Tutor derzeit
+nicht nutzbar, weil es die Tutor-Temperatur 0,2 ablehnt. Ein ungültiger
+Eintrag in der Liste verhindert den Start.
 
 Der Tutor unterstützt derzeit nur KI:connect.nrw. Er braucht serverseitig
 keinen Schlüssel: Jede Person trägt ihren persönlichen KI:connect-Key im

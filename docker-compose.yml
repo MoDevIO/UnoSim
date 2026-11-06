@@ -46,7 +46,8 @@ services:
       # Optional, read-only GitHub token for api.github.com (60 -> 5000 ref lookups per hour).
       - UNOSIM_GITHUB_TOKEN=${UNOSIM_GITHUB_TOKEN:-}
       # Exact model IDs the Tutor's "Automatic" prefers, in order; empty = the provider's order.
-      - UNOSIM_TUTOR_AUTO_MODELS=${UNOSIM_TUTOR_AUTO_MODELS:-}
+      # Default from the fixed-model comparison of 2026-11-06 (docs/INSTALL_SERVER.md).
+      - UNOSIM_TUTOR_AUTO_MODELS=${UNOSIM_TUTOR_AUTO_MODELS-openai-gpt5.4-mini,mistralai-mistral-small-4-119b-2603}
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock

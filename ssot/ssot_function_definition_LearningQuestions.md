@@ -1168,13 +1168,15 @@ Die Modellwahl MUSS folgende Regeln einhalten:
 
 - Der Standardwert ist `Automatisch`.
 - `Automatisch` verwendet ausschließlich Modelle, die in der aktuellen Provider-Antwort enthalten sind.
-- `Automatisch` wird serverseitig anhand einer kontrollierten, familienbasierten Präferenzliste
-  aufgelöst. Geeignete verfügbare Qwen-Modelle werden bevorzugt; danach folgen andere als
-  geeignet definierte Instruction-/Reasoning-Familien. Die Präferenz bewertet keine fest
-  codierte Deployment-ID und darf nur IDs aus der aktuellen Provider-Antwort auswählen.
-- Gibt es keinen passenden Qwen-Kandidaten, fällt `Automatisch` deterministisch auf die nächste
-  geeignete verfügbare Modellfamilie zurück; bei gleicher Präferenz bleibt die Provider-Reihenfolge
-  erhalten.
+- `Automatisch` wird serverseitig über eine Betreiberkonfiguration aufgelöst:
+  `UNOSIM_TUTOR_AUTO_MODELS` nennt exakte Modell-IDs in Vorzugsreihenfolge.
+  `Automatisch` nimmt die erste davon, die die aktuelle Provider-Antwort enthält.
+  Ist keine konfiguriert oder keine verfügbar, gilt die Reihenfolge der
+  Provider-Antwort. Die Anwendung bevorzugt keine Modellfamilie; offensichtliche
+  Nicht-Chat-Modelle (Embedding, Reranking, Sprache) wählt `Automatisch` nie.
+- Eine manuelle Auswahl hat Vorrang vor `Automatisch`. Die Tutor-Ansicht nennt
+  das Modell der letzten Antwort und ob `Automatisch` es gewählt hat, sodass ein
+  Modellwechsel sichtbar bleibt.
 - Eine manuelle Auswahl darf ausschließlich aus der zuletzt erfolgreich geladenen aktuellen Modellliste angeboten werden.
 - Eine nicht mehr verfügbare oder anderweitig ungültige manuelle Auswahl fällt vor der Anfrage auf `Automatisch` zurück.
 - Der Server MUSS eine manuelle Auswahl zusätzlich gegen eine frische Provider-Modellliste prüfen; die Client-Auswahl allein ist keine Autorisierung.
@@ -1881,14 +1883,29 @@ Die Nachprüfung am Stand `73fcc08b0` bestätigte R1–R9 und fand fünf Restfä
 (N1–N5: Referenz trotz eingefügter Zeile, verlorene späte Antwort bei normalen
 Topics, erneute Verständnisnachfragen als Antwort, Lernhilfe nach Erholung der
 Kursquelle, verdrängte verbrauchte Aktions-IDs). Alle fünf sind korrigiert und
-mit Regressionstests belegt, die am Stand `73fcc08b0` scheitern; die erneute
-Abnahme durch das Review steht aus.
+mit Regressionstests belegt, die am Stand `73fcc08b0` scheitern. Die
+Nachprüfung am Stand `e6197b4b9` bestätigte N2, N4 und N5 und fand drei
+Restfälle (E1: Tokenvergleich setzte bedeutungsverschiedenen Code gleich,
+Kommentarzeichen im String, Zeilengrenze einer Präprozessor-Direktive; E2: die
+Annahme-Ausnahme machte jede spätere Zuweisung derselben Variablen veränderbar;
+E3: „Erklärung: …“ galt als Klärungsbitte). Alle drei sind korrigiert und mit
+Regressionstests belegt, die am Stand `e6197b4b9` scheitern; die erneute
+Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
+Voraussetzung mehr: `Automatisch` folgt einer Betreiberliste (7.3), und die
+Live-Nachweise laufen mit festen Modellen über die Evaluation (R-SUP-E4).
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
 passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-Qualität.
 
-- [ ] **TUT-01 – Fachliche Fehlbewertung IT06.4 reproduzieren und korrigieren.**
-  *Stand:* Live reproduziert und korrigiert; die Live-Abnahme des Gesamtablaufs
-  ist offen (TUT-07). Mit `qwen3-omni-30b-a3b-instruct` (Automatik) bewertete
+- [x] **TUT-01 – Fachliche Fehlbewertung IT06.4 reproduzieren und korrigieren.**
+  *Erledigt 2026-11-06:* Mit festen Modellen über die HTTP-Evaluation (je
+  3 Stichproben, `cc39b7cfe`) lieferte die Anwendung in allen 26 vollständigen
+  Bewertungsstichproben „1“ und „200 = 1“ mit 5 und „0“ mit höchstens 2
+  (`mistralai-mistral-small-4-119b-2603` 9/9, `openai-gpt5.4-mini` 9/9,
+  `openai-gpt-oss-120b` 8/8; Judge `openai-gpt-oss-120b`: alle Kriterien
+  bestanden). Die Modelle selbst bewerteten die richtigen Antworten weiterhin
+  oft falsch (gpt5.4-mini 6 von 6 mit 1–2, weil es trotz der Regel mit
+  `a = 37` rechnet); die Korrektur hängt damit an der geprüften Referenz.
+  Frühere Stände: Mit `qwen3-omni-30b-a3b-instruct` (Automatik) bewertete
   `main` die richtige Antwort „1“ 3 von 3 Mal mit 1 Stern und „Falsch“, „200 = 1“
   3 von 3 Mal mit 1 Stern und die falsche Antwort „0“ 2 von 3 Mal mit 5 Sternen.
   Ursache: Die Bewertungsregel verlangte, jede Angabe „am Sketch“ zu prüfen; der
@@ -1948,7 +1965,12 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Erklärbitte und eine Frage nach der Aufgabe sind Klärungen. Wiederholte und
   umformulierte Nachfragen („Ich verstehe die Frage immer noch nicht.“, „Was soll
   ich da genau machen?“) zählen damit als Klärung; ähnlich klingende Antworten
-  bleiben Antworten. Erneute Abnahme offen.
+  bleiben Antworten. *Nachprüfung E3 korrigiert:* Die Erklärbitte wird nur an
+  Verbformen erkannt („erkläre“, „erläutern“, „beschreib“), nicht am Substantiv:
+  „Erklärung: … das Ergebnis ist 1.“ ist eine Antwort und wird bewertet;
+  kontrastierende Paare sind getestet. Live (je 3 Stichproben, zwei Klärungen):
+  alle Klärungen von Mistral, gpt5.4-mini und gpt-oss am ersten Durchlauf,
+  keine mit Ergebnis (Judge bestanden). Erneute Abnahme offen.
   *Belege:* `learning-support.ts` (Einordnung getippter Eingaben, Prüfung auf
   Code, erkennbare Referenzantwort und wiederholte Klärung),
   `learning-support.test.ts`, HTTP-Tests. Die fachliche Qualität der
@@ -1960,20 +1982,36 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Antworten ergänzen; vorzeitige Lösung und falsche Aufgabenprämissen prüfen.
 - [ ] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
   *Review R1, R3 korrigiert:* entscheidet die Referenz, gilt ihr Feedback
-  statt des Modelltexts. *Nachprüfung N1 korrigiert:* Eine Referenz ist an das
-  vollständige geprüfte Programm gebunden (Fokusfrage: das Example selbst;
-  Topic-Frage: Pflichtfeld `reviewedCode`, das die `requiresCode`-Zeilen
-  enthalten muss). Sie gilt nur, solange das aktuelle Programm diesem Token für
-  Token entspricht (Kommentare und Abstände ausgenommen, alle Projektdateien
-  eingeschlossen); einzige erlaubte Änderung ist der Literalwert einer Variablen,
-  die die Frage selbst setzt (`assumptions`). Eine eingefügte Zeile wie `i = 0;`
-  macht die Referenz unanwendbar. Erneute Abnahme offen.
+  statt des Modelltexts. *Nachprüfungen N1, E1, E2 korrigiert:* Eine Referenz
+  ist an das genau geprüfte Programm gebunden (Fokusfrage: das Example mit
+  seinem Board; Topic-Frage: Pflichtfelder `reviewedCode`, das die
+  `requiresCode`-Zeilen enthalten muss, und optional `reviewedBoard`). Sie gilt
+  nur, solange der aktuelle Quelltext aller Projektdateien Zeichen für Zeichen
+  diesem entspricht (nur Leerraum am Dateiende zählt nicht) und das Board
+  gleich ist. Keine Kommentar-, Abstands- oder Zeilenumbruch-Normalisierung,
+  denn jede davon kann in C++ die Bedeutung ändern. Einzige erlaubte Änderung
+  ist der Literal-Anfangswert einer Variablen aus `assumptions`, und nur an
+  ihrer einzigen Deklaration im Dateikopf vor der ersten `{`; der Kopf wird wie
+  C++ gelesen (geschlossene Kommentare erlaubt, String, Zeichenliteral,
+  Zeilenfortsetzung oder bedingte Direktive beenden den sicheren Bereich).
+  Spätere Zuweisungen derselben Variablen bleiben fest. Erneute Abnahme offen.
+  *Kursreferenzen:* UnoSim-Examples Branch `feature/it06-4-reference-answers`
+  (`1fe88a3`) ergänzt geprüfte Referenzen für alle vier Fokusfragen von IT06.4.
+  Der vollständige Content-Loader lädt sie (Annotation Schema 3, 4 Referenzen,
+  Board `uno`); die Vorhersage-Referenz gilt am unveränderten Example und nach
+  `a = 200` im Editor, nach einer eingefügten Zeile oder auf dem Mega nicht.
+  `npm run validate:tutor-course-content` akzeptiert den Branch; der in
+  `.unosim-compatible-commit` angeheftete Validator (`fc95db873`) lehnt das
+  ganze Tutor-Bündel ab. Reihenfolge daher: diese UnoSim-Änderung mergen und
+  ausliefern, Pin auf ihren Merge-Commit setzen, dann die Kursänderung mergen.
+  *Offen:* Referenzen für die übrigen 225 Fokusfragen in 50 Examples und für
+  die beiden Topics; eine Referenz ohne `assumptions` gilt nur am unveränderten
+  Example.
   *Belege:* Annotation- und Topic-Schema 3 (`reference-answer.ts`,
   `embedded-tutor-annotation.ts`, `curriculum-schema.ts`), Schema- und
   Anwendbarkeitstests; `npm run validate:tutor-course-content` akzeptiert IT06.4
   mit Schema 3 und Referenz und lehnt dieselbe Referenz unter Schema 2 ab.
   Ohne Referenz meldet `reveal` den Grund (`no-reference`, `not-applicable`).
-  Die Referenzen selbst stehen noch nicht im Kurs-Repository UnoSim-Examples.
   Den in der CourseContent-SSOT 6.4 beschriebenen versionierten Datenvertrag
   für Referenzantwort und Erklärung umsetzen, einschließlich
   `server/services/course-content/embedded-tutor-annotation.ts`,
@@ -2026,9 +2064,22 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   `a9d6d2844`): mit `mistralai-mistral-small-4-119b-2603` (kein Zielmodell)
   3 von 3 Stichproben mit 12/12 Anwendungsprüfungen, Ergebnis „pass“ (das
   Modell selbst lehnte „1“ bzw. „200 = 1“ in jeder Stichprobe mindestens einmal
-  ab). Mit dem Zielmodell `qwen3-omni-30b-a3b-instruct` (Automatik) endeten alle
-  3 Stichproben mit `504 PROVIDER_TIMEOUT`, Ergebnis „inconclusive“. Die
-  Live-Abnahme mit dem Zielmodell steht damit weiter aus.
+  ab). Mit `qwen3-omni-30b-a3b-instruct` (damals Automatik) endeten alle 3
+  Stichproben mit `504 PROVIDER_TIMEOUT`. Qwen ist seitdem keine Voraussetzung.
+  *Stand 2026-11-06 (`cc39b7cfe`):* Die HTTP-Verläufe sind Teil der
+  Qualitäts-Evaluation (TutorQualityEvaluation 15, R-SUP-E4): sechs
+  IT06.4-Szenarien laufen über die Produktionsrouten mit Lernhilfe, der
+  zurückgegebenen Frage, Course- und Support-Session und Historie. Je festem
+  Modell 3 Stichproben (Judge `openai-gpt-oss-120b`):
+  `openai-gpt5.4-mini` 18/18 vollständig, Urteil „pass“, Median 1,4 s je Turn;
+  `mistralai-mistral-small-4-119b-2603` 17/18 (1 `invalid-response`), Median
+  1,1 s; `openai-gpt-oss-120b` 15/18 (3 `invalid-response`), Median 4,3 s
+  (Judge bewertet hier das eigene Modell); `openai-gpt5.5` 0/18: der Provider
+  lehnt die Tutor-Temperatur 0,2 ab (HTTP 400, nur 1 erlaubt), gemeldet als
+  `invalid-response`. In allen vollständigen Stichproben hielten Anwendung und
+  Lernhilfe ihre Prüfungen ein (0 Anwendungsfehler außer den technischen
+  Abbrüchen). Nicht abgedeckt: Gateway, Authentifizierung, Rate-Limit,
+  Kurs-Laden (isolierter Routentest), Überspringen live.
   Vorhandene Tutor-Route-Tests und Evaluationsinfrastruktur erweitern, keine
   separate zweite Fachlogik bauen. GUI-nahe Session-/Kursbindung mit allen
   Aktionen durchspielen: 2 Klärungen → Skip, 3 Antworten → freiwilliger Abruf,
@@ -2036,9 +2087,12 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Ohne Provider-Mock gezielt denselben IT06.4-Verlauf gegen das tatsächlich
   verwendete Modell wiederholen; echte Antworten der vorigen Schritte mitführen.
 - [ ] **TUT-08 – Qualitätsgates, Live-Evidenz und Dokumentation abnehmen.**
-  *Stand:* Deterministische Gates und Dokumentation umgesetzt; offen sind die
-  Live-Samples und die Korpus-/Report-Erweiterung aus TutorQualityEvaluation 15
-  (R-SUP-E4).
+  *Stand 2026-11-06:* Deterministische Gates und Dokumentation umgesetzt. Die
+  Korpus-/Report-/Judge-Erweiterung R-SUP-E4 ist umgesetzt (HTTP-Transport,
+  Lernhilfe-Aktionen, aktionsbezogene Prüfungen von Rohausgabe und gelieferter
+  Ausgabe, getrennte Ebenen Anwendung/Rohmodell/Technik, Judge für Antwort,
+  Klärung und Hinweis); die Live-Samples je festem Modell stehen unter TUT-07.
+  Offen bis zur Abnahme durch das Review; ein zweiter unabhängiger Judge fehlt.
   Die geplanten Ergänzungen der TutorQualityGates-/TutorQualityEvaluation-SSOTs
   umsetzen. Mehrere Samples mit festem, tatsächlich verwendetem Modell und
   fachlich unabhängigen Referenzen prüfen; Service-, HTTP- und UI-Evidenz
