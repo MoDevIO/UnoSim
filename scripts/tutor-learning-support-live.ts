@@ -9,6 +9,14 @@ import type { LLMProvider, LLMProviderRequest } from "../server/services/tutor/l
 import { createTutorService } from "../server/services/tutor/tutor-service-factory";
 import { TUTOR_PROMPT_REVISION } from "../server/services/tutor/tutor-service";
 import {
+  decideLiveOutcome,
+  LIVE_EXIT_CODES,
+  parseLiveEvaluationOptions,
+  type LiveCheck,
+  type LiveEvaluationOptions,
+  type LiveSampleResult,
+} from "../server/services/tutor/evaluation/learning-support-live";
+import {
   IT064_CONCEPT_QUESTION,
   IT064_PREDICTION_QUESTION,
   IT064_SKETCH,
@@ -29,23 +37,6 @@ import {
  * Exit codes: 0 every check passed, 2 a check failed, 3 inconclusive (no valid credential or provider error).
  */
 
-type Options = { samples: number; model: string; output: string | undefined; credentialEnv: string };
-
-function parseOptions(argv: readonly string[]): Options {
-  const options: Options = { samples: 3, model: "auto", output: undefined, credentialEnv: "UNOSIM_TUTOR_EVAL_CREDENTIAL" };
-  for (let index = 0; index < argv.length; index += 2) {
-    const [flag, value] = [argv[index], argv[index + 1]];
-    if (!value) throw new Error(`${flag} requires a value`);
-    if (flag === "--samples") options.samples = Math.max(1, Math.min(10, Number.parseInt(value, 10)));
-    else if (flag === "--model") options.model = value;
-    else if (flag === "--output-dir") options.output = value;
-    else if (flag === "--credential-env" && /^[A-Z][A-Z0-9_]{1,63}$/.test(value)) options.credentialEnv = value;
-    else throw new Error(`Unknown option ${flag}`);
-  }
-  if (!options.output) throw new Error("--output-dir is required");
-  return options;
-}
-
 /** Records the model's own result next to what the application delivered; nothing else changes. */
 function promptKind(userPrompt: string): "dialog" | "question" | "support" {
   if (userPrompt.startsWith("Führe den sokratischen")) return "dialog";
@@ -65,11 +56,7 @@ function recordingProvider(inner: LLMProvider) {
   return { provider, raw };
 }
 
-/**
- * `application` checks decide the outcome: what the learner receives. `model` checks are diagnostics of the
- * provider's own judgement, which the application corrects with the reviewed reference.
- */
-type Check = { readonly id: string; readonly layer: "application" | "model"; readonly passed: boolean; readonly detail: string };
+type Check = LiveCheck;
 
 async function startServer(provider: LLMProvider) {
   const app = express();
@@ -101,13 +88,24 @@ async function dialogAtPrediction(post: Awaited<ReturnType<typeof startServer>>[
   const first = await post("/api/tutor/question", { code: IT064_SKETCH, credential, ...modelField, courseContent: COURSE, learningSupport: true });
   log.push({ step: "question", status: first.status, body: first.body });
   if (first.status !== 200) throw Object.assign(new Error(`question request failed with ${first.status}`), { response: first });
-  const state = { question: first.body.question as string, support: first.body.support, session: first.body.courseContentSession as string, model: first.body.model as string };
+  const state = {
+    question: first.body.question as string,
+    support: first.body.support,
+    session: first.body.courseContentSession as string,
+    // The browser's sliding window of answered turns, as use-tutor sends it.
+    history: [] as Record<string, unknown>[],
+  };
   const answer = async (text: string) => {
     const response = await post("/api/tutor/dialog", {
-      code: IT064_SKETCH, credential, ...modelField, history: [], question: state.question, answer: text, courseContentSession: state.session,
+      code: IT064_SKETCH, credential, ...modelField, history: state.history, question: state.question, answer: text, courseContentSession: state.session,
       supportSession: state.support.session, questionHandle: state.support.questionHandle, actionId: randomUUID(),
     });
     log.push({ step: "answer", answer: text, status: response.status, body: response.body });
+    if (response.status === 200 && response.body.learnerInput === "answer") {
+      const rating = response.body.answerRating === undefined ? {} : { answerRating: response.body.answerRating };
+      const feedback = response.body.feedback ? { feedback: response.body.feedback } : {};
+      state.history = [...state.history, { question: state.question, answer: text, responseStyle: response.body.responseStyle, ...feedback, ...rating }].slice(-8);
+    }
     if (response.status === 200) {
       state.question = response.body.question;
       state.support = response.body.support;
@@ -116,7 +114,7 @@ async function dialogAtPrediction(post: Awaited<ReturnType<typeof startServer>>[
   };
   const act = async (action: string) => {
     const response = await post("/api/tutor/support", {
-      code: IT064_SKETCH, credential, ...modelField, history: [], action, courseContentSession: state.session,
+      code: IT064_SKETCH, credential, ...modelField, history: state.history, action, courseContentSession: state.session,
       supportSession: state.support.session, questionHandle: state.support.questionHandle, actionId: randomUUID(),
     });
     log.push({ step: action, status: response.status, body: response.body });
@@ -207,8 +205,6 @@ async function runSample(post: Post, credential: string, model: string, raw: Raw
   return { log, checks, models: [...new Set(raw.map(({ model: used }) => used))] };
 }
 
-type Outcome = "pass" | "fail" | "inconclusive";
-
 function technicalFailure(error: unknown): string {
   const response = (error as { response?: { status: number; body: { error?: { code?: string } } } }).response;
   if (!response) return String(error);
@@ -232,12 +228,12 @@ function providerFailure(log: readonly unknown[]): string | undefined {
   return failed ? `${failed.status} ${failed.body?.error?.code ?? ""}`.trim() : undefined;
 }
 
-/** Runs every sample; a failed check makes the run fail, a technical failure inconclusive. */
-async function runSamples(options: Options, credential: string, report: Record<string, unknown>): Promise<{ readonly outcome: Outcome; readonly models: readonly string[] }> {
+/** Runs every requested sample; the outcome follows decideLiveOutcome. */
+async function runSamples(options: LiveEvaluationOptions, credential: string, report: Record<string, unknown>) {
   const { provider, raw } = recordingProvider(new KiconnectProvider());
   const { server, post } = await startServer(provider);
   const samples = report.samples as unknown[];
-  let outcome: Outcome = "pass";
+  const results: LiveSampleResult[] = [];
   try {
     for (let sample = 1; sample <= options.samples; sample += 1) {
       try {
@@ -245,31 +241,27 @@ async function runSamples(options: Options, credential: string, report: Record<s
         const technical = providerFailure(result.log);
         samples.push({ sample, ...(technical ? { technicalFailure: technical } : {}), ...result });
         console.log(technical ? `sample ${sample}: technical failure ${technical} during the dialog` : sampleSummary(sample, result.checks));
-        if (technical) {
-          if (outcome !== "fail") outcome = "inconclusive";
-        } else if (result.checks.some(({ layer, passed }) => layer === "application" && !passed)) {
-          outcome = "fail";
-        }
+        results.push(technical ? { kind: "technical", failure: technical } : { kind: "completed", checks: result.checks });
       } catch (error) {
         const failure = technicalFailure(error);
         samples.push({ sample, technicalFailure: failure });
         console.log(`sample ${sample}: technical failure ${failure}`);
-        if (outcome !== "fail") outcome = "inconclusive";
+        results.push({ kind: "technical", failure });
       }
     }
   } finally {
     server.close();
   }
-  return { outcome, models: [...new Set(raw.map(({ model }) => model))] };
+  return { outcome: decideLiveOutcome(options.samples, results), models: [...new Set(raw.map(({ model }) => model))] };
 }
 
-const EXIT_CODES: Readonly<Record<Outcome, number>> = { pass: 0, fail: 2, inconclusive: 3 };
-
 async function main(): Promise<number> {
-  const options = parseOptions(process.argv.slice(2));
+  const options = parseLiveEvaluationOptions(process.argv.slice(2));
   const credential = process.env[options.credentialEnv]?.trim();
   const report: Record<string, unknown> = {
-    evidence: "http-live",
+    evidence: "http-route-live",
+    scope: "Isolated HTTP route test: production Tutor routes, service, planner, stores and the real provider; the browser's request fields and history. Not covered: gateway, authentication, rate limit (off), Course Content loading (fixed resolver with the IT06.4 fixture), browser UI.",
+    requestedSamples: options.samples,
     startedAt: new Date().toISOString(),
     requestedModel: options.model,
     promptRevision: TUTOR_PROMPT_REVISION.id,
@@ -277,7 +269,7 @@ async function main(): Promise<number> {
     referenceProvenance: "server/services/tutor/evaluation/learning-support-fixtures.ts, computed by hand: 1 << 7 = 128, 200 & 128 = 128, 128 && 1 -> 1",
     samples: [],
   };
-  const outputDir = options.output!;
+  const outputDir = options.outputDir;
   await mkdir(outputDir, { recursive: true });
   const reportPath = path.join(outputDir, `report-${Date.now()}.json`);
   if (!credential) {
@@ -285,7 +277,7 @@ async function main(): Promise<number> {
     report.reason = `${options.credentialEnv} is not set`;
     await writeFile(reportPath, JSON.stringify(report, null, 2));
     console.log(`inconclusive: ${options.credentialEnv} is not set; report ${reportPath}`);
-    return EXIT_CODES.inconclusive;
+    return LIVE_EXIT_CODES.inconclusive;
   }
   const { outcome, models } = await runSamples(options, credential, report);
   report.returnedModels = models;
@@ -293,7 +285,7 @@ async function main(): Promise<number> {
   report.finishedAt = new Date().toISOString();
   await writeFile(reportPath, JSON.stringify(report, null, 2));
   console.log(`${outcome}; models ${JSON.stringify(models)}; report ${reportPath}`);
-  return EXIT_CODES[outcome];
+  return LIVE_EXIT_CODES[outcome];
 }
 
 try {

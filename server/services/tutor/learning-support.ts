@@ -18,11 +18,20 @@ const HELP_REQUESTS = [
   /^(?:ich )?(?:brauche )?(?:einen )?(?:hilfe|tipp|hinweis)\b/,
   /^k\.? ?a\.?$/,
   /^\?+$/,
+  /^(?:ich )?(?:komme|komm) (?:hier )?nicht weiter\b/,
+  /^hilf mir\b/,
 ];
 
 /** Questions about the question: the learner asks what is meant, not what the answer is. */
 const CLARIFICATION_REQUESTS = [
   /\b(?:verstehe|kapiere) (?:ich )?(?:die|deine) frage nicht\b/,
+  /\b(?:verstehe|kapiere) (?:ich )?(?:das|es|die aufgabe)? ?nicht\b/,
+  /\b(?:kannst|koenntest|könntest) du (?:mir )?(?:bitte )?(?:die frage|die aufgabe|das|es)? ?(?:bitte )?(?:erklaeren|erklären|genauer|anders|nochmal|noch einmal)\b/,
+  /\b(?:erklaere?|erkläre?) (?:mir )?(?:bitte )?(?:die frage|die aufgabe|das)\b/,
+  /\bwas (?:muss|soll) ich (?:hier |da |jetzt )?(?:machen|tun|antworten|rechnen|angeben)\b/,
+  /\bwie (?:ist|war) (?:das|die frage|die aufgabe) gemeint\b/,
+  /\bwas ist (?:hier )?(?:die aufgabe|gefragt)\b/,
+  /\bworum geht es\b/,
   /\bfrage (?:ist )?(?:unklar|nicht klar|verwirrend)\b/,
   /\bwas (?:genau )?(?:ist|wird) (?:hier )?(?:gemeint|gefragt|gesucht)\b/,
   /\bwas bedeutet\b/,
@@ -91,7 +100,7 @@ export function buildSupportPrompt(input: SupportPromptInput): string {
     ...(input.reference ? [
       TUTOR_SUPPORT_GUIDANCE_TEXT.focus,
       JSON.stringify({
-        codeLocations: input.reference.requiresCode ?? [],
+        codeLocations: input.reference.requiresCode,
         assumptions: input.reference.assumptions ?? [],
         referenceAnswer: input.reference.answer,
       }),
@@ -148,9 +157,10 @@ export function validateSupportExplanation(
 }
 
 /**
- * Applies a reviewed reference to the Tutor's rating (R-SUP-8): an answer listed as correct is never rated
- * below 4 or called wrong, and a single number that contradicts a numeric reference is never rated above 2.
- * Feedback that contradicts the corrected rating is replaced by a neutral one that reveals nothing more.
+ * Applies a reviewed reference to the Tutor's grading (R-SUP-8). When the reference decides, it decides rating
+ * and feedback together: an answer listed as correct gets 5 and a confirming feedback, a single number that
+ * contradicts a numeric reference at most 2 and a neutral hint that reveals nothing more. The model's own
+ * feedback is not kept then, because its wording may contradict the decision ("Falsch, …" with 4 stars).
  */
 export function applyReferenceGrade(
   result: TutorContentResult,
@@ -159,13 +169,11 @@ export function applyReferenceGrade(
 ): TutorContentResult {
   if (!reference || result.responseStyle !== "normal" || result.answerRating === undefined) return result;
   const grade = gradeAgainstReference(reference, answer);
-  if (grade === "accepted" && result.answerRating < 4) {
-    return { ...result, answerRating: 5, feedback: "Richtig, das ist die gesuchte Antwort." };
-  }
-  if (grade === "contradicted" && result.answerRating > 2) {
+  if (grade === "accepted") return { ...result, answerRating: 5, feedback: "Richtig, das ist die gesuchte Antwort." };
+  if (grade === "contradicted") {
     return {
       ...result,
-      answerRating: 2 as TutorAnswerRating,
+      answerRating: Math.min(result.answerRating, 2) as TutorAnswerRating,
       feedback: "Das ist noch nicht der gesuchte Wert. Werte den Ausdruck Schritt für Schritt mit den Werten aus, die die Frage festlegt.",
     };
   }

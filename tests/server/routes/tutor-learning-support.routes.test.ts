@@ -7,6 +7,7 @@ import { tutorResponseSchema, type TutorSupportState } from "@shared/tutor";
 import { tutorSupportResponseSchema } from "@shared/tutor-support";
 import { registerTutorRoutes } from "../../../server/routes/tutor.routes";
 import { createTutorService } from "../../../server/services/tutor/tutor-service-factory";
+import { TutorSupportStore } from "../../../server/services/tutor/learning-support-store";
 import { TutorProviderError, type LLMProviderRequest } from "../../../server/services/tutor/llm-provider";
 import {
   IT064_CONCEPT_QUESTION,
@@ -83,11 +84,17 @@ async function start(script: Partial<Script> = {}) {
   const resolver = { resolveTutorContent: vi.fn(async () => it064Content()) };
   const app = express();
   app.use(express.json());
+  const responses = new Map<string, express.Response>();
   app.use((req, res, next) => {
     res.locals.unosimIdentity = { subject: req.header("x-subject") ?? "learner.a", roles: ["user"] };
+    // The server side of each action, so a test can close its connection at a chosen moment.
+    if (typeof req.body?.actionId === "string") responses.set(req.body.actionId, res);
     next();
   });
+  const supportStore = new TutorSupportStore();
+  const storeRuns = vi.spyOn(supportStore, "run");
   registerTutorRoutes(app, {
+    supportStore,
     service: createTutorService(provider),
     courseContent: resolver as never,
     disableRateLimit: true,
@@ -105,7 +112,7 @@ async function start(script: Partial<Script> = {}) {
     });
     return { status: response.status, body: await response.json() as Record<string, any> };
   };
-  return { post, provider, script: fullScript, url: base };
+  return { post, provider, script: fullScript, url: base, storeRuns, responses };
 }
 
 const course = { repository: "ttbombadil/unosim-examples", ref: "main", revision: "6".repeat(40), exampleId: "it06-04-binaerzahl" };
@@ -333,7 +340,8 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
     expect(b.body.support.clarifications).toBe(1);
 
     const [c, d] = await Promise.all([dialog.act("clarify"), dialog.act("clarify")]);
-    expect([c.body.support.clarifications, d.body.support.clarifications].sort()).toEqual([2, 3]);
+    // Both ran, one after the other; the counter saturates at the skip threshold (R-SUP-1).
+    expect([c.body.support.clarifications, d.body.support.clarifications]).toEqual([2, 2]);
     expect(c.body.explanation).not.toBe(d.body.explanation);
   });
 
@@ -432,6 +440,9 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
     // The browser sends no history at all here; the server's count does not depend on it.
     await dialog.answer("6");
     expect(dialog.state.support).toMatchObject({ answerAttempts: 3, canRevealReference: true });
+    // Further attempts stay possible; the unlock counter saturates at three (R-SUP-1).
+    await dialog.answer("7");
+    expect(dialog.state.support).toMatchObject({ answerAttempts: 3, canRevealReference: true });
   });
 
   it("starts a new dialog with a new session; the old binding does not reach it", async () => {
@@ -446,5 +457,96 @@ describe("learning support over HTTP: retries, concurrency, failures and ownersh
       supportSession: second.state.support.session, questionHandle: first.state.support.questionHandle, actionId: randomUUID(),
     });
     expect(crossed.body.error.code).toBe("SUPPORT_CONFLICT");
+  });
+});
+
+describe("learning support over HTTP: review 2026-11-06 regressions", () => {
+  const LAST_FOCUS_QUESTION = "Warum zählt die Schleife mit `i--` von 7 herunter?";
+
+  it("R1: drops the reference when a changed line changes the answer, and keeps the model's correct rating", async () => {
+    const { post } = await start({ rate: conceptThen(5, "Richtig, die Negation macht eine 0 daraus.") });
+    const negated = IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));");
+    const dialog = await toPredictionQuestion(post, negated);
+    expect(dialog.state.support.referenceAvailable).toBe(false);
+    const answered = await dialog.answer("0");
+    expect(answered.body).toMatchObject({ answerRating: 5, feedback: "Richtig, die Negation macht eine 0 daraus." });
+  });
+
+  it("R2: records the correct third answer to the last focus question, so the focus is completed", async () => {
+    const { post } = await start({
+      rate: (answer, question) => question === LAST_FOCUS_QUESTION && answer.startsWith("weiß")
+        ? { rating: 2, feedback: "Noch nicht." }
+        : { rating: 5, feedback: "Ja." },
+    });
+    const dialog = await toPredictionQuestion(post);
+    await dialog.answer("1");
+    expect(dialog.state.question).toBe(LAST_FOCUS_QUESTION);
+    await dialog.answer("weiß: damit es schneller geht");
+    await dialog.answer("weiß: wegen der Variable");
+    expect(dialog.state.question).toBe(LAST_FOCUS_QUESTION);
+    const third = await dialog.answer("Damit das höchstwertige Bit zuerst ausgegeben wird.");
+    expect(third.body.answerRating).toBe(5);
+    expect(third.body.focusProgress).toMatchObject({ state: "completed", understoodAreas: 2, totalAreas: 2 });
+  });
+
+  it("R4: treats the usual questions about the question as clarifications, not as answer attempts", async () => {
+    const { post } = await start({ rate: conceptThen(1, "Nein.") });
+    const dialog = await toPredictionQuestion(post);
+    for (const [index, text] of ["Kannst du mir die Frage erklären?", "Ich verstehe das nicht.", "Was muss ich hier machen?"].entries()) {
+      const response = await dialog.answer(text);
+      expect(response.body.learnerInput).toBe("clarification");
+      expect(response.body.answerRating).toBeUndefined();
+      expect(dialog.state.support).toMatchObject({ answerAttempts: 0, clarifications: Math.min(index + 1, 2) });
+    }
+  });
+
+  it("R5: rejects a support action carrying another dialog's Course session and changes neither dialog", async () => {
+    const { post } = await start();
+    const a = await toPredictionQuestion(post);
+    const b = await toPredictionQuestion(post);
+    await a.act("clarify");
+    await a.act("clarify");
+    const mixed = await post("/api/tutor/support", {
+      code: IT064_SKETCH, credential: "key", history: [], action: "skip", courseContentSession: b.state.courseContentSession, ...a.bind(),
+    });
+    expect(mixed.status).toBe(409);
+    expect(mixed.body.error.code).toBe("SUPPORT_CONFLICT");
+    const bState = await b.act("hint");
+    expect(bState.body.support).toMatchObject({ clarifications: 0, outcome: "open" });
+    const skipped = await a.act("skip");
+    expect(skipped.status).toBe(200);
+  });
+
+  it("R6: a reference request aborted while it waited in the queue is not counted as read", async () => {
+    let release!: () => void;
+    const { post, script, url, storeRuns, responses, provider } = await start({ rate: conceptThen(2, "Noch nicht.") });
+    const dialog = await toPredictionQuestion(post);
+    for (const text of ["0", "2", "128"]) await dialog.answer(text);
+    expect(dialog.state.support.canRevealReference).toBe(true);
+    script.delay = new Promise<void>((resolve) => { release = resolve; });
+    const calls = provider.generateLearningQuestion.mock.calls.length;
+    const slowHint = dialog.act("hint");
+    // The hint holds the session's queue while it waits for the provider.
+    await vi.waitFor(() => expect(provider.generateLearningQuestion.mock.calls).toHaveLength(calls + 1));
+    const binding = dialog.bind();
+    const payload = JSON.stringify({ code: IT064_SKETCH, credential: "key", history: [], action: "reveal", courseContentSession: dialog.state.courseContentSession, ...binding });
+    const target = new URL("/api/tutor/support", url);
+    const request = http.request({
+      hostname: target.hostname, port: target.port, path: target.pathname, method: "POST",
+      headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+    }, () => undefined);
+    request.on("error", () => undefined);
+    request.end(payload);
+    // The reveal is queued behind the hint once the store runs it; then the browser goes away.
+    await vi.waitFor(() => expect(storeRuns.mock.calls.some((call) => call[2] === binding.actionId)).toBe(true));
+    // The connection closes as the server sees a browser leaving: before the response was written.
+    responses.get(binding.actionId)!.emit("close");
+    request.destroy();
+    script.delay = undefined;
+    release();
+    const hint = await slowHint;
+    expect(hint.body.support.referenceShown).toBe(false);
+    const after = await dialog.act("hint");
+    expect(after.body.support.referenceShown).toBe(false);
   });
 });

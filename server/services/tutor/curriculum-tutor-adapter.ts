@@ -64,6 +64,8 @@ type TutorFollowupInput = {
   readonly difficulty: TutorDifficulty;
   readonly exampleId?: string;
   readonly courseContent?: TutorPlanningContentContext;
+  /** In the learning-support cycle the answered focus question stays bound to its focus (R-SUP-3). */
+  readonly supportCycle?: boolean;
 };
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
@@ -103,14 +105,14 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const readOnly = snapshot?.progressionState
       ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
       : snapshot;
-    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     return answeredQuestionPlan(context, input.currentQuestion, input.history);
   }
 
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     // The session view of the answered turn's past, taken before the answer is recorded: the
@@ -127,7 +129,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async planRetry(input: TutorFollowupInput & { readonly assisted: boolean }): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     // An answer after the reference answer was shown repeats it; it is no evidence (R-SUP-5).
@@ -136,7 +138,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   async leaveQuestion(input: Omit<TutorFollowupInput, "rating">): Promise<void> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
     if (!context || context.blocked) return;
     const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
     if (question) markQuestionLeft(context.state, context.topic.id, question.id);
@@ -230,10 +232,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     };
   }
 
-  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
+  /**
+   * `boundQuestion` is the question the learner just answered or acts on: while it belongs to the teacher's
+   * focus, the focus stays selected for it, so its outcome is recorded even when the focus has no other
+   * question left (LearningQuestions R-SUP-3).
+   */
+  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string, boundQuestion?: string) {
     if (!supplied) return null;
     try {
-      return this.matchCourseContent(code, history, difficulty, supplied, exampleId);
+      return this.matchCourseContent(code, history, difficulty, supplied, exampleId, boundQuestion);
     } catch (error) {
       // The free Tutor stays available, but a failing planner must be visible.
       this.logger.warn(`Course Content planning failed; continuing without a plan: ${describeError(error)}`);
@@ -242,8 +249,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   /** Resolves the Topic and phase for this request, then records the selection in the session state. */
-  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): AdapterContext | null {
-    const resolution = this.resolveMatch(code, history, difficulty, snapshot, requestedExampleId);
+  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string, boundQuestion?: string): AdapterContext | null {
+    const resolution = this.resolveMatch(code, history, difficulty, snapshot, requestedExampleId, boundQuestion);
     return resolution ? applyMatch(resolution) : null;
   }
 
@@ -251,7 +258,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
    * Pure part of the match: reads the session state (as if reset when it belongs to another
    * revision) and changes nothing.
    */
-  private resolveMatch(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): MatchResolution | null {
+  private resolveMatch(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string, boundQuestion?: string): MatchResolution | null {
     const exampleContextId = snapshot.exampleId ?? requestedExampleId;
     const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
     if (snapshot.tutor?.status !== "valid" || (snapshot.tutor.topics.length === 0 && annotation?.focus === undefined)) return null;
@@ -267,7 +274,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, view, difficulty, learnStrategy.strategy);
     // A finished focus (mastered, or out of questions) hands over to the free Tutor.
-    const retryPending = inline !== undefined && focusRetryPending(inline.topic, view);
+    const retryPending = inline !== undefined && (focusRetryPending(inline.topic, view) || boundToFocus(inline.topic, view, boundQuestion));
     const open = focusThenFree && !retryPending ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
     const selected = selectProgressionMatch(open, view);
     if (!selected) return { state, revision: snapshot.revision, resetsRevision, selection: null };
@@ -508,6 +515,13 @@ function focusRetryPending(topic: CurriculumTopic, state: TutorProgressionState)
   const evidence = state.masteryEvidence[topic.id] ?? [];
   const last = evidence.at(-1);
   return last !== undefined && last.rating <= 2 && evidence.filter(({ questionId }) => questionId === last.questionId).length === 1;
+}
+
+/** The bound question is a focus question that was not left; its answer still belongs to the focus. */
+function boundToFocus(topic: CurriculumTopic, state: TutorProgressionState, boundQuestion: string | undefined): boolean {
+  if (boundQuestion === undefined) return false;
+  const question = topic.questions.find(({ text }) => text === boundQuestion);
+  return question !== undefined && !(state.leftQuestionIds?.[topic.id] ?? []).includes(question.id);
 }
 
 /**

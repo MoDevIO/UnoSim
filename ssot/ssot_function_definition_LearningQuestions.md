@@ -1864,21 +1864,31 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 
 ## 21. TODO – Tutoränderung: fachliche Bewertung und Lernhilfe
 
-Stand 2026-11-06 (Branch `feature/tutor-learning-support-spec`): TUT-02 bis
-TUT-06 sind umgesetzt und belegt. **Offen sind die Live-Nachweise mit dem
-tatsächlich verwendeten Modell** (TUT-01, TUT-07, TUT-08): Beide in der lokalen
-Umgebung hinterlegten KI:connect-Zugänge wurden am 2026-11-06 mit HTTP 401
-abgelehnt, sodass weder die beobachtete Fehlbewertung live reproduziert noch
-wiederholte Live-Samples erhoben werden konnten. Die Liste ist die zentrale
+Stand 2026-11-06 (Branch `feature/tutor-learning-support-spec`): Das
+unabhängige Review vom 2026-11-06 hat neun Fehler am Stand `beefccc9a`
+nachgewiesen (R1–R9: Referenz nach Codeänderung, nicht verbuchte dritte
+Antwort am letzten Fokus, Feedback gegen die Referenz, übliche Rückfragen als
+Antwort, gemischte Kurs-/Lernhilfe-Sessions, abgebrochener Musterabruf,
+Idempotenz nach Cache-Verdrängung, Neustart nach Überspringen, Live-Skript ohne
+Stichprobe). Alle neun sind korrigiert und mit Regressionstests belegt, die am
+geprüften Stand scheitern. **TUT-02 bis TUT-06 bleiben bis zur erneuten Abnahme
+durch das Review offen.** Die Live-Nachweise (TUT-01, TUT-07, TUT-08) sind
+teilweise erbracht und sonst offen; KI:connect antwortete ab 2026-11-06 14:00
+auf Generierungen nur noch mit Timeouts. Die Liste ist die zentrale
 Abarbeitungsliste für diese Änderung. Die drei weiteren Tutor-/Content-SSOTs
 verweisen darauf, statt eigene konkurrierende Fortschrittslisten zu führen.
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
 passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-Qualität.
 
 - [ ] **TUT-01 – Fachliche Fehlbewertung IT06.4 reproduzieren und korrigieren.**
-  *Stand:* Korrektur umgesetzt, Live-Reproduktion offen. Wahrscheinliche Ursache
-  im Code: Die Bewertungsregel verlangte, jede Angabe „am Sketch“ zu prüfen; der
-  Sketch setzt `a = 37`, die Frage `a = 200` (37 & 128 = 0). Korrektur: Von der
+  *Stand:* Live reproduziert und korrigiert; die Live-Abnahme des Gesamtablaufs
+  ist offen (TUT-07). Mit `qwen3-omni-30b-a3b-instruct` (Automatik) bewertete
+  `main` die richtige Antwort „1“ 3 von 3 Mal mit 1 Stern und „Falsch“, „200 = 1“
+  3 von 3 Mal mit 1 Stern und die falsche Antwort „0“ 2 von 3 Mal mit 5 Sternen.
+  Ursache: Die Bewertungsregel verlangte, jede Angabe „am Sketch“ zu prüfen; der
+  Sketch setzt `a = 37`, die Frage `a = 200` (37 & 128 = 0). Mit der neuen Regel
+  allein erhielt „1“ 3 von 3 Mal 5 Sterne, „200 = 1“ wurde aber weiter abgelehnt
+  und „0“ 1 von 3 Mal angenommen; das Modell rechnet nicht verlässlich. Korrektur: Von der
   Frage gesetzte Werte gelten vor denen des Sketches, eine nur verlangte Zahl
   braucht keine Begründung (Prompt-Revision v7); die geprüfte Referenz geht in
   die Bewertung ein und korrigiert sie deterministisch („1“, „200 = 1“ ≥ 4;
@@ -1895,7 +1905,11 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Operatoren korrekt auswerten und aktuelle Editorwerte sowie hypothetische
   Frageannahmen gegenüber ursprünglichem `a = 37` berücksichtigen. Bewertungs-
   und Begründungsanforderungen nicht nachträglich vermischen.
-- [x] **TUT-02 – Aktionsschemas und maßgeblichen Sessionzustand umsetzen.**
+- [ ] **TUT-02 – Aktionsschemas und maßgeblichen Sessionzustand umsetzen.**
+  *Review R5, R6, R7 korrigiert:* Lernhilfe-Session fest an die Course-Session
+  gebunden, Abbruch in der Warteschlange vor Ausführung und Übernahme geprüft,
+  verbrauchte Aktions-IDs über den Ergebnis-Cache hinaus gesperrt; Zähler
+  sättigen bei 3/2. Erneute Abnahme offen.
   *Belege:* `shared/tutor.ts`, `shared/tutor-support.ts`,
   `server/services/tutor/learning-support-store.ts`,
   `server/routes/tutor-support.routes.ts`; HTTP-Tests für Kompatibilität,
@@ -1907,7 +1921,15 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Zähler und Freischaltungen aus 9.1 geschlossen abbilden; kompatible Requests,
   Grenzen 2/3, doppelte/parallele Requests, Fehler, Abbruch, fremde Sessions,
   manipulierte Zähler und Reset in Shared-/Route-/Sessiontests nachweisen.
-- [x] **TUT-03 – Klärung und Hinweise ohne Bewertung implementieren.**
+- [ ] **TUT-03 – Klärung und Hinweise ohne Bewertung implementieren.**
+  *Review R4 korrigiert:* übliche Rückfragen („Ich verstehe das nicht.“,
+  „Kannst du mir die Frage erklären?“, „Was muss ich hier machen?“) sind
+  Klärungen. Live mit dem Modell: Die erste Klärung verwies auf
+  `Serial.print(a)` statt auf den ersten Schleifendurchlauf, die zweite kam in
+  falschem JSON zurück; korrigiert durch Code-Stellen und Annahmen der Referenz
+  als Bezug, genaues JSON-Format und eine kontrollierte Neuanforderung
+  (danach 6 von 6 Klärungen am richtigen Ausdruck, keine mit Ergebnis).
+  Erneute Abnahme offen.
   *Belege:* `learning-support.ts` (Einordnung getippter Eingaben, Prüfung auf
   Code, erkennbare Referenzantwort und wiederholte Klärung),
   `learning-support.test.ts`, HTTP-Tests. Die fachliche Qualität der
@@ -1917,7 +1939,10 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Änderung erzeugen. Zweite Klärung muss weiterhelfen. Tests für kurze gültige
   Zahlenantworten, „Ich weiß nicht“, Meta-Fragen und ausgebliebene Provider-
   Antworten ergänzen; vorzeitige Lösung und falsche Aufgabenprämissen prüfen.
-- [x] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
+- [ ] **TUT-04 – Geprüfte Musterantworten und Content-Vertrag ergänzen.**
+  *Review R1, R3 korrigiert:* `requiresCode` ist Pflicht und verlangt
+  vollständige, unveränderte Codezeilen in Reihenfolge; entscheidet die
+  Referenz, gilt ihr Feedback statt des Modelltexts. Erneute Abnahme offen.
   *Belege:* Annotation- und Topic-Schema 3 (`reference-answer.ts`,
   `embedded-tutor-annotation.ts`, `curriculum-schema.ts`), Schema- und
   Anwendbarkeitstests; `npm run validate:tutor-course-content` akzeptiert IT06.4
@@ -1933,7 +1958,10 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   müssen zur Referenz passen. Fehlende/ungültige Referenz transparent behandeln.
   Abruf erst nach drei Versuchen, aktionsbezogene Lösungsfilter und keinen
   vollständigen Ersatzsketch nachweisen.
-- [x] **TUT-05 – Wiederholung, Überspringen und Lernfortschritt anpassen.**
+- [ ] **TUT-05 – Wiederholung, Überspringen und Lernfortschritt anpassen.**
+  *Review R2 korrigiert:* Die beantwortete Fokusfrage bleibt bei der
+  Topic-Auswahl gebunden, sodass auch die richtige dritte Antwort auf die
+  letzte Fokusfrage verbucht wird. Erneute Abnahme offen.
   *Belege:* `planRetry`/`leaveQuestion` im Planer, `leftQuestionIds` im
   Progression-Zustand; `learning-support-planning.test.ts` (Topic, freier
   Tutor, offener Abschluss), HTTP-Tests für den Lehrerfokus und das
@@ -1944,7 +1972,9 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   überspringen können; kein vorzeitiger Musterabruf, keine negative Skip-
   Bewertung und keine Mastery durch Hilfe. Lehrerfokus, Topic, freie Fragen,
   offener Abschluss und aus dem Sliding Window entfernte Texte separat testen.
-- [x] **TUT-06 – GUI und Bedienbarkeit umsetzen.**
+- [ ] **TUT-06 – GUI und Bedienbarkeit umsetzen.**
+  *Review R8 korrigiert:* Eine neue Lernfrage setzt auch einen nur durch
+  Überspringen beendeten Dialog zurück. Erneute Abnahme offen.
   *Belege:* `use-tutor.ts`, `tutor-dialog-parts.tsx`;
   `tutor-learning-support.test.tsx`, `e2e/tutor-learning.spec.ts` (kompletter
   Ablauf per Tastatur, schmale Ansicht mit XXL-Schrift).
@@ -1956,9 +1986,16 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   `e2e/tutor-learning.spec.ts` um komplette Abläufe und Grenzfälle erweitern.
 - [ ] **TUT-07 – Vollständige HTTP-Verläufe automatisieren.**
   *Stand:* Mit gefälschtem Provider automatisiert
-  (`tutor-learning-support.routes.test.ts`, 15 Verläufe). Der Live-Verlauf über
-  HTTP ist als `npm run eval:tutor-learning-support:live` umgesetzt, lief aber
-  wegen des abgelehnten Zugangs nur bis HTTP 401 (Ergebnis „inconclusive“).
+  (`tutor-learning-support.routes.test.ts`). Der Live-Verlauf über HTTP ist als
+  `npm run eval:tutor-learning-support:live` umgesetzt (isolierter Routentest:
+  echte Routen, Service, Planer, Stores und Provider, die Historie wie im
+  Browser; ohne Gateway, Authentifizierung, Rate-Limit und Kurs-Laden). Review
+  R9 korrigiert: strikte Optionen, „pass“ nur mit allen angeforderten
+  vollständigen Stichproben. Live-Ergebnis vor diesen Korrekturen: In allen
+  vollständig gelaufenen Stichproben lieferte die Anwendung „1“ und „200 = 1“
+  als richtig und „0“ als falsch aus, während das Modell selbst „200 = 1“
+  durchweg ablehnte. Eine vollständige Live-Abnahme des korrigierten Stands
+  steht aus.
   Vorhandene Tutor-Route-Tests und Evaluationsinfrastruktur erweitern, keine
   separate zweite Fachlogik bauen. GUI-nahe Session-/Kursbindung mit allen
   Aktionen durchspielen: 2 Klärungen → Skip, 3 Antworten → freiwilliger Abruf,

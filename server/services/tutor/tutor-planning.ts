@@ -102,6 +102,7 @@ export interface TutorPlanningExtension {
     readonly difficulty: TutorDifficulty;
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
+    readonly supportCycle?: boolean;
   }): Promise<TutorPlanningResult | null>;
   planFollowup(input: {
     readonly code: string;
@@ -111,6 +112,8 @@ export interface TutorPlanningExtension {
     readonly difficulty: TutorDifficulty;
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
+    /** The learning-support cycle: the answered focus question stays bound to its focus (R-SUP-3). */
+    readonly supportCycle?: boolean;
   }): Promise<TutorPlanningResult | null>;
   /**
    * After a weak answer the question stays open (LearningQuestions R-SUP-3): records the answer as evidence,

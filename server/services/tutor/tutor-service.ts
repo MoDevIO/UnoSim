@@ -1030,7 +1030,7 @@ export class TutorService {
     const context = buildTutorContext(code, source);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
-    const currentPlanningResult = await this.planAnsweredQuestion(sketchText, parsedHistory, question, difficulty, transaction.courseContent, signal);
+    const currentPlanningResult = await this.planAnsweredQuestion(sketchText, parsedHistory, question, difficulty, transaction.courseContent, signal, support !== undefined);
     throwIfTutorRequestAborted(signal);
     const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(sketchText, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
@@ -1134,7 +1134,7 @@ export class TutorService {
     let next: { readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource };
     if (retained) next = await this.retainQuestion(validatedResult, planning, support, signal);
     else if (support.assisted) next = await this.leaveAssistedQuestion(validatedResult, planning, strategy, signal);
-    else next = await this.applyDialogFollowUp(validatedResult, { code, history, question, difficulty, strategy, courseContent: transaction.courseContent, signal });
+    else next = await this.applyDialogFollowUp(validatedResult, { code, history, question, difficulty, strategy, courseContent: transaction.courseContent, signal, supportCycle: true });
     const { result, followUpSource } = next;
     throwIfTutorRequestAborted(signal);
     const withStrategy = result.strategyId ? result : applyStrategyMetadata(result, strategy);
@@ -1195,6 +1195,7 @@ export class TutorService {
       readonly strategy: StrategyResolution;
       readonly courseContent?: TutorPlanningContentContext;
       readonly signal?: AbortSignal;
+      readonly supportCycle?: boolean;
     },
   ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
     if (validatedResult.responseStyle !== "normal") return { result: validatedResult, followUpSource: "provider" };
@@ -1209,6 +1210,7 @@ export class TutorService {
         rating: validatedResult.answerRating!,
         difficulty: context.difficulty,
         courseContent: context.courseContent,
+        ...(context.supportCycle ? { supportCycle: true } : {}),
       });
       throwIfTutorRequestAborted(context.signal);
       if (nextPlan) {
@@ -1226,11 +1228,12 @@ export class TutorService {
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
+    supportCycle = false,
   ): Promise<PlanningResult | null> {
     // Never planInitial here: planning a new question while only evaluating an answer could
     // reserve content. Without planAnswered the prompt simply carries no didactic context.
     if (!this.planningExtension?.planAnswered) return null;
-    const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
+    const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent, ...(supportCycle ? { supportCycle: true } : {}) });
     throwIfTutorRequestAborted(signal);
     return result;
   }

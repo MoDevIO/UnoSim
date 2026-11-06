@@ -23,6 +23,8 @@ export interface SupportQuestion {
 
 export interface SupportSessionView {
   readonly handle: string;
+  /** The Course Content session the support session was opened with; null for the free Tutor. */
+  readonly courseSession: string | null;
   readonly question: SupportQuestion | null;
   /** Questions left by skipping; the Tutor does not ask them again right away. */
   readonly skippedQuestions: readonly string[];
@@ -37,19 +39,25 @@ export interface SupportUpdate {
 export type SupportActionOutcome<T> =
   | { readonly status: "ok"; readonly body: T }
   | { readonly status: "missing" }
-  | { readonly status: "conflict" };
+  | { readonly status: "conflict" }
+  /** The action already ran; its result is no longer kept, so it is neither repeated nor counted again. */
+  | { readonly status: "spent" };
 
 type SessionEntry = {
   readonly identity: string;
+  readonly courseSession: string | null;
   expiresAt: number;
   question: SupportQuestion | null;
   skippedQuestions: string[];
   readonly results: Map<string, { readonly fingerprint: string; readonly body: unknown }>;
+  /** Every applied action id of the session, kept longer than the results (review R7). */
+  readonly spent: Set<string>;
   readonly pending: Map<string, { readonly fingerprint: string; readonly result: Promise<SupportActionOutcome<unknown>> }>;
   queue: Promise<unknown>;
 };
 
 const MAX_REMEMBERED_ACTIONS = 32;
+const MAX_SPENT_ACTIONS = 4_096;
 const MAX_SKIPPED_QUESTIONS = 32;
 const MAX_CLARIFICATION_TEXTS = 4;
 
@@ -74,9 +82,15 @@ export function resetSupportQuestion(question: SupportQuestion, contextKey: stri
 export function withClarification(question: SupportQuestion, text: string): SupportQuestion {
   return {
     ...question,
-    clarifications: question.clarifications + 1,
+    // The unlock counters saturate at the threshold (R-SUP-1); further clarifications stay possible.
+    clarifications: Math.min(question.clarifications + 1, TUTOR_SKIP_AFTER_CLARIFICATIONS),
     clarificationTexts: [...question.clarificationTexts, text].slice(-MAX_CLARIFICATION_TEXTS),
   };
+}
+
+/** One more own answer, saturating at the threshold of the reference answer (R-SUP-1). */
+export function withAnswerAttempt(question: SupportQuestion): SupportQuestion {
+  return { ...question, answerAttempts: Math.min(question.answerAttempts + 1, TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS) };
 }
 
 /** The server's view of the question for the response; the thresholds belong to the application. */
@@ -111,7 +125,7 @@ export class TutorSupportStore {
   ) {}
 
   /** Opens a session for a newly asked question; called only after that question was delivered successfully. */
-  open(identity: string, question: SupportQuestion): string {
+  open(identity: string, question: SupportQuestion, courseSession: string | null = null): string {
     this.sweepExpired();
     const own = this.subjects.get(identity);
     while (own && own.size >= this.limits.maxSessionsPerSubject) this.remove(firstOf(own));
@@ -119,10 +133,12 @@ export class TutorSupportStore {
     const handle = randomUUID();
     this.sessions.set(handle, {
       identity,
+      courseSession,
       expiresAt: this.now() + this.limits.ttlMs,
       question,
       skippedQuestions: [],
       results: new Map(),
+      spent: new Set(),
       pending: new Map(),
       queue: Promise.resolve(),
     });
@@ -134,7 +150,7 @@ export class TutorSupportStore {
     this.sweepExpired();
     const entry = this.sessions.get(handle);
     if (entry?.identity !== identity) return null;
-    return { handle, question: entry.question, skippedQuestions: [...entry.skippedQuestions] };
+    return { handle, courseSession: entry.courseSession, question: entry.question, skippedQuestions: [...entry.skippedQuestions] };
   }
 
   /**
@@ -152,6 +168,7 @@ export class TutorSupportStore {
     this.sweepExpired();
     const entry = this.sessions.get(handle);
     if (entry?.identity !== identity) return { status: "missing" };
+    if (!entry.results.has(actionId) && entry.spent.has(actionId)) return { status: "spent" };
     const done = entry.results.get(actionId);
     if (done) return done.fingerprint === fingerprint ? { status: "ok", body: done.body as T } : { status: "conflict" };
     const running = entry.pending.get(actionId);
@@ -160,13 +177,15 @@ export class TutorSupportStore {
     }
     const execute = async (): Promise<SupportActionOutcome<T>> => {
       if (this.sessions.get(handle) !== entry) return { status: "missing" };
-      const { body, update } = await action({ handle, question: entry.question, skippedQuestions: [...entry.skippedQuestions] });
+      const { body, update } = await action({ handle, courseSession: entry.courseSession, question: entry.question, skippedQuestions: [...entry.skippedQuestions] });
       if (this.sessions.get(handle) !== entry) return { status: "missing" };
       if (update.question !== undefined) entry.question = update.question;
       if (update.skippedQuestion !== undefined) {
         entry.skippedQuestions = [...entry.skippedQuestions, update.skippedQuestion].slice(-MAX_SKIPPED_QUESTIONS);
       }
       entry.results.set(actionId, { fingerprint, body });
+      entry.spent.add(actionId);
+      if (entry.spent.size > MAX_SPENT_ACTIONS) entry.spent.delete(firstOf(entry.spent));
       while (entry.results.size > MAX_REMEMBERED_ACTIONS) entry.results.delete(firstOf(entry.results.keys()));
       entry.expiresAt = this.now() + this.limits.ttlMs;
       this.touch(handle, entry);

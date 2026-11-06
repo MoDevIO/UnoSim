@@ -361,16 +361,20 @@ reference:
   explanation: "Im ersten Durchlauf ist i = 7, also 1 << 7 = 128. 200 & 128 = 128, und 128 && 1 ist wahr: Serial.print gibt 1 aus."
   accept: ["1", "200 = 1"]          # optional, short answers that are certainly correct
   assumptions: ["a = 200"]          # optional, values the question itself sets
-  requiresCode: ["a & (1 << i) && 1", "int i = 7"]   # optional, fragments the current code must keep
+  requiresCode:                     # required, the complete lines the answer depends on, in order
+    - "for (int i = 7; i >= 0; i--) {"
+    - "Serial.print(a & (1 << i) && 1);"
 ~~~
 
 `answer` (300), `explanation` (1 500), up to 8 `accept` entries (120), up to 6
-`assumptions` (160) and up to 8 `requiresCode` fragments (160) are bounded,
+`assumptions` (160) and 1 to 8 `requiresCode` lines (160) are bounded,
 URL-free and control-character free; a code block or a replacement sketch makes
 the reference invalid. The server looks the reference up by the exact text of
-the asked question. `accept` is no universal rubric: an answer listed there is
-never rated below 4, and a single number that contradicts a numeric `answer` is
-never rated above 2; every other answer stays with the Tutor's judgement.
+the asked question. `accept` is no universal rubric: an answer listed there
+gets 5 with a confirming feedback, and a single number that contradicts a
+numeric `answer` gets at most 2 with a neutral hint; when the reference decides,
+its feedback replaces the model's wording. Every other answer stays with the
+Tutor's judgement.
 Existing v1/v2 payloads MUST NOT silently accept new fields. Old
 content without references remains valid; a missing reference is not a Tutor
 bundle validation failure. Malformed newly declared reference data follows
@@ -378,7 +382,9 @@ the existing atomic Tutor-validation boundary and never invalidates otherwise
 valid Examples.
 
 Reference applicability is checked against the current editor/project code
-(every `requiresCode` fragment outside comments, whitespace-insensitive) and
+(every `requiresCode` entry must still be a complete line of the code, outside
+comments, whitespace-insensitive, in the given order; a changed line such as a
+negated expression or another loop start makes the reference inapplicable) and
 the question's explicit assumptions, not merely the immutable Example
 revision or the presence of a variable name. Editing `a = 37` to `a = 200`
 must not leave a reference for the old value active. A prediction question

@@ -501,13 +501,14 @@ export function useTutor(
   const generateQuestion = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
     const sketch = asTutorSketch(input);
-    if (question !== null || history.length > 0) {
+    // Any dialog state ends here, also a dialog completed by skipping without an answer (review R8).
+    if (question !== null || history.length > 0 || transcript.length > 0 || completed) {
       resetDialog();
       await requestQuestion(sketch, configuredDifficulty);
       return;
     }
     await requestQuestion(sketch, effectiveDifficulty);
-  }, [capabilities, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog]);
+  }, [capabilities, completed, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog, transcript.length]);
 
   const applyDialogResponse = useCallback((response: TutorResponse, update: ReturnType<typeof buildDialogResponseUpdate>) => {
     setHistory(update.nextHistory);

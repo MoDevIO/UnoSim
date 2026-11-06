@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
 import { stripComments } from "@shared/parser-patterns";
-import { termOccursIn } from "./focus-applicability";
 
 const CONTROL_CHARACTER = /\p{Cc}/u;
 
@@ -17,14 +16,15 @@ const referenceText = (max: number) => z.string().trim().min(1)
  * - `answer` and `explanation` are what the learner sees after an authorized request.
  * - `accept` lists short answers that are certainly correct; other equivalent answers stay acceptable.
  * - `assumptions` are the values the question itself sets (e.g. `a = 200`); they apply before the sketch's.
- * - `requiresCode` are literal code fragments the current sketch must still contain for the reference to apply.
+ * - `requiresCode` are the complete code lines the answer depends on; the reference applies only while the
+ *   current code still has each of them, unchanged and in this order.
  */
 export const referenceAnswerSchema = z.object({
   answer: referenceText(300),
   explanation: referenceText(1_500),
   accept: boundedArray(referenceText(120), 8, 1).optional(),
   assumptions: boundedArray(referenceText(160), 6, 1).optional(),
-  requiresCode: boundedArray(referenceText(160), 8, 1).optional(),
+  requiresCode: boundedArray(referenceText(160), 8, 1),
 }).strict().superRefine((value, context) => {
   if (/```/.test(value.answer) || /```/.test(value.explanation)) {
     context.addIssue({ code: "custom", message: "A reference answer must not contain a code block" });
@@ -50,17 +50,22 @@ const LEADING_MARKS = new Set(["\"", "'", "„", "“", "`", " "]);
 const TRAILING_MARKS = new Set(["\"", "'", "„", "“", "`", ".", "!", " "]);
 
 /**
- * Whether the reference still fits the learner's current code: every required fragment must remain
- * (comments do not count). Without `requiresCode` the reference depends on the question's assumptions only.
+ * Whether the reference still fits the learner's current code: every required line must still be a whole line
+ * of the code (comments and spacing aside), in the given order. A changed line, such as a negated expression or
+ * another loop start, means the reviewed answer is no longer proven and must neither grade nor be shown.
  */
 export function referenceAppliesTo(reference: ReferenceAnswer, code: string): boolean {
-  const cleanCode = stripComments(code);
-  const compactCode = compactSpacing(cleanCode);
-  return (reference.requiresCode ?? []).every((fragment) =>
-    termOccursIn(cleanCode, fragment) || compactCode.includes(compactSpacing(fragment)));
+  const lines = stripComments(code).split("\n").map(compactSpacing).filter((line) => line.length > 0);
+  let from = 0;
+  for (const required of reference.requiresCode) {
+    const index = lines.indexOf(compactSpacing(required), from);
+    if (index < 0) return false;
+    from = index + 1;
+  }
+  return true;
 }
 
-/** Spacing inside a code fragment does not matter: `a&(1<<i)` and `a & (1 << i)` are the same code. */
+/** Spacing inside a line does not matter: `a&(1<<i)` and `a & (1 << i)` are the same code. */
 function compactSpacing(value: string): string {
   return value.replaceAll(/\s+/g, "");
 }

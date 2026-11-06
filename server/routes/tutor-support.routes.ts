@@ -17,6 +17,7 @@ import {
   newSupportQuestion,
   resetSupportQuestion,
   supportStateView,
+  withAnswerAttempt,
   withClarification,
   type SupportQuestion,
   type SupportUpdate,
@@ -106,11 +107,13 @@ export function openSupportSession(
   question: string,
   sketch: SketchFields,
   content: PinnedTutorCourseContent | undefined,
+  courseSession: string | undefined,
 ): TutorSupportState | undefined {
   const identity = identityOf(res);
   if (!identity) return undefined;
   const asked = newSupportQuestion(question, contextKey(sketch, content));
-  const session = store.open(identity, asked);
+  // Bound to this Course session: an action with another one belongs to another dialog (review R5).
+  const session = store.open(identity, asked, courseSession ?? null);
   return supportStateView(session, asked, referenceOf(question, sketch, content).status === "available");
 }
 
@@ -170,10 +173,24 @@ async function runSupportAction<T>(
   try {
     const content = await resolveTutorContent(req, res, request.courseContent, request.courseContentSession, context.courseContent, context.sessionStore, signal);
     if (signal.aborted || res.headersSent) return;
-    const outcome = await context.supportStore.run(identity, request.supportSession, request.actionId, requestFingerprint(request), action(content));
+    const run = action(content);
+    const outcome = await context.supportStore.run(identity, request.supportSession, request.actionId, requestFingerprint(request), async (view) => {
+      // Aborted while waiting in the session's queue: nothing runs and nothing is applied (review R6).
+      signal.throwIfAborted();
+      if (view.courseSession !== (content?.session ?? null)) {
+        throw new SupportActionRejected("SUPPORT_CONFLICT", "Lernhilfe und Kurs-Kontext gehören zu verschiedenen Dialogen.");
+      }
+      const result = await run(view);
+      signal.throwIfAborted();
+      return result;
+    });
     if (signal.aborted) return;
     if (outcome.status === "missing") {
       responseError(res, 400, "SUPPORT_SESSION_INVALID", "Der Lernhilfe-Zustand ist abgelaufen. Bitte eine neue Lernfrage anfordern.");
+      return;
+    }
+    if (outcome.status === "spent") {
+      responseError(res, 409, "SUPPORT_CONFLICT", "Diese Aktion wurde bereits ausgeführt; ihr Ergebnis ist nicht mehr verfügbar.");
       return;
     }
     if (outcome.status === "conflict") {
@@ -268,7 +285,7 @@ async function answerQuestion(scope: ActionScope<DialogRequest>, key: string): P
   );
   signal.throwIfAborted();
   // Only an answer to the subject counts; a reply that leads away from the sketch does not (R-SUP-1).
-  const answered = { ...question, answerAttempts: question.answerAttempts + (generated.result.responseStyle === "normal" ? 1 : 0) };
+  const answered = generated.result.responseStyle === "normal" ? withAnswerAttempt(question) : question;
   const nextQuestion = generated.retained ? answered : newSupportQuestion(generated.result.question, key);
   const nextReference = generated.retained ? scope.reference : referenceOf(nextQuestion.text, request, content?.content);
   const session = generated.withoutProvider ? content?.session : commitTutorSession(content, context.sessionStore);

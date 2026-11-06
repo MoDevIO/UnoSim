@@ -889,11 +889,16 @@ call budgets and technical-failure/inconclusive semantics remain in force.
 -- --output-dir <dir>` (`scripts/tutor-learning-support-live.ts`) replays the
 IT06.4 dialog over the production Tutor routes on loopback with the real
 provider, the server-issued Course and support sessions and the browser's
-request fields (R-SUP-E1, R-SUP-E3). Per sample it checks the model's own
+request fields and history (R-SUP-E3). It is an isolated route test, not the full R-SUP-E1 boundary:
+gateway, authentication, rate limit and Course Content loading (a fixed resolver
+serves the IT06.4 fixture) are not part of it, and the report says so. Per sample it checks the model's own
 rating and the delivered rating for `1`, `200 = 1` and `0`, two clarifications,
 three attempts and the reference answer, against the hand-computed reference,
 and reports requested and returned model, prompt revision, every step and its
-support state. Exit codes follow R-VER-8 (0 pass, 2 fail, 3 inconclusive). Not
+support state. Exit codes follow R-VER-8 (0 pass, 2 fail, 3 inconclusive); options are
+validated strictly, and only all requested samples completed with passed
+application checks make a pass (the model's own rating is reported as a
+diagnostic). Not
 implemented: the strict corpus/action fields, Judge eligibility and the L2
 allowlist updates of R-SUP-E4, and a second Judge. A live run on 2026-11-06 was
 inconclusive because the provider rejected both local credentials (HTTP 401).

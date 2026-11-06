@@ -131,6 +131,24 @@ describe("useTutor learning support", () => {
   });
 });
 
+describe("useTutor: a new learning question after a dialog completed by skipping (review R8)", () => {
+  it("starts with an empty transcript and no completion", async () => {
+    mockServer({
+      "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support({ clarifications: 2, canSkip: true }) }),
+      "/api/tutor/support": () => json({ action: "skip", completed: true, provider: "kiconnect", model: "m" }),
+    });
+    const { result } = await startDialog();
+    await act(async () => { await result.current.requestSupport("skip", SKETCH); });
+    expect(result.current).toMatchObject({ completed: true, question: null, history: [] });
+    expect(result.current.transcript).toHaveLength(1);
+
+    await act(async () => { await result.current.generateQuestion(SKETCH); });
+    expect(result.current.transcript).toEqual([]);
+    expect(result.current.completed).toBe(false);
+    expect(result.current.question?.question).toBe(QUESTION);
+  });
+});
+
 describe("Tutor panel learning-support actions", () => {
   function panel(state: TutorSupportState, requestSupport = vi.fn()) {
     const tutor = {

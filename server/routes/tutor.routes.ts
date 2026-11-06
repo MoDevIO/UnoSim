@@ -73,7 +73,7 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
       if (signal.aborted) return;
       const session = commitTutorSession(content, sessionStore);
       const support = parsed.data.learningSupport
-        ? openSupportSession(res, supportStore, generated.result.question, parsed.data, content?.content)
+        ? openSupportSession(res, supportStore, generated.result.question, parsed.data, content?.content, session)
         : undefined;
       res.json({
         ...generated.result,

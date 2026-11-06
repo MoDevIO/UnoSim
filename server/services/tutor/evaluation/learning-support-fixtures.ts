@@ -36,7 +36,7 @@ export const IT064_REFERENCE = {
   explanation: "Im ersten Durchlauf ist i = 7, also ist 1 << 7 = 128 (binär 10000000). 200 ist binär 11001000, Bit 7 ist gesetzt: 200 & 128 = 128. Der Ausdruck 128 && 1 ist wahr, deshalb gibt Serial.print eine 1 aus. Die ganze erste Zeile lautet 200 = 11001000.",
   accept: ["1", "200 = 1"],
   assumptions: ["a = 200"],
-  requiresCode: ["a & (1 << i) && 1", "int i = 7"],
+  requiresCode: ["for (int i = 7; i >= 0; i--) {", "Serial.print(a & (1 << i) && 1);"],
 };
 
 export const IT064_ANNOTATION: ExampleTutorAnnotation = {

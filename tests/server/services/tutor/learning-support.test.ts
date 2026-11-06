@@ -17,6 +17,7 @@ import {
   newSupportQuestion,
   supportStateView,
   TutorSupportStore,
+  withAnswerAttempt,
   withClarification,
 } from "../../../../server/services/tutor/learning-support-store";
 import { resolveQuestionReference } from "../../../../server/services/tutor/question-reference";
@@ -41,14 +42,20 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     expect(normalizeReferenceAnswer("200  =  1!")).toBe("200 = 1");
   });
 
-  it("apply to the current code by its required fragments, whatever the values or the spacing", () => {
+  it("apply only while every required line is unchanged and in order, whatever the values or the spacing", () => {
     expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH)).toBe(true);
     expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH_A200)).toBe(true);
     expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(true);
+    // Review R1: the negation keeps every fragment but changes the first print to 0.
+    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"))).toBe(false);
     expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("a & (1 << i) && 1", "bitRead(a, i)"))).toBe(false);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("int i = 7", "int i = 15"))).toBe(false);
-    // A fragment that is only left in a comment does not count.
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("int i = 7", "int i = 15 /* int i = 7 */"))).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("int i = 7", "int i = 6"))).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("i >= 0", "i > 0"))).toBe(false);
+    // The print moved before the loop: the lines are there, but not in this order.
+    const moved = IT064_SKETCH.replace("    Serial.print(a & (1 << i) && 1);   // ist Bit i gesetzt?\n", "").replace("  for (int i = 7;", "  Serial.print(a & (1 << i) && 1);\n  for (int i = 7;");
+    expect(referenceAppliesTo(IT064_REFERENCE, moved)).toBe(false);
+    // A line that is only left in a comment does not count.
+    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "// Serial.print(a & (1 << i) && 1);"))).toBe(false);
   });
 
   it("reject a code block, a replacement sketch, a URL and unknown fields", () => {
@@ -87,7 +94,7 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
       questions: [{
         id: "shift-q1", concept: "shift", indicator: "shift-value", kind: "recall", difficulty: [1, 100],
         requires: [{ fact: "serial-call", values: ["print"] }], text: "Welche Zahl ergibt `1 << 7`?",
-        reference: { answer: "128", explanation: "1 << 7 verschiebt die 1 um sieben Stellen: 2 hoch 7 = 128.", requiresCode: ["1 << i"] },
+        reference: { answer: "128", explanation: "1 << 7 verschiebt die 1 um sieben Stellen: 2 hoch 7 = 128.", requiresCode: ["Serial.print(1 << 7);"] },
       }],
       scaffolds: [],
       progression: { entryConcepts: ["shift"], preferredOrder: ["shift"], onRating: { "1-2": "remediate", "3": "clarify-same-indicator", "4": "probe-missing-indicator", "5": "evaluate-mastery-and-advance" } },
@@ -102,7 +109,7 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     const content = it064Content();
     expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH, content)).toEqual({ status: "available", reference: IT064_REFERENCE });
     expect(resolveQuestionReference("Eine freie Frage?", IT064_SKETCH, content)).toEqual({ status: "unavailable", reason: "no-reference" });
-    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH.replace("int i = 7", "int i = 3"), content))
+    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"), content))
       .toEqual({ status: "unavailable", reason: "not-applicable" });
     expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH)).toEqual({ status: "unavailable", reason: "no-reference" });
   });
@@ -125,6 +132,21 @@ describe("learner inputs (LearningQuestions R-SUP-1)", () => {
     ["Ich verstehe die Frage nicht.", "clarification"],
     ["Welchen Ausdruck meinst du?", "clarification"],
     ["Was bedeutet &&?", "clarification"],
+    // Review R4: the usual ways to ask what the question means.
+    ["Ich verstehe das nicht.", "clarification"],
+    ["Verstehe ich nicht", "clarification"],
+    ["Kannst du mir die Frage erklären?", "clarification"],
+    ["Kannst du das bitte anders erklären?", "clarification"],
+    ["Erklär mir die Aufgabe", "clarification"],
+    ["Was muss ich hier machen?", "clarification"],
+    ["Was soll ich angeben?", "clarification"],
+    ["Wie ist das gemeint?", "clarification"],
+    ["Worum geht es?", "clarification"],
+    ["Ich komme nicht weiter", "help"],
+    ["Hilf mir bitte", "help"],
+    // Answers that only look similar stay answers.
+    ["Es wird 1 ausgegeben, das verstehe ich.", "answer"],
+    ["Die Schleife zählt herunter, damit Bit 7 zuerst kommt.", "answer"],
   ] as const)("treats %j as %s", (input, kind) => {
     expect(classifyLearnerInput(input)).toBe(kind);
   });
@@ -137,7 +159,7 @@ describe("clarification, hint and grading guards (R-SUP-2, R-SUP-7, R-SUP-8)", (
     const input = { kind: "clarify" as const, question: IT064_PREDICTION_QUESTION, earlierClarifications: [] };
     expect(validateSupportExplanation(result("Gemeint ist der Durchlauf mit i = 7."), input)).toBe("Gemeint ist der Durchlauf mit i = 7.");
     expect(() => validateSupportExplanation(result("```cpp\nSerial.print(1);\n```"), input)).toThrow();
-    const reference = { answer: "128", explanation: "2 hoch 7." };
+    const reference = { answer: "128", explanation: "2 hoch 7.", requiresCode: ["Serial.print(1 << 7);"] };
     expect(() => validateSupportExplanation(result("Das Ergebnis ist 128."), { ...input, reference })).toThrow();
     const earlier = "Gemeint ist der allererste Schleifendurchlauf mit dem Startwert sieben.";
     expect(() => validateSupportExplanation(result("Gemeint ist der allererste Schleifendurchlauf mit dem Startwert sieben."), { ...input, earlierClarifications: [earlier] })).toThrow();
@@ -149,7 +171,11 @@ describe("clarification, hint and grading guards (R-SUP-2, R-SUP-7, R-SUP-8)", (
     expect(applyReferenceGrade(rated(2, "Falsch, 0."), "1", IT064_REFERENCE)).toMatchObject({ answerRating: 5, feedback: "Richtig, das ist die gesuchte Antwort." });
     expect(applyReferenceGrade(rated(5, "Richtig."), "0", IT064_REFERENCE)).toMatchObject({ answerRating: 2 });
     expect(applyReferenceGrade(rated(5, "Richtig."), "0", IT064_REFERENCE).feedback).not.toContain("1");
-    expect(applyReferenceGrade(rated(4, "Gut."), "1", IT064_REFERENCE)).toMatchObject({ answerRating: 4, feedback: "Gut." });
+    // Review R3: a rating already in the allowed band does not keep a feedback that contradicts the reference.
+    expect(applyReferenceGrade(rated(4, "Falsch, die Ausgabe ist 0."), "1", IT064_REFERENCE)).toMatchObject({ answerRating: 5, feedback: "Richtig, das ist die gesuchte Antwort." });
+    const wrongPraised = applyReferenceGrade(rated(1, "Richtig, die Ausgabe ist 0."), "0", IT064_REFERENCE);
+    expect(wrongPraised.answerRating).toBe(1);
+    expect(wrongPraised.feedback).not.toMatch(/richtig/i);
     expect(applyReferenceGrade(rated(3, "Teilweise."), "Eine Eins", IT064_REFERENCE)).toMatchObject({ answerRating: 3 });
     expect(applyReferenceGrade(rated(2, "Falsch."), "1", undefined)).toMatchObject({ answerRating: 2 });
   });
@@ -219,6 +245,35 @@ describe("learning-support store (R-SUP-1, R-SUP-6)", () => {
     expect(await duplicate).toEqual({ status: "ok", body: "slow" });
     await Promise.all([slow, fast]);
     expect(order).toEqual(["slow sees 0", "fast sees 1"]);
+  });
+
+  it("does not run an action again after its stored result was evicted (review R7)", async () => {
+    const store = new TutorSupportStore(limits);
+    const session = store.open("a", newSupportQuestion("Frage?", "ctx"));
+    const clarify = (actionId: string) => store.run("a", session, actionId, "f", async (view) => {
+      const next = withClarification(view.question!, `t${actionId}`);
+      return { body: next.clarifications, update: { question: next } };
+    });
+    expect(await clarify("first")).toEqual({ status: "ok", body: 1 });
+    for (let hint = 0; hint < 32; hint += 1) {
+      await store.run("a", session, `hint-${hint}`, "f", async () => ({ body: "hint", update: {} }));
+    }
+    expect(await clarify("first")).toEqual({ status: "spent" });
+    expect(store.view("a", session)?.question?.clarifications).toBe(1);
+  });
+
+  it("saturates the unlock counters at two clarifications and three attempts (R-SUP-1)", () => {
+    let question = newSupportQuestion("Frage?", "ctx");
+    for (let round = 0; round < 5; round += 1) question = withAnswerAttempt(withClarification(question, `t${round}`));
+    expect(question).toMatchObject({ clarifications: 2, answerAttempts: 3 });
+  });
+
+  it("binds a session to the Course session it was opened with", () => {
+    const store = new TutorSupportStore(limits);
+    const course = store.open("a", newSupportQuestion("Frage?", "ctx"), "course-1");
+    const free = store.open("a", newSupportQuestion("Frage?", "ctx"));
+    expect(store.view("a", course)?.courseSession).toBe("course-1");
+    expect(store.view("a", free)?.courseSession).toBeNull();
   });
 
   it("bounds sessions per subject and expires them", async () => {
