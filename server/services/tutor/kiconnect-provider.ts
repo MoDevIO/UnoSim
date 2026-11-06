@@ -312,7 +312,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
 
   private async resolveModel(model: string, credential: string, signal?: AbortSignal): Promise<string> {
     if (model !== "auto") return model;
-    const modelId = rankTutorModels(await this.listModels(credential, signal))[0];
+    const modelId = rankTutorModels(await this.listModels(credential, signal), config.tutor.autoModels)[0];
     if (!modelId) throw new TutorProviderError("model-unavailable");
     return modelId;
   }

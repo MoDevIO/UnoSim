@@ -201,7 +201,10 @@ describe("KiconnectProvider", () => {
     await timeoutAssertion;
   });
 
-  it("prefers an available Qwen family for Automatic selection without requiring a fixed deployment ID", async () => {
+  it.each([
+    [[], "mistralai-mistral-small-2503"],
+    [["not-offered", "llama-3.3-70b-instruct"], "llama-3.3-70b-instruct"],
+  ] as const)("resolves Automatic with the operator's model list %j to %s, without preferring a model family", async (autoModels, expected) => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
         data: [
@@ -210,22 +213,25 @@ describe("KiconnectProvider", () => {
           { id: "llama-3.3-70b-instruct" },
         ],
       }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        model: "qwen3-32b-instruct",
+      .mockImplementationOnce(async (_url: string, init: RequestInit) => new Response(JSON.stringify({
+        model: JSON.parse(String(init.body)).model,
         choices: [{ message: { content: "Welche Wirkung hat digitalWrite(13, HIGH)?" } }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-
-    const result = await new KiconnectProvider().generateLearningQuestion({
-      model: "auto",
-      systemPrompt: "system",
-      userPrompt: "user",
-    }, "request-key");
-
-    expect(result.model).toBe("qwen3-32b-instruct");
-    expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({
-      model: "qwen3-32b-instruct",
-    });
+    const tutorConfig = config.tutor as { autoModels: readonly string[] };
+    const configured = tutorConfig.autoModels;
+    tutorConfig.autoModels = autoModels;
+    try {
+      const result = await new KiconnectProvider().generateLearningQuestion({
+        model: "auto",
+        systemPrompt: "system",
+        userPrompt: "user",
+      }, "request-key");
+      expect(result.model).toBe(expected);
+      expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({ model: expected });
+    } finally {
+      tutorConfig.autoModels = configured;
+    }
   });
 
   it("accepts normal text and text-part content when structured output is unavailable", async () => {

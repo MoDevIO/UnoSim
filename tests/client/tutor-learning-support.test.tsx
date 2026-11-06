@@ -2,6 +2,7 @@ import { act, fireEvent, render, renderHook, screen } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useTutor } from "@/hooks/use-tutor";
 import { TutorWorkspacePlaceholder } from "@/components/simulator/ExperimentalWorkspace";
+import { TutorKeyView } from "@/components/simulator/tutor-key-view";
 import { setActiveExternalExampleContext } from "@/lib/external-examples";
 import type { TutorSupportState } from "@shared/tutor";
 
@@ -185,5 +186,31 @@ describe("Tutor panel learning-support actions", () => {
     fireEvent.click(await screen.findByTestId("tutor-action-reveal"));
     fireEvent.click(screen.getByTestId("tutor-action-skip"));
     expect(requestSupport.mock.calls.map(([action]) => action)).toEqual(["reveal", "skip"]);
+  });
+});
+
+describe("Tutor model transparency (LearningQuestions 7.3)", () => {
+  function keyView(selectedModel: string, lastUsedModel: string | null) {
+    const tutor = {
+      capabilities: { canUseTutor: true, canConfigureTutor: true },
+      credential: "key", setCredential: vi.fn(), selectedModel, setSelectedModel: vi.fn(), lastUsedModel,
+      configuredDifficulty: 30, setConfiguredDifficulty: vi.fn(), availableModels: ["openai-gpt5.5", "mistralai-mistral-small-4-119b-2603"], modelsLoading: false,
+    };
+    render(<TutorKeyView tutor={tutor as never} onApply={vi.fn()} />);
+  }
+
+  it("names the model that answered last, and says when Automatic chose it", () => {
+    keyView("auto", "mistralai-mistral-small-4-119b-2603");
+    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent("Last response from mistralai-mistral-small-4-119b-2603 (chosen by Automatic)");
+  });
+
+  it("names a manually chosen model without the Automatic note", () => {
+    keyView("openai-gpt5.5", "openai-gpt5.5");
+    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent(/^Last response from openai-gpt5\.5$/);
+  });
+
+  it("shows no model before the first response", () => {
+    keyView("auto", null);
+    expect(screen.queryByTestId("tutor-model-in-use")).not.toBeInTheDocument();
   });
 });

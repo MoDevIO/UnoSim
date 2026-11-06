@@ -41,6 +41,12 @@ export function TutorKeyView({ tutor, onApply }: { readonly tutor: TutorPanelSta
               <option value="auto">Automatic</option>
               {tutor.availableModels.map((model) => <option key={model} value={model}>{model}</option>)}
             </select>
+            {tutor.lastUsedModel && (
+              <p className="mt-1 text-ui-xs text-muted-foreground" data-testid="tutor-model-in-use">
+                Last response from {tutor.lastUsedModel}
+                {tutor.selectedModel === "auto" ? " (chosen by Automatic)" : ""}
+              </p>
+            )}
             <label htmlFor="tutor-difficulty" className="mt-4 block text-ui-xs font-medium text-foreground">Start difficulty (1–100)</label>
             <input
               id="tutor-difficulty"
