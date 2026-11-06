@@ -256,6 +256,23 @@ function supportBinding(support: TutorSupportState, actionId: string) {
   return { supportSession: support.session, questionHandle: support.questionHandle, actionId };
 }
 
+/** Sends an answer; null when the request was aborted. */
+async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal): Promise<{ readonly data: TutorResponse } | null> {
+  const response = await fetch("/api/tutor/dialog", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    signal,
+    body: JSON.stringify(body),
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (signal.aborted) return null;
+  if (!response.ok) throw getTutorFailure(payload);
+  const parsed = tutorResponseSchema.safeParse(payload);
+  if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
+  return { data: parsed.data };
+}
+
 function readConfiguredDifficulty(): TutorDifficulty {
   try {
     const stored = globalThis.localStorage?.getItem(TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY);
@@ -519,28 +536,18 @@ export function useTutor(
     activeTutorRequests.current.add(controller);
     loadingRequest.current = controller;
     try {
-      const response = await fetch("/api/tutor/dialog", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          ...sketchRequestFields(sketch),
-          history: currentHistory,
-          question: currentQuestion.question,
-          answer: submittedAnswer,
-          credential,
-          ...(requestedModel ? { model: requestedModel } : {}),
-          difficulty: effectiveDifficulty,
-          ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
-          ...binding,
-        }),
-      });
-      const body: unknown = await response.json().catch(() => null);
-      if (controller.signal.aborted) return;
-      if (!response.ok) throw getTutorFailure(body);
-      const parsed = tutorResponseSchema.safeParse(body);
-      if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
+      const parsed = await postDialogAnswer({
+        ...sketchRequestFields(sketch),
+        history: currentHistory,
+        question: currentQuestion.question,
+        answer: submittedAnswer,
+        credential,
+        ...(requestedModel ? { model: requestedModel } : {}),
+        difficulty: effectiveDifficulty,
+        ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
+        ...binding,
+      }, controller.signal);
+      if (!parsed) return;
       pendingAction.current = null;
       if (parsed.data.support) setSupport(parsed.data.support);
       const helpEntry = typedHelpEntry(parsed.data, currentQuestion.question, submittedAnswer);
