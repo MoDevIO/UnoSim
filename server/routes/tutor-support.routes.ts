@@ -78,17 +78,13 @@ function contextKey(sketch: SketchFields, content: PinnedTutorCourseContent | un
   });
 }
 
-/** The code the reference must fit: the entry file and every header, as the Tutor sees the project. */
-function projectCode(sketch: SketchFields): string {
-  return [sketch.code, ...(sketch.headers ?? []).map(({ content }) => content)].join("\n");
-}
-
 function identityOf(res: Response): string | undefined {
   return (res.locals.unosimIdentity as RequestIdentity | undefined)?.subject;
 }
 
 function referenceOf(question: string, sketch: SketchFields, content: PinnedTutorCourseContent | undefined): QuestionReference {
-  return resolveQuestionReference(question, projectCode(sketch), content);
+  // The reference must fit the whole project: the entry code and every header (review N1).
+  return resolveQuestionReference(question, { code: sketch.code, headers: sketch.headers ?? [] }, content);
 }
 
 function referenceView(reference: QuestionReference): TutorReferenceView {

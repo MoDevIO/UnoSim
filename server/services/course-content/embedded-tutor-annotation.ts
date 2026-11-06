@@ -29,9 +29,13 @@ const SAFE_TEXT = (max: number) => z.string().trim().min(1)
 const focusQuestionSchema = z.object({
   kind: z.enum(["recall", "concept", "application", "prediction", "transfer"]),
   text: SAFE_TEXT(500),
-  /** Reviewed reference answer (schemaVersion 3, CourseContent SSOT 6.4). */
+  /** Reviewed reference answer (schemaVersion 3, CourseContent SSOT 6.4), bound to this Example's program. */
   reference: referenceAnswerSchema.optional(),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (value.reference?.reviewedCode !== undefined) {
+    context.addIssue({ code: "custom", path: ["reference", "reviewedCode"], message: "A focus reference is bound to its Example and has no reviewedCode" });
+  }
+});
 
 /** A teacher-authored focus area: a few questions the Tutor prefers to ask for this Example. */
 const focusAreaSchema = z.object({

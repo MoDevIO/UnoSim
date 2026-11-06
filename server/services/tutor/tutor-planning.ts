@@ -1,6 +1,7 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import type { TutorCapability } from "../course-content/course-content-loader";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
+import type { ReviewedProgram } from "./curriculum/reference-answer";
 import type { EffectiveTutorStrategy, StrategyResolution } from "./strategy/effective-tutor-strategy";
 import type { TutorProgressionState, DidacticPhase, ProgressionBlockedReason } from "./curriculum/progression-state";
 
@@ -9,6 +10,8 @@ export interface TutorPlanningContentContext {
   readonly tutor?: TutorCapability;
   readonly exampleId?: string;
   readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
+  /** The Example's reviewed program (without the annotation), the binding of its reference answers. */
+  readonly exampleProgram?: ReviewedProgram;
   readonly progressionState?: TutorProgressionState;
 }
 

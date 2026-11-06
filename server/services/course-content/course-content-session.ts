@@ -4,6 +4,7 @@ import { config, type ParsedTutorSessionConfig } from "../../config";
 import type { RequestContext } from "../examples/source-provider";
 import type { TutorCapability } from "./course-content-loader";
 import type { ExampleTutorAnnotation } from "./embedded-tutor-annotation";
+import type { ReviewedProgram } from "../tutor/curriculum/reference-answer";
 import { createTutorProgressionState, type TutorProgressionState } from "../tutor/curriculum/progression-state";
 
 export interface TutorCourseContentRequest {
@@ -16,6 +17,8 @@ export interface TutorCourseContentRequest {
 export interface ResolvedTutorCourseContent extends TutorCourseContentRequest {
   readonly tutor: TutorCapability;
   readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
+  /** The annotated Example's reviewed program, which its reference answers are bound to. */
+  readonly exampleProgram?: ReviewedProgram;
   readonly progressionState?: TutorProgressionState;
   /** Size of the immutable snapshot the Tutor data comes from; charged once per pinned revision. */
   readonly contentBytes: number;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
-import { referenceAnswerSchema } from "./reference-answer";
+import { codeContainsLine, referenceAnswerSchema, type ReferenceAnswer } from "./reference-answer";
 
 const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
 
@@ -101,7 +101,21 @@ const questionV3Schema = z.object({ ...questionFields, reference: referenceAnswe
     if (value.reference !== undefined && value.template !== undefined) {
       context.addIssue({ code: "custom", path: ["reference"], message: "A reference answer requires a fixed question text" });
     }
+    checkReviewedCode(value.reference, context);
   });
+
+/** A Topic reference names the complete program it was reviewed for, and its code lines are part of it (review N1). */
+function checkReviewedCode(reference: ReferenceAnswer | undefined, context: z.RefinementCtx): void {
+  if (reference === undefined) return;
+  const reviewed = reference.reviewedCode;
+  if (reviewed === undefined) {
+    context.addIssue({ code: "custom", path: ["reference", "reviewedCode"], message: "A Topic reference requires reviewedCode" });
+    return;
+  }
+  if (!reference.requiresCode.every((line) => codeContainsLine(reviewed, line))) {
+    context.addIssue({ code: "custom", path: ["reference", "requiresCode"], message: "requiresCode must be part of reviewedCode" });
+  }
+}
 
 const scaffoldSchema = z.object({
   id: idSchema,

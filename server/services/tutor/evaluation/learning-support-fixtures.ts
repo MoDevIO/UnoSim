@@ -76,6 +76,7 @@ export function it064Content(): ResolvedTutorCourseContent {
     exampleId: "it06-04-binaerzahl",
     tutor: { status: "valid", manifest: { schemaVersion: 1, topics: [], strategies: [] }, topics: [], strategies: [] },
     exampleTutorAnnotation: IT064_ANNOTATION,
+    exampleProgram: { code: IT064_SKETCH, headers: [] },
     progressionState: createTutorProgressionState(IT064_REVISION),
     contentBytes: 4_096,
   } as ResolvedTutorCourseContent;

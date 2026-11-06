@@ -42,20 +42,37 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     expect(normalizeReferenceAnswer("200  =  1!")).toBe("200 = 1");
   });
 
-  it("apply only while every required line is unchanged and in order, whatever the values or the spacing", () => {
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH)).toBe(true);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH_A200)).toBe(true);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(true);
+  it("apply only to the reviewed program, where just the value the question assumes may differ", () => {
+    const reviewed = { code: IT064_SKETCH, headers: [] };
+    const applies = (code: string, headers: { name: string; content: string }[] = []) => referenceAppliesTo(IT064_REFERENCE, { code, headers }, reviewed);
+    expect(applies(IT064_SKETCH)).toBe(true);
+    expect(applies(IT064_SKETCH_A200)).toBe(true);
+    expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 0x0F;"))).toBe(true);
+    expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "a&(1<<i)&&1"))).toBe(true);
+    expect(applies(IT064_SKETCH.replace("// ist Bit i gesetzt?", "/* Bit i? */"))).toBe(true);
+    expect(applies(IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--)\n  {"))).toBe(true);
     // Review R1: the negation keeps every fragment but changes the first print to 0.
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"))).toBe(false);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("a & (1 << i) && 1", "bitRead(a, i)"))).toBe(false);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("int i = 7", "int i = 6"))).toBe(false);
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("i >= 0", "i > 0"))).toBe(false);
-    // The print moved before the loop: the lines are there, but not in this order.
+    expect(applies(IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("a & (1 << i) && 1", "bitRead(a, i)"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("int i = 7", "int i = 6"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("i >= 0", "i > 0"))).toBe(false);
+    // The print moved before the loop.
     const moved = IT064_SKETCH.replace("    Serial.print(a & (1 << i) && 1);   // ist Bit i gesetzt?\n", "").replace("  for (int i = 7;", "  Serial.print(a & (1 << i) && 1);\n  for (int i = 7;");
-    expect(referenceAppliesTo(IT064_REFERENCE, moved)).toBe(false);
+    expect(applies(moved)).toBe(false);
     // A line that is only left in a comment does not count.
-    expect(referenceAppliesTo(IT064_REFERENCE, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "// Serial.print(a & (1 << i) && 1);"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "// Serial.print(a & (1 << i) && 1);"))).toBe(false);
+    // Review N1: a line inserted between the protected lines makes the first output 0.
+    expect(applies(IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--) {\n    i = 0;"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("Serial.begin(115200);", "Serial.begin(115200);\n  a = 0;"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("void loop() {", "#define print println\nvoid loop() {"))).toBe(false);
+    // Only a literal value of the assumed variable may change, not the expression or another variable.
+    expect(applies(IT064_SKETCH.replace("byte a = 37;", "byte a = 37 + 1;"))).toBe(false);
+    expect(applies(IT064_SKETCH.replace("byte a = 37;", "int a = 200;"))).toBe(false);
+    expect(referenceAppliesTo({ ...IT064_REFERENCE, assumptions: undefined }, { code: IT064_SKETCH_A200 }, reviewed)).toBe(false);
+    // Project files count as well, and without a reviewed program nothing applies.
+    expect(applies(IT064_SKETCH, [{ name: "bits.h", content: "#define print println" }])).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, reviewed, undefined)).toBe(false);
+    expect(referenceAppliesTo(IT064_REFERENCE, { code: "int a;" }, { code: "int a;" })).toBe(false);
   });
 
   it("reject a code block, a replacement sketch, a URL and unknown fields", () => {
@@ -94,7 +111,10 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
       questions: [{
         id: "shift-q1", concept: "shift", indicator: "shift-value", kind: "recall", difficulty: [1, 100],
         requires: [{ fact: "serial-call", values: ["print"] }], text: "Welche Zahl ergibt `1 << 7`?",
-        reference: { answer: "128", explanation: "1 << 7 verschiebt die 1 um sieben Stellen: 2 hoch 7 = 128.", requiresCode: ["Serial.print(1 << 7);"] },
+        reference: {
+          answer: "128", explanation: "1 << 7 verschiebt die 1 um sieben Stellen: 2 hoch 7 = 128.", requiresCode: ["Serial.print(1 << 7);"],
+          reviewedCode: "void setup() {\n  Serial.begin(9600);\n  Serial.print(1 << 7);\n}\nvoid loop() {}\n",
+        },
       }],
       scaffolds: [],
       progression: { entryConcepts: ["shift"], preferredOrder: ["shift"], onRating: { "1-2": "remediate", "3": "clarify-same-indicator", "4": "probe-missing-indicator", "5": "evaluate-mastery-and-advance" } },
@@ -103,15 +123,35 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     expect(curriculumTopicSchema.safeParse({ ...topic, schemaVersion: 2 }).success).toBe(false);
     const templated = { ...topic, questions: [{ ...topic.questions[0], text: undefined, template: "Welche Zahl ergibt {x}?", slots: ["x"] }] };
     expect(curriculumTopicSchema.safeParse(templated).success).toBe(false);
+    // Review N1: a Topic reference names its reviewed program, and its code lines are part of it.
+    const withReference = (reference: Record<string, unknown>) => ({ ...topic, questions: [{ ...topic.questions[0], reference: { ...topic.questions[0]!.reference, ...reference } }] });
+    expect(curriculumTopicSchema.safeParse(withReference({ reviewedCode: undefined })).success).toBe(false);
+    expect(curriculumTopicSchema.safeParse(withReference({ requiresCode: ["Serial.print(1 << 6);"] })).success).toBe(false);
+    expect(curriculumTopicSchema.safeParse(withReference({ reviewedCode: "void setup() {\u0007}" })).success).toBe(false);
+    const annotated = { ...IT064_ANNOTATION, focus: IT064_ANNOTATION.focus!.map((area) => ({ ...area, questions: area.questions.map((question) => question.reference ? { ...question, reference: { ...question.reference, reviewedCode: IT064_SKETCH } } : question) })) };
+    expect(embeddedTutorAnnotationSchema.safeParse(annotated).success).toBe(false);
+  });
+
+  it("resolve a Topic reference against its reviewed program", () => {
+    const reviewedCode = "void setup() {\n  Serial.begin(9600);\n  Serial.print(1 << 7);\n}\nvoid loop() {}\n";
+    const question = { id: "shift-q1", text: "Welche Zahl ergibt `1 << 7`?", reference: { answer: "128", explanation: "2 hoch 7.", requiresCode: ["Serial.print(1 << 7);"], reviewedCode } };
+    const content = { ...it064Content(), exampleTutorAnnotation: undefined, exampleProgram: undefined, tutor: { status: "valid", topics: [{ schemaVersion: 3, questions: [question] }] } } as unknown as ReturnType<typeof it064Content>;
+    expect(resolveQuestionReference(question.text, { code: reviewedCode }, content)).toMatchObject({ status: "available" });
+    expect(resolveQuestionReference(question.text, { code: reviewedCode.replace("Serial.print(1 << 7);", "Serial.print(1 << 7);\n  Serial.print(1 << 6);") }, content))
+      .toEqual({ status: "unavailable", reason: "not-applicable" });
   });
 
   it("are resolved for the asked question from the pinned Course Content, never for other questions", () => {
     const content = it064Content();
-    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH, content)).toEqual({ status: "available", reference: IT064_REFERENCE });
-    expect(resolveQuestionReference("Eine freie Frage?", IT064_SKETCH, content)).toEqual({ status: "unavailable", reason: "no-reference" });
-    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));"), content))
+    const program = (code: string) => ({ code, headers: [] });
+    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, program(IT064_SKETCH), content)).toEqual({ status: "available", reference: IT064_REFERENCE });
+    expect(resolveQuestionReference("Eine freie Frage?", program(IT064_SKETCH), content)).toEqual({ status: "unavailable", reason: "no-reference" });
+    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, program(IT064_SKETCH.replace("Serial.print(a & (1 << i) && 1);", "Serial.print(!(a & (1 << i) && 1));")), content))
       .toEqual({ status: "unavailable", reason: "not-applicable" });
-    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, IT064_SKETCH)).toEqual({ status: "unavailable", reason: "no-reference" });
+    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, program(IT064_SKETCH))).toEqual({ status: "unavailable", reason: "no-reference" });
+    // Without the Example's reviewed program, the focus reference cannot be bound and is not applicable.
+    expect(resolveQuestionReference(IT064_PREDICTION_QUESTION, program(IT064_SKETCH), { ...content, exampleProgram: undefined }))
+      .toEqual({ status: "unavailable", reason: "not-applicable" });
   });
 });
 

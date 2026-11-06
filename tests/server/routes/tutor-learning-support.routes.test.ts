@@ -550,3 +550,15 @@ describe("learning support over HTTP: review 2026-11-06 regressions", () => {
     expect(after.body.support.referenceShown).toBe(false);
   });
 });
+
+describe("learning support over HTTP: follow-up review of 73fcc08b0", () => {
+  it("N1: drops the reference when an inserted line changes the answer, and keeps the model's correct rating", async () => {
+    const { post } = await start({ rate: conceptThen(5, "Richtig, mit i = 0 wird Bit 0 geprüft.") });
+    const inserted = IT064_SKETCH.replace("for (int i = 7; i >= 0; i--) {", "for (int i = 7; i >= 0; i--) {\n    i = 0;");
+    const dialog = await toPredictionQuestion(post, inserted);
+    expect(dialog.state.support.referenceAvailable).toBe(false);
+    const answered = await dialog.answer("0");
+    expect(answered.body).toMatchObject({ answerRating: 5, feedback: "Richtig, mit i = 0 wird Bit 0 geprüft." });
+    expect(answered.body.support.referenceAvailable).toBe(false);
+  });
+});
