@@ -355,12 +355,16 @@ Akzeptanzkriterien steht in
 
 Für **Automatic** nimmt der Server das erste Modell aus
 `UNOSIM_TUTOR_AUTO_MODELS`, das KI:connect gerade anbietet; eine manuelle
-Modellwahl der Person hat Vorrang. Die Voreinstellung beruht auf dem
-Vergleich vom 06.11.2026 mit festen Modellen (LearningQuestions TUT-07):
-`openai-gpt5.4-mini` lief vollständig, `mistralai-mistral-small-4-119b-2603`
-fast vollständig und am schnellsten. `openai-gpt5.5` ist mit dem Tutor derzeit
-nicht nutzbar, weil es die Tutor-Temperatur 0,2 ablehnt. Ein ungültiger
-Eintrag in der Liste verhindert den Start.
+Modellwahl der Person hat Vorrang. Ein Embedding-, Reranking- oder
+Sprachmodell in der Liste oder ein ungültiger Eintrag verhindert den Start.
+Die Voreinstellung beruht auf dem Vergleich vom 06.11.2026 mit festen Modellen
+(LearningQuestions TUT-07): `openai-gpt5.4-mini` lief vollständig,
+`mistralai-mistral-small-4-119b-2603` fast vollständig und am schnellsten.
+Beide bewerteten eine Frage, die einen eigenen Wert setzt, roh falsch; richtig
+bewertet wurde nur dank einer hinterlegten Musterantwort.
+`openai-gpt-oss-120b` bewertete roh meist richtig, war aber mit im Median
+4,4 s langsamer und brach öfter ab. `openai-gpt5.5` ist mit dem Tutor derzeit
+nicht nutzbar, weil es die Tutor-Temperatur 0,2 ablehnt.
 
 Der Tutor unterstützt derzeit nur KI:connect.nrw. Er braucht serverseitig
 keinen Schlüssel: Jede Person trägt ihren persönlichen KI:connect-Key im

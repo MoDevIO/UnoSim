@@ -397,8 +397,13 @@ normalization is applied, because each can change the meaning in C++ (a comment
 marker inside a string literal, the line break that ends a `#define`). The only
 allowed difference is the initial value of a variable the question itself sets
 (`assumptions`, e.g. `byte a = 37;` edited to `byte a = 200;` for `a = 200`),
-and only at its single declaration `<type words> name = <plain literal>;` in the
-file-scope preamble before the first `{`. The preamble is read like C++: closed
+and only at its single declaration `<type> name = <plain literal>;` in the
+file-scope preamble before the first `{`. The type must be named explicitly
+with arithmetic type words (`byte`, `int`, `unsigned long`, `uint8_t`, …,
+optionally `const`, `static`, `volatile`); `auto`, `decltype` or any other name
+gives no site. The new literal keeps the reviewed literal's kind (decimal,
+hexadecimal, binary, character) and suffix, so the variable's type cannot
+change (`37` → `200`, never `37u`). The preamble is read like C++: closed
 block and line comments (such as an Example's header comment) are allowed; a
 string or character literal, a line continuation or a conditional directive
 ends the safe preamble. A later assignment to the same variable never becomes

@@ -1173,7 +1173,8 @@ Die Modellwahl MUSS folgende Regeln einhalten:
   `Automatisch` nimmt die erste davon, die die aktuelle Provider-Antwort enthält.
   Ist keine konfiguriert oder keine verfügbar, gilt die Reihenfolge der
   Provider-Antwort. Die Anwendung bevorzugt keine Modellfamilie; offensichtliche
-  Nicht-Chat-Modelle (Embedding, Reranking, Sprache) wählt `Automatisch` nie.
+  Nicht-Chat-Modelle (Embedding, Reranking, Sprache) wählt `Automatisch` nie;
+  steht ein solches Modell in der Liste, startet der Server nicht.
 - Eine manuelle Auswahl hat Vorrang vor `Automatisch`. Die Tutor-Ansicht nennt
   das Modell der letzten Antwort und ob `Automatisch` es gewählt hat, sodass ein
   Modellwechsel sichtbar bleibt.
@@ -1889,8 +1890,13 @@ Restfälle (E1: Tokenvergleich setzte bedeutungsverschiedenen Code gleich,
 Kommentarzeichen im String, Zeilengrenze einer Präprozessor-Direktive; E2: die
 Annahme-Ausnahme machte jede spätere Zuweisung derselben Variablen veränderbar;
 E3: „Erklärung: …“ galt als Klärungsbitte). Alle drei sind korrigiert und mit
-Regressionstests belegt, die am Stand `e6197b4b9` scheitern; die erneute
-Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
+Regressionstests belegt, die am Stand `e6197b4b9` scheitern. Das Review am
+Stand `2ab14e52f` fand fünf weitere Punkte (F1: `auto a = 37` → `37u` änderte
+den Typ trotz gültiger Referenz; F2: wiederholte falsche Rohbewertungen
+ergaben „pass“; F3: verworfene Erstversuche fehlten als Rohevidenz; F4: leere
+Modell-ID im HTTP-Pfad akzeptiert; F5: konfiguriertes Embedding-Modell umging
+den Filter). Alle fünf sind korrigiert und mit Regressionstests belegt, die
+am Stand `2ab14e52f` scheitern; die erneute Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
 Voraussetzung mehr: `Automatisch` folgt einer Betreiberliste (7.3), und die
 Live-Nachweise laufen mit festen Modellen über die Evaluation (R-SUP-E4).
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
@@ -1898,13 +1904,15 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
 
 - [x] **TUT-01 – Fachliche Fehlbewertung IT06.4 reproduzieren und korrigieren.**
   *Erledigt 2026-11-06:* Mit festen Modellen über die HTTP-Evaluation (je
-  3 Stichproben, `cc39b7cfe`) lieferte die Anwendung in allen 26 vollständigen
-  Bewertungsstichproben „1“ und „200 = 1“ mit 5 und „0“ mit höchstens 2
-  (`mistralai-mistral-small-4-119b-2603` 9/9, `openai-gpt5.4-mini` 9/9,
-  `openai-gpt-oss-120b` 8/8; Judge `openai-gpt-oss-120b`: alle Kriterien
-  bestanden). Die Modelle selbst bewerteten die richtigen Antworten weiterhin
-  oft falsch (gpt5.4-mini 6 von 6 mit 1–2, weil es trotz der Regel mit
-  `a = 37` rechnet); die Korrektur hängt damit an der geprüften Referenz.
+  3 Stichproben, korrigierter Evaluator `eaa0381b3`) lieferte die Anwendung in
+  allen 26 vollständigen Bewertungsstichproben „1“ und „200 = 1“ mit 5 und „0“
+  mit höchstens 2 (`openai-gpt5.4-mini` 9/9, `mistralai-mistral-small-4-119b-2603`
+  9/9, `openai-gpt-oss-120b` 8/8; Judge `openai-gpt-oss-120b`: alle Kriterien
+  bestanden). Die Modelle selbst bewerteten die richtigen Antworten oft falsch
+  (gpt5.4-mini und Mistral je 6 von 6 mit 1–2, weil sie trotz der Regel mit
+  `a = 37` rechnen; gpt-oss 1 von 5); diese Rohfehler bestimmen das
+  Modellurteil (siehe TUT-07). Die Korrektur hängt an der geprüften Referenz;
+  für Fragen ohne Referenz bleibt der Rohfehler bestehen.
   Frühere Stände: Mit `qwen3-omni-30b-a3b-instruct` (Automatik) bewertete
   `main` die richtige Antwort „1“ 3 von 3 Mal mit 1 Stern und „Falsch“, „200 = 1“
   3 von 3 Mal mit 1 Stern und die falsche Antwort „0“ 2 von 3 Mal mit 5 Sternen.
@@ -1994,7 +2002,12 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   ihrer einzigen Deklaration im Dateikopf vor der ersten `{`; der Kopf wird wie
   C++ gelesen (geschlossene Kommentare erlaubt, String, Zeichenliteral,
   Zeilenfortsetzung oder bedingte Direktive beenden den sicheren Bereich).
-  Spätere Zuweisungen derselben Variablen bleiben fest. Erneute Abnahme offen.
+  Spätere Zuweisungen derselben Variablen bleiben fest. *Review F1 korrigiert:*
+  Die Deklaration muss ihren Typ ausdrücklich nennen (Arithmetiktypen wie
+  `byte`, `int`, `unsigned long`, `uint8_t` mit `const`/`static`/`volatile`);
+  `auto`, `decltype` oder ein anderer Name geben keine Wertestelle. Der neue
+  Wert behält Art und Suffix des Literals (`37` → `200`, nicht `37u`, nicht
+  `0x0F`). Erneute Abnahme offen.
   *Kursreferenzen:* UnoSim-Examples Branch `feature/it06-4-reference-answers`
   (`1fe88a3`) ergänzt geprüfte Referenzen für alle vier Fokusfragen von IT06.4.
   Der vollständige Content-Loader lädt sie (Annotation Schema 3, 4 Referenzen,
@@ -2066,20 +2079,24 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Modell selbst lehnte „1“ bzw. „200 = 1“ in jeder Stichprobe mindestens einmal
   ab). Mit `qwen3-omni-30b-a3b-instruct` (damals Automatik) endeten alle 3
   Stichproben mit `504 PROVIDER_TIMEOUT`. Qwen ist seitdem keine Voraussetzung.
-  *Stand 2026-11-06 (`cc39b7cfe`):* Die HTTP-Verläufe sind Teil der
-  Qualitäts-Evaluation (TutorQualityEvaluation 15, R-SUP-E4): sechs
-  IT06.4-Szenarien laufen über die Produktionsrouten mit Lernhilfe, der
-  zurückgegebenen Frage, Course- und Support-Session und Historie. Je festem
-  Modell 3 Stichproben (Judge `openai-gpt-oss-120b`):
-  `openai-gpt5.4-mini` 18/18 vollständig, Urteil „pass“, Median 1,4 s je Turn;
-  `mistralai-mistral-small-4-119b-2603` 17/18 (1 `invalid-response`), Median
-  1,1 s; `openai-gpt-oss-120b` 15/18 (3 `invalid-response`), Median 4,3 s
-  (Judge bewertet hier das eigene Modell); `openai-gpt5.5` 0/18: der Provider
-  lehnt die Tutor-Temperatur 0,2 ab (HTTP 400, nur 1 erlaubt), gemeldet als
-  `invalid-response`. In allen vollständigen Stichproben hielten Anwendung und
-  Lernhilfe ihre Prüfungen ein (0 Anwendungsfehler außer den technischen
-  Abbrüchen). Nicht abgedeckt: Gateway, Authentifizierung, Rate-Limit,
-  Kurs-Laden (isolierter Routentest), Überspringen live.
+  *Stand 2026-11-06:* Die HTTP-Verläufe sind Teil der Qualitäts-Evaluation
+  (TutorQualityEvaluation 15, R-SUP-E4): sechs IT06.4-Szenarien laufen über
+  die Produktionsrouten mit Lernhilfe, der zurückgegebenen Frage, Course- und
+  Support-Session und Historie. Je festem Modell 3 Stichproben mit dem nach
+  Review F2–F4 korrigierten Evaluator (`eaa0381b3`, Judge
+  `openai-gpt-oss-120b`):
+  `openai-gpt5.4-mini` 18/18 vollständig, Urteil „fail“ wegen 6 falscher
+  Rohbewertungen der richtigen Antworten, Anwendung fehlerfrei, Median 1,3 s,
+  1 verworfener Versuch; `mistralai-mistral-small-4-119b-2603` 17/18
+  (1 `invalid-response`), „fail“ aus demselben Grund, Median 1,0 s;
+  `openai-gpt-oss-120b` 15/18 (3 `invalid-response`), Rohbewertung 4 von 5
+  richtig, „inconclusive“, Median 4,4 s, p90 10,1 s (der Judge bewertet hier
+  das eigene Modell); `openai-gpt5.5` 0/18: der Provider lehnt die
+  Tutor-Temperatur 0,2 ab (HTTP 400, nur 1 erlaubt), gemeldet als
+  `invalid-response`. Klärungen aller vollständigen Läufe trafen den ersten
+  Durchlauf ohne Ergebnis (Judge bestanden), kein Lösungsverrat in Roh- oder
+  ausgelieferter Ausgabe. Nicht abgedeckt: Gateway, Authentifizierung,
+  Rate-Limit, Kurs-Laden (isolierter Routentest), Überspringen live.
   Vorhandene Tutor-Route-Tests und Evaluationsinfrastruktur erweitern, keine
   separate zweite Fachlogik bauen. GUI-nahe Session-/Kursbindung mit allen
   Aktionen durchspielen: 2 Klärungen → Skip, 3 Antworten → freiwilliger Abruf,

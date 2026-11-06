@@ -916,7 +916,13 @@ existing corpus, runner, report and Judge (`server/services/tutor/evaluation/`):
   semantics stay in force. Raw and delivered output are checked per action:
   declared literals for answers, clarifications and hints (an authorized
   reveal is exempt), unlock of reveal and skip, the model's own rating
-  (`raw-provider-answer-rating`) apart from the delivered rating. A retry
+  (`raw-provider-answer-rating`) apart from the delivered rating. A raw rating
+  out of the band is a `raw-provider` violation (`answer-rating-out-of-band`),
+  so repeated wrong raw ratings reach the verdict (§8.2, R-VER-3/4) even when
+  the application corrected them. Every provider attempt of a turn is recorded
+  in order (`providerAttempts`, with errors) and checked, also a discarded
+  first attempt; this holds for the service path too. Every attempt must name
+  its model (R-ID-4), otherwise the sample is `invalid`. A retry
   question after a weak answer is no repetition. A failed turn must leave the
   progression state as it was before that turn.
 - Report: per case `executionEvidence` (`service` or `http-route`),
