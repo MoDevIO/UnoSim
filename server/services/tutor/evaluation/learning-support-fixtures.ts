@@ -28,8 +28,6 @@ void loop() {
 }
 `;
 
-export const IT064_SKETCH_A200 = IT064_SKETCH.replace("byte a = 37;", "byte a = 200;");
-
 export const IT064_CONCEPT_QUESTION = "Welche Aufgabe hat `1 << i` in der Schleife?";
 export const IT064_PREDICTION_QUESTION = "Was wird im ersten Durchlauf ausgegeben, wenn `a` den Wert 200 hat?";
 
