@@ -256,6 +256,21 @@ function supportBinding(support: TutorSupportState, actionId: string) {
   return { supportSession: support.session, questionHandle: support.questionHandle, actionId };
 }
 
+/** The support binding of an answer; none outside the support cycle. */
+function answerBinding(
+  support: TutorSupportState | null,
+  answer: string,
+  pending: { current: { readonly key: string; readonly actionId: string } | null },
+) {
+  if (!support) return {};
+  return supportBinding(support, actionIdFor(pending, `${support.questionHandle}|answer|${answer}`));
+}
+
+/** An answered turn; after the reference answer it is marked as not rated (R-SUP-5). */
+function answerEntry(turn: TutorDialogTurn, support: TutorSupportState | null): TutorTranscriptContent {
+  return support?.referenceShown ? { kind: "turn", turn, assisted: true } : { kind: "turn", turn };
+}
+
 /** Sends an answer; null when the request was aborted. */
 async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal): Promise<{ readonly data: TutorResponse } | null> {
   const response = await fetch("/api/tutor/dialog", {
@@ -527,9 +542,7 @@ export function useTutor(
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    const binding = currentSupport
-      ? supportBinding(currentSupport, actionIdFor(pendingAction, `${currentSupport.questionHandle}|answer|${submittedAnswer}`))
-      : {};
+    const binding = answerBinding(currentSupport, submittedAnswer, pendingAction);
 
     setIsLoading(true);
     const controller = new AbortController();
@@ -558,8 +571,7 @@ export function useTutor(
         return;
       }
       const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
-      const assisted = currentSupport?.referenceShown ? { assisted: true as const } : {};
-      setTranscript((current) => [...current, withEntryId({ kind: "turn", turn: update.nextHistory.at(-1)!, ...assisted })]);
+      setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, currentSupport))]);
       applyDialogResponse(parsed.data, update);
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
