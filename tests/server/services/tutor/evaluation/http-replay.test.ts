@@ -32,6 +32,8 @@ interface Script {
   readonly conceptRating?: 1 | 2 | 3 | 4 | 5;
   readonly explanation?: string;
   readonly failSupport?: boolean;
+  /** The model asks the answered question again. */
+  readonly sameQuestion?: boolean;
 }
 
 const EXPLANATIONS = [
@@ -50,7 +52,8 @@ function scriptedProvider(script: Script): LLMProvider {
         const answer = promptPart(userPrompt, "Aktuelle Nutzerantwort:\n```text\n");
         const question = promptPart(userPrompt, "Aktuelle Tutorfrage:\n");
         const rating = question === IT064_CONCEPT_QUESTION ? (script.conceptRating ?? 5) : script.rate(answer);
-        return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: "Was gibt der zweite Durchlauf aus?" } };
+        const next = script.sameQuestion && question !== IT064_CONCEPT_QUESTION ? question : "Was gibt der zweite Durchlauf aus?";
+        return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: next } };
       }
       if (userPrompt.startsWith("Erzeuge eine einzige Lernfrage")) {
         return { model: "fake-model", result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
@@ -108,6 +111,14 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     expect(transcript?.turns[2]).toMatchObject({ httpStatus: 200, askedQuestion: expect.stringContaining("Durchlauf"), supportBefore: { answerAttempts: 0 }, supportAfter: { answerAttempts: 0 } });
     expect(transcript?.turns[2]?.supportAfter?.questionHandle).not.toBe(transcript?.turns[2]?.supportBefore?.questionHandle);
     expect(JSON.stringify(transcripts)).not.toContain(CREDENTIAL);
+  });
+
+  it("does not count a retry question as a repetition when the model itself rated the answer weak (R-SUP-7)", async () => {
+    const { transcripts } = await run("TQ-SUP-IT064-ANSWER-1", { rate: () => 2, sameQuestion: true });
+    const transcript = transcripts[0]!;
+    expect(checks(transcript, "raw-provider-question-not-repeated").at(-1)).toMatchObject({ outcome: "not-applicable", reason: "question-retained-by-support" });
+    expect(transcript.invariantViolations.filter(({ code }) => code === "question-repeat")).toEqual([]);
+    expect(checks(transcript, "raw-provider-answer-rating")).toEqual([expect.objectContaining({ outcome: "fail" })]);
   });
 
   it("counts two clarifications without attempts, unlocks skipping only, and makes the clarification judge-eligible", async () => {

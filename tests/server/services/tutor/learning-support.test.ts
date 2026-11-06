@@ -78,6 +78,15 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
     expect(referenceAppliesTo(IT064_REFERENCE, { code: "int a;" }, { code: "int a;" })).toBe(false);
   });
 
+  it("lets the assumed value change below the Example's header comment, as in UnoSim-Examples IT06.4", () => {
+    const header = "/*\n * IT06.4 – Eine Zahl binär ausgeben\n *\n * Beobachtung:\n * „37 = 00100101“. Zum Vergleich gibt BIN die Zahl ohne führende Nullen aus.\n */\n\n";
+    const reviewed = { code: header + IT064_SKETCH };
+    expect(referenceAppliesTo(IT064_REFERENCE, { code: header + IT064_SKETCH_A200 }, reviewed)).toBe(true);
+    // A string before the declaration ends the safe preamble: then the value may not change.
+    const quoted = { code: header.replace(" * Beobachtung:\n", "") + "const char* t = \"x\";\n" + IT064_SKETCH };
+    expect(referenceAppliesTo(IT064_REFERENCE, { code: quoted.code.replace("byte a = 37;", "byte a = 200;") }, quoted)).toBe(false);
+  });
+
   describe("review E1/E2 counter-examples (local-temp/tutor-review-20261106/recheck-e6197b4b9)", () => {
     const reference = (assumptions?: string[]) => ({ answer: "1", explanation: "Geprüft.", requiresCode: ["Serial.print(a);"], ...(assumptions ? { assumptions } : {}) });
     const program = (code: string) => ({ code });

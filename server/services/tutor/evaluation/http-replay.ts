@@ -247,6 +247,16 @@ function finalSupportChecks(context: HttpReplayContext, body: Body, status: numb
   }
 }
 
+/**
+ * R-SUP-7: in the learning-support cycle a weak answer keeps the question for another attempt. Asking it
+ * again is then intended, whether the application kept it or the model, after rating the answer weak,
+ * asked it once more in other words; a wrong weak rating is reported by the rating check instead.
+ */
+function questionRetained(raw: unknown, body: Body, askedQuestion: string | undefined): boolean {
+  const rawRating = (raw as { answerRating?: unknown } | undefined)?.answerRating;
+  return body.question === askedQuestion || (typeof rawRating === "number" && rawRating <= 2);
+}
+
 interface TurnRecord {
   readonly transcriptTurn: TutorQualityTranscriptTurn;
   readonly returnedModel?: string;
@@ -324,7 +334,7 @@ async function replayTurn(context: HttpReplayContext, post: Post, state: ReplayS
       declaredLeakCheck(raw, scenario.expected?.mustNotReveal, turnIndex, checks, violations);
     } else {
       const dialogTurn: TutorQualityTurn = turn.kind === "dialog" ? { ...turn, history: state.history } : turn;
-      context.rawChecks(raw, dialogTurn, turnIndex, checks, turn.kind === "dialog" && response.body.question === askedQuestion);
+      context.rawChecks(raw, dialogTurn, turnIndex, checks, turn.kind === "dialog" && questionRetained(raw, response.body, askedQuestion));
     }
   }
   deliveredLeakCheck(turn, delivered, scenario.expected, turnIndex, checks, violations);

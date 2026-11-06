@@ -116,35 +116,54 @@ function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
 
 /**
  * The offsets of the initial values that may change: for each assumed variable, the literal of its only
- * declaration `<type words> name = <literal>;` among the lines before the first `{`. Those lines must be
- * plain file scope: no line continuation, conditional directive, string, character or block comment before
- * the declaration, so the declaration cannot be part of a macro, a literal, a comment or a disabled branch. When this is not certain for a
- * variable, it gets no site, and its value may not change.
+ * declaration `<type words> name = <literal>;` in the file-scope preamble, the lines before the first `{`.
+ * The preamble is scanned like C++: a closed block or line comment (such as an Example's header comment) is
+ * fine, but a string or character literal, a line continuation or a conditional directive makes the rest
+ * uncertain, so the scan stops there. A declaration inside a comment never counts. When no single safe
+ * declaration exists for a variable, it gets no site, and its value may not change.
  */
 function initialValueSites(code: string, variables: ReadonlySet<string>): readonly { readonly start: number; readonly end: number }[] {
   if (variables.size === 0) return [];
   const candidates = new Map<string, { start: number; end: number }[]>();
   let offset = 0;
+  let inBlockComment = false;
   for (const line of code.split("\n")) {
-    const site = declarationSite(line, variables);
+    const site = inBlockComment ? undefined : declarationSite(line, variables);
     if (site) {
       const list = candidates.get(site.name) ?? [];
       list.push({ start: offset + site.start, end: offset + site.end });
       candidates.set(site.name, list);
     }
-    const plain = codeBeforeLineComment(line);
-    if (plain === undefined || /[{"']|\/\*/.test(plain) || line.trimEnd().endsWith("\\") || CONDITIONAL_DIRECTIVE.test(line)) break;
+    const scanned = scanPreambleLine(line, inBlockComment);
+    if (scanned === "unsafe") break;
+    inBlockComment = scanned === "block-comment";
     offset += line.length + 1;
   }
   return [...candidates.values()].flatMap((sites) => (sites.length === 1 ? sites : [])).sort((a, b) => a.start - b.start);
 }
 
-/** The part of a line before a `//` comment, or undefined when a quote makes that uncertain. */
-function codeBeforeLineComment(line: string): string | undefined {
-  const comment = line.indexOf("//");
-  const code = comment < 0 ? line : line.slice(0, comment);
-  return comment >= 0 && /["']/.test(code) ? undefined : code;
+/** One preamble line: still in a block comment after it, plain code, or the end of the safe preamble. */
+function scanPreambleLine(line: string, inBlockComment: boolean): "code" | "block-comment" | "unsafe" {
+  if (!inBlockComment && CONDITIONAL_DIRECTIVE.test(line)) return "unsafe";
+  let inBlock = inBlockComment;
+  for (const [token] of line.matchAll(PREAMBLE_TOKENS)) {
+    if (inBlock) {
+      inBlock = token !== "*/";
+    } else if (token === "/*") {
+      inBlock = true;
+    } else if (token === "//") {
+      break;
+    } else if (token !== "*/") {
+      return "unsafe";
+    }
+  }
+  // A backslash at the end continues the line: a comment or directive could swallow the next one.
+  if (line.trimEnd().endsWith("\\")) return "unsafe";
+  return inBlock ? "block-comment" : "code";
 }
+
+/** Comment markers, and what ends the safe preamble: a brace, a string or a character literal. */
+const PREAMBLE_TOKENS = /\/\*|\*\/|\/\/|[{"']/g;
 
 /** A conditional directive may leave a later declaration out of the program. */
 const CONDITIONAL_DIRECTIVE = /^\s*#\s*(?:if|ifdef|ifndef|elif|else|endif)\b/;
