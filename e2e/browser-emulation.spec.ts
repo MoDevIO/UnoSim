@@ -30,6 +30,14 @@ void loop() {
   }
 }`;
 
+/** Prints as fast as the emulated Uno runs: no delay() in loop(). */
+const FLOOD = `void setup() {
+  Serial.begin(115200);
+}
+void loop() {
+  Serial.println(millis());
+}`;
+
 const LATE_BEGIN = `void setup() {
   delay(2500);
   Serial.begin(115200);
@@ -130,6 +138,41 @@ test.describe("browser emulation (M1)", () => {
     await page.getByRole("button", { name: /stop simulation/i }).click();
     await expect(page.getByRole("button", { name: /start simulation/i })).toBeVisible({ timeout: 10_000 });
     await expect(serial(page)).toContainText("--- Simulation stopped ---");
+  });
+
+  test("a sketch without delay() survives pause, resume, stop and a new start with the debug log open", async ({ page }) => {
+    // Before the fix, emptying the message queue in React state raced with appends still pending at a lower
+    // priority: after a Stop the same messages were processed again in a loop, and with the debug log on the
+    // page ended with "Maximum update depth exceeded" after about 10 s.
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.addInitScript(() => globalThis.localStorage.setItem("unoDebugMode", "1"));
+    await openWithEngine(page, "browser");
+    await page.getByRole("tab", { name: /debug/i }).click();
+    await startFromEditor(page, FLOOD);
+
+    // The sketch prints millis(); each phase lets the run go on for a simulated second.
+    const lastMillis = async () => Number((await serial(page).innerText()).match(/^\d+$/gm)?.at(-1) ?? -1);
+    const outputMoves = async () => {
+      const before = await lastMillis();
+      await expect.poll(lastMillis, { timeout: 15_000 }).toBeGreaterThanOrEqual(before + 1_000);
+    };
+    for (let cycle = 1; cycle <= 3; cycle++) {
+      await outputMoves();
+      for (let pause = 1; pause <= 2; pause++) {
+        await page.getByRole("button", { name: /pause simulation/i }).click();
+        await page.getByRole("button", { name: /resume simulation/i }).click();
+        await outputMoves();
+      }
+      await page.getByRole("button", { name: /stop simulation/i }).click();
+      await expect(page.getByRole("button", { name: /start simulation/i })).toBeVisible({ timeout: 10_000 });
+      // A new start compiles and runs again; the page has to stay usable for it.
+      await startFromEditor(page, FLOOD);
+    }
+    await outputMoves();
+
+    await expect(page.getByText("Something went wrong")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
   });
 
   test("diagnostics: serial input before Serial.begin() is reported as a system line, not as output of the sketch", async ({ page }) => {

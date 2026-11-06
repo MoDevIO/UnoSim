@@ -69,7 +69,8 @@ export function useBackendHealth(queryClient: QueryClient) {
   const prevBackendReachableRef = useRef(true);
 
   const { toast } = useToast();
-  const { isConnected, connectionError, hasEverConnected } = useWebSocket();
+  // Only the connection state matters here; a queue nobody consumes would grow with every message.
+  const { isConnected, connectionError, hasEverConnected } = useWebSocket({ receiveMessages: false });
 
   // Trigger visual glitch effect on compilation error
   const triggerErrorGlitch = useCallback((duration = 600) => {

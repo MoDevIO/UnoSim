@@ -18,6 +18,11 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ### Fixed
 
+- **The page no longer crashes with "Maximum update depth exceeded"** when a
+  sketch prints without `delay()` and the run is paused, resumed or stopped
+  with the debug log on. Emptying the incoming message queue raced with
+  messages still arriving, so after a Stop the same messages were handled
+  again in a loop; the queue now hands each message over exactly once.
 - **Legacy: pause halts `millis()` and `micros()` without a jump.** After a
   resume the clock went on from a value that still contained the paused time
   and then dropped back (with a 500 ms pause: `223, 833, 343`). The runtime
