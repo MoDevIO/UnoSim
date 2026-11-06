@@ -116,7 +116,7 @@ const INITIAL_VALUE_PATTERNS: readonly (readonly [kind: string, pattern: RegExp]
   ["hex", /^-?0[xX][0-9a-fA-F]+([uUlL]{0,3})/],
   ["binary", /^-?(?:0[bB]|B)[01]+([uUlL]{0,3})/],
   ["decimal", /^-?\d+([uUlL]{0,3})/],
-  ["character", /^'(?:[^'\\\n]|\\[^\n])'()/],
+  ["character", /^'(?:[^'\\\n]|\\[^\n])'/],
 ];
 
 interface InitialValue {
@@ -129,6 +129,7 @@ interface InitialValue {
 function leadingInitialValue(text: string): InitialValue | undefined {
   for (const [kind, pattern] of INITIAL_VALUE_PATTERNS) {
     const match = pattern.exec(text);
+    // A character literal has no suffix group; numbers carry theirs in group 1.
     if (match) return { text: match[0], shape: `${kind}:${match[1] ?? ""}` };
   }
   return undefined;

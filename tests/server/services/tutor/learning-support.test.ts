@@ -123,6 +123,8 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
       // An explicit type keeps the documented case working, with qualifiers too.
       expect(referenceAppliesTo(assumed, program(sketch("const unsigned int a = 200;")), program(sketch("const unsigned int a = 37;")))).toBe(true);
       expect(referenceAppliesTo(assumed, program(sketch("long a = 200L;")), program(sketch("long a = 37L;")))).toBe(true);
+      expect(referenceAppliesTo(assumed, program(sketch("char a = 'B';")), program(sketch("char a = 'A';")))).toBe(true);
+      expect(referenceAppliesTo(assumed, program(sketch("char a = 66;")), program(sketch("char a = 'A';")))).toBe(false);
     });
 
     it("gives no value site when the declaration is not certainly plain file scope", () => {
