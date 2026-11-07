@@ -47,7 +47,7 @@ services:
       - UNOSIM_GITHUB_TOKEN=${UNOSIM_GITHUB_TOKEN:-}
       # Approved model IDs the Tutor's "Automatic" may use, in order; no other model is used.
       # Empty turns Automatic off (manual model choice only). Default from the live
-      # comparison of 2026-11-06 (docs/INSTALL_SERVER.md).
+      # comparison of 2026-11-07 (docs/INSTALL_SERVER.md).
       - UNOSIM_TUTOR_AUTO_MODELS=${UNOSIM_TUTOR_AUTO_MODELS-openai-gpt5.5}
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
