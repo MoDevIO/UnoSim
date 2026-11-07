@@ -405,8 +405,11 @@ gives no site. The new literal keeps the reviewed literal's kind (decimal,
 hexadecimal, binary, character) and suffix, so the variable's type cannot
 change (`37` → `200`, never `37u`). The preamble is read like C++: closed
 block and line comments (such as an Example's header comment) are allowed; a
-string or character literal, a line continuation or a conditional directive
-ends the safe preamble. A later assignment to the same variable never becomes
+string or character literal, a line continuation or any preprocessor directive
+(`#`, also after a comment, or the digraph `%:`) ends the safe preamble, since a
+macro such as `#define byte auto` can change what a type name means. A program
+with further project files allows no value change at all, since another file
+can define such a macro. A later assignment to the same variable never becomes
 variable. Where no single safe declaration exists, no value may change. Any
 other change, such as a negated expression, an inserted `i = 0;`, a moved line
 or a reformatted line, makes the reference inapplicable. Editing `a = 37` to `a = 200`

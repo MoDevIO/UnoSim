@@ -430,7 +430,9 @@ stored in every transcript and in the report. `evaluationIdentity` is the
 SHA-256 of canonical JSON over: Git SHA, Course Content revisions, corpus ID
 and version, provider ID, requested Tutor model, Tutor prompt revision (ID and
 template digest), and the run parameters (timeout, temperature, sample count,
-call budget, per-turn difficulties). The `runId` contains the UTC start time
+call budget, per-turn difficulties). The temperature is the one the Tutor sends
+to the requested model: 0.2, or the value of its model profile (LearningQuestions
+7.3; `openai-gpt5.5`: 1); manifest and transcripts record that value. The `runId` contains the UTC start time
 and a collision-resistant suffix. Its prefix `tq2a-` is a historical artifact
 contract (§11.4).
 
@@ -921,8 +923,13 @@ existing corpus, runner, report and Judge (`server/services/tutor/evaluation/`):
   so repeated wrong raw ratings reach the verdict (§8.2, R-VER-3/4) even when
   the application corrected them. Every provider attempt of a turn is recorded
   in order (`providerAttempts`, with errors) and checked, also a discarded
-  first attempt; this holds for the service path too. Every attempt must name
-  its model (R-ID-4), otherwise the sample is `invalid`. A retry
+  first attempt; this holds for the service path too. The checks run exactly
+  once per turn, whatever ended it: an answer the model gave before a final
+  technical failure or a refused request is still raw evidence, and its
+  violations reach the verdict (R-VER-6), while the technical failure is
+  reported apart. Every attempt must name its model (R-ID-4), otherwise the
+  sample is `invalid`; an attempt without a model identity is attributed to no
+  model, so it gets only the identity check and no raw quality findings. A retry
   question after a weak answer is no repetition. A failed turn must leave the
   progression state as it was before that turn.
 - Report: per case `executionEvidence` (`service` or `http-route`),

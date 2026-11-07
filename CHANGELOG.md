@@ -18,7 +18,8 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 - **Tutor model choice for operators:** `UNOSIM_TUTOR_AUTO_MODELS` names the
   exact models **Automatic** prefers, in order; no model family is preferred
   by the application any more, and embedding models are never chosen. The
-  key view names the model of the last answer.
+  key view names the model of the last answer. `openai-gpt5.5`, which accepts
+  only temperature 1, now receives that value and can be used with the Tutor.
 - **Tutor quality evaluation over HTTP:** corpus cases with
   `transport: http` replay the learning-support dialog over the Tutor routes
   and report application, raw-model and technical results apart.

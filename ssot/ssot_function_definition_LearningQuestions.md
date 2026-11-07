@@ -1182,6 +1182,13 @@ Die Modellwahl MUSS folgende Regeln einhalten:
 - Eine nicht mehr verfügbare oder anderweitig ungültige manuelle Auswahl fällt vor der Anfrage auf `Automatisch` zurück.
 - Der Server MUSS eine manuelle Auswahl zusätzlich gegen eine frische Provider-Modellliste prüfen; die Client-Auswahl allein ist keine Autorisierung.
 - Es darf kein konkreter Modellname als fachliche oder technische Voraussetzung hart vorausgesetzt werden.
+- Der Tutor sendet die Temperatur 0,2. Ein kleines serverseitiges Modellprofil
+  (`server/services/tutor/model-profile.ts`) nennt exakte Modell-IDs, deren API
+  diesen Wert ablehnt, mit dem unterstützten Wert: `openai-gpt5.5` erhält 1
+  (KI:connect antwortet auf 0,2 mit HTTP 400, „Only the default (1) value is
+  supported“; geprüft 2026-11-07). Das Profil gilt auch, wenn `Automatisch`
+  das Modell wählt, und ist kein Stellrad für die Qualität. Die Evaluation
+  zeichnet den tatsächlich gesendeten Wert auf.
 
 Das Laden oder Aktualisieren der Modellliste ist eine eigene, bewusst ausgelöste Aktion und keine automatische Lernfragen- oder Dialoganfrage.
 Eine leere oder ungültige Modellliste wird als verständlicher Provider-/Modellfehler behandelt; es darf kein erfundener Fallback-Modellname verwendet werden.
@@ -1896,7 +1903,14 @@ den Typ trotz gültiger Referenz; F2: wiederholte falsche Rohbewertungen
 ergaben „pass“; F3: verworfene Erstversuche fehlten als Rohevidenz; F4: leere
 Modell-ID im HTTP-Pfad akzeptiert; F5: konfiguriertes Embedding-Modell umging
 den Filter). Alle fünf sind korrigiert und mit Regressionstests belegt, die
-am Stand `2ab14e52f` scheitern; die erneute Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
+am Stand `2ab14e52f` scheitern. Die Nachprüfung am Stand `31847cbf4`
+bestätigte F1–F5 und fand zwei Restfälle (G1: ein Makro wie
+`#define byte auto` vor der Deklaration machte den erlaubten Typnamen zu
+`auto`, sodass ein geänderter Wert den Typ änderte; G2: bei einem
+abschließend fehlgeschlagenen HTTP-Turn blieben vorhandene Rohantworten und
+ihre Modellidentität ungeprüft). Beide sind korrigiert und mit
+Regressionstests belegt, die am Stand `31847cbf4` scheitern; die erneute
+Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
 Voraussetzung mehr: `Automatisch` folgt einer Betreiberliste (7.3), und die
 Live-Nachweise laufen mit festen Modellen über die Evaluation (R-SUP-E4).
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
@@ -2001,7 +2015,10 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   ist der Literal-Anfangswert einer Variablen aus `assumptions`, und nur an
   ihrer einzigen Deklaration im Dateikopf vor der ersten `{`; der Kopf wird wie
   C++ gelesen (geschlossene Kommentare erlaubt, String, Zeichenliteral,
-  Zeilenfortsetzung oder bedingte Direktive beenden den sicheren Bereich).
+  Zeilenfortsetzung oder jede Präprozessor-Direktive beenden den sicheren
+  Bereich; *Review G1:* auch `#define`, `/**/#define` und `%:define`, weil
+  ein Makro einen Typnamen umdeuten kann). Hat das Programm weitere
+  Projektdateien, darf kein Wert abweichen.
   Spätere Zuweisungen derselben Variablen bleiben fest. *Review F1 korrigiert:*
   Die Deklaration muss ihren Typ ausdrücklich nennen (Arithmetiktypen wie
   `byte`, `int`, `unsigned long`, `uint8_t` mit `const`/`static`/`volatile`);
@@ -2079,10 +2096,22 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Modell selbst lehnte „1“ bzw. „200 = 1“ in jeder Stichprobe mindestens einmal
   ab). Mit `qwen3-omni-30b-a3b-instruct` (damals Automatik) endeten alle 3
   Stichproben mit `504 PROVIDER_TIMEOUT`. Qwen ist seitdem keine Voraussetzung.
-  *Stand 2026-11-06:* Die HTTP-Verläufe sind Teil der Qualitäts-Evaluation
-  (TutorQualityEvaluation 15, R-SUP-E4): sechs IT06.4-Szenarien laufen über
-  die Produktionsrouten mit Lernhilfe, der zurückgegebenen Frage, Course- und
-  Support-Session und Historie. Je festem Modell 3 Stichproben mit dem nach
+  *Stand 2026-11-07 (`8e923a963`, Evaluator nach Review G2, Modellprofil):*
+  sechs IT06.4-Szenarien, je festem Modell 3 Stichproben, Judge
+  `openai-gpt-oss-120b`, alle Läufe auf demselben sauberen Commit.
+  `openai-gpt5.5` (Temperatur 1, zurückgegeben `gpt-5.5-2026-04-24`): 18/18
+  vollständig, Urteil **„pass“**, keine Befunde; Rohbewertung der richtigen
+  Antworten 6/6 mit 4–5, „0“ 3/3 mit 1; kein verworfener Versuch, kein
+  Abbruch; alle Judge-Kriterien bestanden; Median 5,6 s, p90 7,9 s je Turn.
+  `openai-gpt5.4-mini`: 18/18, „fail“ (6/6 richtige Antworten roh mit 1–2),
+  Median 1,5 s. `mistralai-mistral-small-4-119b-2603`: 17/18
+  (1 `invalid-response`), „fail“ (5 von 6 roh mit 2–3), Median 1,0 s.
+  `openai-gpt-oss-120b`: 14/18 (4 `invalid-response`), „fail“ (wiederholte
+  Rohfrage in den abgebrochenen Turns, durch G2 jetzt sichtbar), Median 2,7 s.
+  Die Anwendung bewertete in allen vollständigen Stichproben richtig;
+  Klärungen trafen überall den ersten Durchlauf ohne Ergebnis. Die Aussage
+  gilt für diesen IT06.4-Fall, nicht für alle Fragen ohne Referenz.
+  *Vorheriger Stand 2026-11-06:* Je festem Modell 3 Stichproben mit dem nach
   Review F2–F4 korrigierten Evaluator (`eaa0381b3`, Judge
   `openai-gpt-oss-120b`):
   `openai-gpt5.4-mini` 18/18 vollständig, Urteil „fail“ wegen 6 falscher
