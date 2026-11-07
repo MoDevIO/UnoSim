@@ -112,6 +112,7 @@ function getErrorMessage(body: unknown): string {
     ["PROVIDER_TIMEOUT", "The Tutor service took too long to respond."],
     ["RATE_LIMITED", "The Tutor request limit has been reached. Please try again later."],
     ["MODEL_UNAVAILABLE", "The selected Tutor model is unavailable."],
+    ["AUTO_MODEL_UNAVAILABLE", "No approved model is available for Automatic. Open the key icon and choose a model under Model."],
     ["INVALID_PROVIDER_RESPONSE", "The Tutor service returned an invalid response."],
     ["INVALID_REQUEST", "The Tutor request is invalid."],
     ["COURSE_CONTENT_STALE", "The course content was updated. Reload the example from the Examples menu to continue."],

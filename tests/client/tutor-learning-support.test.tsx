@@ -84,6 +84,12 @@ describe("useTutor learning support", () => {
     expect(result.current.support?.answerAttempts).toBe(1);
   });
 
+  it("tells the learner to choose a model manually when Automatic has no approved model", async () => {
+    mockServer({ "/api/tutor/question": () => json({ error: { code: "AUTO_MODEL_UNAVAILABLE", message: "x" } }, 503) });
+    const { result } = await startDialog();
+    expect(result.current.error).toBe("No approved model is available for Automatic. Open the key icon and choose a model under Model.");
+  });
+
   it("repeats a failed action with the same action id, so the server counts it once", async () => {
     let fail = true;
     const bodies = mockServer({

@@ -23,7 +23,7 @@ type TutorRateLimiter = { checkLimit: (identity: string) => { allowed: true } | 
 export function responseError(
   res: Response,
   status: number,
-  code: "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST" | "COURSE_CONTENT_STALE"
+  code: "CREDENTIAL_REQUIRED" | "CREDENTIAL_INVALID" | "PROVIDER_UNAVAILABLE" | "PROVIDER_TIMEOUT" | "RATE_LIMITED" | "MODEL_UNAVAILABLE" | "AUTO_MODEL_UNAVAILABLE" | "INVALID_PROVIDER_RESPONSE" | "INVALID_REQUEST" | "COURSE_CONTENT_STALE"
     | "SUPPORT_SESSION_INVALID" | "SUPPORT_CONFLICT" | "SUPPORT_LOCKED",
   message: string,
   retryAfter?: number,
@@ -45,6 +45,9 @@ export function mapProviderError(res: Response, error: TutorProviderError): void
       return;
     case "model-unavailable":
       responseError(res, 502, "MODEL_UNAVAILABLE", "Das konfigurierte Tutor-Modell ist nicht verfügbar.");
+      return;
+    case "auto-model-unavailable":
+      responseError(res, 503, "AUTO_MODEL_UNAVAILABLE", "Für „Automatisch“ ist derzeit kein freigegebenes Tutor-Modell verfügbar. Wähle ein Modell manuell aus.");
       return;
     case "invalid-response":
       responseError(res, 502, "INVALID_PROVIDER_RESPONSE", "Der Tutor-Dienst hat keine gültige Lernfrage geliefert.");

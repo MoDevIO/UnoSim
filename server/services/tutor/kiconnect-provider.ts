@@ -11,7 +11,7 @@ import {
   type StructuredLLMProvider,
   type StructuredLLMProviderRequest,
 } from "./llm-provider";
-import { rankTutorModels } from "./model-preference";
+import { automaticTutorModels } from "./model-preference";
 import { tutorTemperatureFor } from "./model-profile";
 
 function isAbortError(error: unknown): boolean {
@@ -311,8 +311,9 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
 
   private async resolveModel(model: string, credential: string, signal?: AbortSignal): Promise<string> {
     if (model !== "auto") return model;
-    const modelId = rankTutorModels(await this.listModels(credential, signal), config.tutor.autoModels)[0];
-    if (!modelId) throw new TutorProviderError("model-unavailable");
+    const modelId = automaticTutorModels(await this.listModels(credential, signal), config.tutor.autoModels)[0];
+    // No approved model is offered: Automatic never falls back to an unapproved one (LearningQuestions 7.3).
+    if (!modelId) throw new TutorProviderError("auto-model-unavailable");
     return modelId;
   }
 }

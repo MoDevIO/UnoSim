@@ -744,13 +744,13 @@ interface InvokedTutorTurn {
 }
 
 interface ProcessedCapture {
-  readonly returnedModel?: string;
+  readonly returnedModels: readonly string[];
   readonly invalidReason?: string;
 }
 
 interface SampleTurnOutcome {
   readonly transcriptTurn?: TutorQualityTranscriptTurn;
-  readonly returnedModel?: string;
+  readonly returnedModels?: readonly string[];
   readonly executionStatus?: Extract<TutorQualityExecutionStatus, "invalid" | "technical-failure">;
   readonly invalidReason?: string;
   readonly terminalError?: TutorQualityTechnicalError;
@@ -807,7 +807,7 @@ function processCaptures(
   context: SampleTurnContext,
   checks: TutorQualityDeterministicCheck[],
 ): ProcessedCapture {
-  let returnedModel: string | undefined;
+  const returnedModels: string[] = [];
   let invalidReason: string | undefined;
   for (const capture of captures) {
     if (!capture.response) continue;
@@ -818,10 +818,10 @@ function processCaptures(
       invalidReason = "returned-model-missing";
       continue;
     }
-    returnedModel = capture.response.model;
+    returnedModels.push(capture.response.model);
     deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
   }
-  return { ...(returnedModel ? { returnedModel } : {}), ...(invalidReason ? { invalidReason } : {}) };
+  return { returnedModels, ...(invalidReason ? { invalidReason } : {}) };
 }
 
 function processFinalResult(
@@ -903,7 +903,7 @@ async function executeSampleTurn(context: SampleTurnContext): Promise<SampleTurn
   const finishedAt = (context.options.now ?? (() => new Date()))();
   return {
     transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, captures, invocation, checks),
-    returnedModel: captureResult.returnedModel,
+    returnedModels: captureResult.returnedModels,
     ...(invocation.error ? { executionStatus: "technical-failure" as const, terminalError: invocation.error } : {}),
     ...(captureResult.invalidReason ? { executionStatus: "invalid" as const, invalidReason: captureResult.invalidReason } : {}),
     stop: invocation.error !== undefined,
@@ -925,7 +925,7 @@ function applySampleTurnOutcome(state: SampleExecutionState, outcome: SampleTurn
   if (outcome.executionStatus === "invalid") state.executionStatus = "invalid";
   if (outcome.invalidReason) state.invalidReason = state.invalidReason ?? outcome.invalidReason;
   if (outcome.terminalError) state.terminalError = outcome.terminalError;
-  if (outcome.returnedModel) state.returnedModels.push(outcome.returnedModel);
+  if (outcome.returnedModels) state.returnedModels.push(...outcome.returnedModels);
   if (outcome.transcriptTurn) state.turns.push(outcome.transcriptTurn);
 }
 

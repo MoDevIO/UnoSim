@@ -42,6 +42,8 @@ interface Script {
   readonly failRetry?: boolean;
   /** With `unsafeFirstExplanation`: the unsafe first explanation names no model. */
   readonly unnamedFirstExplanation?: boolean;
+  /** With `unsafeFirstExplanation`: the model ID the unsafe first explanation names. */
+  readonly firstExplanationModel?: string;
 }
 
 const EXPLANATIONS = [
@@ -73,7 +75,7 @@ function scriptedProvider(script: Script): LLMProvider {
       if (script.failSupport) throw Object.assign(new Error("timeout"), { kind: "timeout" });
       supportCalls += 1;
       if (script.unsafeFirstExplanation && supportCalls % 2 === 1) {
-        return { model: script.unnamedFirstExplanation ? "" : model, result: { responseStyle: "normal" as const, feedback: UNSAFE_EXPLANATION, question: "Welche Stelle? Welcher Ausdruck?" } };
+        return { model: script.unnamedFirstExplanation ? "" : (script.firstExplanationModel ?? model), result: { responseStyle: "normal" as const, feedback: UNSAFE_EXPLANATION, question: "Welche Stelle? Welcher Ausdruck?" } };
       }
       if (script.failRetry) throw new TutorProviderError("provider-timeout");
       return { model, result: { responseStyle: "normal" as const, feedback: script.explanation ?? EXPLANATIONS[explanations++ % EXPLANATIONS.length], question: promptPart(userPrompt, "Aktuelle Frage:\n") } };
@@ -229,6 +231,14 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     const effects = new Map(report.qualityVerdict.findings.map(({ key, effect }) => [key, effect]));
     expect(effects.get("raw-provider/solution-revealed")).toBe("fail");
     expect(effects.get("execution/technical-failure/timeout")).toBe("inconclusive");
+  });
+
+  it("lists the model a failed turn's answer named among the sample's models (review H1, R-ID-4)", async () => {
+    const { transcripts } = await run("TQ-SUP-IT064-CLARIFY", { rate: () => 5, unsafeFirstExplanation: true, failRetry: true, firstExplanationModel: "raw-only-snapshot" });
+    const transcript = transcripts[0]!;
+    expect(transcript.executionStatus).toBe("technical-failure");
+    expect(transcript.turns[2]?.providerAttempts?.[0]?.returnedModel).toBe("raw-only-snapshot");
+    expect(transcript.metadata.returnedModels).toContain("raw-only-snapshot");
   });
 
   it("attributes an unnamed first attempt to no model, also when the retry fails (review G2, R-ID-4)", async () => {

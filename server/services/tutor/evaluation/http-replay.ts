@@ -80,6 +80,7 @@ const TECHNICAL_KINDS: Readonly<Record<string, string>> = {
   INVALID_PROVIDER_RESPONSE: "invalid-response",
   RATE_LIMITED: "rate-limited",
   MODEL_UNAVAILABLE: "model-unavailable",
+  AUTO_MODEL_UNAVAILABLE: "auto-model-unavailable",
   CREDENTIAL_INVALID: "credential-invalid",
 };
 
@@ -320,6 +321,11 @@ interface TurnScope extends CheckSink {
   readonly supportBefore?: TutorSupportState;
 }
 
+/** The model IDs the turn's answers named, whatever ended the turn (R-ID-4, review H1). */
+function namedModels(scope: TurnScope): readonly string[] {
+  return turnCaptures(scope).filter(hasReturnedModel).map((capture) => capture.response!.model);
+}
+
 /** Every provider attempt of the turn, in order; the last one is what the application used. */
 function turnCaptures(scope: TurnScope): readonly ProviderCapture[] {
   return scope.context.provider.generationCaptures.slice(scope.capturesBefore);
@@ -368,7 +374,7 @@ function technicalTurn(scope: TurnScope, response: { readonly status: number; re
     if (!unchanged) addViolation(scope.violations, "state-mutated-after-failure", "state", scope.turnIndex);
   }
   const stop = modelsPresent ? { status: "technical-failure" as const } : MISSING_MODEL_STOP;
-  return { transcriptTurn: transcriptTurn(scope, { technicalError }, undefined, response.status), stop: { ...stop, technicalError } };
+  return { transcriptTurn: transcriptTurn(scope, { technicalError }, undefined, response.status), returnedModels: namedModels(scope), stop: { ...stop, technicalError } };
 }
 
 /** A refused request: expected for a final early reveal, otherwise an application finding that ends the sample. */
@@ -376,12 +382,13 @@ function refusedTurn(scope: TurnScope, response: { readonly status: number; read
   const { scenario } = scope.context;
   const modelsPresent = rawTurnChecks(scope, response.body);
   finalSupportChecks(scope.context, response, scope);
-  if (!modelsPresent) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), stop: MISSING_MODEL_STOP };
+  const returnedModels = namedModels(scope);
+  if (!modelsPresent) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), returnedModels, stop: MISSING_MODEL_STOP };
   const expectedRejection = scope.turnIndex === scenario.turns.length - 1 && scenario.expected?.actionRejected !== undefined;
-  if (expectedRejection) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status) };
+  if (expectedRejection) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), returnedModels };
   addCheck(scope.checks, "http-request-accepted", false, `${response.status} ${errorCode(response.body) ?? ""}`.trim());
   addViolation(scope.violations, "request-refused", "final-tutor", scope.turnIndex, String(response.status));
-  return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), stop: { status: "completed" } };
+  return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), returnedModels, stop: { status: "completed" } };
 }
 
 /**
@@ -426,8 +433,8 @@ function acceptedTurn(scope: TurnScope, response: { readonly status: number; rea
   finalSupportChecks(context, response, scope);
   const record = transcriptTurn(scope, {}, delivered, response.status);
   // R-ID-4: without a proven model identity the sample says nothing about a model.
-  if (!modelsPresent) return { transcriptTurn: record, stop: MISSING_MODEL_STOP };
-  const returnedModels = turnCaptures(scope).filter(hasReturnedModel).map((capture) => capture.response!.model);
+  const returnedModels = namedModels(scope);
+  if (!modelsPresent) return { transcriptTurn: record, returnedModels, stop: MISSING_MODEL_STOP };
   return { transcriptTurn: record, returnedModels };
 }
 

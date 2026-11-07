@@ -3,6 +3,18 @@ import { KiconnectProvider } from "../../../../server/services/tutor/kiconnect-p
 import { TUTOR_TEMPERATURE, tutorTemperatureFor } from "../../../../server/services/tutor/model-profile";
 import { config } from "../../../../server/config";
 
+/** Runs `run` while the operator approves `models` for Automatic. */
+async function withAutoModels<T>(models: readonly string[], run: () => Promise<T>): Promise<T> {
+  const tutorConfig = config.tutor as { autoModels: readonly string[] };
+  const configured = tutorConfig.autoModels;
+  tutorConfig.autoModels = models;
+  try {
+    return await run();
+  } finally {
+    tutorConfig.autoModels = configured;
+  }
+}
+
 describe("KiconnectProvider", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -82,11 +94,11 @@ describe("KiconnectProvider", () => {
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await new KiconnectProvider().generateLearningQuestion({
+    const result = await withAutoModels(["pilot-model"], () => new KiconnectProvider().generateLearningQuestion({
       model: "auto",
       systemPrompt: "system",
       userPrompt: "user",
-    }, "request-key");
+    }, "request-key"));
 
     expect(result).toEqual({
       model: "pilot-model-resolved",
@@ -119,7 +131,7 @@ describe("KiconnectProvider", () => {
         ? { data: [{ id: "openai-gpt5.5" }] }
         : { model: "gpt-5.5-2026-04-24", choices: [{ message: { content: "{\"responseStyle\":\"normal\",\"question\":\"Was gibt der erste Durchlauf aus?\"}" } }] }), { status: 200 }));
       vi.stubGlobal("fetch", fetchMock);
-      await new KiconnectProvider().generateLearningQuestion({ model: requested, systemPrompt: "system", userPrompt: "user" }, "request-key");
+      await withAutoModels(["openai-gpt5.5"], () => new KiconnectProvider().generateLearningQuestion({ model: requested, systemPrompt: "system", userPrompt: "user" }, "request-key"));
       const body = JSON.parse(String((fetchMock.mock.calls.at(-1) as [string, RequestInit])[1].body));
       expect(body).toMatchObject({ model: "openai-gpt5.5", temperature: 1 });
     }
@@ -215,37 +227,23 @@ describe("KiconnectProvider", () => {
     await timeoutAssertion;
   });
 
-  it.each([
-    [[], "mistralai-mistral-small-2503"],
-    [["not-offered", "llama-3.3-70b-instruct"], "llama-3.3-70b-instruct"],
-  ] as const)("resolves Automatic with the operator's model list %j to %s, without preferring a model family", async (autoModels, expected) => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        data: [
-          { id: "mistralai-mistral-small-2503" },
-          { id: "qwen3-32b-instruct" },
-          { id: "llama-3.3-70b-instruct" },
-        ],
-      }), { status: 200 }))
-      .mockImplementationOnce(async (_url: string, init: RequestInit) => new Response(JSON.stringify({
-        model: JSON.parse(String(init.body)).model,
-        choices: [{ message: { content: "Welche Wirkung hat digitalWrite(13, HIGH)?" } }],
-      }), { status: 200 }));
+  it("resolves Automatic to the first approved model the provider offers, never to an unapproved one", async () => {
+    const offered = { data: [{ id: "mistralai-mistral-small-2503" }, { id: "qwen3-32b-instruct" }, { id: "llama-3.3-70b-instruct" }] };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => new Response(JSON.stringify(url.endsWith("/models")
+      ? offered
+      : { model: JSON.parse(String(init?.body)).model, choices: [{ message: { content: "Welche Wirkung hat digitalWrite(13, HIGH)?" } }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    const tutorConfig = config.tutor as { autoModels: readonly string[] };
-    const configured = tutorConfig.autoModels;
-    tutorConfig.autoModels = autoModels;
-    try {
-      const result = await new KiconnectProvider().generateLearningQuestion({
-        model: "auto",
-        systemPrompt: "system",
-        userPrompt: "user",
-      }, "request-key");
-      expect(result.model).toBe(expected);
-      expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))).toMatchObject({ model: expected });
-    } finally {
-      tutorConfig.autoModels = configured;
-    }
+    const ask = () => new KiconnectProvider().generateLearningQuestion({ model: "auto", systemPrompt: "system", userPrompt: "user" }, "request-key");
+
+    await expect(withAutoModels(["not-offered", "llama-3.3-70b-instruct"], ask)).resolves.toMatchObject({ model: "llama-3.3-70b-instruct" });
+    const generations = () => fetchMock.mock.calls.filter(([url]) => !url.endsWith("/models")).length;
+    const before = generations();
+    // No approved model is offered: no request reaches any other model, and a manual choice is the way out.
+    await expect(withAutoModels(["openai-gpt5.5"], ask)).rejects.toMatchObject({ kind: "auto-model-unavailable" });
+    await expect(withAutoModels([], ask)).rejects.toMatchObject({ kind: "auto-model-unavailable" });
+    expect(generations()).toBe(before);
+    await expect(withAutoModels([], () => new KiconnectProvider().generateLearningQuestion({ model: "qwen3-32b-instruct", systemPrompt: "system", userPrompt: "user" }, "request-key")))
+      .resolves.toMatchObject({ model: "qwen3-32b-instruct" });
   });
 
   it("accepts normal text and text-part content when structured output is unavailable", async () => {

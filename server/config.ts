@@ -695,7 +695,7 @@ export const config = {
     baseUrl: stripTrailingSlashes(envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1")),
     /** Provider request timeout; no provider call may outlive this window. */
     timeoutMs: envInt("UNOSIM_LLM_TIMEOUT_MS", 30_000, { min: 1_000, max: 120_000 }),
-    /** Exact model IDs `Automatic` prefers, in order (LearningQuestions 7.3); empty = the provider's order. */
+    /** Exact model IDs `Automatic` may use, in order (LearningQuestions 7.3); unset = the default, empty = Automatic off. */
     autoModels: parseTutorAutoModels(process.env.UNOSIM_TUTOR_AUTO_MODELS),
     /** Dedicated request-scoped tutor rate limit. */
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),

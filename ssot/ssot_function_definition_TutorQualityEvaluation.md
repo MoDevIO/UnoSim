@@ -929,7 +929,9 @@ existing corpus, runner, report and Judge (`server/services/tutor/evaluation/`):
   violations reach the verdict (R-VER-6), while the technical failure is
   reported apart. Every attempt must name its model (R-ID-4), otherwise the
   sample is `invalid`; an attempt without a model identity is attributed to no
-  model, so it gets only the identity check and no raw quality findings. A retry
+  model, so it gets only the identity check and no raw quality findings. The
+  sample's `returnedModels` list every named attempt, whatever ended the turn
+  (review H1). A retry
   question after a weak answer is no repetition. A failed turn must leave the
   progression state as it was before that turn.
 - Report: per case `executionEvidence` (`service` or `http-route`),

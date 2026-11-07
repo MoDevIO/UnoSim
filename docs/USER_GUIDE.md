@@ -196,9 +196,11 @@ Unterstützung weiterer Anbieter ist in
 1. In der Tutor-Spalte auf das Schlüssel-Symbol klicken
    (**API key missing**).
 2. Den Key unter **API key** eintragen. Unter **Model** kannst du ein Modell
-   wählen; **Automatic** ist die Voreinstellung und nimmt das Modell, das der
-   Betreiber dafür eingestellt hat. Darunter steht nach der ersten Antwort,
-   welches Modell zuletzt geantwortet hat und ob **Automatic** es gewählt hat.
+   wählen; **Automatic** ist die Voreinstellung und nimmt nur ein Modell, das
+   der Betreiber dafür freigegeben hat. Ist keines verfügbar, meldet der Tutor
+   das; wähle dann unter **Model** ein Modell selbst. Darunter steht nach der
+   ersten Antwort, welches Modell zuletzt geantwortet hat und ob **Automatic**
+   es gewählt hat.
 3. Optional die **Start difficulty** setzen: 1 ist sehr leicht, 100 sehr schwer.
    Der Tutor passt die Schwierigkeit danach selbst an.
 

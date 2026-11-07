@@ -145,6 +145,18 @@ describe("Tutor HTTP route", () => {
     });
   });
 
+  it("points to the manual choice when Automatic has no approved model", async () => {
+    const service = { generateQuestion: vi.fn().mockRejectedValue(new TutorProviderError("auto-model-unavailable")) };
+    const listening = await start(service);
+    server = listening.server;
+    const response = await post(listening.url, "/api/tutor/question", { code: "void setup(){}", credential: "request-only-secret" });
+
+    expect(response).toEqual({
+      status: 503,
+      body: { error: { code: "AUTO_MODEL_UNAVAILABLE", message: expect.stringContaining("manuell") } },
+    });
+  });
+
   it("returns only the current provider model list", async () => {
     const service = {
       getAvailableModels: vi.fn().mockResolvedValue(["current-model", "another-model"]),
@@ -513,6 +525,7 @@ describe("Tutor Course Content session lifecycle", () => {
     ["credential-invalid", 401],
     ["rate-limited", 429],
     ["model-unavailable", 502],
+    ["auto-model-unavailable", 503],
     ["invalid-response", 502],
     ["provider-unavailable", 502],
   ] as const)("leaves no session behind when the provider fails with %s", async (kind, status) => {

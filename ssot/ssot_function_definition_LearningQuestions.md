@@ -1168,20 +1168,27 @@ Die Modellwahl MUSS folgende Regeln einhalten:
 
 - Der Standardwert ist `Automatisch`.
 - `Automatisch` verwendet ausschließlich Modelle, die in der aktuellen Provider-Antwort enthalten sind.
-- `Automatisch` wird serverseitig über eine Betreiberkonfiguration aufgelöst:
-  `UNOSIM_TUTOR_AUTO_MODELS` nennt exakte Modell-IDs in Vorzugsreihenfolge.
-  `Automatisch` nimmt die erste davon, die die aktuelle Provider-Antwort enthält.
-  Ist keine konfiguriert oder keine verfügbar, gilt die Reihenfolge der
-  Provider-Antwort. Die Anwendung bevorzugt keine Modellfamilie; offensichtliche
-  Nicht-Chat-Modelle (Embedding, Reranking, Sprache) wählt `Automatisch` nie;
-  steht ein solches Modell in der Liste, startet der Server nicht.
+- `Automatisch` wird serverseitig über eine Betreiber-Freigabeliste aufgelöst:
+  `UNOSIM_TUTOR_AUTO_MODELS` nennt die für `Automatisch` zugelassenen exakten
+  Modell-IDs in Vorzugsreihenfolge. `Automatisch` nimmt die erste davon, die die
+  aktuelle Provider-Antwort enthält, und **nur** diese: Ein nicht zugelassenes
+  Modell wählt `Automatisch` nie, auch nicht ersatzweise. Ein Modell wird nur
+  zugelassen, wenn es den fachlichen Live-Vergleich (TUT-07) besteht. Ohne
+  Angabe gilt `openai-gpt5.5`, das einzige Modell, das den Vergleich vom
+  2026-11-07 bestand; ein leerer Wert schaltet `Automatisch` ab. Bietet der
+  Provider keines der zugelassenen Modelle an, antwortet der Server mit
+  `AUTO_MODEL_UNAVAILABLE` (HTTP 503) und einer verständlichen Meldung, die auf
+  die manuelle Modellwahl verweist. Offensichtliche Nicht-Chat-Modelle
+  (Embedding, Reranking, Sprache) sind nie zulässig; steht ein solches Modell
+  in der Liste, startet der Server nicht.
 - Eine manuelle Auswahl hat Vorrang vor `Automatisch`. Die Tutor-Ansicht nennt
   das Modell der letzten Antwort und ob `Automatisch` es gewählt hat, sodass ein
   Modellwechsel sichtbar bleibt.
 - Eine manuelle Auswahl darf ausschließlich aus der zuletzt erfolgreich geladenen aktuellen Modellliste angeboten werden.
 - Eine nicht mehr verfügbare oder anderweitig ungültige manuelle Auswahl fällt vor der Anfrage auf `Automatisch` zurück.
 - Der Server MUSS eine manuelle Auswahl zusätzlich gegen eine frische Provider-Modellliste prüfen; die Client-Auswahl allein ist keine Autorisierung.
-- Es darf kein konkreter Modellname als fachliche oder technische Voraussetzung hart vorausgesetzt werden.
+- Es darf kein konkreter Modellname als fachliche oder technische Voraussetzung hart vorausgesetzt werden;
+  die Voreinstellung der Freigabeliste ist änderbar, und die manuelle Wahl funktioniert ohne sie.
 - Der Tutor sendet die Temperatur 0,2. Ein kleines serverseitiges Modellprofil
   (`server/services/tutor/model-profile.ts`) nennt exakte Modell-IDs, deren API
   diesen Wert ablehnt, mit dem unterstützten Wert: `openai-gpt5.5` erhält 1
@@ -1909,8 +1916,13 @@ bestätigte F1–F5 und fand zwei Restfälle (G1: ein Makro wie
 `auto`, sodass ein geänderter Wert den Typ änderte; G2: bei einem
 abschließend fehlgeschlagenen HTTP-Turn blieben vorhandene Rohantworten und
 ihre Modellidentität ungeprüft). Beide sind korrigiert und mit
-Regressionstests belegt, die am Stand `31847cbf4` scheitern; die erneute
-Abnahme durch das Review steht aus. Seit 2026-11-06 ist Qwen keine
+Regressionstests belegt, die am Stand `31847cbf4` scheitern. Die
+Nachprüfung am Stand `51982e4ac` nahm G1, G2 und das Modellprofil ab und fand
+einen kleinen Rest (H1: Modell-IDs fehlgeschlagener HTTP-Turns fehlten in der
+zusammengefassten Modellliste, blieben aber in den Einzelversuchen); er ist
+korrigiert und mit einem Regressionstest belegt. Auf Empfehlung des Reviews
+ist `UNOSIM_TUTOR_AUTO_MODELS` seitdem eine Freigabeliste mit
+`openai-gpt5.5` als Voreinstellung (7.3). Seit 2026-11-06 ist Qwen keine
 Voraussetzung mehr: `Automatisch` folgt einer Betreiberliste (7.3), und die
 Live-Nachweise laufen mit festen Modellen über die Evaluation (R-SUP-E4).
 Erledigt bedeutet jeweils: umgesetzt, gegen den alten Fehler geprüft und mit
