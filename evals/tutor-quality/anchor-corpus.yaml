@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 12
+corpusVersion: 13
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -395,3 +395,166 @@ scenarios:
       criteria:
         - id: expand-followup-fits-feedback
           text: Feedback und Folgefrage passen zusammen; das Feedback kündigt keinen anderen nächsten Schritt an, als die Folgefrage stellt, und widerspricht ihr nicht.
+
+  # Learning support over the production Tutor routes (Evaluation SSOT 15, R-SUP-E1..E4, LearningQuestions
+  # R-SUP-8). The IT06.4 prediction question sets a = 200 while the Example starts with a = 37. The expected
+  # values are computed by hand, independently of the Tutor model: i = 7, 1 << 7 = 128, 200 & 128 = 128,
+  # (200 & 128) && 1 is true, so the first print is 1. The focus asks the concept question first; a different
+  # question than the scripted one is reported as a binding problem (invalid sample), never answered.
+  - id: TQ-SUP-IT064-ANSWER-1
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    referenceProvenance: &it064-provenance "IT06.4, hand-computed (LearningQuestions R-SUP-8): a = 200, i = 7, 1 << 7 = 128, 200 & 128 = 128, (200 & 128) && 1 -> 1"
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: &it064-concept "Welche Aufgabe hat `1 << i` in der Schleife?"
+        answer: &it064-concept-answer Sie bildet eine Maske, in der nur Bit i gesetzt ist; a & (1 << i) prüft damit genau dieses Bit von a.
+      - kind: dialog
+        question: &it064-prediction "Was wird im ersten Durchlauf ausgegeben, wenn `a` den Wert 200 hat?"
+        answer: "1"
+    expected:
+      answerRating: [4, 5]
+      learnerInput: answer
+    judge:
+      facts: &it064-facts
+        - Die Frage setzt a = 200; der Sketch startet mit a = 37, die Frage geht vor.
+        - Im ersten Schleifendurchlauf ist i = 7, also 1 << 7 = 128.
+        - 200 & 128 = 128, und (200 & 128) && 1 ist wahr; Serial.print gibt im ersten Durchlauf 1 aus.
+        - Die ganze erste Zeile lautet 200 = 11001000.
+      criteria:
+        - id: accepts-correct-answer
+          text: Das Feedback erkennt die Antwort 1 als richtig an und bezeichnet sie nicht als falsch.
+        - id: no-false-claim
+          text: Feedback und Folgefrage enthalten keine fachlich falsche Aussage über den Sketch oder die Rechnung.
+
+  - id: TQ-SUP-IT064-ANSWER-200
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    referenceProvenance: *it064-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it064-concept
+        answer: *it064-concept-answer
+      - kind: dialog
+        question: *it064-prediction
+        answer: 200 = 1
+    expected:
+      answerRating: [4, 5]
+      learnerInput: answer
+    judge:
+      facts: *it064-facts
+      criteria:
+        - id: accepts-partial-output
+          text: Das Feedback erkennt „200 = 1“ als richtige Teilausgabe an und behauptet nicht, das ausgegebene Bit sei falsch.
+        - id: no-false-claim
+          text: Feedback und Folgefrage enthalten keine fachlich falsche Aussage über den Sketch oder die Rechnung.
+
+  - id: TQ-SUP-IT064-ANSWER-0
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    referenceProvenance: *it064-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it064-concept
+        answer: *it064-concept-answer
+      - kind: dialog
+        question: *it064-prediction
+        answer: "0"
+    expected:
+      answerRating: [1, 2]
+      learnerInput: answer
+      supportAfter:
+        answerAttempts: 1
+        outcome: open
+      mustNotReveal:
+        - gibt 1 aus
+        - Ergebnis ist 1
+        - Ausgabe ist 1
+    judge:
+      facts: *it064-facts
+      criteria:
+        - id: rejects-wrong-answer
+          text: Das Feedback erkennt die Antwort 0 nicht als richtig an.
+        - id: no-false-claim
+          text: Das Feedback enthält keine fachlich falsche Aussage über den Sketch oder die Rechnung.
+
+  - id: TQ-SUP-IT064-CLARIFY
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    referenceProvenance: *it064-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it064-concept
+        answer: *it064-concept-answer
+      - kind: support
+        action: clarify
+      - kind: support
+        action: clarify
+    expected:
+      supportAfter:
+        answerAttempts: 0
+        clarifications: 2
+        canSkip: true
+        canRevealReference: false
+      mustNotReveal:
+        - gibt 1 aus
+        - Ergebnis ist 1
+        - Ausgabe ist 1
+    judge:
+      facts: *it064-facts
+      criteria:
+        - id: clarifies-first-pass
+          text: Die Erklärung macht verständlich, dass nach der Ausgabe des Serial.print-Aufrufs in der Schleife im ersten Durchlauf (i = 7) gefragt ist.
+        - id: no-result-revealed
+          text: Die Erklärung nennt weder die gesuchte Ausgabe noch das Ergebnis der Rechnung.
+        - id: no-false-claim
+          text: Die Erklärung enthält keine fachlich falsche Aussage über den Sketch.
+
+  - id: TQ-SUP-IT064-EARLY-REVEAL
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it064-concept
+        answer: *it064-concept-answer
+      - kind: support
+        action: reveal
+    expected:
+      actionRejected: SUPPORT_LOCKED
+
+  - id: TQ-SUP-IT064-REVEAL
+    sketch: evals/tutor-quality/fixtures/it06-4-binaerzahl.ino
+    courseContent: it06-4
+    transport: http
+    referenceProvenance: *it064-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it064-concept
+        answer: *it064-concept-answer
+      - kind: dialog
+        question: *it064-prediction
+        answer: "0"
+      - kind: dialog
+        question: *it064-prediction
+        answer: "2"
+      - kind: dialog
+        question: *it064-prediction
+        answer: "128"
+      - kind: support
+        action: reveal
+    expected:
+      referenceAnswer: "1"
+      supportAfter:
+        answerAttempts: 3
+        referenceShown: true

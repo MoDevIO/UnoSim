@@ -4,6 +4,14 @@ import {
   type DidacticPhase,
   type ProgressionBlockedReason,
 } from "../curriculum/progression-state";
+import {
+  tutorLearnerInputSchema,
+  tutorQuestionOutcomeSchema,
+  tutorSupportActionSchema,
+  type TutorLearnerInput,
+  type TutorQuestionOutcome,
+  type TutorSupportAction,
+} from "@shared/tutor";
 import { canonicalDigest } from "./canonical";
 import { isValidRevealLiteral, normalizeRevealLiteral } from "./reveal-check";
 
@@ -27,12 +35,39 @@ export type TutorQualityTurnSource =
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorQualityHistoryEntrySource[];
+  }
+  /** A learning-support action on the current question (R-SUP-E4); only in an `http` scenario. */
+  | {
+    readonly kind: "support";
+    readonly action: TutorSupportAction;
+    readonly difficulty?: number;
   };
+
+/**
+ * `service` (default) calls TutorService directly. `http` replays the scenario over the production Tutor
+ * routes with learning support, carrying forward the returned question, Course and support sessions and
+ * history like the browser (R-SUP-E1, isolated route evidence).
+ */
+export type TutorQualityTransport = "service" | "http";
+
+/** The support state the final turn must return (R-SUP-E2); each listed field is compared exactly. */
+export interface TutorQualitySupportExpectation {
+  readonly answerAttempts?: number;
+  readonly clarifications?: number;
+  readonly canSkip?: boolean;
+  readonly canRevealReference?: boolean;
+  readonly referenceAvailable?: boolean;
+  readonly referenceShown?: boolean;
+  readonly outcome?: TutorQuestionOutcome;
+}
 
 export interface TutorQualityScenarioSource {
   readonly id: string;
   readonly sketch: string;
   readonly courseContent: string;
+  readonly transport?: TutorQualityTransport;
+  /** Where the factual reference of the expectations comes from; independent of the Tutor model. */
+  readonly referenceProvenance?: string;
   readonly model?: string;
   readonly judge?: TutorQualityJudgeSource;
   readonly turns: readonly TutorQualityTurnSource[];
@@ -51,6 +86,14 @@ export interface TutorQualityExpectation {
   readonly stateUnchanged?: boolean;
   readonly questionNotRepeat?: "exact-or-heuristic";
   readonly mustNotReveal?: readonly string[];
+  /** http only: how the application classified the final typed input. */
+  readonly learnerInput?: TutorLearnerInput;
+  /** http only: the support state after the final turn. */
+  readonly supportAfter?: TutorQualitySupportExpectation;
+  /** http only: the final turn is an authorized `reveal` that shows exactly this reference answer. */
+  readonly referenceAnswer?: string;
+  /** http only: the final support action is refused with this code (an early reveal or skip). */
+  readonly actionRejected?: "SUPPORT_LOCKED";
 }
 
 export interface TutorQualityJudgeSource {
@@ -131,7 +174,7 @@ function parseInitialTurn(value: Record<string, unknown>, label: string): TutorQ
 }
 
 function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQualityTurnSource {
-  if (value.kind !== "dialog") fail(`${label}.kind must be initial or dialog`);
+  if (value.kind !== "dialog") fail(`${label}.kind must be initial, dialog or support`);
   assertNonEmptyString(value.question, `${label}.question`);
   assertNonEmptyString(value.answer, `${label}.answer`);
   const continuationOf = value.continuationOf;
@@ -150,9 +193,20 @@ function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQu
   };
 }
 
+function parseSupportTurn(value: Record<string, unknown>, label: string): TutorQualityTurnSource | undefined {
+  if (value.kind !== "support") return undefined;
+  for (const key of Object.keys(value)) {
+    if (!["kind", "action", "difficulty"].includes(key)) fail(`${label}.${key} is unknown`);
+  }
+  const action = tutorSupportActionSchema.safeParse(value.action);
+  if (!action.success) fail(`${label}.action must be clarify, hint, reveal or skip`);
+  const difficulty = optionalInteger(value.difficulty, `${label}.difficulty`);
+  return { kind: "support", action: action.data, ...(difficulty === undefined ? {} : { difficulty }) };
+}
+
 function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
   assertObject(value, label);
-  return parseInitialTurn(value, label) ?? parseDialogTurn(value, label);
+  return parseInitialTurn(value, label) ?? parseSupportTurn(value, label) ?? parseDialogTurn(value, label);
 }
 
 function normalizedCorpusSource(source: TutorQualityCorpusSource): TutorQualityCorpusSource {
@@ -179,7 +233,14 @@ function parseAnswerRatingBand(value: unknown, label: string): TutorQualityAnswe
   return [value[0] as number, value[1] as number];
 }
 
-const EXPECTED_KEYS = new Set(["topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged", "questionNotRepeat", "mustNotReveal"]);
+const EXPECTED_KEYS = new Set([
+  "topicId", "topicIdAbsent", "learningPhase", "phaseAfter", "answerRating", "progressionBlockedReason", "stateUnchanged",
+  "questionNotRepeat", "mustNotReveal", "learnerInput", "supportAfter", "referenceAnswer", "actionRejected",
+]);
+const HTTP_ONLY_EXPECTED_KEYS = ["learnerInput", "supportAfter", "referenceAnswer", "actionRejected"] as const;
+const SUPPORT_COUNT_KEYS = ["answerAttempts", "clarifications"] as const;
+const SUPPORT_FLAG_KEYS = ["canSkip", "canRevealReference", "referenceAvailable", "referenceShown"] as const;
+const MAX_REFERENCE_ANSWER_LENGTH = 300;
 
 function optionalEnumValue<T extends string>(value: unknown, allowed: readonly T[], label: string): T | undefined {
   if (value === undefined) return undefined;
@@ -224,7 +285,7 @@ function parseMustNotReveal(
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_REVEAL_LITERALS) {
     fail(`${field} must be a list of 1 to ${MAX_REVEAL_LITERALS} literals`);
   }
-  if (!turns.some((turn) => turn.kind === "dialog")) fail(`${field} requires a dialog turn`);
+  if (!turns.some((turn) => turn.kind === "dialog" || turn.kind === "support")) fail(`${field} requires a dialog or support turn`);
   const seen = new Set<string>();
   for (const literal of value) {
     if (typeof literal !== "string" || !isValidRevealLiteral(literal)) {
@@ -267,6 +328,7 @@ function parseExpected(
   }
   const mustNotReveal = parseMustNotReveal(value.mustNotReveal, label, turns);
   return {
+    ...parseSupportExpectations(value, label, turns),
     ...topicExpectations,
     ...parseProgressionExpectation(value, label, turns),
     ...(progressionBlockedReason === undefined ? {} : { progressionBlockedReason }),
@@ -274,6 +336,100 @@ function parseExpected(
     ...(value.questionNotRepeat === "exact-or-heuristic" ? { questionNotRepeat: value.questionNotRepeat } : {}),
     ...(mustNotReveal === undefined ? {} : { mustNotReveal }),
   };
+}
+
+function parseSupportAfter(value: unknown, label: string): TutorQualitySupportExpectation {
+  const field = `${label}.expected.supportAfter`;
+  assertObject(value, field);
+  const known = new Set<string>([...SUPPORT_COUNT_KEYS, ...SUPPORT_FLAG_KEYS, "outcome"]);
+  if (Object.keys(value).length === 0) fail(`${field} must name at least one field`);
+  for (const key of Object.keys(value)) {
+    if (!known.has(key)) fail(`${field}.${key} is unknown`);
+  }
+  for (const key of SUPPORT_COUNT_KEYS) {
+    const count = value[key];
+    if (count !== undefined && (typeof count !== "number" || !Number.isInteger(count) || count < 0 || count > 3)) fail(`${field}.${key} must be an integer from 0 to 3`);
+  }
+  for (const key of SUPPORT_FLAG_KEYS) {
+    if (value[key] !== undefined && typeof value[key] !== "boolean") fail(`${field}.${key} must be a boolean`);
+  }
+  if (value.outcome !== undefined && !tutorQuestionOutcomeSchema.safeParse(value.outcome).success) fail(`${field}.outcome is invalid`);
+  return value as TutorQualitySupportExpectation;
+}
+
+function parseLearnerInput(value: unknown, label: string, final: TutorQualityTurnSource | undefined): TutorLearnerInput | undefined {
+  if (value === undefined) return undefined;
+  const parsed = tutorLearnerInputSchema.safeParse(value);
+  if (!parsed.success) fail(`${label}.expected.learnerInput is invalid`);
+  if (final?.kind !== "dialog") fail(`${label}.expected.learnerInput requires the final turn to be a dialog turn`);
+  return parsed.data;
+}
+
+function parseReferenceAnswer(value: unknown, label: string, final: TutorQualityTurnSource | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  assertNonEmptyString(value, `${label}.expected.referenceAnswer`);
+  if ([...value].length > MAX_REFERENCE_ANSWER_LENGTH) fail(`${label}.expected.referenceAnswer is too long`);
+  if (final?.kind !== "support" || final.action !== "reveal") fail(`${label}.expected.referenceAnswer requires a final reveal turn`);
+  return value;
+}
+
+function parseActionRejected(value: unknown, label: string, final: TutorQualityTurnSource | undefined): "SUPPORT_LOCKED" | undefined {
+  if (value === undefined) return undefined;
+  if (value !== "SUPPORT_LOCKED") fail(`${label}.expected.actionRejected is invalid`);
+  if (final?.kind !== "support") fail(`${label}.expected.actionRejected requires a final support turn`);
+  return value;
+}
+
+/** The learning-support expectations (R-SUP-E4): http scenarios only, each bound to the kind of the final turn. */
+function parseSupportExpectations(
+  value: Record<string, unknown>,
+  label: string,
+  turns: readonly TutorQualityTurnSource[],
+): Pick<TutorQualityExpectation, "learnerInput" | "supportAfter" | "referenceAnswer" | "actionRejected"> {
+  const final = turns.at(-1);
+  const learnerInput = parseLearnerInput(value.learnerInput, label, final);
+  const referenceAnswer = parseReferenceAnswer(value.referenceAnswer, label, final);
+  const actionRejected = parseActionRejected(value.actionRejected, label, final);
+  const supportAfter = value.supportAfter === undefined ? undefined : parseSupportAfter(value.supportAfter, label);
+  return {
+    ...(learnerInput === undefined ? {} : { learnerInput }),
+    ...(supportAfter === undefined ? {} : { supportAfter }),
+    ...(referenceAnswer === undefined ? {} : { referenceAnswer }),
+    ...(actionRejected === undefined ? {} : { actionRejected }),
+  };
+}
+
+/**
+ * The transport rules (R-SUP-E1, R-SUP-E4). An http scenario starts with an initial turn and carries its own
+ * history, so a dialog turn has neither `history` nor `continuationOf`: the executor answers the question the
+ * application actually asked, and a different one is a binding problem. Support turns and the learning-support
+ * expectations exist only there; an expected reference answer names its provenance.
+ */
+function checkTransport(
+  transport: TutorQualityTransport,
+  turns: readonly TutorQualityTurnSource[],
+  expected: TutorQualityExpectation | undefined,
+  referenceProvenance: string | undefined,
+  label: string,
+): void {
+  if (transport === "service") {
+    if (turns.some((turn) => turn.kind === "support")) fail(`${label}: support turns require transport http`);
+    for (const key of HTTP_ONLY_EXPECTED_KEYS) {
+      if (expected?.[key] !== undefined) fail(`${label}.expected.${key} requires transport http`);
+    }
+    return;
+  }
+  if (turns[0]?.kind !== "initial") fail(`${label}: an http scenario starts with an initial turn`);
+  turns.forEach((turn, index) => {
+    if (index > 0 && turn.kind === "initial") fail(`${label}.turns[${index}]: an http scenario has one initial turn`);
+    if (turn.kind === "dialog" && (turn.history !== undefined || turn.continuationOf !== undefined)) {
+      fail(`${label}.turns[${index}]: an http dialog turn carries no history or continuationOf`);
+    }
+  });
+  if (expected?.learningPhase !== undefined || expected?.phaseAfter !== undefined) fail(`${label}: phase expectations require transport service`);
+  // R-SUP-7: in the learning-support cycle a weak answer keeps the question on purpose.
+  if (expected?.questionNotRepeat !== undefined) fail(`${label}.expected.questionNotRepeat requires transport service`);
+  if (expected?.referenceAnswer !== undefined && referenceProvenance === undefined) fail(`${label}.referenceProvenance is required for expected.referenceAnswer`);
 }
 
 function parseJudge(value: unknown, label: string): TutorQualityJudgeSource | undefined {
@@ -326,6 +482,14 @@ function requireBoundStrategyTurns(
   });
 }
 
+function parseTransportFields(rawScenario: Record<string, unknown>, label: string): { transport: TutorQualityTransport; referenceProvenance?: string } {
+  const transport = rawScenario.transport ?? "service";
+  if (transport !== "service" && transport !== "http") fail(`${label}.transport must be service or http`);
+  if (rawScenario.referenceProvenance === undefined) return { transport };
+  assertNonEmptyString(rawScenario.referenceProvenance, `${label}.referenceProvenance`);
+  return { transport, referenceProvenance: rawScenario.referenceProvenance };
+}
+
 function parseScenario(
   rawScenario: unknown,
   index: number,
@@ -348,14 +512,18 @@ function parseScenario(
     assertNonEmptyString(rawScenario.model, `${label}.model`);
     if (rawScenario.model === "auto") fail(`${label}.model must be a fixed model id`);
   }
+  const { transport, referenceProvenance } = parseTransportFields(rawScenario, label);
   const turns = parseTurns(rawScenario.turns, label);
   const expected = parseExpected(rawScenario.expected, label, turns);
+  checkTransport(transport, turns, expected, referenceProvenance, label);
   requireBoundStrategyTurns(turns, expected, label);
   const judge = parseJudge(rawScenario.judge, label);
   return {
     id: rawScenario.id,
     sketch: rawScenario.sketch,
     courseContent: rawScenario.courseContent,
+    ...(transport === "http" ? { transport } : {}),
+    ...(referenceProvenance === undefined ? {} : { referenceProvenance }),
     ...(rawScenario.model === undefined ? {} : { model: rawScenario.model }),
     ...(judge === undefined ? {} : { judge }),
     turns,

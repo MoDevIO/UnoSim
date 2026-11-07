@@ -7,6 +7,7 @@ import {
   type TutorContentResult,
   type TutorDifficulty,
   type TutorAnswerRating,
+  type TutorFocusProgress,
   TUTOR_DEFAULT_DIFFICULTY,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
@@ -42,6 +43,15 @@ import {
   type TutorProgressionState,
 } from "./curriculum/progression-state";
 import { RETURN_TO_SKETCH_PREFIX } from "./curriculum/learning-planner";
+import type { ReferenceAnswer } from "./curriculum/reference-answer";
+import {
+  applyReferenceGrade,
+  buildSupportPrompt,
+  isWeakRating,
+  TUTOR_SUPPORT_GUIDANCE_TEXT,
+  validateSupportExplanation,
+  type SupportExplanationKind,
+} from "./learning-support";
 import { arrayCapacities } from "./curriculum/sketch-facts";
 import { INLINE_FOCUS_TOPIC_PREFIX } from "./curriculum/inline-focus-topic";
 import { canonicalDigest } from "./evaluation/canonical";
@@ -65,7 +75,7 @@ const TUTOR_RATE_ANSWER_ONLY_GUIDANCE = "Bewerte die Antwort ausschließlich dan
 
 const TUTOR_CPP_TERMS_GUIDANCE = "Verwende und bewerte Begriffe nach C++: Eine Variablendefinition ist zugleich eine Deklaration. `int a;` ist eine Definition ohne ausdrücklichen Initialisierer, `int a = 0;` eine Definition mit ausdrücklichem Initialisierer, und dieses Gleichheitszeichen gehört zur Initialisierung, nicht zu einer Zuweisung. `a = 3;` in einer Funktion ist eine Zuweisung. Eine globale `int`-Variable und eine lokale `static int`-Variable beginnen ohne ausdrücklichen Initialisierer mit null; eine lokale automatische `int`-Variable, also ohne `static`, hat dann keinen festgelegten Wert. `extern int a;` ist eine reine Deklaration.";
 
-const TUTOR_CHECK_CLAIMS_GUIDANCE = "Prüfe jede konkrete Angabe der Antwort (Zahl, Index, Wert, Bezeichner, Reihenfolge) am Sketch nach, bevor du bewertest: Zähle dafür zum Beispiel die Elemente eines Arrays. Ist eine Angabe falsch, ist answerRating höchstens 2, und das feedback sagt, welche Angabe nicht stimmt, ohne den richtigen Wert zu nennen. Eine vage oder ausweichende Antwort ohne die gefragte Aussage erhält höchstens 2. Bewerte nur die aktuelle Antwort: Eine frühere Antwort oder Bewertung zur selben Frage zählt nicht.";
+const TUTOR_CHECK_CLAIMS_GUIDANCE = "Prüfe jede konkrete Angabe der Antwort (Zahl, Index, Wert, Bezeichner, Reihenfolge) am Sketch nach, bevor du bewertest: Zähle dafür zum Beispiel die Elemente eines Arrays. Setzt die Frage ausdrücklich Werte oder Annahmen (zum Beispiel ‚wenn a den Wert 200 hat‘ oder ‚für i = 7‘), rechne mit diesen statt mit den Werten im Sketch, und werte Operatoren Schritt für Schritt aus. Verlangt die Frage nur einen Wert oder eine Ausgabe, ist ein richtiger Wert ohne Begründung vollständig; eine Begründung, die erst eine spätere Frage verlangt, rechtfertigt keine Abwertung. Ist eine Angabe falsch, ist answerRating höchstens 2, und das feedback sagt, welche Angabe nicht stimmt, ohne den richtigen Wert zu nennen. Eine vage oder ausweichende Antwort ohne die gefragte Aussage erhält höchstens 2. Bewerte nur die aktuelle Antwort: Eine frühere Antwort oder Bewertung zur selben Frage zählt nicht.";
 
 /**
  * What the Tutor knows about the sketch besides its entry file `code`: the board and the other
@@ -88,6 +98,7 @@ type TutorDialogArguments = [
   courseContent?: TutorPlanningContentContext,
   signal?: AbortSignal,
   source?: TutorSource | BoardId,
+  support?: TutorDialogSupport,
 ];
 
 function throwIfTutorRequestAborted(signal: AbortSignal | undefined): void {
@@ -98,6 +109,10 @@ type TutorPromptOptions = {
   readonly didacticBrief?: TutorPlan;
   readonly strategy?: EffectiveTutorStrategy;
   readonly learningObjectives?: readonly string[];
+  /** Learning-support cycle: a weak answer keeps the question open (LearningQuestions R-SUP-3). */
+  readonly retainOpen?: boolean;
+  /** Reviewed reference answer of the asked question, applicable to the current code. */
+  readonly reference?: ReferenceAnswer;
 };
 
 const isFocusPlan = (plan: TutorPlan | undefined): boolean => plan?.topicId.startsWith(INLINE_FOCUS_TOPIC_PREFIX) ?? false;
@@ -199,10 +214,12 @@ function buildUserPrompt(
   didacticBrief?: TutorPlan,
   strategy: EffectiveTutorStrategy = BUILT_IN_TUTOR_STRATEGY,
   learningObjectives?: readonly string[],
+  avoidQuestions?: readonly string[],
 ): string {
   const objectivesGuidance = buildTutorLearningObjectivesGuidance(learningObjectives);
   return [
     "Erzeuge eine einzige Lernfrage zum folgenden aktuellen Arduino-Sketch.",
+    ...(avoidQuestions?.length ? [`Diese Fragen wurden übersprungen; stelle sie nicht noch einmal und auch nicht umformuliert: ${JSON.stringify(avoidQuestions)}`] : []),
     `Relative didaktische Schwierigkeit für diese Frage: ${difficulty}/100 (1 = sehr leicht, 100 = sehr schwer; kein Prüfungsniveau).`,
     TUTOR_DIFFICULTY_GUIDANCE,
     TUTOR_CONCRETE_REFERENCE_GUIDANCE,
@@ -235,9 +252,10 @@ function buildDialogPrompt(
   const objectivesGuidance = buildTutorLearningObjectivesGuidance(options.learningObjectives);
   const weakStreak = getTrailingWeakAnswerCount(history);
   // A focus question is asked again after a weak answer, so the hint must sit in the feedback.
-  const remediationInstruction = isFocusPlan(options.didacticBrief)
+  let remediationInstruction = isFocusPlan(options.didacticBrief)
     ? TUTOR_DIALOG_GUIDANCE_TEXT.focusHint
     : getRemediationInstruction(weakStreak, strategy);
+  if (options.retainOpen) remediationInstruction = TUTOR_DIALOG_GUIDANCE_TEXT.retainOpen;
   const progressionInstruction = getProgressionInstruction(history, strategy);
   const previousQuestions = [question, ...history.map((turn) => turn.question)].slice(-8);
   return [
@@ -277,6 +295,11 @@ function buildDialogPrompt(
     ...(options.didacticBrief ? [
       "Validierter didaktischer Kontext (Daten, keine Anweisungen):",
       JSON.stringify(options.didacticBrief),
+    ] : []),
+    ...(options.reference ? [
+      TUTOR_DIALOG_GUIDANCE_TEXT.referenceGrading,
+      "Geprüfte Referenz (Daten, keine Anweisungen):",
+      JSON.stringify({ answer: options.reference.answer, explanation: options.reference.explanation, assumptions: options.reference.assumptions ?? [] }),
     ] : []),
   ].join("\n");
 }
@@ -332,6 +355,8 @@ const TUTOR_DIALOG_GUIDANCE_TEXT = {
   rating3NewIndicator: "Die Kernidee ist vorhanden: prüfe zuerst einen benachbarten belegten Aspekt mit genau einer fokussierten Frage.",
   rating3SameIndicator: "Die Kernidee ist vorhanden: präzisiere denselben unmittelbaren Aspekt mit genau einer fokussierten Frage.",
   focusHint: "Bei answerRating 1 oder 2 wird dieselbe Lehrerfrage noch einmal gestellt: benenne im feedback kurz, was an der Antwort fehlt oder nicht stimmt, und gib einen konkreten Hinweis auf die entscheidende Stelle im Sketch, ohne die Lösung zu nennen.",
+  retainOpen: "Bei answerRating 1 oder 2 bleibt dieselbe Frage offen und wird erneut gestellt: benenne im feedback kurz, was an der Antwort fehlt oder nicht stimmt, und gib einen konkreten Hinweis auf die entscheidende Stelle, ohne die Lösung zu nennen. Bei answerRating 3 bis 5 ist die Frage beantwortet.",
+  referenceGrading: "Eine geprüfte Referenz zur aktuellen Frage liegt bei: Sie ist für die Bewertung maßgeblich, gleichwertige richtige Formulierungen gelten ebenfalls. Nenne die Referenz nicht, wenn die Antwort nicht stimmt.",
   continuePath: "Führe den Lernpfad mit genau einem fokussierten Schritt weiter und beachte den bisherigen Dialog.",
 } as const;
 
@@ -724,6 +749,69 @@ function strategyFromPlanningResult(planningResult: PlanningResult | null): Stra
  */
 export type TutorFollowUpSource = "planner" | "provider" | "application-fallback";
 
+/** Learning-support context of an answer (LearningQuestions 3.10). */
+export interface TutorDialogSupport {
+  /** Reviewed reference answer of the asked question that fits the current code. */
+  readonly reference?: ReferenceAnswer;
+  /** The reference answer was already shown: the answer adds no evidence (R-SUP-5). */
+  readonly assisted: boolean;
+}
+
+/** What to do besides asking the next question: leave the answered one, avoid skipped ones, or complete. */
+export interface TutorNextQuestionOptions {
+  readonly leave?: { readonly question: string; readonly history: readonly TutorDialogTurn[] };
+  readonly avoidQuestions?: readonly string[];
+}
+
+/** The answered question as the planner sees it in the learning-support cycle. */
+interface SupportPlanningInput {
+  readonly code: string;
+  readonly history: readonly TutorDialogTurn[];
+  readonly currentQuestion: string;
+  readonly difficulty: TutorDifficulty;
+  readonly courseContent?: TutorPlanningContentContext;
+}
+
+/** Prompt options of an answer in the learning-support cycle; none without it. */
+function supportPromptOptions(support: TutorDialogSupport | undefined): Pick<TutorPromptOptions, "retainOpen" | "reference"> {
+  if (!support) return {};
+  return { retainOpen: true, ...(support.reference ? { reference: support.reference } : {}) };
+}
+
+/** One request for a question: a first one, or the next after the learner left the asked one. */
+interface TutorQuestionRequest {
+  readonly code: string;
+  readonly credential: string | undefined;
+  readonly requestedModel: string | undefined;
+  readonly difficulty: TutorDifficulty;
+  readonly courseContent?: TutorPlanningContentContext;
+  readonly signal?: AbortSignal;
+  readonly source?: TutorSource | BoardId;
+  readonly options?: TutorNextQuestionOptions & { readonly completeWhenBlocked?: boolean };
+}
+
+function repeatsAvoidedQuestion(question: string, avoided: readonly string[] | undefined): boolean {
+  return avoided !== undefined && avoided.length > 0 && isSemanticallyRepeatedQuestion(question, avoided);
+}
+
+export type TutorNextQuestionResponse =
+  | (TutorServiceResponse & { readonly completed?: undefined })
+  | { readonly completed: true; readonly model: string; readonly focusProgress?: TutorFocusProgress };
+
+export interface TutorSupportExplanationInput {
+  readonly kind: SupportExplanationKind;
+  readonly code: string;
+  readonly question: string;
+  readonly credential: string | undefined;
+  readonly requestedModel: string | undefined;
+  readonly earlierClarifications: readonly string[];
+  readonly learnerQuestion?: string;
+  readonly reference?: ReferenceAnswer;
+  readonly courseContent?: TutorPlanningContentContext;
+  readonly signal?: AbortSignal;
+  readonly source?: TutorSource | BoardId;
+}
+
 export interface TutorServiceResponse {
   readonly result: TutorContentResult;
   readonly model: string;
@@ -733,6 +821,8 @@ export interface TutorServiceResponse {
    * credential was never verified. Such a response must not establish new session state.
    */
   readonly withoutProvider?: true;
+  /** Learning-support cycle: the answered question stays open and is asked again (R-SUP-3). */
+  readonly retained?: boolean;
 }
 
 export class TutorService {
@@ -793,32 +883,96 @@ export class TutorService {
   ): Promise<TutorServiceResponse> {
     return this.inSessionOrder(
       courseContent,
-      () => this.generateQuestionInSession(code, credential, requestedModel, difficulty, courseContent, signal, source),
+      async () => {
+        const response = await this.generateQuestionInSession({ code, credential, requestedModel, difficulty, courseContent, signal, source });
+        // Only a skip asks for a completion; a first question always has one.
+        if (response.completed) throw new TutorProviderError("invalid-response");
+        return response;
+      },
       signal,
     );
   }
 
-  private async generateQuestionInSession(
-    code: string,
-    credential: string | undefined,
-    requestedModel: string | undefined,
-    difficulty: TutorDifficulty,
-    courseContent?: TutorPlanningContentContext,
-    signal?: AbortSignal,
-    sourceOrBoard: TutorSource | BoardId = {},
-  ): Promise<TutorServiceResponse> {
+  /**
+   * The next question after the learner left the asked one, by skipping or after the reference answer
+   * (LearningQuestions R-SUP-4, R-SUP-5): the left question adds no evidence and is not asked again right
+   * away. Without a further Course Content question a skip ends with an open completion.
+   */
+  async generateNextQuestion(input: {
+    readonly code: string;
+    readonly credential: string | undefined;
+    readonly requestedModel: string | undefined;
+    readonly difficulty: TutorDifficulty;
+    readonly courseContent?: TutorPlanningContentContext;
+    readonly signal?: AbortSignal;
+    readonly source?: TutorSource | BoardId;
+    readonly options: TutorNextQuestionOptions;
+  }): Promise<TutorNextQuestionResponse> {
+    return this.inSessionOrder(
+      input.courseContent,
+      () => this.generateQuestionInSession({ ...input, options: { ...input.options, completeWhenBlocked: true } }),
+      input.signal,
+    );
+  }
+
+  /**
+   * A clarification or a hint to the asked question (R-SUP-2): an explanation without the answer, no rating,
+   * and no change to the progression state.
+   */
+  async generateSupportExplanation(input: TutorSupportExplanationInput): Promise<{ readonly explanation: string; readonly model: string }> {
+    return this.inSessionOrder(input.courseContent, async () => {
+      throwIfTutorRequestAborted(input.signal);
+      const requestCredential = this.resolveCredential(input.credential);
+      const source = asTutorSource(input.source ?? {});
+      const sketchText = tutorSketchText(input.code, source);
+      const model = await this.resolveModel(input.requestedModel, requestCredential, input.signal);
+      throwIfTutorRequestAborted(input.signal);
+      const attempt = () => this.requestSupportExplanation(input, model, requestCredential, sketchText, source);
+      // An invalid provider answer may be requested once more (LearningQuestions 9), never endlessly.
+      try {
+        return await attempt();
+      } catch (error) {
+        if (!(error instanceof TutorProviderError) || error.kind !== "invalid-response") throw error;
+        throwIfTutorRequestAborted(input.signal);
+        return attempt();
+      }
+    }, input.signal);
+  }
+
+  /**
+   * Plans the question to ask: leaves the answered one first when asked to, then plans in the session's
+   * working state. A skip that finds no further Course Content question completes (R-SUP-4).
+   */
+  private async planQuestion(request: TutorQuestionRequest, sketchText: string, transaction: TutorPlanningTransaction): Promise<PlanningResult | null> {
+    const { difficulty, signal, options = {} } = request;
+    const history = options.leave?.history ?? [];
+    if (options.leave && this.planningExtension?.leaveQuestion) {
+      await this.planningExtension.leaveQuestion({ code: sketchText, history, currentQuestion: options.leave.question, difficulty, courseContent: transaction.courseContent });
+      throwIfTutorRequestAborted(signal);
+    }
+    const planningResult = this.planningExtension
+      ? await this.planningExtension.planInitial({ code: sketchText, history, difficulty, courseContent: transaction.courseContent })
+      : null;
     throwIfTutorRequestAborted(signal);
-    const requestCredential = this.resolveCredential(credential);
-    const source = asTutorSource(sourceOrBoard);
-    const context = buildTutorContext(code, source);
+    return planningResult;
+  }
+
+  private async generateQuestionInSession(request: TutorQuestionRequest): Promise<TutorNextQuestionResponse> {
+    const { code, requestedModel, difficulty, courseContent, signal, options = {} } = request;
+    throwIfTutorRequestAborted(signal);
+    const requestCredential = this.resolveCredential(request.credential);
+    const source = asTutorSource(request.source ?? {});
     // Planner, strategy and prompt see the same project: a topic the sketch's facts select (an array, a
     // type, a Serial call) must not depend on which file the declaration sits in.
     const sketchText = tutorSketchText(code, source);
     const transaction = beginTutorPlanningTransaction(courseContent);
-    const planningResult = this.planningExtension
-      ? await this.planningExtension.planInitial({ code: sketchText, history: [], difficulty, courseContent: transaction.courseContent })
-      : null;
-    throwIfTutorRequestAborted(signal);
+    const planningResult = await this.planQuestion(request, sketchText, transaction);
+    if (options.completeWhenBlocked && isTutorPlanningBlocked(planningResult)) {
+      transaction.commit();
+      const summary = this.planningExtension?.focusProgress?.({ code: sketchText, courseContent, focusAsked: false });
+      return { completed: true, model: requestedModel ?? "auto", ...(summary ? { focusProgress: summary.progress } : {}) };
+    }
+    const plan = planningResult && isTutorPlan(planningResult) ? planningResult : undefined;
     const strategy = strategyFromPlanningResult(planningResult) ?? await this.resolveStrategy(sketchText, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
     const model = await this.resolveModel(requestedModel, requestCredential, signal);
@@ -829,11 +983,12 @@ export class TutorService {
         systemPrompt: TUTOR_SYSTEM_PROMPT,
         userPrompt: buildUserPrompt(
           sketchText,
-          context,
+          buildTutorContext(code, source),
           difficulty,
-          planningResult && isTutorPlan(planningResult) ? planningResult : undefined,
+          plan,
           strategy.strategy,
           this.learningObjectives(sketchText, transaction.courseContent),
+          options.avoidQuestions,
         ),
       },
       requestCredential,
@@ -841,6 +996,8 @@ export class TutorService {
     );
     throwIfTutorRequestAborted(signal);
     const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
+    // A question left by skipping is not asked again right away (R-SUP-4).
+    if (!plan && repeatsAvoidedQuestion(validatedResult.question, options.avoidQuestions)) throw new TutorProviderError("invalid-response");
     const plannedResult = planningResult
       ? applyPlanningOutcome(validatedResult, planningResult)
       : applyStrategyMetadata(validatedResult, strategy);
@@ -851,7 +1008,7 @@ export class TutorService {
     return {
       model: providerResult.model,
       result: this.withFocusProgress(initialResult, sketchText, courseContent),
-      followUpSource: final.accepted && planningResult && isTutorPlan(planningResult) ? "planner" : "provider",
+      followUpSource: final.accepted && plan ? "planner" : "provider",
     };
   }
 
@@ -860,7 +1017,7 @@ export class TutorService {
   }
 
   private async generateDialogResponseInSession(...args: TutorDialogArguments): Promise<TutorServiceResponse> {
-    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal, sourceOrBoard = {}] = args;
+    const [code, history, question, answer, credential, requestedModel, difficulty = TUTOR_DEFAULT_DIFFICULTY, courseContent, signal, sourceOrBoard = {}, support] = args;
     const source = asTutorSource(sourceOrBoard);
     throwIfTutorRequestAborted(signal);
     const requestCredential = this.resolveCredential(credential);
@@ -868,19 +1025,12 @@ export class TutorService {
     const sketchText = tutorSketchText(code, source);
     const transaction = beginTutorPlanningTransaction(courseContent);
     if (isClearlyNonLearningAnswer(answer)) {
-      const strategy = await this.resolveStrategy(sketchText, transaction.courseContent, signal);
-      throwIfTutorRequestAborted(signal);
-      return {
-        model: requestedModel ?? "fallback",
-        result: applyStrategyMetadata(buildPhilosophicalFallback(parsedHistory, difficulty, question), strategy),
-        followUpSource: "application-fallback",
-        withoutProvider: true,
-      };
+      return this.nonLearningAnswer({ sketchText, history: parsedHistory, question, difficulty, requestedModel, signal, support }, transaction);
     }
     const context = buildTutorContext(code, source);
     // The provider rates the answer to `question`, so its didactic context must describe that
     // answered question, not a question planned afterwards.
-    const currentPlanningResult = await this.planAnsweredQuestion(sketchText, parsedHistory, question, difficulty, transaction.courseContent, signal);
+    const currentPlanningResult = await this.planAnsweredQuestion(sketchText, parsedHistory, question, difficulty, transaction.courseContent, signal, support !== undefined);
     throwIfTutorRequestAborted(signal);
     const strategy = strategyFromPlanningResult(currentPlanningResult) ?? await this.resolveStrategy(sketchText, transaction.courseContent, signal);
     throwIfTutorRequestAborted(signal);
@@ -894,15 +1044,22 @@ export class TutorService {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
           strategy: strategy.strategy,
           learningObjectives: this.learningObjectives(sketchText, transaction.courseContent),
+          ...supportPromptOptions(support),
         }),
       },
       requestCredential,
       ...(signal ? [signal] : []),
     );
     throwIfTutorRequestAborted(signal);
-    const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
-    if (validatedResult.responseStyle === "normal" && validatedResult.answerRating === undefined) {
+    const providerValidated = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
+    if (providerValidated.responseStyle === "normal" && providerValidated.answerRating === undefined) {
       throw new TutorProviderError("invalid-response");
+    }
+    const validatedResult = support ? applyReferenceGrade(providerValidated, answer, support.reference) : providerValidated;
+    if (support) {
+      return this.completeSupportedAnswer(validatedResult, {
+        code: sketchText, history: parsedHistory, question, difficulty, strategy, courseContent, transaction, signal, support, model: providerResult.model,
+      });
     }
     const followUp = await this.applyDialogFollowUp(validatedResult, {
       code: sketchText,
@@ -925,6 +1082,107 @@ export class TutorService {
     };
   }
 
+  /** A reply that leads away from the sketch: the philosophical fallback, without a provider call. */
+  private async nonLearningAnswer(
+    input: {
+      readonly sketchText: string;
+      readonly history: readonly TutorDialogTurn[];
+      readonly question: string;
+      readonly difficulty: TutorDifficulty;
+      readonly requestedModel: string | undefined;
+      readonly signal?: AbortSignal;
+      readonly support?: TutorDialogSupport;
+    },
+    transaction: TutorPlanningTransaction,
+  ): Promise<TutorServiceResponse> {
+    const strategy = await this.resolveStrategy(input.sketchText, transaction.courseContent, input.signal);
+    throwIfTutorRequestAborted(input.signal);
+    const fallback = buildPhilosophicalFallback(input.history, input.difficulty, input.question);
+    return {
+      model: input.requestedModel ?? "fallback",
+      // In the learning-support cycle the question keeps its identity (R-SUP-6), so it is asked unchanged.
+      result: applyStrategyMetadata(input.support ? { ...fallback, question: input.question } : fallback, strategy),
+      followUpSource: "application-fallback",
+      withoutProvider: true,
+      ...(input.support ? { retained: true } : {}),
+    };
+  }
+
+  /**
+   * An answer in the learning-support cycle (LearningQuestions R-SUP-3, R-SUP-5): a weak answer keeps the
+   * question open; a strong answer closes it and moves on as before, except after the reference answer,
+   * where the question is left without evidence before the next one is planned.
+   */
+  private async completeSupportedAnswer(
+    validatedResult: TutorContentResult,
+    context: {
+      readonly code: string;
+      readonly history: readonly TutorDialogTurn[];
+      readonly question: string;
+      readonly difficulty: TutorDifficulty;
+      readonly strategy: StrategyResolution;
+      readonly courseContent?: TutorPlanningContentContext;
+      readonly transaction: TutorPlanningTransaction;
+      readonly signal?: AbortSignal;
+      readonly support: TutorDialogSupport;
+      readonly model: string;
+    },
+  ): Promise<TutorServiceResponse> {
+    const { code, history, question, difficulty, strategy, transaction, signal, support } = context;
+    const planning = { code, history, currentQuestion: question, difficulty, courseContent: transaction.courseContent };
+    const retained = validatedResult.responseStyle !== "normal" || isWeakRating(validatedResult.answerRating);
+    let next: { readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource };
+    if (retained) next = await this.retainQuestion(validatedResult, planning, support, signal);
+    else if (support.assisted) next = await this.leaveAssistedQuestion(validatedResult, planning, strategy, signal);
+    else next = await this.applyDialogFollowUp(validatedResult, { code, history, question, difficulty, strategy, courseContent: transaction.courseContent, signal, supportCycle: true });
+    const { result, followUpSource } = next;
+    throwIfTutorRequestAborted(signal);
+    const withStrategy = result.strategyId ? result : applyStrategyMetadata(result, strategy);
+    const fallback = applyStrategyMetadata(retained ? { ...validatedResult, question } : validatedResult, strategy);
+    const final = finalizeTutorResult(withStrategy, fallback);
+    throwIfTutorRequestAborted(signal);
+    if (final.accepted) transaction.commit();
+    return {
+      model: context.model,
+      result: this.withFocusProgress(final.result, code, context.courseContent),
+      followUpSource: final.accepted ? followUpSource : "provider",
+      retained,
+    };
+  }
+
+  /** A weak answer: the same question stays, with the planner's view of it when it has one (R-SUP-3). */
+  private async retainQuestion(
+    validatedResult: TutorContentResult,
+    planning: SupportPlanningInput,
+    support: TutorDialogSupport,
+    signal: AbortSignal | undefined,
+  ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
+    const plan = validatedResult.responseStyle === "normal" && this.planningExtension?.planRetry
+      ? await this.planningExtension.planRetry({ ...planning, rating: validatedResult.answerRating!, assisted: support.assisted })
+      : null;
+    throwIfTutorRequestAborted(signal);
+    const result = { ...(plan ? applyPlanningOutcome(validatedResult, plan) : validatedResult), question: planning.currentQuestion };
+    return { result, followUpSource: plan && isTutorPlan(plan) ? "planner" : "application-fallback" };
+  }
+
+  /** A strong answer after the reference answer: the question is left without evidence, the next one planned (R-SUP-5). */
+  private async leaveAssistedQuestion(
+    validatedResult: TutorContentResult,
+    planning: SupportPlanningInput,
+    strategy: StrategyResolution,
+    signal: AbortSignal | undefined,
+  ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
+    await this.planningExtension?.leaveQuestion?.(planning);
+    throwIfTutorRequestAborted(signal);
+    const next = this.planningExtension
+      ? await this.planningExtension.planInitial({ code: planning.code, history: planning.history, difficulty: planning.difficulty, courseContent: planning.courseContent })
+      : null;
+    throwIfTutorRequestAborted(signal);
+    const distinct = ensureDistinctDialogQuestion(validatedResult, planning.code, planning.history, planning.currentQuestion, strategy.strategy);
+    if (next) return { result: applyPlanningOutcome(distinct.result, next), followUpSource: isTutorPlan(next) ? "planner" : "provider" };
+    return { result: distinct.result, followUpSource: distinct.replaced ? "application-fallback" : "provider" };
+  }
+
   // Decision site of the dialog follow-up question (R-FUP-2): the provider's question is kept,
   // replaced by an application fallback, or replaced by an application-owned TutorPlan.
   private async applyDialogFollowUp(
@@ -937,6 +1195,7 @@ export class TutorService {
       readonly strategy: StrategyResolution;
       readonly courseContent?: TutorPlanningContentContext;
       readonly signal?: AbortSignal;
+      readonly supportCycle?: boolean;
     },
   ): Promise<{ readonly result: TutorContentResult; readonly followUpSource: TutorFollowUpSource }> {
     if (validatedResult.responseStyle !== "normal") return { result: validatedResult, followUpSource: "provider" };
@@ -951,6 +1210,7 @@ export class TutorService {
         rating: validatedResult.answerRating!,
         difficulty: context.difficulty,
         courseContent: context.courseContent,
+        ...(context.supportCycle ? { supportCycle: true } : {}),
       });
       throwIfTutorRequestAborted(context.signal);
       if (nextPlan) {
@@ -968,13 +1228,48 @@ export class TutorService {
     difficulty: TutorDifficulty,
     courseContent?: TutorPlanningContentContext,
     signal?: AbortSignal,
+    supportCycle = false,
   ): Promise<PlanningResult | null> {
     // Never planInitial here: planning a new question while only evaluating an answer could
     // reserve content. Without planAnswered the prompt simply carries no didactic context.
     if (!this.planningExtension?.planAnswered) return null;
-    const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent });
+    const result = await this.planningExtension.planAnswered({ code, history, currentQuestion, difficulty, courseContent, ...(supportCycle ? { supportCycle: true } : {}) });
     throwIfTutorRequestAborted(signal);
     return result;
+  }
+
+  private async requestSupportExplanation(
+    input: TutorSupportExplanationInput,
+    model: string,
+    credential: string,
+    sketchText: string,
+    source: TutorSource,
+  ): Promise<{ readonly explanation: string; readonly model: string }> {
+    const providerResult = await this.provider.generateLearningQuestion(
+      {
+        model,
+        systemPrompt: TUTOR_SYSTEM_PROMPT,
+        userPrompt: buildSupportPrompt({
+          kind: input.kind,
+          question: input.question,
+          code: sketchText,
+          context: buildTutorContext(input.code, source),
+          earlierClarifications: input.earlierClarifications,
+          ...(input.learnerQuestion ? { learnerQuestion: input.learnerQuestion } : {}),
+          ...(input.reference ? { reference: input.reference } : {}),
+        }),
+      },
+      credential,
+      ...(input.signal ? [input.signal] : []),
+    );
+    throwIfTutorRequestAborted(input.signal);
+    const explanation = validateSupportExplanation(validateLearningQuestion(providerResult.result), {
+      kind: input.kind,
+      question: input.question,
+      earlierClarifications: input.earlierClarifications,
+      ...(input.reference ? { reference: input.reference } : {}),
+    });
+    return { explanation, model: providerResult.model };
   }
 
   async getAvailableModels(credential: string | undefined, signal?: AbortSignal): Promise<readonly string[]> {
@@ -1036,6 +1331,7 @@ export interface TutorPromptTemplateSources {
   readonly strategyGuidance: string;
   readonly learningObjectivesGuidance: string;
   readonly dialogGuidance: string;
+  readonly supportGuidance: string;
 }
 
 export function digestTutorPromptTemplates(sources: TutorPromptTemplateSources): string {
@@ -1085,6 +1381,7 @@ const TUTOR_PROMPT_TEMPLATE_SOURCES: TutorPromptTemplateSources = {
   strategyGuidance: JSON.stringify(TUTOR_STRATEGY_GUIDANCE_TEXT),
   learningObjectivesGuidance: JSON.stringify(TUTOR_LEARNING_OBJECTIVES_GUIDANCE_TEXT),
   dialogGuidance: JSON.stringify(TUTOR_DIALOG_GUIDANCE_TEXT),
+  supportGuidance: JSON.stringify(TUTOR_SUPPORT_GUIDANCE_TEXT),
 };
 
 export const TUTOR_PROMPT_REVISION = {
@@ -1095,7 +1392,9 @@ export const TUTOR_PROMPT_REVISION = {
   // v5: a weak answer to a teacher's focus question gets its hint in the feedback, because the question stays;
   // concrete claims of an answer are checked against the sketch before rating.
   // v6: declaration, definition, initialization and assignment follow C++.
-  id: "tutor-prompts-v6",
+  // v7: values set by the question come before the sketch's, a required value needs no reason; a weak answer
+  // keeps the question open; a reviewed reference grades; clarify and hint instructions (LearningQuestions 3.10).
+  id: "tutor-prompts-v7",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;

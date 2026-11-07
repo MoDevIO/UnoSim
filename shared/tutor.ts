@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
-import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
 import { boundedArray } from "./bounded-array";
 
 export const tutorModelSchema = z
@@ -73,12 +71,58 @@ export const tutorFocusProgressSchema = z.object({
 }).strict();
 export type TutorFocusProgress = z.infer<typeof tutorFocusProgressSchema>;
 
+/** Own answer attempts after which the reference answer may be requested (LearningQuestions R-SUP-3). */
+export const TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS = 3;
+/** Answered clarification requests after which the question may be skipped (LearningQuestions R-SUP-4). */
+export const TUTOR_SKIP_AFTER_CLARIFICATIONS = 2;
+
+/** The learner's explicit actions on the asked question besides answering it (LearningQuestions 9.1). */
+export const tutorSupportActionSchema = z.enum(["clarify", "hint", "reveal", "skip"]);
+export type TutorSupportAction = z.infer<typeof tutorSupportActionSchema>;
+
+/**
+ * How the asked question was dealt with in this session (R-SUP-5): still `open`, `answered` on one's own,
+ * `assisted` (closed after the reference answer was shown) or `skipped`.
+ */
+export const tutorQuestionOutcomeSchema = z.enum(["open", "answered", "assisted", "skipped"]);
+export type TutorQuestionOutcome = z.infer<typeof tutorQuestionOutcomeSchema>;
+
+/** How the server understood a typed input: an answer, a question about the question, or a request for help. */
+export const tutorLearnerInputSchema = z.enum(["answer", "clarification", "help"]);
+export type TutorLearnerInput = z.infer<typeof tutorLearnerInputSchema>;
+
+const supportCountSchema = z.number().int().min(0).max(1_000);
+
+/** The server-owned learning-support state of the asked question (LearningQuestions R-SUP-6). */
+export const tutorSupportStateSchema = z.object({
+  session: z.uuid(),
+  questionHandle: z.uuid(),
+  answerAttempts: supportCountSchema,
+  clarifications: supportCountSchema,
+  canRevealReference: z.boolean(),
+  canSkip: z.boolean(),
+  /** Whether a reviewed reference answer fits the question and the current code. */
+  referenceAvailable: z.boolean(),
+  /** The reference answer was shown for this question. */
+  referenceShown: z.boolean(),
+  outcome: tutorQuestionOutcomeSchema,
+}).strict();
+export type TutorSupportState = z.infer<typeof tutorSupportStateSchema>;
+
+/** Binds an action to the server's support session and question; a retry repeats the same `actionId`. */
+export const tutorSupportBindingFields = {
+  supportSession: z.uuid(),
+  questionHandle: z.uuid(),
+  actionId: z.uuid(),
+};
+
+
 function withDefaultResponseStyle(value: unknown): unknown {
   if (typeof value !== "object" || value === null || "responseStyle" in value) return value;
   return { ...value, responseStyle: "normal" };
 }
 
-const tutorContentFields = {
+export const tutorContentFields = {
   feedback: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxFeedbackChars).optional(),
   question: z.string().trim().min(1).max(2_000),
   topic: z.string().trim().min(1).max(120).optional(),
@@ -123,27 +167,7 @@ export function calculateNextTutorDifficulty(
   return clampTutorDifficulty(currentDifficulty + dampedStep);
 }
 
-export const tutorQuestionRequestSchema = z
-  .object({
-    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    /** Header files and entry file name of the project, as in `POST /api/compile`; `code` is the entry file. */
-    ...projectFilesRequestFields,
-    /** Board the sketch is written for; the Tutor's context then names it, its data type sizes and its pins. */
-    board: boardIdSchema.optional(),
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-    model: tutorModelSchema.optional(),
-    difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
-    courseContent: tutorCourseContentContextSchema.optional(),
-    courseContentSession: tutorCourseContentSessionSchema.optional(),
-  })
-  .strict()
-  .superRefine(rejectEntryHeaderCollision);
 
-export const tutorModelsRequestSchema = z
-  .object({
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-  })
-  .strict();
 
 export const tutorModelsResponseSchema = z
   .object({
@@ -181,27 +205,17 @@ export const tutorDialogTurnSchema = z.preprocess(
 
 export type TutorDialogTurn = z.infer<typeof tutorDialogTurnSchema>;
 
-export const tutorDialogRequestSchema = z
-  .object({
-    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
-    ...projectFilesRequestFields,
-    board: boardIdSchema.optional(),
-    history: boundedArray(tutorDialogTurnSchema, INPUT_LIMITS.tutor.maxHistoryEntries),
-    question: z.string().trim().min(1).max(2_000),
-    answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
-    credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
-    model: tutorModelSchema.optional(),
-    difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
-    courseContent: tutorCourseContentContextSchema.optional(),
-    courseContentSession: tutorCourseContentSessionSchema.optional(),
-  })
-  .strict()
-  .superRefine(rejectEntryHeaderCollision);
+
+
 
 const tutorResponseFields = {
   provider: z.string().min(1).max(64),
   model: z.string().min(1).max(128),
   courseContentSession: tutorCourseContentSessionSchema.optional(),
+  /** Present when the request opted into the learning-support cycle. */
+  support: tutorSupportStateSchema.optional(),
+  /** How a typed input was understood; only `answer` is rated. */
+  learnerInput: tutorLearnerInputSchema.optional(),
 };
 
 const tutorNormalResponseSchema = z.object({

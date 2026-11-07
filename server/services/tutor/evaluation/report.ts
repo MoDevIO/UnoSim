@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { canonicalDigest, sha256 } from "./canonical";
 import { TUTOR_QUALITY_JUDGE_PROMPT_REVISION } from "./judge";
-import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
+import { tutorTemperatureFor } from "../model-profile";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";
 import type { TutorQualityVerdict } from "./quality-verdict";
 import type {
@@ -94,7 +94,7 @@ export function createTutorQualityRunManifest(
       returned: [...new Set(transcripts.flatMap(({ metadata }) => metadata.returnedModels))],
     },
     ...(options.judgeModel ? { judgeModel: { requested: options.judgeModel, returned: returnedJudgeModels } } : {}),
-    temperature: { tutor: TUTOR_TEMPERATURE, ...(options.judgeModel ? { judge: 0 } : {}) },
+    temperature: { tutor: tutorTemperatureFor(options.requestedModel), ...(options.judgeModel ? { judge: 0 } : {}) },
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     maxCalls: options.maxCalls,
     ...(options.judgeModel ? {

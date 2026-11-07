@@ -76,3 +76,41 @@ void loop() {
     expect(prompt).toContain("brightness");
   });
 });
+
+describe("IT06.4 grading regression (LearningQuestions R-SUP-8)", () => {
+  /** The observed failure: the model checked the answer against `a = 37` from the sketch and called 1 wrong. */
+  function ratingProvider(rating: 1 | 2 | 3 | 4 | 5, feedback: string): LLMProvider {
+    return {
+      listModels: vi.fn().mockResolvedValue(["pilot-model"]),
+      generateLearningQuestion: vi.fn().mockResolvedValue({
+        model: "pilot-model",
+        result: { responseStyle: "normal", feedback, answerRating: rating, question: "Was gibt der zweite Durchlauf aus?" },
+      }),
+    };
+  }
+
+  it.each([
+    ["1", 2, "Falsch: Bei a = 37 ist Bit 7 nicht gesetzt, es wird 0 ausgegeben.", 5],
+    ["200 = 1", 1, "Falsch, die erste Ziffer ist 0.", 5],
+    ["0", 5, "Richtig.", 2],
+  ] as const)("rates %j as %i whatever the model says, with the reviewed reference", async (answer, modelRating, modelFeedback, expected) => {
+    const { IT064_PREDICTION_QUESTION, IT064_REFERENCE, IT064_SKETCH } = await import("./fixtures/it06-4");
+    const result = (await new TutorService(ratingProvider(modelRating, modelFeedback)).generateDialogResponse(
+      IT064_SKETCH, [], IT064_PREDICTION_QUESTION, answer, "key", undefined, 30, undefined, undefined, undefined,
+      { reference: IT064_REFERENCE, assisted: false },
+    )).result;
+
+    expect(result.answerRating).toBe(expected);
+    if (expected === 5) expect(result.feedback).not.toMatch(/falsch|0 ausgegeben|ist 0/i);
+    // A weak answer keeps the question open; a correct one moves on (R-SUP-3).
+    expect(result.question === IT064_PREDICTION_QUESTION).toBe(expected <= 2);
+  });
+
+  it("keeps the MVP grading without a support binding: no reference is applied", async () => {
+    const { IT064_PREDICTION_QUESTION, IT064_SKETCH } = await import("./fixtures/it06-4");
+    const result = (await new TutorService(ratingProvider(2, "Falsch.")).generateDialogResponse(
+      IT064_SKETCH, [], IT064_PREDICTION_QUESTION, "1", "key", undefined, 30,
+    )).result;
+    expect(result.answerRating).toBe(2);
+  });
+});

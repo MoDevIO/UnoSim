@@ -1,6 +1,7 @@
 import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import type { TutorCapability } from "../course-content/course-content-loader";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
+import type { ReviewedProgram } from "./curriculum/reference-answer";
 import type { EffectiveTutorStrategy, StrategyResolution } from "./strategy/effective-tutor-strategy";
 import type { TutorProgressionState, DidacticPhase, ProgressionBlockedReason } from "./curriculum/progression-state";
 
@@ -9,6 +10,8 @@ export interface TutorPlanningContentContext {
   readonly tutor?: TutorCapability;
   readonly exampleId?: string;
   readonly exampleTutorAnnotation?: ExampleTutorAnnotation;
+  /** The Example's reviewed program (without the annotation), the binding of its reference answers. */
+  readonly exampleProgram?: ReviewedProgram;
   readonly progressionState?: TutorProgressionState;
 }
 
@@ -102,6 +105,7 @@ export interface TutorPlanningExtension {
     readonly difficulty: TutorDifficulty;
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
+    readonly supportCycle?: boolean;
   }): Promise<TutorPlanningResult | null>;
   planFollowup(input: {
     readonly code: string;
@@ -111,5 +115,33 @@ export interface TutorPlanningExtension {
     readonly difficulty: TutorDifficulty;
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
+    /** The learning-support cycle: the answered focus question stays bound to its focus (R-SUP-3). */
+    readonly supportCycle?: boolean;
   }): Promise<TutorPlanningResult | null>;
+  /**
+   * After a weak answer the question stays open (LearningQuestions R-SUP-3): records the answer as evidence,
+   * unless it was given after the reference answer was shown, and returns the plan of the same question.
+   */
+  planRetry?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly rating: TutorAnswerRating;
+    readonly assisted: boolean;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<TutorPlanningResult | null>;
+  /**
+   * The question is left without evidence, by skipping or after the reference answer (R-SUP-4, R-SUP-5): it
+   * counts as used, so it is not asked again right away, and adds nothing to mastery.
+   */
+  leaveQuestion?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Promise<void>;
 }

@@ -3,10 +3,9 @@ import {
   calculateNextTutorDifficulty,
   TUTOR_DEFAULT_DIFFICULTY,
   tutorContentResultSchema,
-  tutorDialogRequestSchema,
-  tutorQuestionRequestSchema,
   tutorResponseSchema,
 } from "../../shared/tutor";
+import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor-requests";
 
 describe("Tutor contracts", () => {
   it("defaults difficulty to 30 and accepts only the 1..100 range", () => {

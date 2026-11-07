@@ -11,9 +11,8 @@ import {
   type StructuredLLMProvider,
   type StructuredLLMProviderRequest,
 } from "./llm-provider";
-import { rankTutorModels } from "./model-preference";
-
-export const TUTOR_TEMPERATURE = 0.2;
+import { automaticTutorModels } from "./model-preference";
+import { tutorTemperatureFor } from "./model-profile";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
@@ -248,7 +247,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
     const model = await this.resolveModel(request.model, credential, signal);
     const body = await this.requestChatCompletion({
       model,
-      temperature: TUTOR_TEMPERATURE,
+      temperature: tutorTemperatureFor(model),
       messages: [
         { role: "system", content: request.systemPrompt },
         { role: "user", content: request.userPrompt },
@@ -312,8 +311,9 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
 
   private async resolveModel(model: string, credential: string, signal?: AbortSignal): Promise<string> {
     if (model !== "auto") return model;
-    const modelId = rankTutorModels(await this.listModels(credential, signal))[0];
-    if (!modelId) throw new TutorProviderError("model-unavailable");
+    const modelId = automaticTutorModels(await this.listModels(credential, signal), config.tutor.autoModels)[0];
+    // No approved model is offered: Automatic never falls back to an unapproved one (LearningQuestions 7.3).
+    if (!modelId) throw new TutorProviderError("auto-model-unavailable");
     return modelId;
   }
 }

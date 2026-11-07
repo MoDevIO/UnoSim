@@ -175,7 +175,7 @@ function historyEntry(entry: TutorQualityHistoryEntrySource): import("../shared/
 }
 
 function materializeTurn(turn: TutorQualityTurnSource): TutorQualityTurn {
-  if (turn.kind === "initial") return turn;
+  if (turn.kind !== "dialog") return turn;
   const { history, ...dialogTurn } = turn;
   return {
     ...dialogTurn,
@@ -225,6 +225,8 @@ export async function loadTutorQualityEvaluationScenarios(
       ...(scenario.courseContent === "free"
         ? {}
         : { courseContent: createAnchorCourseContent(scenario.courseContent as AnchorCourseContentFixtureId) }),
+      ...(scenario.transport === undefined ? {} : { transport: scenario.transport }),
+      ...(scenario.referenceProvenance === undefined ? {} : { referenceProvenance: scenario.referenceProvenance }),
       turns: scenario.turns.map(materializeTurn),
       ...(scenario.judge === undefined ? {} : { judge: scenario.judge }),
       ...(scenario.expected === undefined ? {} : { expected: scenario.expected }),

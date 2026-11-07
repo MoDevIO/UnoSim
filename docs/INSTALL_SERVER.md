@@ -347,10 +347,32 @@ Akzeptanzkriterien steht in
 | `UNOSIM_GITHUB_TOKEN` | leer | siehe oben |
 | `UNOSIM_LLM_BASE_URL` | `https://chat.kiconnect.nrw/api/v1` | OpenAI-kompatibler Endpunkt für den Tutor |
 | `UNOSIM_LLM_TIMEOUT_MS` | `30000` | maximale Dauer eines Tutor-Aufrufs |
+| `UNOSIM_TUTOR_AUTO_MODELS` | `openai-gpt5.5` | exakte Modell-IDs, die **Automatic** verwenden darf, in dieser Reihenfolge; leer = **Automatic** aus, nur manuelle Wahl |
 | `TUTOR_RATE_LIMIT_MAX_REQUESTS` | `20` | Tutor-Anfragen pro Identität und Fenster |
 | `TUTOR_RATE_LIMIT_WINDOW_MS` | `60000` | Fenster für das Tutor-Limit |
 | `TUTOR_SESSION_TTL_MS` | `3600000` | absolute Lebensdauer einer Tutor-Sitzung |
 | `TUTOR_SESSION_MAX_PER_SUBJECT` | `5` | gleichzeitige Tutor-Sitzungen pro Identität |
+
+Für **Automatic** nimmt der Server das erste Modell aus
+`UNOSIM_TUTOR_AUTO_MODELS`, das KI:connect gerade anbietet, und nur Modelle
+aus dieser Liste: Fehlen alle, fällt **Automatic** nicht auf ein anderes Modell
+zurück, sondern meldet, dass ein Modell manuell zu wählen ist. Eine manuelle
+Modellwahl der Person hat Vorrang. Ein Embedding-, Reranking- oder
+Sprachmodell in der Liste oder ein ungültiger Eintrag verhindert den Start.
+
+Nehmen Sie ein Modell nur auf, wenn es den fachlichen Live-Vergleich besteht
+(LearningQuestions TUT-07). Im Vergleich vom 07.11.2026 mit festen Modellen
+(ein IT06.4-Verlauf, je 3 Stichproben) bestand nur `openai-gpt5.5`:
+vollständig, auch Fragen mit eigener Annahme roh richtig bewertet, im Median
+5,6 s je Antwort. `openai-gpt5.4-mini` (1,5 s) und
+`mistralai-mistral-small-4-119b-2603` (1,0 s) bewerteten solche Fragen roh
+falsch; richtig bewertet wurde nur dank einer hinterlegten Musterantwort.
+`openai-gpt-oss-120b` brach öfter ab. Der Nachweis gilt für diesen Fall, nicht
+für die ganze Breite des Kurses.
+
+Der Tutor sendet die Temperatur 0,2; `openai-gpt5.5` akzeptiert nur 1 und
+erhält über ein festes Modellprofil im Server diesen Wert, auch wenn
+**Automatic** es wählt.
 
 Der Tutor unterstützt derzeit nur KI:connect.nrw. Er braucht serverseitig
 keinen Schlüssel: Jede Person trägt ihren persönlichen KI:connect-Key im

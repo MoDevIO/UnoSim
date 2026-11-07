@@ -5,8 +5,11 @@ Supersedes: the earlier execution-runner specification and the earlier
 semantic-layer design (see the historical glossary entries in §2). Implementation
 plan: `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md` (not normative).
 
-> **Conformance.** `main` implements this document; Appendix A records the
-> conformance status and lists no known deviation. A deviation found later is
+> **Conformance.** Appendix A records conformance of the existing evaluation
+> baseline. Section 15 is an extension dated 2026-11-06: the corpus/report
+> extension R-SUP-E4 is implemented as the `http` transport (§6.2, §6.3, §6.4,
+> §15); a second Judge is not. The central implementation TODO list is
+> LearningQuestions section 21. A deviation found later in the implemented baseline is
 > listed there with its owner until it is fixed. While it is listed, the
 > affected statement must not be read as a current runtime invariant.
 
@@ -198,6 +201,8 @@ personal data, or live learner data.
 | `sketch` | yes | path of an existing fixture file |
 | `courseContent` | yes | `free` or a registered fixture ID |
 | `model` | no | fixed model ID; never `auto` |
+| `transport` | no | `service` (default) or `http` (§15, R-SUP-E4) |
+| `referenceProvenance` | with `expected.referenceAnswer` | where the factual reference comes from, independent of the Tutor model |
 | `turns` | yes | ≥ 1 turn (§6.3) |
 | `expected` | no | expectation object (§6.4) |
 | `judge` | no | Judge block (§9.6) |
@@ -214,8 +219,18 @@ type TurnSource =
       continuationOf?: number; // index of an earlier turn in the same case
       difficulty?: number;     // 1..100, default 30
       history?: HistoryEntry[]; // bounded scripted prior dialog
-    };
+    }
+  | { kind: "support"; action: "clarify" | "hint" | "reveal" | "skip"; difficulty?: number }; // http only
 ```
+
+**R-TURN-5** An `http` case replays the production Tutor routes with learning
+support. It starts with exactly one `initial` turn; its dialog turns carry no
+`history` and no `continuationOf`, because the runner carries the actual
+returned question, Course and support sessions and history forward like the
+browser. A dialog turn's `question` must equal the question the application
+actually asked; otherwise the sample is `invalid`
+(`question-binding-mismatch`) and the answer is not sent. `support` turns
+exist only in `http` cases.
 
 **R-TURN-1** A dialog turn with `continuationOf: i` is valid only if `i`
 refers to an earlier turn and the final Tutor question actually produced by
@@ -250,7 +265,14 @@ error: no silently ignored typos.
 | `progressionBlockedReason` | a `ProgressionBlockedReason` value | every turn | see §6.6 |
 | `stateUnchanged` | boolean | every turn | progression state equals the sample's initial state |
 | `questionNotRepeat` | `exact-or-heuristic` | every dialog turn | final question is not an exact or heuristic repeat of the answered question or history |
-| `mustNotReveal` | list of 1–5 non-empty strings | every dialog turn | none of the literals occurs in the raw provider `feedback` or `question` (R-REV-1..3) |
+| `mustNotReveal` | list of 1–5 non-empty strings | every dialog turn; in `http` also every clarify/hint turn | none of the literals occurs in the raw provider `feedback` or `question` (R-REV-1..3); in `http` also not in the delivered text; an authorized `reveal` is exempt |
+| `learnerInput` | `answer \| clarification \| help` | `http`, final turn, must be `dialog` | how the application classified the typed input |
+| `supportAfter` | subset of `answerAttempts`, `clarifications` (0–3), `canSkip`, `canRevealReference`, `referenceAvailable`, `referenceShown`, `outcome` | `http`, final turn | the returned support state equals each listed field |
+| `referenceAnswer` | string ≤ 300 | `http`, final turn, must be `support`/`reveal` | the authorized reference shows exactly this answer; requires `referenceProvenance` |
+| `actionRejected` | `SUPPORT_LOCKED` | `http`, final turn, must be `support` | the action is refused with HTTP 409 and this code |
+
+`questionNotRepeat`, `learningPhase` and `phaseAfter` are `service` only: in the
+learning-support cycle a weak answer keeps the question on purpose (R-SUP-7).
 
 Allowed values for phases and blocked reasons come from the application
 types (`DidacticPhase`, `ProgressionBlockedReason`); the corpus parser does
@@ -408,7 +430,9 @@ stored in every transcript and in the report. `evaluationIdentity` is the
 SHA-256 of canonical JSON over: Git SHA, Course Content revisions, corpus ID
 and version, provider ID, requested Tutor model, Tutor prompt revision (ID and
 template digest), and the run parameters (timeout, temperature, sample count,
-call budget, per-turn difficulties). The `runId` contains the UTC start time
+call budget, per-turn difficulties). The temperature is the one the Tutor sends
+to the requested model: 0.2, or the value of its model profile (LearningQuestions
+7.3; `openai-gpt5.5`: 1); manifest and transcripts record that value. The `runId` contains the UTC start time
 and a collision-resistant suffix. Its prefix `tq2a-` is a historical artifact
 contract (§11.4).
 
@@ -819,7 +843,123 @@ No benchmark framework, new runner, model ranking, pairwise evaluation,
 calibration platform, exposure tracking, general rubric engine, run database,
 dashboard, workflow engine, or statistics platform.
 
+The planned bounded, in-session assistance flags of LearningQuestions R-SUP-5
+are distinct from an exposure-tracking platform or persistent learner profile.
+
+## 15. Learning-support and HTTP dialog evaluation
+
+The didactic source is
+[LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen).
+The central backlog is its section 21. The current executor invokes
+`TutorService` directly; it does not prove an HTTP or browser dialog works.
+The following extension must reuse the existing corpus, checks and reporting,
+with an explicit transport/action schema extension rather than a separate
+evaluation framework. The old corpus and CLI remain valid until deliberately
+extended; no field described here is silently accepted by their current schemas.
+
+**R-SUP-E1 – Full dialog at the actual API boundary.** Add HTTP replay using
+the same production request validation, credential/gateway requirements,
+server-issued Course session and question binding used by the GUI. Do not
+disable production checks to make a replay pass. Cases must carry forward
+the actual preceding responses and returned session state. A scripted answer
+is applied only to the question it actually answers; an unexpected generated
+question is reported as a binding problem, never silently answered by an
+unrelated scripted value. Route tests with a fake provider and live-model HTTP
+samples are separate evidence layers, not replacements for each other.
+
+**R-SUP-E2 – Required sequences and boundaries.** Cover zero/one/two
+clarifications, zero/one/two/three answer attempts, both orderings and
+interleavings, hints without count changes, short valid answers, typed
+understanding questions, early correct answers, continued attempts and
+voluntary reference viewing. Prove that two clarifications permit an ungraded
+skip with no answers and no early reference access; three answers permit
+reference viewing with no mastery credit. Check errors, retries, duplicates,
+concurrency, session/context changes, outdated references, history truncation
+and new-dialog reset. The outcome after assistance or skip must remain distinct
+from independently demonstrated understanding.
+
+**R-SUP-E3 – Correctness regression IT06.4.** Add the observed conversation
+with an independently reviewed factual reference: `a = 200`, `i = 7`,
+`1 << 7 = 128`, `a & 128 = 128`, and `(a & 128) && 1` prints `1`.
+Correct answers `1` and the understandable partial output `200 = 1` must not
+be rejected or falsely described as containing the wrong bit. The answer `0`
+must not be accepted. Cover editor changes from 37 to 200 and an explicit
+question assumption of 200 while the original Example defaults to 37.
+The clarification must disambiguate the requested output without revealing it;
+the authorized reference must explain it correctly. A fixed synthetic rating
+cannot prove that the actual model grades correctly. Repeated live samples
+must evaluate factual feedback as well as the rating band, against references
+independent of the Tutor model's own opinion. A second LLM Judge is supporting
+evidence, not the sole source of truth for this computable result.
+
+**R-SUP-E4 – Action-aware guards and evidence.** The existing no-solution,
+one-question and non-repetition checks remain for normal question/feedback
+output. Question-preserving clarification/retry and an explicitly authorized
+reference-answer action follow R-SUP-7; an early or unsolicited answer remains
+a violation. Raw provider and final application output must both be checked
+against the applicable action rather than disabling guards. Define bounded,
+strict corpus/action fields, expectations, Judge eligibility and report fields
+when implementing this extension; update the existing allowlists and L2 tests.
+Reports must identify service/HTTP/UI execution evidence, actual requested and
+returned model, sample count, question/context identity, each action and its
+count/availability transition, and reference provenance. Existing redaction,
+call budgets and technical-failure/inconclusive semantics remain in force.
+
+**Implementation status (2026-11-06).** R-SUP-E4 is implemented in the
+existing corpus, runner, report and Judge (`server/services/tutor/evaluation/`):
+
+- Corpus: `transport: http`, `support` turns, the expectations of §6.4 and
+  `referenceProvenance`, parsed strictly (L2: `anchor-corpus.test.ts`). Corpus
+  v13 adds six IT06.4 cases (`TQ-SUP-IT064-*`): the answers `1`, `200 = 1`
+  and `0`, two clarifications, an early refused reveal and the reveal after
+  three answers, with hand-computed expectations.
+- Runner (`http-replay.ts`): the production Tutor routes on loopback with the
+  evaluation's counting provider, so call budgets and technical-failure
+  semantics stay in force. Raw and delivered output are checked per action:
+  declared literals for answers, clarifications and hints (an authorized
+  reveal is exempt), unlock of reveal and skip, the model's own rating
+  (`raw-provider-answer-rating`) apart from the delivered rating. A raw rating
+  out of the band is a `raw-provider` violation (`answer-rating-out-of-band`),
+  so repeated wrong raw ratings reach the verdict (§8.2, R-VER-3/4) even when
+  the application corrected them. Every provider attempt of a turn is recorded
+  in order (`providerAttempts`, with errors) and checked, also a discarded
+  first attempt; this holds for the service path too. The checks run exactly
+  once per turn, whatever ended it: an answer the model gave before a final
+  technical failure or a refused request is still raw evidence, and its
+  violations reach the verdict (R-VER-6), while the technical failure is
+  reported apart. Every attempt must name its model (R-ID-4), otherwise the
+  sample is `invalid`; an attempt without a model identity is attributed to no
+  model, so it gets only the identity check and no raw quality findings. The
+  sample's `returnedModels` list every named attempt, whatever ended the turn
+  (review H1). A retry
+  question after a weak answer is no repetition. A failed turn must leave the
+  progression state as it was before that turn.
+- Report: per case `executionEvidence` (`service` or `http-route`),
+  `referenceProvenance`, `supportActions`, `turnDurationsMs` and `checkLayers`
+  (`application` apart from `rawModel`, `raw-provider-*` checks), with
+  technical failures counted separately; each transcript turn records the HTTP
+  status, the asked question and the support state before and after.
+- Judge: eligible for a rated answer and for a clarification or hint (the
+  learner's request stands in for the answer); a reveal or skip is not judged.
+  The quote allowlist (R-EVD-1) is unchanged.
+
+`http-route` is isolated route evidence: gateway, authentication, rate limit
+and Course Content loading (a fixed resolver serves the pinned fixture) are not
+part of it, so it does not yet satisfy the full R-SUP-E1 boundary. The separate
+live script `npm run eval:tutor-learning-support:live` remains as an earlier
+check. Live results per fixed model are recorded in LearningQuestions TUT-07.
+Not implemented: a second, independent Judge.
+
+These transcripts show whether scripted interactions are handled correctly;
+they do not measure a learning effect in real students. Missing provider
+credentials or an unavailable live run must be reported, not replaced by a
+mock pass or counted as completed live acceptance.
+
 ## Appendix A – Conformance status (non-normative)
+
+The historical audits below cover the implemented baseline. They do not cover
+the learning-support/HTTP extension in section 15; its status is recorded there
+and in LearningQuestions section 21 (2026-11-06).
 
 Verified against `main` @ `425bf362` plus the conformance fix that follows it
 (PRs #128–#132 of `docs/archive/tutor-quality/UNOSIM_TUTOR_QUALITY_AUTOMATION_PLAN.md`). Closed since

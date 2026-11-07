@@ -16,6 +16,7 @@ import path from "node:path";
 import { parseTrustConfig } from "./security/access-control";
 import { parseRuntimeSettings } from "./runtime-settings";
 import { examplesRefSchema } from "@shared/examples";
+import { parseTutorAutoModels } from "./services/tutor/model-preference";
 import { TEST_RUN_ID_PATTERN } from "@shared/input-limits";
 import { normalizeRepositoryInput } from "./services/examples/source-selection";
 
@@ -694,6 +695,8 @@ export const config = {
     baseUrl: stripTrailingSlashes(envStr("UNOSIM_LLM_BASE_URL", "https://chat.kiconnect.nrw/api/v1")),
     /** Provider request timeout; no provider call may outlive this window. */
     timeoutMs: envInt("UNOSIM_LLM_TIMEOUT_MS", 30_000, { min: 1_000, max: 120_000 }),
+    /** Exact model IDs `Automatic` may use, in order (LearningQuestions 7.3); unset = the default, empty = Automatic off. */
+    autoModels: parseTutorAutoModels(process.env.UNOSIM_TUTOR_AUTO_MODELS),
     /** Dedicated request-scoped tutor rate limit. */
     rateLimitWindowMs: envInt("TUTOR_RATE_LIMIT_WINDOW_MS", 60_000, { min: 1_000, max: 86_400_000 }),
     rateLimitMaxRequests: envInt("TUTOR_RATE_LIMIT_MAX_REQUESTS", 20, { min: 1, max: 100 }),

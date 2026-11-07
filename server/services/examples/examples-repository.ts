@@ -146,7 +146,7 @@ export class ExamplesRepository implements TutorCourseContentResolver {
       tutor: snapshot.tutor ?? { status: "absent" },
       contentBytes: snapshot.contentBytes,
       ...(request.exampleId !== undefined && snapshot.exampleTutorAnnotations?.has(request.exampleId)
-        ? { exampleTutorAnnotation: snapshot.exampleTutorAnnotations.get(request.exampleId) }
+        ? annotatedExample(snapshot, request.exampleId)
         : {}),
     };
   }
@@ -221,4 +221,22 @@ function deduplicateExamples(examples: ExampleRecord[]): ExampleRecord[] {
     ids.add(example.id);
     return true;
   });
+}
+
+/** The annotation of an Example with the program its reference answers were reviewed for (review N1). */
+function annotatedExample(snapshot: RevisionCacheEntry, exampleId: string): Pick<ResolvedTutorCourseContent, "exampleTutorAnnotation" | "exampleProgram"> {
+  const example = snapshot.examples.find((candidate) => candidate.id === exampleId);
+  const main = example?.files.find((file) => file.name === example.main);
+  return {
+    exampleTutorAnnotation: snapshot.exampleTutorAnnotations?.get(exampleId),
+    ...(example && main
+      ? {
+        exampleProgram: {
+          code: main.content,
+          headers: example.files.filter((file) => file !== main).map(({ name, content }) => ({ name, content })),
+          ...(example.board ? { board: example.board } : {}),
+        },
+      }
+      : {}),
+  };
 }

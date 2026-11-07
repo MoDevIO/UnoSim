@@ -69,6 +69,8 @@ describe("Tutor Course Content revision authority after a push", () => {
     );
 
     expect(resolved).toMatchObject({ revision: revisionA, exampleTutorAnnotation: { learningObjectives: ["Ziel a"] } });
+    // The reviewed program of the same snapshot binds the Example's reference answers (review N1).
+    expect(resolved.exampleProgram).toEqual({ code: revisionA, headers: [] });
     expect(course.loader.load).toHaveBeenCalledTimes(2);
   });
 
