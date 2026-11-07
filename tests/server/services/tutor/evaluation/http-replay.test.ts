@@ -8,7 +8,7 @@ import {
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import { buildJudgeInput } from "../../../../../server/services/tutor/evaluation/judge";
 import { IT064_CONCEPT_QUESTION, IT064_SKETCH } from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
-import type { LLMProvider, LLMProviderRequest } from "../../../../../server/services/tutor/llm-provider";
+import { TutorProviderError, type LLMProvider, type LLMProviderRequest } from "../../../../../server/services/tutor/llm-provider";
 
 /**
  * L2 evidence of the learning-support extension of the evaluation (Evaluation SSOT 15, R-SUP-E4): the real
@@ -38,6 +38,10 @@ interface Script {
   readonly unsafeFirstExplanation?: boolean;
   /** The provider names no model. */
   readonly emptyModel?: boolean;
+  /** With `unsafeFirstExplanation`: the retry times out instead of answering (review G2). */
+  readonly failRetry?: boolean;
+  /** With `unsafeFirstExplanation`: the unsafe first explanation names no model. */
+  readonly unnamedFirstExplanation?: boolean;
 }
 
 const EXPLANATIONS = [
@@ -69,8 +73,9 @@ function scriptedProvider(script: Script): LLMProvider {
       if (script.failSupport) throw Object.assign(new Error("timeout"), { kind: "timeout" });
       supportCalls += 1;
       if (script.unsafeFirstExplanation && supportCalls % 2 === 1) {
-        return { model, result: { responseStyle: "normal" as const, feedback: UNSAFE_EXPLANATION, question: "Welche Stelle? Welcher Ausdruck?" } };
+        return { model: script.unnamedFirstExplanation ? "" : model, result: { responseStyle: "normal" as const, feedback: UNSAFE_EXPLANATION, question: "Welche Stelle? Welcher Ausdruck?" } };
       }
+      if (script.failRetry) throw new TutorProviderError("provider-timeout");
       return { model, result: { responseStyle: "normal" as const, feedback: script.explanation ?? EXPLANATIONS[explanations++ % EXPLANATIONS.length], question: promptPart(userPrompt, "Aktuelle Frage:\n") } };
     },
   };
@@ -204,6 +209,37 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     expect(transcript.invariantViolations.filter(({ source }) => source === "final-tutor")).toEqual([]);
     expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.checkLayers.application.fail).toBe(0);
     expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.checkLayers.rawModel.fail).toBeGreaterThan(0);
+  });
+
+  it("checks an unsafe first attempt also when the retry fails, and keeps the failure apart (review G2)", async () => {
+    const { report, transcripts } = await run("TQ-SUP-IT064-CLARIFY", { rate: () => 5, unsafeFirstExplanation: true, failRetry: true }, 3);
+    for (const transcript of transcripts) {
+      expect(transcript.executionStatus).toBe("technical-failure");
+      const clarify = transcript.turns[2]!;
+      expect(clarify.technicalError?.kind).toBe("timeout");
+      expect(clarify.providerAttempts).toHaveLength(2);
+      expect(clarify.finalTutorResult).toBeUndefined();
+      expect(checks(transcript, "returned-model-present").map(({ outcome }) => outcome).at(-1)).toBe("pass");
+      const rawCodes = transcript.invariantViolations.filter(({ source }) => source === "raw-provider").map(({ code }) => code);
+      expect(rawCodes).toEqual(expect.arrayContaining(["solution-revealed", "complete-solution", "multiple-primary-questions"]));
+    }
+    expect(report.byScenario["TQ-SUP-IT064-CLARIFY"]?.checkLayers.rawModel.fail).toBeGreaterThan(0);
+    // R-VER-6: the repeated raw violation is positive evidence and wins over the technical failure.
+    expect(report.qualityVerdict.verdict).toBe("fail");
+    const effects = new Map(report.qualityVerdict.findings.map(({ key, effect }) => [key, effect]));
+    expect(effects.get("raw-provider/solution-revealed")).toBe("fail");
+    expect(effects.get("execution/technical-failure/timeout")).toBe("inconclusive");
+  });
+
+  it("attributes an unnamed first attempt to no model, also when the retry fails (review G2, R-ID-4)", async () => {
+    const { report, transcripts } = await run("TQ-SUP-IT064-CLARIFY", { rate: () => 5, unsafeFirstExplanation: true, unnamedFirstExplanation: true, failRetry: true }, 3);
+    for (const transcript of transcripts) {
+      expect(transcript).toMatchObject({ executionStatus: "invalid", invalidReason: "returned-model-missing" });
+      expect(transcript.turns[2]?.technicalError?.kind).toBe("timeout");
+      expect(checks(transcript, "returned-model-present").at(-1)?.outcome).toBe("fail");
+      expect(transcript.invariantViolations.filter(({ source }) => source === "raw-provider")).toEqual([]);
+    }
+    expect(report.qualityVerdict.verdict).toBe("inconclusive");
   });
 
   it("gives no quality result without a proven model identity (review F4, R-ID-4)", async () => {

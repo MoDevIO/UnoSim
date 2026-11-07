@@ -305,6 +305,9 @@ interface TurnRecord {
   readonly stop?: { readonly status: TutorQualityExecutionStatus; readonly invalidReason?: string; readonly technicalError?: TutorQualityTechnicalError };
 }
 
+/** R-ID-4: an attempt without a model identity makes the sample invalid, whatever else ended the turn. */
+const MISSING_MODEL_STOP = { status: "invalid", invalidReason: "returned-model-missing" } as const;
+
 /** What a turn knew before its request, and where its checks go. */
 interface TurnScope extends CheckSink {
   readonly context: HttpReplayContext;
@@ -348,25 +351,32 @@ function transcriptTurn(scope: TurnScope, extra: Partial<TutorQualityTranscriptT
   };
 }
 
-/** A provider or server failure: technical, never a quality result; the failed turn changed nothing. */
+/**
+ * A provider or server failure: technical, never a quality result; the failed turn changed nothing. An answer
+ * the model gave before the failure is still raw evidence and is checked like any other (review G2).
+ */
 function technicalTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }, progressionBefore: string | undefined): TurnRecord {
   const { context } = scope;
   const kind = technicalKind(response.status, response.body, context.provider, context.options.maxCalls);
   const technicalError = { kind, name: "HttpReplayError" };
   addCheck(scope.checks, "final-tutor-response-present", false, kind);
+  const modelsPresent = rawTurnChecks(scope, response.body);
   const state = context.content?.progressionState;
   if (progressionBefore !== undefined && state) {
     const unchanged = canonicalJson(state) === progressionBefore;
     addCheck(scope.checks, "state-unchanged-after-failure", unchanged);
     if (!unchanged) addViolation(scope.violations, "state-mutated-after-failure", "state", scope.turnIndex);
   }
-  return { transcriptTurn: transcriptTurn(scope, { technicalError }, undefined, response.status), stop: { status: "technical-failure", technicalError } };
+  const stop = modelsPresent ? { status: "technical-failure" as const } : MISSING_MODEL_STOP;
+  return { transcriptTurn: transcriptTurn(scope, { technicalError }, undefined, response.status), stop: { ...stop, technicalError } };
 }
 
 /** A refused request: expected for a final early reveal, otherwise an application finding that ends the sample. */
 function refusedTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }): TurnRecord {
   const { scenario } = scope.context;
+  const modelsPresent = rawTurnChecks(scope, response.body);
   finalSupportChecks(scope.context, response, scope);
+  if (!modelsPresent) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status), stop: MISSING_MODEL_STOP };
   const expectedRejection = scope.turnIndex === scenario.turns.length - 1 && scenario.expected?.actionRejected !== undefined;
   if (expectedRejection) return { transcriptTurn: transcriptTurn(scope, {}, undefined, response.status) };
   addCheck(scope.checks, "http-request-accepted", false, `${response.status} ${errorCode(response.body) ?? ""}`.trim());
@@ -376,8 +386,9 @@ function refusedTurn(scope: TurnScope, response: { readonly status: number; read
 
 /**
  * Raw provider checks per action and per attempt (review F3): a discarded first attempt that revealed the
- * solution is still raw model evidence. An explanation gets the generic and the leak checks, an answer or a
- * question the full checks; every attempt must name its model (R-ID-4, review F4).
+ * solution is still raw model evidence, also when the turn ends in a failure (review G2). Each turn runs them
+ * exactly once. An explanation gets the generic and the leak checks, an answer or a question the full checks.
+ * Every attempt must name its model (R-ID-4, review F4); one that does not is attributed to no model.
  */
 function rawTurnChecks(scope: TurnScope, body: Body): boolean {
   const { context, turn, turnIndex, checks, violations, state } = scope;
@@ -387,6 +398,8 @@ function rawTurnChecks(scope: TurnScope, body: Body): boolean {
     const present = hasReturnedModel(capture);
     addCheck(checks, "returned-model-present", present, present ? undefined : "missing");
     modelsPresent &&= present;
+    // Without a model identity the answer is evidence about no model: the sample becomes invalid instead.
+    if (!present) continue;
     const raw = capture.response.result;
     if (turn.kind === "support" && (turn.action === "clarify" || turn.action === "hint")) {
       context.rawChecks(raw, turn, turnIndex, checks, false);
@@ -413,7 +426,7 @@ function acceptedTurn(scope: TurnScope, response: { readonly status: number; rea
   finalSupportChecks(context, response, scope);
   const record = transcriptTurn(scope, {}, delivered, response.status);
   // R-ID-4: without a proven model identity the sample says nothing about a model.
-  if (!modelsPresent) return { transcriptTurn: record, stop: { status: "invalid", invalidReason: "returned-model-missing" } };
+  if (!modelsPresent) return { transcriptTurn: record, stop: MISSING_MODEL_STOP };
   const returnedModels = turnCaptures(scope).filter(hasReturnedModel).map((capture) => capture.response!.model);
   return { transcriptTurn: record, returnedModels };
 }

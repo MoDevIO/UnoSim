@@ -12,8 +12,7 @@ import {
   type StructuredLLMProviderRequest,
 } from "./llm-provider";
 import { rankTutorModels } from "./model-preference";
-
-export const TUTOR_TEMPERATURE = 0.2;
+import { tutorTemperatureFor } from "./model-profile";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
@@ -248,7 +247,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
     const model = await this.resolveModel(request.model, credential, signal);
     const body = await this.requestChatCompletion({
       model,
-      temperature: TUTOR_TEMPERATURE,
+      temperature: tutorTemperatureFor(model),
       messages: [
         { role: "system", content: request.systemPrompt },
         { role: "user", content: request.userPrompt },

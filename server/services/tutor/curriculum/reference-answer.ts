@@ -75,7 +75,9 @@ export interface ReviewedProgram {
  *
  * The one allowed change is the initial value of a variable the question itself sets (`assumptions`, e.g.
  * `a = 200`), and only at its single file-scope declaration with an explicitly named type and a plain
- * literal (`byte a = 37;`); the replacement keeps the literal's kind and suffix, so the type cannot change.
+ * literal (`byte a = 37;`), in a program of one file with no preprocessor directive before that declaration
+ * (a macro could turn the type name into `auto`, review G1); the replacement keeps the literal's kind and
+ * suffix, so the type cannot change.
  * Every other assignment to that variable stays fixed. Where that declaration cannot be identified safely, no
  * value may change. Anything else makes the reference inapplicable, so it neither grades nor is shown.
  */
@@ -83,9 +85,11 @@ export function referenceAppliesTo(reference: ReferenceAnswer, current: Reviewed
   if (!reviewed) return false;
   if ((current.board ?? DEFAULT_BOARD_ID) !== (reviewed.board ?? DEFAULT_BOARD_ID)) return false;
   if (!reference.requiresCode.every((line) => codeContainsLine(reviewed.code, line))) return false;
-  if (!matchesReviewedSource(current.code, reviewed.code, initialValueSites(reviewed.code, assumedVariables(reference)))) return false;
   const reviewedHeaders = reviewed.headers ?? [];
   const currentHeaders = current.headers ?? [];
+  // Another project file can define macros or code the entry file sees, so a value may change only in a single file.
+  const sites = reviewedHeaders.length === 0 ? initialValueSites(reviewed.code, assumedVariables(reference)) : [];
+  if (!matchesReviewedSource(current.code, reviewed.code, sites)) return false;
   if (reviewedHeaders.length !== currentHeaders.length) return false;
   return reviewedHeaders.every(({ name, content }) => {
     const match = currentHeaders.find((header) => header.name === name);
@@ -160,8 +164,8 @@ function assumedVariables(reference: ReferenceAnswer): ReadonlySet<string> {
  * The offsets of the initial values that may change: for each assumed variable, the literal of its only
  * declaration `<type words> name = <literal>;` in the file-scope preamble, the lines before the first `{`.
  * The preamble is scanned like C++: a closed block or line comment (such as an Example's header comment) is
- * fine, but a string or character literal, a line continuation or a conditional directive makes the rest
- * uncertain, so the scan stops there. A declaration inside a comment never counts. When no single safe
+ * fine, but a string or character literal, a line continuation or any preprocessor directive (`#`, or the
+ * digraph `%:`) makes the rest uncertain, so the scan stops there: a macro can change what a type name means. A declaration inside a comment never counts. When no single safe
  * declaration exists for a variable, it gets no site, and its value may not change.
  */
 /** Where the reviewed program's initial value of an assumed variable stands, and the shape a replacement keeps. */
@@ -193,7 +197,6 @@ function initialValueSites(code: string, variables: ReadonlySet<string>): readon
 
 /** One preamble line: still in a block comment after it, plain code, or the end of the safe preamble. */
 function scanPreambleLine(line: string, inBlockComment: boolean): "code" | "block-comment" | "unsafe" {
-  if (!inBlockComment && CONDITIONAL_DIRECTIVE.test(line)) return "unsafe";
   let inBlock = inBlockComment;
   for (const [token] of line.matchAll(PREAMBLE_TOKENS)) {
     if (inBlock) {
@@ -211,11 +214,11 @@ function scanPreambleLine(line: string, inBlockComment: boolean): "code" | "bloc
   return inBlock ? "block-comment" : "code";
 }
 
-/** Comment markers, and what ends the safe preamble: a brace, a string or a character literal. */
-const PREAMBLE_TOKENS = /\/\*|\*\/|\/\/|[{"']/g;
-
-/** A conditional directive may leave a later declaration out of the program. */
-const CONDITIONAL_DIRECTIVE = /^\s*#\s*(?:if|ifdef|ifndef|elif|else|endif)\b/;
+/**
+ * Comment markers, and what ends the safe preamble: a brace, a string or character literal, or a preprocessor
+ * directive (`#` or `%:`), which may define a macro or leave a later declaration out of the program.
+ */
+const PREAMBLE_TOKENS = /\/\*|\*\/|\/\/|%:|[{"'#]/g;
 const DECLARATION = /^(\s*(?:[A-Za-z_]\w*\s+)+)([A-Za-z_]\w*)(\s*=\s*)(\S+?)(\s*;\s*(?:\/\/.*)?)$/;
 
 function declarationSite(line: string, variables: ReadonlySet<string>): ({ name: string } & ValueSite) | undefined {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { KiconnectProvider, TUTOR_TEMPERATURE } from "../../../../server/services/tutor/kiconnect-provider";
+import { KiconnectProvider } from "../../../../server/services/tutor/kiconnect-provider";
+import { TUTOR_TEMPERATURE, tutorTemperatureFor } from "../../../../server/services/tutor/model-profile";
 import { config } from "../../../../server/config";
 
 describe("KiconnectProvider", () => {
@@ -110,6 +111,19 @@ describe("KiconnectProvider", () => {
       ],
     });
     expect(JSON.parse(String(init.body))).not.toHaveProperty("response_format");
+  });
+
+  it("sends the temperature of the resolved model's profile: 1 for openai-gpt5.5, also when Automatic chose it", async () => {
+    for (const requested of ["openai-gpt5.5", "auto"]) {
+      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => new Response(JSON.stringify(url.endsWith("/models")
+        ? { data: [{ id: "openai-gpt5.5" }] }
+        : { model: "gpt-5.5-2026-04-24", choices: [{ message: { content: "{\"responseStyle\":\"normal\",\"question\":\"Was gibt der erste Durchlauf aus?\"}" } }] }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      await new KiconnectProvider().generateLearningQuestion({ model: requested, systemPrompt: "system", userPrompt: "user" }, "request-key");
+      const body = JSON.parse(String((fetchMock.mock.calls.at(-1) as [string, RequestInit])[1].body));
+      expect(body).toMatchObject({ model: "openai-gpt5.5", temperature: 1 });
+    }
+    expect(tutorTemperatureFor("openai-gpt5.4-mini")).toBe(TUTOR_TEMPERATURE);
   });
 
   it("requests JSON-object output and returns the response model with the parsed value", async () => {

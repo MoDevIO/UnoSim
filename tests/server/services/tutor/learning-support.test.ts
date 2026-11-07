@@ -127,6 +127,26 @@ describe("reference answers (CourseContent SSOT 6.4)", () => {
       expect(referenceAppliesTo(assumed, program(sketch("char a = 66;")), program(sketch("char a = 'A';")))).toBe(false);
     });
 
+    it("gives no value site after a preprocessor directive or in a program of several files (review G1)", () => {
+      const assumed = reference(["a = 200"]);
+      // byte becomes auto: 0x25 is int, 0x80000000 unsigned int, so after a = 200 the print gives 0 and 1.
+      const macro = (prefix: string, value: string) => `${prefix}byte a = ${value};\nvoid setup() {\n  a = 200;\n  Serial.print(a - 201 > 0);\n  Serial.print(a);\n}\nvoid loop() {}\n`;
+      for (const prefix of ["#define byte auto\n", "/**/#define byte auto\n", "%:define byte auto\n", "#include <Arduino.h>\n"]) {
+        expect(referenceAppliesTo(assumed, program(macro(prefix, "0x25")), program(macro(prefix, "0x25")))).toBe(true);
+        expect(referenceAppliesTo(assumed, program(macro(prefix, "0x80000000")), program(macro(prefix, "0x25")))).toBe(false);
+      }
+      // A directive inside a comment changes nothing, and a directive after the declaration cannot reach its type.
+      expect(referenceAppliesTo(assumed, program(macro("// #define byte auto\n", "0x80")), program(macro("// #define byte auto\n", "0x25")))).toBe(true);
+      const after = (value: string) => `byte a = ${value};\n#define TWICE(x) ((x) * 2)\nvoid setup() {\n  Serial.print(a);\n}\nvoid loop() {}\n`;
+      expect(referenceAppliesTo(assumed, program(after("200")), program(after("37")))).toBe(true);
+      // Another project file may define the macro: only the exact program applies.
+      const files = (value: string) => ({ code: `#include "types.h"\n${macro("", value)}`, headers: [{ name: "types.h", content: "#define byte auto\n" }] });
+      expect(referenceAppliesTo(assumed, files("0x25"), files("0x25"))).toBe(true);
+      expect(referenceAppliesTo(assumed, files("0x80000000"), files("0x25"))).toBe(false);
+      const plain = (value: string) => ({ code: macro("", value), headers: [{ name: "notes.h", content: "// nothing\n" }] });
+      expect(referenceAppliesTo(assumed, plain("0x80"), plain("0x25"))).toBe(false);
+    });
+
     it("gives no value site when the declaration is not certainly plain file scope", () => {
       const assumed = reference(["a = 200"]);
       const variants = [

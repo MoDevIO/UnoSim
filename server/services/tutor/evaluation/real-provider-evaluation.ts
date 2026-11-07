@@ -21,7 +21,7 @@ import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
 import type { TutorQualityExpectation, TutorQualityTransport } from "./anchor-corpus";
 import { canonicalDigest, canonicalJson } from "./canonical";
-import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
+import { tutorTemperatureFor } from "../model-profile";
 import {
   buildJudgeInput,
   callJudge,
@@ -427,7 +427,7 @@ function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string 
     },
     parameters: {
       timeoutMs: options.timeoutMs,
-      temperature: TUTOR_TEMPERATURE,
+      temperature: tutorTemperatureFor(options.requestedModel),
       sampleCount: options.samples,
       maxCalls: options.maxCalls,
       difficulties: options.scenarios.flatMap((scenario) => scenario.turns.map((turn) => turn.difficulty ?? 30)),
@@ -469,7 +469,7 @@ function metadata(
     sampleDurationMs,
     providerCalls,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    temperature: TUTOR_TEMPERATURE,
+    temperature: tutorTemperatureFor(options.requestedModel),
     maxCalls: options.maxCalls,
   };
 }
@@ -813,8 +813,12 @@ function processCaptures(
     if (!capture.response) continue;
     const present = hasReturnedModel(capture);
     addCheck(checks, "returned-model-present", present, present ? undefined : "missing");
-    if (present) returnedModel = capture.response.model;
-    else invalidReason = "returned-model-missing";
+    if (!present) {
+      // R-ID-4: an answer without a model identity is evidence about no model; the sample becomes invalid.
+      invalidReason = "returned-model-missing";
+      continue;
+    }
+    returnedModel = capture.response.model;
     deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
   }
   return { ...(returnedModel ? { returnedModel } : {}), ...(invalidReason ? { invalidReason } : {}) };
