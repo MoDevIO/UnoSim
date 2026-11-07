@@ -223,7 +223,7 @@ function validatePhaseStrategies(manifest: CourseContentTutorManifest, strategyI
 
 function validateTopicExtensions(topics: readonly CurriculumTopic[], topicIds: ReadonlySet<string>): void {
   for (const topic of topics) {
-    const extensions = topic.schemaVersion === 2 ? topic.extensions ?? [] : [];
+    const extensions = topic.schemaVersion === 1 ? [] : topic.extensions ?? [];
     for (const extension of extensions) {
       if (!topicIds.has(extension.topic)) throw new Error(`Tutor extension target is not enumerated: ${extension.topic}`);
     }

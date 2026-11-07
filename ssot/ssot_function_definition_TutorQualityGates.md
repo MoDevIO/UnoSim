@@ -2,6 +2,10 @@
 
 Status: normative for deterministic Tutor quality gates.
 
+> Extension (2026-11-06): section 8 specifies the additional gates for
+> LearningQuestions 3.10; they are implemented as deterministic tests (listed in
+> section 8). The central TODO list is LearningQuestions section 21.
+
 ## 1. Scope and quality model
 
 The Tutor's primary quality objective is learning support: each turn should help
@@ -149,3 +153,55 @@ sampling, LLM-as-Judge, human review studies, empirical learning-progress
 measurement, adaptive Strategy selection, and a broad fact-extractor expansion.
 Those belong to later layers and may consume Stage 1 scenario traces and stable
 case IDs without changing the deterministic contract.
+
+## 8. Learning-support gates
+
+The authoritative didactic contract is
+[LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen),
+with the central TODO list in section 21. These requirements extend the
+existing hard gate when the feature is implemented; they are not claims about
+the current gate's coverage.
+
+The deterministic tests MUST exercise:
+
+- separate answer-attempt and clarification counters bound to one server-owned
+  question/session/context; complete numeric answers such as `1` count;
+- no skip before two successful learner-requested clarifications, skip
+  available after the second, including with zero answer attempts;
+- no reference-answer access before three answer attempts, voluntary access
+  after the third, further attempts allowed, no forced extra attempts after a
+  correct answer and no solution revealed by skipping;
+- no rating, Difficulty change or positive mastery/deepening evidence from
+  clarification, hints, reference-answer viewing or skipping;
+- retained identity and counters across rewording and the history sliding
+  window; correct reset/invalidation on new dialog or material context change;
+- no extra counting on duplicate requests, technical retry, failure, abort or
+  conflicting concurrent actions; no cross-session state or forged unlocks;
+- preservation of the question until an explicit permitted transition,
+  meaningful open completion if no next question exists, and no automatic
+  advance merely because a second answer was weak;
+- action-specific output validation: intentional clarification/retry is not
+  rejected as an accidental repeated question; an authorized reference answer
+  is not rejected as a solution leak; normal questions and hints still cannot
+  reveal the sought answer or provide a replacement sketch;
+- reference applicability to actual code, board and question assumptions;
+  old schemas and content without references remain usable.
+
+Implemented in `tests/server/routes/tutor-learning-support.routes.test.ts`
+(HTTP), `tests/server/services/tutor/learning-support.test.ts`,
+`learning-support-planning.test.ts`, the IT06.4 cases in
+`answered-question-context.test.ts` and `question-quality-regressions.test.ts`,
+`tests/client/tutor-learning-support.test.tsx` and `e2e/tutor-learning.spec.ts`.
+
+These cases use the real production state machine, schemas and planner with
+only the provider faked. Route tests additionally exercise the real HTTP
+boundary. UI tests prove that learner-visible actions, explanations of
+unavailable actions, focus and assistance status match server state.
+
+The existing invariants 4/5 and 8/9 apply to newly selected questions and
+regular question/feedback output. Their planned, explicit exceptions are
+question-preserving retry/clarification and an authorized reference-answer
+action under LearningQuestions R-SUP-7. These exceptions must not disable the
+guards globally. Fake-provider tests prove the protocol, not correct grading
+by a real model; the complementary live/HTTP requirements are in
+[TutorQualityEvaluation section 15](ssot_function_definition_TutorQualityEvaluation.md#15-planned-learning-support-and-http-dialog-evaluation-not-implemented).

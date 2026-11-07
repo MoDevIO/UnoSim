@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { boundedArray } from "../../shared/bounded-array";
 import { compileRequestSchema, clientToServerWSMessageSchema } from "../../shared/schema";
-import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor";
+import { tutorDialogRequestSchema, tutorQuestionRequestSchema } from "../../shared/tutor-requests";
 
 /**
  * An array schema validates every element of an array that is too long, unless the length is checked

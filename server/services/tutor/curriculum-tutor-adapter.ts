@@ -38,6 +38,7 @@ import {
   deepeningCriteria,
   hasMetDeepeningCriteria,
   markExpansionTargetUsed,
+  markQuestionLeft,
   markTopicMastered,
   resetTutorProgressionState,
   type DidacticPhase,
@@ -63,6 +64,8 @@ type TutorFollowupInput = {
   readonly difficulty: TutorDifficulty;
   readonly exampleId?: string;
   readonly courseContent?: TutorPlanningContentContext;
+  /** In the learning-support cycle the answered focus question stays bound to its focus (R-SUP-3). */
+  readonly supportCycle?: boolean;
 };
 
 export class CurriculumTutorAdapter implements TutorPlanningExtension {
@@ -102,14 +105,14 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const readOnly = snapshot?.progressionState
       ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
       : snapshot;
-    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     return answeredQuestionPlan(context, input.currentQuestion, input.history);
   }
 
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
-    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
     if (!context) return null;
     if (context.blocked) return context.blocked;
     // The session view of the answered turn's past, taken before the answer is recorded: the
@@ -123,6 +126,22 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!refreshed) return null;
     if (refreshed.blocked) return refreshed.blocked;
     return this.continueFollowup(context, refreshed, input, stateUpdate, answeredHistory);
+  }
+
+  async planRetry(input: TutorFollowupInput & { readonly assisted: boolean }): Promise<TutorPlanningResult | null> {
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
+    if (!context) return null;
+    if (context.blocked) return context.blocked;
+    // An answer after the reference answer was shown repeats it; it is no evidence (R-SUP-5).
+    if (!input.assisted) recordFollowupObservation(context, input);
+    return answeredQuestionPlan(context, input.currentQuestion, input.history);
+  }
+
+  async leaveQuestion(input: Omit<TutorFollowupInput, "rating">): Promise<void> {
+    const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
+    if (!context || context.blocked) return;
+    const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
+    if (question) markQuestionLeft(context.state, context.topic.id, question.id);
   }
 
   private continueFollowup(
@@ -213,10 +232,15 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     };
   }
 
-  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string) {
+  /**
+   * `boundQuestion` is the question the learner just answered or acts on: while it belongs to a Topic (the
+   * teacher's focus or a repository Topic), that Topic stays selected for it, so its outcome is recorded even
+   * when the Topic has no other question left (LearningQuestions R-SUP-3, review N2).
+   */
+  private async match(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, supplied?: TutorPlanningContentContext, exampleId?: string, boundQuestion?: string) {
     if (!supplied) return null;
     try {
-      return this.matchCourseContent(code, history, difficulty, supplied, exampleId);
+      return this.matchCourseContent(code, history, difficulty, supplied, exampleId, boundQuestion);
     } catch (error) {
       // The free Tutor stays available, but a failing planner must be visible.
       this.logger.warn(`Course Content planning failed; continuing without a plan: ${describeError(error)}`);
@@ -225,8 +249,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   }
 
   /** Resolves the Topic and phase for this request, then records the selection in the session state. */
-  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): AdapterContext | null {
-    const resolution = this.resolveMatch(code, history, difficulty, snapshot, requestedExampleId);
+  private matchCourseContent(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string, boundQuestion?: string): AdapterContext | null {
+    const resolution = this.resolveMatch(code, history, difficulty, snapshot, requestedExampleId, boundQuestion);
     return resolution ? applyMatch(resolution) : null;
   }
 
@@ -234,7 +258,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
    * Pure part of the match: reads the session state (as if reset when it belongs to another
    * revision) and changes nothing.
    */
-  private resolveMatch(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string): MatchResolution | null {
+  private resolveMatch(code: string, history: readonly TutorDialogTurn[], difficulty: TutorDifficulty, snapshot: TutorPlanningContentContext, requestedExampleId?: string, boundQuestion?: string): MatchResolution | null {
     const exampleContextId = snapshot.exampleId ?? requestedExampleId;
     const annotation = exampleContextId === undefined ? undefined : snapshot.exampleTutorAnnotation;
     if (snapshot.tutor?.status !== "valid" || (snapshot.tutor.topics.length === 0 && annotation?.focus === undefined)) return null;
@@ -249,10 +273,13 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const view = resetsRevision ? createTutorProgressionState(snapshot.revision) : state;
     const learnStrategy = this.resolveSnapshotStrategy(snapshot, annotation, "LEARN");
     const classifications = classifyMatches(orderedMatches, facts, history, view, difficulty, learnStrategy.strategy);
+    // The question the learner acts on keeps its Topic selected, focus or not, even when that Topic has no
+    // other question left: its answer must still be recorded (LearningQuestions R-SUP-3, review N2).
+    const bound = boundQuestion === undefined ? undefined : classifications.find(({ match }) => boundToTopic(match.topic, view, boundQuestion, history));
     // A finished focus (mastered, or out of questions) hands over to the free Tutor.
-    const retryPending = inline !== undefined && focusRetryPending(inline.topic, view);
+    const retryPending = bound !== undefined || (inline !== undefined && focusRetryPending(inline.topic, view));
     const open = focusThenFree && !retryPending ? classifications.filter(({ classification }) => classification.status === "probeable") : classifications;
-    const selected = selectProgressionMatch(open, view);
+    const selected = bound ?? selectProgressionMatch(open, view);
     if (!selected) return { state, revision: snapshot.revision, resetsRevision, selection: null };
     const topic = selected.match.topic;
     const phase = phaseForTopic(view, topic.id, selected.classification.status);
@@ -386,7 +413,7 @@ function resolveExtensionTarget(
 ): string | undefined {
   if (!previousTopicId || previousPhase !== "EXPAND" || previousTopicId === nextTopicId) return undefined;
   const previousTopic = topics.find(({ id }) => id === previousTopicId);
-  return previousTopic?.schemaVersion === 2 && previousTopic.extensions?.some(({ topic }) => topic === nextTopicId)
+  return previousTopic !== undefined && previousTopic.schemaVersion !== 1 && previousTopic.extensions?.some(({ topic }) => topic === nextTopicId)
     ? nextTopicId
     : undefined;
 }
@@ -397,7 +424,7 @@ function resolveExpansionBrief(
   phase: DidacticPhase,
   state: TutorProgressionState,
 ): TutorExpansionBrief | undefined {
-  if (phase !== "EXPAND" || topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  if (phase !== "EXPAND" || topic.schemaVersion === 1 || !topic.extensions) return undefined;
   const usedTargets = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
   const extension = topic.extensions.find(({ topic: targetTopicId }) =>
     topics.some(({ id }) => id === targetTopicId) && !usedTargets.has(targetTopicId),
@@ -493,6 +520,12 @@ function focusRetryPending(topic: CurriculumTopic, state: TutorProgressionState)
   return last !== undefined && last.rating <= 2 && evidence.filter(({ questionId }) => questionId === last.questionId).length === 1;
 }
 
+/** The bound question is a question of this Topic that was not left; its answer still belongs to the Topic. */
+function boundToTopic(topic: CurriculumTopic, state: TutorProgressionState, boundQuestion: string, history: readonly TutorDialogTurn[]): boolean {
+  const question = findCurriculumQuestion(topic, boundQuestion, history);
+  return question !== null && !(state.leftQuestionIds?.[topic.id] ?? []).includes(question.id);
+}
+
 /**
  * After a weak answer the Tutor gives a hint and asks the same focus question once more, so that a learner
  * can still show the understanding; a second weak answer moves on and leaves the area open.
@@ -563,13 +596,20 @@ function sessionHistory(
     responseStyle: "normal",
     ...(rated ? { answerRating: observation.rating } : {}),
   }));
+  // A skipped question, or one closed after the reference answer, stays used but without a rating (R-SUP-5).
+  const leftTurns = (state.leftQuestionIds?.[topic.id] ?? []).map((questionId): TutorDialogTurn => ({
+    question: textById.get(questionId) ?? questionId,
+    questionId,
+    answer: "",
+    responseStyle: "normal",
+  }));
   const dialogTurns = history.map((turn) => {
     const questionId = resolveTurnQuestion(topic, turn)?.id;
     if (questionId === undefined || !storedRatingIds.has(questionId)) return turn;
     const { answerRating: _storedInstead, ...unrated } = turn;
     return { ...unrated, questionId };
   });
-  return [...evidenceTurns, ...dialogTurns];
+  return [...evidenceTurns, ...leftTurns, ...dialogTurns];
 }
 
 /** The question being answered, as a used turn without a rating of its own. */
@@ -609,7 +649,7 @@ function expansionQuestionText(objective: string): string {
 // the application already recorded as delivered for this Topic; the text is built
 // by the same function that generated it.
 function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgressionState, currentQuestion: string): string | undefined {
-  if (topic.schemaVersion !== 2 || !topic.extensions) return undefined;
+  if (topic.schemaVersion === 1 || !topic.extensions) return undefined;
   const delivered = new Set(state.usedExpansionTargetTopicIds[topic.id] ?? []);
   return topic.extensions.find(({ topic: targetTopicId, objective }) =>
     delivered.has(targetTopicId) && expansionQuestionText(objective) === currentQuestion,
@@ -620,7 +660,7 @@ function answeredExpansionTarget(topic: CurriculumTopic, state: TutorProgression
 // application delivered for this Topic, or a Topic question. Reserves nothing in the state.
 function answeredQuestionPlan(context: AdapterContext, currentQuestion: string, history: readonly TutorDialogTurn[]): TutorPlan | null {
   const expansionTargetId = answeredExpansionTarget(context.topic, context.state, currentQuestion);
-  const extension = expansionTargetId && context.topic.schemaVersion === 2
+  const extension = expansionTargetId && context.topic.schemaVersion !== 1
     ? context.topic.extensions?.find(({ topic }) => topic === expansionTargetId)
     : undefined;
   if (extension) {

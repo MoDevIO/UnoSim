@@ -6,6 +6,27 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ### Added
 
+- **Tutor learning support** (LearningQuestions 3.10): besides answering, the
+  learner can have the question explained or ask for a hint at any time; after
+  two explanations the question may be skipped, after three own answers a
+  reviewed reference answer with explanation can be requested. None of these
+  is rated or counts as understanding. The server keeps the counters, so a
+  retry or a parallel request does not count twice. Course content can add
+  reference answers with annotation and Topic `schemaVersion: 3`; a reference
+  applies only while the learner's program and board are exactly the reviewed
+  ones, apart from the initial value the question itself sets.
+- **Tutor model choice for operators:** `UNOSIM_TUTOR_AUTO_MODELS` names the
+  exact models **Automatic** may use, in order (default `openai-gpt5.5`, the
+  only model that passed the live comparison); **Automatic** never falls back
+  to another model and instead asks the learner to choose one manually. No
+  model family is preferred by the application, and embedding models are
+  never chosen. The
+  key view names the model of the last answer. `openai-gpt5.5`, which accepts
+  only temperature 1, now receives that value and can be used with the Tutor.
+- **Tutor quality evaluation over HTTP:** corpus cases with
+  `transport: http` replay the learning-support dialog over the Tutor routes
+  and report application, raw-model and technical results apart.
+
 - I/O Registry now has **Programmed Pins (n)**, **All Pins**, and **Pin Infos**
   tabs. The usage views retain runtime provenance, conflict markers, and
   file-aware source links with the shared eye-button state. Pin Infos provides
@@ -17,6 +38,12 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   the ATtiny software UART directions and all four Mega serial ports.
 
 ### Fixed
+
+- **Tutor: answers to a question that sets its own values are graded with
+  those values.** Example IT06.4 asks what the first loop pass prints when `a`
+  is 200 while the sketch starts with `a = 37`; the correct answer `1` could be
+  called wrong. The grading now uses the question's values, and a reviewed
+  reference answer corrects a contradicting rating.
 
 - **The page no longer crashes with "Maximum update depth exceeded"** when a
   sketch prints without `delay()` and the run is paused, resumed or stopped

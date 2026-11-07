@@ -82,7 +82,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const source = parseYaml(readFileSync(fileURLToPath(new URL("../../../../../evals/tutor-quality/anchor-corpus.yaml", import.meta.url)), "utf8")) as TutorQualityCorpusSource;
     const corpus = parseTutorQualityCorpus(source, {
       sketches: new Set(source.scenarios.map(({ sketch }) => sketch)),
-      courseContentFixtures: new Set(["variables", "progression-learn", "progression-deepen", "progression-expand"]),
+      courseContentFixtures: new Set(ANCHOR_COURSE_CONTENT_FIXTURE_IDS),
     });
 
     expect(corpus.corpusVersion).toBeGreaterThanOrEqual(5);
@@ -149,7 +149,7 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 12, digest: "d2114cf7db70d736e1ae6c7702891b99b1dece84662b9935f0005887a4b9e51f" });
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 13, digest: "16a1a7f920af0ff514cd3b5ca389ff21980aff110cbb4df54328cefd2cfc78cc" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
@@ -414,5 +414,52 @@ describe("Tutor Quality anchor corpus contract", () => {
       retainedPhases: { "variables-and-serial": "DEEPEN" },
     });
     expect(content.tutor).toMatchObject({ status: "valid", topics: [{ schemaVersion: 2 }] });
+  });
+});
+
+describe("learning-support corpus fields (Evaluation SSOT 15, R-SUP-E4)", () => {
+  type Scenario = Record<string, unknown>;
+  const http = (overrides: Scenario = {}): Scenario => ({
+    id: "support",
+    sketch: "variable.ino",
+    courseContent: "variables",
+    transport: "http",
+    referenceProvenance: "hand-computed",
+    turns: [
+      { kind: "initial" },
+      { kind: "dialog", question: "Welchen Wert hat x?", answer: "x ist drei." },
+      { kind: "support", action: "clarify" },
+      { kind: "support", action: "reveal" },
+    ],
+    expected: { referenceAnswer: "3", supportAfter: { referenceShown: true, answerAttempts: 3 } },
+    ...overrides,
+  });
+  const parse = (scenario: Scenario) => () => parseTutorQualityCorpus({ corpusId: "c", corpusVersion: 1, scenarios: [scenario] }, references);
+
+  it("accepts an http scenario with support turns and learning-support expectations", () => {
+    const corpus = parse(http())();
+    expect(corpus.scenarios[0]).toMatchObject({ transport: "http", referenceProvenance: "hand-computed", turns: [{ kind: "initial" }, { kind: "dialog" }, { kind: "support", action: "clarify" }, { kind: "support", action: "reveal" }] });
+  });
+
+  it.each([
+    ["a support turn in a service scenario", { transport: undefined, expected: undefined }, /require transport http/],
+    ["a learning-support expectation in a service scenario", { transport: undefined, turns: [{ kind: "dialog", question: "Q?", answer: "A" }], expected: { learnerInput: "answer" } }, /requires transport http/],
+    ["an unknown transport", { transport: "browser" }, /transport must be service or http/],
+    ["an unknown support action", { turns: [{ kind: "initial" }, { kind: "support", action: "solve" }], expected: undefined }, /action must be/],
+    ["an unknown support turn field", { turns: [{ kind: "initial" }, { kind: "support", action: "hint", answer: "x" }], expected: undefined }, /answer is unknown/],
+    ["an http scenario without an initial turn", { turns: [{ kind: "support", action: "hint" }], expected: undefined }, /starts with an initial turn/],
+    ["a second initial turn", { turns: [{ kind: "initial" }, { kind: "initial" }], expected: undefined }, /one initial turn/],
+    ["an http dialog turn with a scripted history", { turns: [{ kind: "initial" }, { kind: "dialog", question: "Q?", answer: "A", history: [{ question: "P?" }] }], expected: undefined }, /no history or continuationOf/],
+    ["a reference answer without a final reveal", { expected: { referenceAnswer: "3" }, turns: [{ kind: "initial" }, { kind: "support", action: "hint" }] }, /requires a final reveal turn/],
+    ["a reference answer without provenance", { referenceProvenance: undefined }, /referenceProvenance is required/],
+    ["learnerInput after a support turn", { expected: { learnerInput: "answer" } }, /requires the final turn to be a dialog turn/],
+    ["an invalid learnerInput", { turns: [{ kind: "initial" }, { kind: "dialog", question: "Q?", answer: "A" }], expected: { learnerInput: "guess" } }, /learnerInput is invalid/],
+    ["an unknown support state field", { expected: { supportAfter: { stars: 3 } } }, /stars is unknown/],
+    ["an out-of-range support count", { expected: { supportAfter: { clarifications: 4 } } }, /integer from 0 to 3/],
+    ["an empty support state", { expected: { supportAfter: {} } }, /at least one field/],
+    ["an unknown rejection code", { expected: { actionRejected: "SUPPORT_CONFLICT" } }, /actionRejected is invalid/],
+    ["questionNotRepeat in an http scenario", { turns: [{ kind: "initial" }, { kind: "dialog", question: "Q?", answer: "A" }], expected: { questionNotRepeat: "exact-or-heuristic" } }, /requires transport service/],
+  ] as const)("rejects %s", (_label, overrides, message) => {
+    expect(parse(http(overrides as Scenario))).toThrow(message);
   });
 });

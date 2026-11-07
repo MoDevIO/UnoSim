@@ -1,6 +1,7 @@
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { boundedArray } from "@shared/bounded-array";
+import { referenceAnswerSchema } from "../tutor/curriculum/reference-answer";
 
 export const EMBEDDED_TUTOR_ANNOTATION_MAX_BYTES = 16 * 1024;
 const OPENING_MARKER = "/* @unosim-tutor";
@@ -28,7 +29,13 @@ const SAFE_TEXT = (max: number) => z.string().trim().min(1)
 const focusQuestionSchema = z.object({
   kind: z.enum(["recall", "concept", "application", "prediction", "transfer"]),
   text: SAFE_TEXT(500),
-}).strict();
+  /** Reviewed reference answer (schemaVersion 3, CourseContent SSOT 6.4), bound to this Example's program. */
+  reference: referenceAnswerSchema.optional(),
+}).strict().superRefine((value, context) => {
+  if (value.reference?.reviewedCode !== undefined || value.reference?.reviewedBoard !== undefined) {
+    context.addIssue({ code: "custom", path: ["reference"], message: "A focus reference is bound to its Example and has no reviewedCode or reviewedBoard" });
+  }
+});
 
 /** A teacher-authored focus area: a few questions the Tutor prefers to ask for this Example. */
 const focusAreaSchema = z.object({
@@ -41,7 +48,7 @@ const focusAreaSchema = z.object({
 export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
 
 export const embeddedTutorAnnotationSchema = z.object({
-  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   focus: boundedArray(focusAreaSchema, 8, 1).optional(),
   afterFocus: z.enum(["free", "topics"]).optional(),
   topics: boundedArray(z.string().regex(SAFE_TUTOR_ID), 32, 1).optional(),
@@ -51,6 +58,9 @@ export const embeddedTutorAnnotationSchema = z.object({
 }).strict().superRefine((value, context) => {
   if (value.schemaVersion === 1 && (value.focus !== undefined || value.afterFocus !== undefined)) {
     context.addIssue({ code: "custom", path: ["focus"], message: "focus and afterFocus require schemaVersion 2" });
+  }
+  if (value.schemaVersion !== 3 && value.focus?.some(({ questions }) => questions.some(({ reference }) => reference !== undefined))) {
+    context.addIssue({ code: "custom", path: ["focus"], message: "reference answers require schemaVersion 3" });
   }
   if (value.afterFocus !== undefined && value.focus === undefined) {
     context.addIssue({ code: "custom", path: ["afterFocus"], message: "afterFocus requires focus" });

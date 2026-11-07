@@ -168,7 +168,7 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("vertical-resizer-board")).toBeInTheDocument();
   });
 
-  it("renders the compact tutor header, key view, and dialog actions", () => {
+  it("renders the compact tutor header, key view, and dialog actions", async () => {
     const submitAnswer = vi.fn();
     const resetDialog = vi.fn();
     const generateQuestion = vi.fn();
@@ -196,6 +196,10 @@ describe("experimental workspace layout", () => {
         model: "pilot-model",
       },
       history: [],
+      transcript: [],
+      support: null,
+      completed: false,
+      requestSupport: vi.fn(),
       answer: "Meine Antwort",
       setAnswer: vi.fn(),
       submitAnswer,
@@ -306,7 +310,8 @@ describe("experimental workspace layout", () => {
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, question: { ...tutor.question!, question: "Eine neue Frage?" }, sessionRating: 3.67, ratedAnswerCount: 2 }} debugMode />);
     expect(screen.getByLabelText("Your answer")).toHaveFocus();
     fireEvent.click(screen.getByTestId("tutor-api-key-action"));
-    expect(screen.getByTestId("tutor-api-key-view")).toBeInTheDocument();
+    // The key view and the transcript load on demand.
+    expect(await screen.findByTestId("tutor-api-key-view")).toBeInTheDocument();
     expect(screen.getByLabelText("API key", { selector: "input" })).toBeInTheDocument();
     expect(screen.getByLabelText("Model")).toBeInTheDocument();
     expect(screen.getByLabelText("Start difficulty (1–100)")).toHaveValue(30);
@@ -344,11 +349,12 @@ describe("experimental workspace layout", () => {
       tutor={{
         ...tutor,
         history: [{ question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4 }],
+        transcript: [{ id: "turn-1", kind: "turn", turn: { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4, responseStyle: "normal" } }],
         sessionRating: 4,
         ratedAnswerCount: 1,
       }}
     />);
-    expect(screen.getByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
+    expect(await screen.findByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
     const feedbackLabel = screen.getByText("Tutor feedback");
     const feedbackRating = screen.getByTestId("tutor-answer-rating");
     expect(feedbackLabel.compareDocumentPosition(feedbackRating) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

@@ -198,9 +198,11 @@ describe("session-wide question repetition (strict)", () => {
       ...(state.postMasteryEvidence["session-topic"] ?? []),
     ].map(({ questionId }) => questionId);
 
-    // No new state: the session's evidence is the record of used questions.
-    const stateFields = ["revision", "activeTopicId", "phase", "masteredTopicIds", "masteryEvidence", "postMasteryEvidence", "retainedPhases", "usedExpansionTargetTopicIds", "progressionBlockedReason"];
+    // The session's evidence is the record of answered questions; only questions left without evidence
+    // (skipped, or closed after the reference answer, LearningQuestions R-SUP-5) have a list of their own.
+    const stateFields = ["revision", "activeTopicId", "phase", "masteredTopicIds", "masteryEvidence", "postMasteryEvidence", "retainedPhases", "usedExpansionTargetTopicIds", "leftQuestionIds", "progressionBlockedReason"];
     expect(Object.keys(state).filter((key) => !stateFields.includes(key))).toEqual([]);
+    expect(state.leftQuestionIds).toEqual({});
     expect(duplicates(recorded)).toEqual([]);
     expect(recorded).toEqual(answered);
   });

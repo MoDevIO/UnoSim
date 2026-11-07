@@ -37,6 +37,8 @@ export type TutorProviderErrorKind =
   | "provider-timeout"
   | "rate-limited"
   | "model-unavailable"
+  /** `Automatic` has no approved model the provider offers; a manual choice still works. */
+  | "auto-model-unavailable"
   | "invalid-response";
 
 export class TutorProviderError extends Error {

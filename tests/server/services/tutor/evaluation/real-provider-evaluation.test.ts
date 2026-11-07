@@ -11,6 +11,7 @@ import {
   type TutorQualityEvaluationScenario,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import { sha256 } from "../../../../../server/services/tutor/evaluation/canonical";
+import { createTutorQualityRunManifest } from "../../../../../server/services/tutor/evaluation/report";
 import { TutorProviderError, type LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
 const temporaryDirectories: string[] = [];
@@ -506,6 +507,16 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.stateBefore).toEqual(transcript.stateAfter);
   });
 
+  it("records the temperature of the requested model's profile, which the provider sends", async () => {
+    const provider = { ...providerFor({ responseStyle: "normal", question: "Welche Beobachtung ist belegt?" }, "gpt-5.5-2026-04-24"), listModels: async () => ["openai-gpt5.5"] };
+    const fixed = await runTutorQualityEvaluation(options(provider, { requestedModel: "openai-gpt5.5" }));
+    expect(fixed.transcripts[0]?.metadata.temperature).toBe(1);
+    expect(createTutorQualityRunManifest(options(provider, { requestedModel: "openai-gpt5.5" }), fixed.transcripts, []).temperature.tutor).toBe(1);
+    const standard = await runTutorQualityEvaluation(options(providerFor({ responseStyle: "normal", question: "Welche Beobachtung ist belegt?" })));
+    expect(standard.transcripts[0]?.metadata.temperature).toBe(0.2);
+    expect(standard.report.evaluationIdentity).not.toBe(fixed.report.evaluationIdentity);
+  });
+
   it("accepts and preserves a resolved Tutor model ID as sample provenance", async () => {
     const result = await runTutorQualityEvaluation(options(providerFor({
       responseStyle: "normal",
@@ -537,6 +548,24 @@ describe("real-provider Tutor Quality evaluation runner", () => {
     expect(transcript.executionStatus).toBe("invalid");
     expect(transcript.invalidReason).toBe("returned-model-missing");
     expect(transcript.turns[0]).not.toHaveProperty("returnedModel");
+  });
+
+  it("attributes an unnamed answer to no model: no raw-provider findings, only invalidity (R-ID-4, review G2)", async () => {
+    const result = await runTutorQualityEvaluation(options({
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion() {
+        return { model: "", result: { question: "Welche Stelle? Welcher Ausdruck?", responseStyle: "normal" } };
+      },
+    }));
+    const transcript = result.transcripts[0]!;
+
+    expect(transcript.executionStatus).toBe("invalid");
+    expect(transcript.invalidReason).toBe("returned-model-missing");
+    expect(transcript.deterministicChecks.filter(({ name }) => name === "returned-model-present").every(({ passed }) => !passed)).toBe(true);
+    expect(transcript.invariantViolations.filter(({ source }) => source === "raw-provider")).toEqual([]);
+    expect(result.report.qualityVerdict.verdict).toBe("inconclusive");
   });
 
   it("counts every provider call against the budget and stops before generation", async () => {

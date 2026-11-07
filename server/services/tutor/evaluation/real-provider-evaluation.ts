@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { TutorContentResult, TutorDialogTurn } from "@shared/tutor";
+import type { TutorContentResult, TutorDialogTurn, TutorSupportAction, TutorSupportState } from "@shared/tutor";
 import {
   inspectLearningQuestion,
   isSemanticallyRepeatedQuestion,
@@ -19,9 +19,9 @@ import {
 import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
-import type { TutorQualityExpectation } from "./anchor-corpus";
-import { canonicalDigest, canonicalJson, sha256 } from "./canonical";
-import { TUTOR_TEMPERATURE } from "../kiconnect-provider";
+import type { TutorQualityExpectation, TutorQualityTransport } from "./anchor-corpus";
+import { canonicalDigest, canonicalJson } from "./canonical";
+import { tutorTemperatureFor } from "../model-profile";
 import {
   buildJudgeInput,
   callJudge,
@@ -30,8 +30,23 @@ import {
   type TutorQualityJudgePrompt,
   type TutorQualitySemanticEvaluation,
 } from "./judge";
+import { replayHttpScenario } from "./http-replay";
 import { createTutorQualityRunManifest, writeRunArtifacts } from "./report";
-import { findRevealedLiteral } from "./reveal-check";
+import {
+  addCheck,
+  addNotApplicableCheck,
+  addViolation,
+  declaredLeakCheck,
+  EvaluationBudgetExceeded,
+  hasReturnedModel,
+  providerAttempts,
+  type ProviderCapture,
+  type TutorQualityProviderAttempt,
+  redact,
+  requestArtifact,
+  safeResult,
+  technicalError,
+} from "./evaluation-records";
 import { computeTutorQualityVerdict, type TutorQualityVerdict, type TutorQualityVerdictSample } from "./quality-verdict";
 
 export type TutorQualityExecutionStatus = "completed" | "invalid" | "technical-failure" | "not-run";
@@ -60,6 +75,11 @@ export type TutorQualityTurn =
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorDialogTurn[];
+  }
+  | {
+    readonly kind: "support";
+    readonly action: TutorSupportAction;
+    readonly difficulty?: number;
   };
 
 export interface TutorQualityEvaluationScenario {
@@ -75,6 +95,9 @@ export interface TutorQualityEvaluationScenario {
     readonly criteria: readonly { readonly id: string; readonly text: string }[];
   };
   readonly courseContent?: TutorPlanningContentContext;
+  /** `http` replays the scenario over the production Tutor routes (R-SUP-E1, R-SUP-E4); default `service`. */
+  readonly transport?: TutorQualityTransport;
+  readonly referenceProvenance?: string;
   readonly turns: readonly TutorQualityTurn[];
   readonly expected?: TutorQualityExpectation;
 }
@@ -147,13 +170,23 @@ export interface TutorQualityTranscriptTurn {
   readonly durationMs: number;
   readonly providerCalls: TutorQualityStageAProviderCallCounts;
   readonly providerRequest?: TutorQualityProviderRequestArtifact;
+  /** The delivered (last) attempt's raw result; every attempt is in `providerAttempts`. */
   readonly rawProviderResult?: Record<string, unknown>;
+  /** Every provider attempt of the turn in order, including discarded ones and errors (review F3). */
+  readonly providerAttempts?: readonly TutorQualityProviderAttempt[];
   readonly finalTutorResult?: Record<string, unknown>;
   /** Where the final follow-up question came from (R-FUP-1); recorded by TutorService at the decision site. */
   readonly followUpSource?: TutorFollowUpSource;
   readonly returnedModel?: string;
   readonly deterministicChecks: readonly TutorQualityDeterministicCheck[];
   readonly technicalError?: TutorQualityTechnicalError;
+  /** http only: the HTTP status of the turn's request. */
+  readonly httpStatus?: number;
+  /** http only: the question the turn acted on, as the application asked it. */
+  readonly askedQuestion?: string;
+  /** http only: the support state before and after the turn (count and availability transition). */
+  readonly supportBefore?: TutorSupportState;
+  readonly supportAfter?: TutorSupportState;
 }
 
 export interface TutorQualityTranscript {
@@ -213,7 +246,31 @@ export interface TutorQualityProviderCallCounts extends TutorQualityStageAProvid
   readonly judgeCalls: number;
 }
 
+/** Pass, fail and not-applicable counts of one check layer. */
+export interface TutorQualityCheckCounts {
+  readonly pass: number;
+  readonly fail: number;
+  readonly notApplicable: number;
+}
+
+/**
+ * The evidence layers kept apart (R-SUP-E4): what the application delivered, what the model returned before
+ * the application's guards and corrections (`raw-provider-*` checks), and technical reachability.
+ */
+export interface TutorQualityCheckLayers {
+  readonly application: TutorQualityCheckCounts;
+  readonly rawModel: TutorQualityCheckCounts;
+}
+
 export interface TutorQualityScenarioAggregate {
+  /** `service` calls TutorService; `http-route` replays the production Tutor routes (isolated route evidence). */
+  readonly executionEvidence: "service" | "http-route";
+  readonly referenceProvenance?: string;
+  readonly checkLayers: TutorQualityCheckLayers;
+  /** Durations of the observed turns, the learner's waiting time per request. */
+  readonly turnDurationsMs: readonly number[];
+  /** Support actions executed with their count (http only). */
+  readonly supportActions: Readonly<Record<string, number>>;
   readonly samplesRequested: number;
   readonly samplesObserved: number;
   readonly completed: number;
@@ -276,19 +333,6 @@ export interface TutorQualityEvaluationResult {
   readonly report: TutorQualityEvaluationReport;
   readonly transcripts: readonly TutorQualityTranscript[];
   readonly semanticEvaluations: readonly TutorQualitySemanticEvaluationRecord[];
-}
-
-interface ProviderCapture {
-  readonly request: LLMProviderRequest;
-  readonly response?: ProviderQuestionResult;
-  readonly error?: unknown;
-}
-
-class EvaluationBudgetExceeded extends Error {
-  constructor() {
-    super("call-budget-exhausted");
-    this.name = "EvaluationBudgetExceeded";
-  }
 }
 
 export class CountingProvider implements LLMProvider, StructuredLLMProvider {
@@ -383,7 +427,7 @@ function makeEvaluationIdentity(options: TutorQualityEvaluationOptions): string 
     },
     parameters: {
       timeoutMs: options.timeoutMs,
-      temperature: TUTOR_TEMPERATURE,
+      temperature: tutorTemperatureFor(options.requestedModel),
       sampleCount: options.samples,
       maxCalls: options.maxCalls,
       difficulties: options.scenarios.flatMap((scenario) => scenario.turns.map((turn) => turn.difficulty ?? 30)),
@@ -425,55 +469,13 @@ function metadata(
     sampleDurationMs,
     providerCalls,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-    temperature: TUTOR_TEMPERATURE,
+    temperature: tutorTemperatureFor(options.requestedModel),
     maxCalls: options.maxCalls,
   };
 }
 
-function technicalError(error: unknown): TutorQualityTechnicalError {
-  if (error instanceof EvaluationBudgetExceeded) return { kind: "call-budget-exhausted", name: error.name };
-  if (error instanceof TutorProviderError) return { kind: error.kind, name: error.name };
-  return { kind: "provider-error", name: "ProviderError" };
-}
-
-function redact(value: string, credential: string | undefined): string {
-  return credential && credential.length > 0 ? value.split(credential).join("[REDACTED]") : value;
-}
-
-function safeResult(value: unknown, credential?: string): Record<string, unknown> | undefined {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const allowed = new Set([
-    "responseStyle", "feedback", "question", "topic", "difficulty", "answerRating", "mermaid",
-    "topicId", "conceptId", "questionId", "indicatorId", "questionKind", "strategyId", "strategySource",
-    "contentRevision", "learningPhase", "activeTopicId", "masteredTopicIds", "progressionBlockedReason",
-    "extensionTargetTopicId",
-  ]);
-  const result: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (!allowed.has(key)) continue;
-    if (typeof item === "string") {
-      result[key] = redact(item, credential);
-    } else if (typeof item === "number" || typeof item === "boolean" || item === undefined) {
-      result[key] = item;
-    } else if (Array.isArray(item) && item.every((entry) => typeof entry === "string")) {
-      result[key] = item.map((entry) => redact(entry, credential));
-    }
-  }
-  return result;
-}
-
-function requestArtifact(request: LLMProviderRequest, credential?: string): TutorQualityProviderRequestArtifact {
-  return {
-    model: request.model,
-    systemPrompt: redact(request.systemPrompt, credential),
-    systemPromptDigest: sha256(request.systemPrompt),
-    userPrompt: redact(request.userPrompt, credential),
-    userPromptDigest: sha256(request.userPrompt),
-  };
-}
-
 function safeTurn(turn: TutorQualityTurn, credential?: string): TutorQualityTurn {
-  if (turn.kind === "initial") return turn;
+  if (turn.kind !== "dialog") return turn;
   return {
     ...turn,
     question: redact(turn.question, credential),
@@ -493,56 +495,6 @@ function historyFromSource(history: readonly TutorDialogTurn[] | undefined): rea
   return history ?? [];
 }
 
-function addCheck(
-  checks: TutorQualityDeterministicCheck[],
-  name: string,
-  passed: boolean,
-  details?: string,
-): void {
-  checks.push({ name, outcome: passed ? "pass" : "fail", passed, ...(details ? { details } : {}) });
-}
-
-function addNotApplicableCheck(
-  checks: TutorQualityDeterministicCheck[],
-  name: string,
-  reason: string,
-  details?: string,
-): void {
-  checks.push({ name, outcome: "not-applicable", passed: false, reason, ...(details ? { details } : {}) });
-}
-
-function addViolation(
-  violations: TutorQualityInvariantViolation[],
-  code: string,
-  source: TutorQualityInvariantViolation["source"],
-  turnIndex: number | undefined,
-  details?: string,
-): void {
-  violations.push({ code, source, ...(turnIndex === undefined ? {} : { turnIndex }), ...(details ? { details } : {}) });
-}
-
-function declaredLeakCheck(
-  rawResult: unknown,
-  literals: readonly string[] | undefined,
-  turnIndex: number,
-  checks: TutorQualityDeterministicCheck[],
-  violations: TutorQualityInvariantViolation[],
-): void {
-  if (literals === undefined) return;
-  const raw = typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)
-    ? rawResult as { feedback?: unknown; question?: unknown }
-    : {};
-  const texts = [raw.feedback, raw.question].filter((text): text is string => typeof text === "string");
-  if (texts.length === 0) {
-    addNotApplicableCheck(checks, "raw-provider-no-declared-leak", "raw-provider-no-readable-text");
-    return;
-  }
-  // A miss only means that no declared literal occurred (R-REV-3).
-  const revealed = findRevealedLiteral(texts, literals);
-  addCheck(checks, "raw-provider-no-declared-leak", revealed === undefined, revealed);
-  if (revealed !== undefined) addViolation(violations, "solution-revealed", "raw-provider", turnIndex, revealed);
-}
-
 function deterministicRawChecks(
   rawResult: unknown,
   turn: TutorQualityTurn,
@@ -550,6 +502,7 @@ function deterministicRawChecks(
   checks: TutorQualityDeterministicCheck[],
   violations: TutorQualityInvariantViolation[],
   expected?: TutorQualityExpectation,
+  questionRetained = false,
 ): void {
   const inspection = inspectLearningQuestion(rawResult, turn.difficulty);
   const issueCodes = new Set(inspection.violations.map(({ code }) => code));
@@ -574,6 +527,11 @@ function deterministicRawChecks(
   // A schema-valid result always has a question; without readable text there is nothing to compare.
   if (typeof question !== "string") {
     addNotApplicableCheck(checks, "raw-provider-question-not-repeated", "raw-provider-schema-invalid");
+    return;
+  }
+  // R-SUP-7: after a weak answer in the learning-support cycle the application keeps the question on purpose.
+  if (questionRetained) {
+    addNotApplicableCheck(checks, "raw-provider-question-not-repeated", "question-retained-by-support");
     return;
   }
   const previous = [turn.question, ...(turn.history ?? []).map(({ question: historyQuestion }) => historyQuestion)];
@@ -786,13 +744,13 @@ interface InvokedTutorTurn {
 }
 
 interface ProcessedCapture {
-  readonly returnedModel?: string;
+  readonly returnedModels: readonly string[];
   readonly invalidReason?: string;
 }
 
 interface SampleTurnOutcome {
   readonly transcriptTurn?: TutorQualityTranscriptTurn;
-  readonly returnedModel?: string;
+  readonly returnedModels?: readonly string[];
   readonly executionStatus?: Extract<TutorQualityExecutionStatus, "invalid" | "technical-failure">;
   readonly invalidReason?: string;
   readonly terminalError?: TutorQualityTechnicalError;
@@ -801,6 +759,8 @@ interface SampleTurnOutcome {
 
 function invalidTurnContext(context: SampleTurnContext): string | undefined {
   const { turn, turnIndex, finalQuestions, violations } = context;
+  // A support turn exists only in an http scenario, which the http replay executes (R-SUP-E4).
+  if (turn.kind === "support") return "support-turn-requires-http";
   if (turn.kind === "initial") return undefined;
   if (turn.continuationOf !== undefined) {
     const precedingQuestion = finalQuestions.get(turn.continuationOf);
@@ -815,7 +775,7 @@ function invalidTurnContext(context: SampleTurnContext): string | undefined {
 async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutorTurn> {
   const { options, service, scenario, content, turn } = context;
   const invalidReason = invalidTurnContext(context);
-  if (invalidReason) return { invalidReason };
+  if (invalidReason || turn.kind === "support") return { invalidReason: invalidReason ?? "support-turn-requires-http" };
   try {
     if (turn.kind === "initial") {
       const response = await service.generateQuestion(scenario.sketch, options.credential, options.requestedModel, turn.difficulty ?? 30, content);
@@ -837,27 +797,31 @@ async function invokeTutorTurn(context: SampleTurnContext): Promise<InvokedTutor
   }
 }
 
-function latestCapture(provider: CountingProvider, beforeGenerationCount: number): ProviderCapture | undefined {
-  return provider.generationCaptures.length > beforeGenerationCount
-    ? provider.generationCaptures.at(-1)
-    : undefined;
+function turnCaptures(provider: CountingProvider, beforeGenerationCount: number): readonly ProviderCapture[] {
+  return provider.generationCaptures.slice(beforeGenerationCount);
 }
 
-function processCapture(
-  capture: ProviderCapture | undefined,
+/** Every attempt of the turn is raw evidence (review F3); each one must name its model (R-ID-4). */
+function processCaptures(
+  captures: readonly ProviderCapture[],
   context: SampleTurnContext,
   checks: TutorQualityDeterministicCheck[],
 ): ProcessedCapture {
-  if (!capture?.response) return {};
-  const returnedModel = capture.response.model;
-  if (typeof returnedModel === "string" && returnedModel.trim().length > 0) {
-    addCheck(checks, "returned-model-present", true);
+  const returnedModels: string[] = [];
+  let invalidReason: string | undefined;
+  for (const capture of captures) {
+    if (!capture.response) continue;
+    const present = hasReturnedModel(capture);
+    addCheck(checks, "returned-model-present", present, present ? undefined : "missing");
+    if (!present) {
+      // R-ID-4: an answer without a model identity is evidence about no model; the sample becomes invalid.
+      invalidReason = "returned-model-missing";
+      continue;
+    }
+    returnedModels.push(capture.response.model);
     deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
-    return { returnedModel };
   }
-  addCheck(checks, "returned-model-present", false, "missing");
-  deterministicRawChecks(capture.response.result, context.turn, context.turnIndex, checks, context.violations, context.scenario.expected);
-  return { invalidReason: "returned-model-missing" };
+  return { returnedModels, ...(invalidReason ? { invalidReason } : {}) };
 }
 
 function processFinalResult(
@@ -901,11 +865,12 @@ function buildTranscriptTurn(
   startedAt: Date,
   callsBefore: TutorQualityStageAProviderCallCounts,
   finishedAt: Date,
-  capture: ProviderCapture | undefined,
+  captures: readonly ProviderCapture[],
   invocation: InvokedTutorTurn,
   checks: readonly TutorQualityDeterministicCheck[],
 ): TutorQualityTranscriptTurn {
   const { options, provider, turn, turnIndex } = context;
+  const capture = captures.at(-1);
   return {
     index: turnIndex,
     input: safeTurn(turn, options.credential),
@@ -917,6 +882,7 @@ function buildTranscriptTurn(
       rawProviderResult: safeResult(capture.response.result, options.credential),
       ...(typeof capture.response.model === "string" ? { returnedModel: redact(capture.response.model, options.credential) } : {}),
     } : {}),
+    ...(captures.length > 0 ? { providerAttempts: providerAttempts(captures, options.credential) } : {}),
     ...(invocation.finalResult ? { finalTutorResult: safeResult(invocation.finalResult, options.credential) } : {}),
     ...(invocation.finalResult && invocation.followUpSource ? { followUpSource: invocation.followUpSource } : {}),
     deterministicChecks: checks,
@@ -931,13 +897,13 @@ async function executeSampleTurn(context: SampleTurnContext): Promise<SampleTurn
   const beforeGenerationCount = context.provider.generationCaptures.length;
   const invocation = await invokeTutorTurn(context);
   if (invocation.invalidReason) return { invalidReason: invocation.invalidReason, executionStatus: "invalid", stop: true };
-  const capture = latestCapture(context.provider, beforeGenerationCount);
-  const captureResult = processCapture(capture, context, checks);
+  const captures = turnCaptures(context.provider, beforeGenerationCount);
+  const captureResult = processCaptures(captures, context, checks);
   processFinalResult(context, invocation, checks);
   const finishedAt = (context.options.now ?? (() => new Date()))();
   return {
-    transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, capture, invocation, checks),
-    returnedModel: captureResult.returnedModel,
+    transcriptTurn: buildTranscriptTurn(context, startedAt, callsBefore, finishedAt, captures, invocation, checks),
+    returnedModels: captureResult.returnedModels,
     ...(invocation.error ? { executionStatus: "technical-failure" as const, terminalError: invocation.error } : {}),
     ...(captureResult.invalidReason ? { executionStatus: "invalid" as const, invalidReason: captureResult.invalidReason } : {}),
     stop: invocation.error !== undefined,
@@ -959,7 +925,7 @@ function applySampleTurnOutcome(state: SampleExecutionState, outcome: SampleTurn
   if (outcome.executionStatus === "invalid") state.executionStatus = "invalid";
   if (outcome.invalidReason) state.invalidReason = state.invalidReason ?? outcome.invalidReason;
   if (outcome.terminalError) state.terminalError = outcome.terminalError;
-  if (outcome.returnedModel) state.returnedModels.push(outcome.returnedModel);
+  if (outcome.returnedModels) state.returnedModels.push(...outcome.returnedModels);
   if (outcome.transcriptTurn) state.turns.push(outcome.transcriptTurn);
 }
 
@@ -991,6 +957,31 @@ async function executeSampleTurns(context: SampleTurnsContext): Promise<void> {
     applySampleTurnOutcome(execution, outcome);
     if (outcome.stop) break;
   }
+}
+
+/** An http scenario runs over the production Tutor routes (R-SUP-E1, R-SUP-E4); see http-replay.ts. */
+async function executeHttpReplay(context: SampleTurnsContext): Promise<void> {
+  const { options, provider, service, scenario, content, stateBefore, execution } = context;
+  const outcome = await replayHttpScenario({
+    options,
+    provider,
+    service,
+    scenario,
+    content,
+    rawChecks: (raw, turn, turnIndex, checks, questionRetained) => deterministicRawChecks(raw, turn, turnIndex, checks, execution.violations, scenario.expected, questionRetained),
+    finalChecks: (result, turn, turnIndex, checks) => {
+      const expectation = { scenario, result, turn, stateBefore, stateAfter: content?.progressionState, checks, violations: execution.violations, turnIndex };
+      expectedChecks(expectation);
+      unexpectedBlockedStateCheck(expectation);
+      applicationMetadataChecks(result, content, content?.progressionState, checks, execution.violations, turnIndex);
+    },
+  });
+  execution.turns.push(...outcome.turns);
+  execution.violations.push(...outcome.violations);
+  execution.returnedModels.push(...outcome.returnedModels);
+  execution.executionStatus = outcome.executionStatus;
+  execution.invalidReason = outcome.invalidReason;
+  execution.terminalError = outcome.technicalError;
 }
 
 function recordFailureStateCheck(
@@ -1031,10 +1022,15 @@ async function runSample(
     invalidReason: undefined,
     terminalError: undefined,
   };
-  await executeSampleTurns({ options, provider, service, scenario, content, stateBefore, execution });
+  if (scenario.transport === "http") {
+    await executeHttpReplay({ options, provider, service, scenario, content, stateBefore, execution });
+  } else {
+    await executeSampleTurns({ options, provider, service, scenario, content, stateBefore, execution });
+  }
 
   const stateAfter = content?.progressionState ? clone(content.progressionState) : undefined;
-  recordFailureStateCheck(execution.terminalError, stateBefore, stateAfter, execution.turns, execution.violations);
+  // The http replay checks the state around the failed turn itself; earlier turns may change it.
+  if (scenario.transport !== "http") recordFailureStateCheck(execution.terminalError, stateBefore, stateAfter, execution.turns, execution.violations);
   const sample = sampleTemplate(options, scenario, runId, evaluationIdentity, sampleIndex);
   const sampleFinishedAt = (options.now ?? (() => new Date()))();
   const sampleCalls = subtractStageACounts(provider.stageACounts, callsBeforeSample);
@@ -1060,8 +1056,15 @@ async function runSample(
   };
 }
 
-function emptyAggregate(samples: number): TutorQualityScenarioAggregate {
+const EMPTY_CHECK_COUNTS: TutorQualityCheckCounts = { pass: 0, fail: 0, notApplicable: 0 };
+
+function emptyAggregate(samples: number, scenario: TutorQualityEvaluationScenario): TutorQualityScenarioAggregate {
   return {
+    executionEvidence: scenario.transport === "http" ? "http-route" : "service",
+    ...(scenario.referenceProvenance ? { referenceProvenance: scenario.referenceProvenance } : {}),
+    checkLayers: { application: EMPTY_CHECK_COUNTS, rawModel: EMPTY_CHECK_COUNTS },
+    turnDurationsMs: [],
+    supportActions: {},
     samplesRequested: samples,
     samplesObserved: 0,
     completed: 0,
@@ -1144,8 +1147,19 @@ function addTranscriptToAggregate(
   const technicalErrorKinds = transcript.technicalError
     ? { ...aggregate.technicalErrorKinds, [transcript.technicalError.kind]: (aggregate.technicalErrorKinds[transcript.technicalError.kind] ?? 0) + 1 }
     : aggregate.technicalErrorKinds;
+  const checks = transcript.turns.flatMap(({ deterministicChecks }) => deterministicChecks);
+  const supportActions = { ...aggregate.supportActions };
+  for (const { input } of transcript.turns) {
+    if (input.kind === "support") supportActions[input.action] = (supportActions[input.action] ?? 0) + 1;
+  }
   return {
     ...aggregate,
+    checkLayers: {
+      application: addCheckCounts(aggregate.checkLayers.application, checks.filter(({ name }) => !name.startsWith("raw-provider-"))),
+      rawModel: addCheckCounts(aggregate.checkLayers.rawModel, checks.filter(({ name }) => name.startsWith("raw-provider-"))),
+    },
+    turnDurationsMs: [...aggregate.turnDurationsMs, ...transcript.turns.map(({ durationMs }) => durationMs)],
+    supportActions,
     samplesObserved,
     completed,
     invalid,
@@ -1156,6 +1170,14 @@ function addTranscriptToAggregate(
     providerCalls: addCounts(aggregate.providerCalls, calls),
     technicalErrorKinds,
     rates: ratesFor(completed, invalid, technicalFailures, notRun, invariantViolationSamples, samplesObserved),
+  };
+}
+
+function addCheckCounts(counts: TutorQualityCheckCounts, checks: readonly TutorQualityDeterministicCheck[]): TutorQualityCheckCounts {
+  return {
+    pass: counts.pass + checks.filter(({ outcome }) => outcome === "pass").length,
+    fail: counts.fail + checks.filter(({ outcome }) => outcome === "fail").length,
+    notApplicable: counts.notApplicable + checks.filter(({ outcome }) => outcome === "not-applicable").length,
   };
 }
 
@@ -1288,7 +1310,7 @@ export async function runTutorQualityEvaluation(options: TutorQualityEvaluationO
   const startedAt = (options.now ?? (() => new Date()))();
   const runId = makeRunId(options);
   const evaluationIdentity = makeEvaluationIdentity(options);
-  const emptyByScenario = Object.fromEntries(options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]));
+  const emptyByScenario = Object.fromEntries(options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples, scenario)]));
   const earlyResult = await createEarlyResult(options, runId, evaluationIdentity, emptyByScenario, startedAt);
   if (earlyResult) return earlyResult;
   if (!options.credential) throw new Error("Tutor credential preflight did not reject missing credentials");
@@ -1370,7 +1392,7 @@ async function evaluateSamples(
   const transcripts: TutorQualityTranscript[] = [];
   const semanticEvaluations: TutorQualitySemanticEvaluationRecord[] = [];
   const byScenario: Record<string, TutorQualityScenarioAggregate> = Object.fromEntries(
-    options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples)]),
+    options.scenarios.map((scenario) => [scenario.id, emptyAggregate(options.samples, scenario)]),
   );
   for (const scenario of options.scenarios) {
     for (let sampleIndex = 0; sampleIndex < options.samples; sampleIndex += 1) {

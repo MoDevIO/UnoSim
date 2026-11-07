@@ -19,6 +19,7 @@
         "scripts/runtime-fixtures.ts!",
         "scripts/tutor-catalog-eval.ts!",
         "scripts/tutor-quality-real-provider-eval.ts!",
+        "scripts/tutor-learning-support-live.ts!",
         "scripts/validate-tutor-course-content.mjs!",
         "scripts/deployment/gateway-deployment.ts!",
         "scripts/deployment/installer-deployment.ts!",

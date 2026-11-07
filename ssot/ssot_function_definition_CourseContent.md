@@ -4,6 +4,12 @@ Status: current
 Zielrolle: feature-contract
 Scope: unified repository-controlled Examples and optional Tutor content
 
+> Extension (2026-11-06): section 6.4 describes reference answers for the
+> learning-support contract in LearningQuestions 3.10. They are implemented as
+> annotation `schemaVersion: 3` and Topic `schemaVersion: 3`; versions 1 and 2
+> remain closed. Acceptance with live samples is still open (LearningQuestions
+> section 21, TUT-08).
+
 This document is the normative contract for the single Course Content source.
 It complements the detailed Examples contract in
 ssot_function_definition_ExternalExamples.md and the Tutor behavior contract
@@ -261,6 +267,10 @@ focus:
 afterFocus: free
 ~~~
 
+Schema version 3 retains every version 2 field and additionally allows an
+optional reviewed `reference` on a focus question (section 6.4); versions 1
+and 2 MUST NOT contain it.
+
 `focus` is an ordered list of 1 to 8 focus areas with unique safe IDs. Each
 has a bounded `title` (160) and `objective` (500) and 1 to 6 `questions`, each
 with a `kind` (`recall`, `concept`, `application`, `prediction`, `transfer`)
@@ -287,13 +297,19 @@ as another program and no question applies. Without an applicable question the
 focus is paused: the free Tutor answers, no repository Topic takes over, and
 the focus resumes if the code returns.
 
-After a weak answer (rating 1 or 2) the same focus question is asked once more,
-and the provider's feedback carries the hint. A second weak answer moves on. A
+In the learning-support cycle (LearningQuestions 3.10, every request of the
+browser) a weak answer (rating 1 or 2) keeps the focus question open with its
+identity; the provider's feedback carries the hint. Clarification keeps the
+question too; two learner-requested clarifications allow skipping, and three
+answer attempts allow the voluntary reference-answer request. A request
+without the support binding keeps the MVP rule: the same focus question is
+asked once more after a weak answer, and a second weak answer moves on. A
 focus that ran out of questions is not reported as understood: the response's
 `focusProgress` distinguishes `active`, `completed`, `open` and `paused`, names
-the open areas, and the free Tutor receives their objectives. The focus text is
-fixed, so adaptive difficulty affects feedback and the free Tutor, not the
-question.
+the open areas, and the free Tutor receives their objectives. The focus text is fixed, so
+adaptive difficulty affects feedback and the free Tutor, not the question. A
+learner-requested clarification explains that question in other words while it
+keeps its identity and learning objective.
 
 Course Content and the Tutor use the C++ terms ([basic.def], [basic.start.static]):
 every variable definition is also a declaration; `int a;` is a definition without
@@ -322,6 +338,92 @@ activate. An unterminated or otherwise malformed marker has the same safe
 deterministic outcome: no teacher metadata is exposed or executed, and the
 Tutor capability falls back completely when validation cannot establish a
 valid annotation boundary.
+
+### 6.4 Reference-answer content (schema version 3)
+
+The learning-support rules and thresholds are owned by
+[LearningQuestions 3.10](ssot_function_definition_LearningQuestions.md#310-antwortversuche-klärung-musterantwort-und-überspringen).
+The implementation backlog is its section 21 (TUT-01 to TUT-08).
+Examples, Topics and built-in questions should support reviewed reference
+answers with an explanation, explicitly bound to the question and its
+applicable sketch/board/assumptions. References are bounded plain educational
+data, never repository prompts, executable expressions, templates or replacement
+sketches. Equivalent correct answers remain acceptable; a single literal
+answer is not a universal grading rubric.
+
+A reference is attached to one question with a fixed text: a focus question in
+annotation `schemaVersion: 3`, or a Topic question (with `text`, not
+`template`) in Topic `schemaVersion: 3`:
+
+~~~yaml
+reference:
+  answer: "1"
+  explanation: "Im ersten Durchlauf ist i = 7, also 1 << 7 = 128. 200 & 128 = 128, und 128 && 1 ist wahr: Serial.print gibt 1 aus."
+  accept: ["1", "200 = 1"]          # optional, short answers that are certainly correct
+  assumptions: ["a = 200"]          # optional, values the question itself sets
+  requiresCode:                     # required, the code lines the answer depends on, in order
+    - "for (int i = 7; i >= 0; i--) {"
+    - "Serial.print(a & (1 << i) && 1);"
+  # reviewedCode: "..."             # Topic questions only (required there): the complete reviewed program
+  # reviewedBoard: uno              # Topic questions only, optional: the board it was reviewed for
+~~~
+
+`answer` (300), `explanation` (1 500), up to 8 `accept` entries (120), up to 6
+`assumptions` (160) and 1 to 8 `requiresCode` lines (160) are bounded,
+URL-free and control-character free; a code block or a replacement sketch makes
+the reference invalid. A reference is bound to the exact program and board it
+was reviewed for: a focus reference to its Example and the Example's board (it
+must carry neither `reviewedCode` nor `reviewedBoard`), a Topic reference to its
+required `reviewedCode` (at most 8 000 characters, line breaks and tabs as the
+only control characters), which must contain every `requiresCode` entry as a
+whole line, and its optional `reviewedBoard` (default `uno`). The server looks
+the reference up by the exact text of the asked question. `accept` is no universal rubric: an answer listed there
+gets 5 with a confirming feedback, and a single number that contradicts a
+numeric `answer` gets at most 2 with a neutral hint; when the reference decides,
+its feedback replaces the model's wording. Every other answer stays with the
+Tutor's judgement.
+Existing v1/v2 payloads MUST NOT silently accept new fields. Old
+content without references remains valid; a missing reference is not a Tutor
+bundle validation failure. Malformed newly declared reference data follows
+the existing atomic Tutor-validation boundary and never invalidates otherwise
+valid Examples.
+
+Reference applicability is checked against the current editor/project code,
+the board and the question's explicit assumptions, not merely the immutable
+Example revision or the presence of a variable name: every project file must
+equal the reviewed one character for character (only whitespace at the end of
+a file is ignored), with the same board. No comment, spacing or line-break
+normalization is applied, because each can change the meaning in C++ (a comment
+marker inside a string literal, the line break that ends a `#define`). The only
+allowed difference is the initial value of a variable the question itself sets
+(`assumptions`, e.g. `byte a = 37;` edited to `byte a = 200;` for `a = 200`),
+and only at its single declaration `<type> name = <plain literal>;` in the
+file-scope preamble before the first `{`. The type must be named explicitly
+with arithmetic type words (`byte`, `int`, `unsigned long`, `uint8_t`, …,
+optionally `const`, `static`, `volatile`); `auto`, `decltype` or any other name
+gives no site. The new literal keeps the reviewed literal's kind (decimal,
+hexadecimal, binary, character) and suffix, so the variable's type cannot
+change (`37` → `200`, never `37u`). The preamble is read like C++: closed
+block and line comments (such as an Example's header comment) are allowed; a
+string or character literal, a line continuation or any preprocessor directive
+(`#`, also after a comment, or the digraph `%:`) ends the safe preamble, since a
+macro such as `#define byte auto` can change what a type name means. A program
+with further project files allows no value change at all, since another file
+can define such a macro. A later assignment to the same variable never becomes
+variable. Where no single safe declaration exists, no value may change. Any
+other change, such as a negated expression, an inserted `i = 0;`, a moved line
+or a reformatted line, makes the reference inapplicable. Editing `a = 37` to `a = 200`
+must not leave a reference for the old value active. A prediction question
+explicitly assuming `a = 200` must use that assumption even when the Example
+default is 37. Stale references must not reject correct learner answers or be
+shown as verified solutions. Where no applicable, supported reference exists,
+the Tutor reports that limitation rather than inventing an authoritative answer.
+
+Repository strategies cannot lower the application-owned clarification or
+answer-attempt thresholds, request an early solution, count assistance as
+mastery, or disable the regular no-answer-reveal rules. Reference fields are
+not question text: validators and guards must distinguish a legitimate,
+authorized reference answer from a question that reveals its own answer.
 
 ## 7. Tutor manifest and Tutor bundle atomicity
 
@@ -410,7 +512,9 @@ checked, URL-free, and passed only as structured didactic context.
 Curriculum Topic `schemaVersion: 1` remains exactly this contract and has no
 `deepening` or `extensions` fields. Curriculum Topic `schemaVersion: 2`
 retains every v1 semantic and may add the optional bounded `deepening` and
-`extensions` fields defined in section 9.2. A future implementation MUST
+`extensions` fields defined in section 9.2. Curriculum Topic
+`schemaVersion: 3` retains every v2 semantic and may add a reviewed
+`reference` to a question with a fixed text (section 6.4). A future implementation MUST
 support both versions. A v1 Topic therefore continues to work unchanged and
 uses the normative application default for deepening; strict v1 validation
 does not reinterpret v2-only fields.
