@@ -38,7 +38,7 @@ Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 
 ```tsx
 <Button 
-  variant="default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  variant="default" | "outline" | "secondary" | "ghost" | "link"
   size="default" | "sm" | "lg" | "icon"
   disabled?: boolean
   asChild?: boolean  // Radix-UI Slot
@@ -51,11 +51,20 @@ Basiert auf `class-variance-authority` (CVA) für flexible Variant-Management.
 
 ---
 
+## Farben
+
+Verbindlich ist der Farbvertrag in `client/src/STYLE_GUIDE.md`. Rot ist in
+Bedienelementen Fehlern vorbehalten; Löschen, Leeren und Zurücksetzen sind
+neutrale Aktionen (`outline`, `ghost` oder `secondary`) in Ruhe, Hover und
+Fokus. Beschriftung, Tooltip und nötige Bestätigungen bleiben erhalten; auch
+die bestätigende Schaltfläche einer Löschbestätigung ist neutral. Eine
+destruktive rote Button-Variante gibt es nicht; die rote Fehlerfläche
+(`--destructive`) gehört allein zu Fehlermeldungen und Fehler-Toasts.
+
 ## Varianten (CVA-definiert)
 | Variante | Zweck | Styling |
 |----------|-------|---------|
-| `default` | Primäraktion | Blau, Hover: dunkler blau |
-| `destructive` | Destruktive Aktion | Rot, Hover: dunkler rot |
+| `default` | Die eine Primäraktion einer Ansicht | `--primary` (Grün, `#15803d`), Hover `--primary-hover` |
 | `outline` | Sekundäraktion | Border, transparent BG |
 | `secondary` | Alternative Aktion | Grau, Hover: dunkler grau |
 | `ghost` | Subtil / Navigation | Transparent, Hover: leicht grau |
@@ -89,7 +98,7 @@ Desktop-Basis bleibt davon unverändert.
 - ✅ Vollständige Tastaturbedienung (Tab, Enter, Space)
 - ✅ ARIA-Attribute für Icon-Buttons (`aria-label`)
 - ✅ Focus-Indikator sichtbar (ring-2)
-- ✅ Ausreichender Farbkontrast (WCAG AA+)
+- ✅ Farbkontrast nach dem Farbvertrag (`client/src/STYLE_GUIDE.md`, Abschnitt 3): Text mindestens 4,5:1 in Ruhe, Hover und Fokus, Fokusring und Begrenzungen mindestens 3:1; gemessen in `tests/client/color-contract.test.ts` und `e2e/color-contrast.spec.ts`
 - ✅ forwardRef für direkte Zugriffe auf DOM-Element
 
 ---
@@ -183,7 +192,7 @@ client/src/components/ui/button.tsx
   size="icon"
   className={clsx(
     "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
-    isActive ? "bg-blue-600 text-white" : "bg-transparent"
+    isActive ? "bg-primary text-primary-foreground hover:bg-primary-hover" : "bg-transparent"
   )}
 >
   <Icon className="w-5 h-5" />
