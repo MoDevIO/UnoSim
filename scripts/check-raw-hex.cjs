@@ -2,6 +2,9 @@
 /*
   check-raw-hex.cjs (CommonJS)
   See scripts/check-raw-hex.js for original notes. Implemented as .cjs because the repo uses ESM.
+  Deleted files are left out (--diff-filter=d): there is nothing to read. This gate only finds new hex
+  literals; color roles and contrast are checked by tests/client/color-contract.test.ts and
+  e2e/color-contrast.spec.ts (client/src/STYLE_GUIDE.md, section 4).
 */
 
 const { execFileSync } = require('node:child_process');
@@ -19,13 +22,13 @@ function run(args) {
 const gitBaseEnv = process.env.GIT_BASE;
 let files = [];
 if (gitBaseEnv) {
-  files = run(['diff', '--name-only', `${gitBaseEnv}...HEAD`]).split('\n').filter(Boolean);
+  files = run(['diff', '--name-only', '--diff-filter=d', `${gitBaseEnv}...HEAD`]).split('\n').filter(Boolean);
 } else {
   const hasOriginMain = run(['rev-parse', '--verify', 'origin/main']);
   if (hasOriginMain) {
-    files = run(['diff', '--name-only', 'origin/main...HEAD']).split('\n').filter(Boolean);
+    files = run(['diff', '--name-only', '--diff-filter=d', 'origin/main...HEAD']).split('\n').filter(Boolean);
   } else {
-    files = run(['diff', '--name-only', '--staged']).split('\n').filter(Boolean);
+    files = run(['diff', '--name-only', '--diff-filter=d', '--staged']).split('\n').filter(Boolean);
   }
 }
 

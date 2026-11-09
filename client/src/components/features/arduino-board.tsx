@@ -35,19 +35,19 @@ const TelemetryMetrics = memo(function TelemetryMetrics({
       {telemetry ? (
         <>
           <div className="flex flex-col leading-tight" data-testid="telemetry-pin-changes">
-            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Pin Changes</span>
-            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-pin-changes-value">
+            <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Pin Changes</span>
+            <span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-pin-changes-value">
               {telemetry.intendedPinChangesPerSecond.toFixed(0)} /s
               {telemetry.droppedPinChangesPerSecond > 0 && (
-                <span className="ml-1 text-amber-400/80" data-testid="telemetry-dropped">
+                <span className="ml-1 text-status-warning" data-testid="telemetry-dropped">
                   ({telemetry.droppedPinChangesPerSecond.toFixed(0)} dropped)
                 </span>
               )}
             </span>
           </div>
           <div className="flex flex-col leading-tight" data-testid="telemetry-batching">
-            <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Batching</span>
-            <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-batching-value">
+            <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Batching</span>
+            <span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }} data-testid="telemetry-batching-value">
               {telemetry.batchesPerSecond.toFixed(0)} bat/s ·{" "}
               {telemetry.avgStatesPerBatch.toFixed(0)} st/bat
             </span>
@@ -55,8 +55,8 @@ const TelemetryMetrics = memo(function TelemetryMetrics({
         </>
       ) : (
         <div className="flex flex-col leading-tight" data-testid="telemetry-loading">
-          <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Metrics</span>
-          <span className="font-mono text-cyan-400/50" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>…</span>
+          <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Metrics</span>
+          <span className="font-mono text-muted-foreground" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>…</span>
         </div>
       )}
     </div>

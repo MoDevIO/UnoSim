@@ -30,6 +30,7 @@ import {
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getSeverityStatus, getStatusColor, getStatusTextClass } from "@/lib/status-semantics";
+import { DATA_MARK_CLASS, PIN_MODE_CLASS, SERIAL_DIRECTION_CLASS } from "@/lib/data-colors";
 
 /** One empty row per pin of the active board, for "show all pins". */
 function allPinRecords(boardId: BoardId): IOPinRecord[] {
@@ -76,13 +77,13 @@ function getRxTxBadge(pin: number | undefined, boardId: BoardId): JSX.Element | 
   if (!serial) return null;
   const direction = serial.rxPin === pin ? "RX" : "TX";
   const portName = serial.kind === "software" ? "Software Serial" : `Serial${serial.index || ""}`;
-  return <span className={clsx("text-ui-xs font-semibold", direction === "RX" ? "text-blue-400" : "text-red-400")} title={`${portName} · ${direction}`}>{direction}</span>;
+  return <span className={clsx("text-ui-xs font-semibold", SERIAL_DIRECTION_CLASS[direction])} title={`${portName} · ${direction}`}>{direction}</span>;
 }
 
 /** PWM marking follows the explicit board, just like the reference table. */
 function getPwmTilde(pin: number | undefined, boardId: BoardId): JSX.Element | null {
   return pin !== undefined && findBoardPin(boardId, pin)?.pwm
-    ? <span className="text-yellow-400">~</span>
+    ? <span className={DATA_MARK_CLASS.pwm}>~</span>
     : null;
 }
 
@@ -130,7 +131,7 @@ function getLocationButton(
   const navigable = isNavigableSourceTarget(target);
   if (!navigable || !onGoToLine) {
     return (
-      <span className={target === 0 ? "text-yellow-400 italic" : "text-blue-400"}>
+      <span className={target === 0 ? `${DATA_MARK_CLASS.runtime} italic` : DATA_MARK_CLASS.sourceLine}>
         {target === 0 ? "runtime" : label}
       </span>
     );
@@ -179,16 +180,16 @@ function getPinModeLabel(modeNum: number): string {
 
 /** Returns tailwind color class for a named pin mode string. Fixes S3358 (nested ternary). */
 function getPinModeColor(mode: string): string {
-  if (mode === "INPUT") return "text-blue-400";
-  if (mode === "OUTPUT") return "text-orange-400";
-  return "text-green-400";
+  if (mode === "INPUT") return PIN_MODE_CLASS.input;
+  if (mode === "OUTPUT") return PIN_MODE_CLASS.output;
+  return PIN_MODE_CLASS.other;
 }
 
 /** Returns tailwind color class for a numeric pin mode value. Fixes S3358 (nested ternary). */
 function getPinModeLegacyColor(pinMode: number): string {
-  if (pinMode === 0) return "text-blue-400";
-  if (pinMode === 1) return "text-orange-400";
-  return "text-green-400";
+  if (pinMode === 0) return PIN_MODE_CLASS.input;
+  if (pinMode === 1) return PIN_MODE_CLASS.output;
+  return PIN_MODE_CLASS.other;
 }
 
 /** Renders the pinMode cell with proper fallbacks. Module-level = no re-creation on render (fixes S6481). */
@@ -431,8 +432,8 @@ function renderRegistryOperationCell({
   const seenInRun = origin === "both";
   if (!detailView) {
     return (
-      <span className="text-green-500 font-bold" title={seenInRun ? "Found in the code and seen while the simulation ran" : undefined}>
-        ✓{seenInRun && <span className="text-yellow-400 italic text-ui-xs font-normal"> ▶</span>}
+      <span className={`${getStatusTextClass("success")} font-bold`} title={seenInRun ? "Found in the code and seen while the simulation ran" : undefined}>
+        ✓{seenInRun && <span className={`${DATA_MARK_CLASS.runtime} italic text-ui-xs font-normal`}> ▶</span>}
       </span>
     );
   }
@@ -458,13 +459,13 @@ function renderRegistryOperationCell({
         : visibleLines.map((line) => (
             <div key={`line-${line}`} className="text-ui-xs">
               {line === "runtime" ? (
-                <span className="text-yellow-400 italic">runtime</span>
+                <span className={`${DATA_MARK_CLASS.runtime} italic`}>runtime</span>
               ) : (
-                <span className="text-blue-400">L{line}</span>
+                <span className={DATA_MARK_CLASS.sourceLine}>L{line}</span>
               )}
             </div>
           ))}
-      {seenInRun && <div className="text-ui-xs text-yellow-400 italic" title="Seen while the simulation ran">+ runtime</div>}
+      {seenInRun && <div className={`text-ui-xs ${DATA_MARK_CLASS.runtime} italic`} title="Seen while the simulation ran">+ runtime</div>}
     </div>
   );
 }
@@ -537,14 +538,14 @@ function IoRegistryRow({ boardId, record, index, detailView, onGoToLine }: IoReg
     <tr
       className={`border-b h-7 ${index % 2 === 0 ? "bg-background" : ""}`}
     >
-      <td className="px-2 py-1 text-right font-mono font-semibold text-cyan-400">
+      <td className={`px-2 py-1 text-right font-mono font-semibold ${DATA_MARK_CLASS.pin}`}>
         <div className="flex items-center justify-end gap-2">
           {getRxTxBadge(pinId, boardId)}
           {getPwmTilde(pinId, boardId)}
           <span>{record.pin}</span>
         </div>
       </td>
-      <td className={clsx("px-2 py-1 text-center", hasConflict && "border-2 border-red-500")}>
+      <td className={clsx("px-2 py-1 text-center", hasConflict && "border-2 border-status-error")}>
         {renderPinModeCell(
           record,
           pinModes,

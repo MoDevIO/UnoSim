@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
+import { FILE_TYPE_CLASS } from "@/lib/data-colors";
 
 interface Tab {
   id: string;
@@ -378,9 +379,9 @@ export function SketchTabs({
                   title={`${getDisplayFileName(tab.name)}${modifiedTabId === tab.id ? ", modified" : ""}`}
                 >
                   {getDisplayFileName(tab.name).toLowerCase().endsWith(".ino") ? (
-                    <Code2 className="h-3 w-3 flex-shrink-0 text-teal-600" strokeWidth={2} />
+                    <Code2 className={`h-3 w-3 flex-shrink-0 ${FILE_TYPE_CLASS.sketch}`} strokeWidth={2} />
                   ) : (
-                    <FileCode2 className="h-3 w-3 flex-shrink-0 text-purple-400" strokeWidth={2} />
+                    <FileCode2 className={`h-3 w-3 flex-shrink-0 ${FILE_TYPE_CLASS.header}`} strokeWidth={2} />
                   )}
                   <span
                     className="whitespace-nowrap overflow-hidden text-ellipsis"
@@ -456,7 +457,6 @@ export function SketchTabs({
               {activeTabId && tabs[0]?.id !== activeTabId && (
                 <DropdownMenuItem
                   onClick={() => setDeleteConfirmTabId(activeTabId)}
-                  className="text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete File
@@ -520,7 +520,7 @@ export function SketchTabs({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground"
+              variant="secondary"
             >
               Delete
             </AlertDialogAction>
@@ -579,7 +579,6 @@ export function SketchTabs({
             <AlertDialogCancel onClick={handleReplaceConfirmNo}>Nein (nur .h Dateien)</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReplaceConfirmYes}
-              className="bg-blue-600 hover:bg-blue-700"
             >
               Ja (Sketch ersetzen)
             </AlertDialogAction>

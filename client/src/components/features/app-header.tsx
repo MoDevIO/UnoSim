@@ -128,8 +128,8 @@ function _getDesktopSimulateButtonClass(
     "h-[var(--ui-button-height)] min-w-[10rem] px-4 pr-12 flex items-center justify-center gap-2 relative rounded-md border shadow-xs",
     "text-white font-medium transition-colors",
     {
-      "bg-orange-500 hover:bg-orange-600": clientState === "RUNNING" && !disabled,
-      "bg-green-600 hover:bg-green-700":
+      "bg-run-stop hover:bg-run-stop-hover": clientState === "RUNNING" && !disabled,
+      "bg-primary hover:bg-primary-hover":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
       "bg-gray-500 hover:bg-gray-500":
         (clientState === "QUEUED_FOR_COMPILING" ||
@@ -156,8 +156,8 @@ function _getMobileSimulateButtonClass(
     "!h-[var(--ui-button-height)] !min-h-[var(--ui-button-height)] min-w-[11rem] px-5 pr-14 flex items-center justify-center gap-2 relative",
     "!text-white font-medium transition-colors whitespace-nowrap",
     {
-      "!bg-orange-600 hover:!bg-orange-700": clientState === "RUNNING" && !disabled,
-      "!bg-green-600 hover:!bg-green-700":
+      "!bg-run-stop hover:!bg-run-stop-hover": clientState === "RUNNING" && !disabled,
+      "!bg-primary hover:!bg-primary-hover":
         (clientState === "IDLE" || clientState === "PAUSED" || clientState === "ERROR") && !disabled,
       "!bg-gray-500 hover:!bg-gray-500":
         (clientState === "QUEUED_FOR_COMPILING" ||

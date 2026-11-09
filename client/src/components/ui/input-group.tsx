@@ -64,7 +64,7 @@ export const InputGroup = React.forwardRef<HTMLInputElement, InputGroupProps>(
               "h-[var(--ui-button-height)] w-[var(--ui-button-height)] p-0 flex items-center justify-center transition-colors duration-150 rounded-none",
               sendDisabled
                 ? "bg-background text-muted-foreground"
-                : "bg-green-600 hover:bg-green-700 text-white",
+                : "bg-primary hover:bg-primary-hover text-primary-foreground",
               // remove default border so edges flush
               "border-0",
             )}

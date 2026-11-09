@@ -24,7 +24,7 @@ type TutorEntryPlacement = "history" | "current" | "previous";
 
 function Stars({ rating }: { readonly rating: TutorAnswerRating }) {
   return (
-    <span className="text-amber-500" aria-label={`Verständnisbewertung ${rating} von 5`} data-testid="tutor-answer-rating">
+    <span className="text-rating" aria-label={`Verständnisbewertung ${rating} von 5`} data-testid="tutor-answer-rating">
       {"★".repeat(rating)}{"☆".repeat(5 - rating)}
     </span>
   );

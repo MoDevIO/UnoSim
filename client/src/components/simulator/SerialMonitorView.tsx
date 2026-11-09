@@ -283,18 +283,18 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             leadingContent={debugMode && (simulationStatus === "running" || simulationStatus === "paused") ? (
               <div className="ml-2 flex items-center gap-3 border-l pl-4">
                 <div className="flex flex-col leading-tight">
-                  <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Baud</span>
-                  <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>{baudRate}</span>
+                  <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Baud</span>
+                  <span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>{baudRate}</span>
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Tel/s</span>
-                  <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
+                  <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Tel/s</span>
+                  <span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
                     {effectiveTelegramsPerSecond.toFixed(0)}/s
                   </span>
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Bytes/Telegramm</span>
-                  <span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
+                  <span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}>Bytes/Telegramm</span>
+                  <span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}>
                     {effectiveBytesPerTelegram.toFixed(0)} B
                   </span>
                 </div>
@@ -312,7 +312,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 icon={<ChevronsDown className="h-4 w-4" />}
                 label={autoScrollEnabled ? "Autoscroll on" : "Autoscroll off"}
                 className={clsx(
-                  autoScrollEnabled ? "text-cyan-400" : "text-muted-foreground",
+                  autoScrollEnabled ? "text-accent-cyan" : "text-muted-foreground",
                 )}
                 onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
                 disabled={serialViewMode === "plotter"}
@@ -322,7 +322,6 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               <ToolbarIconButton
                 icon={<Trash2 className="h-4 w-4" />}
                 label="Clear serial output"
-                destructive
                 onClick={handleClearSerialOutput}
                 data-testid="button-clear-serial"
               />

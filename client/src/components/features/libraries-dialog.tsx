@@ -181,7 +181,7 @@ function LibraryList({ catalog, query, entries, listed, selectedKey, onSelect }:
   if (catalog.status === "error") {
     return (
       <div className="flex flex-col items-start gap-2 p-2">
-        <p className="text-ui-sm text-destructive">Bibliotheken konnten nicht geladen werden. Die Projektauswahl bleibt erhalten.</p>
+        <p className="text-ui-sm text-status-error">Bibliotheken konnten nicht geladen werden. Die Projektauswahl bleibt erhalten.</p>
         <Button size="sm" variant="outline" onClick={() => void catalog.retry()}>Erneut versuchen</Button>
       </div>
     );
@@ -252,7 +252,7 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
       <IncludeButton action={action} activeFile={activeFile} onInclude={() => onInclude(entry)} onInsertInclude={() => onInsertInclude(entry)} />
       <p className="text-ui-sm text-foreground">{entry.description}</p>
       {warnings.length > 0 && (
-        <ul className="text-ui-xs text-destructive">
+        <ul className="text-ui-xs text-status-error">
           {warnings.map((warning) => <li key={warning}>{warning}</li>)}
         </ul>
       )}
@@ -335,7 +335,7 @@ function MissingDetails({ entry }: { readonly entry: LibraryListEntry }) {
     <section aria-label={`${entry.name} ${entry.version}`} className="flex flex-col gap-2">
       <h3 className="break-words text-ui-md font-semibold text-foreground">{entry.name} {entry.version}</h3>
       {entry.inProject && <span className="w-fit rounded bg-muted px-1.5 text-ui-xs">Im Projekt</span>}
-      <p className="text-ui-sm font-medium text-destructive">Nicht verfügbar</p>
+      <p className="text-ui-sm font-medium text-status-error">Nicht verfügbar</p>
       <p className="text-ui-xs text-muted-foreground">{reason}</p>
     </section>
   );

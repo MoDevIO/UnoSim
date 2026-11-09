@@ -36,7 +36,7 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        colors: {
+        card: {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
         },
@@ -46,6 +46,7 @@ export default {
         },
         primary: {
           DEFAULT: "var(--primary)",
+          hover: "var(--primary-hover)",
           foreground: "var(--primary-foreground)",
         },
         secondary: {
@@ -70,15 +71,17 @@ export default {
 
         /* Semantic design tokens (mapped to CSS variables) */
         "brand-primary": "var(--color-brand-primary)",
-        "ui-background": "var(--color-ui-background)",
-        "ui-foreground": "var(--color-ui-foreground)",
-        "ui-panel": "var(--color-ui-panel)",
-        "ui-border": "var(--color-ui-border)",
         "status-success": "var(--color-status-success)",
         "status-error": "var(--color-status-error)",
         "status-warning": "var(--color-status-warning)",
         "accent-cyan": "var(--color-accent-cyan)",
-        "accent-blue": "var(--color-accent-blue)",
+        "run-stop": {
+          DEFAULT: "var(--color-run-stop)",
+          hover: "var(--color-run-stop-hover)",
+        },
+        rating: "var(--color-rating)",
+        "data-rx": "var(--color-data-rx)",
+        "data-tx": "var(--color-data-tx)",
 
         chart: {
           "1": "var(--chart-1)",
@@ -99,8 +102,6 @@ export default {
           "7": "var(--plot-7)",
           "8": "var(--plot-8)",
         },
-
-        "status-success-dark": "var(--color-status-success-dark)",
 
         /* Preset palette tokens (available as Tailwind colors) */
         "brand-variant-1": "var(--color-brand-variant-1)",

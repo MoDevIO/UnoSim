@@ -71,7 +71,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "code"
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -86,7 +86,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "compile"
-                  ? "bg-green-600 text-white hover:bg-green-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -101,7 +101,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "serial"
-                  ? "bg-amber-600 text-white hover:bg-amber-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -116,7 +116,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "board"
-                  ? "bg-sky-600 text-white hover:bg-sky-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -132,7 +132,7 @@ export const MobileLayout = React.memo(function MobileLayout({
                 className={clsx(
                   "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                   mobilePanel === "tutor"
-                    ? "bg-violet-600 text-white hover:bg-violet-700"
+                    ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                     : "bg-transparent text-muted-foreground",
                 )}
                 data-mobile-fab-button

@@ -8,7 +8,6 @@ interface ToolbarIconButtonProps
   extends Omit<React.ComponentPropsWithoutRef<typeof Button>, "children" | "size" | "variant"> {
   readonly icon: ReactNode;
   readonly label: string;
-  readonly destructive?: boolean;
   readonly pressed?: boolean;
   readonly status?: "default" | "success" | "muted" | "bright" | "error";
   readonly animated?: boolean;
@@ -50,7 +49,6 @@ function getToolbarIconAnimationClassName(
 export function ToolbarIconButton({
   icon,
   label,
-  destructive = false,
   pressed,
   status,
   animated = false,
@@ -69,7 +67,6 @@ export function ToolbarIconButton({
   if (React.isValidElement(icon)) {
     renderedIcon = React.cloneElement(icon, {
         className: cn(
-          destructive && "text-red-500",
           animationClassName,
           (icon.props as { className?: string }).className,
         ),

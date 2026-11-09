@@ -57,7 +57,7 @@ describe("usePinPollingEngine on the Mega 2560", () => {
     const { container, get } = mount([{ pin: 40, mode: "OUTPUT", value: 1, type: "digital" }, { pin: 53, mode: "OUTPUT", value: 0, type: "digital" }]);
     containers.push(container);
 
-    expect(get("pin-40-state")?.getAttribute("fill")).toMatch(/^rgb\(/);
+    expect(get("pin-40-state")?.getAttribute("fill")).toMatch(/^color-mix\(in srgb, var\(--color-data-pin-active\)/);
     expect(get("pin-53-state")?.getAttribute("fill")).toBe("var(--color-black)");
   });
 
@@ -77,8 +77,8 @@ describe("usePinPollingEngine on the Mega 2560", () => {
     const { container, get } = mount([{ pin: 62, mode: "OUTPUT", value: 1, type: "digital" }]);
     containers.push(container);
 
-    expect(get("pin-A8-state")?.getAttribute("fill")).toMatch(/^rgb\(/);
-    expect(get("pin-A15-state")?.getAttribute("fill") ?? "").not.toMatch(/^rgb\(/);
+    expect(get("pin-A8-state")?.getAttribute("fill")).toMatch(/^color-mix\(in srgb, var\(--color-data-pin-active\)/);
+    expect(get("pin-A15-state")?.getAttribute("fill") ?? "").not.toMatch(/^color-mix\(in srgb, var\(--color-data-pin-active\)/);
   });
 
   it("keeps updating the elements it found first when the page calls back later", () => {
@@ -92,6 +92,6 @@ describe("usePinPollingEngine on the Mega 2560", () => {
     });
 
     expect(get("pin-13-state")).toBe(dot);
-    expect(dot?.getAttribute("fill")).toMatch(/^rgb\(/);
+    expect(dot?.getAttribute("fill")).toMatch(/^color-mix\(in srgb, var\(--color-data-pin-active\)/);
   });
 });

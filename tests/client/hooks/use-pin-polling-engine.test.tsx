@@ -154,7 +154,7 @@ describe("usePinPollingEngine", () => {
     const stateCircle = svgEl?.querySelector<SVGCircleElement>("#pin-0-state");
     expect(stateCircle, "pin-0-state circle must exist").not.toBeNull();
 
-    // Pin 0 is HIGH (value=1), so fill should be rgb(r,0,0) – not "black" or "transparent"
+    // Pin 0 is HIGH (value=1), so fill is the active-pin data color – not "black" or "transparent"
     const fill = stateCircle?.getAttribute("fill") ?? "";
     expect(fill, "High digital pin should have non-black fill").not.toBe("black");
     expect(fill, "High digital pin should have non-black fill").not.toBe("var(--color-black)");
@@ -226,7 +226,7 @@ describe("usePinPollingEngine", () => {
 
     // State dot fill is still set based on actual pin state
     const dot = svgEl?.querySelector<SVGCircleElement>("#pin-1-state");
-    // pin value=1 → HIGH → color should be rgb(...) not transparent/black
+    // pin value=1 → HIGH → active-pin data color, not transparent/black
     const fill = dot?.getAttribute("fill") ?? "";
     expect(fill).not.toBe("transparent");
   });
@@ -485,9 +485,9 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
     expect(frame?.style.display).toBe("none");
   });
 
-  it("analog pin value >= 255 (non-PWM) produces rgb color", () => {
+  it("analog pin value >= 255 (non-PWM) produces the full active-pin color", () => {
     const { overlayRef } = buildExtendedOverlay();
-    // Pin 14 = A0, not in PWM_PINS, value=1023 (≥255) → rgb(255, 0, 0)
+    // Pin 14 = A0, not in PWM_PINS, value=1023 (≥255) → full active-pin color
     const stateRef = buildStateRef([{ pin: 14, mode: "OUTPUT", value: 1023, type: "analog" }]);
     const pinIsOnRef: MutableRefObject<Map<number, boolean>> = { current: new Map() };
     const pinTurnedOffAtRef: MutableRefObject<Map<number, number>> = { current: new Map() };
@@ -497,7 +497,7 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
     const svgEl = overlayRef.current?.querySelector("svg");
     const dot = svgEl?.querySelector<SVGCircleElement>("#pin-A0-state");
-    expect(dot?.getAttribute("fill")).toMatch(/^rgb\(\d+, 0, 0\)$/);
+    expect(dot?.getAttribute("fill")).toBe("color-mix(in srgb, var(--color-data-pin-active) 100%, var(--color-black))");
   });
 
   it("analog pin value < 255 (non-PWM) produces black", () => {
@@ -515,9 +515,9 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
     expect(dot?.getAttribute("fill")).toBe("var(--color-black)");
   });
 
-  it("PWM-type pin produces scaled rgb color from value", () => {
+  it("PWM-type pin produces the active-pin color scaled by its value, not error red", () => {
     const { overlayRef } = buildExtendedOverlay();
-    // Pin 3 is in PWM_PINS=[3,5,6,9,10,11], type="pwm", value=128 → rgb(128,0,0)
+    // Pin 3 is in PWM_PINS=[3,5,6,9,10,11], type="pwm", value=128 → 50 % of the active-pin color
     const stateRef = buildStateRef([{ pin: 3, mode: "OUTPUT", value: 128, type: "pwm" }]);
     const pinIsOnRef: MutableRefObject<Map<number, boolean>> = { current: new Map() };
     const pinTurnedOffAtRef: MutableRefObject<Map<number, number>> = { current: new Map() };
@@ -528,10 +528,10 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
     const svgEl = overlayRef.current?.querySelector("svg");
     const dot = svgEl?.querySelector<SVGCircleElement>("#pin-3-state");
     const fill = dot?.getAttribute("fill") ?? "";
-    expect(fill).toMatch(/^rgb\(\d+, 0, 0\)$/);
+    expect(fill).toBe("color-mix(in srgb, var(--color-data-pin-active) 50%, var(--color-black))");
   });
 
-  it("fade-out: pin still shows rgb color within FADE_OUT_MS window", () => {
+  it("fade-out: pin still shows the active-pin color within FADE_OUT_MS window", () => {
     const { overlayRef } = buildExtendedOverlay();
     const stateRef = buildStateRef([{ pin: 0, mode: "OUTPUT", value: 1, type: "digital" }]);
     const pinIsOnRef: MutableRefObject<Map<number, boolean>> = { current: new Map() };
@@ -553,8 +553,8 @@ describe("usePinPollingEngine – LED states, analog pins, fade-out, labels", ()
 
     const svgEl = overlayRef.current?.querySelector("svg");
     const dot = svgEl?.querySelector<SVGCircleElement>("#pin-0-state");
-    // During fade, fill must be a non-black rgb color
-    expect(dot?.getAttribute("fill")).toMatch(/^rgb\(\d+, 0, 0\)$/);
+    // During fade, fill is the active-pin color, dimmed
+    expect(dot?.getAttribute("fill")).toMatch(/^color-mix\(in srgb, var\(--color-data-pin-active\) \d+%, var\(--color-black\)\)$/);
   });
 
   it("fade-out: pin is black after FADE_OUT_MS has elapsed", () => {

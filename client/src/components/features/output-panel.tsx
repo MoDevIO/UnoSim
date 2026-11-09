@@ -36,6 +36,7 @@ function hasRegistryConflict(record: IOPinRecord): boolean {
 }
 
 import type { BoardId } from "@shared/boards";
+import { DEBUG_FIELD_CLASS, DEBUG_PROTOCOL_CLASS, DEBUG_SENDER_BADGE_CLASS, DEBUG_SENDER_TEXT_CLASS } from "@/lib/data-colors";
 
 interface OutputPanelProps {
   readonly boardId?: BoardId;
@@ -77,19 +78,13 @@ interface OutputPanelProps {
   readonly onClearDebugMessages: () => void;
 }
 
-const SENDER_TEXT: Record<string, string> = { server: "text-blue-400", browser: "text-cyan-400", frontend: "text-green-400" };
-const SENDER_BADGE: Record<string, string> = {
-  server: "bg-blue-600/20 text-blue-400",
-  browser: "bg-cyan-600/20 text-cyan-400",
-  frontend: "bg-green-600/20 text-green-400",
-};
-const senderTextClass = (sender: string): string => SENDER_TEXT[sender] ?? SENDER_TEXT.frontend;
-const senderBadgeClass = (sender: string): string => SENDER_BADGE[sender] ?? SENDER_BADGE.frontend;
+const senderTextClass = (sender: string): string => DEBUG_SENDER_TEXT_CLASS[sender] ?? DEBUG_SENDER_TEXT_CLASS.frontend!;
+const senderBadgeClass = (sender: string): string => DEBUG_SENDER_BADGE_CLASS[sender] ?? DEBUG_SENDER_BADGE_CLASS.frontend!;
 
 /** Colour of the protocol column: HTTP orange, WebSocket purple, the browser emulation (worker) cyan. */
 function protocolClass(protocol: string | undefined): string {
-  if (protocol === "http") return "text-orange-400";
-  return protocol === "worker" ? "text-cyan-400" : "text-purple-400";
+  if (protocol === "http") return DEBUG_PROTOCOL_CLASS.http;
+  return protocol === "worker" ? DEBUG_PROTOCOL_CLASS.worker : DEBUG_PROTOCOL_CLASS.websocket;
 }
 
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
@@ -157,7 +152,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
           </TabsTrigger>
 
           {debugMode && (
-            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className="uppercase tracking-wide text-cyan-400">
+            <TabsTrigger value="debug" onDoubleClick={() => openOutputPanel("debug")} className={`uppercase tracking-wide ${getStatusTextClass("info")}`}>
               Debug
               {debugMessages.length > 0 && (
                 <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-600/30 text-cyan-300 text-[9px] font-mono leading-none overflow-hidden">
@@ -230,7 +225,6 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                 <ToolbarIconButton
                   icon={<Trash2 className="h-3.5 w-3.5" />}
                   label="Clear debug messages"
-                  destructive
                   onClick={onClearDebugMessages}
                 />
               </div>
@@ -251,10 +245,10 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                   <tbody>
                     {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-100).map((msg, idx) => (
                       <tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : ""} transition-colors`}>
-                        <td className="px-2 py-1 text-cyan-400 border-r font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</td>
+                        <td className={`px-2 py-1 ${DEBUG_FIELD_CLASS.timestamp} border-r font-mono whitespace-nowrap`}>{msg.timestamp.toLocaleTimeString()}</td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className={senderTextClass(msg.sender)}>{msg.sender.toUpperCase()}</span></td>
                         <td className="px-2 py-1 border-r whitespace-nowrap"><span className={protocolClass(msg.protocol)}>{msg.protocol?.toUpperCase() || "?"}</span></td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className="text-yellow-400 font-mono">{msg.type}</span></td>
+                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={`${DEBUG_FIELD_CLASS.type} font-mono`}>{msg.type}</span></td>
                         <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>{msg.content}</td>
                       </tr>
                     ))}
@@ -277,9 +271,9 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
                         <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b">
                           <div className="flex items-center gap-3">
                             <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${senderBadgeClass(msg.sender)}`}>{msg.sender.toUpperCase()}</span>
-                            <span className="text-ui-xs text-yellow-400 font-mono bg-yellow-600/10 px-2 py-0.5 rounded">{msg.type}</span>
+                            <span className={`text-ui-xs ${DEBUG_FIELD_CLASS.typeBadge} font-mono px-2 py-0.5 rounded`}>{msg.type}</span>
                           </div>
-                          <span className="text-ui-xs text-cyan-400 font-mono whitespace-nowrap">{msg.timestamp.toLocaleTimeString()}</span>
+                          <span className={`text-ui-xs ${DEBUG_FIELD_CLASS.timestamp} font-mono whitespace-nowrap`}>{msg.timestamp.toLocaleTimeString()}</span>
                         </div>
                         <pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border"><code>{(() => { try { const parsed = JSON.parse(msg.content); return JSON.stringify(parsed, null, 2); } catch { return msg.content; } })()}</code></pre>
                       </div>
