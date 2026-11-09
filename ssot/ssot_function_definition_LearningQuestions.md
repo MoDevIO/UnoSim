@@ -556,14 +556,16 @@ based profile. A Course source, ref, revision, or example-context change resets
 the dialog and all didactic state; content from another revision is never
 substituted.
 
-`New learning question` and `New dialog` begin a fresh didactic session in the
+`Neue Lernrunde starten` (Tutor menu, 10.7), and `Frage starten` after a dialog
+that ended without an open question, begin a fresh didactic session in the
 current validated Course context. They clear dialog history, session rating,
 active Topic, phase, mastery evidence, and deepening evidence, and reset
 `effectiveDifficulty` to the configured start value. They retain the existing
 configured start difficulty, provider/model selection, and transient credential
 behavior. A subsequent request reruns Topic selection and starts the selected
-Topic in LEARN. They do not create an autonomous request; the next Tutor call
-remains explicitly user initiated.
+Topic in LEARN. They do not create an autonomous request: the question of the new
+round is requested only by this explicit user action, and a reset caused by a
+project, example or context change requests nothing.
 
 An expired or unknown opaque session handle fails safely under the existing
 route contract. It cannot silently switch phase, Topic, revision, or strategy.
@@ -711,7 +713,7 @@ Die konkrete technische Repräsentation darf abweichen, solange die Begrenzung w
 Die Historie enthält niemals API-Keys oder Authorization-Daten.
 Credentials werden ausschließlich separat und request-scoped an das Backend übertragen.
 
-Mit `Neuen Dialog starten` kann der Nutzer die aktuelle Frage, Antwort, Feedbacks und Folgefragen löschen.
+Mit `Neue Lernrunde starten` kann der Nutzer die aktuelle Frage, Antwort, Feedbacks und Folgefragen löschen.
 API-Key, Providerstatus und aktuelle Modellwahl bleiben dabei erhalten.
 
 Ein fehlgeschlagener Dialog-Request darf die bestehende Historie nicht verändern.
@@ -741,7 +743,7 @@ Bei einer ganz offensichtlichen Quatschantwort, absurden oder vollständig theme
 
 Die Bewertung wird zusammen mit dem zugehörigen Tutor-Feedback im flüchtigen Dialogeintrag gehalten und dort als 1–5 Sterne angezeigt.
 Die Sessionbewertung ist der transparente arithmetische Mittelwert aller bisher vorhandenen `answerRating`-Werte der aktuellen Session; unbewertete Antworten werden nicht eingerechnet.
-Der Header zeigt die Sessionbewertung kompakt an. Ein Tooltip nennt den numerischen Mittelwert und die Anzahl bewerteter Antworten.
+Der Verlauf (10.7) zeigt die Sessionbewertung mit numerischem Mittelwert und der Anzahl bewerteter Antworten.
 Bei null bewerteten Antworten wird keine Sessionbewertung angezeigt.
 
 Der Tutor verfolgt den Lernpfad über die begrenzte Dialoghistorie. Eine schwache Antwort führt zu
@@ -798,7 +800,7 @@ Die Verarbeitung erfolgt in dieser Reihenfolge: Antwort bewerten, `effectiveDiff
 aktualisieren, danach die nächste Frage mit dem aktualisierten Wert anfordern bzw. erzeugen. Eine
 einzelne schwache Antwort darf keine Erhöhung auslösen.
 Ein philosophischer Fallback verändert weder Sessionbewertung noch `effectiveDifficulty`.
-`Neuen Dialog starten` bzw. `New learning question` setzt Dialog, Sessionbewertung und `effectiveDifficulty` auf `configuredDifficulty` zurück, behält aber API-Key, Providerstatus, Modellwahl und den konfigurierten Startwert.
+`Neue Lernrunde starten` setzt Dialog, Sessionbewertung und `effectiveDifficulty` auf `configuredDifficulty` zurück, behält aber API-Key, Providerstatus, Modellwahl und den konfigurierten Startwert.
 Client und Server weisen Werte außerhalb `1..100` zurück bzw. begrenzen Eingaben auf diesen Bereich.
 
 ### 3.8 Antwortumfang des LLM
@@ -973,7 +975,7 @@ oder ein vom LLM erzeugter Zähler genügen nicht. Gleichzeitige Aktionen und
 Wiederholungen müssen atomar behandelt werden. Das Herausfallen älterer
 Dialogtexte aus dem Sliding Window darf den Zustand der aktiven Frage nicht
 zurücksetzen. Zustand bleibt begrenzt und sitzungsgebunden im RAM;
-„Neuen Dialog starten“ setzt ihn zurück. Es entstehen keine neue dauerhafte
+„Neue Lernrunde starten“ setzt ihn zurück. Es entstehen keine neue dauerhafte
 Historie und keine Speicherung von Credentials.
 
 #### R-SUP-7 – Aktionen statt eines erzwungenen Antwortformats
@@ -1097,7 +1099,7 @@ Lernfragen-Panel
        │
        ├── aktueller Sketch / Aktion "Frage erzeugen"
        ├── Antwort / Aktion "Antwort senden"
-       └── Aktion "Neuen Dialog starten"
+       └── Aktion "Neue Lernrunde starten"
        ▼
 Tutor-/Dialog-Endpunkt
        │
@@ -1439,43 +1441,92 @@ Mobile < 768 px
 
 Die vorhandene responsive UnoSim-Architektur soll weiterverwendet und nur um den Tutor-Zustand erweitert werden.
 
-### 10.7 Mindestfunktionen des Tutor-Panels im MVP
+### 10.7 Mindestfunktionen des Tutor-Panels
 
-Das Tutor-Panel benötigt mindestens:
+**Status: Darstellung überarbeitet (2026-11-09), Konzept „Aktuelle Tutorfrage im Fokus“ vom 07.11.2026.**
+Die Regeln R-SUP-1 bis R-SUP-8 bleiben unverändert die fachliche Grundlage.
+Dieser Abschnitt regelt nur, was das Panel wann zeigt.
 
-- Status des Tutor-Features,
-- flüchtige persönliche API-Key-Eingabe,
-- einklappbaren Zugangsdaten-/Providerbereich,
-- eingeklappt nur eine kompakte Anzeige von Provider, Modell und Zugangsstatus,
-- Anzeige genau einer aktuellen Tutorfrage,
-- Antwortfeld direkt unter der aktuellen Tutorfrage,
-- bewusst auszulösende Aktion `Antwort senden`,
-- optional kurzes Tutor-Feedback nach einer gesendeten Antwort,
-- Überschrift `Tutor feedback` bzw. `Tutor reflection` mit einer etwaigen Sternebewertung in derselben Zeile,
-- genau eine Folgefrage nach einer gesendeten Antwort,
-- Aktion `Neuen Dialog starten`,
-- Aktion „Lernfrage erzeugen“,
+Der aktive Lernschritt hat die visuelle Priorität: Frage lesen, selbst
+antworten, Rückmeldung verstehen und bei Bedarf Hilfe anfordern. Das Panel
+benötigt mindestens:
+
+- im Kopf das Tutor-Symbol (Absolventenhut) mit Titel, eine Aktion `Verlauf`
+  (sobald es Verlauf oder Lernstand gibt) und ein Menü `⋯` mit `Einstellungen`
+  und `Neue Lernrunde starten`; das Tutor-Symbol zeigt den Bearbeitungszustand
+  (bereit, erzeugt Frage, wartet auf Antwort, prüft, Fehler) mit zugänglichem Namen,
+- je Zustand nur die passende Einstiegsaktion:
+  ohne Zugang `Tutor einrichten`, mit Zugang und ohne Frage `Frage starten`,
+- Anzeige genau einer aktuellen Tutorfrage im vollständigen Wortlaut über die
+  volle Spaltenbreite, ohne verschachtelte Gesprächskarten,
+- darunter die eigene letzte Antwort und die zugehörige Rückmeldung, sofern sie
+  zu dieser Frage gehören; eine Klärung, ein Hinweis oder eine Musterantwort zur
+  aktuellen Frage erscheint an derselben Stelle,
+- nach einem Fragenwechsel die Rückmeldung zur vorigen Antwort ausdrücklich als
+  „Rückmeldung zu deiner vorigen Antwort“ mit der vorigen Frage, getrennt von
+  der neuen Frage, damit sie nicht als Bewertung der neuen Frage erscheint,
+- das Antwortfeld direkt nach diesem Inhalt (keine Verankerung am entfernten
+  unteren Fensterrand),
+- `Senden` als einzige primäre, beschriftete Aktion; sichtbar, aber nur bei
+  vorhandener Frage und nichtleerer Eingabe aktiv,
+- am Antwortbereich die Symbolaktion `Hilfe zur aktuellen Frage` (Fragezeichen
+  im Kreis) mit zugänglichem Namen, ausreichend großer Bedienfläche, sichtbarem
+  Tastaturfokus und Tooltip bei Hover und Fokus; sie öffnet das Hilfeangebot
+  direkt (auch auf Touch) und löst selbst keine Anfrage aus,
 - optionale lokale Mermaid-Darstellung zur grafischen Anreicherung,
-- Verständnisbewertung jeder normalen Studierendenantwort als 1–5 Sterne direkt beim zugehörigen Tutor-Feedback,
-- kompakte Sessionbewertung als Mittelwert mit Tooltip für Mittelwert und Anzahl bewerteter Antworten,
-- kompakte Start-Difficulty-Einstellung `1..100`, Default `30`,
-- adaptive effektive Difficulty innerhalb einer laufenden Session; im Debug-Mode kompakt sichtbar,
-- Ladezustand,
-- verständliche Fehleranzeige.
+- Verständnisbewertung jeder normalen Studierendenantwort als 1–5 Sterne;
+  Sterne, Sessionbewertung (Mittelwert mit Anzahl bewerteter Antworten) und
+  der Lernstand des Lehrerfokus stehen im Verlauf, nicht im Lernschritt,
+- einen verständlichen Ladezustand, während dem kein weiterer Request auslösbar ist,
+- eine verständliche Fehleranzeige mit der zum Fehler passenden Aktion
+  (`Erneut versuchen`, `Modell wählen`, `Zugang prüfen` oder `Neue Lernrunde starten`).
+
+Freier/Kurs-Tutor, Difficulty-Kürzel, Durchschnittssterne und Rohzähler stehen
+nicht im normalen Lernschritt. Modell, Zugang, Start- und aktuelle
+Schwierigkeit sind in den Einstellungen erreichbar; Bewertungsdetails und
+Lernstand im Verlauf.
+
+Der Verlauf ersetzt vorübergehend den Lernschritt und zeigt frühere Fragen,
+Antworten, Rückmeldungen mit Sternen, Klärungen, Hinweise, Musterantworten und
+übersprungene Fragen. `Zurück zur Frage` führt zum aktiven Schritt zurück.
+Öffnen und Schließen von Verlauf, Einstellungen, Menü oder Hilfeangebot
+verändern weder Antwortentwurf noch Frage, Zähler oder Freigaben und lösen
+keine Anfrage aus.
 
 Das Antwortfeld darf beim Ausblenden oder bei einem fehlgeschlagenen Request nicht unbeabsichtigt geleert werden.
 Eine erfolgreiche Antwort darf erst nach erfolgreicher Validierung in die sichtbare Dialoghistorie übernommen werden.
 Nach dem Anzeigen einer neuen Lernfrage wird das Antwortfeld direkt fokussiert, sofern es aktiv und
-nicht durch den Zugangsdialog oder einen laufenden Request blockiert ist.
+nicht durch Einstellungen, Verlauf oder einen laufenden Request blockiert ist.
 
-Für die Erweiterung nach 3.10 kommen sichtbare, getrennte Aktionen für
-Antworten, Klären, Hinweise, Musterantwort und Überspringen hinzu. Die UI
-zeigt verständlich, wie viele Antwortversuche bzw. Klärungen bis zur jeweiligen
-Freischaltung noch fehlen. Vor Freischaltung ist deren Grund erkennbar;
-Lernende müssen keine Fehlversuche erraten. Die Bedienung ist per Tastatur
-und Screenreader möglich. Feedback steht direkt bei der zugehörigen Antwort.
-Technische Fehler erhalten Eingaben und Zähler; keine Hilfeaktion sendet
-unbemerkt eine Antwort oder verändert den Editor.
+Das Hilfeangebot zu 3.10 bietet nur ausführbare, beschriftete Aktionen an:
+
+| Zustand | Angebot |
+| --- | --- |
+| Hilfe geöffnet | `Frage erklären` und `Hinweis geben` als getrennte Aktionen. |
+| Zwei Klärungen erfolgreich übernommen (`canSkip`) | Zusätzlich `Frage überspringen`. |
+| Drei eigene Antworten (`canRevealReference`) und passende geprüfte Referenz (`referenceAvailable`) | Zusätzlich `Musterantwort ansehen`. |
+| Keine passende Referenz | Keine ausführbare Musterantwort-Aktion; der Hilfetext sagt, dass keine geprüfte Musterantwort vorliegt. |
+| Antwort bereits richtig | Anerkennung ohne weitere Pflichtversuche; die nächste Frage folgt der bestehenden Lernlogik. |
+
+Gesperrte Hilfeschaltflächen und permanente Restzähler gehören nicht in die
+Hauptansicht. Die Freischaltregeln und der aktuelle Stand (wie viele eigene
+Antworten bzw. Klärungen bis zur jeweiligen Freischaltung fehlen) sind im
+Hilfeangebot über einen aufklappbaren, kurzen Erklärtext auf Abruf erreichbar;
+Lernende müssen keine Fehlversuche erraten. Wird eine Freischaltung gerade
+erreicht, weist ein kurzer Hinweis unter der Rückmeldung auf die neue
+Möglichkeit im Hilfeangebot hin; die Auswahl bleibt freiwillig. Die Bedienung
+ist per Tastatur und Screenreader möglich. Technische Fehler erhalten Eingaben
+und Zähler; keine Hilfeaktion sendet unbemerkt eine Antwort oder verändert den
+Editor. Es gibt keine eigene „Weiter“-Aktion; die Oberfläche nutzt nur die vom
+Server erlaubten Aktionen.
+
+Die Tutor-Bedienbegriffe sind einheitlich deutsch. Die Symbolzuordnung ist eindeutig:
+
+| Funktion | Symbol | Ort und Bedeutung |
+| --- | --- | --- |
+| Tutor ein-/ausblenden | Absolventenhut (`GraduationCap`) | Zentrale Workspace-Leiste und mobile Navigation; dasselbe Symbol kennzeichnet den Tutor-Panelkopf. Schaltet ausschließlich die Ansicht um und erzeugt keine Frage. |
+| Hilfe zur aktuellen Frage | Fragezeichen im Kreis (`CircleHelp`) | Am Antwortbereich. Öffnet die passenden Hilfen, ohne eine Anfrage zu senden. |
+| Neue Lernrunde starten | Sprechblase mit Plus (`MessageCirclePlus`) und Text | Menü `⋯`; der Text nennt das Zurücksetzen. Keine zusätzliche zentrale Symboltaste. |
 
 ### 10.8 Key-Eingabe
 
@@ -1487,13 +1538,14 @@ Das API-Key-Feld MUSS:
 - bei Reload wieder leer sein,
 - nicht in Debug-/Telemetry-Ausgaben erscheinen.
 
-Ein expliziter „Key vergessen“-/„Key löschen“-Vorgang soll den Wert sofort aus dem Frontend-State entfernen.
+Ein expliziter „Key löschen“-Vorgang soll den Wert sofort aus dem Frontend-State entfernen.
 
-Die Key-Eingabe soll nicht dauerhaft den didaktischen Inhalt des Tutor-Panels dominieren. Nach erfolgreicher Eingabe reicht eine kompakte Statusdarstellung des aktiven Providers/Zugangs.
-
-Der Zugangsdaten-/Providerbereich soll nach erfolgreicher Konfiguration einklappbar sein.
-Im eingeklappten Zustand werden nur Providername, aktuelle Modellwahl und ein kompakter Status angezeigt.
-Das Auf- und Zuklappen darf weder Key, Modellwahl, aktuelle Frage noch Dialoghistorie verändern.
+Die Key-Eingabe dominiert nicht den didaktischen Inhalt des Tutor-Panels. Sie
+liegt mit Modellwahl und Schwierigkeit in der eigenen Ansicht `Einstellungen`
+(Menü `⋯`, bei fehlendem Zugang zusätzlich `Tutor einrichten`). Diese Ansicht
+ersetzt vorübergehend den Lernschritt; `Übernehmen` bzw. `Zurück zur Frage`
+führt zurück. Öffnen und Schließen dürfen weder Key, Modellwahl, aktuelle Frage,
+Antwortentwurf noch Dialoghistorie verändern.
 
 ### 10.9 Transparenz
 
@@ -1503,21 +1555,22 @@ Vor der ersten LLM-Nutzung muss erkennbar sein:
 - dass der aktuelle Sketch zur Fragengenerierung an diesen Provider übertragen wird,
 - ob ein persönlicher oder institutionell verwalteter Zugang verwendet wird.
 
-Im Debug-Mode zeigt der Tutor-Header rechts neben der `?`-Aktion den tatsächlich verwendeten Modellnamen der letzten erfolgreichen Anfrage. Bei `Automatisch` ist dies der vom Provider aufgelöste reale Modellname; außerhalb des Debug-Mode wird kein Modellname angezeigt.
-Die aktuelle `effectiveDifficulty` wird dauerhaft kompakt zwischen der `?`-Aktion und der
-Sessionbewertung angezeigt, z. B. als `D42`. Ein Tooltip erklärt, dass es sich um den aktuell
-adaptiven Schwierigkeitsgrad der Session handelt; die Anzeige wird nach jeder adaptiven Änderung
-aktualisiert. Der konfigurierte Startwert bleibt in den Tutor-Einstellungen sichtbar.
-Eine einzelne Frage erhält keine zusätzliche, davon abweichende Difficulty-Anzeige im Chat. Damit
-ist `D<n>` im Header eindeutig der aktuelle Laufzeitwert und kann nicht mit einem Wert einer
-vorher erzeugten Frage verwechselt werden.
+Diese Information steht sichtbar bei `Tutor einrichten`, bei `Frage starten`
+und in den `Einstellungen`; die Reduktion des Lernschritts schafft sie nicht ab.
+
+Im Debug-Mode zeigt der Tutor-Kopf den tatsächlich verwendeten Modellnamen der letzten erfolgreichen Anfrage. Bei `Automatisch` ist dies der vom Provider aufgelöste reale Modellname; außerhalb des Debug-Mode wird im Kopf kein Modellname angezeigt.
+Die Einstellungen nennen das Modell der letzten Antwort und ob `Automatisch` es gewählt hat.
+Die aktuelle `effectiveDifficulty` wird nicht im Lernschritt angezeigt. Die
+Einstellungen zeigen den konfigurierten Startwert und den aktuellen adaptiven
+Laufzeitwert der Session. Eine einzelne Frage erhält keine davon abweichende
+Difficulty-Anzeige.
 
 ### 10.10 Dialogzustand und Zurücksetzen
 
 Die Dialoghistorie wird ausschließlich im RAM des Browser-Tabs gehalten.
 Sie umfasst höchstens das definierte Sliding Window und enthält keine Credentials.
 
-`Neuen Dialog starten` MUSS:
+`Neue Lernrunde starten` (Menü `⋯`, 10.7) MUSS:
 
 - aktuelle Frage, Antwortentwurf, Feedback und Folgefragen entfernen,
 - das Antwortfeld zurücksetzen,
@@ -1533,7 +1586,9 @@ Sie umfasst höchstens das definierte Sliding Window und enthält keine Credenti
   Freischaltungen und Nutzungskennzeichen für Lösungshilfe bzw. Überspringen
   zurücksetzen (neue Lernhilfe-Session; die alte läuft per TTL ab).
 
-Das Zurücksetzen darf keine automatische neue LLM-Anfrage auslösen.
+Das Zurücksetzen selbst darf keine automatische neue LLM-Anfrage auslösen. `Neue Lernrunde starten`
+ist die bewusste Nutzeraktion, die nach dem Zurücksetzen die erste Frage der neuen Runde anfordert;
+Umschalten der Tutor-Ansicht, ein Projektwechsel oder das Laden eines Beispiels setzen zurück, ohne eine Frage anzufordern.
 
 ---
 
@@ -1633,7 +1688,7 @@ Insbesondere gilt:
 - Der Server darf die Historie nur request-scoped zur Bearbeitung einer Folgefrage erhalten.
 - Die Historie MUSS vor der Provider-Anfrage auf das definierte Sliding Window und die zulässige Eingabelänge begrenzt werden.
 - Ein fehlgeschlagener Request darf weder bestehende Einträge entfernen noch einen unbestätigten Eintrag dauerhaft übernehmen.
-- `Neuen Dialog starten` löscht den Dialoginhalt, aber nicht Key, Providerstatus oder Modellwahl.
+- `Neue Lernrunde starten` löscht den Dialoginhalt, aber nicht Key, Providerstatus oder Modellwahl.
 
 ---
 
@@ -1709,15 +1764,17 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - Key kann explizit gelöscht werden,
 - Ladezustand wird korrekt dargestellt,
 - Frage wird angezeigt,
-- Antwortfeld wird unter der Frage angezeigt,
-- `Antwort senden` löst die Anfrage bewusst und genau einmal aus,
+- Antwortfeld wird unter der Frage und deren Rückmeldung angezeigt,
+- je Zustand erscheint nur die passende Aktion (10.7); Hilfe, Verlauf, Menü und Einstellungen lösen beim Öffnen keine Anfrage aus und erhalten den Antwortentwurf,
+- nach einem Fragenwechsel ist die Rückmeldung zur vorigen Antwort als solche gekennzeichnet,
+- `Senden` löst die Anfrage bewusst und genau einmal aus,
 - Feedback und genau eine Folgefrage werden angezeigt,
 - keine automatische Folgefrage ohne Nutzeraktion,
 - Dialoghistorie bleibt im Browser-RAM und wird durch ein Sliding Window begrenzt,
 - fehlgeschlagene Requests verändern die Dialoghistorie nicht,
-- `Neuen Dialog starten` leert nur den Dialog und erhält Key sowie Modellwahl,
-- Zugangsdaten-/Providerbereich kann eingeklappt werden,
-- eingeklappt bleiben Provider, Modell und Status kompakt sichtbar,
+- `Neue Lernrunde starten` leert nur den Dialog und erhält Key sowie Modellwahl,
+- Einstellungen (Zugang, Modell, Schwierigkeit) öffnen und schließen ohne Verlust von Frage oder Entwurf,
+- Provider und Übertragung des Sketches sind vor der ersten Nutzung sichtbar,
 - Provider-/Quota-Fehler werden verständlich dargestellt,
 - keine automatische Anfrage allein durch Codeänderung,
 - Desktop-Hauptspalten `Code`, `Simulation` und `Tutor` sind unabhängig ein-/ausblendbar,
@@ -1859,7 +1916,7 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 - die Frage aus dem aktuellen Code bzw. deterministisch gewonnenem UnoSim-Kontext abgeleitet ist,
 - ein Nutzer eine Antwort bewusst senden kann und darauf optional kurzes Feedback sowie genau eine Folgefrage erhält,
 - die Dialoghistorie ausschließlich flüchtig, begrenzt und ohne Credentials im Browser-RAM gehalten wird,
-- `Neuen Dialog starten` den Dialog löscht und Key sowie Modellwahl erhält,
+- `Neue Lernrunde starten` den Dialog löscht und Key sowie Modellwahl erhält,
 - das System keine allgemeine Chat-Schnittstelle anbietet,
 - keine vollständige Lösung als reguläres Tutor-Ergebnis ausgegeben wird,
 - eine optionale Mermaid-Grafik ausschließlich belegbare Informationen visualisiert und bei Renderfehlern die Textfrage erhalten bleibt,
@@ -1869,12 +1926,12 @@ Das Feature gilt im MVP als fachlich umgesetzt, wenn:
 - ein persönlicher Key ausschließlich flüchtig und request-scoped verwendet wird,
 - verfügbare Modelle serverseitig über `GET /v1/models` ermittelt werden,
 - `Automatisch` nur aktuell verfügbare Modelle verwendet und veraltete manuelle Auswahl auf `Automatisch` zurückfällt,
-- normale Antworten eine Verständnisbewertung `1..5` erhalten, diese beim Feedback als Sterne erscheint und der Sessionmittelwert transparent mit Anzahl angezeigt wird,
+- normale Antworten eine Verständnisbewertung `1..5` erhalten, diese im Verlauf beim Feedback als Sterne erscheint und der Sessionmittelwert dort transparent mit Anzahl angezeigt wird,
 - offensichtlich unsinnige, absurde oder vollständig themenfremde Antworten einen begrenzten philosophischen Fallback ohne Sterne, ohne Sessionrating-Änderung und ohne Difficulty-Änderung erhalten können,
-- die initiale Frage unbewertet bleibt und `New learning question` Dialog sowie Sessionbewertung zurücksetzt, aber den konfigurierten Difficulty-Startwert, Key und Modellwahl erhält,
+- die initiale Frage unbewertet bleibt und `Neue Lernrunde starten` Dialog sowie Sessionbewertung zurücksetzt, aber den konfigurierten Difficulty-Startwert, Key und Modellwahl erhält,
 - Difficulty `1..100` (Default-Startwert `30`) für initiale und Folgefragen serverseitig berücksichtigt und außerhalb der Range abgewiesen oder begrenzt wird,
 - die effektive Difficulty innerhalb einer Session aus normalen bewerteten Antworten adaptiv angepasst und bei neuem Dialog auf den konfigurierten Startwert zurückgesetzt wird,
-- der letzte tatsächlich verwendete Modellname nur im Debug-Mode neben `?` erscheint,
+- der letzte tatsächlich verwendete Modellname im Tutor-Kopf nur im Debug-Mode erscheint,
 - der Browser keinen externen LLM-Provider direkt anspricht,
 - der Provider später ohne grundlegenden Umbau des Lernfragen-Panels austauschbar ist,
 - alle definierten Sicherheits- und Testanforderungen erfüllt sind.
