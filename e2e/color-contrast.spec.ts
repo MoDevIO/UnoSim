@@ -77,11 +77,11 @@ async function expectNeutral(locator: Locator, label: string, part: "self" | "sv
   for (const [state, value] of states) expect(value.red, `${label} ${state} ${JSON.stringify(value)}`).toBe(false);
 }
 
-async function open(page: Page) {
-  await page.addInitScript(() => {
+async function open(page: Page, columns = { code: true, simulation: true, tutor: true }) {
+  await page.addInitScript((visible) => {
     localStorage.setItem("unoExperimentalWorkspaceLayout", "1");
-    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify({ code: true, simulation: true, tutor: true }));
-  });
+    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify(visible));
+  }, columns);
   await page.goto("/");
   await page.waitForFunction(() => Boolean((globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__));
 }
@@ -129,5 +129,31 @@ test.describe("color contract", () => {
     const clear = page.getByTestId("button-clear-serial");
     await expect(clear).toBeVisible();
     await expectNeutral(clear, "Clear serial output", "svg");
+  });
+
+  // The workspace toggles share the toolbar icon button: its state color on the opaque hover surface, measured on the
+  // icon itself (review of 0fa5bda47, N2: the active icon was green on the green accent surface, 2.08:1).
+  test("active and inactive workspace toggles keep their icon readable at rest, on hover and on focus", async ({ page }) => {
+    await open(page, { code: true, simulation: true, tutor: false });
+    for (const [testId, label, pressed] of [
+      ["workspace-toggle-code", "Hide code workspace", "true"],
+      ["workspace-toggle-simulation", "Hide simulation workspace", "true"],
+      ["workspace-toggle-tutor", "Show tutor workspace", "false"],
+    ] as const) {
+      const toggle = page.getByTestId(testId);
+      await expect(toggle).toHaveAttribute("aria-label", label);
+      await expect(toggle).toHaveAttribute("aria-pressed", pressed);
+      await page.mouse.move(0, 0);
+      const rest = await measure(toggle, "svg");
+      await toggle.hover();
+      const hover = await measure(toggle, "svg");
+      await toggle.focus();
+      const focus = await measure(toggle, "svg");
+      for (const [state, value] of [["rest", rest], ["hover", hover], ["focus", focus]] as const) {
+        expect(value.ratio, `${label} ${state} ${JSON.stringify(value)}`).toBeGreaterThanOrEqual(4.5);
+      }
+      // The state stays visible on hover: the active icon keeps its success color, the inactive one stays gray.
+      expect(hover.foreground, `${label} keeps its state color on hover`).toEqual(rest.foreground);
+    }
   });
 });

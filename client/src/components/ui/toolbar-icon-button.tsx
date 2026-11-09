@@ -79,7 +79,9 @@ export function ToolbarIconButton({
       variant="ghost"
       size="icon"
       className={cn(
-        "hover:border-transparent",
+        // A neutral hover surface: the status color of the icon (active, inactive, error) stays readable on it,
+        // where the green accent surface of the ghost variant would not (review of 0fa5bda47, N2).
+        "hover:border-transparent hover:bg-muted",
         statusClassName,
         iconSize === "lg" ? "[&_svg]:!h-5 [&_svg]:!w-5" : undefined,
         className,

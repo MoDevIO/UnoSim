@@ -39,11 +39,13 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   4.8:1 (before 2.2:1 to 3.4:1); Stop has its own run color (5.0:1). The TX
   badge, active pins on the board (now amber) and the second plot series are no
   longer red. Telemetry labels are gray, dropped serial bytes and the legacy
-  engine use the warning color. Gates: a color-contract unit test and a browser
-  contrast test.
+  engine use the warning color. Toolbar icons (workspace toggles, output
+  toolbars) hover on a neutral surface, so an active icon stays readable. Gates:
+  a color-contract unit test and a browser contrast test.
 - **Tutor feedback stays in view:** after an answer that closed its question
   the column shows the stars and the start of the feedback, Weiter stays as a
-  bar at the bottom; on a phone no text lies under the floating navigation. A
+  bar at the bottom; while the floating navigation is shown (phone, and tablet
+  with the Tutor) no text and no button lies under it. A
   weak answer to changed code keeps the question open (the server now says
   whether an answer closed its question).
 

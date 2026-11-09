@@ -100,6 +100,13 @@ describe("color contract: contrast of the role pairs (style guide, section 2)", 
     expect(contrast(color(token, map), card)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it.each(["--color-status-success", "--muted-foreground", "--color-status-error", "--accent-foreground"])(
+    "%s as a toolbar icon reaches 4.5:1 on the toolbar's hover surface (--muted)",
+    (token) => {
+      expect(contrast(color(token, map), color("--muted", map))).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
   it("keeps the focus ring at 3:1 against the background", () => {
     expect(contrast(color("--ring", map), background)).toBeGreaterThanOrEqual(3);
   });
