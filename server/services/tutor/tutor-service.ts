@@ -82,7 +82,7 @@ const TUTOR_CHECK_CLAIMS_GUIDANCE = "Prüfe jede konkrete Angabe der Antwort (Za
  * observation of the sketch is acknowledged, the differing assumption of the question is named, an
  * objection is answered, and a correct core statement is confirmed first. General, not tied to any example.
  */
-const TUTOR_FEEDBACK_ON_ASSUMPTION_GUIDANCE = "Setzt die Frage eine Annahme, die vom aktuellen Sketch oder von seiner Ausgabe abweicht, und beschreibt die Antwort zutreffend den Sketch oder seine Ausgabe statt dieser Annahme, dann erkenne die richtige Beobachtung im feedback ausdrücklich an und erkläre konkret, welche Annahme der Frage abweicht und welcher Größe im Code sie entspricht (zum Beispiel einer anderen Variablen oder Konstanten als der, die geändert wurde), ohne das gesuchte Ergebnis zu nennen. Erhebt die Antwort einen sachlichen Einwand gegen die Aufgabe, gehe auf diesen Einwand inhaltlich ein, statt nur eine fehlende Angabe zu beanstanden. Ist die Kernaussage der Antwort richtig, bestätige das am Anfang des feedback deutlich; erläutere ungenaue Begriffe erst danach unterstützend.";
+const TUTOR_FEEDBACK_ON_ASSUMPTION_GUIDANCE = "Setzt die Frage eine Annahme, die vom aktuellen Sketch oder von seiner Ausgabe abweicht, und beschreibt die Antwort zutreffend den Sketch oder seine Ausgabe statt dieser Annahme, dann erkenne die richtige Beobachtung im feedback ausdrücklich an und erkläre konkret, welche Annahme der Frage abweicht und welcher Größe im Code sie entspricht (zum Beispiel einer anderen Variablen oder Konstanten als der, die geändert wurde), ohne das gesuchte Ergebnis zu nennen. Erhebt die Antwort einen sachlichen Einwand gegen die Aufgabe oder beruft sie sich auf eine eigene Änderung oder Beobachtung (etwa einen eingesetzten Wert), gehe zuerst darauf ein: Suche den genannten Wert im Sketch, sage, in welcher Variablen oder Konstanten er steht, und ob das die Größe ist, die die Frage meint; beanstande nicht nur eine fehlende Angabe. Ist die Kernaussage der Antwort richtig, bestätige das am Anfang des feedback deutlich; erläutere ungenaue Begriffe erst danach unterstützend. Eine ungenaue oder mehrdeutige Formulierung neben einer richtigen Kernaussage, etwa ein unpassend verwendeter Begriff, ist keine falsche Angabe im Sinne der Obergrenze 2: Bewerte dann nach der Kernaussage mit mindestens 3.";
 
 /**
  * What the Tutor knows about the sketch besides its entry file `code`: the board and the other
@@ -1418,7 +1418,9 @@ export const TUTOR_PROMPT_REVISION = {
   // v8: earlier weak attempts at the asked question are given apart, not for the rating, so that the feedback
   // can take up a recurring misunderstanding; a differing question assumption and an objection are taken up
   // (LearningQuestions R-SUP-9).
-  id: "tutor-prompts-v8",
+  // v9: an objection or the learner's own change is located in the sketch; an imprecise term beside a correct core
+  // statement does not cap the rating at 2 (after the first IT06.1 live run of v8).
+  id: "tutor-prompts-v9",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;
