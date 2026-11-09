@@ -4,6 +4,20 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ## Unreleased
 
+### Changed
+
+- **Tutor panel focuses on the current question** (LearningQuestions 10.7–10.9):
+  the question, the feedback that belongs to it and the answer field stand
+  together; **Senden** is the one primary action. The help (question mark at
+  the answer field) opens on demand without a request and offers only the
+  actions the server allows now; the unlock rules are one click away. Ratings,
+  the session average and the teacher's-focus progress moved to **Verlauf**;
+  key, model and difficulty to **⋯ → Einstellungen**; **⋯ → Neue Lernrunde
+  starten** replaces the header question mark. The Tutor toggle and panel use
+  a graduation cap. Failures keep the draft and offer a matching action
+  (**Erneut versuchen**, **Modell wählen**, **Zugang prüfen**). The Tutor
+  speaks German throughout. The learning step loads with the Tutor column.
+
 ### Added
 
 - **Tutor learning support** (LearningQuestions 3.10): besides answering, the
