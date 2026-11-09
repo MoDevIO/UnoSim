@@ -240,6 +240,8 @@ html, body {
   --ui-mobile-touch-target: 52px;
   /* Room the floating mobile navigation takes at the right edge: its buttons, padding and gap to the content. */
   --ui-mobile-fab-reserve: calc(var(--ui-mobile-touch-target) + 1.75rem);
+  /* The reserve while the floating navigation is shown (phone, and tablet with the Tutor), else none. */
+  --ui-floating-nav-inset: 0px;
   --ui-mobile-header-height: 60px;
   --ui-control-font-size: calc(var(--ui-font-size) * 1);
   --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));
@@ -294,6 +296,10 @@ html, body {
 
 
 
+}
+
+:root[data-floating-navigation] {
+  --ui-floating-nav-inset: var(--ui-mobile-fab-reserve);
 }
 
 

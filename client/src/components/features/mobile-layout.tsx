@@ -20,6 +20,9 @@ interface MobileLayoutProps {
   readonly onOpenPanel?: (panel: MobilePanel) => void;
 }
 
+/** Set on `<html>` while the floating navigation is shown. */
+export const FLOATING_NAVIGATION_ATTRIBUTE = "data-floating-navigation";
+
 export const MobileLayout = React.memo(function MobileLayout({
   isMobile,
   isTablet = false,
@@ -33,6 +36,14 @@ export const MobileLayout = React.memo(function MobileLayout({
   onOpenPanel,
 }: MobileLayoutProps) {
   const showCompactNavigation = isMobile || (isTablet && showTutor);
+  // Content that must stay clear of the floating navigation reserves room exactly while it is shown
+  // (`--ui-floating-nav-inset`, index.css), on phones and on tablets alike (review of 0fa5bda47, N1).
+  React.useLayoutEffect(() => {
+    if (!showCompactNavigation || typeof document === "undefined") return undefined;
+    const root = document.documentElement;
+    root.setAttribute(FLOATING_NAVIGATION_ATTRIBUTE, "");
+    return () => root.removeAttribute(FLOATING_NAVIGATION_ATTRIBUTE);
+  }, [showCompactNavigation]);
   // The panel surfaces themselves stay mounted in the responsive workspace.
   // This component owns navigation only, so selecting a surface never moves
   // or unmounts the Monaco editor.

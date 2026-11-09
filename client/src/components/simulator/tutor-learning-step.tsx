@@ -257,8 +257,8 @@ export function TutorLearningStep({ tutor, actions }: {
 
   return (
     <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 text-left" data-testid="tutor-dialog-scroll">
-      {/* On a phone the floating navigation stays beside the text, never over it (review of 2356be848, R3). */}
-      <div className="flex w-full flex-col gap-5 max-md:pr-(--ui-mobile-fab-reserve)">
+      {/* While the floating navigation is shown (phone, tablet), it stays beside the text and `Weiter`, never over them. */}
+      <div className="flex w-full flex-col gap-5 pr-(--ui-floating-nav-inset)">
         {!tutor.capabilities.canUseTutor && (
           <output className="text-ui-sm text-muted-foreground" aria-live="polite">Serververbindung erforderlich</output>
         )}

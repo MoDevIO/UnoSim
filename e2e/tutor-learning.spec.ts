@@ -330,11 +330,14 @@ test.describe("Tutor learning flow", () => {
   });
 
   // The feedback of an answer that closed its question, with XXL text: its rating and start in view, Weiter focused
-  // and visible, and no text under the floating mobile navigation (review of 2356be848, R2 and R3).
+  // and visible, and no text under the floating mobile navigation (review of 2356be848, R2 and R3). On tablets the
+  // floating navigation is shown too; a real click on Weiter's arrow reaches Weiter (review of 0fa5bda47, N1).
   for (const layout of [
-    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true } },
-    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true } },
-  ]) {
+    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true }, advance: "enter" },
+    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "enter" },
+    { name: "a short 900 px tablet", width: 900, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "click" },
+    { name: "a short 800 px tablet", width: 800, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "click" },
+  ] as const) {
     test(`keeps the rating and the start of the feedback in view and no text under the navigation on ${layout.name}`, async ({ page }) => {
       await page.setViewportSize({ width: layout.width, height: layout.height });
       await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
@@ -401,7 +404,16 @@ test.describe("Tutor learning flow", () => {
       await page.getByTestId("tutor-dialog-scroll").evaluate((element) => { element.scrollTop = element.scrollHeight; });
       expect(await covered()).toBe("");
 
-      await page.keyboard.press("Enter");
+      // Weiter's arrow, at its right end, is Weiter's and not the navigation's.
+      const arrow = await next.evaluate((button) => {
+        const box = (button.querySelector("svg") ?? button).getBoundingClientRect();
+        const x = (box.left + box.right) / 2;
+        const y = (box.top + box.bottom) / 2;
+        return { x, y, reachesWeiter: button.contains(document.elementFromPoint(x, y)) };
+      });
+      expect(arrow.reachesWeiter).toBe(true);
+      if (layout.advance === "click") await page.mouse.click(arrow.x, arrow.y);
+      else await page.keyboard.press("Enter");
       await expect(page.getByTestId("tutor-question")).toContainText("im Schleifenblock verändert");
       await expect(answerField(page)).toBeFocused();
       expect(await covered()).toBe("");

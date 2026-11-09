@@ -19,7 +19,7 @@ export function TutorSettingsView({ tutor, onApply, hasQuestion = false }: {
 }) {
   const serverMissing = !tutor.capabilities.canUseTutor;
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-4 text-left max-md:pr-[calc(1rem+var(--ui-mobile-fab-reserve))]" data-testid="tutor-api-key-view">
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-4 text-left pr-[calc(1rem+var(--ui-floating-nav-inset))]" data-testid="tutor-api-key-view">
       <div>
         <Button type="button" variant="outline" size="sm" onClick={onApply} data-testid="tutor-settings-back">
           <ArrowLeft aria-hidden="true" />
