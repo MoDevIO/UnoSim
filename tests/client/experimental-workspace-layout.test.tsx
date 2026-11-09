@@ -208,6 +208,8 @@ describe("experimental workspace layout", () => {
       isLoading: false,
       error: null,
       errorCode: null,
+      retry: null,
+      pendingRequest: "answer",
       generateQuestion,
     };
 
@@ -314,7 +316,7 @@ describe("experimental workspace layout", () => {
       configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), sessionRating: null, ratedAnswerCount: 0,
       availableModels: [], modelsLoading: false, loadModels: vi.fn(), question: null, focusProgress: null, history: [], transcript: [],
       support: null, completed: false, requestSupport: vi.fn(), answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(),
-      isLoading: false, error: null, errorCode: null, generateQuestion,
+      isLoading: false, error: null, errorCode: null, retry: null, pendingRequest: "question", generateQuestion,
     } satisfies TutorPanelState;
     const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={base} />);
     await screen.findByTestId("tutor-setup");

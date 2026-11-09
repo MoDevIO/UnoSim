@@ -1,14 +1,8 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { TutorPanelState } from "@/hooks/use-tutor";
+import type { TutorPanelState, TutorRequestKind } from "@/hooks/use-tutor";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import type { TutorSupportAction } from "@shared/tutor";
-
-/** What the learner asked for last; a retry repeats it with the same action id (LearningQuestions R-SUP-1). */
-export type TutorRequest =
-  | { readonly kind: "question" }
-  | { readonly kind: "answer" }
-  | { readonly kind: "support"; readonly action: TutorSupportAction };
 
 type TutorWayOut = "retry" | "model" | "access" | "new-round";
 
@@ -41,7 +35,7 @@ const WAY_OUT_LABELS: Record<TutorWayOut, string> = {
   "new-round": "Neue Lernrunde starten",
 };
 
-export const PENDING_LABELS: Record<TutorRequest["kind"], string> = {
+export const PENDING_LABELS: Record<TutorRequestKind, string> = {
   question: "Tutor erstellt eine Frage …",
   answer: "Tutor prüft deine Eingabe …",
   support: "Tutor bereitet die Hilfe vor …",
@@ -53,7 +47,6 @@ export interface TutorPanelActions {
   readonly startNewRound: () => void;
   readonly submitAnswer: () => void;
   readonly requestSupport: (action: TutorSupportAction) => void;
-  readonly retry: (() => void) | null;
   readonly openSettings: () => void;
 }
 
@@ -61,7 +54,7 @@ export function TutorErrorNotice({ tutor, actions }: { readonly tutor: TutorPane
   if (!tutor.error) return null;
   const wayOut = tutorWayOut(tutor.errorCode);
   const run: Record<TutorWayOut, (() => void) | null> = {
-    retry: actions.retry,
+    retry: tutor.retry,
     model: actions.openSettings,
     access: actions.openSettings,
     "new-round": tutor.capabilities.canUseTutor && tutor.credential.trim() ? actions.startNewRound : null,

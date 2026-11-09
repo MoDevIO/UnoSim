@@ -62,6 +62,13 @@ export interface TutorPanelState {
   readonly error: string | null;
   /** The server's code of the failure, or the code a local check stands in for; the panel picks its way out by it. */
   readonly errorCode: string | null;
+  /**
+   * Repeats exactly the request that failed, the model list included; a repeated answer or help keeps its
+   * action id (R-SUP-1). Null when nothing failed or a repeat cannot help.
+   */
+  readonly retry: (() => void) | null;
+  /** What the running request does, for the waiting message. */
+  readonly pendingRequest: TutorRequestKind;
   readonly generateQuestion: (sketch: string | TutorSketch) => Promise<void>;
 }
 
@@ -75,6 +82,16 @@ export interface TutorSketch {
   readonly entryFile?: string;
   readonly board?: BoardId;
 }
+
+/** The learner's requests that the panel waits for. */
+export type TutorRequestKind = "question" | "answer" | "support";
+
+/** A failed request with what it needs to be repeated as it was. */
+type TutorFailedRequest =
+  | { readonly kind: "models" }
+  | { readonly kind: "question"; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
+  | { readonly kind: "answer"; readonly sketch: TutorSketch }
+  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch };
 
 /** One entry of what the learner sees, in the order it happened. */
 export type TutorTranscriptContent =
@@ -351,14 +368,16 @@ export function useTutor(
   const pendingAction = useRef<{ readonly key: string; readonly actionId: string } | null>(null);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [failure, setFailure] = useState<{ readonly message: string; readonly code: string | null } | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<TutorRequestKind>("question");
+  // The failure keeps the request it belongs to, so a repeat can never send another one (review R1).
+  const [failure, setFailure] = useState<{ readonly message: string; readonly code: string | null; readonly request?: TutorFailedRequest } | null>(null);
   const error = failure?.message ?? null;
   const errorCode = failure?.code ?? null;
   const clearError = useCallback(() => setFailure(null), []);
   const fail = useCallback((code: string) => setFailure({ message: ERROR_MESSAGES.get(code) ?? GENERIC_FAILURE, code }), []);
-  const failWith = useCallback((requestError: unknown) => {
-    if (requestError instanceof TutorRequestError) setFailure({ message: requestError.message, code: requestError.code });
-    else setFailure({ message: requestError instanceof Error ? requestError.message : GENERIC_FAILURE, code: null });
+  const failWith = useCallback((requestError: unknown, request: TutorFailedRequest) => {
+    if (requestError instanceof TutorRequestError) setFailure({ message: requestError.message, code: requestError.code, request });
+    else setFailure({ message: requestError instanceof Error ? requestError.message : GENERIC_FAILURE, code: null, request });
   }, []);
   const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
   const activeTutorRequests = useRef(new Set<AbortController>());
@@ -451,7 +470,7 @@ export function useTutor(
       if (controller.signal.aborted || isAbortError(requestError)) return;
       setAvailableModels([]);
       setSelectedModel("auto");
-      failWith(requestError);
+      failWith(requestError, { kind: "models" });
     } finally {
       activeTutorRequests.current.delete(controller);
       setModelsLoading(false);
@@ -480,6 +499,7 @@ export function useTutor(
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
 
     setIsLoading(true);
+    setPendingRequest("question");
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
     loadingRequest.current = controller;
@@ -516,7 +536,7 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError);
+      failWith(requestError, { kind: "question", sketch, difficulty: requestDifficulty });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -573,6 +593,7 @@ export function useTutor(
     const binding = answerBinding(currentSupport, submittedAnswer, pendingAction);
 
     setIsLoading(true);
+    setPendingRequest("answer");
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
     loadingRequest.current = controller;
@@ -605,7 +626,7 @@ export function useTutor(
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError);
+      failWith(requestError, { kind: "answer", sketch });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -624,6 +645,7 @@ export function useTutor(
     const currentQuestion = question;
     const actionId = actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}`);
     setIsLoading(true);
+    setPendingRequest("support");
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
     loadingRequest.current = controller;
@@ -654,12 +676,28 @@ export function useTutor(
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError);
+      failWith(requestError, { kind: "support", action, sketch });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
   }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, history, question, selectedModel, clearError, support]);
+
+  const failedRequest = failure?.request;
+  const retry = useMemo(() => {
+    switch (failedRequest?.kind) {
+      case "models":
+        return () => void loadModels();
+      case "question":
+        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty);
+      case "answer":
+        return () => void submitAnswer(failedRequest.sketch);
+      case "support":
+        return () => void requestSupport(failedRequest.action, failedRequest.sketch);
+      default:
+        return null;
+    }
+  }, [failedRequest, loadModels, requestQuestion, requestSupport, submitAnswer]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -708,6 +746,8 @@ export function useTutor(
     isLoading,
     error,
     errorCode,
+    retry,
+    pendingRequest,
     generateQuestion,
   }), [
     transcript,
@@ -720,6 +760,8 @@ export function useTutor(
     clearCredential,
     error,
     errorCode,
+    retry,
+    pendingRequest,
     generateQuestion,
     loadModels,
     isLoading,

@@ -1,4 +1,5 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useTutor } from "@/hooks/use-tutor";
 import { TutorWorkspacePlaceholder } from "@/components/simulator/ExperimentalWorkspace";
@@ -160,7 +161,7 @@ describe("useTutor: a new learning question after a dialog completed by skipping
 });
 
 describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => {
-  type PanelOverrides = Partial<{ transcript: TutorTranscriptEntry[]; error: string; errorCode: string; isLoading: boolean; answer: string }>;
+  type PanelOverrides = Partial<{ transcript: TutorTranscriptEntry[]; error: string; errorCode: string; isLoading: boolean; answer: string; retry: () => void }>;
 
   function tutorState(state: TutorSupportState, requestSupport = vi.fn(), overrides: PanelOverrides = {}) {
     return {
@@ -172,7 +173,8 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
       sessionRating: null, ratedAnswerCount: 0, availableModels: [], modelsLoading: false, loadModels: vi.fn(),
       question: { question: QUESTION, provider: "kiconnect", model: "m", responseStyle: "normal" },
       focusProgress: null, history: [], transcript: [], support: state, completed: false, requestSupport,
-      answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, errorCode: null, generateQuestion: vi.fn(),
+      answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, errorCode: null,
+      retry: null, pendingRequest: "answer", generateQuestion: vi.fn(),
       ...overrides,
     };
   }
@@ -233,11 +235,23 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
     expect(requestSupport.mock.calls.map(([action]) => action)).toEqual(["reveal", "skip"]);
   });
 
-  it("offers no reference answer without a reviewed reference, and says so in the rules", async () => {
-    await panel(support({ answerAttempts: 3, canRevealReference: true, referenceAvailable: false }));
+  it.each([0, 1, 2, 3])("says from the start that no reviewed reference exists, also after %i own answers (review R2)", async (answerAttempts) => {
+    await panel(support({ answerAttempts, canRevealReference: answerAttempts >= 3, referenceAvailable: false }));
     openHelp();
-    expect(await screen.findByTestId("tutor-reveal-reason")).toHaveTextContent("Für diese Frage liegt keine geprüfte Musterantwort vor.");
+    const reason = await screen.findByTestId("tutor-reveal-reason");
+    expect(reason).toHaveTextContent("Musterantwort: Für diese Frage und deinen aktuellen Code liegt keine geprüfte Musterantwort vor, auch nicht nach weiteren Antworten.");
+    expect(reason).not.toHaveTextContent("nach 3 eigenen Antworten");
     expect(screen.queryByTestId("tutor-action-reveal")).not.toBeInTheDocument();
+  });
+
+  it("names the missing answers only while a reviewed reference exists, and offers it once unlocked", async () => {
+    const { view, tutor } = await panel(support({ answerAttempts: 1, referenceAvailable: true }));
+    openHelp();
+    expect(await screen.findByTestId("tutor-reveal-reason")).toHaveTextContent("Musterantwort: nach 3 eigenen Antworten auf diese Frage (noch 2).");
+    expect(screen.queryByTestId("tutor-action-reveal")).not.toBeInTheDocument();
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, support: support({ answerAttempts: 3, canRevealReference: true }) } as never} />);
+    expect(screen.getByTestId("tutor-reveal-reason")).toHaveTextContent("Musterantwort: freigeschaltet.");
+    expect(screen.getByTestId("tutor-action-reveal")).toBeInTheDocument();
   });
 
   it("points to a help the latest step unlocked, once, and only for the same question", async () => {
@@ -271,15 +285,17 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
 
   it("offers the way out that fits a failure and keeps the draft", async () => {
     const { tutor, view } = await panel(support(), vi.fn(), { answer: "Mein Entwurf" });
-    fireEvent.click(screen.getByTestId("tutor-send-answer"));
-    expect(tutor.submitAnswer).toHaveBeenCalledTimes(1);
-
-    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "Der Tutor-Dienst hat zu lange nicht geantwortet.", errorCode: "PROVIDER_TIMEOUT" } as never} />);
+    const retry = vi.fn();
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "Der Tutor-Dienst hat zu lange nicht geantwortet.", errorCode: "PROVIDER_TIMEOUT", retry } as never} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Der Tutor-Dienst hat zu lange nicht geantwortet.");
     expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Mein Entwurf");
-    fireEvent.click(screen.getByTestId("tutor-error-action"));
     expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Erneut versuchen");
-    expect(tutor.submitAnswer).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByTestId("tutor-error-action"));
+    expect(retry).toHaveBeenCalledOnce();
+    expect(tutor.submitAnswer).not.toHaveBeenCalled();
+    // Without a request to repeat, there is no retry to offer.
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "PROVIDER_TIMEOUT", retry: null } as never} />);
+    expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
 
     view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "AUTO_MODEL_UNAVAILABLE" } as never} />);
     expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Modell wählen");
@@ -323,5 +339,105 @@ describe("Tutor model transparency (LearningQuestions 7.3, 10.9)", () => {
     const tutor = settings("auto", null);
     fireEvent.click(screen.getByTestId("tutor-clear-key"));
     expect(tutor.clearCredential).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Tutor retry repeats exactly the request that failed (review R1)", () => {
+  const DRAFT = "Mein wichtiger Entwurf";
+
+  /** A server whose model list times out on the `failingCall`-th request only. */
+  function server(failingCall = 1) {
+    let models = 0;
+    const bodies = mockServer({
+      "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support() }),
+      "/api/tutor/models": () => {
+        models += 1;
+        return models === failingCall
+          ? json({ error: { code: "PROVIDER_TIMEOUT", message: "late" } }, 504)
+          : json({ models: ["pilot-model"] });
+      },
+    });
+    const count = (url: string) => bodies.filter((entry) => entry.url === url).length;
+    return { count };
+  }
+
+  it("repeats a failed model list, not the earlier question, and keeps question and draft", async () => {
+    const { count } = server();
+    const { result } = await startDialog();
+    act(() => result.current.setAnswer(DRAFT));
+    await act(async () => { await result.current.loadModels(); });
+    expect(result.current.errorCode).toBe("PROVIDER_TIMEOUT");
+    expect(result.current.retry).not.toBeNull();
+
+    await act(async () => { result.current.retry!(); });
+    await waitFor(() => expect(count("/api/tutor/models")).toBe(2));
+    expect(count("/api/tutor/question")).toBe(1);
+    expect(count("/api/tutor/dialog")).toBe(0);
+    expect(count("/api/tutor/support")).toBe(0);
+    expect(result.current.question?.question).toBe(QUESTION);
+    expect(result.current.answer).toBe(DRAFT);
+    expect(result.current.availableModels).toEqual(["pilot-model"]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.retry).toBeNull();
+  });
+
+  it("keeps the matching retry when the Tutor column is hidden and shown again", async () => {
+    const { count } = server(2);
+    function Harness() {
+      const tutor = useTutor();
+      const [visible, setVisible] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setVisible((value) => !value)}>toggle</button>
+          {visible && <TutorWorkspacePlaceholder code={SKETCH} tutor={tutor} />}
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(await screen.findByTestId("tutor-setup-action"));
+    fireEvent.change(await screen.findByLabelText("API-Key", { selector: "input" }), { target: { value: "personal-key" } });
+    await waitFor(() => expect(count("/api/tutor/models")).toBe(1));
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    fireEvent.click(await screen.findByTestId("tutor-start-question"));
+    const field = await screen.findByLabelText("Deine Antwort oder Rückfrage");
+    fireEvent.change(field, { target: { value: DRAFT } });
+    // Opening the settings loads the model list again; this time it times out.
+    fireEvent.keyDown(screen.getByTestId("tutor-menu"), { key: "Enter" });
+    fireEvent.click(await screen.findByTestId("tutor-api-key-action"));
+    await waitFor(() => expect(count("/api/tutor/models")).toBe(2));
+    fireEvent.click(await screen.findByTestId("tutor-settings-back"));
+    expect(await screen.findByTestId("tutor-error-action")).toHaveTextContent("Erneut versuchen");
+
+    fireEvent.click(screen.getByText("toggle"));
+    expect(screen.queryByTestId("tutor-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("toggle"));
+    fireEvent.click(await screen.findByTestId("tutor-error-action"));
+
+    await waitFor(() => expect(count("/api/tutor/models")).toBe(3));
+    expect(count("/api/tutor/question")).toBe(1);
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue(DRAFT);
+    expect(screen.getByTestId("tutor-question")).toHaveTextContent("ersten Durchlauf");
+    await waitFor(() => expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument());
+  });
+
+  it("repeats a failed help with the same action id", async () => {
+    let fail = true;
+    const bodies = mockServer({
+      "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support() }),
+      "/api/tutor/support": () => {
+        if (fail) {
+          fail = false;
+          return json({ error: { code: "PROVIDER_UNAVAILABLE", message: "down" } }, 503);
+        }
+        return json({ action: "hint", explanation: "Schau auf i.", provider: "kiconnect", model: "m", support: support() });
+      },
+    });
+    const { result } = await startDialog();
+    await act(async () => { await result.current.requestSupport("hint", SKETCH); });
+    await act(async () => { result.current.retry!(); });
+    await waitFor(() => expect(result.current.transcript.at(-1)).toMatchObject({ kind: "hint" }));
+    const sent = bodies.filter(({ url }) => url === "/api/tutor/support").map(({ body }) => [body.action, body.actionId]);
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toEqual(sent[0]);
   });
 });

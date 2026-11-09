@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
 import type { TutorSupportState } from "@shared/tutor";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
-import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions, type TutorRequest } from "./tutor-panel-status";
+import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
 
 /** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
@@ -185,12 +185,11 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
  * Read the question, answer it, understand the feedback, ask for help when needed (LearningQuestions 10.7).
  * Loaded when the Tutor column opens; the page's start does not need it.
  */
-export function TutorLearningStep({ tutor, actions, pending }: {
+export function TutorLearningStep({ tutor, actions }: {
   readonly tutor: TutorPanelState;
   readonly actions: TutorPanelActions;
-  readonly pending: TutorRequest["kind"];
 }) {
-  const pendingLabel = PENDING_LABELS[pending];
+  const pendingLabel = PENDING_LABELS[tutor.pendingRequest];
   const scrollRef = useRef<HTMLDivElement>(null);
   const credentialConfigured = tutor.credential.trim().length > 0;
   const canRequest = tutor.capabilities.canUseTutor && credentialConfigured;

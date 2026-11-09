@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { TutorPanelState, TutorSketch } from "@/hooks/use-tutor";
-import type { TutorPanelActions, TutorRequest } from "./tutor-panel-status";
+import type { TutorPanelActions } from "./tutor-panel-status";
 
 // The learning step, history and settings load when the Tutor column opens; the page's start does not need them.
 const TutorHistoryView = React.lazy(() => import("./tutor-dialog-parts").then((module) => ({ default: module.TutorHistoryView })));
@@ -264,7 +264,6 @@ function TutorPlaceholder({
   readonly debugMode?: boolean;
 }) {
   const [view, setView] = useState<TutorView>("step");
-  const [lastRequest, setLastRequest] = useState<TutorRequest | null>(null);
   const tutorReady = tutor ? canTutorRequest(tutor) : false;
   const tutorIdentityClassName = getStatusTextClass(tutorReady ? "success" : "idle");
   const request = sketch ?? code;
@@ -272,30 +271,21 @@ function TutorPlaceholder({
 
   const actions: TutorPanelActions | null = tutor ? {
     startQuestion: () => {
-      setLastRequest({ kind: "question" });
       ensureExternalExamplesCatalog();
       void tutor.generateQuestion(request);
     },
     startNewRound: () => {
       setView("step");
-      setLastRequest({ kind: "question" });
       ensureExternalExamplesCatalog();
       tutor.resetDialog();
       void tutor.generateQuestion(request);
     },
     submitAnswer: () => {
-      setLastRequest({ kind: "answer" });
       void tutor.submitAnswer(request);
     },
     requestSupport: (action) => {
-      setLastRequest({ kind: "support", action });
       void tutor.requestSupport(action, request);
     },
-    retry: lastRequest ? () => {
-      if (lastRequest.kind === "question") void tutor.generateQuestion(request);
-      else if (lastRequest.kind === "answer") void tutor.submitAnswer(request);
-      else void tutor.requestSupport(lastRequest.action, request);
-    } : null,
     openSettings: () => setView("settings"),
   } : null;
 
@@ -345,7 +335,6 @@ function TutorPlaceholder({
             view={view}
             setView={setView}
             actions={actions}
-            pending={lastRequest?.kind ?? "question"}
           />
         ) : (
           <div className="flex flex-1 items-start justify-start p-4 text-left text-muted-foreground">
@@ -365,13 +354,11 @@ function TutorPanelContent({
   view,
   setView,
   actions,
-  pending,
 }: {
   readonly tutor: TutorPanelState;
   readonly view: TutorView;
   readonly setView: (value: TutorView) => void;
   readonly actions: TutorPanelActions;
-  readonly pending: TutorRequest["kind"];
 }) {
   const credentialConfigured = tutor.credential.trim().length > 0;
   const autoLoadedForRef = useRef<string | null>(null);
@@ -410,7 +397,7 @@ function TutorPanelContent({
   }
   return (
     <React.Suspense fallback={null}>
-      <TutorLearningStep tutor={tutor} actions={actions} pending={pending} />
+      <TutorLearningStep tutor={tutor} actions={actions} />
     </React.Suspense>
   );
 }
