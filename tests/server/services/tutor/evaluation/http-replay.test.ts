@@ -359,3 +359,30 @@ describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating d
   });
 });
 
+
+describe("a rate limit names the provider's Retry-After, when it sent one", () => {
+  it("records retryAfterSeconds on the technical failure and does not count it as quality", async () => {
+    const provider: LLMProvider = {
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion() {
+        throw new TutorProviderError("rate-limited", 120);
+      },
+    };
+    const { report, transcripts } = await runTutorQualityEvaluation({
+      scenarios: [await corpusScenario("TQ-SUP-IT064-ANSWER-1")],
+      provider,
+      providerId: "fake-provider",
+      credential: CREDENTIAL,
+      requestedModel: "fake-model",
+      samples: 1,
+      maxCalls: 20,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      artifactWriter: async () => undefined,
+    });
+    expect(transcripts[0]?.executionStatus).toBe("technical-failure");
+    expect(transcripts[0]?.turns.find(({ technicalError }) => technicalError)?.technicalError).toEqual({ kind: "rate-limited", name: "HttpReplayError", retryAfterSeconds: 120 });
+    expect(report.technicalErrorKinds).toEqual({ "rate-limited": 1 });
+  });
+});

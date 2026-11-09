@@ -157,6 +157,8 @@ export interface TutorQualityInvariantViolation {
 export interface TutorQualityTechnicalError {
   readonly kind: string;
   readonly name: string;
+  /** The provider's Retry-After in seconds when it sent one; without it no release time is known. */
+  readonly retryAfterSeconds?: number;
 }
 
 export interface TutorQualityProviderRequestArtifact {

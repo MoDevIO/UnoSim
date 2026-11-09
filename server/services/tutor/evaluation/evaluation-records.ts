@@ -57,7 +57,9 @@ export class EvaluationBudgetExceeded extends Error {
 
 export function technicalError(error: unknown): TutorQualityTechnicalError {
   if (error instanceof EvaluationBudgetExceeded) return { kind: "call-budget-exhausted", name: error.name };
-  if (error instanceof TutorProviderError) return { kind: error.kind, name: error.name };
+  if (error instanceof TutorProviderError) {
+    return { kind: error.kind, name: error.name, ...(error.retryAfter === undefined ? {} : { retryAfterSeconds: error.retryAfter }) };
+  }
   return { kind: "provider-error", name: "ProviderError" };
 }
 

@@ -366,7 +366,8 @@ function transcriptTurn(scope: TurnScope, extra: Partial<TutorQualityTranscriptT
 function technicalTurn(scope: TurnScope, response: { readonly status: number; readonly body: Body }, progressionBefore: string | undefined): TurnRecord {
   const { context } = scope;
   const kind = technicalKind(response.status, response.body, context.provider, context.options.maxCalls);
-  const technicalError = { kind, name: "HttpReplayError" };
+  const retryAfter = (response.body.error as { retryAfter?: unknown } | undefined)?.retryAfter;
+  const technicalError = { kind, name: "HttpReplayError", ...(typeof retryAfter === "number" ? { retryAfterSeconds: retryAfter } : {}) };
   addCheck(scope.checks, "final-tutor-response-present", false, kind);
   const modelsPresent = rawTurnChecks(scope, response.body);
   const state = context.content?.progressionState;
