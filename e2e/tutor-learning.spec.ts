@@ -233,6 +233,9 @@ test.describe("Tutor learning flow", () => {
       await answerField(page).fill(`Versuch ${attempt}`);
       await page.keyboard.press("Enter");
       await expect(page.getByTestId("tutor-current-step")).toContainText(`Versuch ${attempt}`);
+      // The stars stand at the feedback; a weak answer keeps the question open without a Weiter step.
+      await expect(page.getByTestId("tutor-current-step").getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 2 von 5");
+      await expect(page.getByTestId("tutor-continue")).toHaveCount(0);
       await expect(answerField(page)).toHaveValue("");
     }
     await expect(page.getByTestId("tutor-unlock-notice")).toContainText("„Musterantwort ansehen“");
@@ -268,6 +271,62 @@ test.describe("Tutor learning flow", () => {
     await page.getByRole("button", { name: "Erneut versuchen" }).click();
     await expect(page.getByTestId("tutor-current-step")).toContainText("Fast.");
     expect(calls).toBe(2);
+  });
+
+  test("a failed answer is not repeated with edited code and draft; Senden sends the current ones", async ({ page }) => {
+    await openTutor(page);
+    const sent: { code: string; answer: string }[] = [];
+    await page.route("**/api/tutor/dialog", (route) => {
+      sent.push(route.request().postDataJSON() as { code: string; answer: string });
+      if (sent.length === 1) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "late" } } });
+      return route.fulfill({ json: { responseStyle: "normal", question: "Welche Aufgabe hat `pinMode`?", feedback: "Fast.", answerRating: 3, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
+    });
+    await askQuestion(page);
+    await answerField(page).fill("37");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-error-action")).toHaveText("Erneut versuchen");
+    const edited = "byte a = 200;\nvoid setup() { Serial.begin(9600); Serial.println(a); }\nvoid loop() {}\n";
+    await page.evaluate((code) => (
+      (globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { setValue(value: string): void }
+    ).setValue(code), edited);
+    await answerField(page).fill("200");
+    await expect(page.getByTestId("tutor-error-action")).toHaveCount(0);
+    await expect(page.getByTestId("tutor-error-outdated")).toContainText("„Senden“ schickt die aktuelle Fassung.");
+    await expect(answerField(page)).toHaveValue("200");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-current-step")).toContainText("Fast.");
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ code: edited, answer: "200" });
+    expect(sent[0]?.code).not.toBe(edited);
+  });
+
+  test("an answer that closes the question shows its stars, then Weiter by keyboard shows the next question", async ({ page }) => {
+    await openTutor(page);
+    let dialogCalls = 0;
+    await page.route("**/api/tutor/dialog", (route) => {
+      dialogCalls += 1;
+      return route.fulfill({ json: { responseStyle: "normal", question: "Was bewirkt `digitalWrite`?", feedback: "Richtig: pinMode legt die Richtung des Pins fest.", answerRating: 4, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
+    });
+    await askQuestion(page);
+    await answerField(page).fill("Er legt fest, ob der Pin Ein- oder Ausgang ist.");
+    await page.keyboard.press("Enter");
+
+    const next = page.getByTestId("tutor-continue");
+    await expect(next).toBeFocused();
+    await expect(page.getByTestId("tutor-question")).toContainText("Beantwortete Frage");
+    await expect(page.getByTestId("tutor-question")).toContainText("pinMode");
+    const step = page.getByTestId("tutor-current-step");
+    await expect(step).toContainText("Er legt fest, ob der Pin Ein- oder Ausgang ist.");
+    await expect(step.getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 4 von 5");
+    await expect(step).toHaveAttribute("aria-live", "polite");
+    await expect(answerField(page)).toHaveCount(0);
+    await expect(page.getByTestId("tutor-help-toggle")).toHaveCount(0);
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("tutor-question")).toContainText("digitalWrite");
+    await expect(answerField(page)).toBeFocused();
+    await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(0);
+    expect(dialogCalls).toBe(1);
   });
 
   // Every unlocked help, with XXL text: on a phone beside the mobile navigation, and in a narrow third column (review R3).
@@ -313,6 +372,37 @@ test.describe("Tutor learning flow", () => {
         return found;
       });
       expect(problems).toEqual([]);
+
+      // The Weiter action after an answer that closed the question fits as well.
+      await page.route("**/api/tutor/dialog", (route) => route.fulfill({
+        json: {
+          responseStyle: "normal", question: "Warum zählt die Schleife herunter?", feedback: "Richtig.", answerRating: 5, learnerInput: "answer",
+          provider: "kiconnect", model: "pilot-model",
+          support: {
+            session: "11111111-1111-4111-8111-111111111111", questionHandle: "33333333-3333-4333-8333-333333333333", answerAttempts: 0, clarifications: 0,
+            canRevealReference: false, canSkip: false, referenceAvailable: true, referenceShown: false, outcome: "open",
+          },
+        },
+      }));
+      await answerField(page).fill("1");
+      await page.getByTestId("tutor-send-answer").click();
+      const next = page.getByTestId("tutor-continue");
+      await expect(next).toBeFocused();
+      await next.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/tutor-continue-xxl-${layout.width}.png` });
+      const continueProblems = await next.evaluate((button) => {
+        const found: string[] = [];
+        const scroller = button.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+        const box = button.getBoundingClientRect();
+        const lane = scroller.getBoundingClientRect();
+        const fab = document.querySelector("[data-mobile-fab-toolbar]")?.getBoundingClientRect();
+        if (scroller.scrollWidth > scroller.clientWidth + 1) found.push(`scroller overflows by ${scroller.scrollWidth - scroller.clientWidth}px`);
+        if (box.left < lane.left - 1 || box.right > lane.right + 1) found.push("Weiter leaves the column");
+        if (button.scrollWidth > button.clientWidth + 1 || button.scrollHeight > button.clientHeight + 1) found.push("Weiter is clipped");
+        if (fab && fab.width > 0 && box.right > fab.left + 1 && box.bottom > fab.top && box.top < fab.bottom) found.push("Weiter lies under the mobile navigation");
+        return found;
+      });
+      expect(continueProblems).toEqual([]);
     });
   }
 });

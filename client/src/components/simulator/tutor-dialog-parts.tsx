@@ -16,8 +16,9 @@ const LABEL = "text-ui-xs font-medium text-muted-foreground";
 const HELP_ACTION = "multiline-btn h-auto min-h-[var(--ui-button-height)] max-w-full whitespace-normal break-words py-1 text-left border-border";
 
 /**
- * Where an entry is shown (LearningQuestions 10.7): in the history with its rating, as the latest step of the
- * current question, or as the feedback on the previous question right after the question changed.
+ * Where an entry is shown (LearningQuestions 10.7): in the history, as the latest step of the current question,
+ * or as the note on a skipped question above the next one. A rated answer shows its stars at its feedback in
+ * every place.
  */
 type TutorEntryPlacement = "history" | "current" | "previous";
 
@@ -49,6 +50,8 @@ function QuestionReference({ question, label }: { readonly question: string; rea
 function TurnEntry({ entry, placement }: { readonly entry: Extract<TutorTranscriptContent, { kind: "turn" }>; readonly placement: TutorEntryPlacement }) {
   const { turn, assisted } = entry;
   const heading = turn.responseStyle === "philosophical" ? "Nachdenkliche Rückmeldung" : "Rückmeldung";
+  // An answer after the reference answer is not rated (R-SUP-5), whatever the response carried.
+  const rating = assisted ? undefined : turn.answerRating;
   return (
     <div className="flex flex-col gap-3" data-testid={placement === "history" ? "tutor-history-turn" : "tutor-step-feedback"}>
       {placement === "history" && (
@@ -59,11 +62,11 @@ function TurnEntry({ entry, placement }: { readonly entry: Extract<TutorTranscri
       )}
       {placement === "previous" && <QuestionReference label="Vorige Frage" question={turn.question} />}
       <LearnerText label="Deine Antwort" text={turn.answer} />
-      {(turn.feedback || assisted || (placement === "history" && turn.answerRating !== undefined)) && (
+      {(turn.feedback || assisted || rating !== undefined) && (
         <div data-testid="tutor-history-feedback">
           <p className={`flex flex-wrap items-center gap-x-2 ${LABEL}`}>
             {heading}
-            {placement === "history" && turn.answerRating !== undefined && <Stars rating={turn.answerRating} />}
+            {rating !== undefined && <Stars rating={rating} />}
             {assisted && <span data-testid="tutor-assisted-answer">nach der Musterantwort, unbewertet</span>}
           </p>
           {turn.feedback && <p className="mt-1 leading-relaxed text-foreground"><TutorText text={turn.feedback} /></p>}

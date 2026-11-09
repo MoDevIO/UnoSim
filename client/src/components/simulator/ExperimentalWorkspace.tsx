@@ -190,7 +190,8 @@ type TutorView = "step" | "history" | "settings";
 function TutorStatusIcon({ tutor, tutorReady }: { readonly tutor?: TutorPanelState; readonly tutorReady: boolean }) {
   const visual = getTutorQuestionVisualState({
     tutorReady,
-    question: tutor?.question ?? null,
+    // The answered question waits for `Weiter`, not for an answer.
+    question: tutor && !tutor.awaitingNext ? tutor.question : null,
     isLoading: tutor?.isLoading ?? false,
     error: tutor?.error ?? null,
   });
@@ -287,6 +288,8 @@ function TutorPlaceholder({
       void tutor.requestSupport(action, request);
     },
     openSettings: () => setView("settings"),
+    continueToNextQuestion: tutor.continueToNextQuestion,
+    retry: tutor.retryFor(request),
   } : null;
 
   return (

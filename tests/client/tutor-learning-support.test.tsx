@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useTutor } from "@/hooks/use-tutor";
@@ -133,6 +133,8 @@ describe("useTutor learning support", () => {
     await act(async () => { await result.current.submitAnswer(SKETCH); });
     expect(result.current.transcript.at(-1)).toMatchObject({ kind: "turn", assisted: true });
     expect(result.current.sessionRating).toBeNull();
+    expect(result.current.awaitingNext).toBe(true);
+    act(() => result.current.continueToNextQuestion());
 
     await act(async () => { await result.current.requestSupport("skip", SKETCH); });
     expect(result.current.transcript.at(-1)).toMatchObject({ kind: "skip" });
@@ -161,7 +163,10 @@ describe("useTutor: a new learning question after a dialog completed by skipping
 });
 
 describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => {
-  type PanelOverrides = Partial<{ transcript: TutorTranscriptEntry[]; error: string; errorCode: string; isLoading: boolean; answer: string; retry: () => void }>;
+  type PanelOverrides = Partial<{
+    transcript: TutorTranscriptEntry[]; error: string; errorCode: string; isLoading: boolean; answer: string;
+    failedRequest: string; retryFor: () => (() => void) | null; awaitingNext: boolean; continueToNextQuestion: () => void;
+  }>;
 
   function tutorState(state: TutorSupportState, requestSupport = vi.fn(), overrides: PanelOverrides = {}) {
     return {
@@ -174,7 +179,8 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
       question: { question: QUESTION, provider: "kiconnect", model: "m", responseStyle: "normal" },
       focusProgress: null, history: [], transcript: [], support: state, completed: false, requestSupport,
       answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, errorCode: null,
-      retry: null, pendingRequest: "answer", generateQuestion: vi.fn(),
+      failedRequest: null, retryFor: () => null, awaitingNext: false, continueToNextQuestion: vi.fn(),
+      pendingRequest: "answer", generateQuestion: vi.fn(),
       ...overrides,
     };
   }
@@ -266,7 +272,7 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
     expect(screen.queryByTestId("tutor-unlock-notice")).not.toBeInTheDocument();
   });
 
-  it("shows the latest step of the current question below it, without a rating", async () => {
+  it("shows the latest step of the current question below it, with the stars at its feedback", async () => {
     const turn = { question: QUESTION, answer: "0", feedback: "Noch nicht ganz.", answerRating: 2 as const, responseStyle: "normal" as const };
     await panel(support({ answerAttempts: 1 }), vi.fn(), {
       transcript: [
@@ -279,23 +285,35 @@ describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => 
     expect(step).toHaveTextContent("Deine Antwort0");
     expect(step).not.toHaveTextContent("Gemeint ist i = 7.");
     expect(screen.queryByTestId("tutor-previous-feedback")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    // The stars of the answer stand at its feedback, under the answer; a weak answer keeps the question editable.
+    const feedback = within(step).getByTestId("tutor-history-feedback");
+    expect(within(feedback).getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 2 von 5");
+    expect(step).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-continue")).not.toBeInTheDocument();
     expect(screen.getByTestId("tutor-question").compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("offers the way out that fits a failure and keeps the draft", async () => {
     const { tutor, view } = await panel(support(), vi.fn(), { answer: "Mein Entwurf" });
     const retry = vi.fn();
-    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "Der Tutor-Dienst hat zu lange nicht geantwortet.", errorCode: "PROVIDER_TIMEOUT", retry } as never} />);
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "Der Tutor-Dienst hat zu lange nicht geantwortet.", errorCode: "PROVIDER_TIMEOUT", failedRequest: "answer", retryFor: () => retry } as never} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Der Tutor-Dienst hat zu lange nicht geantwortet.");
     expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Mein Entwurf");
     expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Erneut versuchen");
     fireEvent.click(screen.getByTestId("tutor-error-action"));
     expect(retry).toHaveBeenCalledOnce();
     expect(tutor.submitAnswer).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("tutor-error-outdated")).not.toBeInTheDocument();
     // Without a request to repeat, there is no retry to offer.
-    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "PROVIDER_TIMEOUT", retry: null } as never} />);
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "PROVIDER_TIMEOUT" } as never} />);
     expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-error-outdated")).not.toBeInTheDocument();
+    // Code or draft changed since the failure: no repeat, and the learner learns that sending takes the current inputs.
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "PROVIDER_TIMEOUT", failedRequest: "answer" } as never} />);
+    expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-error-outdated")).toHaveTextContent("Code oder Antwort haben sich seit dem Fehler geändert. „Senden“ schickt die aktuelle Fassung.");
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Mein Entwurf");
 
     view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "AUTO_MODEL_UNAVAILABLE" } as never} />);
     expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Modell wählen");
@@ -367,9 +385,9 @@ describe("Tutor retry repeats exactly the request that failed (review R1)", () =
     act(() => result.current.setAnswer(DRAFT));
     await act(async () => { await result.current.loadModels(); });
     expect(result.current.errorCode).toBe("PROVIDER_TIMEOUT");
-    expect(result.current.retry).not.toBeNull();
+    expect(result.current.retryFor(SKETCH)).not.toBeNull();
 
-    await act(async () => { result.current.retry!(); });
+    await act(async () => { result.current.retryFor(SKETCH)!(); });
     await waitFor(() => expect(count("/api/tutor/models")).toBe(2));
     expect(count("/api/tutor/question")).toBe(1);
     expect(count("/api/tutor/dialog")).toBe(0);
@@ -378,7 +396,7 @@ describe("Tutor retry repeats exactly the request that failed (review R1)", () =
     expect(result.current.answer).toBe(DRAFT);
     expect(result.current.availableModels).toEqual(["pilot-model"]);
     expect(result.current.error).toBeNull();
-    expect(result.current.retry).toBeNull();
+    expect(result.current.retryFor(SKETCH)).toBeNull();
   });
 
   it("keeps the matching retry when the Tutor column is hidden and shown again", async () => {
@@ -434,10 +452,271 @@ describe("Tutor retry repeats exactly the request that failed (review R1)", () =
     });
     const { result } = await startDialog();
     await act(async () => { await result.current.requestSupport("hint", SKETCH); });
-    await act(async () => { result.current.retry!(); });
+    await act(async () => { result.current.retryFor(SKETCH)!(); });
     await waitFor(() => expect(result.current.transcript.at(-1)).toMatchObject({ kind: "hint" }));
     const sent = bodies.filter(({ url }) => url === "/api/tutor/support").map(({ body }) => [body.action, body.actionId]);
     expect(sent).toHaveLength(2);
     expect(sent[1]).toEqual(sent[0]);
+  });
+});
+
+describe("Tutor retry never mixes the failed request with edited inputs (review of 08f71c96b)", () => {
+  const SKETCH_37 = "byte a = 37; void setup() { Serial.begin(9600); Serial.println(a); } void loop() {}";
+  const SKETCH_200 = "byte a = 200; void setup() { Serial.begin(9600); Serial.println(a); } void loop() {}";
+  const OUTPUT_QUESTION = "Welche Zahl gibt der Sketch aus?";
+
+  /** The first answer times out; every later one is a weak answer that keeps the question open. */
+  function answerServer() {
+    let answers = 0;
+    const bodies = mockServer({
+      "/api/tutor/question": () => json({ question: OUTPUT_QUESTION, provider: "kiconnect", model: "m", support: support() }),
+      "/api/tutor/dialog": () => {
+        answers += 1;
+        if (answers === 1) return json({ error: { code: "PROVIDER_TIMEOUT", message: "late" } }, 504);
+        return json({ responseStyle: "normal", question: OUTPUT_QUESTION, feedback: "Noch nicht.", answerRating: 2, learnerInput: "answer", provider: "kiconnect", model: "m", support: support({ answerAttempts: 1 }) });
+      },
+    });
+    const dialog = () => bodies.filter(({ url }) => url === "/api/tutor/dialog").map(({ body }) => body);
+    return { dialog };
+  }
+
+  async function failedAnswer(answer: string, sketch: string) {
+    const hook = renderHook(() => useTutor());
+    act(() => hook.result.current.setCredential("personal-key"));
+    await act(async () => { await hook.result.current.generateQuestion(sketch); });
+    act(() => hook.result.current.setAnswer(answer));
+    await act(async () => { await hook.result.current.submitAnswer(sketch); });
+    expect(hook.result.current.errorCode).toBe("PROVIDER_TIMEOUT");
+    expect(hook.result.current.failedRequest).toBe("answer");
+    return hook;
+  }
+
+  it("repeats an unchanged answer with the same code, answer and action id", async () => {
+    const { dialog } = answerServer();
+    const { result } = await failedAnswer("37", SKETCH_37);
+    await act(async () => { result.current.retryFor(SKETCH_37)!(); });
+    await waitFor(() => expect(dialog()).toHaveLength(2));
+    const [failed, repeated] = dialog();
+    expect(repeated).toEqual(failed);
+    expect(repeated?.actionId).toEqual(expect.any(String));
+  });
+
+  it("offers no repeat once the draft or the code changed, and sends the current inputs as a new action", async () => {
+    const { dialog } = answerServer();
+    const { result } = await failedAnswer("37", SKETCH_37);
+    act(() => result.current.setAnswer("200"));
+    expect(result.current.retryFor(SKETCH_37)).toBeNull();
+    act(() => result.current.setAnswer("37"));
+    expect(result.current.retryFor(SKETCH_200)).toBeNull();
+    expect(result.current.retryFor(SKETCH_37)).not.toBeNull();
+
+    act(() => result.current.setAnswer("200"));
+    expect(result.current.retryFor(SKETCH_200)).toBeNull();
+    // The draft stays as edited, and the failure stays visible until the learner sends.
+    expect(result.current.answer).toBe("200");
+    expect(result.current.error).toBe("Der Tutor-Dienst hat zu lange nicht geantwortet.");
+    await act(async () => { await result.current.submitAnswer(SKETCH_200); });
+    const [failed, sent] = dialog();
+    expect(sent).toMatchObject({ code: SKETCH_200, answer: "200" });
+    expect(sent?.actionId).not.toBe(failed?.actionId);
+  });
+
+  it("gives an unchanged answer to changed code a new action id", async () => {
+    const { dialog } = answerServer();
+    const { result } = await failedAnswer("37", SKETCH_37);
+    await act(async () => { await result.current.submitAnswer(SKETCH_200); });
+    const [failed, sent] = dialog();
+    expect(sent).toMatchObject({ code: SKETCH_200, answer: "37" });
+    expect(sent?.actionId).not.toBe(failed?.actionId);
+  });
+
+  it("drops the failure and its repeat when an example is taken over", async () => {
+    answerServer();
+    const { result } = await failedAnswer("37", SKETCH_37);
+    act(() => setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "c".repeat(40), exampleId: "other" }));
+    await waitFor(() => expect(result.current.question).toBeNull());
+    expect(result.current.error).toBeNull();
+    expect(result.current.failedRequest).toBeNull();
+    expect(result.current.retryFor(SKETCH_37)).toBeNull();
+  });
+
+  it("in the panel: hides the repeat after an edit of code and draft, keeps the draft and sends the current inputs", async () => {
+    const { dialog } = answerServer();
+    function Harness() {
+      const tutor = useTutor();
+      const [code, setCode] = useState(SKETCH_37);
+      return (
+        <>
+          <button type="button" onClick={() => setCode(SKETCH_200)}>edit code</button>
+          <TutorWorkspacePlaceholder code={code} tutor={tutor} />
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(await screen.findByTestId("tutor-setup-action"));
+    fireEvent.change(await screen.findByLabelText("API-Key", { selector: "input" }), { target: { value: "personal-key" } });
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    fireEvent.click(await screen.findByTestId("tutor-start-question"));
+    const field = await screen.findByLabelText("Deine Antwort oder Rückfrage");
+    fireEvent.change(field, { target: { value: "37" } });
+    fireEvent.click(screen.getByTestId("tutor-send-answer"));
+    expect(await screen.findByTestId("tutor-error-action")).toHaveTextContent("Erneut versuchen");
+
+    fireEvent.click(screen.getByText("edit code"));
+    expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-error-outdated")).toHaveTextContent("„Senden“ schickt die aktuelle Fassung.");
+    fireEvent.change(screen.getByLabelText("Deine Antwort oder Rückfrage"), { target: { value: "200" } });
+    expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("200");
+
+    fireEvent.click(screen.getByTestId("tutor-send-answer"));
+    await waitFor(() => expect(dialog()).toHaveLength(2));
+    const [failed, sent] = dialog();
+    expect(sent).toMatchObject({ code: SKETCH_200, answer: "200" });
+    expect(sent?.actionId).not.toBe(failed?.actionId);
+    await waitFor(() => expect(screen.queryByTestId("tutor-error")).not.toBeInTheDocument());
+  });
+});
+
+describe("Tutor holds the next question until the learner goes on (LearningQuestions 10.7)", () => {
+  const NEXT_QUESTION = "Warum zählt die Schleife herunter?";
+  const NEXT_HANDLE = "33333333-3333-4333-8333-333333333333";
+
+  /** A strong answer closes the question and brings the next one; a weak one keeps the question open. */
+  function closingServer() {
+    const bodies = mockServer({
+      "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support() }),
+      "/api/tutor/dialog": (body) => body.answer === "weiß nicht genau"
+        ? json({ responseStyle: "normal", question: QUESTION, feedback: "Schau auf Bit 7.", answerRating: 2, learnerInput: "answer", provider: "kiconnect", model: "m", support: support({ answerAttempts: 1 }) })
+        : json({ responseStyle: "normal", question: NEXT_QUESTION, feedback: "Richtig: 200 & 128 = 128.", answerRating: 4, learnerInput: "answer", provider: "kiconnect", model: "m", support: support({ questionHandle: NEXT_HANDLE }) }),
+      "/api/tutor/support": () => json({ action: "hint", explanation: "x", provider: "kiconnect", model: "m", support: support({ questionHandle: NEXT_HANDLE }) }),
+    });
+    const count = (url: string) => bodies.filter((entry) => entry.url === url).length;
+    return { count };
+  }
+
+  async function answered(text: string) {
+    const hook = await startDialog();
+    act(() => hook.result.current.setAnswer(text));
+    await act(async () => { await hook.result.current.submitAnswer(SKETCH); });
+    return hook;
+  }
+
+  it("shows the answered question with its rating, books it once and sends nothing on Weiter", async () => {
+    const { count } = closingServer();
+    const { result } = await answered("1");
+    expect(result.current.awaitingNext).toBe(true);
+    expect(result.current.question?.question).toBe(QUESTION);
+    expect(result.current.transcript.at(-1)).toMatchObject({ kind: "turn", turn: { question: QUESTION, answer: "1", answerRating: 4 } });
+    expect(result.current.history).toHaveLength(1);
+    const difficulty = result.current.effectiveDifficulty;
+    expect(difficulty).not.toBe(30);
+
+    // A stale question handle cannot be used while the next step is held back.
+    act(() => result.current.setAnswer("noch eine Antwort"));
+    await act(async () => { await result.current.submitAnswer(SKETCH); });
+    await act(async () => { await result.current.requestSupport("hint", SKETCH); });
+    expect(count("/api/tutor/dialog")).toBe(1);
+    expect(count("/api/tutor/support")).toBe(0);
+
+    act(() => result.current.continueToNextQuestion());
+    expect(result.current.awaitingNext).toBe(false);
+    expect(result.current.question?.question).toBe(NEXT_QUESTION);
+    expect(result.current.support?.questionHandle).toBe(NEXT_HANDLE);
+    expect(result.current.history).toHaveLength(1);
+    expect(result.current.effectiveDifficulty).toBe(difficulty);
+    expect(result.current.sessionRating).toBe(4);
+    expect(count("/api/tutor/dialog")).toBe(1);
+    expect(count("/api/tutor/question")).toBe(1);
+  });
+
+  it("keeps a weak answer's question open and editable, without a Weiter step", async () => {
+    closingServer();
+    const { result } = await answered("weiß nicht genau");
+    expect(result.current.awaitingNext).toBe(false);
+    expect(result.current.question?.question).toBe(QUESTION);
+    expect(result.current.support?.answerAttempts).toBe(1);
+    expect(result.current.transcript.at(-1)).toMatchObject({ kind: "turn", turn: { answerRating: 2 } });
+  });
+
+  it("drops a held step on a new round and on an example takeover", async () => {
+    const { count } = closingServer();
+    const { result } = await answered("1");
+    act(() => result.current.resetDialog());
+    expect(result.current.awaitingNext).toBe(false);
+    expect(result.current.question).toBeNull();
+
+    await act(async () => { await result.current.generateQuestion(SKETCH); });
+    act(() => result.current.setAnswer("1"));
+    await act(async () => { await result.current.submitAnswer(SKETCH); });
+    expect(result.current.awaitingNext).toBe(true);
+    act(() => setActiveExternalExampleContext({ repository: "owner/repo", ref: "main", revision: "d".repeat(40), exampleId: "other" }));
+    await waitFor(() => expect(result.current.awaitingNext).toBe(false));
+    expect(result.current.question).toBeNull();
+    act(() => result.current.continueToNextQuestion());
+    expect(result.current.question).toBeNull();
+    expect(count("/api/tutor/dialog")).toBe(2);
+  });
+
+  it("in the panel: focuses Weiter after the feedback, then the answer field of the next question", async () => {
+    const { count } = closingServer();
+    function Harness() {
+      return <TutorWorkspacePlaceholder code={SKETCH} tutor={useTutor()} />;
+    }
+    render(<Harness />);
+    fireEvent.click(await screen.findByTestId("tutor-setup-action"));
+    fireEvent.change(await screen.findByLabelText("API-Key", { selector: "input" }), { target: { value: "personal-key" } });
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    fireEvent.click(await screen.findByTestId("tutor-start-question"));
+    fireEvent.change(await screen.findByLabelText("Deine Antwort oder Rückfrage"), { target: { value: "1" } });
+    fireEvent.click(screen.getByTestId("tutor-send-answer"));
+
+    const next = await screen.findByTestId("tutor-continue");
+    await waitFor(() => expect(next).toHaveFocus());
+    const step = screen.getByTestId("tutor-current-step");
+    expect(step).toHaveTextContent("Deine Antwort1");
+    expect(within(step).getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 4 von 5");
+    expect(step).toHaveTextContent("Richtig: 200 & 128 = 128.");
+    expect(screen.getByTestId("tutor-question")).toHaveTextContent(QUESTION.replaceAll("`", ""));
+    expect(screen.queryByTestId("tutor-help-toggle")).not.toBeInTheDocument();
+
+    fireEvent.click(next);
+    expect(await screen.findByTestId("tutor-question")).toHaveTextContent(NEXT_QUESTION);
+    await waitFor(() => expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveFocus());
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    expect(count("/api/tutor/dialog")).toBe(1);
+  });
+
+  it("shows no stars for help, a skipped question or an answer after the reference answer", async () => {
+    const turn = { question: QUESTION, answer: "1", feedback: "Stimmt.", answerRating: 5 as const, responseStyle: "normal" as const };
+    const tutor = {
+      capabilities: { canUseTutor: true, canConfigureTutor: true }, config: { provider: "kiconnect" },
+      credential: "key", setCredential: vi.fn(), clearCredential: vi.fn(), selectedModel: "auto", setSelectedModel: vi.fn(), lastUsedModel: null,
+      configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), sessionRating: null, ratedAnswerCount: 0,
+      availableModels: [], modelsLoading: false, loadModels: vi.fn(),
+      question: { question: QUESTION, provider: "kiconnect", model: "m", responseStyle: "normal" },
+      focusProgress: null, history: [], support: support(), completed: false, requestSupport: vi.fn(),
+      answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, errorCode: null,
+      failedRequest: null, retryFor: () => null, continueToNextQuestion: vi.fn(), pendingRequest: "answer", generateQuestion: vi.fn(),
+      awaitingNext: true,
+      transcript: [
+        { id: "c", kind: "clarification", question: QUESTION, text: "Gemeint ist i = 7." },
+        { id: "h", kind: "hint", question: QUESTION, text: "Schau auf Bit 7." },
+        { id: "t", kind: "turn", turn, assisted: true },
+      ],
+    };
+    const view = render(<TutorWorkspacePlaceholder code={SKETCH} tutor={tutor as never} />);
+    expect(await screen.findByTestId("tutor-assisted-answer")).toHaveTextContent("nach der Musterantwort, unbewertet");
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutor-history-action"));
+    expect(await screen.findByTestId("tutor-history-view")).toBeInTheDocument();
+    expect(screen.getByTestId("tutor-clarification")).toHaveTextContent("Erklärung der Frage · unbewertet");
+    expect(screen.getByTestId("tutor-hint")).toHaveTextContent("Hinweis · unbewertet");
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    view.unmount();
+
+    render(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, awaitingNext: false, question: { ...tutor.question, question: "Nächste Frage?" }, transcript: [{ id: "s", kind: "skip", question: QUESTION }] } as never} />);
+    expect(await screen.findByTestId("tutor-previous-feedback")).toHaveTextContent("Vorige Frage übersprungen, unbewertet");
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
   });
 });

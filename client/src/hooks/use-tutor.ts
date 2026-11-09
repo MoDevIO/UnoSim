@@ -57,16 +57,26 @@ export interface TutorPanelState {
   readonly answer: string;
   readonly setAnswer: (value: string) => void;
   readonly submitAnswer: (sketch: string | TutorSketch) => Promise<void>;
+  /**
+   * Set while an answer closed its question and the next step waits behind `Weiter zur nächsten Frage`
+   * (LearningQuestions 10.7): the answered question stays shown, and no answer or help can be sent.
+   */
+  readonly awaitingNext: boolean;
+  /** Shows the next step that was already received; no request, nothing is counted again. */
+  readonly continueToNextQuestion: () => void;
   readonly resetDialog: () => void;
   readonly isLoading: boolean;
   readonly error: string | null;
   /** The server's code of the failure, or the code a local check stands in for; the panel picks its way out by it. */
   readonly errorCode: string | null;
+  /** What the failed request was, while its failure is shown; null when nothing failed or a check failed. */
+  readonly failedRequest: TutorFailedRequestKind | null;
   /**
-   * Repeats exactly the request that failed, the model list included; a repeated answer or help keeps its
-   * action id (R-SUP-1). Null when nothing failed or a repeat cannot help.
+   * Repeats exactly the request that failed, with its content and action id (R-SUP-1), the model list included.
+   * Null when nothing failed, or when the code or the draft changed since: sending again is then a new action
+   * with the current inputs, and a repeat must never mix the old content with the new (review of 08f71c96b).
    */
-  readonly retry: (() => void) | null;
+  readonly retryFor: (current: string | TutorSketch) => (() => void) | null;
   /** What the running request does, for the waiting message. */
   readonly pendingRequest: TutorRequestKind;
   readonly generateQuestion: (sketch: string | TutorSketch) => Promise<void>;
@@ -86,12 +96,14 @@ export interface TutorSketch {
 /** The learner's requests that the panel waits for. */
 export type TutorRequestKind = "question" | "answer" | "support";
 
-/** A failed request with what it needs to be repeated as it was. */
+/** A failed request with all it sent, so that a repeat sends the same content with the same action id. */
 type TutorFailedRequest =
   | { readonly kind: "models" }
   | { readonly kind: "question"; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
-  | { readonly kind: "answer"; readonly sketch: TutorSketch }
-  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch };
+  | { readonly kind: "answer"; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
+  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string };
+
+export type TutorFailedRequestKind = TutorFailedRequest["kind"];
 
 /** One entry of what the learner sees, in the order it happened. */
 export type TutorTranscriptContent =
@@ -118,6 +130,9 @@ const asTutorSketch = (sketch: string | TutorSketch): TutorSketch => (typeof ske
 function sketchRequestFields({ code, headers, entryFile, board }: TutorSketch) {
   return { code, ...(headers?.length ? { headers } : {}), ...(entryFile ? { entryFile } : {}), ...(board ? { board } : {}) };
 }
+
+/** The sketch as a request sends it; equal keys mean the same project, files and board. */
+const sketchKey = (sketch: TutorSketch): string => JSON.stringify(sketchRequestFields(sketch));
 
 const DEFAULT_CONFIG: TutorConfig = {
   provider: "kiconnect",
@@ -292,14 +307,23 @@ function supportBinding(support: TutorSupportState, actionId: string) {
   return { supportSession: support.session, questionHandle: support.questionHandle, actionId };
 }
 
-/** The support binding of an answer; none outside the support cycle. */
-function answerBinding(
-  support: TutorSupportState | null,
+/**
+ * The action id of an answer. The same answer to the same code keeps its id; another answer or other code is
+ * another action, because the server keeps a result per id.
+ */
+function answerActionId(
+  support: TutorSupportState,
   answer: string,
+  sketch: TutorSketch,
   pending: { current: { readonly key: string; readonly actionId: string } | null },
-) {
-  if (!support) return {};
-  return supportBinding(support, actionIdFor(pending, `${support.questionHandle}|answer|${answer}`));
+): string {
+  return actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}`);
+}
+
+/** Whether an answer moved on to another question; a weak answer keeps the question and its handle. */
+function answerAdvanced(asked: TutorResponse, askedSupport: TutorSupportState | null, response: TutorResponse): boolean {
+  if (askedSupport && response.support) return response.support.questionHandle !== askedSupport.questionHandle;
+  return response.question !== asked.question;
 }
 
 /** An answered turn; after the reference answer it is marked as not rated (R-SUP-5). */
@@ -364,6 +388,8 @@ export function useTutor(
   const [transcript, setTranscript] = useState<readonly TutorTranscriptEntry[]>([]);
   const [support, setSupport] = useState<TutorSupportState | null>(null);
   const [completed, setCompleted] = useState(false);
+  // The next step an answer already received, held back until the learner reads the feedback and goes on.
+  const [heldNext, setHeldNext] = useState<{ readonly question: TutorResponse; readonly support: TutorSupportState | null } | null>(null);
   // A retry of the same action keeps its id, so the server counts it once (LearningQuestions R-SUP-1).
   const pendingAction = useRef<{ readonly key: string; readonly actionId: string } | null>(null);
   const [answer, setAnswer] = useState("");
@@ -399,6 +425,7 @@ export function useTutor(
     setTranscript([]);
     setSupport(null);
     setCompleted(false);
+    setHeldNext(null);
     pendingAction.current = null;
     setQuestion(null);
     setFocusProgress(null);
@@ -557,41 +584,31 @@ export function useTutor(
     await requestQuestion(sketch, effectiveDifficulty);
   }, [capabilities, completed, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog, transcript.length]);
 
+  // Everything an answer books is applied at once; only showing the next question waits for the learner.
   const applyDialogResponse = useCallback((response: TutorResponse, update: ReturnType<typeof buildDialogResponseUpdate>) => {
     setHistory(update.nextHistory);
     if (update.answerRatings !== undefined) {
       setEffectiveDifficulty((current) => calculateNextTutorDifficulty(current, update.answerRatings!));
     }
-    setQuestion(response);
     setFocusProgress((current) => response.focusProgress ?? current);
     setCourseContentSession(update.nextSession);
     if (update.lastUsedModel !== undefined) setLastUsedModel(update.lastUsedModel);
     setAnswer("");
   }, []);
 
-  const submitAnswer = useCallback(async (input: string | TutorSketch) => {
-    if (!capabilities.canUseTutor) return;
-    clearError();
-    const sketch = asTutorSketch(input);
-    const validationError = getSubmitAnswerValidationError({
-      question,
-      code: sketch.code,
-      answer,
-      credential,
-    });
-    if (validationError) {
-      fail(validationError);
-      return;
-    }
-    if (!question) return;
+  /** Sends one answer as it is given; a repeat passes the action id of the failed attempt (R-SUP-1). */
+  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string) => {
+    if (!question || heldNext) return;
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
-    const submittedAnswer = answer.trim();
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    const binding = answerBinding(currentSupport, submittedAnswer, pendingAction);
+    // Outside the support cycle an answer has no binding.
+    const actionId = currentSupport ? repeatedActionId ?? answerActionId(currentSupport, submittedAnswer, sketch, pendingAction) : undefined;
+    const binding = currentSupport && actionId ? supportBinding(currentSupport, actionId) : {};
 
+    clearError();
     setIsLoading(true);
     setPendingRequest("answer");
     const controller = new AbortController();
@@ -611,9 +628,9 @@ export function useTutor(
       }, controller.signal);
       if (!parsed) return;
       pendingAction.current = null;
-      if (parsed.data.support) setSupport(parsed.data.support);
       const helpEntry = typedHelpEntry(parsed.data, currentQuestion.question, submittedAnswer);
       if (helpEntry) {
+        if (parsed.data.support) setSupport(parsed.data.support);
         setTranscript((current) => [...current, withEntryId(helpEntry)]);
         setCourseContentSession(parsed.data.courseContentSession ?? courseContentSession);
         setAnswer("");
@@ -622,19 +639,50 @@ export function useTutor(
       const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
       setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, currentSupport))]);
       applyDialogResponse(parsed.data, update);
+      if (answerAdvanced(currentQuestion, currentSupport, parsed.data)) {
+        setHeldNext({ question: parsed.data, support: parsed.data.support ?? null });
+      } else {
+        // A weak answer: the same question stays open and editable, with the server's new counts.
+        setQuestion(parsed.data);
+        if (parsed.data.support) setSupport(parsed.data.support);
+      }
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "answer", sketch });
+      failWith(requestError, { kind: "answer", sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, history, question, selectedModel, clearError, support]);
+  }, [applyDialogResponse, availableModels, courseContentSession, credential, effectiveDifficulty, failWith, finishLoading, heldNext, history, question, selectedModel, clearError, support]);
 
-  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch) => {
-    if (!capabilities.canUseTutor || !question || !support) return;
+  const submitAnswer = useCallback(async (input: string | TutorSketch) => {
+    if (!capabilities.canUseTutor || heldNext) return;
+    clearError();
+    const sketch = asTutorSketch(input);
+    const validationError = getSubmitAnswerValidationError({
+      question,
+      code: sketch.code,
+      answer,
+      credential,
+    });
+    if (validationError) {
+      fail(validationError);
+      return;
+    }
+    await sendAnswer(sketch, answer.trim());
+  }, [answer, capabilities, clearError, credential, fail, heldNext, question, sendAnswer]);
+
+  const continueToNextQuestion = useCallback(() => {
+    if (!heldNext) return;
+    setQuestion(heldNext.question);
+    setSupport(heldNext.support);
+    setHeldNext(null);
+  }, [heldNext]);
+
+  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string) => {
+    if (!capabilities.canUseTutor || !question || !support || heldNext) return;
     clearError();
     const sketch = asTutorSketch(input);
     if (!credential.trim()) {
@@ -643,7 +691,8 @@ export function useTutor(
     }
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     const currentQuestion = question;
-    const actionId = actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}`);
+    const actionId = repeatedActionId
+      ?? actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}|${sketchKey(sketch)}`);
     setIsLoading(true);
     setPendingRequest("support");
     const controller = new AbortController();
@@ -676,28 +725,29 @@ export function useTutor(
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "support", action, sketch });
+      failWith(requestError, { kind: "support", action, sketch, actionId });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, history, question, selectedModel, clearError, support]);
+  }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, heldNext, history, question, selectedModel, clearError, support]);
 
   const failedRequest = failure?.request;
-  const retry = useMemo(() => {
-    switch (failedRequest?.kind) {
-      case "models":
-        return () => void loadModels();
+  const retryFor = useCallback((current: string | TutorSketch): (() => void) | null => {
+    if (!failedRequest) return null;
+    if (failedRequest.kind === "models") return () => void loadModels();
+    // A repeat sends what failed; after an edit that would be old code with a new draft, or the reverse.
+    if (sketchKey(failedRequest.sketch) !== sketchKey(asTutorSketch(current))) return null;
+    switch (failedRequest.kind) {
       case "question":
         return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty);
       case "answer":
-        return () => void submitAnswer(failedRequest.sketch);
+        if (answer.trim() !== failedRequest.answer) return null;
+        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId);
       case "support":
-        return () => void requestSupport(failedRequest.action, failedRequest.sketch);
-      default:
-        return null;
+        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId);
     }
-  }, [failedRequest, loadModels, requestQuestion, requestSupport, submitAnswer]);
+  }, [answer, failedRequest, loadModels, requestQuestion, requestSupport, sendAnswer]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -742,11 +792,14 @@ export function useTutor(
     answer,
     setAnswer,
     submitAnswer,
+    awaitingNext: heldNext !== null,
+    continueToNextQuestion,
     resetDialog,
     isLoading,
     error,
     errorCode,
-    retry,
+    failedRequest: failedRequest?.kind ?? null,
+    retryFor,
     pendingRequest,
     generateQuestion,
   }), [
@@ -760,7 +813,10 @@ export function useTutor(
     clearCredential,
     error,
     errorCode,
-    retry,
+    failedRequest,
+    retryFor,
+    heldNext,
+    continueToNextQuestion,
     pendingRequest,
     generateQuestion,
     loadModels,

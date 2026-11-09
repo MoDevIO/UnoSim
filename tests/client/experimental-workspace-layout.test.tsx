@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
 import {
   ExperimentalWorkspace,
@@ -208,7 +208,7 @@ describe("experimental workspace layout", () => {
       isLoading: false,
       error: null,
       errorCode: null,
-      retry: null,
+      failedRequest: null, retryFor: () => null, awaitingNext: false, continueToNextQuestion: vi.fn(),
       pendingRequest: "answer",
       generateQuestion,
     };
@@ -278,28 +278,43 @@ describe("experimental workspace layout", () => {
     fireEvent.click(newRound);
     expect(resetDialog).toHaveBeenCalledOnce();
     expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
+    await waitFor(() => expect(screen.queryByTestId("tutor-new-round-action")).not.toBeInTheDocument());
 
-    // The rating and the session average belong to the history, which returns to the question.
+    // An answer that closed the question: the question stays with the answer, its feedback and its stars;
+    // `Weiter` is the one way on and takes the focus. The average belongs to the history.
     const turn = { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4 as const, responseStyle: "normal" as const };
+    const continueToNextQuestion = vi.fn();
+    const answered = {
+      ...tutor, answer: "", history: [turn], transcript: [{ id: "turn-1", kind: "turn" as const, turn }],
+      sessionRating: 4, ratedAnswerCount: 1, awaitingNext: true, continueToNextQuestion,
+    };
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={answered} />);
+    const next = await screen.findByTestId("tutor-continue");
+    expect(next).toHaveTextContent("Weiter zur nächsten Frage");
+    expect(next).toHaveFocus();
+    expect(screen.getByTestId("tutor-question")).toHaveTextContent("Beantwortete FrageWas beobachtest du?");
+    const step = screen.getByTestId("tutor-current-step");
+    expect(step).toHaveTextContent("Deine AntwortDer Pin ist HIGH.");
+    expect(within(step).getByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
+    expect(step).toHaveTextContent("Richtig.");
+    expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
+    // No answer and no help for a question that is answered.
+    expect(screen.queryByLabelText("Deine Antwort oder Rückfrage")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-send-answer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-status-icon")).toHaveAttribute("aria-label", "Tutor bereit");
+    fireEvent.click(next);
+    expect(continueToNextQuestion).toHaveBeenCalledOnce();
+    expect(submitAnswer).not.toHaveBeenCalled();
+
+    // After `Weiter` the next question stands alone; earlier stars and the average are in the history.
     rerender(<TutorWorkspacePlaceholder
       code="void setup(){}"
-      tutor={{
-        ...tutor,
-        question: { ...tutor.question!, question: "Und was passiert danach?" },
-        history: [turn],
-        transcript: [{ id: "turn-1", kind: "turn", turn }],
-        sessionRating: 4,
-        ratedAnswerCount: 1,
-      }}
+      tutor={{ ...answered, awaitingNext: false, answer: "Meine Antwort", question: { ...tutor.question!, question: "Und was passiert danach?" } }}
     />);
-    const previous = await screen.findByTestId("tutor-previous-feedback");
-    expect(previous).toHaveTextContent("Rückmeldung zu deiner vorigen Antwort");
-    await screen.findByText("Vorige Frage:", { exact: false });
-    expect(previous).toHaveTextContent("Vorige Frage: Was beobachtest du?");
-    expect(previous).toHaveTextContent("Richtig.");
-    expect(previous.compareDocumentPosition(screen.getByTestId("tutor-question")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByTestId("tutor-current-step")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("tutor-question")).toHaveTextContent("Aktuelle FrageUnd was passiert danach?");
+    expect(screen.queryByTestId("tutor-previous-feedback")).not.toBeInTheDocument();
     expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-continue")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("tutor-history-action"));
     expect(await screen.findByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
     expect(screen.getByTestId("tutor-session-rating")).toHaveTextContent("Durchschnitt der Verständnisbewertung: 4 von 5 aus 1 bewerteten Antwort");
@@ -316,7 +331,7 @@ describe("experimental workspace layout", () => {
       configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), sessionRating: null, ratedAnswerCount: 0,
       availableModels: [], modelsLoading: false, loadModels: vi.fn(), question: null, focusProgress: null, history: [], transcript: [],
       support: null, completed: false, requestSupport: vi.fn(), answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(),
-      isLoading: false, error: null, errorCode: null, retry: null, pendingRequest: "question", generateQuestion,
+      isLoading: false, error: null, errorCode: null, failedRequest: null, retryFor: () => null, awaitingNext: false, continueToNextQuestion: vi.fn(), pendingRequest: "question", generateQuestion,
     } satisfies TutorPanelState;
     const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={base} />);
     await screen.findByTestId("tutor-setup");

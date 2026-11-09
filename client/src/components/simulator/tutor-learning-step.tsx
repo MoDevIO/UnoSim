@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowUp, CircleHelp } from "lucide-react";
+import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
 import type { TutorSupportState } from "@shared/tutor";
@@ -138,7 +138,34 @@ function TutorComposer({ tutor, actions, pendingLabel, canRequest }: {
 }
 
 /**
- * The open question with the feedback that belongs to it, the answer field right below, and help on demand
+ * After an answer that closed the question: the one way on, focused so that Enter goes on. It shows the next
+ * question the answer already received; it sends nothing (LearningQuestions 10.7).
+ */
+function TutorContinue({ onContinue }: { readonly onContinue: () => void }) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    buttonRef.current?.focus();
+  }, []);
+  return (
+    <div className="flex min-w-0 justify-end max-md:pr-20">
+      {/* The label wraps within the column at XXL size, like the help actions. */}
+      <Button
+        ref={buttonRef}
+        type="button"
+        onClick={onContinue}
+        className="multiline-btn h-auto min-h-[var(--ui-button-height)] max-w-full whitespace-normal break-words py-1 text-left"
+        data-testid="tutor-continue"
+      >
+        Weiter zur nächsten Frage
+        <ArrowRight aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The open question with the feedback that belongs to it, the answer field right below, and help on demand;
+ * after an answer that closed it, the answered question with its feedback and stars and `Weiter`
  * (LearningQuestions 10.7).
  */
 function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
@@ -152,31 +179,33 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
   const question = tutor.question!;
   const last = tutor.transcript.at(-1);
   const currentEntry = last && entryQuestion(last) === question.question ? last : null;
-  const previousEntry = last && !currentEntry && (last.kind === "turn" || last.kind === "skip") ? last : null;
+  // An answer's feedback stays with its question until `Weiter`; only a skipped question is noted above the next one.
+  const skippedEntry = last && !currentEntry && last.kind === "skip" ? last : null;
+  let questionHeading = "Aktuelle Frage";
+  if (tutor.awaitingNext) questionHeading = "Beantwortete Frage";
+  else if (question.responseStyle === "philosophical") questionHeading = "Nachdenkliche Frage";
 
   return (
     <>
-      {previousEntry && (
-        <section aria-label="Rückmeldung zu deiner vorigen Antwort" className="flex flex-col gap-2 border-b border-border pb-4" data-testid="tutor-previous-feedback">
-          <h3 className="text-ui-xs font-semibold text-muted-foreground">Rückmeldung zu deiner vorigen Antwort</h3>
-          <TutorEntry entry={previousEntry} placement="previous" />
+      {skippedEntry && (
+        <section aria-label="Vorige Frage" className="flex flex-col gap-2 border-b border-border pb-4" data-testid="tutor-previous-feedback">
+          <TutorEntry entry={skippedEntry} placement="previous" />
         </section>
       )}
       <section aria-labelledby={headingId} data-testid="tutor-question">
-        <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">
-          {question.responseStyle === "philosophical" ? "Nachdenkliche Frage" : "Aktuelle Frage"}
-        </h3>
+        <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">{questionHeading}</h3>
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
         {question.mermaid && <MermaidPreview source={question.mermaid} />}
       </section>
-      {currentEntry && (
-        <div data-testid="tutor-current-step">
-          <TutorEntry entry={currentEntry} placement="current" />
-        </div>
-      )}
-      {unlockNotice && <p className="text-ui-sm text-foreground" data-testid="tutor-unlock-notice">{unlockNotice}</p>}
+      {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
+      <div aria-live="polite" data-testid="tutor-current-step">
+        {currentEntry && <TutorEntry entry={currentEntry} placement="current" />}
+      </div>
+      {unlockNotice && !tutor.awaitingNext && <p className="text-ui-sm text-foreground" data-testid="tutor-unlock-notice">{unlockNotice}</p>}
 
-      <TutorComposer tutor={tutor} actions={actions} pendingLabel={pendingLabel} canRequest={canRequest} />
+      {tutor.awaitingNext
+        ? <TutorContinue onContinue={actions.continueToNextQuestion} />
+        : <TutorComposer tutor={tutor} actions={actions} pendingLabel={pendingLabel} canRequest={canRequest} />}
     </>
   );
 }
