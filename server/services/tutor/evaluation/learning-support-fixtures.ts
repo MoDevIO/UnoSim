@@ -114,9 +114,6 @@ void loop() {
 }
 `;
 
-/** The learner's sketch: only GRENZE changed to 2000. */
-export const IT061_SKETCH_GRENZE_2000 = IT061_EXAMPLE_SKETCH.replace("GRENZE = 1000;", "GRENZE = 2000;");
-
 export const IT061_CONCEPT_QUESTION = "Wann wird die Bedingung `wert < GRENZE` geprüft?";
 export const IT061_PREDICTION_QUESTION = "Wie oft läuft die Schleife, wenn `wert` mit 2000 startet?";
 

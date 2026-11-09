@@ -9,7 +9,7 @@ import {
 import { buildJudgeInput } from "../../../../../server/services/tutor/evaluation/judge";
 import {
   IT061_CONCEPT_QUESTION,
-  IT061_SKETCH_GRENZE_2000,
+  IT061_EXAMPLE_SKETCH,
   IT064_CONCEPT_QUESTION,
   IT064_SKETCH,
 } from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
@@ -296,7 +296,8 @@ describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating d
 
   it("keeps the fixture the reviewed Example with GRENZE 2000 only", async () => {
     const fixture = await readFile("evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino", "utf8");
-    expect(fixture).toBe(IT061_SKETCH_GRENZE_2000);
+    // The learner's sketch: the reviewed Example with only GRENZE changed to 2000.
+    expect(fixture).toBe(IT061_EXAMPLE_SKETCH.replace("GRENZE = 1000;", "GRENZE = 2000;"));
     expect(fixture).toContain("const unsigned int GRENZE = 2000;");
     expect(fixture).toContain("unsigned int wert = 1;");
   });
