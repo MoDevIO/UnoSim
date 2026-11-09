@@ -235,6 +235,8 @@ html, body {
   --ui-line-base: 20px;
   --ui-button-base-height: 32px;
   --ui-mobile-touch-target: 52px;
+  /* Room the floating mobile navigation takes at the right edge: its buttons, padding and gap to the content. */
+  --ui-mobile-fab-reserve: calc(var(--ui-mobile-touch-target) + 1.75rem);
   --ui-mobile-header-height: 60px;
   --ui-control-font-size: calc(var(--ui-font-size) * 1);
   --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));

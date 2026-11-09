@@ -151,7 +151,7 @@ export function TutorHistoryView({
   readonly onBack: () => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 text-left" data-testid="tutor-history-view">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 text-left max-md:pr-[calc(1rem+var(--ui-mobile-fab-reserve))]" data-testid="tutor-history-view">
       <div>
         <Button type="button" variant="outline" size="sm" onClick={onBack} data-testid="tutor-back-to-question">
           <ArrowLeft aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
@@ -80,7 +80,7 @@ function TutorComposer({ tutor, actions, pendingLabel, canRequest }: {
   }, [tutor.isLoading, tutor.question?.question]);
 
   return (
-    <div className="flex flex-col gap-2 max-md:pr-20">
+    <div className="flex flex-col gap-2">
       <TutorErrorNotice tutor={tutor} actions={actions} />
       <textarea
         ref={composerRef}
@@ -139,15 +139,17 @@ function TutorComposer({ tutor, actions, pendingLabel, canRequest }: {
 
 /**
  * After an answer that closed the question: the one way on, focused so that Enter goes on. It shows the next
- * question the answer already received; it sends nothing (LearningQuestions 10.7).
+ * question the answer already received; it sends nothing (LearningQuestions 10.7). It stays in view at the
+ * bottom of the column and takes the focus without scrolling, so that the feedback is read from its start
+ * (review of 2356be848, R2).
  */
 function TutorContinue({ onContinue }: { readonly onContinue: () => void }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    buttonRef.current?.focus();
+    buttonRef.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <div className="flex min-w-0 justify-end max-md:pr-20">
+    <div className="sticky -bottom-4 -mb-4 flex min-w-0 justify-end border-t border-border bg-background pt-2 pb-4">
       {/* The label wraps within the column at XXL size, like the help actions. */}
       <Button
         ref={buttonRef}
@@ -164,6 +166,27 @@ function TutorContinue({ onContinue }: { readonly onContinue: () => void }) {
 }
 
 /**
+ * When an answer closed its question, the column scrolls to the start of the answer and its feedback; if the
+ * rating would still be below the visible part, to the feedback itself. Nothing scrolls on later renders.
+ */
+function useFeedbackInView(stepRef: RefObject<HTMLDivElement | null>, awaitingNext: boolean) {
+  useLayoutEffect(() => {
+    const step = stepRef.current;
+    const scroller = step?.closest<HTMLElement>('[data-testid="tutor-dialog-scroll"]');
+    if (!awaitingNext || !step || !scroller) return;
+    const top = (element: Element) => element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    const padding = Number.parseFloat(getComputedStyle(scroller).paddingTop) || 0;
+    scroller.scrollTop += top(step) - padding;
+    const rating = step.querySelector('[data-testid="tutor-history-feedback"]');
+    const footer = scroller.querySelector('[data-testid="tutor-continue"]')?.parentElement;
+    const visibleHeight = scroller.clientHeight - (footer?.getBoundingClientRect().height ?? 0);
+    if (rating && top(rating) + rating.getBoundingClientRect().height / 2 > visibleHeight) {
+      scroller.scrollTop += top(rating) - padding;
+    }
+  }, [awaitingNext, stepRef]);
+}
+
+/**
  * The open question with the feedback that belongs to it, the answer field right below, and help on demand;
  * after an answer that closed it, the answered question with its feedback and stars and `Weiter`
  * (LearningQuestions 10.7).
@@ -175,7 +198,9 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
   readonly canRequest: boolean;
 }) {
   const headingId = useId();
+  const stepRef = useRef<HTMLDivElement>(null);
   const unlockNotice = useUnlockNotice(tutor.support);
+  useFeedbackInView(stepRef, tutor.awaitingNext);
   const question = tutor.question!;
   const last = tutor.transcript.at(-1);
   const currentEntry = last && entryQuestion(last) === question.question ? last : null;
@@ -198,7 +223,7 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
         {question.mermaid && <MermaidPreview source={question.mermaid} />}
       </section>
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
-      <div aria-live="polite" data-testid="tutor-current-step">
+      <div ref={stepRef} aria-live="polite" data-testid="tutor-current-step">
         {currentEntry && <TutorEntry entry={currentEntry} placement="current" />}
       </div>
       {unlockNotice && !tutor.awaitingNext && <p className="text-ui-sm text-foreground" data-testid="tutor-unlock-notice">{unlockNotice}</p>}
@@ -232,7 +257,8 @@ export function TutorLearningStep({ tutor, actions }: {
 
   return (
     <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 text-left" data-testid="tutor-dialog-scroll">
-      <div className="flex w-full flex-col gap-5">
+      {/* On a phone the floating navigation stays beside the text, never over it (review of 2356be848, R3). */}
+      <div className="flex w-full flex-col gap-5 max-md:pr-(--ui-mobile-fab-reserve)">
         {!tutor.capabilities.canUseTutor && (
           <output className="text-ui-sm text-muted-foreground" aria-live="polite">Serververbindung erforderlich</output>
         )}

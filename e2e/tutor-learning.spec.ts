@@ -329,6 +329,85 @@ test.describe("Tutor learning flow", () => {
     expect(dialogCalls).toBe(1);
   });
 
+  // The feedback of an answer that closed its question, with XXL text: its rating and start in view, Weiter focused
+  // and visible, and no text under the floating mobile navigation (review of 2356be848, R2 and R3).
+  for (const layout of [
+    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true } },
+    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true } },
+  ]) {
+    test(`keeps the rating and the start of the feedback in view and no text under the navigation on ${layout.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
+      await openTutor(page, layout.columns);
+      const question = "Wie oft läuft die Schleife, wenn `wert` mit 2000 startet, und woran erkennst du das in der Ausgabe des Sketches?";
+      await page.route("**/api/tutor/question", (route) => route.fulfill({ json: { question, responseStyle: "normal", provider: "kiconnect", model: "pilot-model" } }));
+      await page.route("**/api/tutor/dialog", (route) => route.fulfill({
+        json: {
+          responseStyle: "normal", question: "Warum muss `wert` im Schleifenblock verändert werden?", answerRating: 4, learnerInput: "answer",
+          feedback: "Richtig: Die Bedingung wird vor dem ersten Durchlauf geprüft. Mit diesem Startwert ist sie sofort falsch. Deshalb erscheint keine Zeile aus dem Schleifenblock in der Ausgabe.",
+          provider: "kiconnect", model: "pilot-model",
+        },
+      }));
+      await page.getByTestId("tutor-start-question").click();
+      await answerField(page).fill("Die Schleife wird gar nicht betreten, weil die Bedingung schon beim ersten Prüfen falsch ist.");
+      await page.getByTestId("tutor-send-answer").click();
+      const next = page.getByTestId("tutor-continue");
+      await expect(next).toBeFocused();
+      await page.screenshot({ path: `test-results/tutor-feedback-xxl-${layout.width}.png` });
+
+      const view = await page.evaluate(() => {
+        const scroller = document.querySelector('[data-testid="tutor-dialog-scroll"]')!.getBoundingClientRect();
+        const box = (testId: string) => document.querySelector(`[data-testid="${testId}"]`)!.getBoundingClientRect();
+        const footer = document.querySelector('[data-testid="tutor-continue"]')!.parentElement!.getBoundingClientRect();
+        const feedback = document.querySelector('[data-testid="tutor-current-step"] [data-testid="tutor-history-feedback"] p:last-child')!;
+        const range = document.createRange();
+        range.selectNodeContents(feedback);
+        const firstLine = range.getClientRects()[0]!;
+        const rating = box("tutor-answer-rating");
+        const button = box("tutor-continue");
+        return {
+          ratingVisible: rating.top >= scroller.top - 1 && rating.bottom <= footer.top + 1,
+          feedbackStartVisible: firstLine.top >= scroller.top - 1 && firstLine.bottom <= footer.top + 1,
+          continueVisible: button.top >= scroller.top - 1 && button.bottom <= scroller.bottom + 1,
+        };
+      });
+      expect(view).toEqual({ ratingVisible: true, feedbackStartVisible: true, continueVisible: true });
+
+      // Every character of question, answer and feedback, at the top and at the end of the column.
+      const covered = async () => page.evaluate(() => {
+        const scroller = document.querySelector('[data-testid="tutor-dialog-scroll"]')!;
+        const navigation = document.querySelector("[data-mobile-fab-toolbar]");
+        const area = scroller.getBoundingClientRect();
+        const hidden: string[] = [];
+        const walker = document.createTreeWalker(scroller, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.textContent ?? "";
+          for (let index = 0; index < text.length; index += 1) {
+            if (!text[index]!.trim()) continue;
+            const range = document.createRange();
+            range.setStart(node, index);
+            range.setEnd(node, index + 1);
+            const glyph = range.getBoundingClientRect();
+            if (glyph.width <= 0 || glyph.top < area.top || glyph.bottom > area.bottom) continue;
+            const hit = document.elementFromPoint((glyph.left + glyph.right) / 2, (glyph.top + glyph.bottom) / 2);
+            if (hit && navigation?.contains(hit)) hidden.push(text[index]!);
+          }
+        }
+        return hidden.join("");
+      });
+      expect(await covered()).toBe("");
+      await page.getByTestId("tutor-dialog-scroll").evaluate((element) => { element.scrollTop = 0; });
+      expect(await covered()).toBe("");
+      await page.getByTestId("tutor-dialog-scroll").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      expect(await covered()).toBe("");
+
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("tutor-question")).toContainText("im Schleifenblock verändert");
+      await expect(answerField(page)).toBeFocused();
+      expect(await covered()).toBe("");
+    });
+  }
+
   // Every unlocked help, with XXL text: on a phone beside the mobile navigation, and in a narrow third column (review R3).
   for (const layout of [
     { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true } },
