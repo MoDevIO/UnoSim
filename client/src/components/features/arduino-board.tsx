@@ -6,7 +6,7 @@ import { useTelemetryStore } from "@/hooks/use-telemetry-store";
 import { usePinPollingEngine } from "@/hooks/usePinPollingEngine";
 import { onCustomEvent, offCustomEvent } from "@/utils/event-utils";
 import { Logger } from "@shared/logger";
-import { DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
+import { BOARD_ARTWORK_PCB_FILL, DEFAULT_BOARD_ID, getBoard, type BoardId } from "@shared/boards";
 import { activeAnalogPinTitle, activePinLabel, analogChannelPin, isAnalogPin } from "@/lib/active-board";
 import { type BoardView, DEFAULT_LOGO_PLACEMENT, boardView, boardDisplayScale } from "@/lib/board-view";
 import type { RuntimeSimulationStatus } from "@shared/types/arduino.types";
@@ -539,8 +539,7 @@ export function ArduinoBoard({
     if (!svgContent) return "";
     let modified = preprocessSvg(svgContent);
     try {
-      const DEFAULT_BOARD_HEX = '#0f7391';
-      modified = modified.replaceAll(new RegExp(DEFAULT_BOARD_HEX, 'gi'), boardColor);
+      modified = modified.replaceAll(new RegExp(BOARD_ARTWORK_PCB_FILL, 'gi'), boardColor);
     } catch { /* ignore regex errors */ }
     const opacity = 1;  // Always show board at full opacity (user requirement: board must be visible before-start and after-stop)
     return modified.replace(
