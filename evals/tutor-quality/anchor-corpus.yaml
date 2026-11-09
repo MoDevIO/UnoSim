@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 14
+corpusVersion: 15
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -645,12 +645,16 @@ scenarios:
       - kind: dialog
         question: *it061-concept
         answer: *it061-concept-answer
+      # The steps before the correct answer must not reveal it, in raw and delivered output; the confirmation
+      # of the correct answer at the end may name it (R-SUP-E5).
       - kind: dialog
         question: *it061-prediction
         answer: *it061-observation
+        mustNotReveal: *it061-hidden
       - kind: dialog
         question: *it061-prediction
         answer: *it061-objection
+        mustNotReveal: *it061-hidden
       - kind: dialog
         question: *it061-prediction
         answer: Die Schleife wird nie betreten. Es gibt keinen Startwert.

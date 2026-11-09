@@ -126,6 +126,18 @@ export function addViolation(
   violations.push({ code, source, ...(turnIndex === undefined ? {} : { turnIndex }), ...(details ? { details } : {}) });
 }
 
+/**
+ * The literals a turn must not reveal: the case's for every turn, and the turn's own (R-SUP-E5). A case that
+ * ends with the confirmation of a correct answer declares them only on the turns before it.
+ */
+export function revealLiteralsFor(
+  expected: { readonly mustNotReveal?: readonly string[] } | undefined,
+  turn: { readonly mustNotReveal?: readonly string[] },
+): readonly string[] | undefined {
+  const literals = [...(expected?.mustNotReveal ?? []), ...(turn.mustNotReveal ?? [])];
+  return literals.length > 0 ? literals : undefined;
+}
+
 export function declaredLeakCheck(
   rawResult: unknown,
   literals: readonly string[] | undefined,

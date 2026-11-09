@@ -35,12 +35,15 @@ export type TutorQualityTurnSource =
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorQualityHistoryEntrySource[];
+    /** Literals this turn's raw and delivered output must not contain, in addition to the case's (R-SUP-E5). */
+    readonly mustNotReveal?: readonly string[];
   }
   /** A learning-support action on the current question (R-SUP-E4); only in an `http` scenario. */
   | {
     readonly kind: "support";
     readonly action: TutorSupportAction;
     readonly difficulty?: number;
+    readonly mustNotReveal?: readonly string[];
   };
 
 /**
@@ -183,6 +186,7 @@ function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQu
   }
   const difficulty = optionalInteger(value.difficulty, `${label}.difficulty`);
   const history = parseHistory(value.history, label);
+  const mustNotReveal = parseRevealLiterals(value.mustNotReveal, `${label}.mustNotReveal`);
   return {
     kind: "dialog",
     question: value.question,
@@ -190,18 +194,25 @@ function parseDialogTurn(value: Record<string, unknown>, label: string): TutorQu
     ...(continuationOf === undefined ? {} : { continuationOf }),
     ...(difficulty === undefined ? {} : { difficulty }),
     ...(history === undefined ? {} : { history }),
+    ...(mustNotReveal === undefined ? {} : { mustNotReveal }),
   };
 }
 
 function parseSupportTurn(value: Record<string, unknown>, label: string): TutorQualityTurnSource | undefined {
   if (value.kind !== "support") return undefined;
   for (const key of Object.keys(value)) {
-    if (!["kind", "action", "difficulty"].includes(key)) fail(`${label}.${key} is unknown`);
+    if (!["kind", "action", "difficulty", "mustNotReveal"].includes(key)) fail(`${label}.${key} is unknown`);
   }
   const action = tutorSupportActionSchema.safeParse(value.action);
   if (!action.success) fail(`${label}.action must be clarify, hint, reveal or skip`);
   const difficulty = optionalInteger(value.difficulty, `${label}.difficulty`);
-  return { kind: "support", action: action.data, ...(difficulty === undefined ? {} : { difficulty }) };
+  const mustNotReveal = parseRevealLiterals(value.mustNotReveal, `${label}.mustNotReveal`);
+  return {
+    kind: "support",
+    action: action.data,
+    ...(difficulty === undefined ? {} : { difficulty }),
+    ...(mustNotReveal === undefined ? {} : { mustNotReveal }),
+  };
 }
 
 function parseTurn(value: unknown, label: string): TutorQualityTurnSource {
@@ -282,10 +293,16 @@ function parseMustNotReveal(
 ): readonly string[] | undefined {
   if (value === undefined) return undefined;
   const field = `${label}.expected.mustNotReveal`;
+  if (!turns.some((turn) => turn.kind === "dialog" || turn.kind === "support")) fail(`${field} requires a dialog or support turn`);
+  return parseRevealLiterals(value, field);
+}
+
+/** 1 to 5 specific, distinct literals (R-REV-1); used for a case and for a single turn. */
+function parseRevealLiterals(value: unknown, field: string): readonly string[] | undefined {
+  if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_REVEAL_LITERALS) {
     fail(`${field} must be a list of 1 to ${MAX_REVEAL_LITERALS} literals`);
   }
-  if (!turns.some((turn) => turn.kind === "dialog" || turn.kind === "support")) fail(`${field} requires a dialog or support turn`);
   const seen = new Set<string>();
   for (const literal of value) {
     if (typeof literal !== "string" || !isValidRevealLiteral(literal)) {

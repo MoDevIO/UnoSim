@@ -266,8 +266,11 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
 });
 
 describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating does not (R-SUP-E5, R-SUP-9)", () => {
-  /** Rates the corrected answer 4 and the observation and the objection 2; records every dialog prompt. */
-  function it061Provider() {
+  /**
+   * Rates the corrected answer 4 and the observation and the objection 2; records every dialog prompt. With
+   * `leakEarly` the weak steps name the solution; the confirmation of the corrected answer always names it.
+   */
+  function it061Provider({ leakEarly = false } = {}) {
     const dialogPrompts: string[] = [];
     const provider: LLMProvider = {
       async listModels() {
@@ -278,8 +281,12 @@ describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating d
           dialogPrompts.push(userPrompt);
           const answer = promptPart(userPrompt, "Aktuelle Nutzerantwort:\n```text\n");
           const question = promptPart(userPrompt, "Aktuelle Tutorfrage:\n");
-          const rating = question === IT061_CONCEPT_QUESTION || answer.includes("nie betreten") ? 4 : 2;
-          return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: "Was gibt der Sketch zuletzt aus?" } };
+          const concept = question === IT061_CONCEPT_QUESTION;
+          const corrected = answer.includes("nie betreten");
+          let feedback = leakEarly ? "Die gesuchte Lösung ist 0 Durchläufe. Die Schleife wird nicht betreten." : "Noch nicht.";
+          if (concept) feedback = "Richtig.";
+          else if (corrected) feedback = "Richtig: Mit wert = 2000 wird die Schleife nicht betreten.";
+          return { model: "fake-model", result: { responseStyle: "normal" as const, feedback, answerRating: concept || corrected ? 4 : 2, question: "Was gibt der Sketch zuletzt aus?" } };
         }
         return { model: "fake-model", result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
       },
@@ -294,19 +301,47 @@ describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating d
     expect(fixture).toContain("unsigned int wert = 1;");
   });
 
-  it("replays all steps on the retained question and gives the earlier attempts apart from the rated history", async () => {
-    const { provider, dialogPrompts } = it061Provider();
-    const { transcripts } = await runTutorQualityEvaluation({
+  async function runCorrected(provider: LLMProvider, samples = 1) {
+    return runTutorQualityEvaluation({
       scenarios: [await corpusScenario("TQ-SUP-IT061-CORRECTED")],
       provider,
       providerId: "fake-provider",
       credential: CREDENTIAL,
       requestedModel: "fake-model",
-      samples: 1,
+      samples,
       maxCalls: 100,
       git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
       artifactWriter: async () => undefined,
     });
+  }
+
+  it("fails a full run that reveals the solution early, although the final confirmation is right (review R4)", async () => {
+    const { report, transcripts } = await runCorrected(it061Provider({ leakEarly: true }).provider, 3);
+    for (const transcript of transcripts) {
+      expect(transcript.executionStatus).toBe("completed");
+      const leaks = transcript.invariantViolations.filter(({ code }) => code === "solution-revealed");
+      // Both earlier prediction steps, in the model's output and in what the application delivered.
+      expect(leaks.map(({ source, turnIndex }) => `${source}@${turnIndex}`).sort())
+        .toEqual(["final-tutor@2", "final-tutor@3", "raw-provider@2", "raw-provider@3"]);
+      expect(leaks.every(({ turnIndex }) => turnIndex !== 4)).toBe(true);
+    }
+    expect(report.qualityVerdict.verdict).toBe("fail");
+  });
+
+  it("lets the confirmation of the correct answer name the solution at the end (review R4)", async () => {
+    const { report, transcripts } = await runCorrected(it061Provider().provider, 3);
+    for (const transcript of transcripts) {
+      expect(transcript.executionStatus).toBe("completed");
+      expect(transcript.invariantViolations).toEqual([]);
+      expect(transcript.turns[4]?.finalTutorResult?.feedback).toContain("nicht betreten");
+      expect(checks(transcript, "final-tutor-no-declared-leak").map(({ outcome }) => outcome)).toEqual(["pass", "pass"]);
+    }
+    expect(report.qualityVerdict.verdict).toBe("pass");
+  });
+
+  it("replays all steps on the retained question and gives the earlier attempts apart from the rated history", async () => {
+    const { provider, dialogPrompts } = it061Provider();
+    const { transcripts } = await runCorrected(provider);
     const transcript = transcripts[0];
     expect(transcript?.executionStatus).toBe("completed");
     expect(checks(transcript, "expected-answer-rating")).toEqual([expect.objectContaining({ outcome: "pass" })]);

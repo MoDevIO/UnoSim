@@ -13,6 +13,7 @@ import {
   addNotApplicableCheck,
   addViolation,
   declaredLeakCheck,
+  revealLiteralsFor,
   hasReturnedModel,
   providerAttempts,
   redact,
@@ -194,8 +195,9 @@ function applyResponse(turn: TutorQualityTurn, body: Body, state: ReplayState, a
 
 /** Action-aware leak check of the delivered text (R-SUP-E4): an authorized reveal is no leak. */
 function deliveredLeakCheck(turn: TutorQualityTurn, delivered: Record<string, unknown> | undefined, expected: TutorQualityExpectation | undefined, turnIndex: number, checks: TutorQualityDeterministicCheck[], violations: TutorQualityInvariantViolation[]): void {
-  const literals = expected?.mustNotReveal;
-  if (literals === undefined || turn.kind === "initial") return;
+  if (turn.kind === "initial") return;
+  const literals = revealLiteralsFor(expected, turn);
+  if (literals === undefined) return;
   if (turn.kind === "support" && turn.action === "reveal") {
     addNotApplicableCheck(checks, "final-tutor-no-declared-leak", "authorized-reference-answer");
     return;
@@ -410,7 +412,7 @@ function rawTurnChecks(scope: TurnScope, body: Body): boolean {
     const raw = capture.response.result;
     if (turn.kind === "support" && (turn.action === "clarify" || turn.action === "hint")) {
       context.rawChecks(raw, turn, turnIndex, checks, false);
-      declaredLeakCheck(raw, context.scenario.expected?.mustNotReveal, turnIndex, checks, violations);
+      declaredLeakCheck(raw, revealLiteralsFor(context.scenario.expected, turn), turnIndex, checks, violations);
       continue;
     }
     const dialogTurn: TutorQualityTurn = turn.kind === "dialog" ? { ...turn, history: state.history } : turn;
