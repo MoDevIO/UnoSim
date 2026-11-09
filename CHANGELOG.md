@@ -17,6 +17,20 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   a graduation cap. Failures keep the draft and offer a matching action
   (**Erneut versuchen**, **Modell wählen**, **Zugang prüfen**). The Tutor
   speaks German throughout. The learning step loads with the Tutor column.
+- **Tutor: deliberate step to the next question, stars at the feedback**
+  (LearningQuestions 10.7): an answer that closes its question keeps it shown
+  with the answer, the feedback and its stars; **Weiter zur nächsten Frage**
+  (focused, no request, nothing counted again) shows the next one. A weak
+  answer keeps the question editable. **Erneut versuchen** repeats exactly the
+  failed request, with its code, answer and action id; after an edit of code or
+  draft it is no longer offered and **Senden** sends the current inputs.
+- **Tutor feedback takes up a recurring misunderstanding** (LearningQuestions
+  R-SUP-9): weak earlier attempts at the asked question reach the model apart
+  from the rated history, without their rating, so the feedback can name the
+  misunderstanding instead of repeating a hint; a correct observation of the
+  sketch is acknowledged and a differing question assumption named. Prompt
+  revision v9; the evaluation corpus v14 adds the IT06.1 case
+  (`TQ-SUP-IT061-*`).
 
 ### Added
 
@@ -53,6 +67,9 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ### Fixed
 
+- **Menus reopen reliably:** a click on a menu's trigger while the menu just
+  closed still faded out opened it and closed it again at once (for example the
+  Tutor's **⋯** after **Einstellungen** and back).
 - **Tutor: answers to a question that sets its own values are graded with
   those values.** Example IT06.4 asks what the first loop pass prints when `a`
   is 200 while the sketch starts with `a = 37`; the correct answer `1` could be

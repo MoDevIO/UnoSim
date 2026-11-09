@@ -215,10 +215,13 @@ mit **Key löschen** entfernst du ihn sofort.
    die aktuelle Frage.
 2. Die Antwort direkt darunter in das Feld **Antwort oder Rückfrage …** schreiben
    und mit **Senden** (oder Enter) abschicken.
-3. Die Rückmeldung erscheint unter der Frage. Ist die Antwort richtig, stellt
-   der Tutor eine neue Frage; die Rückmeldung zu deiner Antwort steht dann als
-   **Rückmeldung zu deiner vorigen Antwort** darüber. Sonst bleibt dieselbe
-   Frage offen.
+3. Die Rückmeldung erscheint unter der Frage, bei einer bewerteten Antwort mit
+   ihrer Verständnisbewertung (1–5 Sterne) direkt daneben. Ist die Frage damit
+   beantwortet, bleibt sie mit deiner Antwort und der Rückmeldung stehen, bis du
+   **Weiter zur nächsten Frage** wählst (die Schaltfläche hat dann den Fokus,
+   Enter genügt). Weiter schickt nichts ab und zählt nichts. Ist die Antwort
+   noch nicht ausreichend, bleibt dieselbe Frage offen, und du kannst direkt
+   weiter antworten.
 
 Das Fragezeichen-Symbol neben dem Antwortfeld öffnet die **Hilfe zur aktuellen
 Frage**. Das Öffnen selbst schickt nichts ab und zählt nichts. Keine Hilfe wird
@@ -244,9 +247,13 @@ Musterantwort vorliegt. Änderst du den Code, zählt die Frage von vorn.
 
 Schlägt eine Anfrage fehl, bleibt dein Entwurf erhalten, und der Tutor bietet
 die passende Aktion an, etwa **Erneut versuchen** oder **Modell wählen**.
+**Erneut versuchen** schickt genau die fehlgeschlagene Anfrage noch einmal, mit
+demselben Code und derselben Antwort. Hast du seitdem Code oder Antwort
+geändert, entfällt diese Aktion; **Senden** schickt dann deine aktuelle Fassung.
 
 **Verlauf** im Kopf der Tutor-Spalte zeigt frühere Fragen, deine Antworten, die
-Rückmeldungen mit der Verständnisbewertung (Sterne) und den Durchschnitt.
+Rückmeldungen mit ihren Sternen und den Durchschnitt. Erklärungen, Hinweise,
+übersprungene Fragen und Antworten nach der Musterantwort bleiben ohne Sterne.
 **Zurück zur Frage** führt zum aktuellen Schritt; dein Entwurf bleibt erhalten.
 **⋯ → Neue Lernrunde starten** beendet die aktuelle Frage, setzt Verlauf und
 Lernstand zurück und stellt eine erste neue Frage. Wenn du ein Beispiel oder
