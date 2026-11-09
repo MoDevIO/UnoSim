@@ -2245,6 +2245,32 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   Modell selbst lehnte „1“ bzw. „200 = 1“ in jeder Stichprobe mindestens einmal
   ab). Mit `qwen3-omni-30b-a3b-instruct` (damals Automatik) endeten alle 3
   Stichproben mit `504 PROVIDER_TIMEOUT`. Qwen ist seitdem keine Voraussetzung.
+  *Stand 2026-11-09 (IT06.1, R-SUP-9, Korpus v14, Judge getrennt):* je 3
+  Stichproben der Fälle `TQ-SUP-IT061-*`, isolierter Routentest. Prompt v8
+  (`25276d5d4`), Tutor `openai-gpt5.5` (zurückgegeben `gpt-5.5-2026-04-24`),
+  Judge `openai-gpt-oss-120b`: 9/9 vollständig, Urteil „fail“. Schritt 1
+  (Beobachtung) erkannte die richtige Beobachtung an und nannte die abweichende
+  Annahme (Judge 3/3); auf den Einwand in Schritt 2 beanstandete die
+  Rückmeldung in 6/6 Ausführungen vor allem die fehlende Anzahl und sagte nie,
+  dass die 2000 in `GRENZE` steht (Judge 3/3 „fail“); die richtige dritte
+  Antwort wurde bestätigt, aber wegen „Es gibt keinen Startwert“ roh und
+  ausgeliefert mit 2 bewertet (3/3). Prompt v9 (`d7de6e971`), sonst gleich:
+  9/9 vollständig, Urteil „inconclusive“, weil der Judge zweimal ohne
+  gültiges Zitat antwortete. Schritt 1 wie zuvor (Judge 3/3); im Einwand nannte
+  die Rückmeldung in 4/6 Ausführungen ausdrücklich, dass die 2000 in `GRENZE`
+  steht, 1/6 teilweise, 1/6 nicht (von Hand gelesen; Judge 1 „pass“, 2 ohne
+  Urteil); die dritte Antwort roh und ausgeliefert 3/3 mit 4, Kernaussage
+  bestätigt (Judge einmal „does-not-call-wrong“ verfehlt, weil „kein Startwert“
+  als unzutreffend erläutert wurde). Kein Lösungsverrat der Literale, kein
+  verworfener Versuch, kein Providerfehler. `openai-gpt5.4-mini` mit v9 (Judge
+  `openai-gpt5.5`): 9/9 vollständig, „fail“; das Modell bezeichnete die
+  zutreffende Beobachtung als falsch, ging auf den Einwand nicht ein und bewertete
+  die richtige dritte Antwort 1/3 mit 4, 2/3 mit 1; alle 9 Judge-Aufrufe endeten
+  mit `rate-limited`. IT06.4-Gegenprobe mit v9 und `openai-gpt5.5`: nur
+  `TQ-SUP-IT064-ANSWER-1` vollständig (3/3, roh und ausgeliefert 5); alle
+  übrigen Stichproben und ein zweiter Versuch endeten mit `rate-limited`
+  (Providerfehler, keine Qualitätsaussage). Offen: IT06.4 unter v9 vollständig,
+  ein unabhängiger Lerneffekt-Nachweis mit echten Lernenden.
   *Stand 2026-11-07 (`8e923a963`, Evaluator nach Review G2, Modellprofil):*
   sechs IT06.4-Szenarien, je festem Modell 3 Stichproben, Judge
   `openai-gpt-oss-120b`, alle Läufe auf demselben sauberen Commit.

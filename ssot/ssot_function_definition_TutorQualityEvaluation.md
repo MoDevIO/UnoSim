@@ -915,6 +915,12 @@ and judge one step each, carrying forward the real preceding responses:
 Only the feedback quality of the first two steps shows whether the Tutor helps;
 a scripted correct third answer is no evidence of a learning effect. Raw model
 output and delivered output are checked apart, as in R-SUP-E4.
+*Implemented (2026-11-09):* corpus v14 with the fixture
+`evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino` and the Course
+Content fixture `it06-1` (focus of the Example, no reference answer); the
+dialog is reconstructed from the review note, not the learner's verbatim
+transcript. L2: scripted HTTP replay in `http-replay.test.ts`. Live samples are
+recorded in LearningQuestions TUT-07.
 
 **R-SUP-E4 – Action-aware guards and evidence.** The existing no-solution,
 one-question and non-repetition checks remain for normal question/feedback
