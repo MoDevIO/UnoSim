@@ -320,6 +320,19 @@ function answerActionId(
   return actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}`);
 }
 
+/** The action id and binding of an answer; none outside the support cycle, the failed one's id on a repeat. */
+function answerBindingFor(
+  support: TutorSupportState | null,
+  answer: string,
+  sketch: TutorSketch,
+  pending: { current: { readonly key: string; readonly actionId: string } | null },
+  repeatedActionId?: string,
+) {
+  if (!support) return { actionId: undefined, binding: {} };
+  const actionId = repeatedActionId ?? answerActionId(support, answer, sketch, pending);
+  return { actionId, binding: supportBinding(support, actionId) };
+}
+
 /** Whether an answer moved on to another question; a weak answer keeps the question and its handle. */
 function answerAdvanced(asked: TutorResponse, askedSupport: TutorSupportState | null, response: TutorResponse): boolean {
   if (askedSupport && response.support) return response.support.questionHandle !== askedSupport.questionHandle;
@@ -596,6 +609,36 @@ export function useTutor(
     setAnswer("");
   }, []);
 
+  /**
+   * Shows what an answer brought: a typed question about the question as unrated help; otherwise the rated
+   * turn, booked at once, with the next question held back when the answer closed its question.
+   */
+  const applyAnswerResult = useCallback((response: TutorResponse, asked: {
+    readonly question: TutorResponse;
+    readonly history: readonly TutorDialogTurn[];
+    readonly support: TutorSupportState | null;
+    readonly answer: string;
+  }) => {
+    const helpEntry = typedHelpEntry(response, asked.question.question, asked.answer);
+    if (helpEntry) {
+      if (response.support) setSupport(response.support);
+      setTranscript((current) => [...current, withEntryId(helpEntry)]);
+      setCourseContentSession(response.courseContentSession ?? courseContentSession);
+      setAnswer("");
+      return;
+    }
+    const update = buildDialogResponseUpdate(asked.history, asked.question, asked.answer, response, courseContentSession);
+    setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, asked.support))]);
+    applyDialogResponse(response, update);
+    if (answerAdvanced(asked.question, asked.support, response)) {
+      setHeldNext({ question: response, support: response.support ?? null });
+      return;
+    }
+    // A weak answer: the same question stays open and editable, with the server's new counts.
+    setQuestion(response);
+    if (response.support) setSupport(response.support);
+  }, [applyDialogResponse, courseContentSession]);
+
   /** Sends one answer as it is given; a repeat passes the action id of the failed attempt (R-SUP-1). */
   const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string) => {
     if (!question || heldNext) return;
@@ -604,9 +647,7 @@ export function useTutor(
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    // Outside the support cycle an answer has no binding.
-    const actionId = currentSupport ? repeatedActionId ?? answerActionId(currentSupport, submittedAnswer, sketch, pendingAction) : undefined;
-    const binding = currentSupport && actionId ? supportBinding(currentSupport, actionId) : {};
+    const { actionId, binding } = answerBindingFor(currentSupport, submittedAnswer, sketch, pendingAction, repeatedActionId);
 
     clearError();
     setIsLoading(true);
@@ -628,24 +669,7 @@ export function useTutor(
       }, controller.signal);
       if (!parsed) return;
       pendingAction.current = null;
-      const helpEntry = typedHelpEntry(parsed.data, currentQuestion.question, submittedAnswer);
-      if (helpEntry) {
-        if (parsed.data.support) setSupport(parsed.data.support);
-        setTranscript((current) => [...current, withEntryId(helpEntry)]);
-        setCourseContentSession(parsed.data.courseContentSession ?? courseContentSession);
-        setAnswer("");
-        return;
-      }
-      const update = buildDialogResponseUpdate(currentHistory, currentQuestion, submittedAnswer, parsed.data, courseContentSession);
-      setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, currentSupport))]);
-      applyDialogResponse(parsed.data, update);
-      if (answerAdvanced(currentQuestion, currentSupport, parsed.data)) {
-        setHeldNext({ question: parsed.data, support: parsed.data.support ?? null });
-      } else {
-        // A weak answer: the same question stays open and editable, with the server's new counts.
-        setQuestion(parsed.data);
-        if (parsed.data.support) setSupport(parsed.data.support);
-      }
+      applyAnswerResult(parsed.data, { question: currentQuestion, history: currentHistory, support: currentSupport, answer: submittedAnswer });
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
@@ -655,7 +679,7 @@ export function useTutor(
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [applyDialogResponse, availableModels, courseContentSession, credential, effectiveDifficulty, failWith, finishLoading, heldNext, history, question, selectedModel, clearError, support]);
+  }, [applyAnswerResult, availableModels, courseContentSession, credential, effectiveDifficulty, failWith, finishLoading, heldNext, history, question, selectedModel, clearError, support]);
 
   const submitAnswer = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor || heldNext) return;
