@@ -333,9 +333,13 @@ function answerBindingFor(
   return { actionId, binding: supportBinding(support, actionId) };
 }
 
-/** Whether an answer moved on to another question; a weak answer keeps the question and its handle. */
-function answerAdvanced(asked: TutorResponse, askedSupport: TutorSupportState | null, response: TutorResponse): boolean {
-  if (askedSupport && response.support) return response.support.questionHandle !== askedSupport.questionHandle;
+/**
+ * Whether an answer closed its question. The server says so in the support cycle; a new question handle alone
+ * is no sign, because changed code binds the open question anew (review of 2356be848, R1). Outside the cycle
+ * a weak answer is followed by another question text.
+ */
+function answerAdvanced(asked: TutorResponse, response: TutorResponse): boolean {
+  if (response.questionStatus) return response.questionStatus === "closed";
   return response.question !== asked.question;
 }
 
@@ -630,7 +634,7 @@ export function useTutor(
     const update = buildDialogResponseUpdate(asked.history, asked.question, asked.answer, response, courseContentSession);
     setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, asked.support))]);
     applyDialogResponse(response, update);
-    if (answerAdvanced(asked.question, asked.support, response)) {
+    if (answerAdvanced(asked.question, response)) {
       setHeldNext({ question: response, support: response.support ?? null });
       return;
     }

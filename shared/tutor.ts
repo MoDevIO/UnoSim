@@ -216,6 +216,12 @@ const tutorResponseFields = {
   support: tutorSupportStateSchema.optional(),
   /** How a typed input was understood; only `answer` is rated. */
   learnerInput: tutorLearnerInputSchema.optional(),
+  /**
+   * Whether an answer in the support cycle closed its question (`closed`, the response asks the next one) or
+   * left it open (`open`, the same question again, possibly bound anew to changed code). The server decides;
+   * a new question handle alone does not mean the question was closed (LearningQuestions 10.7).
+   */
+  questionStatus: z.enum(["open", "closed"]).optional(),
 };
 
 const tutorNormalResponseSchema = z.object({

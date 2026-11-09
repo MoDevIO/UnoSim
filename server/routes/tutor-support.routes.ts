@@ -318,6 +318,8 @@ async function answerQuestion(scope: ActionScope<DialogRequest>, key: string): P
     body: {
       ...result,
       learnerInput: "answer" as const,
+      // A weak answer keeps the question, also when changed code bound it anew under another handle.
+      questionStatus: generated.retained ? "open" as const : "closed" as const,
       provider: config.tutor.provider,
       model: generated.model,
       support: supportStateView(scope.view.handle, nextQuestion, nextReference.status === "available"),
