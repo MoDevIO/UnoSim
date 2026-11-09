@@ -266,6 +266,7 @@ error: no silently ignored typos.
 | `stateUnchanged` | boolean | every turn | progression state equals the sample's initial state |
 | `questionNotRepeat` | `exact-or-heuristic` | every dialog turn | final question is not an exact or heuristic repeat of the answered question or history |
 | `mustNotReveal` | list of 1–5 non-empty strings | every dialog turn; in `http` also every clarify/hint turn | none of the literals occurs in the raw provider `feedback` or `question` (R-REV-1..3); in `http` also not in the delivered text; an authorized `reveal` is exempt |
+| turn `mustNotReveal` | list of 1–5 literals on a dialog or support turn | that turn only, in addition to the case's list | same check as the case's list for that turn; lets a multi-step case forbid an early reveal while its last turn may confirm the correct answer (R-SUP-E5) |
 | `learnerInput` | `answer \| clarification \| help` | `http`, final turn, must be `dialog` | how the application classified the typed input |
 | `supportAfter` | subset of `answerAttempts`, `clarifications` (0–3), `canSkip`, `canRevealReference`, `referenceAvailable`, `referenceShown`, `outcome` | `http`, final turn | the returned support state equals each listed field |
 | `referenceAnswer` | string ≤ 300 | `http`, final turn, must be `support`/`reveal` | the authorized reference shows exactly this answer; requires `referenceProvenance` |
@@ -915,6 +916,11 @@ and judge one step each, carrying forward the real preceding responses:
 Only the feedback quality of the first two steps shows whether the Tutor helps;
 a scripted correct third answer is no evidence of a learning effect. Raw model
 output and delivered output are checked apart, as in R-SUP-E4.
+The steps before the correct answer of `TQ-SUP-IT061-CORRECTED` carry a
+turn-level `mustNotReveal` with the literals of the other two cases, checked in
+the raw and the delivered output of exactly those turns; the final confirmation
+may name the result. A run that reveals the result early fails even when its
+final turn is correct (L2 counter-probe in `http-replay.test.ts`, corpus v15).
 *Implemented (2026-11-09):* corpus v14 with the fixture
 `evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino` and the Course
 Content fixture `it06-1` (focus of the Example, no reference answer); the
