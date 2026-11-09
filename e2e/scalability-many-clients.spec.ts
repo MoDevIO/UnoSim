@@ -5,7 +5,7 @@
  * WebSocket connection and the Start-Button stays grey.
  *
  * TOPOLOGY (mirrors the real UnoSim_Test dashboard):
- *   One HTML container page → CLIENT_COUNT <iframe src="http://localhost:3000">
+ *   One HTML container page → CLIENT_COUNT <iframe src="<test server origin>">
  *   Each iframe is a full UnoSim instance (same-origin to each other,
  *   cross-origin to the about:blank parent page injected by page.setContent).
  *
@@ -111,7 +111,9 @@ test.describe("Scalability: many-client iframe load", { tag: "@server-runs" }, (
   // Serial: the test itself loads many iframes; parallelism would multiply load.
   test.describe.configure({ mode: "serial" });
 
-  test(`all ${CLIENT_COUNT} iframes establish WebSocket connection`, async ({ page }) => {
+  test(`all ${CLIENT_COUNT} iframes establish WebSocket connection`, async ({ page, baseURL }) => {
+    // The configured test server (playwright.config.ts, E2E_PORT); its CSP lists this origin.
+    const appOrigin = new URL(baseURL ?? "http://localhost:3000").origin;
     // ── Init script: runs in EVERY frame (main page + each iframe) ────────────
     // Playwright injects addInitScript before any frame's scripts fire, including
     // dynamically created iframes.  Setting unoDebugMode makes the client-state
@@ -124,10 +126,10 @@ test.describe("Scalability: many-client iframe load", { tag: "@server-runs" }, (
       }
     });
 
-    // ── Navigate to parent page (must be localhost:3000 to satisfy CSP) ───────
-    // CSP: "frame-ancestors 'self' http://localhost:3000 …"
+    // ── Navigate to parent page (must be the app's own origin to satisfy CSP) ─
+    // CSP: "frame-ancestors 'self' <test-server origins> …"
     // An about:blank parent has null origin and is NOT in the allowlist.
-    await page.goto("http://localhost:3000", { waitUntil: "domcontentloaded" });
+    await page.goto(appOrigin, { waitUntil: "domcontentloaded" });
 
     // ── Register frame-attach listener BEFORE injecting iframes ──────────────
     // page.on("frameattached") fires for each new child frame.
@@ -139,16 +141,16 @@ test.describe("Scalability: many-client iframe load", { tag: "@server-runs" }, (
     });
 
     // ── Inject CLIENT_COUNT iframes via JS ────────────────────────────────────
-    await page.evaluate((count: number) => {
+    await page.evaluate(({ count, origin }: { count: number; origin: string }) => {
       for (let i = 0; i < count; i++) {
         const iframe = document.createElement("iframe");
-        iframe.src = "http://localhost:3000";
+        iframe.src = origin;
         iframe.id = `iframe-${i}`;
         iframe.style.cssText =
           "width:1px;height:1px;position:absolute;border:none;top:0;left:0";
         document.body.appendChild(iframe);
       }
-    }, CLIENT_COUNT);
+    }, { count: CLIENT_COUNT, origin: appOrigin });
 
     // ── Wait for Playwright to register all CLIENT_COUNT frames ───────────────
     await expect
