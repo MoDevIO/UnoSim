@@ -12,6 +12,8 @@ import {
 import { TutorText } from "./tutor-text";
 
 const LABEL = "text-ui-xs font-medium text-muted-foreground";
+// Long labels wrap inside the available width instead of running out of the help (review R3).
+const HELP_ACTION = "multiline-btn h-auto min-h-[var(--ui-button-height)] max-w-full whitespace-normal break-words py-1 text-left border-border";
 
 /**
  * Where an entry is shown (LearningQuestions 10.7): in the history with its rating, as the latest step of the
@@ -36,10 +38,10 @@ function LearnerText({ label, text }: { readonly label: string; readonly text: s
   );
 }
 
-function PreviousQuestion({ question }: { readonly question: string }) {
+function QuestionReference({ question, label }: { readonly question: string; readonly label: string }) {
   return (
     <p className="text-ui-sm text-muted-foreground">
-      <span className="font-medium">Vorige Frage: </span><TutorText text={question} />
+      <span className="font-medium">{label}: </span><TutorText text={question} />
     </p>
   );
 }
@@ -55,7 +57,7 @@ function TurnEntry({ entry, placement }: { readonly entry: Extract<TutorTranscri
           <p className="mt-1 leading-relaxed text-foreground"><TutorText text={turn.question} /></p>
         </div>
       )}
-      {placement === "previous" && <PreviousQuestion question={turn.question} />}
+      {placement === "previous" && <QuestionReference label="Vorige Frage" question={turn.question} />}
       <LearnerText label="Deine Antwort" text={turn.answer} />
       {(turn.feedback || assisted || (placement === "history" && turn.answerRating !== undefined)) && (
         <div data-testid="tutor-history-feedback">
@@ -111,7 +113,7 @@ export function TutorEntry({ entry, placement }: { readonly entry: TutorTranscri
     case "hint":
       return (
         <div className="flex flex-col gap-3" data-testid={entry.kind === "clarification" ? "tutor-clarification" : "tutor-hint"}>
-          {placement === "history" && <PreviousQuestion question={entry.question} />}
+          {placement === "history" && <QuestionReference label="Frage" question={entry.question} />}
           {entry.learnerText && <LearnerText label="Deine Rückfrage" text={entry.learnerText} />}
           <div>
             <p className={LABEL}>{entry.kind === "clarification" ? "Erklärung der Frage · unbewertet" : "Hinweis · unbewertet"}</p>
@@ -178,13 +180,15 @@ export function TutorHistoryView({
 
 /** The rule and the current state behind each further help, on request only (LearningQuestions 10.7). */
 function revealRule(support: TutorSupportState): string {
+  // Whether a reviewed reference fits does not depend on the attempts: no promise of one that does not exist (review R2).
+  if (!support.referenceAvailable) {
+    return "Musterantwort: Für diese Frage und deinen aktuellen Code liegt keine geprüfte Musterantwort vor, auch nicht nach weiteren Antworten.";
+  }
   if (!support.canRevealReference) {
     const left = Math.max(0, TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS - support.answerAttempts);
     return `Musterantwort: nach ${TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS} eigenen Antworten auf diese Frage (noch ${left}). Eine richtige Antwort wird sofort anerkannt.`;
   }
-  return support.referenceAvailable
-    ? "Musterantwort: freigeschaltet. Sie erscheint nur auf deinen Wunsch und gilt als Lösungshilfe."
-    : "Musterantwort: Für diese Frage liegt keine geprüfte Musterantwort vor.";
+  return "Musterantwort: freigeschaltet. Sie erscheint nur auf deinen Wunsch und gilt als Lösungshilfe.";
 }
 
 function skipRule(support: TutorSupportState): string {
@@ -205,21 +209,21 @@ export function TutorHelpOffer({ id, support, busy, onAction }: {
 }) {
   const canReveal = support.canRevealReference && support.referenceAvailable;
   return (
-    <section id={id} aria-label="Hilfe zur aktuellen Frage" className="flex flex-col gap-3 rounded-md border border-border p-3" data-testid="tutor-support-actions">
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction("clarify")} data-testid="tutor-action-clarify">
+    <section id={id} aria-label="Hilfe zur aktuellen Frage" className="flex min-w-0 flex-col gap-3 rounded-md border border-border p-3" data-testid="tutor-support-actions">
+      <div className="flex min-w-0 flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" className={HELP_ACTION} disabled={busy} onClick={() => onAction("clarify")} data-testid="tutor-action-clarify">
           Frage erklären
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction("hint")} data-testid="tutor-action-hint">
+        <Button type="button" size="sm" variant="outline" className={HELP_ACTION} disabled={busy} onClick={() => onAction("hint")} data-testid="tutor-action-hint">
           Hinweis geben
         </Button>
         {support.canSkip && (
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction("skip")} data-testid="tutor-action-skip">
+          <Button type="button" size="sm" variant="outline" className={HELP_ACTION} disabled={busy} onClick={() => onAction("skip")} data-testid="tutor-action-skip">
             Frage überspringen
           </Button>
         )}
         {canReveal && (
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction("reveal")} data-testid="tutor-action-reveal">
+          <Button type="button" size="sm" variant="outline" className={HELP_ACTION} disabled={busy} onClick={() => onAction("reveal")} data-testid="tutor-action-reveal">
             Musterantwort ansehen
           </Button>
         )}

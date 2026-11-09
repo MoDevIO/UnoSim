@@ -13,11 +13,11 @@ const editorValue = (page: Page) => page.evaluate(() => (
   (globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { getValue(): string }
 ).getValue());
 
-async function openTutor(page: Page) {
-  await page.addInitScript(() => {
+async function openTutor(page: Page, columns = { code: true, simulation: false, tutor: true }) {
+  await page.addInitScript((visible) => {
     localStorage.setItem("unoExperimentalWorkspaceLayout", "1");
-    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify({ code: true, simulation: false, tutor: true }));
-  });
+    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify(visible));
+  }, columns);
   await page.route(/\/api\/examples(?:\?.*)?$/, (route) => route.fulfill({ json: { schemaVersion: 1, source, examples: [remoteExample] } }));
   await page.route("**/api/tutor/models", (route) => route.fulfill({ json: { models: ["pilot-model"] } }));
   await page.route("**/api/tutor/question", (route) => route.fulfill({
@@ -254,28 +254,49 @@ test.describe("Tutor learning flow", () => {
     expect(calls).toBe(2);
   });
 
-  test("learning support: the actions fit a narrow window with XXL text", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 700 });
-    await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
-    await openTutor(page);
-    await page.route("**/api/tutor/question", (route) => route.fulfill({
-      json: {
-        question: "Was wird im ersten Durchlauf ausgegeben?", responseStyle: "normal", provider: "kiconnect", model: "pilot-model",
-        support: {
-          session: "11111111-1111-4111-8111-111111111111", questionHandle: "22222222-2222-4222-8222-222222222222", answerAttempts: 1, clarifications: 1,
-          canRevealReference: false, canSkip: false, referenceAvailable: true, referenceShown: false, outcome: "open",
+  // Every unlocked help, with XXL text: on a phone beside the mobile navigation, and in a narrow third column (review R3).
+  for (const layout of [
+    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true } },
+    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true } },
+  ]) {
+    test(`learning support: all unlocked actions fit ${layout.name} with XXL text`, async ({ page }) => {
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
+      await openTutor(page, layout.columns);
+      await page.route("**/api/tutor/question", (route) => route.fulfill({
+        json: {
+          question: "Was wird im ersten Durchlauf ausgegeben?", responseStyle: "normal", provider: "kiconnect", model: "pilot-model",
+          support: {
+            session: "11111111-1111-4111-8111-111111111111", questionHandle: "22222222-2222-4222-8222-222222222222", answerAttempts: 3, clarifications: 2,
+            canRevealReference: true, canSkip: true, referenceAvailable: true, referenceShown: false, outcome: "open",
+          },
         },
-      },
-    }));
-    await page.getByTestId("tutor-start-question").click();
-    await page.getByTestId("tutor-help-toggle").click();
-    const actions = page.getByTestId("tutor-support-actions");
-    await expect(actions).toBeVisible();
-    const fits = await actions.evaluate((element) => {
-      const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
-      const box = element.getBoundingClientRect();
-      return box.left >= 0 && box.right <= globalThis.innerWidth + 1 && scroller.scrollWidth <= scroller.clientWidth + 1;
+      }));
+      await page.getByTestId("tutor-start-question").click();
+      await page.getByTestId("tutor-help-toggle").click();
+      const help = page.getByTestId("tutor-support-actions");
+      await expect(help.getByRole("button")).toHaveCount(4);
+      await help.getByText("Wann gibt es weitere Hilfen?").click();
+      await help.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/tutor-help-xxl-${layout.width}.png` });
+
+      const problems = await help.evaluate((element) => {
+        const found: string[] = [];
+        const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+        const area = element.getBoundingClientRect();
+        const fab = document.querySelector("[data-mobile-fab-toolbar]")?.getBoundingClientRect();
+        if (scroller.scrollWidth > scroller.clientWidth + 1) found.push(`scroller overflows by ${scroller.scrollWidth - scroller.clientWidth}px`);
+        if (area.left < 0 || area.right > globalThis.innerWidth + 1) found.push("help area leaves the window");
+        if (fab && fab.width > 0 && area.right > fab.left + 1) found.push("help area reaches under the mobile navigation");
+        for (const button of element.querySelectorAll("button")) {
+          const box = button.getBoundingClientRect();
+          const name = button.textContent?.trim();
+          if (box.left < area.left - 1 || box.right > area.right + 1) found.push(`${name} leaves the help area`);
+          if (button.scrollWidth > button.clientWidth + 1 || button.scrollHeight > button.clientHeight + 1) found.push(`${name} is clipped`);
+        }
+        return found;
+      });
+      expect(problems).toEqual([]);
     });
-    expect(fits).toBe(true);
-  });
+  }
 });
