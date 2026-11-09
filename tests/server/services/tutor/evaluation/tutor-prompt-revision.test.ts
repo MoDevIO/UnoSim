@@ -50,6 +50,8 @@ function turn(answerRating: TutorAnswerRating): TutorDialogTurn {
 // Every history shape that selects a different remediation or progression instruction.
 const HISTORIES: readonly (readonly TutorDialogTurn[])[] = [
   [], [turn(3)], [turn(4)], [turn(5)], [turn(2)], [turn(1), turn(2)], [turn(2), turn(1), turn(2)],
+  // A weak earlier attempt at the asked question adds its own section (LearningQuestions R-SUP-9).
+  [{ ...turn(2), question: QUESTION, feedback: "Frühere Rückmeldung" }],
 ];
 
 function templateFragments(): readonly string[] {
@@ -74,6 +76,15 @@ function undigestedText(prompt: string, data: readonly string[]): string {
   return rest.split("\n").map((line) => line.replaceAll(/[\s\d.,:=]/g, "")).filter(Boolean).join(" | ");
 }
 
+/** The history as the prompt carries it: rated turns, and weak earlier attempts at the asked question apart. */
+function historyData(history: readonly TutorDialogTurn[]): readonly string[] {
+  const earlier = (turn: TutorDialogTurn) => turn.question === QUESTION && (turn.answerRating ?? 5) <= 2;
+  return [
+    JSON.stringify(history.filter((turn) => !earlier(turn))),
+    JSON.stringify(history.filter(earlier).map(({ answer, feedback }) => ({ answer, ...(feedback ? { feedback } : {}) }))),
+  ];
+}
+
 function renderedPrompts(): readonly { readonly prompt: string; readonly data: readonly string[] }[] {
   const context = buildTutorContext(SKETCH);
   const prompts: { prompt: string; data: string[] }[] = [];
@@ -86,7 +97,7 @@ function renderedPrompts(): readonly { readonly prompt: string; readonly data: r
           const previousQuestions = [QUESTION, ...history.map(({ question }) => question)];
           prompts.push({
             prompt: buildDialogPrompt(SKETCH, context, history, QUESTION, ANSWER, 42, { didacticBrief, strategy, learningObjectives }),
-            data: [...data, JSON.stringify(history), JSON.stringify(previousQuestions), QUESTION, ANSWER],
+            data: [...data, ...historyData(history), JSON.stringify(previousQuestions), QUESTION, ANSWER],
           });
         }
       }
@@ -138,7 +149,7 @@ describe("answer in the follow-up question (Freetutor point B, entry 08)", () =>
   });
 
   it("changes the prompt revision identifier together with the digest (R-ID-2)", () => {
-    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v7");
+    expect(TUTOR_PROMPT_REVISION.id).toBe("tutor-prompts-v8");
   });
 });
 

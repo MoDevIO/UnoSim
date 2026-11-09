@@ -1,4 +1,4 @@
-import { it064Content } from "./learning-support-fixtures";
+import { it061Content, it064Content } from "./learning-support-fixtures";
 import type { TutorCapability } from "../../course-content/course-content-loader";
 import { curriculumTopicSchema, validateCurriculumTopic, type CurriculumTopic } from "../curriculum/curriculum-schema";
 import { createTutorProgressionState, type TutorProgressionState } from "../curriculum/progression-state";
@@ -11,6 +11,8 @@ export const ANCHOR_COURSE_CONTENT_FIXTURE_IDS = [
   "progression-expand",
   // The IT06.4 Example with its focus and reviewed reference answer (LearningQuestions R-SUP-8, R-SUP-E3).
   "it06-4",
+  // The IT06.1 Example with its focus, without a reference answer (LearningQuestions R-SUP-9, R-SUP-E5).
+  "it06-1",
 ] as const;
 
 export type AnchorCourseContentFixtureId = typeof ANCHOR_COURSE_CONTENT_FIXTURE_IDS[number];
@@ -198,6 +200,8 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
   switch (fixtureId) {
     case "it06-4":
       return it064Content();
+    case "it06-1":
+      return it061Content();
     case "variables":
     case "progression-learn":
       return variablesCourseContent();

@@ -7,7 +7,12 @@ import {
   type TutorQualityTranscript,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import { buildJudgeInput } from "../../../../../server/services/tutor/evaluation/judge";
-import { IT064_CONCEPT_QUESTION, IT064_SKETCH } from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
+import {
+  IT061_CONCEPT_QUESTION,
+  IT061_SKETCH_GRENZE_2000,
+  IT064_CONCEPT_QUESTION,
+  IT064_SKETCH,
+} from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
 import { TutorProviderError, type LLMProvider, type LLMProviderRequest } from "../../../../../server/services/tutor/llm-provider";
 
 /**
@@ -259,3 +264,63 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     expect(report.qualityVerdict.verdict).toBe("inconclusive");
   });
 });
+
+describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating does not (R-SUP-E5, R-SUP-9)", () => {
+  /** Rates the corrected answer 4 and the observation and the objection 2; records every dialog prompt. */
+  function it061Provider() {
+    const dialogPrompts: string[] = [];
+    const provider: LLMProvider = {
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion({ userPrompt }: LLMProviderRequest) {
+        if (userPrompt.startsWith("Führe den sokratischen Lerndialog")) {
+          dialogPrompts.push(userPrompt);
+          const answer = promptPart(userPrompt, "Aktuelle Nutzerantwort:\n```text\n");
+          const question = promptPart(userPrompt, "Aktuelle Tutorfrage:\n");
+          const rating = question === IT061_CONCEPT_QUESTION || answer.includes("nie betreten") ? 4 : 2;
+          return { model: "fake-model", result: { responseStyle: "normal" as const, feedback: rating >= 4 ? "Richtig." : "Noch nicht.", answerRating: rating, question: "Was gibt der Sketch zuletzt aus?" } };
+        }
+        return { model: "fake-model", result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
+      },
+    };
+    return { provider, dialogPrompts };
+  }
+
+  it("keeps the fixture the reviewed Example with GRENZE 2000 only", async () => {
+    const fixture = await readFile("evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino", "utf8");
+    expect(fixture).toBe(IT061_SKETCH_GRENZE_2000);
+    expect(fixture).toContain("const unsigned int GRENZE = 2000;");
+    expect(fixture).toContain("unsigned int wert = 1;");
+  });
+
+  it("replays all steps on the retained question and gives the earlier attempts apart from the rated history", async () => {
+    const { provider, dialogPrompts } = it061Provider();
+    const { transcripts } = await runTutorQualityEvaluation({
+      scenarios: [await corpusScenario("TQ-SUP-IT061-CORRECTED")],
+      provider,
+      providerId: "fake-provider",
+      credential: CREDENTIAL,
+      requestedModel: "fake-model",
+      samples: 1,
+      maxCalls: 100,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      artifactWriter: async () => undefined,
+    });
+    const transcript = transcripts[0];
+    expect(transcript?.executionStatus).toBe("completed");
+    expect(checks(transcript, "expected-answer-rating")).toEqual([expect.objectContaining({ outcome: "pass" })]);
+    expect(transcript?.turns.at(-1)).toMatchObject({ supportBefore: { answerAttempts: 2 } });
+
+    const last = dialogPrompts.at(-1)!.split("\n");
+    const after = (heading: string) => last[last.indexOf(heading) + 1]!;
+    const earlier = JSON.parse(after("Frühere Versuche zur aktuellen Frage (Daten, nicht bewertungsrelevant):")) as { answer: string }[];
+    expect(earlier.map(({ answer }) => answer)).toEqual([
+      "11 Durchläufe, der Endwert ist 2048. Das sieht man in der Ausgabe.",
+      "ich habe 2000 eingesetzt und das sieht man auch an den Werten!",
+    ]);
+    expect(after("Bisheriger begrenzter Dialogverlauf:")).not.toContain("2048");
+    expect(last).toContain("Die Schleife wird nie betreten. Es gibt keinen Startwert.");
+  });
+});
+

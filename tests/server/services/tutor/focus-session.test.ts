@@ -182,16 +182,32 @@ describe("C++ terms", () => {
 });
 
 describe("Tutor context", () => {
-  it("rates a repeated question without showing the provider the earlier attempt", async () => {
+  it("keeps an earlier weak attempt out of the rated history and gives it apart, unrated, for the feedback (R-SUP-9)", async () => {
     const { tutor, provider } = service(5);
     const session = content([focus[1]!]);
     const asked = (await tutor.generateQuestion(SKETCH, "key", undefined, 30, session)).result;
-    const earlier = { ...answered(asked, 2), answer: "Die alte falsche Antwort" };
+    const earlier = { ...answered(asked, 2), answer: "Die alte falsche Antwort", feedback: "Prüfe die Bedingung." };
     await tutor.generateDialogResponse(SKETCH, [earlier], asked.question, "Die neue Antwort", "key", undefined, 30, session);
 
+    const lines = (provider.generateLearningQuestion.mock.calls.at(-1)?.[0].userPrompt as string).split("\n");
+    const after = (heading: string) => lines[lines.indexOf(heading) + 1];
+    expect(after("Bisheriger begrenzter Dialogverlauf:")).toBe("[]");
+    expect(JSON.parse(after("Frühere Versuche zur aktuellen Frage (Daten, nicht bewertungsrelevant):")!))
+      .toEqual([{ answer: "Die alte falsche Antwort", feedback: "Prüfe die Bedingung." }]);
+    expect(lines).toContain("Die neue Antwort");
+    expect(lines.some((line) => line.startsWith("Zur aktuellen Frage liegen frühere schwache Versuche") && line.includes("weder senken noch heben"))).toBe(true);
+  });
+
+  it("gives no earlier attempts when the asked question has none", async () => {
+    const { tutor, provider } = service(5);
+    const session = content([focus[1]!]);
+    const asked = (await tutor.generateQuestion(SKETCH, "key", undefined, 30, session)).result;
+    const strong = { ...answered(asked, 4), answer: "Eine gute Antwort" };
+    await tutor.generateDialogResponse(SKETCH, [strong], asked.question, "Die neue Antwort", "key", undefined, 30, session);
+
     const prompt = provider.generateLearningQuestion.mock.calls.at(-1)?.[0].userPrompt as string;
-    expect(prompt).toContain("Die neue Antwort");
-    expect(prompt).not.toContain("Die alte falsche Antwort");
+    expect(prompt).not.toContain("Frühere Versuche zur aktuellen Frage");
+    expect(prompt).toContain("Eine gute Antwort");
   });
 
   it("states the last index of an array, because a provider that counts it itself accepted a wrong one", () => {
