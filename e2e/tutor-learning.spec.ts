@@ -71,6 +71,22 @@ test.describe("Tutor learning flow", () => {
     await expect(answerField(page)).toHaveValue("Mein Entwurf");
   });
 
+  test("opens the menu again while the menu just closed still fades out", async ({ page }) => {
+    await openTutor(page);
+    await askQuestion(page);
+    // Slowed down, the 150 ms fade-out of the closed menu outlasts the next click for certain.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Animation.enable");
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.05 });
+
+    await page.getByTestId("tutor-menu").click();
+    await page.getByRole("menuitem", { name: /Einstellungen/ }).click();
+    await page.getByTestId("tutor-settings-back").click();
+    await expect(page.locator('[role="menu"][data-state="closed"]')).toHaveCount(1);
+    await page.getByTestId("tutor-menu").click();
+    await expect(page.getByRole("menuitem", { name: /Neue Lernrunde starten/ })).toBeVisible();
+  });
+
   test("keeps a typed answer when the catalog of the Examples menu arrives or is refreshed", async ({ page }) => {
     await openTutor(page);
     await askQuestion(page);
