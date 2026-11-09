@@ -32,7 +32,28 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
   revision v9; the evaluation corpus v14 adds the IT06.1 case
   (`TQ-SUP-IT061-*`).
 
+- **Colors follow one contract** (`client/src/STYLE_GUIDE.md`): red means
+  error. Delete File, its confirmation and the serial, compiler and debug clear
+  actions are neutral; labels and the confirmation stay. One primary color for
+  Start, the Tutor's main actions, Done and the mobile selection, readable at
+  4.8:1 (before 2.2:1 to 3.4:1); Stop has its own run color (5.0:1). The TX
+  badge, active pins on the board (now amber) and the second plot series are no
+  longer red. Telemetry labels are gray, dropped serial bytes and the legacy
+  engine use the warning color. Gates: a color-contract unit test and a browser
+  contrast test.
+- **Tutor feedback stays in view:** after an answer that closed its question
+  the column shows the stars and the start of the feedback, Weiter stays as a
+  bar at the bottom; on a phone no text lies under the floating navigation. A
+  weak answer to changed code keeps the question open (the server now says
+  whether an answer closed its question).
+
 ### Added
+
+- **Tutor evaluation: turn-level reveal literals.** A multi-step case can
+  forbid naming the solution before the correct answer while its last turn
+  confirms it; IT06.1 uses this (corpus v15).
+- **E2E on another port:** `E2E_PORT` runs the Playwright test server on a
+  chosen port; the iframe test follows it.
 
 - **Tutor learning support** (LearningQuestions 3.10): besides answering, the
   learner can have the question explained or ask for a hint at any time; after

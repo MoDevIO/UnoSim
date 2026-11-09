@@ -25,6 +25,12 @@ und am Board. Du brauchst dafür keine Hardware und keine Installation.
 5. Mit **Pause** hältst du die Simulation an, um Pins in Ruhe zu prüfen oder zu
    verändern; mit **Resume** läuft sie weiter. **Stop** beendet den Lauf.
 
+Rot steht in der Oberfläche nur für Fehler, und jeder Fehler sagt auch in Worten,
+was schiefging. Löschen und Leeren (etwa **Delete File** oder der Papierkorb
+im Serial Monitor) sehen aus wie andere Aktionen; Löschen fragt weiter nach.
+Ein Pin auf HIGH leuchtet auf dem Board gelb, und die Marke TX eines seriellen
+Sendepins im I/O Registry ist violett – beides ist kein Fehler.
+
 Ein Lauf endet automatisch nach seiner Laufzeit, die du unter
 **Tools → Timeout** zwischen 5 Sekunden und 5 Minuten wählst. Eine pausierte
 Simulation endet spätestens nach insgesamt 10 Minuten Pause.
@@ -218,10 +224,12 @@ mit **Key löschen** entfernst du ihn sofort.
 3. Die Rückmeldung erscheint unter der Frage, bei einer bewerteten Antwort mit
    ihrer Verständnisbewertung (1–5 Sterne) direkt daneben. Ist die Frage damit
    beantwortet, bleibt sie mit deiner Antwort und der Rückmeldung stehen, bis du
-   **Weiter zur nächsten Frage** wählst (die Schaltfläche hat dann den Fokus,
-   Enter genügt). Weiter schickt nichts ab und zählt nichts. Ist die Antwort
-   noch nicht ausreichend, bleibt dieselbe Frage offen, und du kannst direkt
-   weiter antworten.
+   **Weiter zur nächsten Frage** wählst. Die Spalte zeigt dann den Anfang deiner
+   Antwort und der Rückmeldung mit den Sternen; Weiter steht als Leiste am
+   unteren Rand, hat den Fokus, und Enter genügt. Weiter schickt nichts ab und
+   zählt nichts. Ist die Antwort noch nicht ausreichend, bleibt dieselbe Frage
+   offen, und du kannst direkt weiter antworten, auch wenn du inzwischen den
+   Code geändert hast.
 
 Das Fragezeichen-Symbol neben dem Antwortfeld öffnet die **Hilfe zur aktuellen
 Frage**. Das Öffnen selbst schickt nichts ab und zählt nichts. Keine Hilfe wird

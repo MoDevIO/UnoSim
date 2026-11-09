@@ -2275,11 +2275,28 @@ passendem Test-/Runtime-Nachweis belegt; ein grüner Mock-Test belegt keine LLM-
   `openai-gpt5.5`): 9/9 vollständig, „fail“; das Modell bezeichnete die
   zutreffende Beobachtung als falsch, ging auf den Einwand nicht ein und bewertete
   die richtige dritte Antwort 1/3 mit 4, 2/3 mit 1; alle 9 Judge-Aufrufe endeten
-  mit `rate-limited`. IT06.4-Gegenprobe mit v9 und `openai-gpt5.5`: nur
-  `TQ-SUP-IT064-ANSWER-1` vollständig (3/3, roh und ausgeliefert 5); alle
-  übrigen Stichproben und ein zweiter Versuch endeten mit `rate-limited`
-  (Providerfehler, keine Qualitätsaussage). Offen: IT06.4 unter v9 vollständig,
-  ein unabhängiger Lerneffekt-Nachweis mit echten Lernenden.
+  mit `rate-limited`. „Roh und ausgeliefert gleich“ gilt hier für Bewertung
+  und Rückmeldungstext; die Folgefragen ersetzt die Anwendung durch die des
+  Planers. IT06.4-Gegenprobe mit v9 und `openai-gpt5.5`: am 09.11. mittags nur
+  `TQ-SUP-IT064-ANSWER-1` vollständig (3/3, roh und ausgeliefert 5), der Rest
+  mit `rate-limited` (Providerfehler, keine Qualitätsaussage). Nachgeholt am
+  09.11. um 18:31 (Stand `4ff557e67`, Prompt v9 unverändert; Judge
+  `openai-gpt-oss-120b`), je Fall 2 Stichproben, fallweise mit Abbruch beim
+  ersten Ratenlimit: ANSWER-0 (roh und ausgeliefert 1), ANSWER-200 (5), CLARIFY
+  (erster Durchlauf ohne Ergebnis), EARLY-REVEAL (abgelehnt) und REVEAL
+  (Referenz „1“ nach drei Antworten) alle 10/10 vollständig, Urteil je „pass“;
+  34 Tutor-Generierungen, 39 Modelllisten-Aufrufe, 6 Judge-Aufrufe (eigene
+  Zählung; die Zählweise des Anbieters ist nicht bekannt). Die Kontobedingung
+  „GPT5.5 über KI:connect: 100 Nachrichten pro 3 Stunden“ ist eine
+  Nutzerangabe, keine Anwendungsregel; Läufe werden dafür fallweise budgetiert
+  und bei `rate-limited` nicht sofort wiederholt. Ein `Retry-After` des Anbieters
+  steht seit `retryAfterSeconds` am technischen Fehler im Evaluationsbericht;
+  fehlt es, ist keine Freischaltzeit bekannt. Die
+  vorhandenen IT06.1-Transkripte (v8, v9, gpt5.4-mini) enthalten in den
+  Schritten vor der richtigen Antwort keines der Lösungsliterale (nachträglich
+  mit der Turn-Prüfung von Korpus v15 gelesen). Offen: der Einwand-Schritt von
+  IT06.1 trifft unter v9 nicht in jeder Stichprobe; ein unabhängiger
+  Lerneffekt-Nachweis mit echten Lernenden.
   *Stand 2026-11-07 (`8e923a963`, Evaluator nach Review G2, Modellprofil):*
   sechs IT06.4-Szenarien, je festem Modell 3 Stichproben, Judge
   `openai-gpt-oss-120b`, alle Läufe auf demselben sauberen Commit.
