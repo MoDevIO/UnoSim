@@ -1479,7 +1479,10 @@ benötigt mindestens:
   der Lernstand des Lehrerfokus stehen im Verlauf, nicht im Lernschritt,
 - einen verständlichen Ladezustand, während dem kein weiterer Request auslösbar ist,
 - eine verständliche Fehleranzeige mit der zum Fehler passenden Aktion
-  (`Erneut versuchen`, `Modell wählen`, `Zugang prüfen` oder `Neue Lernrunde starten`).
+  (`Erneut versuchen`, `Modell wählen`, `Zugang prüfen` oder `Neue Lernrunde starten`);
+  `Erneut versuchen` wiederholt genau die fehlgeschlagene Anfrage, auch das Laden
+  der Modellliste, mit derselben Aktions-ID, nie eine frühere Lernaktion. Fehler
+  und Wiederholung bleiben beim Aus- und Einblenden der Tutor-Spalte erhalten.
 
 Freier/Kurs-Tutor, Difficulty-Kürzel, Durchschnittssterne und Rohzähler stehen
 nicht im normalen Lernschritt. Modell, Zugang, Start- und aktuelle
@@ -1512,7 +1515,11 @@ Gesperrte Hilfeschaltflächen und permanente Restzähler gehören nicht in die
 Hauptansicht. Die Freischaltregeln und der aktuelle Stand (wie viele eigene
 Antworten bzw. Klärungen bis zur jeweiligen Freischaltung fehlen) sind im
 Hilfeangebot über einen aufklappbaren, kurzen Erklärtext auf Abruf erreichbar;
-Lernende müssen keine Fehlversuche erraten. Wird eine Freischaltung gerade
+Lernende müssen keine Fehlversuche erraten. Fehlt eine passende geprüfte
+Referenz (`referenceAvailable: false`), sagt der Erklärtext das von Anfang an
+und nennt keine noch fehlenden Antwortversuche für eine Musterantwort. Die
+Hilfeaktionen brechen lange Beschriftungen innerhalb der verfügbaren Breite um,
+auch bei XXL-Schrift und neben der mobilen Navigation. Wird eine Freischaltung gerade
 erreicht, weist ein kurzer Hinweis unter der Rückmeldung auf die neue
 Möglichkeit im Hilfeangebot hin; die Auswahl bleibt freiwillig. Die Bedienung
 ist per Tastatur und Screenreader möglich. Technische Fehler erhalten Eingaben
