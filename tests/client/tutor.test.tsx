@@ -206,7 +206,7 @@ describe("useTutor", () => {
     act(() => result.current.setCredential("volatile-key"));
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
 
-    expect(result.current.error).toMatch(/Reload the example/);
+    expect(result.current.error).toMatch(/Lade das Beispiel/);
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith("/api/examples"))).toBe(true));
   });
 
@@ -248,7 +248,7 @@ describe("useTutor", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.current.error).toContain("personal Tutor API key");
+    expect(result.current.error).toContain("persönlichen Tutor-API-Key");
   });
 
   it("clamps configured client difficulty changes to 1..100", async () => {

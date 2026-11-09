@@ -32,13 +32,14 @@ async function openTutor(page: Page) {
   const mobileTab = page.getByRole("button", { name: "Tutor", exact: true });
   if (await mobileTab.isVisible()) await mobileTab.click();
   await expect(page.getByTestId("tutor-panel")).toBeVisible();
-  await page.getByTestId("tutor-api-key-action").click();
-  await page.getByLabel("API key", { exact: true }).fill("test-key");
+  await expect(page.getByTestId("tutor-transparency")).toContainText("KI:connect.nrw");
+  await page.getByTestId("tutor-setup-action").click();
+  await page.getByLabel("API-Key", { exact: true }).fill("test-key");
   await page.getByTestId("tutor-apply-key").click();
 }
 
 async function askQuestion(page: Page) {
-  await page.getByTestId("tutor-new-question-action").click();
+  await page.getByTestId("tutor-start-question").click();
   await expect(page.getByTestId("tutor-question")).toContainText("pinMode");
 }
 
@@ -48,14 +49,26 @@ async function openBuiltIn(page: Page) {
 }
 
 test.describe("Tutor learning flow", () => {
-  test("names the action and shows who asks, and how far the learner got", async ({ page }) => {
+  test("keeps the learning step free of who asks; the history says it and returns to the draft", async ({ page }) => {
     await openTutor(page);
-    const action = page.getByTestId("tutor-new-question-action");
-    await expect(action).toHaveAttribute("aria-label", /^New question\. /);
     await askQuestion(page);
+    await expect(page.getByTestId("tutor-focus-status")).toHaveCount(0);
+    await answerField(page).fill("Mein Entwurf");
 
-    await expect(action).toHaveAttribute("aria-label", /^New question, ends dialog\. /);
-    await expect(page.getByTestId("tutor-focus-status")).toHaveText("Teacher's focus: 0 of 2 areas understood");
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-focus-status")).toHaveText("Fokus der Lehrkraft: 0 von 2 Bereichen verstanden");
+    await page.getByTestId("tutor-back-to-question").click();
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
+
+    // Settings and back keep the draft as well; a new round is a deliberate, labelled reset in the menu.
+    await page.getByTestId("tutor-menu").click();
+    await page.getByRole("menuitem", { name: /Einstellungen/ }).click();
+    await page.getByTestId("tutor-settings-back").click();
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
+    await page.getByTestId("tutor-menu").click();
+    await expect(page.getByRole("menuitem", { name: /Neue Lernrunde starten/ })).toContainText("setzt Verlauf und Lernstand zurück");
+    await page.keyboard.press("Escape");
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
   });
 
   test("keeps a typed answer when the catalog of the Examples menu arrives or is refreshed", async ({ page }) => {
@@ -81,7 +94,7 @@ test.describe("Tutor learning flow", () => {
       await expect.poll(() => editorValue(page)).toContain("PIN_LED");
 
       await expect(page.getByTestId("tutor-question")).toHaveCount(0);
-      await expect(answerField(page)).toHaveValue("");
+      await expect(answerField(page)).toHaveCount(0);
     }
   });
 
@@ -115,17 +128,23 @@ test.describe("Tutor learning flow", () => {
         focusProgress: { state: "open", understoodAreas: 1, totalAreas: 3, openAreas: ["Indizierung mit einem langen Bereichstitel", "Zeitpunkte mit einem zweiten langen Titel"] },
       },
     }));
-    await page.getByTestId("tutor-new-question-action").click();
-    const status = page.getByTestId("tutor-focus-status");
-    await expect(status).toContainText("Open: Indizierung");
+    await page.getByTestId("tutor-start-question").click();
+    const question = page.getByTestId("tutor-question");
+    await expect(question).toContainText("werte[2]");
+    await expect(answerField(page)).toBeVisible();
+    await expect(page.getByTestId("tutor-send-answer")).toBeVisible();
     await page.screenshot({ path: "test-results/tutor-narrow-xxl.png" });
-
-    const fits = await status.evaluate((element) => {
-      const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+    const fitsIn = (testId: string, scrollerTestId: string) => page.getByTestId(testId).evaluate((element, scrollerId) => {
+      const scroller = element.closest(`[data-testid="${scrollerId}"]`) as HTMLElement;
       const box = element.getBoundingClientRect();
       return box.left >= 0 && box.right <= globalThis.innerWidth + 1 && scroller.scrollWidth <= scroller.clientWidth + 1;
-    });
-    expect(fits).toBe(true);
+    }, scrollerTestId);
+    expect(await fitsIn("tutor-question", "tutor-dialog-scroll")).toBe(true);
+    expect(await fitsIn("tutor-send-answer", "tutor-dialog-scroll")).toBe(true);
+
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-focus-status")).toContainText("Offen: Indizierung");
+    expect(await fitsIn("tutor-focus-status", "tutor-history-view")).toBe(true);
   });
 
   test("learning support: two explanations allow skipping, three own answers the reference answer, all by keyboard", async ({ page }) => {
@@ -164,40 +183,75 @@ test.describe("Tutor learning flow", () => {
       return route.fulfill({ json: { responseStyle: "normal", question: state.question, feedback: "Noch nicht ganz.", answerRating: 2, learnerInput: "answer", provider: "kiconnect", model: "pilot-model", support: view() } });
     });
 
-    await page.getByTestId("tutor-new-question-action").click();
+    await page.getByTestId("tutor-start-question").click();
     await expect(page.getByTestId("tutor-question")).toContainText("ersten Durchlauf");
-    await expect(page.getByTestId("tutor-action-skip")).toBeDisabled();
-    await expect(page.getByTestId("tutor-skip-reason")).toHaveText("Skipping after 2 explanations of the question (2 more).");
+    const help = page.getByTestId("tutor-help-toggle");
+    // Keyboard only: the help opens without a request and offers only what is possible now.
+    const supportRequests = actionIds.length;
+    await help.focus();
+    await page.keyboard.press("Enter");
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    expect(actionIds).toHaveLength(supportRequests);
+    await expect(page.getByTestId("tutor-action-skip")).toHaveCount(0);
+    await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
+    await page.getByText("Wann gibt es weitere Hilfen?").click();
+    await expect(page.getByTestId("tutor-skip-reason")).toHaveText("Überspringen: nach 2 Erklärungen der Frage (noch 2). Hinweise zählen nicht dazu.");
 
-    // Keyboard only: focus the explain action and press Enter twice.
     const explain = page.getByTestId("tutor-action-clarify");
     for (let round = 1; round <= 2; round += 1) {
       await explain.focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByTestId("tutor-clarification")).toHaveCount(round);
+      await expect(page.getByTestId("tutor-clarification")).toContainText(`Erklärung ${round}`);
     }
-    await expect(page.getByTestId("tutor-clarification").last()).toContainText("not rated");
+    await expect(page.getByTestId("tutor-clarification")).toContainText("unbewertet");
+    await expect(page.getByTestId("tutor-unlock-notice")).toContainText("„Frage überspringen“");
     await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(0);
-    await expect(page.getByTestId("tutor-action-reveal")).toBeDisabled();
-    await expect(page.getByTestId("tutor-action-skip")).toBeEnabled();
+    await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
     await page.getByTestId("tutor-action-skip").focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("tutor-skip-note")).toContainText("Question skipped, not rated");
+    await expect(page.getByTestId("tutor-previous-feedback")).toContainText("Vorige Frage übersprungen, unbewertet");
     await expect(page.getByTestId("tutor-question")).toContainText("von 7 herunter");
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await expect(page.getByTestId("tutor-action-reveal")).toBeDisabled();
+      await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
       await answerField(page).fill(`Versuch ${attempt}`);
       await page.keyboard.press("Enter");
-      await expect(page.getByTestId("tutor-support-status")).toContainText(`Own answers: ${attempt}`);
+      await expect(page.getByTestId("tutor-current-step")).toContainText(`Versuch ${attempt}`);
+      await expect(answerField(page)).toHaveValue("");
     }
-    await expect(page.getByTestId("tutor-reveal-reason")).toHaveText("Reference answer with explanation available on request.");
+    await expect(page.getByTestId("tutor-unlock-notice")).toContainText("„Musterantwort ansehen“");
+    if (await page.getByTestId("tutor-support-actions").count() === 0) await help.click();
     await page.getByTestId("tutor-action-reveal").focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("tutor-reference")).toContainText("used as solution help");
-    await expect(page.getByTestId("tutor-reference")).toContainText("Assumes: a = 200");
+    await expect(page.getByTestId("tutor-reference")).toContainText("als Lösungshilfe genutzt");
+    await expect(page.getByTestId("tutor-reference")).toContainText("Annahmen: a = 200");
+    await page.screenshot({ path: "test-results/tutor-help-reference.png" });
+
+    // The ratings are in the history; back to the question from there.
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(3);
+    await page.getByTestId("tutor-back-to-question").click();
+    await expect(page.getByTestId("tutor-question")).toContainText("von 7 herunter");
     // Every learner action had its own id.
     expect(new Set(actionIds).size).toBe(actionIds.length);
+  });
+
+  test("a failed answer keeps the draft and offers a retry that sends it again", async ({ page }) => {
+    await openTutor(page);
+    let calls = 0;
+    await page.route("**/api/tutor/dialog", (route) => {
+      calls += 1;
+      if (calls === 1) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "late" } } });
+      return route.fulfill({ json: { responseStyle: "normal", question: "Welche Aufgabe hat `pinMode`?", feedback: "Fast.", answerRating: 3, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
+    });
+    await askQuestion(page);
+    await answerField(page).fill("Er setzt den Pin");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-error").getByRole("alert")).toHaveText("Der Tutor-Dienst hat zu lange nicht geantwortet.");
+    await expect(answerField(page)).toHaveValue("Er setzt den Pin");
+    await page.getByRole("button", { name: "Erneut versuchen" }).click();
+    await expect(page.getByTestId("tutor-current-step")).toContainText("Fast.");
+    expect(calls).toBe(2);
   });
 
   test("learning support: the actions fit a narrow window with XXL text", async ({ page }) => {
@@ -213,7 +267,8 @@ test.describe("Tutor learning flow", () => {
         },
       },
     }));
-    await page.getByTestId("tutor-new-question-action").click();
+    await page.getByTestId("tutor-start-question").click();
+    await page.getByTestId("tutor-help-toggle").click();
     const actions = page.getByTestId("tutor-support-actions");
     await expect(actions).toBeVisible();
     const fits = await actions.evaluate((element) => {

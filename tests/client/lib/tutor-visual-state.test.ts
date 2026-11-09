@@ -12,7 +12,7 @@ describe("getTutorQuestionVisualState", () => {
   it("returns a neutral ready state when there is no active interaction", () => {
     expect(getTutorQuestionVisualState(idleInput)).toEqual({
       state: "idle",
-      label: "Tutor ready",
+      label: "Tutor bereit",
       status: "bright",
     });
   });
@@ -20,7 +20,7 @@ describe("getTutorQuestionVisualState", () => {
   it("returns a neutral not-ready state without an animation", () => {
     expect(getTutorQuestionVisualState({ ...idleInput, tutorReady: false })).toEqual({
       state: "idle",
-      label: "Tutor not ready",
+      label: "Tutor nicht eingerichtet",
       status: "bright",
     });
   });
@@ -31,7 +31,7 @@ describe("getTutorQuestionVisualState", () => {
       isLoading: true,
     })).toEqual({
       state: "generating",
-      label: "Tutor is generating a question",
+      label: "Tutor erstellt eine Frage",
       status: "bright",
       animation: "generating",
     });
@@ -43,7 +43,7 @@ describe("getTutorQuestionVisualState", () => {
       question: { question: "What do you observe?", answerRating: 1 },
     })).toEqual({
       state: "waiting",
-      label: "Tutor is waiting for your answer",
+      label: "Tutor wartet auf deine Antwort",
       status: "bright",
       animation: "waiting",
     });
@@ -56,7 +56,7 @@ describe("getTutorQuestionVisualState", () => {
       isLoading: true,
     })).toEqual({
       state: "evaluating",
-      label: "Tutor is evaluating your answer",
+      label: "Tutor bearbeitet deine Anfrage",
       status: "bright",
       animation: "evaluating",
     });
@@ -70,7 +70,7 @@ describe("getTutorQuestionVisualState", () => {
       error: "The Tutor request was rejected",
     })).toEqual({
       state: "error",
-      label: "Tutor error",
+      label: "Tutor-Fehler",
       status: "error",
       animation: "error",
     });

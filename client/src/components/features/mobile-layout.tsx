@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Cpu, Wrench, Terminal, Monitor, MessageCircleQuestion } from "lucide-react";
+import { Cpu, Wrench, Terminal, Monitor, GraduationCap } from "lucide-react";
 import clsx from "clsx";
 
 export type MobilePanel = "code" | "compile" | "serial" | "board" | "tutor";
@@ -137,7 +137,7 @@ export const MobileLayout = React.memo(function MobileLayout({
                 )}
                 data-mobile-fab-button
               >
-                <MessageCircleQuestion className="!w-10 !h-10" />
+                <GraduationCap className="!w-10 !h-10" />
               </Button>
             )}
           </div>

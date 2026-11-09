@@ -2,9 +2,10 @@ import { act, fireEvent, render, renderHook, screen } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useTutor } from "@/hooks/use-tutor";
 import { TutorWorkspacePlaceholder } from "@/components/simulator/ExperimentalWorkspace";
-import { TutorKeyView } from "@/components/simulator/tutor-key-view";
+import { TutorSettingsView } from "@/components/simulator/tutor-settings-view";
 import { setActiveExternalExampleContext } from "@/lib/external-examples";
 import type { TutorSupportState } from "@shared/tutor";
+import type { TutorTranscriptEntry } from "@/hooks/use-tutor";
 
 /** Learning support in the browser (LearningQuestions 3.10, 10.7): the hook follows the server's state. */
 
@@ -87,7 +88,8 @@ describe("useTutor learning support", () => {
   it("tells the learner to choose a model manually when Automatic has no approved model", async () => {
     mockServer({ "/api/tutor/question": () => json({ error: { code: "AUTO_MODEL_UNAVAILABLE", message: "x" } }, 503) });
     const { result } = await startDialog();
-    expect(result.current.error).toBe("No approved model is available for Automatic. Open the key icon and choose a model under Model.");
+    expect(result.current.error).toBe("Für „Automatisch“ ist kein freigegebenes Modell verfügbar. Wähle in den Einstellungen unter „Modell“ ein Modell.");
+    expect(result.current.errorCode).toBe("AUTO_MODEL_UNAVAILABLE");
   });
 
   it("repeats a failed action with the same action id, so the server counts it once", async () => {
@@ -104,7 +106,8 @@ describe("useTutor learning support", () => {
     });
     const { result } = await startDialog();
     await act(async () => { await result.current.requestSupport("clarify", SKETCH); });
-    expect(result.current.error).toBe("The Tutor service took too long to respond.");
+    expect(result.current.error).toBe("Der Tutor-Dienst hat zu lange nicht geantwortet.");
+    expect(result.current.errorCode).toBe("PROVIDER_TIMEOUT");
     expect(result.current.support?.clarifications).toBe(0);
     await act(async () => { await result.current.requestSupport("clarify", SKETCH); });
     const sent = bodies.filter(({ url }) => url === "/api/tutor/support").map(({ body }) => body.actionId);
@@ -156,9 +159,11 @@ describe("useTutor: a new learning question after a dialog completed by skipping
   });
 });
 
-describe("Tutor panel learning-support actions", () => {
-  function panel(state: TutorSupportState, requestSupport = vi.fn()) {
-    const tutor = {
+describe("Tutor panel learning-support actions (LearningQuestions 10.7)", () => {
+  type PanelOverrides = Partial<{ transcript: TutorTranscriptEntry[]; error: string; errorCode: string; isLoading: boolean; answer: string }>;
+
+  function tutorState(state: TutorSupportState, requestSupport = vi.fn(), overrides: PanelOverrides = {}) {
+    return {
       capabilities: { canUseTutor: true, canConfigureTutor: true },
       config: { provider: "kiconnect" },
       credential: "key", setCredential: vi.fn(), clearCredential: vi.fn(),
@@ -167,56 +172,156 @@ describe("Tutor panel learning-support actions", () => {
       sessionRating: null, ratedAnswerCount: 0, availableModels: [], modelsLoading: false, loadModels: vi.fn(),
       question: { question: QUESTION, provider: "kiconnect", model: "m", responseStyle: "normal" },
       focusProgress: null, history: [], transcript: [], support: state, completed: false, requestSupport,
-      answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, generateQuestion: vi.fn(),
+      answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(), isLoading: false, error: null, errorCode: null, generateQuestion: vi.fn(),
+      ...overrides,
     };
-    render(<TutorWorkspacePlaceholder code={SKETCH} tutor={tutor as never} />);
-    return requestSupport;
   }
 
-  it("explains why the reference answer and skipping are not available yet, and offers clarify and hint at once", async () => {
-    const requestSupport = panel(support({ answerAttempts: 1, clarifications: 1 }));
-    expect(await screen.findByTestId("tutor-action-reveal")).toBeDisabled();
-    expect(screen.getByTestId("tutor-action-skip")).toBeDisabled();
-    expect(screen.getByTestId("tutor-reveal-reason")).toHaveTextContent("Reference answer after 3 own answers (2 more).");
-    expect(screen.getByTestId("tutor-skip-reason")).toHaveTextContent("Skipping after 2 explanations of the question (1 more).");
-    expect(screen.getByTestId("tutor-action-reveal").getAttribute("aria-describedby")).toBe(screen.getByTestId("tutor-reveal-reason").id);
-    expect(screen.getByTestId("tutor-support-status")).toHaveTextContent("Own answers: 1 · Clarifications: 1");
+  /** Renders the panel once its learning step, which loads on demand, is there. */
+  async function panel(state: TutorSupportState, requestSupport = vi.fn(), overrides: PanelOverrides = {}) {
+    const tutor = tutorState(state, requestSupport, overrides);
+    const view = render(<TutorWorkspacePlaceholder code={SKETCH} tutor={tutor as never} />);
+    await screen.findByTestId("tutor-question");
+    return { requestSupport, tutor, view };
+  }
 
-    fireEvent.click(screen.getByTestId("tutor-action-clarify"));
+  function openHelp() {
+    const toggle = screen.getByTestId("tutor-help-toggle");
+    expect(toggle).toHaveAttribute("aria-label", "Hilfe zur aktuellen Frage");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle.querySelector("svg.lucide-circle-help")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    return toggle;
+  }
+
+  it("opens the help on demand without a request and offers only explain and hint before any unlock", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { requestSupport } = await panel(support({ answerAttempts: 1, clarifications: 1 }));
+    expect(screen.queryByTestId("tutor-support-actions")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-support-status")).not.toBeInTheDocument();
+    const toggle = openHelp();
+    expect(await screen.findByTestId("tutor-support-actions")).toBeInTheDocument();
+    expect(toggle.getAttribute("aria-controls")).toBe(screen.getByTestId("tutor-support-actions").id);
+    expect(screen.getByTestId("tutor-action-clarify")).toHaveTextContent("Frage erklären");
+    expect(screen.getByTestId("tutor-action-hint")).toHaveTextContent("Hinweis geben");
+    // Locked help is not offered as a disabled button; its rule is one click away.
+    expect(screen.queryByTestId("tutor-action-reveal")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-action-skip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-reveal-reason")).toHaveTextContent("Musterantwort: nach 3 eigenen Antworten auf diese Frage (noch 2).");
+    expect(screen.getByTestId("tutor-skip-reason")).toHaveTextContent("Überspringen: nach 2 Erklärungen der Frage (noch 1). Hinweise zählen nicht dazu.");
+    expect(screen.getByTestId("tutor-support-status")).toHaveTextContent("Bisher: 1 eigene Antwort, 1 Erklärung der Frage.");
+    fireEvent.click(screen.getByText("Wann gibt es weitere Hilfen?"));
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId("tutor-support-actions")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(requestSupport).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByTestId("tutor-action-clarify"));
     fireEvent.click(screen.getByTestId("tutor-action-hint"));
-    expect(requestSupport.mock.calls.map(([action]) => action)).toEqual(["clarify", "hint"]);
+    expect(requestSupport.mock.calls).toEqual([["clarify", SKETCH], ["hint", SKETCH]]);
   });
 
-  it("enables both actions once the server unlocked them", async () => {
-    const requestSupport = panel(support({ answerAttempts: 3, clarifications: 2, canRevealReference: true, canSkip: true }));
+  it("adds skipping and the reference answer once the server unlocked them", async () => {
+    const { requestSupport } = await panel(support({ answerAttempts: 3, clarifications: 2, canRevealReference: true, canSkip: true }));
+    openHelp();
     fireEvent.click(await screen.findByTestId("tutor-action-reveal"));
+    expect(screen.getByTestId("tutor-action-reveal")).toHaveTextContent("Musterantwort ansehen");
     fireEvent.click(screen.getByTestId("tutor-action-skip"));
+    expect(screen.getByTestId("tutor-action-skip")).toHaveTextContent("Frage überspringen");
     expect(requestSupport.mock.calls.map(([action]) => action)).toEqual(["reveal", "skip"]);
+  });
+
+  it("offers no reference answer without a reviewed reference, and says so in the rules", async () => {
+    await panel(support({ answerAttempts: 3, canRevealReference: true, referenceAvailable: false }));
+    openHelp();
+    expect(await screen.findByTestId("tutor-reveal-reason")).toHaveTextContent("Für diese Frage liegt keine geprüfte Musterantwort vor.");
+    expect(screen.queryByTestId("tutor-action-reveal")).not.toBeInTheDocument();
+  });
+
+  it("points to a help the latest step unlocked, once, and only for the same question", async () => {
+    const before = support({ answerAttempts: 2 });
+    const { view, tutor } = await panel(before);
+    expect(screen.queryByTestId("tutor-unlock-notice")).not.toBeInTheDocument();
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, support: support({ answerAttempts: 3, canRevealReference: true }) } as never} />);
+    expect(screen.getByTestId("tutor-unlock-notice")).toHaveTextContent("Neu in der Hilfe zur aktuellen Frage: „Musterantwort ansehen“. Du entscheidest selbst, ob du es nutzt.");
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, support: support({ answerAttempts: 4, canRevealReference: true }) } as never} />);
+    expect(screen.queryByTestId("tutor-unlock-notice")).not.toBeInTheDocument();
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, support: support({ questionHandle: "33333333-3333-4333-8333-333333333333", clarifications: 2, canSkip: true }) } as never} />);
+    expect(screen.queryByTestId("tutor-unlock-notice")).not.toBeInTheDocument();
+  });
+
+  it("shows the latest step of the current question below it, without a rating", async () => {
+    const turn = { question: QUESTION, answer: "0", feedback: "Noch nicht ganz.", answerRating: 2 as const, responseStyle: "normal" as const };
+    await panel(support({ answerAttempts: 1 }), vi.fn(), {
+      transcript: [
+        { id: "a", kind: "clarification", question: QUESTION, text: "Gemeint ist i = 7." },
+        { id: "b", kind: "turn", turn },
+      ],
+    });
+    const step = screen.getByTestId("tutor-current-step");
+    expect(await screen.findByText("Noch nicht ganz.")).toBeInTheDocument();
+    expect(step).toHaveTextContent("Deine Antwort0");
+    expect(step).not.toHaveTextContent("Gemeint ist i = 7.");
+    expect(screen.queryByTestId("tutor-previous-feedback")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-question").compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("offers the way out that fits a failure and keeps the draft", async () => {
+    const { tutor, view } = await panel(support(), vi.fn(), { answer: "Mein Entwurf" });
+    fireEvent.click(screen.getByTestId("tutor-send-answer"));
+    expect(tutor.submitAnswer).toHaveBeenCalledTimes(1);
+
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "Der Tutor-Dienst hat zu lange nicht geantwortet.", errorCode: "PROVIDER_TIMEOUT" } as never} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Der Tutor-Dienst hat zu lange nicht geantwortet.");
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Mein Entwurf");
+    fireEvent.click(screen.getByTestId("tutor-error-action"));
+    expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Erneut versuchen");
+    expect(tutor.submitAnswer).toHaveBeenCalledTimes(2);
+
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "AUTO_MODEL_UNAVAILABLE" } as never} />);
+    expect(screen.getByTestId("tutor-error-action")).toHaveTextContent("Modell wählen");
+    fireEvent.click(screen.getByTestId("tutor-error-action"));
+    expect(await screen.findByTestId("tutor-api-key-view")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+
+    view.rerender(<TutorWorkspacePlaceholder code={SKETCH} tutor={{ ...tutor, error: "x", errorCode: "SUPPORT_CONFLICT" } as never} />);
+    expect(screen.queryByTestId("tutor-error-action")).not.toBeInTheDocument();
   });
 });
 
-describe("Tutor model transparency (LearningQuestions 7.3)", () => {
-  function keyView(selectedModel: string, lastUsedModel: string | null) {
+describe("Tutor model transparency (LearningQuestions 7.3, 10.9)", () => {
+  function settings(selectedModel: string, lastUsedModel: string | null) {
     const tutor = {
-      capabilities: { canUseTutor: true, canConfigureTutor: true },
-      credential: "key", setCredential: vi.fn(), selectedModel, setSelectedModel: vi.fn(), lastUsedModel,
-      configuredDifficulty: 30, setConfiguredDifficulty: vi.fn(), availableModels: ["openai-gpt5.5", "mistralai-mistral-small-4-119b-2603"], modelsLoading: false,
+      capabilities: { canUseTutor: true, canConfigureTutor: true }, config: { provider: "kiconnect" },
+      credential: "key", setCredential: vi.fn(), clearCredential: vi.fn(), selectedModel, setSelectedModel: vi.fn(), lastUsedModel,
+      configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), availableModels: ["openai-gpt5.5", "mistralai-mistral-small-4-119b-2603"], modelsLoading: false,
+      error: null,
     };
-    render(<TutorKeyView tutor={tutor as never} onApply={vi.fn()} />);
+    render(<TutorSettingsView tutor={tutor as never} onApply={vi.fn()} />);
+    return tutor;
   }
 
   it("names the model that answered last, and says when Automatic chose it", () => {
-    keyView("auto", "mistralai-mistral-small-4-119b-2603");
-    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent("Last response from mistralai-mistral-small-4-119b-2603 (chosen by Automatic)");
+    settings("auto", "mistralai-mistral-small-4-119b-2603");
+    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent("Letzte Antwort von mistralai-mistral-small-4-119b-2603 (von „Automatisch“ gewählt)");
   });
 
   it("names a manually chosen model without the Automatic note", () => {
-    keyView("openai-gpt5.5", "openai-gpt5.5");
-    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent(/^Last response from openai-gpt5\.5$/);
+    settings("openai-gpt5.5", "openai-gpt5.5");
+    expect(screen.getByTestId("tutor-model-in-use")).toHaveTextContent(/^Letzte Antwort von openai-gpt5\.5$/);
   });
 
   it("shows no model before the first response", () => {
-    keyView("auto", null);
+    settings("auto", null);
     expect(screen.queryByTestId("tutor-model-in-use")).not.toBeInTheDocument();
+  });
+
+  it("forgets the key on request", () => {
+    const tutor = settings("auto", null);
+    fireEvent.click(screen.getByTestId("tutor-clear-key"));
+    expect(tutor.clearCredential).toHaveBeenCalledOnce();
   });
 });

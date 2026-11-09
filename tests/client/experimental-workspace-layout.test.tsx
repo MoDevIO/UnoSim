@@ -168,7 +168,7 @@ describe("experimental workspace layout", () => {
     expect(screen.getByTestId("vertical-resizer-board")).toBeInTheDocument();
   });
 
-  it("renders the compact tutor header, key view, and dialog actions", async () => {
+  it("focuses the panel on the current question and keeps settings, difficulty and the model out of the learning step", async () => {
     const submitAnswer = vi.fn();
     const resetDialog = vi.fn();
     const generateQuestion = vi.fn();
@@ -195,6 +195,7 @@ describe("experimental workspace layout", () => {
         provider: "kiconnect",
         model: "pilot-model",
       },
+      focusProgress: null,
       history: [],
       transcript: [],
       support: null,
@@ -206,159 +207,136 @@ describe("experimental workspace layout", () => {
       resetDialog,
       isLoading: false,
       error: null,
+      errorCode: null,
       generateQuestion,
     };
 
     const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
 
-    expect(screen.getByLabelText("Your answer")).toBeInTheDocument();
-    expect(screen.getByLabelText("Your answer")).toHaveClass("block");
-    expect(screen.getByLabelText("Your answer")).toHaveFocus();
+    // The learning step loads when the Tutor column opens.
+    const answerField = await screen.findByLabelText("Deine Antwort oder Rückfrage");
+    expect(answerField).toHaveFocus();
     expect(screen.getByText("Tutor", { exact: true })).toHaveClass("text-status-success");
-    expect(screen.getByTestId("tutor-panel").querySelector("svg.lucide-message-circle-question")).toHaveClass(
-      "text-status-success",
-    );
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key configured");
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key configured");
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveClass(
-      "h-[var(--ui-button-height)]",
-      "w-[var(--ui-button-height)]",
-      "[&_svg]:size-4",
-      "text-status-success",
-    );
-    expect(screen.getByTestId("tutor-api-key-action")).not.toHaveAttribute("aria-pressed");
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
-      "aria-label",
-      "New question, ends dialog. Tutor is waiting for your answer",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
-      "title",
-      "New question, ends dialog. Tutor is waiting for your answer",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
-      "text-foreground",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass(
-      "border-primary/70",
-      "bg-primary",
-      "ring-2",
-    );
-    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass(
-      "toolbar-icon-button-animation-waiting",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
-      "h-[var(--ui-button-height)]",
-      "w-[var(--ui-button-height)]",
-      "rounded-md",
-      "[&_svg]:size-4",
-      "[&_svg]:!h-5",
-      "[&_svg]:!w-5",
-    );
-    expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("D42");
+    expect(screen.getByTestId("tutor-panel").querySelector("svg.lucide-graduation-cap")).toHaveClass("text-status-success");
+    expect(screen.getByTestId("tutor-status-icon")).toHaveAttribute("aria-label", "Tutor wartet auf deine Antwort");
+    expect(screen.getByTestId("tutor-status-icon").querySelector("svg")).toHaveClass("toolbar-icon-button-animation-waiting");
+    // The question, then the answer field: no difficulty, ratings, model or key action in the learning step.
+    expect(screen.getByTestId("tutor-question")).toHaveTextContent("Aktuelle FrageWas beobachtest du?");
+    expect(screen.getByTestId("tutor-question").compareDocumentPosition(answerField) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/^D\d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-effective-difficulty")).not.toBeInTheDocument();
     expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
-    expect(screen.getByTestId("tutor-question")).not.toHaveTextContent("D34");
-    expect(screen.getByTestId("tutor-effective-difficulty")).toHaveAttribute(
-      "title",
-      "Current adaptive difficulty for this session: 42 / 100",
-    );
     expect(screen.queryByTestId("tutor-last-used-model")).not.toBeInTheDocument();
-    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, effectiveDifficulty: 54, sessionRating: 3.67, ratedAnswerCount: 2 }} debugMode />);
+    expect(screen.queryByTestId("tutor-history-action")).not.toBeInTheDocument();
+    // Without a support state of the server there is no help to offer.
+    expect(screen.queryByTestId("tutor-help-toggle")).not.toBeInTheDocument();
+
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} debugMode />);
     expect(screen.getByTestId("tutor-last-used-model")).toHaveTextContent("pilot-model");
-    expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("D54");
-    const newQuestionAction = screen.getByTestId("tutor-new-question-action");
-    const effectiveDifficulty = screen.getByTestId("tutor-effective-difficulty");
-    expect(newQuestionAction.compareDocumentPosition(effectiveDifficulty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
 
-    for (const [difficulty, display] of [[1, "D01"], [9, "D09"], [42, "D42"], [99, "D99"], [100, "D100"]] as const) {
-      rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, effectiveDifficulty: difficulty }} />);
-      expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent(display);
-      expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
-    }
-
-    rerender(<TutorWorkspacePlaceholder
-      code="void setup(){}"
-      tutor={{ ...tutor, credential: "   ", question: null, answer: "", effectiveDifficulty: 42 }}
-    />);
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
-      "aria-label",
-      "New question. Tutor not ready",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveAttribute(
-      "title",
-      "New question. Tutor not ready",
-    );
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("aria-label", "API key missing");
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveAttribute("title", "API key missing");
-    expect(screen.getByTestId("tutor-api-key-action")).toHaveClass("text-muted-foreground");
-    expect(screen.getByTestId("tutor-new-question-action")).toHaveClass(
-      "text-foreground",
-    );
-    expect(screen.getByTestId("tutor-new-question-action")).not.toHaveClass(
-      "border-border/70",
-      "bg-background/70",
-      "bg-primary",
-      "ring-2",
-    );
-    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).not.toHaveClass(
-      "toolbar-icon-button-animation-waiting",
-    );
-    expect(screen.getByTestId("tutor-new-question-action").querySelector("svg")).toHaveClass(
-      "lucide-circle-help",
-    );
-
-    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, question: { ...tutor.question!, question: "Eine neue Frage?" }, sessionRating: 3.67, ratedAnswerCount: 2 }} debugMode />);
-    expect(screen.getByLabelText("Your answer")).toHaveFocus();
-    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
-    // The key view and the transcript load on demand.
-    expect(await screen.findByTestId("tutor-api-key-view")).toBeInTheDocument();
-    expect(screen.getByLabelText("API key", { selector: "input" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Model")).toBeInTheDocument();
-    expect(screen.getByLabelText("Start difficulty (1–100)")).toHaveValue(30);
-    expect(tutor.loadModels).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByTestId("tutor-apply-key"));
-    expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
-    const sendAnswerButton = screen.getByRole("button", { name: "Send answer" });
-    expect(sendAnswerButton).toHaveClass(
-      "h-[var(--ui-button-height)]",
-      "w-[var(--ui-button-height)]",
-      "top-1/2",
-      "-translate-y-1/2",
-      "right-1",
-    );
-    expect(sendAnswerButton).not.toHaveClass("bottom-1");
-    expect(sendAnswerButton).not.toBeDisabled();
-    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, answer: "" }} />);
-    expect(screen.getByRole("button", { name: "Send answer" })).toBeDisabled();
-    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
-    fireEvent.click(sendAnswerButton);
+    const send = screen.getByTestId("tutor-send-answer");
+    expect(send).toHaveTextContent("Senden");
+    fireEvent.click(send);
     expect(submitAnswer).toHaveBeenCalledWith("void setup(){}");
     submitAnswer.mockClear();
-    const answerField = screen.getByLabelText("Your answer");
     fireEvent.keyDown(answerField, { key: "Enter", code: "Enter", shiftKey: false });
     expect(submitAnswer).toHaveBeenCalledWith("void setup(){}");
     submitAnswer.mockClear();
     fireEvent.keyDown(answerField, { key: "Enter", code: "Enter", shiftKey: true });
     expect(submitAnswer).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId("tutor-new-question-action"));
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, answer: "  " }} />);
+    expect(screen.getByTestId("tutor-send-answer")).toBeDisabled();
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...tutor, isLoading: true }} />);
+    expect(screen.getByTestId("tutor-send-answer")).toBeDisabled();
+    expect(screen.getByTestId("tutor-pending")).toHaveTextContent("Tutor prüft deine Eingabe …");
+
+    // Settings from the menu: key, model, start and current difficulty; leaving keeps the draft and asks nothing.
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={tutor} />);
+    fireEvent.keyDown(screen.getByTestId("tutor-menu"), { key: "Enter" });
+    fireEvent.click(await screen.findByTestId("tutor-api-key-action"));
+    expect(await screen.findByTestId("tutor-api-key-view")).toBeInTheDocument();
+    expect(screen.getByLabelText("API-Key", { selector: "input" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Modell")).toBeInTheDocument();
+    expect(screen.getByLabelText("Startschwierigkeit (1–100)")).toHaveValue(30);
+    expect(screen.getByTestId("tutor-effective-difficulty")).toHaveTextContent("Aktuelle Schwierigkeit dieser Lernrunde: 42 von 100");
+    expect(screen.getByTestId("tutor-transparency")).toHaveTextContent("KI:connect.nrw");
+    expect(tutor.loadModels).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("tutor-settings-back")).toHaveTextContent("Zurück zur Frage");
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Meine Antwort");
+    expect(generateQuestion).not.toHaveBeenCalled();
+    expect(resetDialog).not.toHaveBeenCalled();
+
+    // A new learning round is the deliberate reset of the menu.
+    fireEvent.keyDown(screen.getByTestId("tutor-menu"), { key: "Enter" });
+    const newRound = await screen.findByTestId("tutor-new-round-action");
+    expect(newRound).toHaveTextContent("Neue Lernrunde starten");
+    expect(newRound.querySelector("svg.lucide-message-circle-plus")).toBeInTheDocument();
+    fireEvent.click(newRound);
     expect(resetDialog).toHaveBeenCalledOnce();
     expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
 
+    // The rating and the session average belong to the history, which returns to the question.
+    const turn = { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4 as const, responseStyle: "normal" as const };
     rerender(<TutorWorkspacePlaceholder
       code="void setup(){}"
       tutor={{
         ...tutor,
-        history: [{ question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4 }],
-        transcript: [{ id: "turn-1", kind: "turn", turn: { question: "Was beobachtest du?", answer: "Der Pin ist HIGH.", feedback: "Richtig.", answerRating: 4, responseStyle: "normal" } }],
+        question: { ...tutor.question!, question: "Und was passiert danach?" },
+        history: [turn],
+        transcript: [{ id: "turn-1", kind: "turn", turn }],
         sessionRating: 4,
         ratedAnswerCount: 1,
       }}
     />);
+    const previous = await screen.findByTestId("tutor-previous-feedback");
+    expect(previous).toHaveTextContent("Rückmeldung zu deiner vorigen Antwort");
+    await screen.findByText("Vorige Frage:", { exact: false });
+    expect(previous).toHaveTextContent("Vorige Frage: Was beobachtest du?");
+    expect(previous).toHaveTextContent("Richtig.");
+    expect(previous.compareDocumentPosition(screen.getByTestId("tutor-question")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("tutor-current-step")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tutor-answer-rating")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutor-history-action"));
     expect(await screen.findByTestId("tutor-answer-rating")).toHaveTextContent("★★★★☆");
-    const feedbackLabel = screen.getByText("Tutor feedback");
-    const feedbackRating = screen.getByTestId("tutor-answer-rating");
-    expect(feedbackLabel.compareDocumentPosition(feedbackRating) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByTestId("tutor-session-rating")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-session-rating")).toHaveTextContent("Durchschnitt der Verständnisbewertung: 4 von 5 aus 1 bewerteten Antwort");
+    expect(screen.getByTestId("tutor-focus-status")).toHaveTextContent("Freier Tutor");
+    fireEvent.click(screen.getByTestId("tutor-back-to-question"));
+    expect(screen.getByLabelText("Deine Antwort oder Rückfrage")).toHaveValue("Meine Antwort");
+  });
+
+  it("offers only the action that fits: set up the Tutor, then start a question", async () => {
+    const generateQuestion = vi.fn();
+    const base = {
+      capabilities: getServerCapabilities(true), config: { provider: "kiconnect" }, credential: "",
+      setCredential: vi.fn(), clearCredential: vi.fn(), selectedModel: "auto", setSelectedModel: vi.fn(), lastUsedModel: null,
+      configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), sessionRating: null, ratedAnswerCount: 0,
+      availableModels: [], modelsLoading: false, loadModels: vi.fn(), question: null, focusProgress: null, history: [], transcript: [],
+      support: null, completed: false, requestSupport: vi.fn(), answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(),
+      isLoading: false, error: null, errorCode: null, generateQuestion,
+    } satisfies TutorPanelState;
+    const { rerender } = render(<TutorWorkspacePlaceholder code="void setup(){}" tutor={base} />);
+    await screen.findByTestId("tutor-setup");
+    expect(screen.getByTestId("tutor-status-icon")).toHaveAttribute("aria-label", "Tutor nicht eingerichtet");
+    expect(screen.getByTestId("tutor-transparency")).toHaveTextContent("dein aktueller Sketch an KI:connect.nrw übertragen");
+    expect(screen.queryByTestId("tutor-start-question")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Deine Antwort oder Rückfrage")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutor-setup-action"));
+    expect(await screen.findByTestId("tutor-api-key-view")).toBeInTheDocument();
+    expect(screen.getByTestId("tutor-settings-back")).toHaveTextContent(/^Zurück$/);
+
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key" }} />);
+    fireEvent.click(screen.getByTestId("tutor-apply-key"));
+    expect(screen.queryByTestId("tutor-setup-action")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tutor-transparency")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("tutor-start-question"));
+    expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
+
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key", isLoading: true }} />);
+    expect(screen.getByTestId("tutor-start-question")).toBeDisabled();
+    expect(screen.getByTestId("tutor-pending")).toHaveTextContent("Tutor erstellt eine Frage …");
+    expect(screen.getByTestId("tutor-status-icon")).toHaveAttribute("aria-label", "Tutor erstellt eine Frage");
   });
 
   it("restores the KI:connect key flow with automatic model loading", async () => {
@@ -382,24 +360,25 @@ describe("experimental workspace layout", () => {
     }
 
     render(<TutorHarness />);
-    await waitFor(() => expect(screen.getByTestId("tutor-api-key-action")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("tutor-setup-action")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
-    const keyInput = screen.getByLabelText("API key", { selector: "input" });
+    fireEvent.click(screen.getByTestId("tutor-setup-action"));
+    const keyInput = await screen.findByLabelText("API-Key", { selector: "input" });
     expect(keyInput).toBeInTheDocument();
-    expect(screen.getByLabelText("Model")).toBeInTheDocument();
+    expect(screen.getByLabelText("Modell")).toBeInTheDocument();
 
     fireEvent.change(keyInput, { target: { value: "volatile-key" } });
     await waitFor(() => expect(screen.getByRole("option", { name: "pilot-model" })).toBeInTheDocument());
     expect(modelsRequestBodies).toEqual([{ credential: "volatile-key" }]);
 
-    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "pilot-model" } });
+    fireEvent.change(screen.getByLabelText("Modell"), { target: { value: "pilot-model" } });
     fireEvent.click(screen.getByTestId("tutor-apply-key"));
     expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("tutor-api-key-action"));
-    expect(screen.getByLabelText("API key", { selector: "input" })).toHaveValue("volatile-key");
-    expect(screen.getByLabelText("Model")).toHaveValue("pilot-model");
+    fireEvent.keyDown(screen.getByTestId("tutor-menu"), { key: "Enter" });
+    fireEvent.click(await screen.findByTestId("tutor-api-key-action"));
+    expect(await screen.findByLabelText("API-Key", { selector: "input" })).toHaveValue("volatile-key");
+    expect(screen.getByLabelText("Modell")).toHaveValue("pilot-model");
     expect(modelsRequestBodies).toEqual([
       { credential: "volatile-key" },
       { credential: "volatile-key" },

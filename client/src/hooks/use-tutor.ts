@@ -60,6 +60,8 @@ export interface TutorPanelState {
   readonly resetDialog: () => void;
   readonly isLoading: boolean;
   readonly error: string | null;
+  /** The server's code of the failure, or the code a local check stands in for; the panel picks its way out by it. */
+  readonly errorCode: string | null;
   readonly generateQuestion: (sketch: string | TutorSketch) => Promise<void>;
 }
 
@@ -104,23 +106,38 @@ const DEFAULT_CONFIG: TutorConfig = {
   provider: "kiconnect",
 };
 
+const ERROR_MESSAGES = new Map<string, string>([
+  ["CREDENTIAL_REQUIRED", "Trage zuerst deinen persönlichen Tutor-API-Key ein."],
+  ["CREDENTIAL_INVALID", "Der Tutor-Zugang wurde abgelehnt."],
+  ["PROVIDER_UNAVAILABLE", "Der Tutor-Dienst ist gerade nicht erreichbar."],
+  ["PROVIDER_TIMEOUT", "Der Tutor-Dienst hat zu lange nicht geantwortet."],
+  ["RATE_LIMITED", "Das Anfragelimit des Tutors ist erreicht. Bitte versuche es später erneut."],
+  ["MODEL_UNAVAILABLE", "Das gewählte Tutor-Modell ist nicht verfügbar."],
+  ["AUTO_MODEL_UNAVAILABLE", "Für „Automatisch“ ist kein freigegebenes Modell verfügbar. Wähle in den Einstellungen unter „Modell“ ein Modell."],
+  ["INVALID_PROVIDER_RESPONSE", "Der Tutor-Dienst hat eine ungültige Antwort geliefert."],
+  ["INVALID_REQUEST", "Die Tutor-Anfrage ist ungültig."],
+  ["COURSE_CONTENT_STALE", "Die Kursinhalte wurden aktualisiert. Lade das Beispiel über das Menü „Examples“ neu, um weiterzumachen."],
+  ["SUPPORT_LOCKED", "Diese Hilfe ist für die Frage noch nicht freigeschaltet."],
+  ["SUPPORT_CONFLICT", "Die Frage hat sich inzwischen geändert. Mach mit der aktuellen Frage weiter."],
+  ["SUPPORT_SESSION_INVALID", "Die Lernsitzung ist abgelaufen oder die Kursinhalte sind wieder verfügbar. Starte eine neue Lernrunde."],
+  ["NO_CODE", "Öffne zuerst einen Sketch mit Quellcode."],
+  ["NO_QUESTION", "Starte zuerst eine Lernfrage."],
+  ["NO_ANSWER", "Schreibe zuerst eine Antwort."],
+]);
+
+const GENERIC_FAILURE = "Die Tutor-Anfrage ist fehlgeschlagen.";
+const INVALID_RESPONSE = "Der Tutor-Dienst hat eine ungültige Antwort geliefert.";
+
+/** A failed Tutor request with the code the panel uses to offer the matching way out (LearningQuestions 10.7). */
+class TutorRequestError extends Error {
+  constructor(readonly code: string | null, message: string) {
+    super(message);
+    this.name = "TutorRequestError";
+  }
+}
+
 function getErrorMessage(body: unknown): string {
-  const errorMessages = new Map<string, string>([
-    ["CREDENTIAL_REQUIRED", "Enter your personal Tutor API key first."],
-    ["CREDENTIAL_INVALID", "The Tutor access was rejected."],
-    ["PROVIDER_UNAVAILABLE", "The Tutor service is currently unavailable."],
-    ["PROVIDER_TIMEOUT", "The Tutor service took too long to respond."],
-    ["RATE_LIMITED", "The Tutor request limit has been reached. Please try again later."],
-    ["MODEL_UNAVAILABLE", "The selected Tutor model is unavailable."],
-    ["AUTO_MODEL_UNAVAILABLE", "No approved model is available for Automatic. Open the key icon and choose a model under Model."],
-    ["INVALID_PROVIDER_RESPONSE", "The Tutor service returned an invalid response."],
-    ["INVALID_REQUEST", "The Tutor request is invalid."],
-    ["COURSE_CONTENT_STALE", "The course content was updated. Reload the example from the Examples menu to continue."],
-    ["SUPPORT_LOCKED", "This action is not available for the question yet."],
-    ["SUPPORT_CONFLICT", "The question has changed in the meantime. Continue with the current question."],
-    ["SUPPORT_SESSION_INVALID", "The learning session has expired or the course content is available again. Start a new learning question."],
-  ]);
-  return errorMessages.get(getErrorCode(body) ?? "") ?? "The Tutor request failed.";
+  return ERROR_MESSAGES.get(getErrorCode(body) ?? "") ?? GENERIC_FAILURE;
 }
 
 function getErrorCode(body: unknown): string | undefined {
@@ -143,9 +160,10 @@ function getTutorFailure(body: unknown): Error {
     // The server moved on to a newer Course revision; refresh the catalog so the Examples menu offers it.
     refreshExternalExamplesCatalog().catch(() => undefined);
   }
-  return new Error(getErrorMessage(body));
+  return new TutorRequestError(getErrorCode(body) ?? null, getErrorMessage(body));
 }
 
+/** The code of the first missing precondition of an answer, if any. */
 function getSubmitAnswerValidationError({
   question,
   code,
@@ -157,10 +175,10 @@ function getSubmitAnswerValidationError({
   answer: string;
   credential: string;
 }): string | undefined {
-  if (!question) return "Generate a learning question first.";
-  if (!code.trim()) return "Open a sketch with source code first.";
-  if (!answer.trim()) return "Write an answer first.";
-  if (!credential.trim()) return "Enter your personal Tutor API key first.";
+  if (!question) return "NO_QUESTION";
+  if (!code.trim()) return "NO_CODE";
+  if (!answer.trim()) return "NO_ANSWER";
+  if (!credential.trim()) return "CREDENTIAL_REQUIRED";
   return undefined;
 }
 
@@ -285,7 +303,7 @@ async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSign
   if (signal.aborted) return null;
   if (!response.ok) throw getTutorFailure(payload);
   const parsed = tutorResponseSchema.safeParse(payload);
-  if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
+  if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE);
   return { data: parsed.data };
 }
 
@@ -333,7 +351,15 @@ export function useTutor(
   const pendingAction = useRef<{ readonly key: string; readonly actionId: string } | null>(null);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ readonly message: string; readonly code: string | null } | null>(null);
+  const error = failure?.message ?? null;
+  const errorCode = failure?.code ?? null;
+  const clearError = useCallback(() => setFailure(null), []);
+  const fail = useCallback((code: string) => setFailure({ message: ERROR_MESSAGES.get(code) ?? GENERIC_FAILURE, code }), []);
+  const failWith = useCallback((requestError: unknown) => {
+    if (requestError instanceof TutorRequestError) setFailure({ message: requestError.message, code: requestError.code });
+    else setFailure({ message: requestError instanceof Error ? requestError.message : GENERIC_FAILURE, code: null });
+  }, []);
   const canLoadConfigOnMount = useRef(capabilities.canUseTutor);
   const activeTutorRequests = useRef(new Set<AbortController>());
   const loadingRequest = useRef<AbortController | null>(null);
@@ -358,9 +384,9 @@ export function useTutor(
     setQuestion(null);
     setFocusProgress(null);
     setAnswer("");
-    setError(null);
+    clearError();
     setEffectiveDifficulty(startDifficulty);
-  }, [abortPendingTutorRequests]);
+  }, [abortPendingTutorRequests, clearError]);
 
   useEffect(() => {
     clearDialog(configuredDifficulty);
@@ -398,9 +424,9 @@ export function useTutor(
 
   const loadModels = useCallback(async () => {
     if (!capabilities.canUseTutor) return;
-    setError(null);
+    clearError();
     if (!credential.trim()) {
-      setError("Enter your personal Tutor API key first.");
+      fail("CREDENTIAL_REQUIRED");
       return;
     }
 
@@ -416,21 +442,21 @@ export function useTutor(
         signal: controller.signal,
       });
       const body: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(getErrorMessage(body));
+      if (!response.ok) throw new TutorRequestError(getErrorCode(body) ?? null, getErrorMessage(body));
       const parsed = tutorModelsResponseSchema.safeParse(body);
-      if (!parsed.success) throw new Error("The Tutor service returned an invalid model list.");
+      if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", "Der Tutor-Dienst hat eine ungültige Modellliste geliefert.");
       setAvailableModels(parsed.data.models);
       setSelectedModel((current) => current === "auto" || parsed.data.models.includes(current) ? current : "auto");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
       setAvailableModels([]);
       setSelectedModel("auto");
-      setError(requestError instanceof Error ? requestError.message : "The Tutor models could not be loaded.");
+      failWith(requestError);
     } finally {
       activeTutorRequests.current.delete(controller);
       setModelsLoading(false);
     }
-  }, [capabilities, credential]);
+  }, [capabilities, credential, fail, failWith, clearError]);
 
   // An aborted request ends after its successor started; only the newest one ends the loading state.
   const finishLoading = useCallback((controller: AbortController) => {
@@ -441,13 +467,13 @@ export function useTutor(
 
   const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty) => {
     if (!capabilities.canUseTutor) return;
-    setError(null);
+    clearError();
     if (!sketch.code.trim()) {
-      setError("Open a sketch with source code first.");
+      fail("NO_CODE");
       return;
     }
     if (!credential.trim()) {
-      setError("Enter your personal Tutor API key first.");
+      fail("CREDENTIAL_REQUIRED");
       return;
     }
     const requestedModel = getRequestedModel(selectedModel, availableModels);
@@ -480,7 +506,7 @@ export function useTutor(
       if (controller.signal.aborted) return;
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
-      if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
+      if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE);
       setQuestion(parsed.data);
       setSupport(parsed.data.support ?? null);
       setCompleted(false);
@@ -490,12 +516,12 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
+      failWith(requestError);
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [availableModels, capabilities, credential, finishLoading, selectedModel]);
+  }, [availableModels, capabilities, credential, fail, failWith, finishLoading, selectedModel, clearError]);
 
   const resetDialog = useCallback(() => clearDialog(configuredDifficulty), [clearDialog, configuredDifficulty]);
 
@@ -525,7 +551,7 @@ export function useTutor(
 
   const submitAnswer = useCallback(async (input: string | TutorSketch) => {
     if (!capabilities.canUseTutor) return;
-    setError(null);
+    clearError();
     const sketch = asTutorSketch(input);
     const validationError = getSubmitAnswerValidationError({
       question,
@@ -534,7 +560,7 @@ export function useTutor(
       credential,
     });
     if (validationError) {
-      setError(validationError);
+      fail(validationError);
       return;
     }
     if (!question) return;
@@ -579,19 +605,19 @@ export function useTutor(
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
+      failWith(requestError);
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel, support]);
+  }, [answer, applyDialogResponse, availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, history, question, selectedModel, clearError, support]);
 
   const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch) => {
     if (!capabilities.canUseTutor || !question || !support) return;
-    setError(null);
+    clearError();
     const sketch = asTutorSketch(input);
     if (!credential.trim()) {
-      setError("Enter your personal Tutor API key first.");
+      fail("CREDENTIAL_REQUIRED");
       return;
     }
     const requestedModel = getRequestedModel(selectedModel, availableModels);
@@ -628,12 +654,12 @@ export function useTutor(
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      setError(requestError instanceof Error ? requestError.message : "The Tutor request failed.");
+      failWith(requestError);
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
-  }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, finishLoading, history, question, selectedModel, support]);
+  }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, history, question, selectedModel, clearError, support]);
 
   const updateConfiguredDifficulty = useCallback((value: number) => {
     const nextDifficulty = clampTutorDifficulty(value);
@@ -681,6 +707,7 @@ export function useTutor(
     resetDialog,
     isLoading,
     error,
+    errorCode,
     generateQuestion,
   }), [
     transcript,
@@ -692,6 +719,7 @@ export function useTutor(
     credential,
     clearCredential,
     error,
+    errorCode,
     generateQuestion,
     loadModels,
     isLoading,

@@ -45,35 +45,35 @@ export function getTutorQuestionVisualState({
     case "generating":
       return {
         state,
-        label: "Tutor is generating a question",
+        label: "Tutor erstellt eine Frage",
         status: "bright",
         animation: state,
       };
     case "waiting":
       return {
         state,
-        label: "Tutor is waiting for your answer",
+        label: "Tutor wartet auf deine Antwort",
         status: "bright",
         animation: state,
       };
     case "evaluating":
       return {
         state,
-        label: "Tutor is evaluating your answer",
+        label: "Tutor bearbeitet deine Anfrage",
         status: "bright",
         animation: state,
       };
     case "error":
       return {
         state,
-        label: "Tutor error",
+        label: "Tutor-Fehler",
         status: "error",
         animation: state,
       };
     case "idle":
       return {
         state,
-        label: tutorReady ? "Tutor ready" : "Tutor not ready",
+        label: tutorReady ? "Tutor bereit" : "Tutor nicht eingerichtet",
         status: "bright",
       };
   }
