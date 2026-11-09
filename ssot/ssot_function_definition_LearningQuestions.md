@@ -1575,9 +1575,10 @@ Antwort zeigt die Spalte den Anfang von Antwort und Rückmeldung; reicht der Pla
 bei der Rückmeldung, sodass die Sterne und der Beginn des Rückmeldungstexts sichtbar sind. Eine längere
 Rückmeldung bleibt normal scrollbar. `Weiter zur nächsten Frage` steht als feste Leiste am unteren Rand
 der Spalte, bleibt dadurch sichtbar und erhält den Fokus, ohne die Spalte zu verschieben; Enter geht
-weiter. Die Rückmeldung mit Bewertung wird zugänglich angesagt (Live-Region). Auf schmalen Bildschirmen
-mit schwebender Navigation halten Frage, Antwort, Rückmeldung, Verlauf und Einstellungen den von ihr
-belegten Rand frei; kein Text liegt unter der Navigation.
+weiter. Die Rückmeldung mit Bewertung wird zugänglich angesagt (Live-Region). Solange die schwebende
+Navigation angezeigt wird (Handy; Tablet mit Tutor), halten Frage, Antwort, Rückmeldung, die
+`Weiter`-Leiste, Verlauf und Einstellungen den von ihr belegten Rand frei; kein Text und keine
+Schaltfläche liegt unter der Navigation. Ohne schwebende Navigation (Desktop) entfällt der Rand.
 
 Das Hilfeangebot zu 3.10 bietet nur ausführbare, beschriftete Aktionen an:
 
@@ -1855,6 +1856,7 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - die Sterne einer bewerteten Antwort stehen direkt an ihrer Rückmeldung; Hilfen, Überspringen und Antworten nach der Musterantwort bleiben ohne Sterne,
 - nach einer abschließenden Antwort erscheint die nächste Frage erst mit `Weiter zur nächsten Frage`, ohne weitere Anfrage; eine schwache Antwort bleibt ohne Weiter-Schritt bearbeitbar, auch wenn geänderter Code die Frage unter neuer Kennung neu gebunden hat (gegen die echte Route),
 - bei 320 px und 1100 × 360 px mit XXL-Schrift: Sterne und Beginn der Rückmeldung sichtbar, `Weiter` fokussiert und sichtbar, kein Zeichen von Frage, Antwort oder Rückmeldung unter der schwebenden Navigation,
+- auf dem Tablet (800 und 900 × 360 px, XXL) mit schwebender Navigation: ein echter Klick auf den Pfeil von `Weiter` trifft `Weiter` und führt zur nächsten Frage,
 - `Erneut versuchen` sendet den unveränderten Inhalt mit derselben Aktions-ID; nach geänderter Eingabe wird keine Wiederholung angeboten,
 - `Senden` löst die Anfrage bewusst und genau einmal aus,
 - Feedback und genau eine Folgefrage werden angezeigt,

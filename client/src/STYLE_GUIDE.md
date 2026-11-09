@@ -37,6 +37,7 @@ values in `client/src/index.css`; contrast is against `--background`
 | **Primary action / selection** | `--primary`, `--primary-hover`, `--primary-foreground` | `#15803d`, `#166534`, `#fafafa` | the one main action of a view (Start, Senden, Weiter, Übernehmen, Done), selected panel in the mobile navigation | 4.8:1 and 6.8:1 for the text on it |
 | Hover surface, focus ring | `--accent`, `--ring` | green `hsl(142 86% 28%)` | hover of outline/ghost controls, focus ring | 4.6:1 for text on it; ring 4.0:1 |
 | **Neutral action** | `outline`, `ghost`, `secondary` button variants | – | every other action, **including delete and clear** | as text |
+| Toolbar icon hover | `--muted` | `hsl(0 0% 15%)` | hover surface of `ToolbarIconButton`, so the icon keeps its state color (active, inactive, error) on hover | state colors ≥ 4.5:1 on it |
 | Run state | `--color-run-stop`, `--color-run-stop-hover` | `#c2410c`, `#9a3412` | the Stop button while a simulation runs | 5.0:1 and 7.0:1 for white |
 | **Success** | `--color-status-success` | `#22c55e` | success, "in use" checkmarks, Tutor ready | 8.2:1 |
 | **Warning** | `--color-status-warning` | `#f97316` | warnings, dropped serial bytes, legacy engine | 6.7:1 |
@@ -86,8 +87,9 @@ warning, info, busy, idle) to these tokens; status components use it.
   error role.
 - `e2e/color-contrast.spec.ts` — computed colors in the browser: Start, the
   primary actions of the Tutor and the settings, the delete menu entry and its
-  confirmation, clear actions, at rest and on hover, and that none of the
-  neutral actions is red.
+  confirmation, clear actions, the active and inactive workspace toggles on
+  hover (icon against the opaque hover surface), at rest and on hover, and that
+  none of the neutral actions is red.
 
 ## 5. Visual checklist
 
@@ -98,6 +100,7 @@ Before a change to colors, check in the browser at normal size and at XXL:
 - [ ] Settings dialog: Done at rest and on hover; board color presets unchanged.
 - [ ] Sketch tabs: ⋯ → Delete File and its confirmation neutral, label and confirmation kept.
 - [ ] Serial monitor, compiler and debug output: clear actions neutral at rest, hover and focus.
+- [ ] Toolbar icons (workspace toggles, output toolbars): active, inactive and error colors readable on hover.
 - [ ] Serial monitor: RX/TX badges, telemetry labels and values, dropped bytes in warning color.
 - [ ] I/O Registry: green check for use, gray dash for no use, conflict marked with error color and text.
 - [ ] Board: active pins amber, not red; physical parts unchanged.
