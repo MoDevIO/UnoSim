@@ -856,7 +856,7 @@ Für den MVP gilt:
 ### 3.10 Antwortversuche, Klärung, Musterantwort und Überspringen
 
 **Status: umgesetzt (2026-11-06), Live-Abnahme offen (Abschnitt 21, TUT-08).**
-Die Regeln R-SUP-1 bis R-SUP-8 gelten für Lehrerfokus, Topic-Fragen und den
+Die Regeln R-SUP-1 bis R-SUP-9 gelten für Lehrerfokus, Topic-Fragen und den
 freien Tutor. Sie ersetzen bei Umsetzung die bisherige einmalige Wiederholung
 einer Lehrerfrage. Die Abnahme und die noch offenen Arbeiten stehen in
 Abschnitt 21. Repositories und LLM-Antworten dürfen diese Schwellen nicht ändern.
@@ -877,6 +877,10 @@ Aktionen. Fehler und Abbrüche vor der Übernahme verändern keine Zähler.
 Automatische Retries und erneut übertragene identische Aktionen erzeugen
 keine weiteren Schritte. Geht nur die Bestätigung einer bereits übernommenen
 Aktion verloren, liefert die Wiederholung denselben übernommenen Stand.
+Eine Wiederholung mit derselben Aktions-ID trägt immer denselben fachlichen
+Inhalt (Code, Board, Antwort bzw. Hilfeaktion). Geänderte Eingaben sind eine
+neue Aktion mit neuer Aktions-ID; eine Mischung aus dem Inhalt der
+fehlgeschlagenen Anfrage und aktuellen Eingaben ist unzulässig.
 Die Freischaltzähler sättigen bei drei
 Antwortversuchen bzw. zwei Klärungsnachfragen; weitere Versuche und Nachfragen
 bleiben möglich.
@@ -1005,6 +1009,50 @@ Die erste vollständige Ausgabezeile lautet `200 = 11001000`. Eine Frage nach ei
 Begründung rechtfertigt nicht rückwirkend die Abwertung einer vorher nur
 verlangten Zahl. Die technische Fehlerursache des beobachteten Dialogs ist
 zu untersuchen und wird durch diesen Referenzfall nicht vorweggenommen.
+
+#### R-SUP-9 – Frühere Versuche für die Hilfe, nicht für die Bewertung
+
+**Status: umgesetzt (2026-11-09), Live-Nachweis begrenzt (TUT-07).**
+Frühere schwache Antworten auf dieselbe offene Frage bleiben aus dem bewerteten
+Dialogverlauf heraus, damit alte Fehler die Bewertung der aktuellen Antwort
+nicht senken. Sie gehen dem Modell aber in einem eigenen, ausdrücklich nicht
+bewertungsrelevanten Abschnitt zu: frühere Antwort und gegebene Rückmeldung,
+ohne Sterne. Damit erkennt der Tutor ein wiederkehrendes Missverständnis,
+wiederholt keinen erfolglosen Hinweis und benennt stattdessen den konkreten
+Unterschied an der entscheidenden Stelle, ohne die Lösung zu nennen.
+
+Für jede Rückmeldung gilt außerdem:
+
+- Beschreibt eine Antwort zutreffend den aktuellen Sketch oder seine Ausgabe,
+  während die Frage eine davon abweichende Annahme setzt, erkennt der Tutor die
+  richtige Beobachtung ausdrücklich an und erklärt, welche Annahme der Frage
+  abweicht und welcher Größe im Code sie entspricht.
+- Ein sachlicher Einwand gegen die Aufgabe wird inhaltlich beantwortet, nicht
+  nur als fehlende Angabe beanstandet.
+- Eine richtige Kernaussage wird am Anfang der Rückmeldung deutlich bestätigt;
+  ungenaue Begriffe werden danach unterstützend erläutert.
+
+Diese Regeln sind allgemein formuliert; es gibt keine Sonderbehandlung einzelner
+Beispielsätze.
+
+**Regression IT06.1 (Grenze und Anfangswert verwechselt).** Im Sketch IT06.1
+ist `GRENZE` von 1000 auf 2000 geändert, `wert` startet weiterhin mit 1. Die
+Ausgabe zeigt 11 Durchläufe und den Endwert 2048; das ist für diesen Code
+richtig. Die Lehrerfrage „Wie oft läuft die Schleife, wenn `wert` mit 2000
+startet?“ setzt dagegen den Anfangswert von `wert` auf 2000: Die Bedingung
+`2000 < 2000` ist schon bei der ersten Prüfung falsch, die Schleife läuft
+keinmal (bei `GRENZE` 1000 ebenso). Erwartet wird:
+
+| Schritt | Antwort | Erwartete Rückmeldung |
+| --- | --- | --- |
+| 1 | „11 Durchläufe, Endwert 2048“ | Bewertung 1–2; erkennt an, dass die Beobachtung zum aktuellen Sketch passt; erklärt, dass die Frage den Anfangswert von `wert` meint, nicht `GRENZE`; nennt die gesuchte Zahl nicht. |
+| 2 | Einwand „ich habe 2000 eingesetzt und das sieht man auch an den Werten!“ | Geht auf den Einwand ein: 2000 steht in `GRENZE`, `wert` beginnt bei 1; wiederholt nicht nur „prüfe die Bedingung“; nennt die gesuchte Zahl nicht. |
+| 3 | „Die Schleife wird nie betreten. Es gibt keinen Startwert.“ | Bestätigt die richtige Kernaussage (0 Durchläufe) deutlich, Bewertung mindestens 3; darf „Startwert“ als Anfangswert der Variable erläutern. |
+
+Eine vorgegebene richtige dritte Antwort allein belegt keinen Lerneffekt;
+maßgeblich ist die Qualität der Rückmeldungen in Schritt 1 und 2. Der Fall steht
+als mehrstufige Korpusfälle `TQ-SUP-IT061-*` im Evaluationskorpus
+(TutorQualityEvaluation 15, R-SUP-E5).
 
 ## 4. Kontext für die Fragengenerierung
 
@@ -1444,8 +1492,11 @@ Die vorhandene responsive UnoSim-Architektur soll weiterverwendet und nur um den
 ### 10.7 Mindestfunktionen des Tutor-Panels
 
 **Status: Darstellung überarbeitet (2026-11-09), Konzept „Aktuelle Tutorfrage im Fokus“ vom 07.11.2026.**
-Die Regeln R-SUP-1 bis R-SUP-8 bleiben unverändert die fachliche Grundlage.
+Die Regeln R-SUP-1 bis R-SUP-9 bleiben unverändert die fachliche Grundlage.
 Dieser Abschnitt regelt nur, was das Panel wann zeigt.
+*Nachtrag 2026-11-09 (Nachprüfung `08f71c96b`):* Sterne direkt an der
+Rückmeldung, bewusster Übergang mit `Weiter zur nächsten Frage`, Wiederholung
+nur mit unverändertem Inhalt.
 
 Der aktive Lernschritt hat die visuelle Priorität: Frage lesen, selbst
 antworten, Rückmeldung verstehen und bei Bedarf Hilfe anfordern. Das Panel
@@ -1460,11 +1511,20 @@ benötigt mindestens:
 - Anzeige genau einer aktuellen Tutorfrage im vollständigen Wortlaut über die
   volle Spaltenbreite, ohne verschachtelte Gesprächskarten,
 - darunter die eigene letzte Antwort und die zugehörige Rückmeldung, sofern sie
-  zu dieser Frage gehören; eine Klärung, ein Hinweis oder eine Musterantwort zur
+  zu dieser Frage gehören, bei einer bewerteten Antwort mit ihren Sternen direkt
+  an der Rückmeldung; eine Klärung, ein Hinweis oder eine Musterantwort zur
   aktuellen Frage erscheint an derselben Stelle,
-- nach einem Fragenwechsel die Rückmeldung zur vorigen Antwort ausdrücklich als
-  „Rückmeldung zu deiner vorigen Antwort“ mit der vorigen Frage, getrennt von
-  der neuen Frage, damit sie nicht als Bewertung der neuen Frage erscheint,
+- nach einer Antwort, die die Frage abschließt, bleibt diese Frage mit eigener
+  Antwort, Rückmeldung und Sternen stehen; statt Antwortfeld und Hilfe erscheint
+  `Weiter zur nächsten Frage` als einzige primäre Aktion und erhält den Fokus.
+  Erst diese Aktion zeigt die nächste Frage. Sie sendet keine Anfrage und
+  verbucht nichts: Der Folgeschritt liegt schon vor und wird nur lokal
+  zurückgehalten. Solange er zurückgehalten wird, sind keine Antwort und keine
+  Hilfeaktion auslösbar, auch nicht mit einem überholten Frage-Handle.
+  Eine schwache Antwort, eine Klärung oder ein Hinweis lassen die Frage offen;
+  das Antwortfeld bleibt ohne Weiter-Schritt direkt bearbeitbar. Nach
+  `Frage überspringen` erscheint die nächste Frage sofort, mit dem Vermerk der
+  übersprungenen Frage darüber,
 - das Antwortfeld direkt nach diesem Inhalt (keine Verankerung am entfernten
   unteren Fensterrand),
 - `Senden` als einzige primäre, beschriftete Aktion; sichtbar, aber nur bei
@@ -1474,15 +1534,23 @@ benötigt mindestens:
   Tastaturfokus und Tooltip bei Hover und Fokus; sie öffnet das Hilfeangebot
   direkt (auch auf Touch) und löst selbst keine Anfrage aus,
 - optionale lokale Mermaid-Darstellung zur grafischen Anreicherung,
-- Verständnisbewertung jeder normalen Studierendenantwort als 1–5 Sterne;
-  Sterne, Sessionbewertung (Mittelwert mit Anzahl bewerteter Antworten) und
-  der Lernstand des Lehrerfokus stehen im Verlauf, nicht im Lernschritt,
+- Verständnisbewertung jeder normalen Studierendenantwort als 1–5 Sterne, im
+  Lernschritt direkt an ihrer Rückmeldung und im Verlauf am jeweiligen Eintrag;
+  Klärungen, Hinweise, Überspringen und Antworten nach der Musterantwort bleiben
+  ohne Sterne. Sessionbewertung (Mittelwert mit Anzahl bewerteter Antworten),
+  ältere Bewertungen und der Lernstand des Lehrerfokus stehen nur im Verlauf,
 - einen verständlichen Ladezustand, während dem kein weiterer Request auslösbar ist,
 - eine verständliche Fehleranzeige mit der zum Fehler passenden Aktion
   (`Erneut versuchen`, `Modell wählen`, `Zugang prüfen` oder `Neue Lernrunde starten`);
   `Erneut versuchen` wiederholt genau die fehlgeschlagene Anfrage, auch das Laden
-  der Modellliste, mit derselben Aktions-ID, nie eine frühere Lernaktion. Fehler
-  und Wiederholung bleiben beim Aus- und Einblenden der Tutor-Spalte erhalten.
+  der Modellliste, mit unverändertem Inhalt (Code, Antwort bzw. Hilfeaktion) und
+  derselben Aktions-ID, nie eine frühere Lernaktion. Wurden Code oder
+  Antwortentwurf seit dem Fehler geändert, bietet der Fehler keine Wiederholung
+  mehr an, sondern sagt, dass `Senden` (bzw. `Frage starten` oder die
+  Hilfeaktion) die aktuelle Fassung als neue Aktion schickt; der Entwurf bleibt
+  erhalten. Fehler und Wiederholung bleiben beim Aus- und Einblenden der
+  Tutor-Spalte erhalten; Projekt-/Beispielübernahme und `Neue Lernrunde starten`
+  verwerfen sie.
 
 Freier/Kurs-Tutor, Difficulty-Kürzel, Durchschnittssterne und Rohzähler stehen
 nicht im normalen Lernschritt. Modell, Zugang, Start- und aktuelle
@@ -1499,7 +1567,9 @@ keine Anfrage aus.
 Das Antwortfeld darf beim Ausblenden oder bei einem fehlgeschlagenen Request nicht unbeabsichtigt geleert werden.
 Eine erfolgreiche Antwort darf erst nach erfolgreicher Validierung in die sichtbare Dialoghistorie übernommen werden.
 Nach dem Anzeigen einer neuen Lernfrage wird das Antwortfeld direkt fokussiert, sofern es aktiv und
-nicht durch Einstellungen, Verlauf oder einen laufenden Request blockiert ist.
+nicht durch Einstellungen, Verlauf oder einen laufenden Request blockiert ist. Nach einer abschließenden
+Antwort erhält `Weiter zur nächsten Frage` den Fokus; die Rückmeldung mit Bewertung wird zugänglich
+angesagt (Live-Region). `Weiter` ist per Tastatur auslösbar.
 
 Das Hilfeangebot zu 3.10 bietet nur ausführbare, beschriftete Aktionen an:
 
@@ -1509,7 +1579,7 @@ Das Hilfeangebot zu 3.10 bietet nur ausführbare, beschriftete Aktionen an:
 | Zwei Klärungen erfolgreich übernommen (`canSkip`) | Zusätzlich `Frage überspringen`. |
 | Drei eigene Antworten (`canRevealReference`) und passende geprüfte Referenz (`referenceAvailable`) | Zusätzlich `Musterantwort ansehen`. |
 | Keine passende Referenz | Keine ausführbare Musterantwort-Aktion; der Hilfetext sagt, dass keine geprüfte Musterantwort vorliegt. |
-| Antwort bereits richtig | Anerkennung ohne weitere Pflichtversuche; die nächste Frage folgt der bestehenden Lernlogik. |
+| Antwort bereits richtig | Anerkennung mit Sternen ohne weitere Pflichtversuche; die nächste Frage nach bestehender Lernlogik erscheint mit `Weiter zur nächsten Frage`. |
 
 Gesperrte Hilfeschaltflächen und permanente Restzähler gehören nicht in die
 Hauptansicht. Die Freischaltregeln und der aktuelle Stand (wie viele eigene
@@ -1524,8 +1594,8 @@ erreicht, weist ein kurzer Hinweis unter der Rückmeldung auf die neue
 Möglichkeit im Hilfeangebot hin; die Auswahl bleibt freiwillig. Die Bedienung
 ist per Tastatur und Screenreader möglich. Technische Fehler erhalten Eingaben
 und Zähler; keine Hilfeaktion sendet unbemerkt eine Antwort oder verändert den
-Editor. Es gibt keine eigene „Weiter“-Aktion; die Oberfläche nutzt nur die vom
-Server erlaubten Aktionen.
+Editor. Außer `Weiter zur nächsten Frage`, die nur einen bereits erhaltenen
+Folgeschritt zeigt, nutzt die Oberfläche nur die vom Server erlaubten Aktionen.
 
 Die Tutor-Bedienbegriffe sind einheitlich deutsch. Die Symbolzuordnung ist eindeutig:
 
@@ -1579,7 +1649,8 @@ Sie umfasst höchstens das definierte Sliding Window und enthält keine Credenti
 
 `Neue Lernrunde starten` (Menü `⋯`, 10.7) MUSS:
 
-- aktuelle Frage, Antwortentwurf, Feedback und Folgefragen entfernen,
+- aktuelle Frage, Antwortentwurf, Feedback und Folgefragen entfernen, auch einen
+  noch hinter `Weiter zur nächsten Frage` zurückgehaltenen Folgeschritt,
 - das Antwortfeld zurücksetzen,
 - den Provider-/Zugangsstatus beibehalten,
 - den API-Key beibehalten,
@@ -1773,7 +1844,9 @@ Die Implementierung gilt erst als korrekt, wenn automatisierte Tests mindestens 
 - Frage wird angezeigt,
 - Antwortfeld wird unter der Frage und deren Rückmeldung angezeigt,
 - je Zustand erscheint nur die passende Aktion (10.7); Hilfe, Verlauf, Menü und Einstellungen lösen beim Öffnen keine Anfrage aus und erhalten den Antwortentwurf,
-- nach einem Fragenwechsel ist die Rückmeldung zur vorigen Antwort als solche gekennzeichnet,
+- die Sterne einer bewerteten Antwort stehen direkt an ihrer Rückmeldung; Hilfen, Überspringen und Antworten nach der Musterantwort bleiben ohne Sterne,
+- nach einer abschließenden Antwort erscheint die nächste Frage erst mit `Weiter zur nächsten Frage`, ohne weitere Anfrage; eine schwache Antwort bleibt ohne Weiter-Schritt bearbeitbar,
+- `Erneut versuchen` sendet den unveränderten Inhalt mit derselben Aktions-ID; nach geänderter Eingabe wird keine Wiederholung angeboten,
 - `Senden` löst die Anfrage bewusst und genau einmal aus,
 - Feedback und genau eine Folgefrage werden angezeigt,
 - keine automatische Folgefrage ohne Nutzeraktion,
