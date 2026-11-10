@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
 
@@ -148,8 +148,14 @@ export function useEditorCommands(
     [editorRef, toast, suppressAutoStopOnce],
   );
 
+  // The sketch as last rendered, so a fallback that finishes loading late can tell whether it changed meanwhile.
+  const latestCode = useRef(code);
+  useEffect(() => {
+    latestCode.current = code;
+  }, [code]);
+
   // One formatter for the editor and for this fallback (SSOT CodeFormatting 3.4). The fallback loads it on use,
-  // so it stays off the page's initial path.
+  // so it stays off the page's initial path; it applies only to the sketch it was asked for, never to a newer one.
   const formatCode = useCallback(() => {
     const ed = editorRef.current;
     if (ed && typeof ed.formatCode === "function") {
@@ -164,7 +170,12 @@ export function useEditorCommands(
     if (typeof code !== "string" || !setCode) return;
     import("@/lib/editor/format-code")
       .then(({ formatCode: format }) => {
-        setCode(format(code));
+        if (latestCode.current !== code) {
+          toast?.({ title: "Code not formatted", description: "The sketch changed meanwhile. Run Format Code again." });
+          return;
+        }
+        const formatted = format(code);
+        setCode((current) => (current === code ? formatted : current));
         toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
       })
       .catch((err: unknown) => console.error("Format code failed", err));

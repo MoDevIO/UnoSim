@@ -174,8 +174,11 @@ describe("useEditorCommands", () => {
     });
 
     await vi.waitFor(() => expect(setCode).toHaveBeenCalledTimes(1));
-    expect(setCode).toHaveBeenCalledWith(formatCode(code));
-    expect(setCode.mock.calls[0]![0]).toBe("void loop() {\n  if (a)\n    x();\n  else\n    y();\n}\n");
+    const update = setCode.mock.calls[0]![0] as (current: string) => string;
+    expect(update(code)).toBe(formatCode(code));
+    expect(update(code)).toBe("void loop() {\n  if (a)\n    x();\n  else\n    y();\n}\n");
+    // Applied to a different text, the update keeps that text.
+    expect(update("void loop() {}\n")).toBe("void loop() {}\n");
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Code Formatted" }));
   });
 
