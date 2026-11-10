@@ -1,7 +1,7 @@
 # Funktionsbeschreibung: „Format Code“ im Editor
 
-Status: current  
-Zielrolle: feature-contract  
+Status: current\
+Zielrolle: feature-contract\
 Ziel-SSOT für den Befehl „Format Code“ (Menü **File → Format Code**, ⋯-Menü der Sketch-Tabs, `Ctrl+Shift+F` / `⇧⌘F`).
 
 ## 1. Ziel
