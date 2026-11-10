@@ -46,7 +46,7 @@ const ACCESS_LABELS = new Set(["public", "private", "protected"]);
 const BLOCK_AFTER = new Set([")", '"', "const", "override", "final", "noexcept", "mutable", "try", "volatile"]);
 /** What may follow a block's `}` on the same line. */
 const KEEP_AFTER_CLOSE = new Set(["else", ";", ",", ")"]);
-const STRUCTURE_FREE = new Set(["space", "newline", "splice", "lineComment", "blockComment", "preprocessor"]);
+const STRUCTURE_FREE = new Set(["space", "newline", "lineComment", "blockComment", "preprocessor"]);
 const INDENT = "  ";
 const CONTINUATION = 2;
 
@@ -95,6 +95,8 @@ class CodeFormatter {
   /** A complete control head (or `else`, `do`) whose body has not started yet. */
   private pendingBody: { kind: ControlKind; level: number } | null = null;
   private doTailPending = false;
+  /** Level of a `case`/`default` label just ended: a block right after it stands on the label's level. */
+  private labelBase: number | null = null;
   private lineLevel = 0;
   private index = 0;
   private readonly nextStructural: number[];
@@ -123,7 +125,9 @@ class CodeFormatter {
     }
     this.flush(line, this.tokens.length - 1);
     while (this.lines.length > 0 && this.lines.at(-1) === "") this.lines.pop();
-    return `${this.lines.join("\n")}\n`;
+    const text = this.lines.join("\n");
+    // An open comment or raw string already ends with the line end it took in: none is added (idempotent).
+    return text.endsWith("\n") ? text : `${text}\n`;
   }
 
   private newLine(originalIndent: number | null): OutputLine {
@@ -191,6 +195,7 @@ class CodeFormatter {
       return this.statementBase + CONTINUATION;
     }
     if ((key === "case" || key === "default") && top?.isSwitch) return top.inner;
+    if (key === "{" && this.labelBase !== null) return this.labelBase;
     return this.statementLevel();
   }
 
@@ -220,6 +225,7 @@ class CodeFormatter {
     const level = this.levelFor(key);
     if (atLineStart) this.lineLevel = level;
     this.consume(key);
+    if (key !== ":") this.labelBase = null;
     return level;
   }
 
@@ -304,7 +310,10 @@ class CodeFormatter {
 
   private endLabel(): void {
     const top = this.top();
-    if ((this.statementFirst === "case" || this.statementFirst === "default") && top?.isSwitch) top.labelSeen = true;
+    if ((this.statementFirst === "case" || this.statementFirst === "default") && top?.isSwitch) {
+      top.labelSeen = true;
+      this.labelBase = this.statementBase;
+    }
     this.statementStarted = false;
   }
 
@@ -341,7 +350,7 @@ class CodeFormatter {
       this.parenDepth = 0;
       this.previous = "{";
     } else {
-      const base = this.statementStarted ? this.statementBase : this.statementLevel();
+      const base = this.labelBase ?? (this.statementStarted ? this.statementBase : this.statementLevel());
       this.pushBlock(base, this.statementStarted && this.statementClassLike, false);
     }
   }
@@ -360,6 +369,7 @@ class CodeFormatter {
   }
 
   private closeBrace(atLineStart: boolean): number {
+    this.labelBase = null;
     while (this.top()?.type === "control" && !this.top()!.braced) this.stack.pop();
     const frame = this.stack.pop();
     const level = frame?.open ?? 0;

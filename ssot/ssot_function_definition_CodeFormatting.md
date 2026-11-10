@@ -31,6 +31,8 @@ Sketches zu ändern.
   `else if` bildet eine Kette auf derselben Ebene.
 - **`do … while (…);`**: Das abschließende `while` steht auf der Ebene des `do`.
 - **`switch`:** `case`- und `default`-Marken eine Ebene unter `switch`, die Anweisungen danach eine Ebene tiefer.
+  Ein Block direkt nach der Marke (`case 1: {`) steht auf der Ebene der Marke: Inhalt eine Ebene tiefer, `}` auf
+  der Ebene der Marke.
 - **Fortsetzungszeilen:** Eine Zeile, die eine unvollständige Anweisung fortsetzt (zum Beispiel eine mehrzeilige
   Bedingung), steht zwei Ebenen tiefer als der Anfang der Anweisung. Die Zeilen einer Initialisierungsliste
   `= { … }` stehen eine Ebene tiefer als ihre öffnende Zeile.
@@ -52,6 +54,13 @@ Sketches zu ändern.
 
 ### 3.3 Geschützte Bereiche
 
+Der Formatter liest den Text wie der Compiler (Übersetzungsphasen 2–4): Ein Backslash vor dem Zeilenende verbindet
+zwei Zeilen zu einer, bevor Kommentare, Literale und Direktiven erkannt werden (`/` `\` Zeilenende `/` beginnt einen
+Kommentar; in einer Zeichenkette setzt `\` Zeilenende sie fort). Ein Kommentar zählt als Leerraum, also beginnt `#`
+nach einem Kommentar am Zeilenanfang eine Direktive. In Raw-Strings gelten diese Verbindungen nicht; ihr Begrenzer
+darf jedes erlaubte Zeichen enthalten, auch `"`. Eine Zeile, die durch eine solche Verbindung fortgesetzt wird,
+behält ihren Text unverändert.
+
 Zeichenketten (auch mit Präfix und Fortsetzung über `\`), Zeichenliterale, Raw-Strings `R"x(…)x"`, Kommentare
 und Präprozessorzeilen (auch mit Fortsetzung über `\`) sind Text, keine Programmstruktur: Klammern, Semikolons
 und Schlüsselwörter darin zählen nicht, und ihr Inhalt bleibt unverändert. Ausnahmen: Die Folgezeilen eines
@@ -63,9 +72,12 @@ einer Kommentar- oder Präprozessorzeile entfallen. Leerzeilen innerhalb eines R
 - **Bedeutungserhaltend:** Nach dem Entfernen aller Leerzeichen und Zeilenumbrüche außerhalb geschützter Bereiche
   ist der Sketch vor und nach dem Formatieren gleich.
 - **Idempotent:** Zweimal formatieren ergibt dasselbe wie einmal.
-- **Robust:** Unvollständiger Code (fehlende Klammer, offener String) wird formatiert, ohne Text zu verlieren;
-  die Laufzeit wächst linear mit der Länge.
-- **Eine Implementierung:** Editor und Rückfall ohne Editor verwenden `client/src/lib/editor/format-code.ts`.
+- **Robust:** Unvollständiger Code (fehlende Klammer, offener String, offener Kommentar oder Raw-String am Ende)
+  wird formatiert, ohne Text zu verlieren, und bleibt beim erneuten Formatieren gleich; die Laufzeit wächst linear
+  mit der Länge.
+- **Eine Implementierung:** Editor und Rückfall ohne Editor verwenden `client/src/lib/editor/format-code.ts`. Der
+  Rückfall lädt den Formatter erst beim Formatieren; hat sich der Sketch in der Zwischenzeit geändert, übernimmt er
+  nichts und meldet „Code not formatted“, statt den neueren Stand zu überschreiben.
 - **Rückgängig:** Ein Formatieren ist ein Schritt im Verlauf des Editors; Rückgängig stellt den Text davor wieder her.
 
 ## 4. Akzeptanz
@@ -74,6 +86,10 @@ einer Kommentar- oder Präprozessorzeile entfallen. Leerzeilen innerhalb eines R
   Verschachtelung, `else`-Zuordnung, `else if`, `for`, `while`, `do … while`, mehrzeilige Bedingung, Kommentar
   zwischen Bedingung und Anweisung, `switch`, Initialisierungslisten, geschützte Bereiche, Bedeutungserhalt und
   Idempotenz über alle Fälle und die eingebauten Beispiele.
+- Unabhängig vom eigenen Lexer, mit dem AVR-Compiler (`tests/integration/format-code-compiler.test.ts`, Toolchain):
+  Die Fixtures in `tests/fixtures/format-code/` ergeben vor und nach dem Formatieren denselben Assembler-Code;
+  Größenprüfungen auf Literale machen ein verschobenes Byte zum Compilerfehler. Jedes eingebaute Beispiel ergibt
+  vor und nach dem Formatieren dasselbe HEX.
 - Browser (`e2e/editor-format-code.spec.ts`): „Format Code“ über das echte Menü im Monaco-Editor ergibt den
   erwarteten Text; Rückgängig stellt den Text davor wieder her.
 

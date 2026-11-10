@@ -254,6 +254,72 @@ describe("formatCode", () => {
     }
   });
 
+  // Review of 322eba6da: expectations written out by hand, independent of the lexer under test.
+  describe("reads the source as the compiler does (translation phases 2–4)", () => {
+    it("protects a directive after a comment at the start of its line (F1)", () => {
+      const input = "/* comment */ #define F() { int a = 1; }\nint main(){F(); return 0;}\n";
+      expect(formatCode(input)).toBe("/* comment */ #define F() { int a = 1; }\nint main(){\n  F(); return 0;\n}\n");
+    });
+
+    it("keeps a raw string whose delimiter contains a quote byte for byte (F2)", () => {
+      const raw = 'R"q"(a\n{payload}\n)q""';
+      const input = `void f(){\nconst char* s = ${raw};\n}\n`;
+      const output = formatCode(input);
+      expect(output).toBe(`void f(){\n  const char* s = ${raw};\n}\n`);
+      expect(output.split(raw)).toHaveLength(2);
+    });
+
+    it("keeps a raw string inside a directive byte for byte", () => {
+      const input = '#define S R"x(a\n{payload}\n)x"\nvoid f() {\nx();\n}\n';
+      expect(formatCode(input)).toBe('#define S R"x(a\n{payload}\n)x"\nvoid f() {\n  x();\n}\n');
+    });
+
+    it("continues a string across a backslash-newline: an escaped backslash is no escape there (F3)", () => {
+      // Physically `"a\\` + newline: the second backslash and the newline splice, so the string goes on.
+      const input = 'const char* s = "a\\\\\n"{payload}";\nint main(){return 0;}\n';
+      expect(formatCode(input)).toBe('const char* s = "a\\\\\n"{payload}";\nint main(){\n  return 0;\n}\n');
+    });
+
+    it("joins `/` backslash-newline `/` into a line comment and leaves the comment alone (F3)", () => {
+      const input = "int main(){int x=0; /\\\n/ if(1){ x=1; }\nreturn x;}\n";
+      expect(formatCode(input)).toBe("int main(){\n  int x=0; /\\\n/ if(1){ x=1; }\n  return x;\n}\n");
+    });
+
+    it("continues a line comment and a directive across a backslash-newline, braces inside included", () => {
+      const input = "void f() {\n// eins \\\n{ zwei\nx();\n#define G(a) \\\n{ a; }\n}\n";
+      expect(formatCode(input)).toBe("void f() {\n  // eins \\\n{ zwei\n  x();\n  #define G(a) \\\n{ a; }\n}\n");
+    });
+
+    it("never re-indents the continuation line of a spliced token", () => {
+      const input = "void f() {\nint lang\\\nername = 1;\n}\n";
+      expect(formatCode(input)).toBe("void f() {\n  int lang\\\nername = 1;\n}\n");
+    });
+  });
+
+  it("puts a block right after a case label on the label's level (review H1)", () => {
+    const input = "void f() {\nswitch (x) {\ncase 1: {\na();\nbreak;\n}\ndefault: {\nb();\n}\n}\n}\n";
+    expect(formatCode(input)).toBe(lines(
+      "void f() {",
+      "  switch (x) {",
+      "    case 1: {",
+      "      a();",
+      "      break;",
+      "    }",
+      "    default: {",
+      "      b();",
+      "    }",
+      "  }",
+      "}",
+    ));
+  });
+
+  it("is idempotent on an open comment or raw string at the end, adding no line end each time (review H2)", () => {
+    for (const [input, once] of [["/* offen", "/* offen\n"], ['x = R"(offen', 'x = R"(offen\n'], ["// zu\\", "// zu\\\n"]]) {
+      expect(formatCode(input!)).toBe(once);
+      expect(formatCode(once!)).toBe(once);
+    }
+  });
+
   it("normalises lone carriage returns as line ends", () => {
     expect(formatCode("void f() {\rx();\r}")).toBe("void f() {\n  x();\n}\n");
   });
@@ -283,6 +349,8 @@ function sketches(directory: string): string[] {
   });
 }
 
+// A corpus regression with the formatter's own lexer: it catches lost or added characters and non-idempotence, but
+// shares the lexer's view of what is text. Independent evidence: tests/integration/format-code-compiler.test.ts.
 describe("formatCode on every sketch in the repository (SSOT CodeFormatting 3.4)", () => {
   const files = ["public/examples", "tests/fixtures", "packages/avr-emulator", "evals/tutor-quality/fixtures"]
     .flatMap((directory) => sketches(path.join(process.cwd(), directory)));
