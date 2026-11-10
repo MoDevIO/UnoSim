@@ -26,7 +26,10 @@ export type CppTokenKind =
 
 export interface CppToken {
   readonly kind: CppTokenKind;
+  /** The exact physical text, splices included: what the formatter writes back. */
   readonly text: string;
+  /** The text after line splicing: what the compiler reads, and what structure is judged by. */
+  readonly logical: string;
 }
 
 const RAW_STRING_PREFIXES = new Set(["R", "LR", "uR", "UR", "u8R"]);
@@ -221,13 +224,13 @@ export function tokenizeCpp(source: string): CppToken[] {
   while (index < text.logical.length) {
     const [kind, end] = lexer.scan(index, lineStart);
     const physicalEnd = end >= text.logical.length ? source.length : text.physicalAt[end]!;
-    tokens.push({ kind, text: source.slice(physicalStart, physicalEnd) });
+    tokens.push({ kind, text: source.slice(physicalStart, physicalEnd), logical: text.logical.slice(index, end) });
     // A comment is a blank before a directive (phase 3); a line comment runs to the line end anyway.
     if (kind === "newline") lineStart = true;
     else if (kind !== "space" && kind !== "blockComment") lineStart = false;
     index = end;
     physicalStart = physicalEnd;
   }
-  if (physicalStart < source.length) tokens.push({ kind: "space", text: source.slice(physicalStart) });
+  if (physicalStart < source.length) tokens.push({ kind: "space", text: source.slice(physicalStart), logical: "" });
   return tokens;
 }

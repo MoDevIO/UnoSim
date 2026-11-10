@@ -48,6 +48,8 @@ describe("Format Code keeps the meaning, checked by the AVR compiler (real toolc
     expect(fixtures).toEqual(expect.arrayContaining([
       "braceless-control.cpp", "macro-leading-comment.cpp", "protected-text.cpp",
       "raw-quoted-delimiter-nested.cpp", "split-comment.cpp", "string-splice.cpp",
+      // review of 01243d588: block-comment delimiters split by a splice, keywords and braces split by a splice
+      "split-block-comment.cpp", "spliced-structure.cpp",
     ]));
   });
 

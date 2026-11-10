@@ -50,9 +50,9 @@ const STRUCTURE_FREE = new Set(["space", "newline", "lineComment", "blockComment
 const INDENT = "  ";
 const CONTINUATION = 2;
 
-/** The structural key of a token: its text for words and punctuation, a placeholder for literals. */
+/** The structural key of a token: its spliced spelling for words and punctuation, a placeholder for literals. */
 function keyOf(token: CppToken): string {
-  if (token.kind === "word" || token.kind === "punct") return token.text;
+  if (token.kind === "word" || token.kind === "punct") return token.logical;
   if (token.kind === "number") return "0";
   return '"';
 }
@@ -61,11 +61,22 @@ function isStructural(token: CppToken | undefined): boolean {
   return token !== undefined && !STRUCTURE_FREE.has(token.kind);
 }
 
-/** Shifts the continuation lines of a block comment by `delta` spaces, as its first line moved. */
+/** Whether a physical line ends in a splice: a backslash, then only blanks. */
+function endsWithSplice(line: string): boolean {
+  let end = line.length;
+  while (end > 0 && (line[end - 1] === " " || line[end - 1] === "\t")) end--;
+  return line[end - 1] === "\\";
+}
+
+/**
+ * Shifts the continuation lines of a block comment by `delta` spaces, as its first line moved. A line that a splice
+ * joins to the line before stays as it is: blanks there would land inside the joined text, `/` `*` or `*` `/` included.
+ */
 function shiftComment(text: string, delta: number): string {
   if (delta === 0 || !text.includes("\n")) return text;
-  return text.split("\n").map((line, index) => {
-    if (index === 0 || line.trim() === "") return line;
+  const lines = text.split("\n");
+  return lines.map((line, index) => {
+    if (index === 0 || line.trim() === "" || endsWithSplice(lines[index - 1]!)) return line;
     if (delta > 0) return " ".repeat(delta) + line;
     const removable = /^[ \t]*/.exec(line)![0].length;
     return line.slice(Math.min(removable, -delta));
@@ -74,9 +85,7 @@ function shiftComment(text: string, delta: number): string {
 
 /** Drops blanks at the end, unless a backslash before them splices the next line. */
 function trimTrailing(text: string): string {
-  let end = text.length;
-  while (end > 0 && (text[end - 1] === " " || text[end - 1] === "\t")) end--;
-  return text[end - 1] === "\\" ? text : text.slice(0, end);
+  return endsWithSplice(text) ? text : text.trimEnd();
 }
 
 class CodeFormatter {

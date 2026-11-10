@@ -290,6 +290,28 @@ describe("formatCode", () => {
       expect(formatCode(input)).toBe("void f() {\n  // eins \\\n{ zwei\n  x();\n  #define G(a) \\\n{ a; }\n}\n");
     });
 
+    it("never shifts a block comment line that a backslash-newline joins to the line before (review of 01243d588)", () => {
+      // `/\` + newline + `*` opens the comment, `*\` + newline + `/` closes it: blanks there would split the delimiter.
+      const opening = "int main(){\n/\\\n* if(1){ broken code; } */\nreturn 0;\n}\n";
+      const closing = "int main(){\n/* comment *\\\n/\nreturn 0;\n}\n";
+      const openingOut = "int main(){\n  /\\\n* if(1){ broken code; } */\n  return 0;\n}\n";
+      const closingOut = "int main(){\n  /* comment *\\\n/\n  return 0;\n}\n";
+      expect(formatCode(opening)).toBe(openingOut);
+      expect(formatCode(closing)).toBe(closingOut);
+      expect(formatCode(openingOut)).toBe(openingOut);
+      expect(formatCode(closingOut)).toBe(closingOut);
+    });
+
+    it("still moves the ordinary continuation lines of a block comment with its first line", () => {
+      expect(formatCode("void f() {\n/* eins \\\n   zwei\n   drei */\nx();\n}\n"))
+        .toBe("void f() {\n  /* eins \\\n   zwei\n     drei */\n  x();\n}\n");
+    });
+
+    it("reads keywords and braces split by a backslash-newline by their joined spelling (review of 01243d588, H3)", () => {
+      expect(formatCode("void f(){\nif\\\n(1)\nf();\ng();\n}\n")).toBe("void f(){\n  if\\\n(1)\n    f();\n  g();\n}\n");
+      expect(formatCode("void f()\\\n{\nx();\n}\n")).toBe("void f()\\\n{\n  x();\n}\n");
+    });
+
     it("never re-indents the continuation line of a spliced token", () => {
       const input = "void f() {\nint lang\\\nername = 1;\n}\n";
       expect(formatCode(input)).toBe("void f() {\n  int lang\\\nername = 1;\n}\n");
