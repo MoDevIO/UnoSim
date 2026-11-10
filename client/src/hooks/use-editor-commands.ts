@@ -148,10 +148,10 @@ export function useEditorCommands(
     [editorRef, toast, suppressAutoStopOnce],
   );
 
+  // One formatter for the editor and for this fallback (SSOT CodeFormatting 3.4). The fallback loads it on use,
+  // so it stays off the page's initial path.
   const formatCode = useCallback(() => {
     const ed = editorRef.current;
-    
-    // Prefer using the editor's formatCode method if available (works even without focus)
     if (ed && typeof ed.formatCode === "function") {
       try {
         ed.formatCode();
@@ -161,40 +161,13 @@ export function useEditorCommands(
         console.error("Format code failed", err);
       }
     }
-    
-    // Fallback to state-based formatting (legacy behavior)
     if (typeof code !== "string" || !setCode) return;
-    // original formatting logic copied verbatim
-    let formatted = code;
-
-    // 1. replace tabs with spaces
-    formatted = formatted.replaceAll("\t", "  ");
-
-    // 2. collapse multiple spaces into two
-    formatted = formatted.replaceAll(/ {2,}/g, "  ");
-
-    // 3. indent blocks (very naive)
-    const lines = formatted.split("\n");
-    let indentLevel = 0;
-    const indentedLines = lines.map((ln) => {
-      const trimmed = ln.trim();
-      if (trimmed.endsWith("}") && indentLevel > 0) indentLevel--;
-      const result = "  ".repeat(indentLevel) + trimmed;
-      if (trimmed.endsWith("{")) indentLevel++;
-      return result;
-    });
-    formatted = indentedLines.join("\n");
-
-    // 5. Remove multiple consecutive blank lines
-    formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
-
-    // 6. Ensure newline at end of file
-    if (!formatted.endsWith("\n")) {
-      formatted += "\n";
-    }
-
-    setCode(formatted);
-    toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
+    import("@/lib/editor/format-code")
+      .then(({ formatCode: format }) => {
+        setCode(format(code));
+        toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
+      })
+      .catch((err: unknown) => console.error("Format code failed", err));
   }, [code, setCode, toast, editorRef]);
 
   return {

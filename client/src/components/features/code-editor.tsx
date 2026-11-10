@@ -444,21 +444,16 @@ export function CodeEditor({
           editor.setPosition({ lineNumber: line, column: 1 });
           editor.revealPositionInCenter({ lineNumber: line, column: 1 });
         },
+        // "Format Code" (SSOT CodeFormatting): one edit with undo stops around it, so Undo restores the text before.
         formatCode: () => {
-          const currentCode = editor.getValue();
+          const model = editor.getModel();
+          if (!model) return;
+          const currentCode = model.getValue();
           const formatted = formatCode(currentCode);
-
-          if (formatted !== currentCode) {
-            const model = editor.getModel();
-            if (model) {
-              editor.executeEdits("format", [
-                {
-                  range: model.getFullModelRange(),
-                  text: formatted,
-                },
-              ]);
-            }
-          }
+          if (formatted === currentCode) return;
+          editor.pushUndoStop();
+          editor.executeEdits("format", [{ range: model.getFullModelRange(), text: formatted }]);
+          editor.pushUndoStop();
         },
       };
     }

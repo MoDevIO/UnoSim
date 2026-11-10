@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { RefObject } from "react";
 import { useEditorCommands } from "../../../client/src/hooks/use-editor-commands";
+import { formatCode } from "../../../client/src/lib/editor/format-code";
 
 // Utilities -------------------------------------------------------------------
 function makeEditor(): any {
@@ -161,23 +162,33 @@ describe("useEditorCommands", () => {
     consoleSpy.mockRestore();
   });
 
-  it("formatCode applies formatting and updates state", () => {
-    const ed = makeEditor();
-    const ref = createRef(ed);
-    let code = "x";
-    const setCode = vi.fn((fn) => {
-      code = typeof fn === "function" ? fn(code) : fn;
-    });
+  it("formatCode without an editor formats the state with the shared formatter (SSOT CodeFormatting 3.4)", async () => {
+    const ref = createRef(makeEditor());
+    const code = "void loop() {\nif (a)\nx();\nelse\ny();\n}";
+    const setCode = vi.fn();
     const toast = buildToast();
-    const { result } = renderHook(() =>
-      useEditorCommands(ref, { toast, code, setCode }),
-    );
+    const { result } = renderHook(() => useEditorCommands(ref, { toast, code, setCode }));
 
     act(() => {
       result.current.formatCode();
     });
 
-    expect(setCode).toHaveBeenCalled();
-    expect(toast).toHaveBeenCalled();
+    await vi.waitFor(() => expect(setCode).toHaveBeenCalledTimes(1));
+    expect(setCode).toHaveBeenCalledWith(formatCode(code));
+    expect(setCode.mock.calls[0]![0]).toBe("void loop() {\n  if (a)\n    x();\n  else\n    y();\n}\n");
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Code Formatted" }));
+  });
+
+  it("formatCode prefers the editor, which keeps its undo history, and leaves the state alone", () => {
+    const editor = { ...makeEditor(), formatCode: vi.fn() };
+    const setCode = vi.fn();
+    const { result } = renderHook(() => useEditorCommands(createRef(editor), { toast: buildToast(), code: "x", setCode }));
+
+    act(() => {
+      result.current.formatCode();
+    });
+
+    expect(editor.formatCode).toHaveBeenCalledTimes(1);
+    expect(setCode).not.toHaveBeenCalled();
   });
 });
