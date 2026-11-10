@@ -72,9 +72,11 @@ function shiftComment(text: string, delta: number): string {
   }).join("\n");
 }
 
+/** Drops blanks at the end, unless a backslash before them splices the next line. */
 function trimTrailing(text: string): string {
-  const trimmed = text.replace(/[ \t]+$/, "");
-  return trimmed.endsWith("\\") ? text : trimmed;
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === " " || text[end - 1] === "\t")) end--;
+  return text[end - 1] === "\\" ? text : text.slice(0, end);
 }
 
 class CodeFormatter {

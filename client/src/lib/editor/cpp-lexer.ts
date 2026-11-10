@@ -132,6 +132,18 @@ function blankEnd(source: string, index: number): number {
   return next;
 }
 
+/** Text that is not program structure at `index`: a directive, a comment or an unprefixed literal; else null. */
+function scanText(source: string, index: number, lineStart: boolean): [CppTokenKind, number] | null {
+  const char = source[index];
+  const next = source[index + 1];
+  if (char === "#" && lineStart) return ["preprocessor", directiveEnd(source, index)];
+  if (char === "/" && next === "/") return ["lineComment", lineCommentEnd(source, index)];
+  if (char === "/" && next === "*") return ["blockComment", blockCommentEnd(source, index)];
+  if (char === '"') return ["string", quotedEnd(source, index)];
+  if (char === "'") return ["char", quotedEnd(source, index)];
+  return null;
+}
+
 /** The token at `index` (never empty). `lineStart`: only blanks precede it on its line. */
 function scan(source: string, index: number, lineStart: boolean): [CppTokenKind, number] {
   const char = source[index]!;
@@ -139,11 +151,8 @@ function scan(source: string, index: number, lineStart: boolean): [CppTokenKind,
   if (char === "\n") return ["newline", index + 1];
   const blank = blankEnd(source, index);
   if (blank > index) return ["space", blank];
-  if (char === "#" && lineStart) return ["preprocessor", directiveEnd(source, index)];
-  if (char === "/" && next === "/") return ["lineComment", lineCommentEnd(source, index)];
-  if (char === "/" && next === "*") return ["blockComment", blockCommentEnd(source, index)];
-  if (char === '"') return ["string", quotedEnd(source, index)];
-  if (char === "'") return ["char", quotedEnd(source, index)];
+  const text = scanText(source, index, lineStart);
+  if (text) return text;
   const spliced = spliceEnd(source, index);
   if (spliced >= 0) return ["splice", spliced];
   if (isDigit(char) || (char === "." && isDigit(next))) return ["number", numberEnd(source, index)];
