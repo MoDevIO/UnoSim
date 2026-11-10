@@ -49,8 +49,9 @@ Sketches zu ändern.
 - Eine klammerlose Anweisung in derselben Zeile wie ihre Bedingung (`if (x) y();`) bleibt in dieser Zeile.
 - „Format Code“ fügt **keine** Klammern und keine Semikolons hinzu und ändert Leerzeichen innerhalb einer Zeile
   nicht.
-- Zeilenenden werden zu `\n`; Leerzeichen am Zeilenende entfallen; höchstens eine Leerzeile in Folge; die Datei
-  endet mit genau einem Zeilenumbruch.
+- Zeilenenden werden zu `\n`; Leerzeichen und Tabs am Zeilenende entfallen, andere Zeichen nicht (ein geschütztes
+  Leerzeichen U+00A0 kann Ersatztext eines Makros sein); höchstens eine Leerzeile in Folge; die Datei endet mit
+  genau einem Zeilenumbruch.
 
 ### 3.3 Geschützte Bereiche
 
@@ -66,8 +67,8 @@ Zeichenketten (auch mit Präfix und Fortsetzung über `\`), Zeichenliterale, Raw
 und Präprozessorzeilen (auch mit Fortsetzung über `\`) sind Text, keine Programmstruktur: Klammern, Semikolons
 und Schlüsselwörter darin zählen nicht, und ihr Inhalt bleibt unverändert. Ausnahmen: Die Folgezeilen eines
 mehrzeiligen Blockkommentars verschieben sich um denselben Betrag wie seine erste Zeile, außer einer Zeile, die eine
-Verbindung über `\` an die vorige anschließt (sonst stünde Leerraum zwischen `/` und `*`); Leerzeichen am Ende
-einer Kommentar- oder Präprozessorzeile entfallen. Leerzeilen innerhalb eines Raw-Strings oder Kommentars bleiben.
+Verbindung über `\` an die vorige anschließt (sonst stünde Leerraum zwischen `/` und `*`); Leerzeichen und Tabs
+am Ende einer Kommentar- oder Präprozessorzeile entfallen, außer nach einem `\`, das die nächste Zeile anschließt. Leerzeilen innerhalb eines Raw-Strings oder Kommentars bleiben.
 
 ### 3.4 Eigenschaften
 
