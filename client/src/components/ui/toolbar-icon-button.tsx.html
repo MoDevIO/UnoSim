@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96% </span>
+                <span class="strong">95.45% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>24/25</span>
+                <span class='fraction'>21/22</span>
             </div>
         
             
@@ -159,8 +159,7 @@
 <a name='L94'></a><a href='#L94'>94</a>
 <a name='L95'></a><a href='#L95'>95</a>
 <a name='L96'></a><a href='#L96'>96</a>
-<a name='L97'></a><a href='#L97'>97</a>
-<a name='L98'></a><a href='#L98'>98</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L97'></a><a href='#L97'>97</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -179,9 +178,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -192,7 +189,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">191x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">131x</span>
 <span class="cline-any cline-yes">127x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -203,9 +201,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">175x</span>
-<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">130x</span>
+<span class="cline-any cline-yes">129x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -223,14 +221,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-yes">191x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-yes">131x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -238,7 +234,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">191x</span>
+<span class="cline-any cline-yes">131x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -267,7 +265,6 @@ interface ToolbarIconButtonProps
   extends Omit&lt;React.ComponentPropsWithoutRef&lt;typeof Button&gt;, "children" | "size" | "variant"&gt; {
   readonly icon: ReactNode;
   readonly label: string;
-  readonly destructive?: boolean;
   readonly pressed?: boolean;
   readonly status?: "default" | "success" | "muted" | "bright" | "error";
   readonly animated?: boolean;
@@ -309,7 +306,6 @@ function getToolbarIconAnimationClassName(
 export function ToolbarIconButton({
   icon,
   label,
-  destructive = false,
   pressed,
   status,
   animated = false,
@@ -328,7 +324,6 @@ export function ToolbarIconButton({
   <span class="missing-if-branch" title="else path not taken" >E</span>if (React.isValidElement(icon)) {
     renderedIcon = React.cloneElement(icon, {
         className: cn(
-          destructive &amp;&amp; "text-red-500",
           animationClassName,
           (icon.props as { className?: string }).className,
         ),
@@ -341,7 +336,9 @@ export function ToolbarIconButton({
       variant="ghost"
       size="icon"
       className={cn(
-        "hover:border-transparent",
+        // A neutral hover surface: the status color of the icon (active, inactive, error) stays readable on it,
+        // where the green accent surface of the ghost variant would not (review of 0fa5bda47, N2).
+        "hover:border-transparent hover:bg-muted",
         statusClassName,
         iconSize === "lg" ? "[&amp;_svg]:!h-5 [&amp;_svg]:!w-5" : undefined,
         className,
@@ -361,7 +358,7 @@ export function ToolbarIconButton({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-07T19:41:39.735Z
+                at 2026-11-10T10:35:11.221Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -441,8 +441,7 @@
 <a name='L376'></a><a href='#L376'>376</a>
 <a name='L377'></a><a href='#L377'>377</a>
 <a name='L378'></a><a href='#L378'>378</a>
-<a name='L379'></a><a href='#L379'>379</a>
-<a name='L380'></a><a href='#L380'>380</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L379'></a><a href='#L379'>379</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -801,7 +800,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1106,18 +1104,18 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             leadingContent={debugMode &amp;&amp; (<span class="branch-1 cbranch-no" title="branch not covered" >simulationStatus === "running" || <span class="branch-2 cbranch-no" title="branch not covered" >s</span>imulationStatus === "paused") ? (</span>
 <span class="branch-0 cbranch-no" title="branch not covered" >              &lt;div className="ml-2 flex items-center gap-3 border-l pl-4"&gt;</span>
                 &lt;div className="flex flex-col leading-tight"&gt;
-                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Baud&lt;/span&gt;
-                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;{baudRate}&lt;/span&gt;
+                  &lt;span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Baud&lt;/span&gt;
+                  &lt;span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;{baudRate}&lt;/span&gt;
                 &lt;/div&gt;
                 &lt;div className="flex flex-col leading-tight"&gt;
-                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Tel/s&lt;/span&gt;
-                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
+                  &lt;span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Tel/s&lt;/span&gt;
+                  &lt;span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
                     {effectiveTelegramsPerSecond.toFixed(0)}/s
                   &lt;/span&gt;
                 &lt;/div&gt;
                 &lt;div className="flex flex-col leading-tight"&gt;
-                  &lt;span className="uppercase tracking-wider text-cyan-500/50" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Bytes/Telegramm&lt;/span&gt;
-                  &lt;span className="font-mono text-cyan-400" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
+                  &lt;span className="uppercase tracking-wider text-muted-foreground" style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}&gt;Bytes/Telegramm&lt;/span&gt;
+                  &lt;span className="font-mono text-accent-cyan" style={{ fontSize: "calc(11px * var(--ui-font-scale))" }}&gt;
                     {effectiveBytesPerTelegram.toFixed(0)} B
                   &lt;/span&gt;
                 &lt;/div&gt;
@@ -1135,7 +1133,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
                 icon={&lt;ChevronsDown className="h-4 w-4" /&gt;}
                 label={autoScrollEnabled ? "Autoscroll on" : <span class="branch-1 cbranch-no" title="branch not covered" >"Autoscroll off"}</span>
                 className={clsx(
-                  autoScrollEnabled ? "text-cyan-400" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-muted-foreground",</span>
+                  autoScrollEnabled ? "text-accent-cyan" : <span class="branch-1 cbranch-no" title="branch not covered" >"text-muted-foreground",</span>
                 )}
 <span class="fstat-no" title="function not covered" >                onClick={() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etAutoScrollEnabled(!autoScrollEnabled)}</span>
                 disabled={serialViewMode === "plotter"}
@@ -1145,7 +1143,6 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
               &lt;ToolbarIconButton
                 icon={&lt;Trash2 className="h-4 w-4" /&gt;}
                 label="Clear serial output"
-                destructive
                 onClick={handleClearSerialOutput}
                 data-testid="button-clear-serial"
               /&gt;
@@ -1207,7 +1204,7 @@ export function SerialMonitorView(props: SerialMonitorViewProps) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-07T19:41:39.735Z
+                at 2026-11-10T10:35:11.221Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
