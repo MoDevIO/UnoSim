@@ -16,7 +16,7 @@ they are not mistaken for status:
 | --- | --- | --- |
 | Physical board and part colors | board SVGs, LEDs, wires | they show the real hardware |
 | Board color presets | Settings → board color | the learner chooses them; stored values stay valid |
-| Syntax colors | Monaco (`vs-dark`) | editor theme |
+| Syntax and editor theme colors | Monaco (`vs-dark`; background, text, line numbers, selection from `--color-editor-*`) | editor theme |
 | Plot series colors | Serial Plotter (`--plot-1` … `--plot-8`) | data series; the learner can change each |
 
 Content colors never carry a status meaning, and a status never borrows a

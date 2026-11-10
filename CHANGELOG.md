@@ -90,6 +90,16 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ### Fixed
 
+- **Format Code shows the program's structure** (SSOT CodeFormatting): the
+  statement after a brace-less `if`, `else`, `for`, `while` or `do` is indented
+  one level deeper, nested ones further, and `else` stays with the `if` it
+  belongs to. Braces, semicolons and keywords in strings, character literals,
+  raw strings, comments and preprocessor lines no longer count as structure,
+  and their text stays unchanged; line continuations (backslash at the line
+  end) are read as the compiler reads them. No braces are added; the built-in
+  examples compile to the same HEX before and after formatting. The fallback without an
+  editor uses the same formatter, and Undo restores the text before formatting
+  even right after typing.
 - **Menus reopen reliably:** a click on a menu's trigger while the menu just
   closed still faded out opened it and closed it again at once (for example the
   Tutor's **⋯** after **Einstellungen** and back).

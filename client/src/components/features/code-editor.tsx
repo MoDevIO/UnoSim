@@ -180,6 +180,26 @@ interface CodeEditorProps {
   readonly editorRef?: React.MutableRefObject<CodeEditorAPI | null>;
 }
 
+/** Monaco's theme colors from their tokens (index.css, `--color-editor-*`); Monaco needs concrete hex values. */
+const EDITOR_THEME_TOKENS: Readonly<Record<string, string>> = {
+  "editor.background": "--color-editor-background",
+  "editor.foreground": "--color-editor-foreground",
+  "editorLineNumber.foreground": "--color-editor-line-number",
+  "editorLineNumber.activeForeground": "--color-editor-line-number-active",
+  "editor.selectionBackground": "--color-editor-selection",
+  "editor.lineHighlightBackground": "--color-editor-background",
+};
+
+function readEditorThemeColors(): Record<string, string> {
+  const style = getComputedStyle(document.documentElement);
+  const colors: Record<string, string> = {};
+  for (const [key, token] of Object.entries(EDITOR_THEME_TOKENS)) {
+    const value = style.getPropertyValue(token).trim();
+    if (value) colors[key] = value; // without the stylesheet (tests) Monaco keeps the vs-dark color
+  }
+  return colors;
+}
+
 export function CodeEditor({
   value,
   onChange,
@@ -249,14 +269,7 @@ export function CodeEditor({
         { token: "function", foreground: "dcdcaa" },
         { token: "operator", foreground: "d4d4d4" },
       ],
-      colors: {
-        "editor.background": "#121212",
-        "editor.foreground": "#fafafa",
-        "editorLineNumber.foreground": "#666666",
-        "editorLineNumber.activeForeground": "#ffffff",
-        "editor.selectionBackground": "#262626",
-        "editor.lineHighlightBackground": "#121212",
-      },
+      colors: readEditorThemeColors(),
     });
 
     // Read UI sizing from base vars and multiplier to avoid unresolved calc() strings
@@ -444,21 +457,16 @@ export function CodeEditor({
           editor.setPosition({ lineNumber: line, column: 1 });
           editor.revealPositionInCenter({ lineNumber: line, column: 1 });
         },
+        // "Format Code" (SSOT CodeFormatting): one edit with undo stops around it, so Undo restores the text before.
         formatCode: () => {
-          const currentCode = editor.getValue();
+          const model = editor.getModel();
+          if (!model) return;
+          const currentCode = model.getValue();
           const formatted = formatCode(currentCode);
-
-          if (formatted !== currentCode) {
-            const model = editor.getModel();
-            if (model) {
-              editor.executeEdits("format", [
-                {
-                  range: model.getFullModelRange(),
-                  text: formatted,
-                },
-              ]);
-            }
-          }
+          if (formatted === currentCode) return;
+          editor.pushUndoStop();
+          editor.executeEdits("format", [{ range: model.getFullModelRange(), text: formatted }]);
+          editor.pushUndoStop();
         },
       };
     }

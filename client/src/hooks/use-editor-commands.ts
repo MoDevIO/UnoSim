@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import type { ToastFn } from "@/hooks/use-toast";
 
@@ -148,10 +148,16 @@ export function useEditorCommands(
     [editorRef, toast, suppressAutoStopOnce],
   );
 
+  // The sketch as last rendered, so a fallback that finishes loading late can tell whether it changed meanwhile.
+  const latestCode = useRef(code);
+  useEffect(() => {
+    latestCode.current = code;
+  }, [code]);
+
+  // One formatter for the editor and for this fallback (SSOT CodeFormatting 3.4). The fallback loads it on use,
+  // so it stays off the page's initial path; it applies only to the sketch it was asked for, never to a newer one.
   const formatCode = useCallback(() => {
     const ed = editorRef.current;
-    
-    // Prefer using the editor's formatCode method if available (works even without focus)
     if (ed && typeof ed.formatCode === "function") {
       try {
         ed.formatCode();
@@ -161,40 +167,18 @@ export function useEditorCommands(
         console.error("Format code failed", err);
       }
     }
-    
-    // Fallback to state-based formatting (legacy behavior)
     if (typeof code !== "string" || !setCode) return;
-    // original formatting logic copied verbatim
-    let formatted = code;
-
-    // 1. replace tabs with spaces
-    formatted = formatted.replaceAll("\t", "  ");
-
-    // 2. collapse multiple spaces into two
-    formatted = formatted.replaceAll(/ {2,}/g, "  ");
-
-    // 3. indent blocks (very naive)
-    const lines = formatted.split("\n");
-    let indentLevel = 0;
-    const indentedLines = lines.map((ln) => {
-      const trimmed = ln.trim();
-      if (trimmed.endsWith("}") && indentLevel > 0) indentLevel--;
-      const result = "  ".repeat(indentLevel) + trimmed;
-      if (trimmed.endsWith("{")) indentLevel++;
-      return result;
-    });
-    formatted = indentedLines.join("\n");
-
-    // 5. Remove multiple consecutive blank lines
-    formatted = formatted.replaceAll(/\n{3,}/g, "\n\n");
-
-    // 6. Ensure newline at end of file
-    if (!formatted.endsWith("\n")) {
-      formatted += "\n";
-    }
-
-    setCode(formatted);
-    toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
+    import("@/lib/editor/format-code")
+      .then(({ formatCode: format }) => {
+        if (latestCode.current !== code) {
+          toast?.({ title: "Code not formatted", description: "The sketch changed meanwhile. Run Format Code again." });
+          return;
+        }
+        const formatted = format(code);
+        setCode((current) => (current === code ? formatted : current));
+        toast?.({ title: "Code Formatted", description: "Code has been automatically formatted" });
+      })
+      .catch((err: unknown) => console.error("Format code failed", err));
   }, [code, setCode, toast, editorRef]);
 
   return {

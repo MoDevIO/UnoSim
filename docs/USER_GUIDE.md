@@ -14,7 +14,12 @@ und am Board. Du brauchst dafür keine Hardware und keine Installation.
 ## Einen Sketch schreiben und starten
 
 1. Den Code im Editor schreiben. Weitere Dateien legst du mit **File → New File**
-   an; jede Datei erscheint als eigener Tab.
+   an; jede Datei erscheint als eigener Tab. **File → Format Code** (oder
+   `Ctrl+Shift+F`, auf dem Mac `⇧⌘F`) rückt den Sketch nach seiner Struktur ein:
+   Die Anweisung nach einem `if`, `else`, `for` oder `while` ohne geschweifte
+   Klammern steht eine Ebene tiefer, und jedes `else` steht bei dem `if`, zu dem
+   es gehört. Klammern fügt Format Code nicht hinzu; **Edit → Undo** stellt den
+   Text davor wieder her.
 2. Mit **Start** in der Kopfzeile kompilieren und die Simulation starten.
    Fehler beim Kompilieren erscheinen im Output Panel unter dem Editor.
 3. Ausgaben von `Serial.print` erscheinen im **Serial Monitor**. Eingaben an den

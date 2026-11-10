@@ -273,6 +273,12 @@ html, body {
     --plot-8: #f97316; /* orange */
     --color-black: #000000;
     --color-white: #ffffff;
+    /* Monaco editor theme (content colors, STYLE_GUIDE 1): hex, because Monaco's defineTheme takes no CSS colors. */
+    --color-editor-background: #121212;
+    --color-editor-foreground: #fafafa;
+    --color-editor-line-number: #666666;
+    --color-editor-line-number-active: #ffffff;
+    --color-editor-selection: #262626;
     --color-led-green: #00ff00;
     --color-led-yellow: #ffff00;
     --color-surface-muted: #eeeeee;
