@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Cpu, Wrench, Terminal, Monitor, MessageCircleQuestion } from "lucide-react";
+import { Cpu, Wrench, Terminal, Monitor, GraduationCap } from "lucide-react";
 import clsx from "clsx";
 
 export type MobilePanel = "code" | "compile" | "serial" | "board" | "tutor";
@@ -20,6 +20,9 @@ interface MobileLayoutProps {
   readonly onOpenPanel?: (panel: MobilePanel) => void;
 }
 
+/** Set on `<html>` while the floating navigation is shown. */
+export const FLOATING_NAVIGATION_ATTRIBUTE = "data-floating-navigation";
+
 export const MobileLayout = React.memo(function MobileLayout({
   isMobile,
   isTablet = false,
@@ -33,6 +36,14 @@ export const MobileLayout = React.memo(function MobileLayout({
   onOpenPanel,
 }: MobileLayoutProps) {
   const showCompactNavigation = isMobile || (isTablet && showTutor);
+  // Content that must stay clear of the floating navigation reserves room exactly while it is shown
+  // (`--ui-floating-nav-inset`, index.css), on phones and on tablets alike (review of 0fa5bda47, N1).
+  React.useLayoutEffect(() => {
+    if (!showCompactNavigation || typeof document === "undefined") return undefined;
+    const root = document.documentElement;
+    root.setAttribute(FLOATING_NAVIGATION_ATTRIBUTE, "");
+    return () => root.removeAttribute(FLOATING_NAVIGATION_ATTRIBUTE);
+  }, [showCompactNavigation]);
   // The panel surfaces themselves stay mounted in the responsive workspace.
   // This component owns navigation only, so selecting a surface never moves
   // or unmounts the Monaco editor.
@@ -71,7 +82,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "code"
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -86,7 +97,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "compile"
-                  ? "bg-green-600 text-white hover:bg-green-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -101,7 +112,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "serial"
-                  ? "bg-amber-600 text-white hover:bg-amber-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -116,7 +127,7 @@ export const MobileLayout = React.memo(function MobileLayout({
               className={clsx(
                 "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                 mobilePanel === "board"
-                  ? "bg-sky-600 text-white hover:bg-sky-700"
+                  ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                   : "bg-transparent text-muted-foreground",
               )}
               data-mobile-fab-button
@@ -132,12 +143,12 @@ export const MobileLayout = React.memo(function MobileLayout({
                 className={clsx(
                   "w-[var(--ui-button-height)] h-[var(--ui-button-height)] rounded-full",
                   mobilePanel === "tutor"
-                    ? "bg-violet-600 text-white hover:bg-violet-700"
+                    ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                     : "bg-transparent text-muted-foreground",
                 )}
                 data-mobile-fab-button
               >
-                <MessageCircleQuestion className="!w-10 !h-10" />
+                <GraduationCap className="!w-10 !h-10" />
               </Button>
             )}
           </div>

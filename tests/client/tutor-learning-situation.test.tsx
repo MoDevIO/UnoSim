@@ -61,6 +61,9 @@ describe("Tutor dialog and learning situation", () => {
     await act(async () => result.current.submitAnswer(SKETCH));
 
     expect(result.current.history[0]).toMatchObject({ question: "Frage A?", questionId: "frage-a", answerRating: 5, feedback: "Gut." });
+    // The answered question stays shown until the learner goes on.
+    expect(result.current.question?.questionId).toBe("frage-a");
+    act(() => result.current.continueToNextQuestion());
     expect(result.current.question?.questionId).toBe("frage-b");
   });
 

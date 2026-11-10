@@ -17,18 +17,12 @@ describe("ToolbarIconButton", () => {
     expect(button.querySelector("[data-testid='toolbar-icon']")).not.toBeNull();
   });
 
-  it("marks destructive actions on the icon button without an outline variant", () => {
-    render(
-      <ToolbarIconButton
-        icon={<span />}
-        label="Clear serial output"
-        destructive
-      />,
-    );
+  it("shows a clear or delete action like any other toolbar action, not in red", () => {
+    render(<ToolbarIconButton icon={<span />} label="Clear serial output" />);
 
     const button = screen.getByRole("button", { name: "Clear serial output" });
     expect(button).not.toHaveClass("border-destructive", "border-border/70");
-    expect(button.querySelector("svg, span")).toHaveClass("text-red-500");
+    expect(button.querySelector("span")?.getAttribute("class") ?? "").not.toMatch(/\b(?:text-red-|text-destructive|text-status-error)/);
   });
 
   it("uses the semantic success color for pressed toggles and muted color otherwise", () => {

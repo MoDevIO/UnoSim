@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ImperativePanelGroupHandle,
   ImperativePanelHandle,
@@ -11,15 +11,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { PanelHeader } from "@/components/ui/panel-header";
 import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
-import { ArrowUp, CircleHelp, Code2, KeyRound, MessageCircleQuestion, Monitor } from "lucide-react";
+import { Code2, Ellipsis, GraduationCap, History, MessageCirclePlus, Monitor, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { TutorPanelState, TutorSketch } from "@/hooks/use-tutor";
-import type { TutorFocusProgress } from "@shared/tutor";
-import { TutorText } from "./tutor-text";
+import type { TutorPanelActions } from "./tutor-panel-status";
 
-// The dialog's transcript and support controls load with the first question; the page's start does not need them.
-const TutorTranscript = React.lazy(() => import("./tutor-dialog-parts").then((module) => ({ default: module.TutorTranscript })));
-const TutorKeyView = React.lazy(() => import("./tutor-key-view").then((module) => ({ default: module.TutorKeyView })));
-const TutorSupportActions = React.lazy(() => import("./tutor-dialog-parts").then((module) => ({ default: module.TutorSupportActions })));
+// The learning step, history and settings load when the Tutor column opens; the page's start does not need them.
+const TutorHistoryView = React.lazy(() => import("./tutor-dialog-parts").then((module) => ({ default: module.TutorHistoryView })));
+const TutorLearningStep = React.lazy(() => import("./tutor-learning-step").then((module) => ({ default: module.TutorLearningStep })));
+const TutorSettingsView = React.lazy(() => import("./tutor-settings-view").then((module) => ({ default: module.TutorSettingsView })));
 import { ensureExternalExamplesCatalog } from "@/lib/external-examples";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
@@ -130,7 +135,7 @@ function getWorkspaceColumnIcon(column: WorkspaceColumn) {
     case "simulation":
       return Monitor;
     case "tutor":
-      return MessageCircleQuestion;
+      return GraduationCap;
   }
 }
 
@@ -180,18 +185,67 @@ export function WorkspaceVisibilityControls({
   );
 }
 
-/** The button's action comes first: the status alone would not say that pressing it replaces the dialog. */
-function tutorQuestionActionLabel(status: string, hasDialog: boolean): string {
-  return `${hasDialog ? "New question, ends dialog" : "New question"}. ${status}`;
+type TutorView = "step" | "history" | "settings";
+
+function TutorStatusIcon({ tutor, tutorReady }: { readonly tutor?: TutorPanelState; readonly tutorReady: boolean }) {
+  const visual = getTutorQuestionVisualState({
+    tutorReady,
+    // The answered question waits for `Weiter`, not for an answer.
+    question: tutor && !tutor.awaitingNext ? tutor.question : null,
+    isLoading: tutor?.isLoading ?? false,
+    error: tutor?.error ?? null,
+  });
+  const statusClassName = getStatusTextClass(tutorReady ? "success" : "idle");
+  const animationClassName = visual.animation ? `toolbar-icon-button-animation-${visual.animation}` : "";
+  return (
+    <span role="img" aria-label={visual.label} title={visual.label} className="flex" data-testid="tutor-status-icon">
+      <GraduationCap className={`${statusClassName} ${animationClassName}`} aria-hidden="true" />
+    </span>
+  );
 }
 
-/** Says who is asking and how far the learner got, in the words of the learner, not of the planner. */
-function tutorFocusStatusText(focus: TutorFocusProgress | null, hasQuestion: boolean): string | null {
-  if (!focus) return hasQuestion ? "Free Tutor" : null;
-  const understood = `${focus.understoodAreas} of ${focus.totalAreas} areas understood`;
-  if (focus.state === "active") return `Teacher's focus: ${understood}`;
-  if (focus.state !== "open") return `Teacher's focus ${focus.state === "paused" ? "paused" : "completed"}`;
-  return `Questions used up: ${understood}. Open: ${focus.openAreas.join(", ")}`;
+function TutorMenu({ tutor, tutorReady, onSettings, onNewRound }: {
+  readonly tutor: TutorPanelState;
+  readonly tutorReady: boolean;
+  readonly onSettings: () => void;
+  readonly onNewRound: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {/* The trigger needs a ref, which ToolbarIconButton does not pass on. */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-foreground hover:border-transparent"
+          aria-label="Weitere Tutor-Aktionen"
+          title="Weitere Tutor-Aktionen"
+          data-testid="tutor-menu"
+        >
+          <Ellipsis aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-2rem)]">
+        <DropdownMenuItem onSelect={onSettings} disabled={!tutor.capabilities.canConfigureTutor} data-testid="tutor-api-key-action">
+          <Settings aria-hidden="true" />
+          Einstellungen
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={onNewRound}
+          disabled={!tutorReady || tutor.isLoading}
+          className="items-start"
+          data-testid="tutor-new-round-action"
+        >
+          <MessageCirclePlus aria-hidden="true" className="mt-0.5" />
+          <span className="flex flex-col whitespace-normal">
+            <span>Neue Lernrunde starten</span>
+            <span className="text-ui-xs text-muted-foreground">Beendet die aktuelle Frage und setzt Verlauf und Lernstand zurück.</span>
+          </span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function TutorPlaceholder({
@@ -210,18 +264,33 @@ function TutorPlaceholder({
   readonly tutor?: TutorPanelState;
   readonly debugMode?: boolean;
 }) {
-  const [showKeyView, setShowKeyView] = useState(false);
-  const credentialConfigured = (tutor?.credential.trim().length ?? 0) > 0;
+  const [view, setView] = useState<TutorView>("step");
   const tutorReady = tutor ? canTutorRequest(tutor) : false;
-  const questionVisualState = getTutorQuestionVisualState({
-    tutorReady,
-    question: tutor?.question ?? null,
-    isLoading: tutor?.isLoading ?? false,
-    error: tutor?.error ?? null,
-  });
-  const questionActionLabel = tutorQuestionActionLabel(questionVisualState.label, tutor?.question != null || (tutor?.history.length ?? 0) > 0);
   const tutorIdentityClassName = getStatusTextClass(tutorReady ? "success" : "idle");
-  const keyStatusLabel = credentialConfigured ? "API key configured" : "API key missing";
+  const request = sketch ?? code;
+  const hasHistory = tutor ? tutor.transcript.length > 0 || tutor.focusProgress !== null : false;
+
+  const actions: TutorPanelActions | null = tutor ? {
+    startQuestion: () => {
+      ensureExternalExamplesCatalog();
+      void tutor.generateQuestion(request);
+    },
+    startNewRound: () => {
+      setView("step");
+      ensureExternalExamplesCatalog();
+      tutor.resetDialog();
+      void tutor.generateQuestion(request);
+    },
+    submitAnswer: () => {
+      void tutor.submitAnswer(request);
+    },
+    requestSupport: (action) => {
+      void tutor.requestSupport(action, request);
+    },
+    openSettings: () => setView("settings"),
+    continueToNextQuestion: tutor.continueToNextQuestion,
+    retry: tutor.retryFor(request),
+  } : null;
 
   return (
     <section
@@ -233,65 +302,42 @@ function TutorPlaceholder({
       <div className="flex h-full flex-col">
         <PanelHeader
           title={<span className={tutorIdentityClassName}>Tutor</span>}
-          icon={<MessageCircleQuestion className={`h-3.5 w-3.5 ${tutorIdentityClassName}`} aria-hidden="true" />}
-          centerAction={tutor ? (
-            <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
-              <ToolbarIconButton
-                type="button"
-                icon={<CircleHelp aria-hidden="true" />}
-                label={questionActionLabel}
-                status={questionVisualState.status}
-                animation={questionVisualState.animation}
-                iconSize="lg"
-                onClick={() => {
-                  setShowKeyView(false);
-                  ensureExternalExamplesCatalog();
-                  tutor.resetDialog();
-                  void tutor.generateQuestion(sketch ?? code);
-                }}
-                disabled={tutor.isLoading || !tutor.capabilities.canUseTutor}
-                title={tutor.capabilities.canUseTutor ? questionActionLabel : "Server connection required"}
-                data-testid="tutor-new-question-action"
-              />
-              <span
-                className="text-ui-xs text-muted-foreground"
-                data-testid="tutor-effective-difficulty"
-                title={`Current adaptive difficulty for this session: ${tutor.effectiveDifficulty} / 100`}
-              >
-                D{String(tutor.effectiveDifficulty).padStart(2, "0")}
-              </span>
-            </div>
-          ) : undefined}
-          actions={tutor ? (
+          icon={<TutorStatusIcon tutor={tutor} tutorReady={tutorReady} />}
+          actions={tutor && actions ? (
             <>
               {debugMode && tutor.lastUsedModel && (
                 <span
                   className="max-w-32 truncate text-ui-xs text-muted-foreground"
                   data-testid="tutor-last-used-model"
-                  title={`Last used model: ${tutor.lastUsedModel}`}
+                  title={`Zuletzt verwendetes Modell: ${tutor.lastUsedModel}`}
                 >
                   {tutor.lastUsedModel}
                 </span>
               )}
-              <ToolbarIconButton
-                type="button"
-                icon={<KeyRound aria-hidden="true" />}
-                label={keyStatusLabel}
-                status={credentialConfigured ? "success" : "muted"}
-                onClick={() => setShowKeyView(true)}
-                disabled={!tutor.capabilities.canConfigureTutor}
-                title={tutor.capabilities.canConfigureTutor ? keyStatusLabel : "Server connection required"}
-                data-testid="tutor-api-key-action"
-              />
+              {hasHistory && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="px-2"
+                  aria-pressed={view === "history"}
+                  onClick={() => setView(view === "history" ? "step" : "history")}
+                  data-testid="tutor-history-action"
+                >
+                  <History aria-hidden="true" />
+                  Verlauf
+                </Button>
+              )}
+              <TutorMenu tutor={tutor} tutorReady={tutorReady} onSettings={actions.openSettings} onNewRound={actions.startNewRound} />
             </>
           ) : undefined}
         />
-        {tutor ? (
+        {tutor && actions ? (
           <TutorPanelContent
-            sketch={sketch ?? code}
             tutor={tutor}
-            showKeyView={showKeyView}
-            setShowKeyView={setShowKeyView}
+            view={view}
+            setView={setView}
+            actions={actions}
           />
         ) : (
           <div className="flex flex-1 items-start justify-start p-4 text-left text-muted-foreground">
@@ -306,169 +352,56 @@ function TutorPlaceholder({
   );
 }
 
-/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
-function MermaidPreview({ source }: { readonly source: string }) {
-  const renderId = useId().replaceAll(":", "");
-  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
-  useEffect(() => {
-    let current = true;
-    void import("@/lib/tutor-mermaid").then(({ renderMermaidSubset }) => {
-      if (current) setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));
-    });
-    return () => {
-      current = false;
-    };
-  }, [source, renderId]);
-  if (!renderedSvg) return null;
-  return <div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} />;
-}
-
 function TutorPanelContent({
-  sketch,
   tutor,
-  showKeyView,
-  setShowKeyView,
+  view,
+  setView,
+  actions,
 }: {
-  readonly sketch: string | TutorSketch;
   readonly tutor: TutorPanelState;
-  readonly showKeyView: boolean;
-  readonly setShowKeyView: (value: boolean) => void;
+  readonly view: TutorView;
+  readonly setView: (value: TutorView) => void;
+  readonly actions: TutorPanelActions;
 }) {
   const credentialConfigured = tutor.credential.trim().length > 0;
-  const canRequest = canTutorRequest(tutor);
-  const focusStatus = tutorFocusStatusText(tutor.focusProgress, tutor.question !== null);
-  const dialogScrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
   const autoLoadedForRef = useRef<string | null>(null);
   const modelLoadKey = tutor.credential;
+  const showSettings = view === "settings";
 
   useEffect(() => {
-    if (!showKeyView) {
+    if (!showSettings) {
       autoLoadedForRef.current = null;
       return;
     }
     if (!credentialConfigured || tutor.modelsLoading || autoLoadedForRef.current === modelLoadKey) return;
     autoLoadedForRef.current = modelLoadKey;
     void tutor.loadModels();
-  }, [credentialConfigured, modelLoadKey, showKeyView, tutor.loadModels, tutor.modelsLoading]);
+  }, [credentialConfigured, modelLoadKey, showSettings, tutor.loadModels, tutor.modelsLoading]);
 
-  useEffect(() => {
-    if (showKeyView) return;
-    const scrollElement = dialogScrollRef.current;
-    if (scrollElement) scrollElement.scrollTop = scrollElement.scrollHeight;
-  }, [showKeyView, tutor.transcript.length, tutor.isLoading, tutor.question?.question]);
-
-  useEffect(() => {
-    const textarea = composerRef.current;
-    if (!textarea) return;
-    const maxHeight = 160;
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
-    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
-  }, [tutor.answer]);
-
-  useEffect(() => {
-    if (showKeyView || tutor.isLoading || !tutor.question) return;
-    composerRef.current?.focus();
-  }, [showKeyView, tutor.isLoading, tutor.question?.question]);
-
-  if (showKeyView) {
+  if (showSettings) {
     return (
       <React.Suspense fallback={null}>
-        <TutorKeyView tutor={tutor} onApply={() => setShowKeyView(false)} />
+        <TutorSettingsView tutor={tutor} hasQuestion={tutor.question !== null} onApply={() => setView("step")} />
       </React.Suspense>
     );
   }
-
+  if (view === "history") {
+    return (
+      <React.Suspense fallback={null}>
+        <TutorHistoryView
+          transcript={tutor.transcript}
+          focusProgress={tutor.focusProgress}
+          sessionRating={tutor.sessionRating}
+          ratedAnswerCount={tutor.ratedAnswerCount}
+          onBack={() => setView("step")}
+        />
+      </React.Suspense>
+    );
+  }
   return (
-    <div className="flex flex-1 min-h-0 flex-col text-left">
-      {!tutor.capabilities.canUseTutor && (
-        <output className="px-4 pt-3 text-ui-xs text-muted-foreground" aria-live="polite">
-          Server connection required
-        </output>
-      )}
-      <div ref={dialogScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5" data-testid="tutor-dialog-scroll">
-        <div className="flex w-full flex-col gap-4">
-          {tutor.transcript.length > 0 && (
-            <React.Suspense fallback={null}>
-              <TutorTranscript transcript={tutor.transcript} />
-            </React.Suspense>
-          )}
-
-          {focusStatus && (
-            <output className="text-ui-xs text-muted-foreground" aria-live="polite" data-testid="tutor-focus-status">
-              {focusStatus}
-            </output>
-          )}
-          {tutor.question && (
-            <div className="max-w-[88%] rounded-lg px-4 py-3" data-testid="tutor-question">
-              <div className="flex items-center justify-between gap-2 text-ui-xs text-muted-foreground">
-                <span>{tutor.question.responseStyle === "philosophical" ? "Philosophical fallback" : tutor.question.topic ?? "Learning question"}</span>
-              </div>
-              <p className="mt-2 font-medium leading-relaxed text-foreground"><TutorText text={tutor.question.question} /></p>
-              {tutor.question.mermaid && <MermaidPreview source={tutor.question.mermaid} />}
-            </div>
-          )}
-          {tutor.support && tutor.question && (
-            <React.Suspense fallback={null}>
-              <TutorSupportActions
-                support={tutor.support}
-                busy={tutor.isLoading || !canRequest}
-                onAction={(action) => void tutor.requestSupport(action, sketch)}
-              />
-            </React.Suspense>
-          )}
-          {tutor.completed && (
-            <output className="text-ui-sm text-muted-foreground" aria-live="polite" data-testid="tutor-completed">
-              No further question is left. Start a new learning question to continue.
-            </output>
-          )}
-          {!tutor.question && tutor.transcript.length === 0 && (
-            <div className="flex min-h-32 items-center justify-center text-center text-muted-foreground">
-              <p>Start a new learning question from the header.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="shrink-0 border-t border-border bg-background px-4 py-3 max-md:pr-20">
-        <div className="flex w-full flex-col gap-2">
-          {tutor.error && <p className={`text-ui-sm ${getStatusTextClass("error")}`} role="alert">{tutor.error}</p>}
-          <div className="relative">
-            <textarea
-              ref={composerRef}
-              id="tutor-answer"
-              value={tutor.answer}
-              onChange={(event) => tutor.setAnswer(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-                if (!tutor.answer.trim() || tutor.isLoading || !canRequest || !tutor.question) return;
-                event.preventDefault();
-                void tutor.submitAnswer(sketch);
-              }}
-              rows={1}
-              maxLength={2_000}
-              disabled={!tutor.question || tutor.isLoading || !tutor.capabilities.canUseTutor}
-              placeholder={tutor.question ? "Your answer …" : "Start a new learning question first …"}
-              className="block min-h-10 max-h-40 min-w-0 w-full resize-none overflow-y-hidden rounded-md border border-input bg-background px-3 py-2 pr-12 text-ui-sm text-foreground outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Your answer"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="default"
-              aria-label="Send answer"
-              title="Send answer"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => void tutor.submitAnswer(sketch)}
-              disabled={tutor.isLoading || !tutor.answer.trim() || !canRequest || !tutor.question || !tutor.capabilities.canUseTutor}
-            >
-              <ArrowUp className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <React.Suspense fallback={null}>
+      <TutorLearningStep tutor={tutor} actions={actions} />
+    </React.Suspense>
   );
 }
 

@@ -49,6 +49,13 @@ export const BOARD_CATALOG: readonly BoardCatalogEntry[] = [
 /** The board every request without a board means: the Uno of today. */
 export const DEFAULT_BOARD_ID: BoardId = "uno";
 
+/**
+ * The PCB fill of the board artwork (client/public/Arduino*.svg, kept by scripts/generate-*-svg.mjs) that the
+ * board color setting replaces. A property of the asset, matched in its text, not a UI color (style guide,
+ * section 1: content colors).
+ */
+export const BOARD_ARTWORK_PCB_FILL = "#0f7391";
+
 export function getBoard(id: BoardId): BoardCatalogEntry {
   const entry = BOARD_CATALOG.find((board) => board.id === id);
   if (!entry) throw new RangeError(`board ${id} is not in the catalog`);

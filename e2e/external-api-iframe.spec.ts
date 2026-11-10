@@ -12,10 +12,14 @@ test.use({
   },
 });
 
-const parentOrigin = 'http://localhost:3000';
-const simulatorOrigin = 'http://127.0.0.1:3000';
+// Both origins sit on the configured test port: the parent on localhost, the simulator on 127.0.0.1, so they
+// stay cross-origin, and the server's allowlist for that port applies (playwright.config.ts, E2E_PORT).
+function origins(baseURL: string | undefined): { readonly parentOrigin: string; readonly simulatorOrigin: string } {
+  const { port, protocol } = new URL(baseURL ?? 'http://localhost:3000');
+  return { parentOrigin: `${protocol}//localhost:${port}`, simulatorOrigin: `${protocol}//127.0.0.1:${port}` };
+}
 
-async function openEmbeddingPage(page: Page): Promise<void> {
+async function openEmbeddingPage(page: Page, { parentOrigin, simulatorOrigin }: ReturnType<typeof origins>): Promise<void> {
   await page.route(`${parentOrigin}/__embed-host`, (route) => route.fulfill({
     contentType: 'text/html',
     body: `<!doctype html><html><body>
@@ -31,7 +35,7 @@ async function openEmbeddingPage(page: Page): Promise<void> {
   await page.goto(`${parentOrigin}/__embed-host`);
 }
 
-async function expectStateResponse(page: Page): Promise<void> {
+async function expectStateResponse(page: Page, simulatorOrigin: string): Promise<void> {
   await expect.poll(async () => page.evaluate((target) => {
     const frame = (document.getElementById('sim') as HTMLIFrameElement).contentWindow;
     frame?.postMessage({ type: 'GET_SIMULATION_STATE' }, target);
@@ -40,7 +44,9 @@ async function expectStateResponse(page: Page): Promise<void> {
   }, simulatorOrigin), { timeout: 30000, intervals: [500] }).toBe(true);
 }
 
-test('external API answers a cross-origin parent', async ({ page }) => {
-  await openEmbeddingPage(page);
-  await expectStateResponse(page);
+test('external API answers a cross-origin parent', async ({ page, baseURL }) => {
+  const embedding = origins(baseURL);
+  expect(embedding.parentOrigin).not.toBe(embedding.simulatorOrigin);
+  await openEmbeddingPage(page, embedding);
+  await expectStateResponse(page, embedding.simulatorOrigin);
 });

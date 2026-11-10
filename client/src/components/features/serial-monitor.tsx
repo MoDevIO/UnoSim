@@ -466,7 +466,7 @@ export function SerialMonitor({
             <>
             {headerActions}
             <Button
-              variant="destructiveOutline"
+              variant="outline"
               size="icon"
               onClick={() => _onClear()}
               title="Clear serial output"

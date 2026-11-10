@@ -294,7 +294,8 @@ describe("SerialMonitor UI", () => {
     expect(clearButton).toHaveAttribute("aria-label", "Clear serial output");
     expect(clearButton).toHaveClass("bg-transparent");
     expect(clearButton).not.toHaveClass("border-destructive", "border-border/70");
-    expect(clearButton.querySelector("svg")).toHaveClass("text-red-500");
+    // Clearing is neutral (style guide, rule 1): the icon has the toolbar's color, not red.
+    expect(clearButton.querySelector("svg")?.getAttribute("class") ?? "").not.toMatch(/\b(?:text-red-|text-destructive|text-status-error)/);
 
     await user.click(clearButton);
     expect(handleClearSerialOutput).toHaveBeenCalledTimes(1);

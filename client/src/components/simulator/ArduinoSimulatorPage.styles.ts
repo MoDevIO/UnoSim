@@ -48,10 +48,10 @@ export const CSS_CLASSES = {
   BORDER_CONTAINER: "absolute inset-0 border-0 pointer-events-none",
   
   // Glitch border (red flash)
-  GLITCH_BORDER: "absolute inset-0 rounded-none border-4 border-red-500 opacity-0 animate-border-flash",
+  GLITCH_BORDER: "absolute inset-0 rounded-none border-4 border-status-error opacity-0 animate-border-flash",
   
   // Backend unreachable border (blue breathing)
-  UNREACHABLE_BORDER: "absolute inset-0 rounded-none border-2 border-blue-400 opacity-80 animate-breathe-blue",
+  UNREACHABLE_BORDER: "absolute inset-0 rounded-none border-2 border-accent-cyan opacity-80 animate-breathe-blue",
 
   // Panel groups (horizontal & vertical layouts)
   PANEL_LAYOUT: "h-full",

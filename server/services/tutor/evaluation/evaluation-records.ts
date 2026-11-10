@@ -57,7 +57,9 @@ export class EvaluationBudgetExceeded extends Error {
 
 export function technicalError(error: unknown): TutorQualityTechnicalError {
   if (error instanceof EvaluationBudgetExceeded) return { kind: "call-budget-exhausted", name: error.name };
-  if (error instanceof TutorProviderError) return { kind: error.kind, name: error.name };
+  if (error instanceof TutorProviderError) {
+    return { kind: error.kind, name: error.name, ...(error.retryAfter === undefined ? {} : { retryAfterSeconds: error.retryAfter }) };
+  }
   return { kind: "provider-error", name: "ProviderError" };
 }
 
@@ -124,6 +126,18 @@ export function addViolation(
   details?: string,
 ): void {
   violations.push({ code, source, ...(turnIndex === undefined ? {} : { turnIndex }), ...(details ? { details } : {}) });
+}
+
+/**
+ * The literals a turn must not reveal: the case's for every turn, and the turn's own (R-SUP-E5). A case that
+ * ends with the confirmation of a correct answer declares them only on the turns before it.
+ */
+export function revealLiteralsFor(
+  expected: { readonly mustNotReveal?: readonly string[] } | undefined,
+  turn: { readonly mustNotReveal?: readonly string[] },
+): readonly string[] | undefined {
+  const literals = [...(expected?.mustNotReveal ?? []), ...(turn.mustNotReveal ?? [])];
+  return literals.length > 0 ? literals : undefined;
 }
 
 export function declaredLeakCheck(

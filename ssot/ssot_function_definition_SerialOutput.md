@@ -226,12 +226,12 @@ Im Debug-Mode wird die Telemetrie-Information im Header des Serial-Output-Panels
 | :--- | :--- | :--- |
 | **Serial /s** | `X.X /s` | Chunks pro Sekunde (gesendete Batches) |
 | **Bytes /s** | `X.X B/s` | Tatsächlich gesendete Bytes pro Sekunde |
-| **Dropped /s** | `X.X B/s` | Verworfene Bytes pro Sekunde (rot wenn > 0) |
+| **Dropped /s** | `X.X B/s` | Verworfene Bytes pro Sekunde (Warnfarbe wenn > 0) |
 | **Baud** | `115200` | Aktuelle Baudrate |
 | **Total** | `X.X KB` | Kumulative gesendete Bytes |
 
 ### 8.2 Visuelle Hervorhebung
-- `Dropped /s > 0`: Anzeige in **rot** als Warnung, dass der Sketch zu schnell sendet.
+- `Dropped /s > 0`: Anzeige in der **Warnfarbe** (`--color-status-warning`, Orange) mit dem Wert als Text: Der Sketch sendet zu schnell. Rot bleibt Fehlern vorbehalten (Farbvertrag, `client/src/STYLE_GUIDE.md`).
 - `Dropped /s = 0`: Anzeige in grau/normal.
 
 ## 9. WebSocket-Nachrichtenformat
@@ -369,7 +369,7 @@ Datei: `e2e/serial-output-batching.spec.ts` (NEU)
 ```
 Neue E2E-Tests:
 ├── T-E2E-01: Debug-Header zeigt "Dropped /s: 0" bei normalem Sketch
-├── T-E2E-02: Debug-Header zeigt "Dropped /s: X" (rot) bei Flooding-Sketch
+├── T-E2E-02: Debug-Header zeigt "Dropped /s: X" (Warnfarbe) bei Flooding-Sketch
 ├── T-E2E-03: Baudrate wird im Debug-Header angezeigt
 ├── T-E2E-04: Total-Bytes zählen hoch während der Simulation
 ```
@@ -405,7 +405,7 @@ Neue E2E-Tests:
 | 4.1 | `serial_event` Handler im Frontend entfernen | `client/src/hooks/use-simulation-controls.ts` o.ä. |
 | 4.2 | Telemetrie-Store: `serialIntendedBytesPerSecond`, `serialDroppedBytesPerSecond` aufnehmen | `client/src/hooks/use-telemetry-store.ts` |
 | 4.3 | Debug-Header: Dropped/s, Baud, Total anzeigen | `client/src/pages/arduino-simulator.tsx` |
-| 4.4 | Dropped/s rot hervorheben wenn > 0 | `client/src/pages/arduino-simulator.tsx` |
+| 4.4 | Dropped/s in Warnfarbe hervorheben wenn > 0 | `client/src/pages/arduino-simulator.tsx` |
 
 ### Phase 5: Cleanup (Tag 3)
 | # | Aufgabe | Dateien |

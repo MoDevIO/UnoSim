@@ -13,11 +13,11 @@ const editorValue = (page: Page) => page.evaluate(() => (
   (globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { getValue(): string }
 ).getValue());
 
-async function openTutor(page: Page) {
-  await page.addInitScript(() => {
+async function openTutor(page: Page, columns = { code: true, simulation: false, tutor: true }) {
+  await page.addInitScript((visible) => {
     localStorage.setItem("unoExperimentalWorkspaceLayout", "1");
-    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify({ code: true, simulation: false, tutor: true }));
-  });
+    localStorage.setItem("unoExperimentalWorkspaceColumns", JSON.stringify(visible));
+  }, columns);
   await page.route(/\/api\/examples(?:\?.*)?$/, (route) => route.fulfill({ json: { schemaVersion: 1, source, examples: [remoteExample] } }));
   await page.route("**/api/tutor/models", (route) => route.fulfill({ json: { models: ["pilot-model"] } }));
   await page.route("**/api/tutor/question", (route) => route.fulfill({
@@ -32,13 +32,14 @@ async function openTutor(page: Page) {
   const mobileTab = page.getByRole("button", { name: "Tutor", exact: true });
   if (await mobileTab.isVisible()) await mobileTab.click();
   await expect(page.getByTestId("tutor-panel")).toBeVisible();
-  await page.getByTestId("tutor-api-key-action").click();
-  await page.getByLabel("API key", { exact: true }).fill("test-key");
+  await expect(page.getByTestId("tutor-transparency")).toContainText("KI:connect.nrw");
+  await page.getByTestId("tutor-setup-action").click();
+  await page.getByLabel("API-Key", { exact: true }).fill("test-key");
   await page.getByTestId("tutor-apply-key").click();
 }
 
 async function askQuestion(page: Page) {
-  await page.getByTestId("tutor-new-question-action").click();
+  await page.getByTestId("tutor-start-question").click();
   await expect(page.getByTestId("tutor-question")).toContainText("pinMode");
 }
 
@@ -48,14 +49,42 @@ async function openBuiltIn(page: Page) {
 }
 
 test.describe("Tutor learning flow", () => {
-  test("names the action and shows who asks, and how far the learner got", async ({ page }) => {
+  test("keeps the learning step free of who asks; the history says it and returns to the draft", async ({ page }) => {
     await openTutor(page);
-    const action = page.getByTestId("tutor-new-question-action");
-    await expect(action).toHaveAttribute("aria-label", /^New question\. /);
     await askQuestion(page);
+    await expect(page.getByTestId("tutor-focus-status")).toHaveCount(0);
+    await answerField(page).fill("Mein Entwurf");
 
-    await expect(action).toHaveAttribute("aria-label", /^New question, ends dialog\. /);
-    await expect(page.getByTestId("tutor-focus-status")).toHaveText("Teacher's focus: 0 of 2 areas understood");
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-focus-status")).toHaveText("Fokus der Lehrkraft: 0 von 2 Bereichen verstanden");
+    await page.getByTestId("tutor-back-to-question").click();
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
+
+    // Settings and back keep the draft as well; a new round is a deliberate, labelled reset in the menu.
+    await page.getByTestId("tutor-menu").click();
+    await page.getByRole("menuitem", { name: /Einstellungen/ }).click();
+    await page.getByTestId("tutor-settings-back").click();
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
+    await page.getByTestId("tutor-menu").click();
+    await expect(page.getByRole("menuitem", { name: /Neue Lernrunde starten/ })).toContainText("setzt Verlauf und Lernstand zurück");
+    await page.keyboard.press("Escape");
+    await expect(answerField(page)).toHaveValue("Mein Entwurf");
+  });
+
+  test("opens the menu again while the menu just closed still fades out", async ({ page }) => {
+    await openTutor(page);
+    await askQuestion(page);
+    // Slowed down, the 150 ms fade-out of the closed menu outlasts the next click for certain.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Animation.enable");
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.05 });
+
+    await page.getByTestId("tutor-menu").click();
+    await page.getByRole("menuitem", { name: /Einstellungen/ }).click();
+    await page.getByTestId("tutor-settings-back").click();
+    await expect(page.locator('[role="menu"][data-state="closed"]')).toHaveCount(1);
+    await page.getByTestId("tutor-menu").click();
+    await expect(page.getByRole("menuitem", { name: /Neue Lernrunde starten/ })).toBeVisible();
   });
 
   test("keeps a typed answer when the catalog of the Examples menu arrives or is refreshed", async ({ page }) => {
@@ -81,7 +110,7 @@ test.describe("Tutor learning flow", () => {
       await expect.poll(() => editorValue(page)).toContain("PIN_LED");
 
       await expect(page.getByTestId("tutor-question")).toHaveCount(0);
-      await expect(answerField(page)).toHaveValue("");
+      await expect(answerField(page)).toHaveCount(0);
     }
   });
 
@@ -115,17 +144,23 @@ test.describe("Tutor learning flow", () => {
         focusProgress: { state: "open", understoodAreas: 1, totalAreas: 3, openAreas: ["Indizierung mit einem langen Bereichstitel", "Zeitpunkte mit einem zweiten langen Titel"] },
       },
     }));
-    await page.getByTestId("tutor-new-question-action").click();
-    const status = page.getByTestId("tutor-focus-status");
-    await expect(status).toContainText("Open: Indizierung");
+    await page.getByTestId("tutor-start-question").click();
+    const question = page.getByTestId("tutor-question");
+    await expect(question).toContainText("werte[2]");
+    await expect(answerField(page)).toBeVisible();
+    await expect(page.getByTestId("tutor-send-answer")).toBeVisible();
     await page.screenshot({ path: "test-results/tutor-narrow-xxl.png" });
-
-    const fits = await status.evaluate((element) => {
-      const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+    const fitsIn = (testId: string, scrollerTestId: string) => page.getByTestId(testId).evaluate((element, scrollerId) => {
+      const scroller = element.closest(`[data-testid="${scrollerId}"]`) as HTMLElement;
       const box = element.getBoundingClientRect();
       return box.left >= 0 && box.right <= globalThis.innerWidth + 1 && scroller.scrollWidth <= scroller.clientWidth + 1;
-    });
-    expect(fits).toBe(true);
+    }, scrollerTestId);
+    expect(await fitsIn("tutor-question", "tutor-dialog-scroll")).toBe(true);
+    expect(await fitsIn("tutor-send-answer", "tutor-dialog-scroll")).toBe(true);
+
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-focus-status")).toContainText("Offen: Indizierung");
+    expect(await fitsIn("tutor-focus-status", "tutor-history-view")).toBe(true);
   });
 
   test("learning support: two explanations allow skipping, three own answers the reference answer, all by keyboard", async ({ page }) => {
@@ -164,63 +199,301 @@ test.describe("Tutor learning flow", () => {
       return route.fulfill({ json: { responseStyle: "normal", question: state.question, feedback: "Noch nicht ganz.", answerRating: 2, learnerInput: "answer", provider: "kiconnect", model: "pilot-model", support: view() } });
     });
 
-    await page.getByTestId("tutor-new-question-action").click();
+    await page.getByTestId("tutor-start-question").click();
     await expect(page.getByTestId("tutor-question")).toContainText("ersten Durchlauf");
-    await expect(page.getByTestId("tutor-action-skip")).toBeDisabled();
-    await expect(page.getByTestId("tutor-skip-reason")).toHaveText("Skipping after 2 explanations of the question (2 more).");
+    const help = page.getByTestId("tutor-help-toggle");
+    // Keyboard only: the help opens without a request and offers only what is possible now.
+    const supportRequests = actionIds.length;
+    await help.focus();
+    await page.keyboard.press("Enter");
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    expect(actionIds).toHaveLength(supportRequests);
+    await expect(page.getByTestId("tutor-action-skip")).toHaveCount(0);
+    await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
+    await page.getByText("Wann gibt es weitere Hilfen?").click();
+    await expect(page.getByTestId("tutor-skip-reason")).toHaveText("Überspringen: nach 2 Erklärungen der Frage (noch 2). Hinweise zählen nicht dazu.");
 
-    // Keyboard only: focus the explain action and press Enter twice.
     const explain = page.getByTestId("tutor-action-clarify");
     for (let round = 1; round <= 2; round += 1) {
       await explain.focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByTestId("tutor-clarification")).toHaveCount(round);
+      await expect(page.getByTestId("tutor-clarification")).toContainText(`Erklärung ${round}`);
     }
-    await expect(page.getByTestId("tutor-clarification").last()).toContainText("not rated");
+    await expect(page.getByTestId("tutor-clarification")).toContainText("unbewertet");
+    await expect(page.getByTestId("tutor-unlock-notice")).toContainText("„Frage überspringen“");
     await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(0);
-    await expect(page.getByTestId("tutor-action-reveal")).toBeDisabled();
-    await expect(page.getByTestId("tutor-action-skip")).toBeEnabled();
+    await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
     await page.getByTestId("tutor-action-skip").focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("tutor-skip-note")).toContainText("Question skipped, not rated");
+    await expect(page.getByTestId("tutor-previous-feedback")).toContainText("Vorige Frage übersprungen, unbewertet");
     await expect(page.getByTestId("tutor-question")).toContainText("von 7 herunter");
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await expect(page.getByTestId("tutor-action-reveal")).toBeDisabled();
+      await expect(page.getByTestId("tutor-action-reveal")).toHaveCount(0);
       await answerField(page).fill(`Versuch ${attempt}`);
       await page.keyboard.press("Enter");
-      await expect(page.getByTestId("tutor-support-status")).toContainText(`Own answers: ${attempt}`);
+      await expect(page.getByTestId("tutor-current-step")).toContainText(`Versuch ${attempt}`);
+      // The stars stand at the feedback; a weak answer keeps the question open without a Weiter step.
+      await expect(page.getByTestId("tutor-current-step").getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 2 von 5");
+      await expect(page.getByTestId("tutor-continue")).toHaveCount(0);
+      await expect(answerField(page)).toHaveValue("");
     }
-    await expect(page.getByTestId("tutor-reveal-reason")).toHaveText("Reference answer with explanation available on request.");
+    await expect(page.getByTestId("tutor-unlock-notice")).toContainText("„Musterantwort ansehen“");
+    if (await page.getByTestId("tutor-support-actions").count() === 0) await help.click();
     await page.getByTestId("tutor-action-reveal").focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("tutor-reference")).toContainText("used as solution help");
-    await expect(page.getByTestId("tutor-reference")).toContainText("Assumes: a = 200");
+    await expect(page.getByTestId("tutor-reference")).toContainText("als Lösungshilfe genutzt");
+    await expect(page.getByTestId("tutor-reference")).toContainText("Annahmen: a = 200");
+    await page.screenshot({ path: "test-results/tutor-help-reference.png" });
+
+    // The ratings are in the history; back to the question from there.
+    await page.getByTestId("tutor-history-action").click();
+    await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(3);
+    await page.getByTestId("tutor-back-to-question").click();
+    await expect(page.getByTestId("tutor-question")).toContainText("von 7 herunter");
     // Every learner action had its own id.
     expect(new Set(actionIds).size).toBe(actionIds.length);
   });
 
-  test("learning support: the actions fit a narrow window with XXL text", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 700 });
-    await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
+  test("a failed answer keeps the draft and offers a retry that sends it again", async ({ page }) => {
     await openTutor(page);
-    await page.route("**/api/tutor/question", (route) => route.fulfill({
-      json: {
-        question: "Was wird im ersten Durchlauf ausgegeben?", responseStyle: "normal", provider: "kiconnect", model: "pilot-model",
-        support: {
-          session: "11111111-1111-4111-8111-111111111111", questionHandle: "22222222-2222-4222-8222-222222222222", answerAttempts: 1, clarifications: 1,
-          canRevealReference: false, canSkip: false, referenceAvailable: true, referenceShown: false, outcome: "open",
-        },
-      },
-    }));
-    await page.getByTestId("tutor-new-question-action").click();
-    const actions = page.getByTestId("tutor-support-actions");
-    await expect(actions).toBeVisible();
-    const fits = await actions.evaluate((element) => {
-      const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
-      const box = element.getBoundingClientRect();
-      return box.left >= 0 && box.right <= globalThis.innerWidth + 1 && scroller.scrollWidth <= scroller.clientWidth + 1;
+    let calls = 0;
+    await page.route("**/api/tutor/dialog", (route) => {
+      calls += 1;
+      if (calls === 1) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "late" } } });
+      return route.fulfill({ json: { responseStyle: "normal", question: "Welche Aufgabe hat `pinMode`?", feedback: "Fast.", answerRating: 3, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
     });
-    expect(fits).toBe(true);
+    await askQuestion(page);
+    await answerField(page).fill("Er setzt den Pin");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-error").getByRole("alert")).toHaveText("Der Tutor-Dienst hat zu lange nicht geantwortet.");
+    await expect(answerField(page)).toHaveValue("Er setzt den Pin");
+    await page.getByRole("button", { name: "Erneut versuchen" }).click();
+    await expect(page.getByTestId("tutor-current-step")).toContainText("Fast.");
+    expect(calls).toBe(2);
   });
+
+  test("a failed answer is not repeated with edited code and draft; Senden sends the current ones", async ({ page }) => {
+    await openTutor(page);
+    const sent: { code: string; answer: string }[] = [];
+    await page.route("**/api/tutor/dialog", (route) => {
+      sent.push(route.request().postDataJSON() as { code: string; answer: string });
+      if (sent.length === 1) return route.fulfill({ status: 504, json: { error: { code: "PROVIDER_TIMEOUT", message: "late" } } });
+      return route.fulfill({ json: { responseStyle: "normal", question: "Welche Aufgabe hat `pinMode`?", feedback: "Fast.", answerRating: 3, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
+    });
+    await askQuestion(page);
+    await answerField(page).fill("37");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-error-action")).toHaveText("Erneut versuchen");
+    const edited = "byte a = 200;\nvoid setup() { Serial.begin(9600); Serial.println(a); }\nvoid loop() {}\n";
+    await page.evaluate((code) => (
+      (globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { setValue(value: string): void }
+    ).setValue(code), edited);
+    await answerField(page).fill("200");
+    await expect(page.getByTestId("tutor-error-action")).toHaveCount(0);
+    await expect(page.getByTestId("tutor-error-outdated")).toContainText("„Senden“ schickt die aktuelle Fassung.");
+    await expect(answerField(page)).toHaveValue("200");
+    await page.getByTestId("tutor-send-answer").click();
+    await expect(page.getByTestId("tutor-current-step")).toContainText("Fast.");
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ code: edited, answer: "200" });
+    expect(sent[0]?.code).not.toBe(edited);
+  });
+
+  test("an answer that closes the question shows its stars, then Weiter by keyboard shows the next question", async ({ page }) => {
+    await openTutor(page);
+    let dialogCalls = 0;
+    await page.route("**/api/tutor/dialog", (route) => {
+      dialogCalls += 1;
+      return route.fulfill({ json: { responseStyle: "normal", question: "Was bewirkt `digitalWrite`?", feedback: "Richtig: pinMode legt die Richtung des Pins fest.", answerRating: 4, learnerInput: "answer", provider: "kiconnect", model: "pilot-model" } });
+    });
+    await askQuestion(page);
+    await answerField(page).fill("Er legt fest, ob der Pin Ein- oder Ausgang ist.");
+    await page.keyboard.press("Enter");
+
+    const next = page.getByTestId("tutor-continue");
+    await expect(next).toBeFocused();
+    await expect(page.getByTestId("tutor-question")).toContainText("Beantwortete Frage");
+    await expect(page.getByTestId("tutor-question")).toContainText("pinMode");
+    const step = page.getByTestId("tutor-current-step");
+    await expect(step).toContainText("Er legt fest, ob der Pin Ein- oder Ausgang ist.");
+    await expect(step.getByTestId("tutor-answer-rating")).toHaveAttribute("aria-label", "Verständnisbewertung 4 von 5");
+    await expect(step).toHaveAttribute("aria-live", "polite");
+    await expect(answerField(page)).toHaveCount(0);
+    await expect(page.getByTestId("tutor-help-toggle")).toHaveCount(0);
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("tutor-question")).toContainText("digitalWrite");
+    await expect(answerField(page)).toBeFocused();
+    await expect(page.getByTestId("tutor-answer-rating")).toHaveCount(0);
+    expect(dialogCalls).toBe(1);
+  });
+
+  // The feedback of an answer that closed its question, with XXL text: its rating and start in view, Weiter focused
+  // and visible, and no text under the floating mobile navigation (review of 2356be848, R2 and R3). On tablets the
+  // floating navigation is shown too; a real click on Weiter's arrow reaches Weiter (review of 0fa5bda47, N1).
+  for (const layout of [
+    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true }, advance: "enter" },
+    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "enter" },
+    { name: "a short 900 px tablet", width: 900, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "click" },
+    { name: "a short 800 px tablet", width: 800, height: 360, columns: { code: true, simulation: true, tutor: true }, advance: "click" },
+  ] as const) {
+    test(`keeps the rating and the start of the feedback in view and no text under the navigation on ${layout.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
+      await openTutor(page, layout.columns);
+      const question = "Wie oft läuft die Schleife, wenn `wert` mit 2000 startet, und woran erkennst du das in der Ausgabe des Sketches?";
+      await page.route("**/api/tutor/question", (route) => route.fulfill({ json: { question, responseStyle: "normal", provider: "kiconnect", model: "pilot-model" } }));
+      await page.route("**/api/tutor/dialog", (route) => route.fulfill({
+        json: {
+          responseStyle: "normal", question: "Warum muss `wert` im Schleifenblock verändert werden?", answerRating: 4, learnerInput: "answer",
+          feedback: "Richtig: Die Bedingung wird vor dem ersten Durchlauf geprüft. Mit diesem Startwert ist sie sofort falsch. Deshalb erscheint keine Zeile aus dem Schleifenblock in der Ausgabe.",
+          provider: "kiconnect", model: "pilot-model",
+        },
+      }));
+      await page.getByTestId("tutor-start-question").click();
+      await answerField(page).fill("Die Schleife wird gar nicht betreten, weil die Bedingung schon beim ersten Prüfen falsch ist.");
+      await page.getByTestId("tutor-send-answer").click();
+      const next = page.getByTestId("tutor-continue");
+      await expect(next).toBeFocused();
+      await page.screenshot({ path: `test-results/tutor-feedback-xxl-${layout.width}.png` });
+
+      const view = await page.evaluate(() => {
+        const scroller = document.querySelector('[data-testid="tutor-dialog-scroll"]')!.getBoundingClientRect();
+        const box = (testId: string) => document.querySelector(`[data-testid="${testId}"]`)!.getBoundingClientRect();
+        const footer = document.querySelector('[data-testid="tutor-continue"]')!.parentElement!.getBoundingClientRect();
+        const feedback = document.querySelector('[data-testid="tutor-current-step"] [data-testid="tutor-history-feedback"] p:last-child')!;
+        const range = document.createRange();
+        range.selectNodeContents(feedback);
+        const firstLine = range.getClientRects()[0]!;
+        const rating = box("tutor-answer-rating");
+        const button = box("tutor-continue");
+        return {
+          ratingVisible: rating.top >= scroller.top - 1 && rating.bottom <= footer.top + 1,
+          feedbackStartVisible: firstLine.top >= scroller.top - 1 && firstLine.bottom <= footer.top + 1,
+          continueVisible: button.top >= scroller.top - 1 && button.bottom <= scroller.bottom + 1,
+        };
+      });
+      expect(view).toEqual({ ratingVisible: true, feedbackStartVisible: true, continueVisible: true });
+
+      // Every character of question, answer and feedback, at the top and at the end of the column.
+      const covered = async () => page.evaluate(() => {
+        const scroller = document.querySelector('[data-testid="tutor-dialog-scroll"]')!;
+        const navigation = document.querySelector("[data-mobile-fab-toolbar]");
+        const area = scroller.getBoundingClientRect();
+        const hidden: string[] = [];
+        const walker = document.createTreeWalker(scroller, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.textContent ?? "";
+          for (let index = 0; index < text.length; index += 1) {
+            if (!text[index]!.trim()) continue;
+            const range = document.createRange();
+            range.setStart(node, index);
+            range.setEnd(node, index + 1);
+            const glyph = range.getBoundingClientRect();
+            if (glyph.width <= 0 || glyph.top < area.top || glyph.bottom > area.bottom) continue;
+            const hit = document.elementFromPoint((glyph.left + glyph.right) / 2, (glyph.top + glyph.bottom) / 2);
+            if (hit && navigation?.contains(hit)) hidden.push(text[index]!);
+          }
+        }
+        return hidden.join("");
+      });
+      expect(await covered()).toBe("");
+      await page.getByTestId("tutor-dialog-scroll").evaluate((element) => { element.scrollTop = 0; });
+      expect(await covered()).toBe("");
+      await page.getByTestId("tutor-dialog-scroll").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      expect(await covered()).toBe("");
+
+      // Weiter's arrow, at its right end, is Weiter's and not the navigation's.
+      const arrow = await next.evaluate((button) => {
+        const box = (button.querySelector("svg") ?? button).getBoundingClientRect();
+        const x = (box.left + box.right) / 2;
+        const y = (box.top + box.bottom) / 2;
+        return { x, y, reachesWeiter: button.contains(document.elementFromPoint(x, y)) };
+      });
+      expect(arrow.reachesWeiter).toBe(true);
+      if (layout.advance === "click") await page.mouse.click(arrow.x, arrow.y);
+      else await page.keyboard.press("Enter");
+      await expect(page.getByTestId("tutor-question")).toContainText("im Schleifenblock verändert");
+      await expect(answerField(page)).toBeFocused();
+      expect(await covered()).toBe("");
+    });
+  }
+
+  // Every unlocked help, with XXL text: on a phone beside the mobile navigation, and in a narrow third column (review R3).
+  for (const layout of [
+    { name: "a 320 px phone", width: 320, height: 640, columns: { code: true, simulation: false, tutor: true } },
+    { name: "a short desktop with three columns", width: 1100, height: 360, columns: { code: true, simulation: true, tutor: true } },
+  ]) {
+    test(`learning support: all unlocked actions fit ${layout.name} with XXL text`, async ({ page }) => {
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.addInitScript(() => localStorage.setItem("unoFontScale", "1.5"));
+      await openTutor(page, layout.columns);
+      await page.route("**/api/tutor/question", (route) => route.fulfill({
+        json: {
+          question: "Was wird im ersten Durchlauf ausgegeben?", responseStyle: "normal", provider: "kiconnect", model: "pilot-model",
+          support: {
+            session: "11111111-1111-4111-8111-111111111111", questionHandle: "22222222-2222-4222-8222-222222222222", answerAttempts: 3, clarifications: 2,
+            canRevealReference: true, canSkip: true, referenceAvailable: true, referenceShown: false, outcome: "open",
+          },
+        },
+      }));
+      await page.getByTestId("tutor-start-question").click();
+      await page.getByTestId("tutor-help-toggle").click();
+      const help = page.getByTestId("tutor-support-actions");
+      await expect(help.getByRole("button")).toHaveCount(4);
+      await help.getByText("Wann gibt es weitere Hilfen?").click();
+      await help.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/tutor-help-xxl-${layout.width}.png` });
+
+      const problems = await help.evaluate((element) => {
+        const found: string[] = [];
+        const scroller = element.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+        const area = element.getBoundingClientRect();
+        const fab = document.querySelector("[data-mobile-fab-toolbar]")?.getBoundingClientRect();
+        if (scroller.scrollWidth > scroller.clientWidth + 1) found.push(`scroller overflows by ${scroller.scrollWidth - scroller.clientWidth}px`);
+        if (area.left < 0 || area.right > globalThis.innerWidth + 1) found.push("help area leaves the window");
+        if (fab && fab.width > 0 && area.right > fab.left + 1) found.push("help area reaches under the mobile navigation");
+        for (const button of element.querySelectorAll("button")) {
+          const box = button.getBoundingClientRect();
+          const name = button.textContent?.trim();
+          if (box.left < area.left - 1 || box.right > area.right + 1) found.push(`${name} leaves the help area`);
+          if (button.scrollWidth > button.clientWidth + 1 || button.scrollHeight > button.clientHeight + 1) found.push(`${name} is clipped`);
+        }
+        return found;
+      });
+      expect(problems).toEqual([]);
+
+      // The Weiter action after an answer that closed the question fits as well.
+      await page.route("**/api/tutor/dialog", (route) => route.fulfill({
+        json: {
+          responseStyle: "normal", question: "Warum zählt die Schleife herunter?", feedback: "Richtig.", answerRating: 5, learnerInput: "answer",
+          provider: "kiconnect", model: "pilot-model",
+          support: {
+            session: "11111111-1111-4111-8111-111111111111", questionHandle: "33333333-3333-4333-8333-333333333333", answerAttempts: 0, clarifications: 0,
+            canRevealReference: false, canSkip: false, referenceAvailable: true, referenceShown: false, outcome: "open",
+          },
+        },
+      }));
+      await answerField(page).fill("1");
+      await page.getByTestId("tutor-send-answer").click();
+      const next = page.getByTestId("tutor-continue");
+      await expect(next).toBeFocused();
+      await next.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/tutor-continue-xxl-${layout.width}.png` });
+      const continueProblems = await next.evaluate((button) => {
+        const found: string[] = [];
+        const scroller = button.closest('[data-testid="tutor-dialog-scroll"]') as HTMLElement;
+        const box = button.getBoundingClientRect();
+        const lane = scroller.getBoundingClientRect();
+        const fab = document.querySelector("[data-mobile-fab-toolbar]")?.getBoundingClientRect();
+        if (scroller.scrollWidth > scroller.clientWidth + 1) found.push(`scroller overflows by ${scroller.scrollWidth - scroller.clientWidth}px`);
+        if (box.left < lane.left - 1 || box.right > lane.right + 1) found.push("Weiter leaves the column");
+        if (button.scrollWidth > button.clientWidth + 1 || button.scrollHeight > button.clientHeight + 1) found.push("Weiter is clipped");
+        if (fab && fab.width > 0 && box.right > fab.left + 1 && box.bottom > fab.top && box.top < fab.bottom) found.push("Weiter lies under the mobile navigation");
+        return found;
+      });
+      expect(continueProblems).toEqual([]);
+    });
+  }
 });

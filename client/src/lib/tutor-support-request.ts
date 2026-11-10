@@ -22,7 +22,7 @@ export async function sendTutorSupportAction(
   if (signal.aborted) return null;
   if (!response.ok) throw failure(payload);
   const parsed = tutorSupportResponseSchema.safeParse(payload);
-  if (!parsed.success) throw new Error("The Tutor service returned an invalid response.");
+  if (!parsed.success) throw new Error("Der Tutor-Dienst hat eine ungültige Antwort geliefert.");
   return parsed.data;
 }
 

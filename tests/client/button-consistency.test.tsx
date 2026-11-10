@@ -14,7 +14,7 @@ describe("shared Button consistency", () => {
           <Copy />
           Copy
         </Button>
-        <Button size="sm" variant="destructiveOutline" disabled>
+        <Button size="sm" variant="outline" disabled>
           <Trash2 />
           Clear
         </Button>
@@ -23,9 +23,9 @@ describe("shared Button consistency", () => {
 
     const icon = screen.getByRole("button", { name: "view" });
     const compact = screen.getByRole("button", { name: "Copy" });
-    const destructive = screen.getByRole("button", { name: "Clear" });
+    const clear = screen.getByRole("button", { name: "Clear" });
 
-    for (const button of [icon, compact, destructive]) {
+    for (const button of [icon, compact, clear]) {
       expect(button).toHaveClass(
         "h-[var(--ui-button-height)]",
         "rounded-md",
@@ -36,12 +36,8 @@ describe("shared Button consistency", () => {
     }
     expect(icon).toHaveClass("w-[var(--ui-button-height)]", "p-0");
     expect(compact).toHaveClass("px-3");
-    expect(destructive).toHaveClass(
-      "px-3",
-      "border-destructive",
-      "bg-background",
-      "text-danger-soft",
-    );
-    expect(destructive).toBeDisabled();
+    // Clearing is a neutral action (style guide, rule 1): the same outline variant as Copy.
+    expect(clear).toHaveClass("px-3", "text-foreground");
+    expect(clear).toBeDisabled();
   });
 });

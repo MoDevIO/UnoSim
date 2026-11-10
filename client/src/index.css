@@ -187,7 +187,9 @@ html, body {
   --card-foreground: hsl(0 0% 98%);
   --popover: hsl(0 0% 11%);
   --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0, 0%, 53%);
+  /* Primary action and selection (style guide, section 2): 4.8:1 for its text, hover 6.8:1. */
+  --primary: #15803d;
+  --primary-hover: #166534;
   --primary-foreground: hsl(0 0% 98%);
   --secondary: hsl(217 33% 17%);
   --secondary-foreground: hsl(0 0% 98%);
@@ -195,6 +197,7 @@ html, body {
   --muted-foreground: hsl(0 0% 63%);
   --accent: hsl(142 86% 28%);
   --accent-foreground: hsl(0 0% 98%);
+  /* Error surface: error toasts and messages only, never a button (style guide, rule 2). */
   --destructive: hsl(0 63% 31%);
   --destructive-foreground: hsl(0 0% 98%);
   --border: hsl(0 0% 15%);
@@ -235,6 +238,10 @@ html, body {
   --ui-line-base: 20px;
   --ui-button-base-height: 32px;
   --ui-mobile-touch-target: 52px;
+  /* Room the floating mobile navigation takes at the right edge: its buttons, padding and gap to the content. */
+  --ui-mobile-fab-reserve: calc(var(--ui-mobile-touch-target) + 1.75rem);
+  /* The reserve while the floating navigation is shown (phone, and tablet with the Tutor), else none. */
+  --ui-floating-nav-inset: 0px;
   --ui-mobile-header-height: 60px;
   --ui-control-font-size: calc(var(--ui-font-size) * 1);
   --ui-font-size: calc(var(--ui-font-base-size) * var(--ui-font-scale));
@@ -244,13 +251,20 @@ html, body {
   /* Design tokens (CSS variable bridge for Tailwind semantic colors) */
     --color-brand-primary: #00979d; /* Arduino original teal */
     --color-status-success: #22c55e; /* success (emerald-500) */
-    --color-status-success-dark: #16a34a; /* darker success for hovers */
+    --color-status-success-dark: #16a34a; /* kept: board colors saved before the presets had their own tokens */
     --color-status-error: var(--color-danger-soft);
     --color-status-warning: #f97316; /* warning / amber */
     --color-accent-cyan: #06b6d4; /* informational and busy status */
+    --color-run-stop: #c2410c; /* Stop while a simulation runs: 5.0:1 for white */
+    --color-run-stop-hover: #9a3412;
+    --color-rating: #f59e0b; /* Tutor stars */
+    /* Data colors: never a status (style guide, rule 2). */
+    --color-data-rx: #60a5fa;
+    --color-data-tx: #a78bfa;
+    --color-data-pin-active: #fbbf24; /* synthetic HIGH/PWM pin indicator, mixed with black by brightness */
     --color-accent-amber: #fb923c;
     --plot-1: #3b82f6; /* blue */
-    --plot-2: #ef4444; /* red */
+    --plot-2: #84cc16; /* lime: no default series in the error red */
     --plot-3: #10b981; /* green */
     --plot-4: #f59e0b; /* amber */
     --plot-5: #8b5cf6; /* purple */
@@ -274,25 +288,18 @@ html, body {
     --color-purple-1: #8338ec;
     --color-purple-2: #7c3aed;
     --color-surface-dark: #2a2a2a;
+    /* Board color presets that look like status colors: content colors of their own (style guide, section 1). */
+    --color-preset-green: #22c55e;
+    --color-preset-green-dark: #16a34a;
+    --color-preset-red: #ff6b6b;
+    --color-preset-orange: #f97316;
 
 
 
-  /* Preset palette tokens (used by SettingsDialog) */
-  --color-brand-variant-1: #0b5f73;
-  --color-brand-variant-2: #0a98a8;
-  --color-brand-blue: #2b6fb3;
-  --color-brand-teal: #1f7a8c;
-  --color-green-dark: #245c3d;
-  --color-success-variant: #1f9d55;
-  --color-danger-soft: #ff6b6b;
-  --color-accent-orange-soft: #ff9f1c;
-  --color-accent-yellow-soft: #ffd166;
-  --color-accent-amber: #fb923c;
-  --color-purple-1: #8338ec;
-  --color-purple-2: #7c3aed;
-  --color-surface-dark: #2a2a2a;
+}
 
-  /* Semantic tokens for simulation controls (start/stop) and serial monitor */
+:root[data-floating-navigation] {
+  --ui-floating-nav-inset: var(--ui-mobile-fab-reserve);
 }
 
 

@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 13
+corpusVersion: 15
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -558,3 +558,115 @@ scenarios:
       supportAfter:
         answerAttempts: 3
         referenceShown: true
+
+  # IT06.1, feedback quality over several steps (Evaluation SSOT 15, R-SUP-E5; LearningQuestions R-SUP-9). The
+  # learner's sketch sets GRENZE to 2000 while wert still starts at 1: 11 passes, final value 2048. The teacher's
+  # prediction question assumes wert starts at 2000: 2000 < 2000 is false at the first check, 0 passes. Computed
+  # by hand, independently of the Tutor model. Each case judges one step; the earlier steps are replayed live.
+  # The dialog is reconstructed from the review note of 2026-11-09, not the learner's verbatim transcript.
+  - id: TQ-SUP-IT061-OBSERVATION
+    sketch: evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino
+    courseContent: it06-1
+    transport: http
+    referenceProvenance: &it061-provenance "IT06.1, hand-computed (LearningQuestions R-SUP-9): GRENZE = 2000, wert = 1 -> 11 passes, final 2048; question wert = 2000 -> 2000 < 2000 false at the first check, 0 passes"
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: &it061-concept "Wann wird die Bedingung `wert < GRENZE` geprüft?"
+        answer: &it061-concept-answer Am Anfang jedes Durchlaufs, bevor der Block ausgeführt wird.
+      - kind: dialog
+        question: &it061-prediction "Wie oft läuft die Schleife, wenn `wert` mit 2000 startet?"
+        answer: &it061-observation 11 Durchläufe, der Endwert ist 2048. Das sieht man in der Ausgabe.
+    expected:
+      answerRating: [1, 2]
+      learnerInput: answer
+      supportAfter:
+        answerAttempts: 1
+        outcome: open
+      mustNotReveal: &it061-hidden
+        - 0 Durchläufe
+        - 0 Mal
+        - kein einziges Mal
+        - nicht betreten
+        - läuft keinmal
+    judge:
+      facts: &it061-facts
+        - Im Sketch ist GRENZE 2000 und wert startet mit 1; die Schleife läuft dann 11-mal, der Endwert ist 2048.
+        - Die Frage setzt dagegen voraus, dass wert mit 2000 startet; GRENZE und der Anfangswert von wert sind verschiedene Größen.
+        - Mit wert = 2000 ist die Bedingung wert < GRENZE schon bei der ersten Prüfung falsch; die Schleife läuft keinmal.
+      criteria:
+        - id: acknowledges-observation
+          text: Das Feedback erkennt an, dass 11 Durchläufe und der Endwert 2048 zum aktuellen Sketch passen.
+        - id: names-differing-assumption
+          text: Das Feedback erklärt konkret, dass die Frage den Anfangswert von wert meint und nicht GRENZE, oder dass im Sketch GRENZE geändert wurde, während wert weiterhin bei 1 beginnt.
+        - id: no-result-revealed
+          text: Das Feedback nennt die gesuchte Zahl der Durchläufe für den Anfangswert 2000 nicht.
+
+  - id: TQ-SUP-IT061-OBJECTION
+    sketch: evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino
+    courseContent: it06-1
+    transport: http
+    referenceProvenance: *it061-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it061-concept
+        answer: *it061-concept-answer
+      - kind: dialog
+        question: *it061-prediction
+        answer: *it061-observation
+      - kind: dialog
+        question: *it061-prediction
+        answer: &it061-objection ich habe 2000 eingesetzt und das sieht man auch an den Werten!
+    expected:
+      answerRating: [1, 2]
+      learnerInput: answer
+      supportAfter:
+        answerAttempts: 2
+        outcome: open
+      mustNotReveal: *it061-hidden
+    judge:
+      facts: *it061-facts
+      criteria:
+        - id: answers-objection
+          text: Das Feedback geht auf den Einwand ein und erklärt, dass die 2000 in GRENZE steht, während wert weiterhin bei 1 beginnt.
+        - id: not-only-check-condition
+          text: Das Feedback beschränkt sich nicht darauf, zur Prüfung der Bedingung aufzufordern oder eine fehlende Anzahl zu beanstanden.
+        - id: no-result-revealed
+          text: Das Feedback nennt die gesuchte Zahl der Durchläufe für den Anfangswert 2000 nicht.
+
+  - id: TQ-SUP-IT061-CORRECTED
+    sketch: evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino
+    courseContent: it06-1
+    transport: http
+    referenceProvenance: *it061-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: *it061-concept
+        answer: *it061-concept-answer
+      # The steps before the correct answer must not reveal it, in raw and delivered output; the confirmation
+      # of the correct answer at the end may name it (R-SUP-E5).
+      - kind: dialog
+        question: *it061-prediction
+        answer: *it061-observation
+        mustNotReveal: *it061-hidden
+      - kind: dialog
+        question: *it061-prediction
+        answer: *it061-objection
+        mustNotReveal: *it061-hidden
+      - kind: dialog
+        question: *it061-prediction
+        answer: Die Schleife wird nie betreten. Es gibt keinen Startwert.
+    expected:
+      answerRating: [3, 5]
+      learnerInput: answer
+    judge:
+      facts: *it061-facts
+      criteria:
+        - id: confirms-core-statement
+          text: Das Feedback bestätigt deutlich, dass die Schleife mit wert = 2000 nicht betreten wird, also keinmal läuft.
+        - id: does-not-call-wrong
+          text: Das Feedback bezeichnet die Kernaussage der Antwort nicht als falsch und relativiert sie nicht als nur teilweise richtig.
+        - id: no-false-claim
+          text: Das Feedback enthält keine fachlich falsche Aussage über den Sketch oder die Schleife.

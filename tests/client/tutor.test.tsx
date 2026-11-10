@@ -206,7 +206,7 @@ describe("useTutor", () => {
     act(() => result.current.setCredential("volatile-key"));
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
 
-    expect(result.current.error).toMatch(/Reload the example/);
+    expect(result.current.error).toMatch(/Lade das Beispiel/);
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith("/api/examples"))).toBe(true));
   });
 
@@ -248,7 +248,7 @@ describe("useTutor", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.current.error).toContain("personal Tutor API key");
+    expect(result.current.error).toContain("persönlichen Tutor-API-Key");
   });
 
   it("clamps configured client difficulty changes to 1..100", async () => {
@@ -307,6 +307,11 @@ describe("useTutor", () => {
     await act(async () => {
       await result.current.submitAnswer("void setup(){} void loop(){}");
     });
+    // The answer closed the question: its feedback stays shown, the next question waits for the learner.
+    expect(result.current.awaitingNext).toBe(true);
+    expect(result.current.question?.question).toBe("Was beobachtest du an Pin 13?");
+    act(() => result.current.continueToNextQuestion());
+    expect(result.current.awaitingNext).toBe(false);
 
     const dialogCall = fetchMock.mock.calls.find(([input]) => String(input) === "/api/tutor/dialog");
     expect(dialogCall).toBeDefined();
@@ -379,11 +384,13 @@ describe("useTutor", () => {
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
     act(() => result.current.setAnswer("Der Pin wird HIGH gesetzt."));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.continueToNextQuestion());
     expect(result.current.effectiveDifficulty).toBe(54);
     expect(result.current.sessionRating).toBe(5);
 
     act(() => result.current.setAnswer("Pizza mit Einhorn"));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.continueToNextQuestion());
     expect(result.current.effectiveDifficulty).toBe(54);
     expect(result.current.sessionRating).toBe(5);
     expect(localStorage.getItem(TUTOR_CONFIGURED_DIFFICULTY_STORAGE_KEY)).toBe("50");
@@ -426,8 +433,10 @@ describe("useTutor", () => {
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
     act(() => result.current.setAnswer("Keine Ahnung"));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.continueToNextQuestion());
     act(() => result.current.setAnswer("Immer noch unklar"));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.continueToNextQuestion());
 
     expect(dialogDifficulties).toEqual([50, 47]);
     expect(result.current.effectiveDifficulty).toBe(44);
@@ -470,6 +479,7 @@ describe("useTutor", () => {
     await act(async () => result.current.generateQuestion("void setup(){} void loop(){}"));
     act(() => result.current.setAnswer("Erste Überlegung"));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
+    act(() => result.current.continueToNextQuestion());
     act(() => result.current.setAnswer("Meine Überlegung"));
     await act(async () => result.current.submitAnswer("void setup(){} void loop(){}"));
 

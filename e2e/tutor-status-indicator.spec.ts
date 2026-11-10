@@ -13,9 +13,9 @@ test.describe("Tutor status indicator", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const tutorPanel = page.getByTestId("tutor-panel");
-    const questionAction = page.getByTestId("tutor-new-question-action");
+    const statusIcon = page.getByTestId("tutor-status-icon");
     await expect(tutorPanel).toBeVisible();
-    await expect(questionAction).toHaveAttribute("aria-label", /Tutor not ready$/);
+    await expect(statusIcon).toHaveAttribute("aria-label", "Tutor nicht eingerichtet");
     await expect.poll(() => page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true);
 
     await page.route("**/api/tutor/models", async (route) => {
@@ -25,10 +25,10 @@ test.describe("Tutor status indicator", () => {
         body: JSON.stringify({ models: ["pilot-model"] }),
       });
     });
-    await page.getByTestId("tutor-api-key-action").click();
-    await page.getByLabel("API key", { exact: true }).fill("test-key");
+    await page.getByTestId("tutor-setup-action").click();
+    await page.getByLabel("API-Key", { exact: true }).fill("test-key");
     await page.getByTestId("tutor-apply-key").click();
-    await expect(questionAction).toHaveAttribute("aria-label", /Tutor ready$/);
+    await expect(statusIcon).toHaveAttribute("aria-label", "Tutor bereit");
 
     let releaseQuestionRequest!: () => void;
     const questionRequest = new Promise<void>((resolve) => {
@@ -48,10 +48,11 @@ test.describe("Tutor status indicator", () => {
       });
     });
 
-    await questionAction.click();
-    await expect(questionAction).toHaveAttribute("aria-label", /Tutor is generating a question$/);
+    await page.getByTestId("tutor-start-question").click();
+    await expect(statusIcon).toHaveAttribute("aria-label", "Tutor erstellt eine Frage");
+    await expect(page.getByTestId("tutor-pending")).toHaveText("Tutor erstellt eine Frage …");
 
-    const reducedMotionStyle = await questionAction.locator("svg").evaluate((element) => {
+    const reducedMotionStyle = await statusIcon.locator("svg").evaluate((element) => {
       const style = getComputedStyle(element);
       return {
         width: style.width,
@@ -70,7 +71,7 @@ test.describe("Tutor status indicator", () => {
     });
 
     releaseQuestionRequest();
-    await expect(questionAction).toHaveAttribute("aria-label", /Tutor is waiting for your answer$/);
+    await expect(statusIcon).toHaveAttribute("aria-label", "Tutor wartet auf deine Antwort");
     await expect.poll(async () => page.getByTestId("tutor-panel").locator("svg").count()).toBeGreaterThan(0);
   });
 });

@@ -37,6 +37,7 @@ import {
   addNotApplicableCheck,
   addViolation,
   declaredLeakCheck,
+  revealLiteralsFor,
   EvaluationBudgetExceeded,
   hasReturnedModel,
   providerAttempts,
@@ -75,11 +76,14 @@ export type TutorQualityTurn =
     readonly continuationOf?: number;
     readonly difficulty?: number;
     readonly history?: readonly TutorDialogTurn[];
+    /** Literals this turn must not contain, besides the case's: a later turn may confirm the answer. */
+    readonly mustNotReveal?: readonly string[];
   }
   | {
     readonly kind: "support";
     readonly action: TutorSupportAction;
     readonly difficulty?: number;
+    readonly mustNotReveal?: readonly string[];
   };
 
 export interface TutorQualityEvaluationScenario {
@@ -153,6 +157,8 @@ export interface TutorQualityInvariantViolation {
 export interface TutorQualityTechnicalError {
   readonly kind: string;
   readonly name: string;
+  /** The provider's Retry-After in seconds when it sent one; without it no release time is known. */
+  readonly retryAfterSeconds?: number;
 }
 
 export interface TutorQualityProviderRequestArtifact {
@@ -520,7 +526,7 @@ function deterministicRawChecks(
     addViolation(violations, issue.code, "raw-provider", turnIndex);
   }
   if (turn.kind !== "dialog") return;
-  declaredLeakCheck(rawResult, expected?.mustNotReveal, turnIndex, checks, violations);
+  declaredLeakCheck(rawResult, revealLiteralsFor(expected, turn), turnIndex, checks, violations);
   const question = typeof rawResult === "object" && rawResult !== null && !Array.isArray(rawResult)
     ? (rawResult as { question?: unknown }).question
     : undefined;

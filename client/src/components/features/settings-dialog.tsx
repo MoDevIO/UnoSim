@@ -282,12 +282,12 @@ export default function SettingsDialog({
                     "var(--color-brand-teal)",
                     "var(--color-green-dark)",
                     "var(--color-success-variant)",
-                    "var(--color-status-success-dark)",
-                    "var(--color-status-success)",
-                    "var(--color-danger-soft)",
+                    "var(--color-preset-green-dark)",
+                    "var(--color-preset-green)",
+                    "var(--color-preset-red)",
                     "var(--color-accent-orange-soft)",
                     "var(--color-accent-yellow-soft)",
-                    "var(--color-status-warning)",
+                    "var(--color-preset-orange)",
                     "var(--color-accent-amber)",
                     "var(--color-purple-1)",
                     "var(--color-purple-2)",
@@ -388,10 +388,7 @@ export default function SettingsDialog({
         >
           <div className="flex w-full justify-end gap-2">
             <DialogClose asChild>
-              <Button
-                className="text-ui-foreground hover:bg-status-success-dark"
-                style={{ backgroundColor: "var(--color-status-success)" }}
-              >
+              <Button>
                 Done
               </Button>
             </DialogClose>

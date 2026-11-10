@@ -8,7 +8,6 @@ interface ToolbarIconButtonProps
   extends Omit<React.ComponentPropsWithoutRef<typeof Button>, "children" | "size" | "variant"> {
   readonly icon: ReactNode;
   readonly label: string;
-  readonly destructive?: boolean;
   readonly pressed?: boolean;
   readonly status?: "default" | "success" | "muted" | "bright" | "error";
   readonly animated?: boolean;
@@ -50,7 +49,6 @@ function getToolbarIconAnimationClassName(
 export function ToolbarIconButton({
   icon,
   label,
-  destructive = false,
   pressed,
   status,
   animated = false,
@@ -69,7 +67,6 @@ export function ToolbarIconButton({
   if (React.isValidElement(icon)) {
     renderedIcon = React.cloneElement(icon, {
         className: cn(
-          destructive && "text-red-500",
           animationClassName,
           (icon.props as { className?: string }).className,
         ),
@@ -82,7 +79,9 @@ export function ToolbarIconButton({
       variant="ghost"
       size="icon"
       className={cn(
-        "hover:border-transparent",
+        // A neutral hover surface: the status color of the icon (active, inactive, error) stays readable on it,
+        // where the green accent surface of the ghost variant would not (review of 0fa5bda47, N2).
+        "hover:border-transparent hover:bg-muted",
         statusClassName,
         iconSize === "lg" ? "[&_svg]:!h-5 [&_svg]:!w-5" : undefined,
         className,

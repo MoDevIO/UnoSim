@@ -101,7 +101,7 @@ function StatCell({ label, value, valueClass }: StatCellProps) {
   return (
     <div className="flex flex-col items-start leading-tight">
       <span
-        className="uppercase tracking-wider text-cyan-500/50 whitespace-nowrap"
+        className="uppercase tracking-wider text-muted-foreground whitespace-nowrap"
         style={{ fontSize: "calc(9px * var(--ui-font-scale))" }}
       >
         {label}
@@ -275,11 +275,11 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
           value={showsBrowserEngine ? (
             <span className="flex items-center gap-1" data-testid="browser-run-info">
               <span className="text-white/50">ENGINE:</span>
-              <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">BROWSER</span>
+              <span className="text-accent-cyan font-bold font-mono whitespace-nowrap">BROWSER</span>
               {browserRun?.realTimeFactor !== undefined && (
                 <>
                   <span className="text-white/30">|</span>
-                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap" data-testid="real-time-factor">
+                  <span className="text-accent-cyan font-bold font-mono whitespace-nowrap" data-testid="real-time-factor">
                     {`×${browserRun.realTimeFactor.toFixed(2)}`}
                   </span>
                 </>
@@ -290,7 +290,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
               {engine === "host-mock" && (
                 <>
                   <span className="text-white/50">ENGINE:</span>
-                  <span className="text-amber-300 font-bold font-mono whitespace-nowrap" data-testid="legacy-engine-info">LEGACY</span>
+                  <span className="text-status-warning font-bold font-mono whitespace-nowrap" data-testid="legacy-engine-info">LEGACY</span>
                   <span className="text-white/30">|</span>
                 </>
               )}
@@ -303,7 +303,7 @@ export const SimCockpit: React.FC<SimCockpitProps> = React.memo(({
               {!wsError && simSlotVal && (
                 <>
                   <span className="text-white/30">|</span>
-                  <span className="text-cyan-300 font-bold font-mono whitespace-nowrap">{simSlotVal}</span>
+                  <span className="text-accent-cyan font-bold font-mono whitespace-nowrap">{simSlotVal}</span>
                 </>
               )}
             </span>

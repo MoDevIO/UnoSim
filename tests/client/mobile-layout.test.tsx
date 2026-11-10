@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { MobileLayout } from "../../client/src/components/features/mobile-layout";
+import { FLOATING_NAVIGATION_ATTRIBUTE, MobileLayout } from "../../client/src/components/features/mobile-layout";
 
 describe("MobileLayout component", () => {
   it("renders nothing when not mobile", () => {
@@ -13,6 +13,21 @@ describe("MobileLayout component", () => {
       />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    ["phone", true, false, false, true],
+    ["tablet with the Tutor", false, true, true, true],
+    ["tablet without the Tutor", false, true, false, false],
+    ["desktop", false, false, true, false],
+  ] as const)("marks the page while the floating navigation is shown (%s), so content keeps its room free", (_name, isMobile, isTablet, showTutor, shown) => {
+    const { unmount } = render(
+      <MobileLayout isMobile={isMobile} isTablet={isTablet} showTutor={showTutor} mobilePanel="tutor" setMobilePanel={vi.fn()} overlayZ={50} />,
+    );
+    expect(document.documentElement.hasAttribute(FLOATING_NAVIGATION_ATTRIBUTE)).toBe(shown);
+    expect(screen.queryByTestId("mobile-fab-container") !== null).toBe(shown);
+    unmount();
+    expect(document.documentElement.hasAttribute(FLOATING_NAVIGATION_ATTRIBUTE)).toBe(false);
   });
 
   it("keeps the panel selection non-null and routes button clicks", () => {

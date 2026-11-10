@@ -12,17 +12,17 @@ import {
 import type { Props as LegendProps } from "recharts/types/component/DefaultLegendContent";
 import type { OutputLine } from "@shared/schema";
 
-/** Default palette mirrors the --plot-N CSS variables in index.css */
-const DEFAULT_COLORS = [
-  "#3b82f6", // --plot-1 blue
-  "#ef4444", // --plot-2 red
-  "#10b981", // --plot-3 green
-  "#f59e0b", // --plot-4 amber
-  "#8b5cf6", // --plot-5 purple
-  "#ec4899", // --plot-6 pink
-  "#06b6d4", // --plot-7 cyan
-  "#f97316", // --plot-8 orange
-];
+/** The plot series colors (`--plot-1` … `--plot-8` in index.css, style guide section 1); content colors. */
+const PLOT_TOKENS = Array.from({ length: 8 }, (_, index) => `--plot-${index + 1}`);
+
+/**
+ * The palette as concrete values, read from the tokens: the native color input of the legend needs a hex value.
+ * Without the stylesheet (tests) the token itself serves the line.
+ */
+function readPlotPalette(): readonly string[] {
+  const style = typeof document === "undefined" ? null : getComputedStyle(document.documentElement);
+  return PLOT_TOKENS.map((token) => style?.getPropertyValue(token).trim() || `var(${token})`);
+}
 
 interface SerialPlotterProps {
   readonly output: OutputLine[];
@@ -30,6 +30,7 @@ interface SerialPlotterProps {
 
 export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
   const [customColors, setCustomColors] = useState<Record<string, string>>({});
+  const palette = useMemo(readPlotPalette, []);
   const { chartData, seriesKeys, seriesNames } = useMemo(() => {
     const data: Array<{ index: number; [key: string]: number | string }> = [];
     const seriesRegistry = new Map<string, number>(); // Maps "Name" -> unique stable index
@@ -209,7 +210,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
                   : key;
 
               // Resolve color: user-chosen override first, then default palette
-              const defaultColor = DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
+              const defaultColor = palette[idx % palette.length];
               const color = customColors[key] ?? defaultColor;
 
               return (

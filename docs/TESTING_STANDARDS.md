@@ -275,7 +275,11 @@ This also refreshes board SVGs and compiled workers after a pull; an existing
 `dist` directory is not evidence that it matches the current source. The test
 server is owned by the run and never reuses an already running application.
 Keep port 3000 free for direct Playwright runs; `run-tests.sh` handles this in
-its pre-flight stage. No separate manual build is required before the E2E step.
+its pre-flight stage. `E2E_PORT=<port>` runs the test server on another port
+instead; the server then lists exactly that port's loopback origins for
+embedding and WebSocket, so no security default is widened. Tests derive
+their origins from the configured base URL, never from a fixed port. No
+separate manual build is required before the E2E step.
 
 Playwright runs two projects against the one server. Tests tagged
 `@server-runs` run sketches in the server's stateful sandbox pool (host-mock

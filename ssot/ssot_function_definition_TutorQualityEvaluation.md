@@ -266,6 +266,7 @@ error: no silently ignored typos.
 | `stateUnchanged` | boolean | every turn | progression state equals the sample's initial state |
 | `questionNotRepeat` | `exact-or-heuristic` | every dialog turn | final question is not an exact or heuristic repeat of the answered question or history |
 | `mustNotReveal` | list of 1–5 non-empty strings | every dialog turn; in `http` also every clarify/hint turn | none of the literals occurs in the raw provider `feedback` or `question` (R-REV-1..3); in `http` also not in the delivered text; an authorized `reveal` is exempt |
+| turn `mustNotReveal` | list of 1–5 literals on a dialog or support turn | that turn only, in addition to the case's list | same check as the case's list for that turn; lets a multi-step case forbid an early reveal while its last turn may confirm the correct answer (R-SUP-E5) |
 | `learnerInput` | `answer \| clarification \| help` | `http`, final turn, must be `dialog` | how the application classified the typed input |
 | `supportAfter` | subset of `answerAttempts`, `clarifications` (0–3), `canSkip`, `canRevealReference`, `referenceAvailable`, `referenceShown`, `outcome` | `http`, final turn | the returned support state equals each listed field |
 | `referenceAnswer` | string ≤ 300 | `http`, final turn, must be `support`/`reveal` | the authorized reference shows exactly this answer; requires `referenceProvenance` |
@@ -891,6 +892,41 @@ cannot prove that the actual model grades correctly. Repeated live samples
 must evaluate factual feedback as well as the rating band, against references
 independent of the Tutor model's own opinion. A second LLM Judge is supporting
 evidence, not the sole source of truth for this computable result.
+
+**R-SUP-E5 – Feedback-quality regression IT06.1 (multi-step).** Source:
+LearningQuestions R-SUP-9. The sketch changes `GRENZE` from 1000 to 2000 while
+`wert` still starts at 1 (11 passes, final value 2048); the teacher's
+prediction question assumes `wert` starts at 2000 (0 passes, since
+`2000 < 2000` is false at the first check). The cases replay the dialog live
+and judge one step each, carrying forward the real preceding responses:
+
+- `TQ-SUP-IT061-OBSERVATION`: the answer describes the observation of the
+  changed sketch (11 passes, 2048). Rating band [1, 2]; the feedback must
+  acknowledge that the observation fits the current sketch, explain that the
+  question sets the initial value of `wert`, not `GRENZE`, and must not reveal
+  the number of passes.
+- `TQ-SUP-IT061-OBJECTION`: after that step, the learner objects that 2000 was
+  entered. The feedback must answer the objection concretely (2000 is in
+  `GRENZE`, `wert` starts at 1), must not merely repeat "check the condition",
+  and must not reveal the result.
+- `TQ-SUP-IT061-CORRECTED`: after both steps, "Die Schleife wird nie betreten.
+  Es gibt keinen Startwert." Rating band [3, 5]; the feedback confirms the
+  correct core statement clearly and does not call it wrong.
+
+Only the feedback quality of the first two steps shows whether the Tutor helps;
+a scripted correct third answer is no evidence of a learning effect. Raw model
+output and delivered output are checked apart, as in R-SUP-E4.
+The steps before the correct answer of `TQ-SUP-IT061-CORRECTED` carry a
+turn-level `mustNotReveal` with the literals of the other two cases, checked in
+the raw and the delivered output of exactly those turns; the final confirmation
+may name the result. A run that reveals the result early fails even when its
+final turn is correct (L2 counter-probe in `http-replay.test.ts`, corpus v15).
+*Implemented (2026-11-09):* corpus v14 with the fixture
+`evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino` and the Course
+Content fixture `it06-1` (focus of the Example, no reference answer); the
+dialog is reconstructed from the review note, not the learner's verbatim
+transcript. L2: scripted HTTP replay in `http-replay.test.ts`. Live samples are
+recorded in LearningQuestions TUT-07.
 
 **R-SUP-E4 – Action-aware guards and evidence.** The existing no-solution,
 one-question and non-repetition checks remain for normal question/feedback

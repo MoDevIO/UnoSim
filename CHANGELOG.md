@@ -4,7 +4,58 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ## Unreleased
 
+### Changed
+
+- **Tutor panel focuses on the current question** (LearningQuestions 10.7–10.9):
+  the question, the feedback that belongs to it and the answer field stand
+  together; **Senden** is the one primary action. The help (question mark at
+  the answer field) opens on demand without a request and offers only the
+  actions the server allows now; the unlock rules are one click away. Ratings,
+  the session average and the teacher's-focus progress moved to **Verlauf**;
+  key, model and difficulty to **⋯ → Einstellungen**; **⋯ → Neue Lernrunde
+  starten** replaces the header question mark. The Tutor toggle and panel use
+  a graduation cap. Failures keep the draft and offer a matching action
+  (**Erneut versuchen**, **Modell wählen**, **Zugang prüfen**). The Tutor
+  speaks German throughout. The learning step loads with the Tutor column.
+- **Tutor: deliberate step to the next question, stars at the feedback**
+  (LearningQuestions 10.7): an answer that closes its question keeps it shown
+  with the answer, the feedback and its stars; **Weiter zur nächsten Frage**
+  (focused, no request, nothing counted again) shows the next one. A weak
+  answer keeps the question editable. **Erneut versuchen** repeats exactly the
+  failed request, with its code, answer and action id; after an edit of code or
+  draft it is no longer offered and **Senden** sends the current inputs.
+- **Tutor feedback takes up a recurring misunderstanding** (LearningQuestions
+  R-SUP-9): weak earlier attempts at the asked question reach the model apart
+  from the rated history, without their rating, so the feedback can name the
+  misunderstanding instead of repeating a hint; a correct observation of the
+  sketch is acknowledged and a differing question assumption named. Prompt
+  revision v9; the evaluation corpus v14 adds the IT06.1 case
+  (`TQ-SUP-IT061-*`).
+
+- **Colors follow one contract** (`client/src/STYLE_GUIDE.md`): red means
+  error. Delete File, its confirmation and the serial, compiler and debug clear
+  actions are neutral; labels and the confirmation stay. One primary color for
+  Start, the Tutor's main actions, Done and the mobile selection, readable at
+  4.8:1 (before 2.2:1 to 3.4:1); Stop has its own run color (5.0:1). The TX
+  badge, active pins on the board (now amber) and the second plot series are no
+  longer red. Telemetry labels are gray, dropped serial bytes and the legacy
+  engine use the warning color. Toolbar icons (workspace toggles, output
+  toolbars) hover on a neutral surface, so an active icon stays readable. Gates:
+  a color-contract unit test and a browser contrast test.
+- **Tutor feedback stays in view:** after an answer that closed its question
+  the column shows the stars and the start of the feedback, Weiter stays as a
+  bar at the bottom; while the floating navigation is shown (phone, and tablet
+  with the Tutor) no text and no button lies under it. A
+  weak answer to changed code keeps the question open (the server now says
+  whether an answer closed its question).
+
 ### Added
+
+- **Tutor evaluation: turn-level reveal literals.** A multi-step case can
+  forbid naming the solution before the correct answer while its last turn
+  confirms it; IT06.1 uses this (corpus v15).
+- **E2E on another port:** `E2E_PORT` runs the Playwright test server on a
+  chosen port; the iframe test follows it.
 
 - **Tutor learning support** (LearningQuestions 3.10): besides answering, the
   learner can have the question explained or ask for a hint at any time; after
@@ -39,6 +90,9 @@ All notable changes to UnoSim. Versions follow [Semantic Versioning](https://sem
 
 ### Fixed
 
+- **Menus reopen reliably:** a click on a menu's trigger while the menu just
+  closed still faded out opened it and closed it again at once (for example the
+  Tutor's **⋯** after **Einstellungen** and back).
 - **Tutor: answers to a question that sets its own values are graded with
   those values.** Example IT06.4 asks what the first loop pass prints when `a`
   is 200 while the sketch starts with `a = 37`; the correct answer `1` could be

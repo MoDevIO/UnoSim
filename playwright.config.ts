@@ -4,12 +4,20 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// All workers share the single webServer on port 3000.
+// All workers share the single webServer, on port 3000 unless E2E_PORT names another one (for
+// example when port 3000 is taken by a server that is not ours).
 // The previous per-worker port logic (basePort += PW_WORKER_INDEX) caused Worker 1
 // to connect to the standalone Vite dev server on port 3001, which has its own HMR
 // WebSocket.  HMR full-reloads triggered by that separate Vite instance were
 // disconnecting the simulation WebSocket mid-test → killing Docker → no serial output.
-const basePort = 3000;
+const basePort = Number(process.env.E2E_PORT ?? 3000);
+if (!Number.isInteger(basePort) || basePort < 1 || basePort > 65535) throw new Error("E2E_PORT must be a port number");
+// The server allows embedding and WebSocket connections only from listed origins; on another port the
+// test server lists exactly that port's two loopback origins, the same rule the defaults apply to 3000.
+const testOrigins = [`http://localhost:${basePort}`, `http://127.0.0.1:${basePort}`];
+const originEnvironment = basePort === 3000
+  ? ""
+  : `SIMULATOR_ALLOWED_PARENT_ORIGINS="'self',${testOrigins.join(",")}" UNOSIM_ALLOWED_WS_ORIGINS="${testOrigins.join(",")}" `;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -61,7 +69,7 @@ export default defineConfig({
     // Use the test-mode Express server with built assets (npm run dev:e2e).
     // dev:full also starts a separate Vite server on port 3001; this run owns
     // just the application server on port 3000.
-    command: `npm run provision:libraries && NODE_ENV=production npm run build && PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
+    command: `npm run provision:libraries && NODE_ENV=production npm run build && ${originEnvironment}PORT=${basePort} SIMULATION_MAX_CONCURRENT=5 SANDBOX_START_MAX_CONCURRENT=8 VITE_DISABLE_TOASTS=true VITE_DISABLE_HMR=true npm run dev:e2e`,
     url: `http://localhost:${basePort}`,
     reuseExistingServer: false,
     timeout: 180 * 1000, 

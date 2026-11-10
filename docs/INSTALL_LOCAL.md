@@ -125,7 +125,9 @@ Docker-Sandbox-Tests sind ein getrenntes Gate und werden unter
 ## Fehlerbehebung
 
 - Arduino CLI fehlt: `arduino-cli version` und `arduino-cli core list` prüfen.
-- Port belegt: `lsof -nP -iTCP:3000 -sTCP:LISTEN` prüfen.
+- Port belegt: `lsof -nP -iTCP:3000 -sTCP:LISTEN` prüfen. Für die E2E-Tests
+  wählt `E2E_PORT=39311 npm run test:e2e` einen anderen Port; einen fremden
+  Server auf 3000 musst du dafür nicht beenden.
 - Docker-Fehler im lokalen Profil weisen auf eine falsche Konfiguration hin;
   lokale Entwicklung verwendet Docker nicht.
 

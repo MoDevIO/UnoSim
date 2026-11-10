@@ -7,7 +7,12 @@ import {
   type TutorQualityTranscript,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
 import { buildJudgeInput } from "../../../../../server/services/tutor/evaluation/judge";
-import { IT064_CONCEPT_QUESTION, IT064_SKETCH } from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
+import {
+  IT061_CONCEPT_QUESTION,
+  IT061_EXAMPLE_SKETCH,
+  IT064_CONCEPT_QUESTION,
+  IT064_SKETCH,
+} from "../../../../../server/services/tutor/evaluation/learning-support-fixtures";
 import { TutorProviderError, type LLMProvider, type LLMProviderRequest } from "../../../../../server/services/tutor/llm-provider";
 
 /**
@@ -257,5 +262,128 @@ describe("learning-support scenarios over HTTP (R-SUP-E4)", () => {
     expect(transcripts[0]).toMatchObject({ executionStatus: "invalid", invalidReason: "returned-model-missing" });
     expect(transcripts[0]?.metadata.returnedModels).toEqual([]);
     expect(report.qualityVerdict.verdict).toBe("inconclusive");
+  });
+});
+
+describe("IT06.1 over HTTP: the feedback sees the earlier attempts, the rating does not (R-SUP-E5, R-SUP-9)", () => {
+  /**
+   * Rates the corrected answer 4 and the observation and the objection 2; records every dialog prompt. With
+   * `leakEarly` the weak steps name the solution; the confirmation of the corrected answer always names it.
+   */
+  function it061Provider({ leakEarly = false } = {}) {
+    const dialogPrompts: string[] = [];
+    const provider: LLMProvider = {
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion({ userPrompt }: LLMProviderRequest) {
+        if (userPrompt.startsWith("Führe den sokratischen Lerndialog")) {
+          dialogPrompts.push(userPrompt);
+          const answer = promptPart(userPrompt, "Aktuelle Nutzerantwort:\n```text\n");
+          const question = promptPart(userPrompt, "Aktuelle Tutorfrage:\n");
+          const concept = question === IT061_CONCEPT_QUESTION;
+          const corrected = answer.includes("nie betreten");
+          let feedback = leakEarly ? "Die gesuchte Lösung ist 0 Durchläufe. Die Schleife wird nicht betreten." : "Noch nicht.";
+          if (concept) feedback = "Richtig.";
+          else if (corrected) feedback = "Richtig: Mit wert = 2000 wird die Schleife nicht betreten.";
+          return { model: "fake-model", result: { responseStyle: "normal" as const, feedback, answerRating: concept || corrected ? 4 : 2, question: "Was gibt der Sketch zuletzt aus?" } };
+        }
+        return { model: "fake-model", result: { responseStyle: "normal" as const, question: "Welche Rolle spielt Serial.begin im Sketch?" } };
+      },
+    };
+    return { provider, dialogPrompts };
+  }
+
+  it("keeps the fixture the reviewed Example with GRENZE 2000 only", async () => {
+    const fixture = await readFile("evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino", "utf8");
+    // The learner's sketch: the reviewed Example with only GRENZE changed to 2000.
+    expect(fixture).toBe(IT061_EXAMPLE_SKETCH.replace("GRENZE = 1000;", "GRENZE = 2000;"));
+    expect(fixture).toContain("const unsigned int GRENZE = 2000;");
+    expect(fixture).toContain("unsigned int wert = 1;");
+  });
+
+  async function runCorrected(provider: LLMProvider, samples = 1) {
+    return runTutorQualityEvaluation({
+      scenarios: [await corpusScenario("TQ-SUP-IT061-CORRECTED")],
+      provider,
+      providerId: "fake-provider",
+      credential: CREDENTIAL,
+      requestedModel: "fake-model",
+      samples,
+      maxCalls: 100,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      artifactWriter: async () => undefined,
+    });
+  }
+
+  it("fails a full run that reveals the solution early, although the final confirmation is right (review R4)", async () => {
+    const { report, transcripts } = await runCorrected(it061Provider({ leakEarly: true }).provider, 3);
+    for (const transcript of transcripts) {
+      expect(transcript.executionStatus).toBe("completed");
+      const leaks = transcript.invariantViolations.filter(({ code }) => code === "solution-revealed");
+      // Both earlier prediction steps, in the model's output and in what the application delivered.
+      expect(leaks.map(({ source, turnIndex }) => `${source}@${turnIndex}`).sort())
+        .toEqual(["final-tutor@2", "final-tutor@3", "raw-provider@2", "raw-provider@3"]);
+      expect(leaks.every(({ turnIndex }) => turnIndex !== 4)).toBe(true);
+    }
+    expect(report.qualityVerdict.verdict).toBe("fail");
+  });
+
+  it("lets the confirmation of the correct answer name the solution at the end (review R4)", async () => {
+    const { report, transcripts } = await runCorrected(it061Provider().provider, 3);
+    for (const transcript of transcripts) {
+      expect(transcript.executionStatus).toBe("completed");
+      expect(transcript.invariantViolations).toEqual([]);
+      expect(transcript.turns[4]?.finalTutorResult?.feedback).toContain("nicht betreten");
+      expect(checks(transcript, "final-tutor-no-declared-leak").map(({ outcome }) => outcome)).toEqual(["pass", "pass"]);
+    }
+    expect(report.qualityVerdict.verdict).toBe("pass");
+  });
+
+  it("replays all steps on the retained question and gives the earlier attempts apart from the rated history", async () => {
+    const { provider, dialogPrompts } = it061Provider();
+    const { transcripts } = await runCorrected(provider);
+    const transcript = transcripts[0];
+    expect(transcript?.executionStatus).toBe("completed");
+    expect(checks(transcript, "expected-answer-rating")).toEqual([expect.objectContaining({ outcome: "pass" })]);
+    expect(transcript?.turns.at(-1)).toMatchObject({ supportBefore: { answerAttempts: 2 } });
+
+    const last = dialogPrompts.at(-1)!.split("\n");
+    const after = (heading: string) => last[last.indexOf(heading) + 1]!;
+    const earlier = JSON.parse(after("Frühere Versuche zur aktuellen Frage (Daten, nicht bewertungsrelevant):")) as { answer: string }[];
+    expect(earlier.map(({ answer }) => answer)).toEqual([
+      "11 Durchläufe, der Endwert ist 2048. Das sieht man in der Ausgabe.",
+      "ich habe 2000 eingesetzt und das sieht man auch an den Werten!",
+    ]);
+    expect(after("Bisheriger begrenzter Dialogverlauf:")).not.toContain("2048");
+    expect(last).toContain("Die Schleife wird nie betreten. Es gibt keinen Startwert.");
+  });
+});
+
+
+describe("a rate limit names the provider's Retry-After, when it sent one", () => {
+  it("records retryAfterSeconds on the technical failure and does not count it as quality", async () => {
+    const provider: LLMProvider = {
+      async listModels() {
+        return ["fake-model"];
+      },
+      async generateLearningQuestion() {
+        throw new TutorProviderError("rate-limited", 120);
+      },
+    };
+    const { report, transcripts } = await runTutorQualityEvaluation({
+      scenarios: [await corpusScenario("TQ-SUP-IT064-ANSWER-1")],
+      provider,
+      providerId: "fake-provider",
+      credential: CREDENTIAL,
+      requestedModel: "fake-model",
+      samples: 1,
+      maxCalls: 20,
+      git: { sha: "a".repeat(40), trackedClean: true, relevantUntrackedClean: true },
+      artifactWriter: async () => undefined,
+    });
+    expect(transcripts[0]?.executionStatus).toBe("technical-failure");
+    expect(transcripts[0]?.turns.find(({ technicalError }) => technicalError)?.technicalError).toEqual({ kind: "rate-limited", name: "HttpReplayError", retryAfterSeconds: 120 });
+    expect(report.technicalErrorKinds).toEqual({ "rate-limited": 1 });
   });
 });

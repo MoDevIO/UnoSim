@@ -33,6 +33,13 @@ function fakeRatingFor(scenario: { readonly expected?: { readonly answerRating?:
   return (scenario.expected?.answerRating?.[0] ?? 5) as 1 | 2 | 3 | 4 | 5;
 }
 
+/** The scripted answer the case rates; an earlier answer to the same question is weak, so the question stays. */
+function finalDialogAnswer(scenario: { readonly turns: readonly { readonly kind: string; readonly answer?: string }[] }): string | undefined {
+  return scenario.turns.filter(({ kind }) => kind === "dialog").at(-1)?.answer;
+}
+
+const CONCEPT_QUESTIONS = ["Welche Aufgabe hat `1 << i`", "Wann wird die Bedingung `wert < GRENZE`"];
+
 describe("Tutor Quality real-provider CLI contract", () => {
   it("requires a fixed model and accepts only a credential environment-variable name", () => {
     expect(() => parseTutorQualityCliArgs(["--output-dir", "/tmp/tq", "--model", "auto"])).toThrow();
@@ -115,12 +122,17 @@ describe("Tutor Quality real-provider CLI contract", () => {
             // http scenarios (R-SUP-E4): the IT06.4 focus concept question is answered well, so the scripted
             // prediction answers reach their question; support actions get distinct explanations.
             const support = !userPrompt.startsWith("Führe den sokratischen") && !userPrompt.startsWith("Erzeuge");
-            const concept = userPrompt.includes("Aktuelle Tutorfrage:\nWelche Aufgabe hat `1 << i`");
+            const concept = CONCEPT_QUESTIONS.some((question) => userPrompt.includes(`Aktuelle Tutorfrage:\n${question}`));
+            const earlierAttempt = userPrompt.startsWith("Führe den sokratischen")
+              && !userPrompt.includes(`Aktuelle Nutzerantwort:\n\`\`\`text\n${finalDialogAnswer(scenario)}\n`);
+            let answerRating = rating;
+            if (concept) answerRating = 5;
+            else if (earlierAttempt) answerRating = 2;
             return {
               model: "pilot-model",
               result: {
                 responseStyle: "normal" as const,
-                answerRating: concept ? 5 : rating,
+                answerRating,
                 ...(support ? { feedback: SUPPORT_EXPLANATIONS[explanations++ % SUPPORT_EXPLANATIONS.length] } : {}),
                 question: "Welche konkrete Beobachtung ist im aktuellen Sketch belegt?",
               },

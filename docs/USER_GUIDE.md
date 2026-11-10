@@ -25,6 +25,12 @@ und am Board. Du brauchst dafür keine Hardware und keine Installation.
 5. Mit **Pause** hältst du die Simulation an, um Pins in Ruhe zu prüfen oder zu
    verändern; mit **Resume** läuft sie weiter. **Stop** beendet den Lauf.
 
+Rot steht in der Oberfläche nur für Fehler, und jeder Fehler sagt auch in Worten,
+was schiefging. Löschen und Leeren (etwa **Delete File** oder der Papierkorb
+im Serial Monitor) sehen aus wie andere Aktionen; Löschen fragt weiter nach.
+Ein Pin auf HIGH leuchtet auf dem Board gelb, und die Marke TX eines seriellen
+Sendepins im I/O Registry ist violett – beides ist kein Fehler.
+
 Ein Lauf endet automatisch nach seiner Laufzeit, die du unter
 **Tools → Timeout** zwischen 5 Sekunden und 5 Minuten wählst. Eine pausierte
 Simulation endet spätestens nach insgesamt 10 Minuten Pause.
@@ -193,71 +199,93 @@ möglich; ohne KI:connect-Key steht der Tutor nicht zur Verfügung. Die
 Unterstützung weiterer Anbieter ist in
 [Issue #243](https://github.com/MoDevIO/UnoSim/issues/243) geplant.
 
-1. In der Tutor-Spalte auf das Schlüssel-Symbol klicken
-   (**API key missing**).
-2. Den Key unter **API key** eintragen. Unter **Model** kannst du ein Modell
-   wählen; **Automatic** ist die Voreinstellung und nimmt nur ein Modell, das
+1. In der Tutor-Spalte (Absolventenhut-Symbol) auf **Tutor einrichten** klicken.
+   Später erreichst du dieselbe Ansicht über das Menü **⋯ → Einstellungen**.
+2. Den Key unter **API-Key** eintragen. Unter **Modell** kannst du ein Modell
+   wählen; **Automatisch** ist die Voreinstellung und nimmt nur ein Modell, das
    der Betreiber dafür freigegeben hat. Ist keines verfügbar, meldet der Tutor
-   das; wähle dann unter **Model** ein Modell selbst. Darunter steht nach der
-   ersten Antwort, welches Modell zuletzt geantwortet hat und ob **Automatic**
-   es gewählt hat.
-3. Optional die **Start difficulty** setzen: 1 ist sehr leicht, 100 sehr schwer.
-   Der Tutor passt die Schwierigkeit danach selbst an.
+   das und bietet **Modell wählen** an. Darunter steht nach der ersten Antwort,
+   welches Modell zuletzt geantwortet hat und ob **Automatisch** es gewählt hat.
+3. Optional die **Startschwierigkeit** setzen: 1 ist sehr leicht, 100 sehr schwer.
+   Der Tutor passt die Schwierigkeit danach selbst an; den aktuellen Wert zeigen
+   ebenfalls die Einstellungen.
+4. Mit **Übernehmen** zurück zum Tutor.
 
 Der Key bleibt nur in diesem Browser-Tab im Arbeitsspeicher. Nach einem
-Neuladen der Seite musst du ihn erneut eintragen. UnoSim speichert ihn nicht.
+Neuladen der Seite musst du ihn erneut eintragen. UnoSim speichert ihn nicht;
+mit **Key löschen** entfernst du ihn sofort.
 
 ### Mit dem Tutor arbeiten
 
-1. Mit dem Fragezeichen-Symbol in der Tutor-Spalte eine neue Lernfrage anfordern.
-2. Die Antwort in das Feld **Your answer …** schreiben und mit
-   **Send answer** abschicken.
-3. Der Tutor bewertet dein Verständnis. Ist die Antwort richtig, stellt er
-   eine Folgefrage; sonst gibt er einen Hinweis, und dieselbe Frage bleibt
-   offen, bis du sie beantwortest oder überspringst.
+1. Mit **Frage starten** eine Lernfrage anfordern. Der Tutor zeigt immer nur
+   die aktuelle Frage.
+2. Die Antwort direkt darunter in das Feld **Antwort oder Rückfrage …** schreiben
+   und mit **Senden** (oder Enter) abschicken.
+3. Die Rückmeldung erscheint unter der Frage, bei einer bewerteten Antwort mit
+   ihrer Verständnisbewertung (1–5 Sterne) direkt daneben. Ist die Frage damit
+   beantwortet, bleibt sie mit deiner Antwort und der Rückmeldung stehen, bis du
+   **Weiter zur nächsten Frage** wählst. Die Spalte zeigt dann den Anfang deiner
+   Antwort und der Rückmeldung mit den Sternen; Weiter steht als Leiste am
+   unteren Rand, hat den Fokus, und Enter genügt. Weiter schickt nichts ab und
+   zählt nichts. Ist die Antwort noch nicht ausreichend, bleibt dieselbe Frage
+   offen, und du kannst direkt weiter antworten, auch wenn du inzwischen den
+   Code geändert hast.
 
-Unter der Frage stehen vier Hilfen. Keine davon wird bewertet, keine zählt als
-Verständnisnachweis:
+Das Fragezeichen-Symbol neben dem Antwortfeld öffnet die **Hilfe zur aktuellen
+Frage**. Das Öffnen selbst schickt nichts ab und zählt nichts. Keine Hilfe wird
+bewertet, keine zählt als Verständnisnachweis:
 
-- **Explain the question**: Der Tutor erklärt, was gefragt ist, ohne die
-  Antwort zu nennen. Du kannst auch einfach eine Rückfrage wie „Was ist mit dem
-  ersten Durchlauf gemeint?“ eintippen.
-- **Give me a hint**: ein kurzer inhaltlicher Hinweis. „Ich weiß nicht“ im
+- **Frage erklären**: Der Tutor erklärt, was gefragt ist, ohne die Antwort zu
+  nennen. Du kannst auch einfach eine Rückfrage wie „Was ist mit dem ersten
+  Durchlauf gemeint?“ eintippen.
+- **Hinweis geben**: ein kurzer inhaltlicher Hinweis. „Ich weiß nicht“ im
   Antwortfeld bekommt ebenfalls einen Hinweis und zählt nicht als Antwort.
-- **Show reference answer**: nach drei eigenen Antworten auf dieselbe Frage
-  verfügbar, aber nur, wenn die Lehrkraft eine geprüfte Musterantwort
-  hinterlegt hat und dein Programm noch genau das geprüfte ist: Nur der
-  Anfangswert, den die Frage selbst nennt (etwa `a = 200`), darf abweichen.
-  Schon eine umformatierte Zeile oder ein anderes Board zählt als Änderung;
-  dann sagt der Tutor, dass es keine passende Musterantwort gibt.
-- **Skip question**: nach zwei Erklärungen der Frage verfügbar; der Tutor
+- **Frage überspringen**: erscheint nach zwei Erklärungen der Frage; der Tutor
   stellt dann eine andere Frage.
+- **Musterantwort ansehen**: erscheint nach drei eigenen Antworten auf dieselbe
+  Frage, aber nur, wenn die Lehrkraft eine geprüfte Musterantwort hinterlegt hat
+  und dein Programm noch genau das geprüfte ist: Nur der Anfangswert, den die
+  Frage selbst nennt (etwa `a = 200`), darf abweichen. Schon eine umformatierte
+  Zeile oder ein anderes Board zählt als Änderung.
 
-Unter den Hilfen steht, wie viele Antworten bzw. Erklärungen bis zur Freigabe
-noch fehlen. Änderst du den Code, zählt die Frage von vorn.
+Wird eine dieser Hilfen gerade freigeschaltet, weist ein kurzer Satz unter der
+Rückmeldung darauf hin. Unter **Wann gibt es weitere Hilfen?** steht, wie viele
+Antworten bzw. Erklärungen bis zur Freigabe noch fehlen und ob eine geprüfte
+Musterantwort vorliegt. Änderst du den Code, zählt die Frage von vorn.
 
-Eine neue Lernfrage beendet den bisherigen Dialog. Wenn du ein Beispiel oder
+Schlägt eine Anfrage fehl, bleibt dein Entwurf erhalten, und der Tutor bietet
+die passende Aktion an, etwa **Erneut versuchen** oder **Modell wählen**.
+**Erneut versuchen** schickt genau die fehlgeschlagene Anfrage noch einmal, mit
+demselben Code und derselben Antwort. Hast du seitdem Code oder Antwort
+geändert, entfällt diese Aktion; **Senden** schickt dann deine aktuelle Fassung.
+
+**Verlauf** im Kopf der Tutor-Spalte zeigt frühere Fragen, deine Antworten, die
+Rückmeldungen mit ihren Sternen und den Durchschnitt. Erklärungen, Hinweise,
+übersprungene Fragen und Antworten nach der Musterantwort bleiben ohne Sterne.
+**Zurück zur Frage** führt zum aktuellen Schritt; dein Entwurf bleibt erhalten.
+**⋯ → Neue Lernrunde starten** beendet die aktuelle Frage, setzt Verlauf und
+Lernstand zurück und stellt eine erste neue Frage. Wenn du ein Beispiel oder
 eigene Dateien lädst, beginnt der Tutor ebenfalls neu; API-Key und Modell
 bleiben erhalten.
 
 Stammt dein Sketch aus einer Beispielsammlung mit Tutor-Inhalten, stellt der
-Tutor zuerst die Fragen der Lehrkraft. Über dem Dialog steht, wer gerade fragt
+Tutor zuerst die Fragen der Lehrkraft. Im **Verlauf** steht, wer gerade fragt
 und wie viele Bereiche du verstanden hast:
 
-- **Teacher's focus**: Die Fragen der Lehrkraft laufen. Bei einer schwachen
+- **Fokus der Lehrkraft**: Die Fragen der Lehrkraft laufen. Bei einer schwachen
   Antwort bekommst du einen Hinweis, und die Frage bleibt offen.
-- **Teacher's focus completed**: Alle Bereiche sind verstanden, der freie Tutor
-  macht weiter.
-- **Questions used up**: Die Fragen sind gestellt, aber nicht jeder
-  Bereich ist verstanden. Die offenen Bereiche werden genannt, und der freie
-  Tutor arbeitet weiter daran.
-- **Teacher's focus paused**: Dein Sketch enthält den Code des Beispiels nicht
-  mehr. Der freie Tutor fragt dann zu deinem aktuellen Code.
+- **Fokus der Lehrkraft abgeschlossen**: Alle Bereiche sind verstanden, der
+  freie Tutor macht weiter.
+- **Fragen der Lehrkraft ausgeschöpft**: Die Fragen sind gestellt, aber nicht
+  jeder Bereich ist verstanden. Die offenen Bereiche werden genannt, und der
+  freie Tutor arbeitet weiter daran.
+- **Fokus der Lehrkraft pausiert**: Dein Sketch enthält den Code des Beispiels
+  nicht mehr. Der freie Tutor fragt dann zu deinem aktuellen Code.
 
 Experimentieren ist erwünscht: Eine Lehrkraftfrage entfällt nur, wenn der Code,
 nach dem sie fragt, nicht mehr im Sketch steht. Die Lehrkraftfragen sind fest.
-Die Schwierigkeit neben dem Fragezeichen (zum Beispiel `D30`) wirkt daher auf
-Rückmeldungen und auf die Fragen des freien Tutors.
+Die Schwierigkeit wirkt daher auf Rückmeldungen und auf die Fragen des freien
+Tutors.
 
 Ohne Tutor-Inhalte – und auch, wenn GitHub gerade nicht erreichbar ist – arbeitet
 er als freier Tutor direkt mit deinem Sketch.

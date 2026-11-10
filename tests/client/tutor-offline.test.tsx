@@ -15,13 +15,13 @@ function OfflineTutorPanel() {
 }
 
 describe("Tutor offline controls", () => {
-  it("keeps the key and question controls visible but disabled offline", () => {
+  it("keeps the setup action visible but disabled offline", async () => {
     vi.spyOn(globalThis, "fetch");
     render(<OfflineTutorPanel />);
 
-    expect(screen.getByTestId("tutor-api-key-action")).toBeDisabled();
-    expect(screen.getByTestId("tutor-new-question-action")).toBeDisabled();
-    expect(screen.getByText("Server connection required")).toBeInTheDocument();
+    expect(await screen.findByTestId("tutor-setup-action")).toBeDisabled();
+    expect(screen.queryByTestId("tutor-start-question")).not.toBeInTheDocument();
+    expect(screen.getByText("Serververbindung erforderlich")).toBeInTheDocument();
     expect(screen.queryByTestId("tutor-api-key-view")).not.toBeInTheDocument();
   });
 });

@@ -81,3 +81,81 @@ export function it064Content(): ResolvedTutorCourseContent {
     contentBytes: 4_096,
   } as ResolvedTutorCourseContent;
 }
+
+/**
+ * Example IT06.1 "Eine kopfgesteuerte Schleife" (UnoSim-Examples, examples/IT06/it06-01-while.ino), the
+ * regression of LearningQuestions R-SUP-9: the learner changed `GRENZE` from 1000 to 2000 while `wert` still
+ * starts at 1, and answers the teacher's question about `wert` starting at 2000 with what the changed sketch
+ * prints. Checked by hand: from 1 doubling while below 2000 gives 1, 2, ..., 1024 (11 passes) and the final
+ * value 2048; with `wert` = 2000, `2000 < 2000` is false at the first check, so the loop runs 0 times (with
+ * GRENZE 1000 as well). The Example has no reviewed reference answer for the question.
+ */
+export const IT061_EXAMPLE_SKETCH = `const unsigned int GRENZE = 1000;
+
+void setup() {
+  Serial.begin(115200);
+
+  unsigned int wert = 1;
+  byte schritte = 0;
+
+  while (wert < GRENZE) {
+    Serial.println(wert);
+    wert = wert * 2;
+    schritte++;
+  }
+
+  Serial.print("Schritte: ");
+  Serial.println(schritte);
+  Serial.print("Endwert: ");
+  Serial.println(wert);
+}
+
+void loop() {
+}
+`;
+
+export const IT061_CONCEPT_QUESTION = "Wann wird die Bedingung `wert < GRENZE` geprüft?";
+export const IT061_PREDICTION_QUESTION = "Wie oft läuft die Schleife, wenn `wert` mit 2000 startet?";
+
+export const IT061_ANNOTATION: ExampleTutorAnnotation = {
+  schemaVersion: 3,
+  learningObjectives: [
+    "Die Studierenden sollen eine kopfgesteuerte Schleife mit while formulieren und ihren Ablauf beschreiben können.",
+  ],
+  afterFocus: "free",
+  focus: [
+    {
+      id: "pruefung",
+      title: "Prüfung am Kopf",
+      objective: "Erklären, wann die Bedingung geprüft wird, und die Zahl der Durchläufe vorhersagen.",
+      questions: [
+        { kind: "concept", text: IT061_CONCEPT_QUESTION },
+        { kind: "prediction", text: IT061_PREDICTION_QUESTION },
+      ],
+    },
+    {
+      id: "abbruch",
+      title: "Abbruch der Schleife",
+      objective: "Begründen, warum sich die Bedingung im Block ändern muss.",
+      questions: [
+        { kind: "concept", text: "Warum muss `wert` im Schleifenblock verändert werden?" },
+      ],
+    },
+  ],
+};
+
+export const IT061_REVISION = "7".repeat(40);
+
+export function it061Content(): ResolvedTutorCourseContent {
+  return {
+    repository: "ttbombadil/unosim-examples",
+    ref: "main",
+    revision: IT061_REVISION,
+    exampleId: "it06-01-while",
+    tutor: { status: "valid", manifest: { schemaVersion: 1, topics: [], strategies: [] }, topics: [], strategies: [] },
+    exampleTutorAnnotation: IT061_ANNOTATION,
+    exampleProgram: { code: IT061_EXAMPLE_SKETCH, headers: [] },
+    progressionState: createTutorProgressionState(IT061_REVISION),
+    contentBytes: 4_096,
+  } as ResolvedTutorCourseContent;
+}

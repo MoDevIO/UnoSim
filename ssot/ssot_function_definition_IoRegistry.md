@@ -93,7 +93,7 @@ Die Übermittlung der Daten für die Tabelle (Backend->Frontend) soll soweit wie
 
 
 # Der Auge-Button
-Der Button toggelt eine kompakte und erweiterte Ansicht. Kompakt: grüne Haken bei Verwendung/ graue "-" bei Nicht-Verwendung. Erweitert: Bei Verwendung werden die Zeilennummern in der Tabelle eingetragen (für alle pinMode, digitalRead, digitalWrite). 
+Der Button toggelt eine kompakte und erweiterte Ansicht. Kompakt: grüne Haken (`--color-status-success`) bei Verwendung/ graue "-" (`--muted-foreground`) bei Nicht-Verwendung; Symbol und Farbe tragen die Bedeutung gemeinsam. Erweitert: Bei Verwendung werden die Zeilennummern in der Tabelle eingetragen (für alle pinMode, digitalRead, digitalWrite). 
 
 
 # Spezifikation: Hybrid IO-Registry
@@ -129,7 +129,7 @@ Das System nutzt zwei Quellen, um die Tabelle zu befüllen:
 
     Run-Time Ergänzung: Während der Simulation werden Aufrufe erfasst, die statisch nicht eindeutig waren (z.B. dynamische Pin-Zuweisungen in Schleifen oder über berechnete Variablen).
 
-    Konflikt-Management: Wenn statisches und dynamisches Parsing unterschiedliche Informationen liefern (siehe Screenshot bei A0: INPUT vs INPUT_PULLUP), muss die Registry dies als Konflikt markieren (rotes Fragezeichen/Warnung).
+    Konflikt-Management: Wenn statisches und dynamisches Parsing unterschiedliche Informationen liefern (siehe Screenshot bei A0: INPUT vs INPUT_PULLUP), muss die Registry dies als Konflikt markieren (Rahmen in der Fehlerfarbe `--color-status-error` und Konflikthinweis als Text; Farbvertrag in `client/src/STYLE_GUIDE.md`).
 
 4. Telemetrie-Strategie (Effizienz)
 

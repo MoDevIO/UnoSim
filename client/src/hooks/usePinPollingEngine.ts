@@ -260,16 +260,20 @@ function computeFadeBrightness(isHigh: boolean, turnedOffAt: number | undefined)
   return elapsed < FADE_OUT_MS ? 1 - elapsed / FADE_OUT_MS : 0;
 }
 
-/** Map a pin state + brightness to an RGB color string. */
+/**
+ * The synthetic indicator of an active pin: the data color of an active pin, darker by brightness. Not red,
+ * because a HIGH pin is no error (style guide, rule 2); the pin logic and the levels are unchanged.
+ */
+function activePinColor(level: number): string {
+  return `color-mix(in srgb, var(--color-data-pin-active) ${Math.round(level * 100)}%, var(--color-black))`;
+}
+
+/** Map a pin state + brightness to a color. */
 function pinColorForState(state: PinState, pin: number, brightness: number): string {
   if (brightness <= 0) return "var(--color-black)";
-  const intensity = Math.round(brightness * 255);
-  if (state.type === "digital") return `rgb(${intensity}, 0, 0)`;
-  if (isActivePwmPin(pin)) {
-    const pwmIntensity = Math.round((state.value / 255) * intensity);
-    return `rgb(${pwmIntensity}, 0, 0)`;
-  }
-  if (state.value >= 255) return `rgb(${intensity}, 0, 0)`;
+  if (state.type === "digital") return activePinColor(brightness);
+  if (isActivePwmPin(pin)) return activePinColor((state.value / 255) * brightness);
+  if (state.value >= 255) return activePinColor(brightness);
   return "var(--color-black)";
 }
 
