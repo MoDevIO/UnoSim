@@ -59,12 +59,14 @@ zwei Zeilen zu einer, bevor Kommentare, Literale und Direktiven erkannt werden (
 Kommentar; in einer Zeichenkette setzt `\` Zeilenende sie fort). Ein Kommentar zählt als Leerraum, also beginnt `#`
 nach einem Kommentar am Zeilenanfang eine Direktive. In Raw-Strings gelten diese Verbindungen nicht; ihr Begrenzer
 darf jedes erlaubte Zeichen enthalten, auch `"`. Eine Zeile, die durch eine solche Verbindung fortgesetzt wird,
-behält ihren Text unverändert.
+behält ihren Text unverändert. Die Struktur wird nach dem verbundenen Text beurteilt (`if\` Zeilenende `(1)` ist ein
+`if`).
 
 Zeichenketten (auch mit Präfix und Fortsetzung über `\`), Zeichenliterale, Raw-Strings `R"x(…)x"`, Kommentare
 und Präprozessorzeilen (auch mit Fortsetzung über `\`) sind Text, keine Programmstruktur: Klammern, Semikolons
 und Schlüsselwörter darin zählen nicht, und ihr Inhalt bleibt unverändert. Ausnahmen: Die Folgezeilen eines
-mehrzeiligen Blockkommentars verschieben sich um denselben Betrag wie seine erste Zeile; Leerzeichen am Ende
+mehrzeiligen Blockkommentars verschieben sich um denselben Betrag wie seine erste Zeile, außer einer Zeile, die eine
+Verbindung über `\` an die vorige anschließt (sonst stünde Leerraum zwischen `/` und `*`); Leerzeichen am Ende
 einer Kommentar- oder Präprozessorzeile entfallen. Leerzeilen innerhalb eines Raw-Strings oder Kommentars bleiben.
 
 ### 3.4 Eigenschaften
