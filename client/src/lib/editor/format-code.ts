@@ -61,11 +61,16 @@ function isStructural(token: CppToken | undefined): boolean {
   return token !== undefined && !STRUCTURE_FREE.has(token.kind);
 }
 
-/** Whether a physical line ends in a splice: a backslash, then only blanks. */
+/** Index where the spaces and tabs at the end of `text` begin. Only those two: see `trimTrailing`. */
+function trailingBlanksStart(text: string): number {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === " " || text[end - 1] === "\t")) end--;
+  return end;
+}
+
+/** Whether a physical line ends in a splice: a backslash, then only spaces and tabs. */
 function endsWithSplice(line: string): boolean {
-  let end = line.length;
-  while (end > 0 && (line[end - 1] === " " || line[end - 1] === "\t")) end--;
-  return line[end - 1] === "\\";
+  return line[trailingBlanksStart(line) - 1] === "\\";
 }
 
 /**
@@ -83,9 +88,12 @@ function shiftComment(text: string, delta: number): string {
   }).join("\n");
 }
 
-/** Drops blanks at the end, unless a backslash before them splices the next line. */
+/**
+ * Drops spaces and tabs at the end, unless a backslash before them splices the next line. Only those two: any other
+ * character, a no-break space included, can be replacement text of a macro and change a stringized literal.
+ */
 function trimTrailing(text: string): string {
-  return endsWithSplice(text) ? text : text.trimEnd();
+  return endsWithSplice(text) ? text : text.slice(0, trailingBlanksStart(text));
 }
 
 class CodeFormatter {

@@ -312,6 +312,14 @@ describe("formatCode", () => {
       expect(formatCode("void f()\\\n{\nx();\n}\n")).toBe("void f()\\\n{\n  x();\n}\n");
     });
 
+    it("drops only spaces and tabs at the end of a directive or comment, never a no-break space (review of 6a25d4706, F5)", () => {
+      // A real U+00A0 after `a` and `b`: in a macro it is replacement text, and `#x` turns it into two more bytes.
+      const input = "void f() {\n#define X a\u00a0\n#define Y b\u00a0 \t\n// c\u00a0 \nx();\n}\n";
+      const output = "void f() {\n  #define X a\u00a0\n  #define Y b\u00a0\n  // c\u00a0\n  x();\n}\n";
+      expect(formatCode(input)).toBe(output);
+      expect(formatCode(output)).toBe(output);
+    });
+
     it("never re-indents the continuation line of a spliced token", () => {
       const input = "void f() {\nint lang\\\nername = 1;\n}\n";
       expect(formatCode(input)).toBe("void f() {\n  int lang\\\nername = 1;\n}\n");
