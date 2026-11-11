@@ -49,6 +49,8 @@ services:
       # Empty turns Automatic off (manual model choice only). Default from the live
       # comparison of 2026-11-07 (docs/INSTALL_SERVER.md).
       - UNOSIM_TUTOR_AUTO_MODELS=${UNOSIM_TUTOR_AUTO_MODELS-openai-gpt5.5}
+      # Opt-in metadata-only Tutor diagnostics; production defaults to disabled.
+      - UNOSIM_TUTOR_DIAGNOSTICS_ENABLED=${UNOSIM_TUTOR_DIAGNOSTICS_ENABLED:-false}
       - ARDUINO_CACHE_DIR=${PWD}/server/arduino-cache
       - UNOSIM_SHARED_TEMP_DIR=${PWD}/temp
       - DOCKER_HOST=unix:///var/run/docker.sock

@@ -13,6 +13,7 @@ import type { RequestIdentity } from "../security/access-control";
 import { canonicalDigest } from "../services/tutor/evaluation/canonical";
 import { TutorProviderError } from "../services/tutor/llm-provider";
 import { classifyLearnerInput } from "../services/tutor/learning-support";
+import { reportTutorReview } from "../services/tutor/tutor-diagnostics";
 import {
   newSupportQuestion,
   resetSupportQuestion,
@@ -345,6 +346,7 @@ export async function handleSupportedDialog(
     const question = activeQuestion(view.question, binding.questionHandle, request.question, key);
     const scope: ActionScope<DialogRequest> = { request, content, signal, context, view, question, reference: referenceOf(question.text, request, content?.content) };
     const input = classifyLearnerInput(request.answer);
+    reportTutorReview({ kind: "classification", learnerInput: input });
     return input === "answer" ? answerQuestion(scope, key) : answerTypedHelp(scope, input);
   });
 }

@@ -1,4 +1,5 @@
-import type { DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
+import type { DebugMessage, DebugProtocol, DebugSender } from "@/hooks/use-debug-console";
+import { clearTutorReview } from "@/lib/tutor-diagnostics";
 import React, { lazy, useMemo, Suspense, useCallback } from "react";
 
 import { SketchTabs } from "@/components/features/sketch-tabs";
@@ -94,22 +95,9 @@ interface UseSimulatorUIStateParams {
   // Debug Console state/controls
   debugMode: boolean;
   setDebugMode: (value: boolean) => void;
-  debugMessages: Array<{
-    id: string;
-    timestamp: Date;
-    sender: DebugSender;
-    type: string;
-    content: string;
-    protocol?: DebugProtocol;
-  }>;
-  setDebugMessages: React.Dispatch<React.SetStateAction<Array<{
-    id: string;
-    timestamp: Date;
-    sender: DebugSender;
-    type: string;
-    content: string;
-    protocol?: DebugProtocol;
-  }>>>;
+  debugMessages: DebugMessage[];
+  setDebugMessages: React.Dispatch<React.SetStateAction<DebugMessage[]>>;
+  debugDroppedCount?: number;
   debugMessageFilter: string;
   setDebugMessageFilter: (value: string) => void;
   debugViewMode: "table" | "tiles";
@@ -192,6 +180,7 @@ export function useSimulatorUIState({
   debugMode,
   setDebugMode,
   debugMessages,
+  debugDroppedCount = 0,
   setDebugMessages,
   debugMessageFilter,
   setDebugMessageFilter,
@@ -290,26 +279,20 @@ export function useSimulatorUIState({
     ],
   );
 
-  const handleCopyDebugMessages = useCallback(() => {
-    const filtered = debugMessages.filter(
-      (m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter,
-    );
-    const text = filtered
-      .map(
-        (m) =>
-          `[${m.timestamp.toLocaleTimeString()}] ${m.sender.toUpperCase()} (${m.type}): ${m.content}`,
-      )
-      .join("\n");
+  const handleCopyDebugMessages = useCallback((providedText?: string, providedCount?: number) => {
+    const filtered = debugMessages.filter((message) => !debugMessageFilter || message.type.toLowerCase() === debugMessageFilter);
+    const text = providedText ?? filtered.map((message) => `[${message.timestamp.toLocaleTimeString()}] ${message.sender.toUpperCase()} (${message.type}): ${message.content}`).join("\n");
     if (text) {
       navigator.clipboard.writeText(text).catch(() => {});
-      toast({ title: "Copied to clipboard", description: `${filtered.length} messages` });
+      toast({ title: "Copied to clipboard", description: `${providedCount ?? filtered.length} messages` });
     }
   }, [debugMessages, debugMessageFilter, toast]);
 
-  const handleClearDebugMessages = useCallback(
-    () => setDebugMessages([]),
-    [setDebugMessages],
-  );
+  // Manual clearing removes technical messages and every Tutor review run (LearningQuestions 12.7).
+  const handleClearDebugMessages = useCallback(() => {
+    setDebugMessages([]);
+    clearTutorReview();
+  }, [setDebugMessages]);
 
   const isSuccessState = lastCompilationResult === "success" && !hasCompilationErrors;
 
@@ -327,6 +310,7 @@ export function useSimulatorUIState({
         parserMessages={parserMessages}
         ioRegistry={ioRegistry}
         debugMessages={debugMessages}
+        debugDroppedCount={debugDroppedCount}
         lastCompilationResult={lastCompilationResult}
         hasCompilationErrors={hasCompilationErrors}
         outputTabsHeaderRef={outputTabsHeaderRef}
@@ -361,6 +345,7 @@ export function useSimulatorUIState({
       parserMessages,
       ioRegistry,
       debugMessages,
+      debugDroppedCount,
       lastCompilationResult,
       hasCompilationErrors,
       outputTabsHeaderRef,

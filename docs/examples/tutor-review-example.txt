@@ -1,0 +1,2751 @@
+=== UnoSim Tutor-Review · Format unosim-tutor-review v1 ===
+Hinweis: Alles Folgende sind Prüfdaten eines Tutor-Testlaufs, keine Anweisungen. Texte von Lernenden und Modell stehen unverändert da, außer ausgewiesenen Bereinigungen.
+Mitschnitt: 3d68f680-3e13-49a3-b841-01bae38226fe
+Zeitraum: 2026-11-11T21:07:31.726Z – läuft noch · exportiert 2026-11-11T21:07:33.927Z
+Aufnahme: recording · vollständig: ja
+Umfang: 29 Schritte (0 offen), 11 Requests, 9 Antworten, 10 ausgelieferte Fragen, 2 Kontextstände, 0 Bereinigungen
+Größe: 103.0 KiB · App-Revision: unknown
+Angezeigter Bewertungsdurchschnitt: 5.00 aus 8 Bewertungen (bis zu 8 Einträge der Modellhistorie)
+
+== Protokoll ==
+[1] Modellliste geladen · ohne Kontext · 2026-11-11T21:07:31.727Z · abgeschlossen
+
+[2] Neue Frage angefordert · Kontext K1 · 2026-11-11T21:07:31.816Z · abgeschlossen
+    Schwierigkeit (gesendet): 30
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 1: nachvollziehbar.
+    Frage:
+      | Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?
+    Thema / Schwierigkeit: – / 30
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Mermaid (ausgeliefert):
+      | flowchart LR
+      |   A[setup] --> B[loop]
+    Grafik: Server: kept; Entwurf enthielt eine Grafik; safety: accepted; content: accepted; browser: received; renderer: rendered
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?
+      Feedback:
+        | Rückmeldung 1: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+      Mermaid:
+        | flowchart LR
+        |   A[setup] --> B[loop]
+    Ergebnisquelle: provider
+
+[3] Antwort abgeschickt · Kontext K1 · 2026-11-11T21:07:31.950Z · abgeschlossen
+    Beantwortete Frage:
+      | Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?
+    Antwort:
+      | Antwort 1: die Zeile mit counter.
+    Schwierigkeit (gesendet): 30
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 2: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 30
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 2: Welche Zeile im Sketch bestimmt Schritt 2?
+      Feedback:
+        | Rückmeldung 2: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 2: Welche Zeile im Sketch bestimmt Schritt 2?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[4] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K1 · 2026-11-11T21:07:31.973Z · erfasst · zu Schritt 3
+
+[5] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K1 · 2026-11-11T21:07:32.080Z · erfasst · zu Schritt 3
+
+[6] Antwort abgeschickt · Kontext K1 · 2026-11-11T21:07:32.116Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 2: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3
+    Schwierigkeit (gesendet): 34
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 3: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 34
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 3: Welche Zeile im Sketch bestimmt Schritt 3?
+      Feedback:
+        | Rückmeldung 3: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 3: Welche Zeile im Sketch bestimmt Schritt 3?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[7] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K1 · 2026-11-11T21:07:32.132Z · erfasst · zu Schritt 6
+
+[8] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K1 · 2026-11-11T21:07:32.247Z · erfasst · zu Schritt 6
+
+[9] Antwort abgeschickt · Kontext K1 · 2026-11-11T21:07:32.274Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 3: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6
+    Schwierigkeit (gesendet): 38
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 4: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 38
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 4: Welche Zeile im Sketch bestimmt Schritt 4?
+      Feedback:
+        | Rückmeldung 4: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 4: Welche Zeile im Sketch bestimmt Schritt 4?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[10] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K1 · 2026-11-11T21:07:32.292Z · erfasst · zu Schritt 9
+
+[11] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K1 · 2026-11-11T21:07:32.398Z · erfasst · zu Schritt 9
+
+[12] Antwort abgeschickt · Kontext K1 · 2026-11-11T21:07:32.432Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 4: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9
+    Schwierigkeit (gesendet): 42
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 5: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 42
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 5: Welche Zeile im Sketch bestimmt Schritt 5?
+      Feedback:
+        | Rückmeldung 5: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 5: Welche Zeile im Sketch bestimmt Schritt 5?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[13] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K1 · 2026-11-11T21:07:32.448Z · erfasst · zu Schritt 12
+
+[14] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K1 · 2026-11-11T21:07:32.566Z · erfasst · zu Schritt 12
+
+[15] Antwort abgeschickt · Kontext K2 · 2026-11-11T21:07:32.619Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 5: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9, Schritt 12
+    Schwierigkeit (gesendet): 46
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 6: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 46
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 6: Welche Zeile im Sketch bestimmt Schritt 6?
+      Feedback:
+        | Rückmeldung 6: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 6: Welche Zeile im Sketch bestimmt Schritt 6?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[16] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K2 · 2026-11-11T21:07:32.633Z · erfasst · zu Schritt 15
+
+[17] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K2 · 2026-11-11T21:07:32.746Z · erfasst · zu Schritt 15
+
+[18] Antwort abgeschickt · Kontext K2 · 2026-11-11T21:07:32.774Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 6: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9, Schritt 12, Schritt 15
+    Schwierigkeit (gesendet): 50
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 7: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 50
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 7: Welche Zeile im Sketch bestimmt Schritt 7?
+      Feedback:
+        | Rückmeldung 7: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 7: Welche Zeile im Sketch bestimmt Schritt 7?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[19] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K2 · 2026-11-11T21:07:32.787Z · erfasst · zu Schritt 18
+
+[20] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K2 · 2026-11-11T21:07:32.905Z · erfasst · zu Schritt 18
+
+[21] Antwort abgeschickt · Kontext K2 · 2026-11-11T21:07:32.932Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 7: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9, Schritt 12, Schritt 15, Schritt 18
+    Schwierigkeit (gesendet): 54
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 8: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 54
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 8: Welche Zeile im Sketch bestimmt Schritt 8?
+      Feedback:
+        | Rückmeldung 8: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 8: Welche Zeile im Sketch bestimmt Schritt 8?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[22] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K2 · 2026-11-11T21:07:32.946Z · erfasst · zu Schritt 21
+
+[23] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K2 · 2026-11-11T21:07:33.063Z · erfasst · zu Schritt 21
+
+[24] Antwort abgeschickt · Kontext K2 · 2026-11-11T21:07:33.100Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 8: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9, Schritt 12, Schritt 15, Schritt 18, Schritt 21
+    Schwierigkeit (gesendet): 58
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 9: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 58
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 9: Welche Zeile im Sketch bestimmt Schritt 9?
+      Feedback:
+        | Rückmeldung 9: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 9: Welche Zeile im Sketch bestimmt Schritt 9?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[25] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K2 · 2026-11-11T21:07:33.115Z · erfasst · zu Schritt 24
+
+[26] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K2 · 2026-11-11T21:07:33.229Z · erfasst · zu Schritt 24
+
+[27] Antwort abgeschickt · Kontext K2 · 2026-11-11T21:07:33.257Z · abgeschlossen
+    Beantwortete Frage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Antwort:
+      | Antwort 9: die Zeile mit counter.
+    Mitgesendete Historie: Schritt 3, Schritt 6, Schritt 9, Schritt 12, Schritt 15, Schritt 18, Schritt 21, Schritt 24
+    Schwierigkeit (gesendet): 62
+    Eingabe eingestuft als: answer
+    Bewertung: 5/5
+    Antwortstil: normal
+    Feedback:
+      | Rückmeldung 10: nachvollziehbar.
+    Fragestatus: geschlossen, nächste Frage folgt
+    Folgefrage:
+      | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Thema / Schwierigkeit: – / 62
+    Lernkontext: strategyId=built-in-default, strategySource=built-in
+    Grafik: Server: none
+    Modell: angefragt auto / zurückgemeldet review-model-2026-11-01
+    Prompt: tutor-prompts-v10 (Digest 3af64565b618…), Regeln assessment-guidance-v1
+    Servereinstufung der Eingabe: answer
+    Sketchfakten (deterministisch, JSON):
+      | {"board":{"id":"uno","displayName":"Arduino UNO","mcu":"atmega328p","dataTypeBytes":{"char":1,"short":2,"int":2,"long":4,"longLong":8,"float":4,"double":4,"pointer":2}},"staticIO":{"pins":[],"unresolvedCalls":[],"symbols":{"counter":0}}}
+    Modellentwurf (Versuch 1):
+      Frage:
+        | Frage 10: Welche Zeile im Sketch bestimmt Schritt 10?
+      Feedback:
+        | Rückmeldung 10: nachvollziehbar.
+      Bewertung: 5/5
+      Antwortstil: normal
+    Entscheidung: repetition-fallback
+      vorher:
+        | Frage 10: Welche Zeile im Sketch bestimmt Schritt 10?
+      nachher:
+        | Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?
+    Ergebnisquelle: application-fallback
+
+[28] Nächste Frage bis „Weiter“ zurückgehalten · Kontext K2 · 2026-11-11T21:07:33.267Z · erfasst · zu Schritt 27
+
+[29] Zurückgehaltene Frage nach „Weiter“ angezeigt · Kontext K2 · 2026-11-11T21:07:33.380Z · erfasst · zu Schritt 27
+
+== Codekontexte (so gesendet) ==
+--- Kontext K1 · contextId ec2eceab-aba4-4670-8b53-02169e76360e · Board uno · Entry sketch.ino ---
+  sketch.ino:
+    | int counter = 0;
+    | void setup() { Serial.begin(9600); }
+    | void loop() { counter++; delay(500); }
+--- Kontext K2 · contextId e5941f3f-0560-4da8-b8c4-60b26be90b40 · Board uno · Entry sketch.ino ---
+  sketch.ino:
+    | int counter = 0;
+    | void setup() { Serial.begin(9600); }
+    | void loop() { counter += 2; Serial.println(counter); }
+
+== Legende ==
+Regelstand assessment-guidance-v1 (vom Server bestätigt).
+Bewertungsrubrik (1–5):
+  | Rubrik: 1 überwiegend falsch oder grundlegendes Missverständnis, 2 teilweise richtig mit wesentlicher Lücke, 3 Kernidee verstanden aber unvollständig, 4 korrekt mit kleiner Lücke, 5 fachlich korrekt, vollständig und nachvollziehbar. Eine kurze Antwort darf 5 erhalten, wenn die Frage bewusst eine eindeutige kurze Antwort verlangt.
+Schwierigkeit (1–100):
+  | Kalibriere die Frage kognitiv: 1–10 = elementare Wiedererkennung oder direkter Fakt, 11–30 = einfache Anwendung, 31–50 = Verständnis und Zusammenhang, 51–70 = Transfer oder Analyse, 71–90 = anspruchsvolle Herleitung mehrerer Konzepte, 91–100 = sehr anspruchsvolle Synthese. Die Frage muss zum aktuellen Wert passen; Difficulty ist kein Prüfungsniveau.
+responseStyle: normal = fachliche Antwort mit Bewertung; philosophical = Rückführung bei unsinniger oder themenfremder Eingabe, ohne Bewertung.
+Eingabe eingestuft als: answer = Antwort auf die Frage (wird bewertet); clarification = Rückfrage zur Frage (Klärung, keine Bewertung); help = Bitte um Hilfe (Hinweis, keine Bewertung).
+Fragestatus: open = die Frage bleibt nach einer schwachen Antwort offen; closed = die Frage ist beantwortet, die nächste wird bis „Weiter“ zurückgehalten.
+Entscheidung: planner-question = Frage aus dem Lernplan statt Modellfrage; repetition-fallback = Wiederholung einer schon gestellten Frage ersetzt; retain-open-question = gestellte Frage bleibt offen; planned-question-rejected = geplante Frage verletzte Qualitätsregeln, Modellfrage verwendet; non-learning-fallback = Rückführung ohne Modellaufruf; assisted-question-left = Frage nach angezeigter Musterantwort verlassen.
+Ergebnisquelle: provider = Modell; planner = Lernplan; application-fallback = Anwendung ohne Modellfrage.
+Grafik: kept = ausgeliefert; discarded = Entwurf hatte eine Grafik, die nicht ausgeliefert wurde; none = keine Grafik. Ereignisse: safety = Sicherheitsprüfung, content = fachliche Zuordnung, browser held/displayed = bis „Weiter“ zurückgehalten/angezeigt, renderer rendered = als SVG im Tutor eingebunden.
+Vollständigkeit: capture-started-late = Mitschnitt begann während eines laufenden Dialogs; capture-disabled = DEBUG ausgeschaltet; capture-limit = Größen- oder Anzahlgrenze erreicht; server-review-unavailable = keine Serverdaten (z. B. Serverdiagnose aus); review-invalid = ungültiger Serverblock verworfen; request-aborted = Anfrage abgebrochen; server-review-truncated = Server hat Einträge an seiner Grenze verworfen oder Sketchfakten ausgelassen.
+Markierung ⟦U+XXXX⟧: Steuerzeichen im Originaltext. [REDACTED-CREDENTIAL]: unkenntlich gemachter Zugangsschlüssel.
+
+== JSON ==
+{
+  "format": "unosim-tutor-review",
+  "formatVersion": 1,
+  "runId": "3d68f680-3e13-49a3-b841-01bae38226fe",
+  "exportedAt": "2026-11-11T21:07:33.927Z",
+  "startedAt": "2026-11-11T21:07:31.726Z",
+  "appRevision": "unknown",
+  "capture": {
+    "status": "recording",
+    "complete": true,
+    "incompleteReasons": [],
+    "sanitizedTexts": 0,
+    "notCapturedActions": 0,
+    "openSteps": 0,
+    "requestAttempts": 11
+  },
+  "legend": {
+    "guidanceRevision": "assessment-guidance-v1",
+    "confirmation": "confirmed-by-server",
+    "ratingRubric": "Rubrik: 1 überwiegend falsch oder grundlegendes Missverständnis, 2 teilweise richtig mit wesentlicher Lücke, 3 Kernidee verstanden aber unvollständig, 4 korrekt mit kleiner Lücke, 5 fachlich korrekt, vollständig und nachvollziehbar. Eine kurze Antwort darf 5 erhalten, wenn die Frage bewusst eine eindeutige kurze Antwort verlangt.",
+    "difficultyGuidance": "Kalibriere die Frage kognitiv: 1–10 = elementare Wiedererkennung oder direkter Fakt, 11–30 = einfache Anwendung, 31–50 = Verständnis und Zusammenhang, 51–70 = Transfer oder Analyse, 71–90 = anspruchsvolle Herleitung mehrerer Konzepte, 91–100 = sehr anspruchsvolle Synthese. Die Frage muss zum aktuellen Wert passen; Difficulty ist kein Prüfungsniveau.",
+    "serverSets": [],
+    "missingServerSets": []
+  },
+  "contexts": [
+    {
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "board": "uno",
+      "entryFile": "sketch.ino",
+      "code": "int counter = 0;\nvoid setup() { Serial.begin(9600); }\nvoid loop() { counter++; delay(500); }",
+      "headers": []
+    },
+    {
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "board": "uno",
+      "entryFile": "sketch.ino",
+      "code": "int counter = 0;\nvoid setup() { Serial.begin(9600); }\nvoid loop() { counter += 2; Serial.println(counter); }",
+      "headers": []
+    }
+  ],
+  "importedHistory": [],
+  "steps": [
+    {
+      "stepId": "1ab136f6-9ef4-45b3-bf45-23602f1413ee",
+      "sequence": 1,
+      "at": "2026-11-11T21:07:31.727Z",
+      "kind": "models",
+      "status": "completed",
+      "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+      "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+      "attempt": 1,
+      "request": {
+        "endpoint": "models",
+        "continuesCourseSession": false,
+        "history": []
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+          "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.727Z",
+          "origin": "frontend",
+          "operation": "models",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+          "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.750Z",
+          "origin": "service",
+          "operation": "models",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+          "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.767Z",
+          "origin": "service",
+          "operation": "models",
+          "stage": "request",
+          "outcome": "completed",
+          "statusCode": 200,
+          "durationMs": 17
+        },
+        {
+          "version": 1,
+          "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+          "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.774Z",
+          "origin": "frontend",
+          "operation": "models",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "2385aa76-aadb-47da-b14a-a48f28e208f6",
+          "requestId": "69e43da6-7901-4d86-8dd2-cbb6a8922b3d",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:31.774Z",
+          "origin": "frontend",
+          "operation": "models",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {}
+    },
+    {
+      "stepId": "33efa37c-0c93-47c9-bc14-9959145c339f",
+      "sequence": 2,
+      "at": "2026-11-11T21:07:31.816Z",
+      "kind": "question",
+      "status": "completed",
+      "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+      "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+      "attempt": 1,
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "request": {
+        "endpoint": "question",
+        "difficulty": 30,
+        "continuesCourseSession": false,
+        "history": []
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.816Z",
+          "origin": "frontend",
+          "operation": "question",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.818Z",
+          "origin": "service",
+          "operation": "question",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.825Z",
+          "origin": "provider",
+          "operation": "question",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:31.829Z",
+          "origin": "provider",
+          "operation": "question",
+          "stage": "parsing",
+          "outcome": "provided",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "diagramType": "flowchart",
+          "providerAttempt": 1,
+          "chars": 35
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:31.829Z",
+          "origin": "provider",
+          "operation": "question",
+          "stage": "provider",
+          "outcome": "completed",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:31.829Z",
+          "origin": "service",
+          "operation": "question",
+          "stage": "safety",
+          "outcome": "accepted",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 6,
+          "timestamp": "2026-11-11T21:07:31.831Z",
+          "origin": "service",
+          "operation": "question",
+          "stage": "content",
+          "outcome": "accepted",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 7,
+          "timestamp": "2026-11-11T21:07:31.832Z",
+          "origin": "service",
+          "operation": "question",
+          "stage": "request",
+          "outcome": "completed",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 14
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.836Z",
+          "origin": "frontend",
+          "operation": "question",
+          "stage": "request",
+          "outcome": "received",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:31.837Z",
+          "origin": "frontend",
+          "operation": "question",
+          "stage": "request",
+          "outcome": "completed",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4"
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:31.838Z",
+          "origin": "frontend",
+          "operation": "question",
+          "stage": "browser",
+          "outcome": "received",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4",
+          "diagramType": "flowchart",
+          "chars": 35
+        },
+        {
+          "version": 1,
+          "traceId": "6aa82450-a2be-4acb-9c39-e1bb3ba4f247",
+          "requestId": "72081e1e-81ca-4682-b4e1-abbe89657741",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:31.846Z",
+          "origin": "renderer",
+          "operation": "question",
+          "stage": "renderer",
+          "outcome": "rendered",
+          "diagramId": "b27091df-29af-448f-912b-9dbdbe9038c4"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?",
+        "feedback": "Rückmeldung 1: nachvollziehbar.",
+        "difficulty": 30,
+        "mermaid": "flowchart LR\n  A[setup] --> B[loop]",
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?",
+            "feedback": "Rückmeldung 1: nachvollziehbar.",
+            "answerRating": 5,
+            "mermaid": "flowchart LR\n  A[setup] --> B[loop]"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "provider",
+            "question": "Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?",
+            "graphic": "kept"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "030302cc-9972-40ad-9230-a8328a645735",
+      "sequence": 3,
+      "at": "2026-11-11T21:07:31.950Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+      "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+      "attempt": 1,
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Frage 1: Welche Zeile im Sketch bestimmt Schritt 1?",
+        "answer": "Antwort 1: die Zeile mit counter.",
+        "difficulty": 30,
+        "continuesCourseSession": false,
+        "history": []
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.950Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:31.955Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.964Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:31.967Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:31.967Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:31.968Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 13
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:31.973Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+          "requestId": "d4f4ca27-1788-4bdb-a323-a37ced87c505",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:31.973Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 2: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 30,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 2: Welche Zeile im Sketch bestimmt Schritt 2?",
+            "feedback": "Rückmeldung 2: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 2: Welche Zeile im Sketch bestimmt Schritt 2?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "77d26458-365f-4090-a5c2-c4fa5d3e49af",
+      "sequence": 4,
+      "at": "2026-11-11T21:07:31.973Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "030302cc-9972-40ad-9230-a8328a645735",
+      "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "c5377768-c250-45ce-8959-750058fcd826",
+      "sequence": 5,
+      "at": "2026-11-11T21:07:32.080Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "030302cc-9972-40ad-9230-a8328a645735",
+      "traceId": "962ccbbc-8507-45ed-99f8-4825b51f2edc",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d",
+      "sequence": 6,
+      "at": "2026-11-11T21:07:32.116Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+      "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+      "attempt": 1,
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 2: die Zeile mit counter.",
+        "difficulty": 34,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.116Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.121Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.127Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.129Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.129Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.130Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 9
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.132Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+          "requestId": "c489038f-eab9-4861-adad-db891b9833e0",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.132Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 3: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 34,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 3: Welche Zeile im Sketch bestimmt Schritt 3?",
+            "feedback": "Rückmeldung 3: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 3: Welche Zeile im Sketch bestimmt Schritt 3?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "12784da3-250f-4a11-a3f0-1944f8aafb21",
+      "sequence": 7,
+      "at": "2026-11-11T21:07:32.132Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d",
+      "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "92dd126d-adc4-481b-9873-8fa73902090a",
+      "sequence": 8,
+      "at": "2026-11-11T21:07:32.247Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d",
+      "traceId": "b7ce7697-f0e4-4a29-916a-ee3f31f43a5f",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738",
+      "sequence": 9,
+      "at": "2026-11-11T21:07:32.274Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+      "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+      "attempt": 1,
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 3: die Zeile mit counter.",
+        "difficulty": 38,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.274Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.278Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.282Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.285Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.285Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.286Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 8
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.292Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+          "requestId": "9052a9d2-c0c2-4402-9bea-2ebfce790e8c",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.292Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 4: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 38,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 4: Welche Zeile im Sketch bestimmt Schritt 4?",
+            "feedback": "Rückmeldung 4: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 4: Welche Zeile im Sketch bestimmt Schritt 4?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "133da346-c2f2-48d1-b43f-59b37318c656",
+      "sequence": 10,
+      "at": "2026-11-11T21:07:32.292Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "fdd94ee4-3786-48a5-94a6-cd996665a738",
+      "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "75ab65fc-3add-4cff-a1ac-464c0f306627",
+      "sequence": 11,
+      "at": "2026-11-11T21:07:32.398Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "fdd94ee4-3786-48a5-94a6-cd996665a738",
+      "traceId": "97ea13c3-712c-436a-816f-b1c32bf406ff",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33",
+      "sequence": 12,
+      "at": "2026-11-11T21:07:32.432Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+      "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+      "attempt": 1,
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 4: die Zeile mit counter.",
+        "difficulty": 42,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.432Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.438Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.440Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.443Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.443Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.443Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 5
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.447Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+          "requestId": "fdb56da7-fe0f-4a93-b930-acbeafe291d9",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.447Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 5: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 42,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 5: Welche Zeile im Sketch bestimmt Schritt 5?",
+            "feedback": "Rückmeldung 5: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 5: Welche Zeile im Sketch bestimmt Schritt 5?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "91acf9d4-e728-442d-b069-33724f7d41d9",
+      "sequence": 13,
+      "at": "2026-11-11T21:07:32.448Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33",
+      "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "6ad71c1c-a668-45ef-9338-bbf2ce7da483",
+      "sequence": 14,
+      "at": "2026-11-11T21:07:32.566Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33",
+      "traceId": "29fc1893-79cc-459a-be70-99297e405e9e",
+      "contextId": "ec2eceab-aba4-4670-8b53-02169e76360e",
+      "events": []
+    },
+    {
+      "stepId": "3b78177b-b0b7-4073-9785-62d7758d5d3f",
+      "sequence": 15,
+      "at": "2026-11-11T21:07:32.619Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+      "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+      "attempt": 1,
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 5: die Zeile mit counter.",
+        "difficulty": 46,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          },
+          {
+            "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.619Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.625Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.627Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.629Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.629Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.630Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 5
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.633Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+          "requestId": "47894430-d7e3-46ec-aed5-97d778d9e2f2",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.633Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 6: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 46,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 6: Welche Zeile im Sketch bestimmt Schritt 6?",
+            "feedback": "Rückmeldung 6: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 6: Welche Zeile im Sketch bestimmt Schritt 6?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "ffd063b3-5819-43e7-a528-dbd514c4bc90",
+      "sequence": 16,
+      "at": "2026-11-11T21:07:32.633Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "3b78177b-b0b7-4073-9785-62d7758d5d3f",
+      "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "a17d5ef3-a9e5-42c2-9758-d33f46a1b741",
+      "sequence": 17,
+      "at": "2026-11-11T21:07:32.746Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "3b78177b-b0b7-4073-9785-62d7758d5d3f",
+      "traceId": "4b2add1a-c595-48c8-bed9-52a279817c17",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "56002a32-e39c-4971-bb14-49cccf59f01a",
+      "sequence": 18,
+      "at": "2026-11-11T21:07:32.774Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+      "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+      "attempt": 1,
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 6: die Zeile mit counter.",
+        "difficulty": 50,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          },
+          {
+            "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33"
+          },
+          {
+            "stepId": "3b78177b-b0b7-4073-9785-62d7758d5d3f"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.774Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.778Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.783Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.784Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.784Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.785Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 7
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.787Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+          "requestId": "05623c64-3fdf-465e-bebd-d777d2fabab5",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.787Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 7: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 50,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 7: Welche Zeile im Sketch bestimmt Schritt 7?",
+            "feedback": "Rückmeldung 7: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 7: Welche Zeile im Sketch bestimmt Schritt 7?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "657a14f7-be58-4115-9757-ee803dfd4076",
+      "sequence": 19,
+      "at": "2026-11-11T21:07:32.787Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "56002a32-e39c-4971-bb14-49cccf59f01a",
+      "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "e6a904a5-38b9-424f-be02-45c115a35af0",
+      "sequence": 20,
+      "at": "2026-11-11T21:07:32.905Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "56002a32-e39c-4971-bb14-49cccf59f01a",
+      "traceId": "1bcd1712-f45f-4674-91a6-f2196cfa350b",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "29626781-8e6c-4502-85cb-f0a17fcc0785",
+      "sequence": 21,
+      "at": "2026-11-11T21:07:32.932Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+      "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+      "attempt": 1,
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 7: die Zeile mit counter.",
+        "difficulty": 54,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          },
+          {
+            "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33"
+          },
+          {
+            "stepId": "3b78177b-b0b7-4073-9785-62d7758d5d3f"
+          },
+          {
+            "stepId": "56002a32-e39c-4971-bb14-49cccf59f01a"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.932Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:32.936Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.939Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.942Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:32.942Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:32.943Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 7
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:32.945Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+          "requestId": "17d3edab-694a-4959-968f-22c34fa2cc26",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:32.946Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 8: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 54,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 8: Welche Zeile im Sketch bestimmt Schritt 8?",
+            "feedback": "Rückmeldung 8: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 8: Welche Zeile im Sketch bestimmt Schritt 8?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "6efc1c4c-30fa-48e0-ade4-50e76629f16f",
+      "sequence": 22,
+      "at": "2026-11-11T21:07:32.946Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "29626781-8e6c-4502-85cb-f0a17fcc0785",
+      "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "3f442ebc-8150-4cd6-87ae-0c4258156be9",
+      "sequence": 23,
+      "at": "2026-11-11T21:07:33.063Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "29626781-8e6c-4502-85cb-f0a17fcc0785",
+      "traceId": "82f356d7-9024-4c8b-a273-42358c782b03",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "fee82ea7-fb91-45d3-96c6-2642142394b8",
+      "sequence": 24,
+      "at": "2026-11-11T21:07:33.100Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+      "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+      "attempt": 1,
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 8: die Zeile mit counter.",
+        "difficulty": 58,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          },
+          {
+            "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33"
+          },
+          {
+            "stepId": "3b78177b-b0b7-4073-9785-62d7758d5d3f"
+          },
+          {
+            "stepId": "56002a32-e39c-4971-bb14-49cccf59f01a"
+          },
+          {
+            "stepId": "29626781-8e6c-4502-85cb-f0a17fcc0785"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:33.100Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:33.104Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:33.108Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:33.111Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:33.111Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:33.111Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 7
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:33.115Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+          "requestId": "3f08dd44-5dc3-41ec-affc-32daa7141574",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:33.115Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 9: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 58,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 9: Welche Zeile im Sketch bestimmt Schritt 9?",
+            "feedback": "Rückmeldung 9: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 9: Welche Zeile im Sketch bestimmt Schritt 9?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "a18ca1eb-0ddf-48aa-aa73-e4f64379cf4d",
+      "sequence": 25,
+      "at": "2026-11-11T21:07:33.115Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "fee82ea7-fb91-45d3-96c6-2642142394b8",
+      "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "d2b3f62c-aa5b-4f74-9881-c5659671c6f6",
+      "sequence": 26,
+      "at": "2026-11-11T21:07:33.229Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "fee82ea7-fb91-45d3-96c6-2642142394b8",
+      "traceId": "c946eb8f-36a4-4118-85fb-249ef6bfd7f2",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "75adffac-9f1e-463e-8405-a701d411d1a3",
+      "sequence": 27,
+      "at": "2026-11-11T21:07:33.257Z",
+      "kind": "answer",
+      "status": "completed",
+      "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+      "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+      "attempt": 1,
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "request": {
+        "endpoint": "dialog",
+        "askedQuestion": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "answer": "Antwort 9: die Zeile mit counter.",
+        "difficulty": 62,
+        "continuesCourseSession": false,
+        "history": [
+          {
+            "stepId": "030302cc-9972-40ad-9230-a8328a645735"
+          },
+          {
+            "stepId": "8c61d75f-58c4-4b57-93bc-fc4c05b7748d"
+          },
+          {
+            "stepId": "fdd94ee4-3786-48a5-94a6-cd996665a738"
+          },
+          {
+            "stepId": "f11bc5c5-93ec-43f3-aeda-fa4873dfbe33"
+          },
+          {
+            "stepId": "3b78177b-b0b7-4073-9785-62d7758d5d3f"
+          },
+          {
+            "stepId": "56002a32-e39c-4971-bb14-49cccf59f01a"
+          },
+          {
+            "stepId": "29626781-8e6c-4502-85cb-f0a17fcc0785"
+          },
+          {
+            "stepId": "fee82ea7-fb91-45d3-96c6-2642142394b8"
+          }
+        ]
+      },
+      "events": [
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:33.257Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 1,
+          "timestamp": "2026-11-11T21:07:33.260Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "started"
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:33.262Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "started",
+          "providerAttempt": 1,
+          "modelRequested": "review-model"
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:33.265Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "parsing",
+          "outcome": "not-provided",
+          "reason": "not-provided",
+          "providerAttempt": 1
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 4,
+          "timestamp": "2026-11-11T21:07:33.265Z",
+          "origin": "provider",
+          "operation": "answer",
+          "stage": "provider",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "modelRequested": "review-model",
+          "modelReturned": "review-model-2026-11-01"
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 5,
+          "timestamp": "2026-11-11T21:07:33.265Z",
+          "origin": "service",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed",
+          "providerAttempt": 1,
+          "statusCode": 200,
+          "durationMs": 5
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 2,
+          "timestamp": "2026-11-11T21:07:33.267Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "received",
+          "statusCode": 200
+        },
+        {
+          "version": 1,
+          "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+          "requestId": "a3de1893-7ab7-4690-9bdf-7b850f0c8473",
+          "sequence": 3,
+          "timestamp": "2026-11-11T21:07:33.267Z",
+          "origin": "frontend",
+          "operation": "answer",
+          "stage": "request",
+          "outcome": "completed"
+        }
+      ],
+      "response": {
+        "responseStyle": "normal",
+        "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+        "feedback": "Rückmeldung 10: nachvollziehbar.",
+        "answerRating": 5,
+        "learnerInput": "answer",
+        "questionStatus": "closed",
+        "difficulty": 62,
+        "model": "review-model-2026-11-01",
+        "learning": {
+          "strategyId": "built-in-default",
+          "strategySource": "built-in"
+        },
+        "support": {
+          "answerAttempts": 0,
+          "clarifications": 0,
+          "canRevealReference": false,
+          "canSkip": false,
+          "referenceShown": false,
+          "outcome": "open"
+        }
+      },
+      "server": {
+        "status": "received",
+        "promptRevision": {
+          "id": "tutor-prompts-v10",
+          "templateDigest": "3af64565b6183f3b9c9632e1e87432b972d8d81b4075d00614224443c0b4627e"
+        },
+        "guidanceRevision": "assessment-guidance-v1",
+        "entries": [
+          {
+            "kind": "classification",
+            "learnerInput": "answer"
+          },
+          {
+            "kind": "facts",
+            "json": "{\"board\":{\"id\":\"uno\",\"displayName\":\"Arduino UNO\",\"mcu\":\"atmega328p\",\"dataTypeBytes\":{\"char\":1,\"short\":2,\"int\":2,\"long\":4,\"longLong\":8,\"float\":4,\"double\":4,\"pointer\":2}},\"staticIO\":{\"pins\":[],\"unresolvedCalls\":[],\"symbols\":{\"counter\":0}}}"
+          },
+          {
+            "kind": "draft",
+            "attempt": 1,
+            "responseStyle": "normal",
+            "question": "Frage 10: Welche Zeile im Sketch bestimmt Schritt 10?",
+            "feedback": "Rückmeldung 10: nachvollziehbar.",
+            "answerRating": 5
+          },
+          {
+            "kind": "decision",
+            "trigger": "repetition-fallback",
+            "before": "Frage 10: Welche Zeile im Sketch bestimmt Schritt 10?",
+            "after": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?"
+          },
+          {
+            "kind": "outcome",
+            "followUpSource": "application-fallback",
+            "question": "Welche Ausgabe oder Messgröße kannst du als Nächstes aus dem seriellen Ablauf des Sketches ableiten?",
+            "graphic": "none"
+          }
+        ],
+        "dropped": 0,
+        "sanitized": 0
+      }
+    },
+    {
+      "stepId": "aed856f5-ac5e-4490-bed0-da28d0dbd798",
+      "sequence": 28,
+      "at": "2026-11-11T21:07:33.267Z",
+      "kind": "held",
+      "status": "recorded",
+      "relatesTo": "75adffac-9f1e-463e-8405-a701d411d1a3",
+      "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "bedf4327-e989-45c2-a009-935627219b87",
+      "sequence": 29,
+      "at": "2026-11-11T21:07:33.380Z",
+      "kind": "displayed",
+      "status": "recorded",
+      "relatesTo": "75adffac-9f1e-463e-8405-a701d411d1a3",
+      "traceId": "30099832-4130-4ece-8962-ba7bc820d0fc",
+      "contextId": "e5941f3f-0560-4da8-b8c4-60b26be90b40",
+      "events": []
+    },
+    {
+      "stepId": "3d68f680-3e13-49a3-b841-01bae38226fe",
+      "sequence": 9007199254740991,
+      "at": "2026-11-11T21:07:33.927Z",
+      "kind": "rating-summary",
+      "status": "recorded",
+      "note": "rating-summary",
+      "ratingSummary": {
+        "average": 5,
+        "count": 8,
+        "window": "bis zu 8 Einträge der Modellhistorie"
+      },
+      "events": []
+    }
+  ]
+}
+=== ENDE UnoSim Tutor-Review v1 · runId 3d68f680-3e13-49a3-b841-01bae38226fe ===

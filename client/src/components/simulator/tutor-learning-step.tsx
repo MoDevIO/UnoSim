@@ -1,3 +1,4 @@
+import { MermaidPreview } from "./tutor-mermaid-preview";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,23 +7,6 @@ import type { TutorSupportState } from "@shared/tutor";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
 import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
-
-/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
-function MermaidPreview({ source }: { readonly source: string }) {
-  const renderId = useId().replaceAll(":", "");
-  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
-  useEffect(() => {
-    let current = true;
-    void import("@/lib/tutor-mermaid").then(({ renderMermaidSubset }) => {
-      if (current) setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));
-    });
-    return () => {
-      current = false;
-    };
-  }, [source, renderId]);
-  if (!renderedSvg) return null;
-  return <div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} />;
-}
 
 /** The question an entry belongs to; it tells the current question's steps from the previous question's. */
 function entryQuestion(entry: TutorTranscriptEntry): string {
@@ -220,7 +204,7 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
       <section aria-labelledby={headingId} data-testid="tutor-question">
         <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">{questionHeading}</h3>
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
-        {question.mermaid && <MermaidPreview source={question.mermaid} />}
+        {question.mermaid && <MermaidPreview source={question.mermaid} subject={question} />}
       </section>
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
       <div ref={stepRef} aria-live="polite" data-testid="tutor-current-step">

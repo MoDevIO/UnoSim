@@ -1,12 +1,13 @@
+import { BasicDebugOutput } from "./basic-debug-output";
+const DebugOutput = lazy(() => import("./debug-output").then((module) => ({ default: module.DebugOutput })));
 import React, { lazy, Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { UnifiedScrollArea } from "@/components/ui/unified-scroll-area";
 import { CompilationOutput } from "@/components/features/compilation-output";
 
 // The messages and registry tables are not needed before the first compile: they load with their tab (initial bundle budget, plan P3.9).
 const ParserOutput = lazy(() => import("@/components/features/parser-output").then((module) => ({ default: module.ParserOutput })));
-import { X, LayoutGrid, Table, Copy, Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 import clsx from "clsx";
 import type { ParserMessage, IOPinRecord } from "@shared/schema";
 import { pinModeToString } from "@shared/utils/arduino-utils";
@@ -14,7 +15,6 @@ import type { DebugMessage } from "@/hooks/use-debug-console";
 import type { OutputTab } from "@/types/compilation.types";
 import type { SourceNavigationTarget } from "@/types/source-navigation";
 import { TabBar } from "@/components/ui/tab-bar";
-import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
 import { getHighestSeverityStatus, getStatusTextClass } from "@/lib/status-semantics";
 import type { ApplicationStatus } from "@/lib/status-semantics";
 
@@ -36,7 +36,6 @@ function hasRegistryConflict(record: IOPinRecord): boolean {
 }
 
 import type { BoardId } from "@shared/boards";
-import { DEBUG_FIELD_CLASS, DEBUG_PROTOCOL_CLASS, DEBUG_SENDER_BADGE_CLASS, DEBUG_SENDER_TEXT_CLASS } from "@/lib/data-colors";
 
 interface OutputPanelProps {
   readonly boardId?: BoardId;
@@ -53,6 +52,7 @@ interface OutputPanelProps {
   readonly parserMessages: ParserMessage[];
   readonly ioRegistry: IOPinRecord[];
   readonly debugMessages: DebugMessage[];
+  readonly debugDroppedCount?: number;
   readonly lastCompilationResult: string | null;
   readonly hasCompilationErrors: boolean;
 
@@ -74,18 +74,11 @@ interface OutputPanelProps {
 
   readonly setDebugMessageFilter: (s: string) => void;
   readonly setDebugViewMode: (m: "table" | "tiles") => void;
-  readonly onCopyDebugMessages: () => void;
+  readonly onCopyDebugMessages: (text?: string, count?: number) => void;
   readonly onClearDebugMessages: () => void;
 }
 
-const senderTextClass = (sender: string): string => DEBUG_SENDER_TEXT_CLASS[sender] ?? DEBUG_SENDER_TEXT_CLASS.frontend!;
-const senderBadgeClass = (sender: string): string => DEBUG_SENDER_BADGE_CLASS[sender] ?? DEBUG_SENDER_BADGE_CLASS.frontend!;
 
-/** Colour of the protocol column: HTTP orange, WebSocket purple, the browser emulation (worker) cyan. */
-function protocolClass(protocol: string | undefined): string {
-  if (protocol === "http") return DEBUG_PROTOCOL_CLASS.http;
-  return protocol === "worker" ? DEBUG_PROTOCOL_CLASS.worker : DEBUG_PROTOCOL_CLASS.websocket;
-}
 
 export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelProps) {
   const {
@@ -129,6 +122,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
   const compilationStatusClass = getStatusTextClass(compilationStatus);
   const messageStatusClass = getStatusTextClass(messageStatus);
 
+  const debugProps = { debugMessages, debugMessageFilter, setDebugMessageFilter, debugViewMode, setDebugViewMode, debugMessagesContainerRef, onCopyDebugMessages, onClearDebugMessages, debugDroppedCount: props.debugDroppedCount };
   return (
     <Tabs value={activeOutputTab} onValueChange={(v) => onTabChange(v as OutputTab)} className="h-full flex flex-col">
       <TabBar ref={outputTabsHeaderRef} data-testid="output-tabs-header" className="unified-tab-bar--panel justify-start h-[var(--ui-header-height)] border-b">
@@ -197,97 +191,7 @@ export const OutputPanel = React.memo(function OutputPanel(props: OutputPanelPro
       </TabsContent>
 
       <TabsContent value="debug" className="flex-1 overflow-hidden m-0 flex flex-col data-[state=inactive]:hidden">
-        {activeOutputTab === "debug" && (
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="panel-content-header border-b px-3 justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="text-ui-xs text-muted-foreground whitespace-nowrap">Filter:</span>
-                <select value={debugMessageFilter} onChange={(e) => setDebugMessageFilter(e.target.value.toLowerCase())} className="flex-1 px-2 py-1 text-ui-xs bg-background border rounded text-foreground min-w-0 max-w-xs">
-                  <option value="">All Types</option>
-                  {Array.from(new Set(debugMessages.map((m) => m.type))).sort((a, b) => a.localeCompare(b)).map((type) => (
-                    <option key={type} value={type.toLowerCase()}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <ToolbarIconButton
-                  icon={debugViewMode === "table" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Table className="h-3.5 w-3.5" />}
-                  label={debugViewMode === "table" ? "Switch to tiles view" : "Switch to table view"}
-                  onClick={() => setDebugViewMode(debugViewMode === "table" ? "tiles" : "table")}
-                />
-                <ToolbarIconButton
-                  icon={<Copy className="h-3.5 w-3.5" />}
-                  label="Copy debug messages"
-                  onClick={onCopyDebugMessages}
-                />
-                <ToolbarIconButton
-                  icon={<Trash2 className="h-3.5 w-3.5" />}
-                  label="Clear debug messages"
-                  onClick={onClearDebugMessages}
-                />
-              </div>
-            </div>
-
-            {debugViewMode === "table" && (
-              <UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}>
-                <table className="w-full text-ui-xs border-collapse">
-                  <thead>
-                    <tr className="sticky top-0 z-40 bg-muted border-b">
-                      <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-24">Time</th>
-                      <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-16">Sender</th>
-                      <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-20">Protocol</th>
-                      <th className="px-2 py-1 text-left font-semibold text-muted-foreground border-r w-32">Type</th>
-                      <th className="px-2 py-1 text-left font-semibold text-muted-foreground">Content</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-100).map((msg, idx) => (
-                      <tr key={msg.id} className={`border-b ${idx % 2 === 0 ? "bg-background" : ""} transition-colors`}>
-                        <td className={`px-2 py-1 ${DEBUG_FIELD_CLASS.timestamp} border-r font-mono whitespace-nowrap`}>{msg.timestamp.toLocaleTimeString()}</td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={senderTextClass(msg.sender)}>{msg.sender.toUpperCase()}</span></td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={protocolClass(msg.protocol)}>{msg.protocol?.toUpperCase() || "?"}</span></td>
-                        <td className="px-2 py-1 border-r whitespace-nowrap"><span className={`${DEBUG_FIELD_CLASS.type} font-mono`}>{msg.type}</span></td>
-                        <td className="px-2 py-1 text-gray-300 font-mono max-w-md truncate" title={msg.content}>{msg.content}</td>
-                      </tr>
-                    ))}
-                    {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground text-ui-xs">{debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </UnifiedScrollArea>
-            )}
-
-            {debugViewMode === "tiles" && (
-              <UnifiedScrollArea className="flex-1" orientation="vertical" viewportRef={debugMessagesContainerRef}>
-                <div className="p-3">
-                  <div className="space-y-3">
-                    {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).slice(-50).map((msg) => (
-                      <div key={msg.id} className="border rounded p-3 transition-colors">
-                        <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b">
-                          <div className="flex items-center gap-3">
-                            <span className={`text-ui-xs font-semibold px-2 py-0.5 rounded ${senderBadgeClass(msg.sender)}`}>{msg.sender.toUpperCase()}</span>
-                            <span className={`text-ui-xs ${DEBUG_FIELD_CLASS.typeBadge} font-mono px-2 py-0.5 rounded`}>{msg.type}</span>
-                          </div>
-                          <span className={`text-ui-xs ${DEBUG_FIELD_CLASS.timestamp} font-mono whitespace-nowrap`}>{msg.timestamp.toLocaleTimeString()}</span>
-                        </div>
-                        <pre className="text-ui-xs text-gray-300 font-mono overflow-x-auto bg-black/20 p-2 rounded border"><code>{(() => { try { const parsed = JSON.parse(msg.content); return JSON.stringify(parsed, null, 2); } catch { return msg.content; } })()}</code></pre>
-                      </div>
-                    ))}
-                    {debugMessages.filter((m) => !debugMessageFilter || m.type.toLowerCase() === debugMessageFilter).length === 0 && (
-                      <div className="text-center text-muted-foreground text-ui-xs py-8">{debugMessages.length === 0 ? "No messages yet" : "No messages match filter"}</div>
-                    )}
-                  </div>
-                </div>
-              </UnifiedScrollArea>
-            )}
-
-          </div>
-        )}
+        {activeOutputTab === "debug" && <Suspense fallback={<BasicDebugOutput {...debugProps} enhancementPending={debugMessages.some((message) => message.category === "tutor")} />}><DebugOutput {...debugProps} /></Suspense>}
       </TabsContent>
     </Tabs>
   );

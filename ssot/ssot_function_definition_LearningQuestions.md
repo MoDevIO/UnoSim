@@ -811,6 +811,8 @@ Ziel ist eine einzelne verständliche Frage. Zusätzliche interne Metadaten wie 
 
 ### 3.9 Grafische Anreicherung mit Mermaid
 
+Der lokale Tutor-Renderer unterstützt einen explizit begrenzten Syntaxumfang. Unterstützte verkettete Kanten, Zustandsübergangslabels und Kantentext dürfen nicht still verloren gehen. Nicht unterstützte Syntax führt zur vollständigen Ablehnung der Grafik mit festem Diagnosegrund; die Textfrage bleibt erhalten. Beschriftungen wie `click` und fachliche Vergleichszeichen sind als Text zulässig; tatsächliche Interaktionsanweisungen, Markup und externe Inhalte bleiben gesperrt. Server und Browser verwenden gemeinsame Typ-, Längen- und Sicherheitsregeln; eine bestandene Sicherheitsprüfung garantiert noch keine darstellbare Syntax.
+
 Das LLM DARF eine Lernfrage optional durch eine kleine grafische Darstellung in **Mermaid** ergänzen, wenn dies den fachlichen Zusammenhang verständlicher macht.
 
 Geeignete Darstellungen sind insbesondere:
@@ -850,6 +852,8 @@ Für den MVP gilt:
 - keine interaktiven Aktionen aus dem Diagramm heraus,
 - bei ungültigem Mermaid-Code wird nur die Textfrage angezeigt,
 - das Frontend rendert Mermaid lokal; Mermaid-Code wird nicht an einen weiteren Dienst übertragen.
+
+Seit `tutor-prompts-v10` nennt der Systemprompt dem Modell diese Einsatzfälle, den Verzicht auf Grafiken bei einfachen Faktenfragen, den vom lokalen Renderer vollständig dargestellten Syntaxumfang samt ausgeschlossener Konstrukte und ein darstellbares Beispiel. Eine Grafik bleibt optional; es gibt keine Pflicht und keine Zielquote. Klärungen und Hinweise liefern Text ohne `mermaid`. Ein Test hält Prompt und Renderer deckungsgleich: Jede im Prompt erlaubte Form wird gezeichnet, jede ausgeschlossene abgelehnt.
 
 ---
 
@@ -1771,11 +1775,43 @@ Die Dialoghistorie ist flüchtiger Frontend-Zustand und darf ausschließlich im 
 Insbesondere gilt:
 
 - API-Keys und Authorization-Header dürfen niemals in Historieneinträgen enthalten sein.
-- Historien dürfen nicht über `/api/config`, `/api/status`, Telemetrie oder Logs offengelegt werden.
+- Historien dürfen nicht über `/api/config`, `/api/status`, Telemetrie oder Logs offengelegt werden. Einzige Ausnahme ist der lokale, flüchtige Tutor-Mitschnitt im Debug-Tab nach Abschnitt 12.7.
 - Der Server darf die Historie nur request-scoped zur Bearbeitung einer Folgefrage erhalten.
 - Die Historie MUSS vor der Provider-Anfrage auf das definierte Sliding Window und die zulässige Eingabelänge begrenzt werden.
 - Ein fehlgeschlagener Request darf weder bestehende Einträge entfernen noch einen unbestätigten Eintrag dauerhaft übernehmen.
 - `Neue Lernrunde starten` löscht den Dialoginhalt, aber nicht Key, Providerstatus oder Modellwahl.
+
+---
+
+### 12.6 Sichere Tutor-Diagnose im Debug-Tab
+
+Bei aktivem Browser-Debug-Modus kann der Client für Tutor-Anfragen mit `X-UnoSim-Tutor-Debug: 1` einen begrenzten Diagnoseblock anfordern. Der Server beachtet dies ausschließlich bei vorhandener Request-Identität und aktivierter `UNOSIM_TUTOR_DIAGNOSTICS_ENABLED`-Konfiguration (Entwicklung standardmäßig aktiv, Produktion und Tests standardmäßig aus). Ein expliziter Serverwert überschreibt den Standard. Die sichere Client-Konfiguration meldet die boolesche Fähigkeit `tutorDiagnosticsAvailable`; ein deaktivierter Server wird als unvollständige Diagnose kenntlich gemacht.
+
+Der Diagnosevertrag enthält ausschließlich feste Ereignis-/Grundcodes, zufällige unabhängige Trace-, Request- und Grafikkennungen und erlaubte begrenzte Metadaten. Angefragte Modellkennungen sind nur nach Abgleich mit der Modellliste dieses Requests zulässig. Die vom Provider zurückgemeldete Kennung, die der Tutor auch als zuletzt verwendetes Modell anzeigt, erscheint, wenn sie höchstens 128 Zeichen lang ist, nur Buchstaben, Ziffern und `_ . : / -` enthält und den Zugangsschlüssel nicht enthält; andernfalls entfällt sie mit dem Grund `model-id-withheld`. Abweichende zurückgemeldete Versionsnamen werden nicht durch die angefragte Kennung ersetzt. Die Diagnose erzeugt keine zusätzlichen Provideraufrufe.
+
+API-Keys, Header, Prompts, Fragen/Antworten/Feedback, Dialoghistorien, Code/Dateiinhalte, Mermaid/SVG, deren Hashes, Sessionhandles und rohe Providerfehler dürfen nicht in Diagnoseereignisse, Debug-Puffer oder deren Kopien gelangen. Fachliche Inhalte erfasst ausschließlich der getrennte Mitschnitt nach Abschnitt 12.7. Die Prüfung erfolgt vor der Speicherung; Darstellung und Kopie nutzen dieselben validierten Metadaten und ausschließlich Text/JSON. Vorhandenes Rohtext-Logging ungültiger Modellantworten ist ebenfalls unzulässig.
+
+Maximal 64 Serverereignisse und 32 KiB pro Diagnoseblock, 2 KiB je Ereignis sowie insgesamt 500 Browser-Debug-Nachrichten sind zulässig. Kürzung und verworfene Puffereinträge müssen erkennbar sein; ein Abschlussstatus bleibt erhalten. Kopieren umfasst alle zum gemeinsamen Filter passenden gepufferten Einträge und benennt den vom sichtbaren Ausschnitt abweichenden Umfang. Compile/Upload entfernt simulationsbezogene Nachrichten und bewahrt Tutor-Einträge; manuelles Leeren entfernt alle Einträge.
+
+Die serverseitige Erfassung ist request-scoped und zwischen Nutzern isoliert. Diagnosehüllen werden erst beim Versand an die ausgehende Antwortkopie angefügt und niemals im Support-Replay gespeichert. Ein Replay erzeugt keinen fiktiven Provideraufruf. Diagnoseblöcke werden vor der Lerninhaltsvalidierung getrennt verarbeitet; ungültige Diagnose darf gültigen Lerninhalt nicht verwerfen. Kein Persistieren in Browser-Storage oder automatische dauerhafte Aufzeichnung/Telemetrie.
+
+Fehlende Modellgrafik, Parser-/Sicherheitsablehnung, fachliche Entfernung, Zurückhalten bis „Weiter“, Renderablehnung und technische Renderfehler bleiben unterscheidbar. Ein Render-Erfolg wird erst nach Einbindung des geprüften lokalen SVG in den Tutor-DOM gemeldet. Abbruch oder fehlende Serverdiagnose belegen keine fehlende Modellgrafik.
+
+### 12.7 Lokaler Tutor-Mitschnitt zur Qualitätsprüfung
+
+**Status: umgesetzt (2026-11-11), auf ausdrücklichen Nutzerauftrag zur Qualitätsprüfung des Tutors.**
+
+Bei aktivem Browser-Debug-Modus zeichnet der Browser einen Tutor-Testlauf mit fachlichen Inhalten auf, damit er mit einer Kopieraktion vollständig geprüft werden kann. Das ist eine bewusste Ausnahme von Abschnitt 12.5 und 12.6 für genau diesen lokalen, flüchtigen Mitschnitt; die technische Diagnose nach 12.6 bleibt ein reiner Metadatenvertrag.
+
+**Erlaubt im Mitschnitt** sind ausschließlich: tatsächlich gesendeter Code samt Board, Entry-Dateiname und Header-Dateinamen/-inhalten; die mitgesendete begrenzte Dialoghistorie; gestellte Fragen, abgeschickte Nutzerantworten, ausgeliefertes Feedback, Bewertung, Antwortstil, Eingabeklassifikation, Fragestatus und Lernmetadaten der Antwort; Klärungen, Hinweise und eine dem Lernenden tatsächlich gezeigte Musterantwort; nach einem Überspringen die nächste Frage mit allem, was der Lernbereich von ihr zeigt (Feedback, Thema, Schwierigkeit, Mermaid, Lernmetadaten); Mermaid-Text als reiner Text; vom Server die normalisierten Entwurfsfelder der Modellantwort (Frage, Feedback, Bewertung, Antwortstil, Thema, Schwierigkeit, Mermaid), Herkunft und Ersetzungsauslöser der endgültigen Frage, verwendete deterministische Sketchfakten sowie Promptrevision, Template-Digest und die Texte der Bewertungs- und Schwierigkeitsregeln mit ihrer Revision; die technischen Ereignisse nach 12.6.
+
+**Weiterhin ausgeschlossen** sind: API-Keys jeder Länge (in allen freien Inhalten einschließlich Kurs-, Modell- und dynamischer Lernkennungen vor Speicherung unkenntlich gemacht und gezählt; feste öffentliche Codes wie Antwortstil, Eingabeklassifikation, Fragestatus oder Board werden gegen ihre Aufzählung geprüft und nie maskiert, weil eine zufällige Übereinstimmung mit einem öffentlichen Code keinen Schlüssel aus einem Inhaltsfeld übernimmt), Authorization-/Cookie-Header, Benutzeridentität, Support-, Kurs- und Fragen-Handles, Idempotenzschlüssel, nicht gezeigte Musterlösungen, Lehrerhinweise und übermittelte Kursinhalte außer ihren Kennungen, vollständige Prompts, vollständige Provider-Rohantworten, SVG, Inhalts-Hashes, rohe Fehlerobjekte und absolute Systempfade.
+
+Der Server ergänzt Entwürfe und Entscheidungen unter denselben Bedingungen wie 12.6 in einem getrennten `review`-Block mit Version, Trace-/Request-ID und Anfrageart, höchstens 128 KiB pro Request, nur an die ausgehende Antwortkopie und nie im Support-Replay. Er spiegelt Code und Nutzerantwort nicht zurück. Der Browser prüft jeden empfangenen Block auf Schema, Zuordnung und tatsächliche UTF-8-Größe und verwirft ihn sonst als ungültig; der Lerninhalt der Antwort bleibt erfasst. Ohne Serverblock, mit ungültigem Block oder mit vom Server verworfenen oder ausgelassenen Einträgen erfasst der Browser die sichtbare Interaktion weiter und weist den Mitschnitt im Kopf als unvollständig aus. Mitgesendete Historie verweist nur dann auf einen erfassten Schritt, wenn genau ein abgeschlossener Schritt denselben Turn einschließlich Feedback und Bewertung enthält; sonst steht der Eintrag wörtlich im Mitschnitt.
+
+Der Mitschnitt existiert ausschließlich im RAM des Browser-Tabs (kein Browser-Storage, keine Logs, kein Upload, keine automatische Auswertung). Grenzen: höchstens 3 Mitschnitte, 8 MiB vollständige Exportausgabe je Mitschnitt und 24 MiB insgesamt (gemessen an einer oberen Schranke des tatsächlich gerenderten Exports; ein darüber liegender Text wird nie ausgegeben, auch nicht gekürzt), 100 Requestversuche und 16 Kontextstände je Mitschnitt, 2 MiB je Kontext. Bei Überschreitung endet die Aufnahme dieses Mitschnitts sichtbar mit festem Grund; der Tutor bleibt nutzbar. DEBUG aus beendet die Aufnahme auch für laufende Antworten, Wiedereinschalten beginnt einen neuen Mitschnitt; manuelles Leeren entfernt alle Mitschnitte, und vorher gestartete Requests stellen nichts wieder her, weder Inhalte noch technische Ereignisse im Debug-Tab (dasselbe gilt nach DEBUG aus/ein); Reload entfernt alles. Der Debug-Tab weist dauerhaft darauf hin, dass der Mitschnitt Gesprächsinhalte und Code enthält. Alle Inhalte bleiben untrusted Text ohne aktive Darstellung.
+
+Der Mitschnitt dokumentiert tatsächliches Verhalten einschließlich falscher Bewertungen; er verändert weder Bewertung noch Lernfortschritt. Format und Prüfcheckliste beschreibt [das Exportformat](../docs/tutor-review-format.md).
 
 ---
 

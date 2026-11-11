@@ -202,6 +202,14 @@ function isLoopbackHost(host: string): boolean {
   return version === 4 && Number(host.split(".", 1)[0]) === 127;
 }
 
+/** Server permission for opt-in Tutor metadata; invalid values never echo their input. */
+export function parseTutorDiagnosticsEnabled(value: string | undefined, nodeEnv: string): boolean {
+  if (value === undefined) return nodeEnv === "development";
+  if (value === "1" || value.toLowerCase() === "true") return true;
+  if (value === "0" || value.toLowerCase() === "false") return false;
+  throw new Error("Invalid UNOSIM_TUTOR_DIAGNOSTICS_ENABLED: expected true/false");
+}
+
 function envBool(key: string, fallback: boolean): boolean {
   const v = process.env[key];
   if (v === undefined) return fallback;
@@ -689,6 +697,7 @@ export const config = {
   // ── Tutor / LLM ────────────────────────────────────────────────
 
   tutor: {
+    diagnosticsEnabled: parseTutorDiagnosticsEnabled(process.env.UNOSIM_TUTOR_DIAGNOSTICS_ENABLED, process.env.NODE_ENV ?? "development"),
     /** The Tutor always uses the user's personal KI:connect credential. */
     provider: "kiconnect" as const,
     /** Server-controlled OpenAI-compatible provider base URL. */
@@ -748,6 +757,7 @@ export function getClientConfig() {
   return {
     ...config.client,
     serverMode: config.serverMode,
+    tutorDiagnosticsAvailable: config.tutor.diagnosticsEnabled,
     tutor: {
       provider: config.tutor.provider,
     },

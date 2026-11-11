@@ -69,6 +69,8 @@ export type CompileAndRunParams = {
   setIoRegistry: SetState<IOPinRecord[] | null>;
   setIsModified: SetState<boolean>;
   setDebugMessages: SetState<DebugMessage[]>;
+  /** Clear simulation traffic without deleting independent Tutor traces, when supported by the host. */
+  resetSimulationDebugMessages?: () => void;
   addDebugMessage: (params: DebugMessageParams) => void;
   ensureBackendConnected: (reason: string) => boolean;
   isBackendUnreachableError: (error: unknown) => boolean;
@@ -382,7 +384,8 @@ export function useCompileAndRun(params: CompileAndRunParams): UseCompileAndRunR
       uiFeedback.showStartFailedToast(blocked);
       return;
     }
-    params.setDebugMessages([]);
+    if (params.resetSimulationDebugMessages) params.resetSimulationDebugMessages();
+    else params.setDebugMessages([]);
 
     const { code: mainSketchCode, headers, entryFile } = resolveCompileCommand(params);
 

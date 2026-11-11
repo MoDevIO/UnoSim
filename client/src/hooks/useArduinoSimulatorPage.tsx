@@ -159,6 +159,8 @@ export function useArduinoSimulatorPage() {
   const {
     debugMode,
     debugMessages,
+    debugDroppedCount,
+    resetSimulationDebugMessages,
     setDebugMessages,
     debugMessageFilter,
     setDebugMessageFilter,
@@ -406,6 +408,7 @@ export function useArduinoSimulatorPage() {
     setIoRegistry: setRuntimeIoRegistry,
     setIsModified,
     setDebugMessages,
+    resetSimulationDebugMessages,
     addDebugMessage: (params: DebugMessageParams) =>
       addDebugMessage(
         params.source,
@@ -910,6 +913,7 @@ export function useArduinoSimulatorPage() {
     debugMode,
     setDebugMode,
     debugMessages,
+    debugDroppedCount,
     setDebugMessages,
     debugMessageFilter,
     setDebugMessageFilter,

@@ -1,3 +1,4 @@
+import { tutorDiagnosticMiddleware } from "./tutor-diagnostics";
 import type { Express } from "express";
 import {
   tutorDialogRequestSchema,
@@ -45,6 +46,8 @@ export function registerTutorRoutes(app: Express, deps: TutorRouteDeps = {}): vo
   const sessionStore = deps.sessionStore ?? new TutorCourseContentSessionStore();
   const supportStore = deps.supportStore ?? new TutorSupportStore();
   const supportContext = { service, sessionStore, supportStore, courseContent: deps.courseContent, logger };
+
+  app.use("/api/tutor", tutorDiagnosticMiddleware);
 
   app.post("/api/tutor/question", async (req, res) => {
     const signal = bindRequestAbortSignal(req, res);
