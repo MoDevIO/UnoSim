@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { SimulationControls } from "@/components/simulator/SimulationControls";
 import { PinMonitorView } from "@/components/simulator/PinMonitorView";
@@ -13,7 +13,7 @@ import {
   TutorWorkspacePlaceholder,
 } from "@/components/simulator/ExperimentalWorkspace";
 import { useExperimentalWorkspaceLayout } from "@/hooks/use-experimental-workspace-layout";
-import { useTutor } from "@/hooks/use-tutor";
+import type { TutorPanelState } from "@/hooks/use-tutor";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -24,6 +24,11 @@ import {
   CSS_CLASSES,
 } from "@/components/simulator/ArduinoSimulatorPage.styles";
 import type { ArduinoSimulatorPageState } from "@/hooks/useArduinoSimulatorPage";
+
+// The Tutor is an optional panel: its hook and schemas load after the first render.
+const TutorStateHost = lazy(() =>
+  import("@/components/simulator/tutor-state-host").then((module) => ({ default: module.TutorStateHost })),
+);
 
 function getMobilePanelState(
   isMobile: boolean,
@@ -236,7 +241,7 @@ export function ArduinoSimulatorPageLayout(
 
   const experimentalWorkspace = useExperimentalWorkspaceLayout();
   const { capabilities } = connection;
-  const tutorPanel = useTutor(capabilities);
+  const [tutorPanel, setTutorPanel] = useState<TutorPanelState | undefined>();
   const showExperimentalDesktopWorkspace = experimentalWorkspace.enabled && isDesktop;
   const { mobileCompileActive, mobileSerialActive, mobileBoardActive, mobileTutorActive } = getMobilePanelState(
     isMobile,
@@ -315,6 +320,9 @@ export function ArduinoSimulatorPageLayout(
     <div
       className={`${CSS_CLASSES.MAIN_CONTAINER} ${showErrorGlitch ? "overflow-hidden" : ""}`}
     >
+      <Suspense fallback={null}>
+        <TutorStateHost capabilities={capabilities} onChange={setTutorPanel} />
+      </Suspense>
       {/* Global Styles for Animations */}
       <style>{ANIMATION_KEYFRAMES}</style>
 

@@ -1,3 +1,4 @@
+import { rejectTutorDiagnosticResponse, bindTutorDiagnosticResponse, reportTutorGraphic, reportTutorReviewAction, reportTutorReviewRatingSummary, reportTutorReviewReset, setTutorDiagnosticsAvailable, tutorDiagnosticFetch, tutorRequestTrace } from "@/lib/tutor-diagnostics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type TutorDialogTurn,
@@ -97,11 +98,11 @@ export interface TutorSketch {
 export type TutorRequestKind = "question" | "answer" | "support";
 
 /** A failed request with all it sent, so that a repeat sends the same content with the same action id. */
-type TutorFailedRequest =
+type TutorFailedRequest = (
   | { readonly kind: "models" }
   | { readonly kind: "question"; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
   | { readonly kind: "answer"; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
-  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string };
+  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
 
 export type TutorFailedRequestKind = TutorFailedRequest["kind"];
 
@@ -349,19 +350,20 @@ function answerEntry(turn: TutorDialogTurn, support: TutorSupportState | null): 
 }
 
 /** Sends an answer; null when the request was aborted. */
-async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal): Promise<{ readonly data: TutorResponse } | null> {
-  const response = await fetch("/api/tutor/dialog", {
+async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal, diagnosticTraceId?: string): Promise<{ readonly data: TutorResponse } | null> {
+  const response = await tutorDiagnosticFetch("/api/tutor/dialog", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify(body),
-  });
+  }, { traceId: diagnosticTraceId });
   const payload: unknown = await response.json().catch(() => null);
   if (signal.aborted) return null;
   if (!response.ok) throw getTutorFailure(payload);
   const parsed = tutorResponseSchema.safeParse(payload);
-  if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE);
+  if (!parsed.success) { rejectTutorDiagnosticResponse(payload); throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE); }
+  bindTutorDiagnosticResponse(payload, parsed.data);
   return { data: parsed.data };
 }
 
@@ -408,6 +410,8 @@ export function useTutor(
   // The next step an answer already received, held back until the learner reads the feedback and goes on.
   const [heldNext, setHeldNext] = useState<{ readonly question: TutorResponse; readonly support: TutorSupportState | null } | null>(null);
   // A retry of the same action keeps its id, so the server counts it once (LearningQuestions R-SUP-1).
+  const graphicSubjects = useRef<{ question: object | null; held: object | null }>({ question: null, held: null });
+  graphicSubjects.current = { question, held: heldNext?.question ?? null };
   const pendingAction = useRef<{ readonly key: string; readonly actionId: string } | null>(null);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -432,6 +436,11 @@ export function useTutor(
 
   // Credential, model and start difficulty stay; a new project or course is a new learning situation.
   const clearDialog = useCallback((startDifficulty: TutorDifficulty) => {
+    for (const subject of new Set([graphicSubjects.current.question, graphicSubjects.current.held])) {
+      if (subject) reportTutorGraphic(subject, { stage: "browser", outcome: "discarded", reason: "context-changed" });
+    }
+    graphicSubjects.current = { question: null, held: null };
+    reportTutorReviewReset();
     abortPendingTutorRequests();
     // The aborted request may still wait for the shared catalog; the new situation must not wait with it.
     loadingRequest.current = null;
@@ -463,10 +472,11 @@ export function useTutor(
     fetch("/api/config", { cache: "no-store", credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Tutor configuration is unavailable.");
-        return response.json() as Promise<{ tutor?: Partial<TutorConfig> }>;
+        return response.json() as Promise<{ tutor?: Partial<TutorConfig>; tutorDiagnosticsAvailable?: boolean }>;
       })
       .then((data) => {
         if (cancelled || !data.tutor) return;
+        if (typeof data.tutorDiagnosticsAvailable === "boolean") setTutorDiagnosticsAvailable(data.tutorDiagnosticsAvailable);
         setConfig({
           provider: data.tutor.provider ?? DEFAULT_CONFIG.provider,
         });
@@ -485,7 +495,7 @@ export function useTutor(
 
   const clearCredential = useCallback(() => setTutorCredential(""), [setTutorCredential]);
 
-  const loadModels = useCallback(async () => {
+  const loadModels = useCallback(async (diagnosticTraceId?: string) => {
     if (!capabilities.canUseTutor) return;
     clearError();
     if (!credential.trim()) {
@@ -497,24 +507,25 @@ export function useTutor(
     const controller = new AbortController();
     activeTutorRequests.current.add(controller);
     try {
-      const response = await fetch("/api/tutor/models", {
+      const response = await tutorDiagnosticFetch("/api/tutor/models", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential }),
         signal: controller.signal,
-      });
+      }, { traceId: diagnosticTraceId });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new TutorRequestError(getErrorCode(body) ?? null, getErrorMessage(body));
       const parsed = tutorModelsResponseSchema.safeParse(body);
-      if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", "Der Tutor-Dienst hat eine ungültige Modellliste geliefert.");
+      if (!parsed.success) { rejectTutorDiagnosticResponse(body); throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", "Der Tutor-Dienst hat eine ungültige Modellliste geliefert."); }
+      bindTutorDiagnosticResponse(body, parsed.data);
       setAvailableModels(parsed.data.models);
       setSelectedModel((current) => current === "auto" || parsed.data.models.includes(current) ? current : "auto");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
       setAvailableModels([]);
       setSelectedModel("auto");
-      failWith(requestError, { kind: "models" });
+      failWith(requestError, { kind: "models", diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       setModelsLoading(false);
@@ -528,7 +539,7 @@ export function useTutor(
     setIsLoading(false);
   }, []);
 
-  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty) => {
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string) => {
     if (!capabilities.canUseTutor) return;
     clearError();
     if (!sketch.code.trim()) {
@@ -551,7 +562,7 @@ export function useTutor(
       const courseContent = await resolveTutorCourseContent(controller.signal);
       if (controller.signal.aborted) return;
       dialogCourseContent.current = courseContent;
-      const response = await fetch("/api/tutor/question", {
+      const response = await tutorDiagnosticFetch("/api/tutor/question", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -565,12 +576,13 @@ export function useTutor(
           ...getCourseContentRequest(undefined, courseContent),
           learningSupport: true,
         }),
-      });
+      }, { traceId: diagnosticTraceId });
       const body: unknown = await response.json().catch(() => null);
       if (controller.signal.aborted) return;
       if (!response.ok) throw getTutorFailure(body);
       const parsed = tutorResponseSchema.safeParse(body);
-      if (!parsed.success) throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE);
+      if (!parsed.success) { rejectTutorDiagnosticResponse(body); throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE); }
+      bindTutorDiagnosticResponse(body, parsed.data);
       setQuestion(parsed.data);
       setSupport(parsed.data.support ?? null);
       setCompleted(false);
@@ -580,7 +592,7 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "question", sketch, difficulty: requestDifficulty });
+      failWith(requestError, { kind: "question", sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -635,6 +647,8 @@ export function useTutor(
     setTranscript((current) => [...current, withEntryId(answerEntry(update.nextHistory.at(-1)!, asked.support))]);
     applyDialogResponse(response, update);
     if (answerAdvanced(asked.question, response)) {
+      reportTutorGraphic(response, { stage: "browser", outcome: "held", reason: "awaiting-continue" });
+      reportTutorReviewAction(response, "held");
       setHeldNext({ question: response, support: response.support ?? null });
       return;
     }
@@ -644,7 +658,7 @@ export function useTutor(
   }, [applyDialogResponse, courseContentSession]);
 
   /** Sends one answer as it is given; a repeat passes the action id of the failed attempt (R-SUP-1). */
-  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string) => {
+  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string, diagnosticTraceId?: string) => {
     if (!question || heldNext) return;
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
@@ -670,7 +684,7 @@ export function useTutor(
         difficulty: effectiveDifficulty,
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...binding,
-      }, controller.signal);
+      }, controller.signal, diagnosticTraceId);
       if (!parsed) return;
       pendingAction.current = null;
       applyAnswerResult(parsed.data, { question: currentQuestion, history: currentHistory, support: currentSupport, answer: submittedAnswer });
@@ -678,7 +692,7 @@ export function useTutor(
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "answer", sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}) });
+      failWith(requestError, { kind: "answer", sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}), diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -704,12 +718,14 @@ export function useTutor(
 
   const continueToNextQuestion = useCallback(() => {
     if (!heldNext) return;
+    reportTutorGraphic(heldNext.question, { stage: "browser", outcome: "displayed" });
+    reportTutorReviewAction(heldNext.question, "displayed");
     setQuestion(heldNext.question);
     setSupport(heldNext.support);
     setHeldNext(null);
   }, [heldNext]);
 
-  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string) => {
+  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string, diagnosticTraceId?: string) => {
     if (!capabilities.canUseTutor || !question || !support || heldNext) return;
     clearError();
     const sketch = asTutorSketch(input);
@@ -738,7 +754,7 @@ export function useTutor(
         difficulty: effectiveDifficulty,
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...supportBinding(support, actionId),
-      }, controller.signal, getTutorFailure);
+      }, controller.signal, getTutorFailure, diagnosticTraceId);
       if (!result || controller.signal.aborted) return;
       pendingAction.current = null;
       setCourseContentSession(result.courseContentSession ?? courseContentSession);
@@ -753,7 +769,7 @@ export function useTutor(
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "support", action, sketch, actionId });
+      failWith(requestError, { kind: "support", action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -763,17 +779,17 @@ export function useTutor(
   const failedRequest = failure?.request;
   const retryFor = useCallback((current: string | TutorSketch): (() => void) | null => {
     if (!failedRequest) return null;
-    if (failedRequest.kind === "models") return () => void loadModels();
+    if (failedRequest.kind === "models") return () => void loadModels(failedRequest.diagnosticTraceId);
     // A repeat sends what failed; after an edit that would be old code with a new draft, or the reverse.
     if (sketchKey(failedRequest.sketch) !== sketchKey(asTutorSketch(current))) return null;
     switch (failedRequest.kind) {
       case "question":
-        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty);
+        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId);
       case "answer":
         if (answer.trim() !== failedRequest.answer) return null;
-        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId);
+        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId);
       case "support":
-        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId);
+        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId, failedRequest.diagnosticTraceId);
     }
   }, [answer, failedRequest, loadModels, requestQuestion, requestSupport, sendAnswer]);
 
@@ -792,6 +808,11 @@ export function useTutor(
       ratedAnswerCount: ratings.length,
     };
   }, [history]);
+
+  // The review export names the shown average together with its count and window (LearningQuestions 12.7).
+  useEffect(() => {
+    reportTutorReviewRatingSummary({ average: sessionRating, count: ratedAnswerCount, window: `bis zu ${INPUT_LIMITS.tutor.maxHistoryEntries} Einträge der Modellhistorie` });
+  }, [ratedAnswerCount, sessionRating]);
 
   return useMemo(() => ({
     capabilities,

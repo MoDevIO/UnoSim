@@ -1,5 +1,8 @@
+import { retainTutorDebugMessages } from "@/lib/debug-retention";
+import { readTutorDebugMessage } from "@/lib/tutor-diagnostic-events";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateUuidV4 } from "@/lib/uuid";
+import type { TutorDiagnosticEvent } from "@shared/tutor-diagnostics";
 
 /** Transport of a logged message: HTTP, the WebSocket, or the browser emulation's worker. */
 export type DebugProtocol = "websocket" | "http" | "worker";
@@ -14,6 +17,8 @@ export interface DebugMessage {
   type: string;
   content: string;
   protocol?: DebugProtocol;
+  category?: "tutor";
+  details?: TutorDiagnosticEvent;
 }
 
 export function useDebugConsole(activeOutputTab: string) {
@@ -25,7 +30,14 @@ export function useDebugConsole(activeOutputTab: string) {
     }
   });
 
-  const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
+  const [{ messages: debugMessages, dropped: debugDroppedCount }, setLog] = useState<{ messages: DebugMessage[]; dropped: number }>({ messages: [], dropped: 0 });
+  const setDebugMessages = useCallback<React.Dispatch<React.SetStateAction<DebugMessage[]>>>((value) => {
+    setLog((previous) => {
+      const messages = typeof value === "function" ? value(previous.messages) : value;
+      return { messages: messages.slice(-500), dropped: Array.isArray(value) && value.length === 0 ? 0 : previous.dropped + Math.max(0, messages.length - 500) };
+    });
+  }, []);
+  const resetSimulationDebugMessages = useCallback(() => setDebugMessages(retainTutorDebugMessages), [setDebugMessages]);
   const [debugMessageFilter, setDebugMessageFilter] = useState<string>("");
   const [debugViewMode, setDebugViewMode] = useState<"table" | "tiles">("table");
   const debugMessagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -69,11 +81,21 @@ export function useDebugConsole(activeOutputTab: string) {
       setDebugMessages((prev) => {
         const updated = [...prev, message];
         // Keep last 500 messages to avoid memory issues
-        return updated.slice(-500);
+        return updated;
       });
     },
-    [debugMode],
+    [debugMode, setDebugMessages],
   );
+
+  useEffect(() => {
+    if (!debugMode) return;
+    const receive = (event: Event) => {
+      const message = readTutorDebugMessage((event as CustomEvent<unknown>).detail);
+      if (message) setDebugMessages((previous) => [...previous, message]);
+    };
+    document.addEventListener("tutor-diagnostic", receive);
+    return () => document.removeEventListener("tutor-diagnostic", receive);
+  }, [debugMode, setDebugMessages]);
 
   // Auto-scroll debug console to latest message
   useEffect(() => {
@@ -91,6 +113,8 @@ export function useDebugConsole(activeOutputTab: string) {
     debugMode,
     setDebugMode,
     debugMessages,
+    debugDroppedCount,
+    resetSimulationDebugMessages,
     setDebugMessages,
     debugMessageFilter,
     setDebugMessageFilter,

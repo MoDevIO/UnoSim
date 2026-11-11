@@ -1,7 +1,7 @@
+import { beginTutorProviderAttempt, reportTutorDiagnostic, reportTutorMermaidField, reportTutorModel, reportTutorModelList, reportTutorReviewDraft } from "./tutor-diagnostics";
 import { z } from "zod";
 import { tutorDifficultySchema, tutorAnswerRatingSchema, tutorResponseStyleSchema, type TutorContentResult } from "@shared/tutor";
 import { config } from "../../config";
-import { Logger } from "@shared/logger";
 import {
   TutorProviderError,
   type LLMProvider,
@@ -165,6 +165,7 @@ function parseTutorContentObject(candidate: Record<string, unknown>): TutorConte
   if (!question) throw new TutorProviderError("invalid-response");
   const feedback = parseOptionalText(candidateValue(candidate, "feedback"), 1_000);
   const topic = parseOptionalText(candidateValue(candidate, "topic"), 120);
+  reportTutorMermaidField(candidateValue(candidate, "mermaid"));
   const mermaid = parseOptionalText(candidateValue(candidate, "mermaid"), 12_000);
   const difficulty = parseOptionalDifficulty(candidateValue(candidate, "difficulty"));
   const answerRating = parseOptionalAnswerRating(candidateValue(candidate, "answerRating"));
@@ -194,6 +195,7 @@ function parseTutorContent(content: string): TutorContentResult {
   if (typeof candidate === "string") {
     const question = candidate.trim();
     if (!question || question.length > 2_000) throw new TutorProviderError("invalid-response");
+    reportTutorMermaidField(undefined);
     return { question, responseStyle: "normal" };
   }
   if (typeof candidate !== "object" || candidate === null || !("question" in candidate)) {
@@ -202,25 +204,30 @@ function parseTutorContent(content: string): TutorContentResult {
   return parseTutorContentObject(candidate);
 }
 
-function parseProviderQuestion(body: unknown, logger: Logger): ProviderQuestionResult {
+/** The normalized fields of a provider result for the review block; never the raw body. */
+function reviewDraftOf(result: TutorContentResult) {
+  return {
+    responseStyle: result.responseStyle,
+    question: result.question,
+    ...(result.feedback ? { feedback: result.feedback } : {}),
+    ...(result.responseStyle === "normal" && result.answerRating !== undefined ? { answerRating: result.answerRating } : {}),
+    ...(result.topic ? { topic: result.topic } : {}),
+    ...(result.difficulty ? { difficulty: result.difficulty } : {}),
+    ...(result.mermaid ? { mermaid: result.mermaid } : {}),
+  };
+}
+
+function parseProviderQuestion(body: unknown): ProviderQuestionResult {
   const parsed = completionSchema.safeParse(body);
   if (!parsed.success || !parsed.data.model) throw new TutorProviderError("invalid-response");
   const content = textContentFromMessage(parsed.data.choices[0].message.content);
   if (!content) throw new TutorProviderError("invalid-response");
 
-  try {
-    return { model: parsed.data.model, result: parseTutorContent(content) };
-  } catch (error) {
-    if (error instanceof TutorProviderError && error.kind === "invalid-response" && config.nodeEnv === "development") {
-      logger.debug(`KI:connect model content (diagnostic, no credentials): ${content.slice(0, 12_000)}`);
-    }
-    throw error;
-  }
+  return { model: parsed.data.model, result: parseTutorContent(content) };
 }
 
 export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
   private readonly baseUrl = config.tutor.baseUrl;
-  private readonly logger = new Logger("KiconnectProvider");
 
   async listModels(credential: string, signal?: AbortSignal): Promise<readonly string[]> {
     return withProviderTimeout(signal, async (providerSignal) => {
@@ -235,7 +242,9 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
       if (!parsed.success || parsed.data.data.length === 0) {
         throw new TutorProviderError("model-unavailable");
       }
-      return [...new Set(parsed.data.data.map(({ id }) => id))];
+      const models = [...new Set(parsed.data.data.map(({ id }) => id))];
+      reportTutorModelList(models);
+      return models;
     });
   }
 
@@ -245,6 +254,9 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
     signal?: AbortSignal,
   ): Promise<ProviderQuestionResult> {
     const model = await this.resolveModel(request.model, credential, signal);
+    beginTutorProviderAttempt();
+    reportTutorModel(model);
+    try {
     const body = await this.requestChatCompletion({
       model,
       temperature: tutorTemperatureFor(model),
@@ -253,7 +265,15 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
         { role: "user", content: request.userPrompt },
       ],
     }, credential, signal);
-    return parseProviderQuestion(body, this.logger);
+    const result = parseProviderQuestion(body);
+    reportTutorModel(model, result.model);
+    reportTutorReviewDraft(reviewDraftOf(result.result));
+    return result;
+    } catch (error) {
+      reportTutorDiagnostic({ origin: "provider", stage: "provider", outcome: "failed", reason: error instanceof TutorProviderError ? error.kind : "provider-unavailable" });
+      reportTutorDiagnostic({ origin: "provider", stage: "parsing", outcome: "unavailable" });
+      throw error;
+    }
   }
 
   async generateStructuredResponse(

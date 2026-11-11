@@ -31,8 +31,8 @@ export const TUTOR_RATING_DIFFICULTY_DELTAS: Record<TutorAnswerRating, number> =
 
 export const tutorResponseStyleSchema = z.enum(["normal", "philosophical"]);
 
-const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
-const tutorLearningPhaseSchema = z.enum(["LEARN", "DEEPEN", "EXPAND"]);
+export const tutorQuestionKindSchema = z.enum(["recall", "concept", "application", "prediction", "transfer"]);
+export const tutorLearningPhaseSchema = z.enum(["LEARN", "DEEPEN", "EXPAND"]);
 export const tutorStrategySourceSchema = z.enum(["built-in", "repository"]);
 export const tutorCourseContentContextSchema = z.object({
   repository: repositorySlugSchema,

@@ -22,6 +22,9 @@ import {
  * that the browser loads them only when the learner uses a support action.
  */
 
+/** Why no reference answer can be shown. */
+export const tutorReferenceUnavailableReasonSchema = z.enum(["no-reference", "not-applicable"]);
+
 export const tutorReferenceViewSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("available"),
@@ -31,7 +34,7 @@ export const tutorReferenceViewSchema = z.discriminatedUnion("status", [
   }).strict(),
   z.object({
     status: z.literal("unavailable"),
-    reason: z.enum(["no-reference", "not-applicable"]),
+    reason: tutorReferenceUnavailableReasonSchema,
   }).strict(),
 ]);
 export type TutorReferenceView = z.infer<typeof tutorReferenceViewSchema>;

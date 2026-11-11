@@ -1,3 +1,10 @@
+import { reportTutorDiagnostic, reportTutorReview } from "./tutor-diagnostics";
+
+/** A repeated action gets the stored result; diagnosis and review name the replay instead of a provider call. */
+function reportTutorReplay(): void {
+  reportTutorDiagnostic({ origin: "service", stage: "content", outcome: "replayed", reason: "support-cache", source: "support-cache" });
+  reportTutorReview({ kind: "replay", reason: "support-cache" });
+}
 import { randomUUID } from "node:crypto";
 import {
   TUTOR_REFERENCE_AFTER_ANSWER_ATTEMPTS,
@@ -173,9 +180,13 @@ export class TutorSupportStore {
     if (entry?.identity !== identity) return { status: "missing" };
     if (!entry.results.has(actionId) && entry.spent.has(actionId)) return { status: "spent" };
     const done = entry.results.get(actionId);
-    if (done) return done.fingerprint === fingerprint ? { status: "ok", body: done.body as T } : { status: "conflict" };
+    if (done) {
+      if (done.fingerprint === fingerprint) reportTutorReplay();
+      return done.fingerprint === fingerprint ? { status: "ok", body: done.body as T } : { status: "conflict" };
+    }
     const running = entry.pending.get(actionId);
     if (running) {
+      if (running.fingerprint === fingerprint) reportTutorReplay();
       return running.fingerprint === fingerprint ? running.result as Promise<SupportActionOutcome<T>> : { status: "conflict" };
     }
     // Forgetting a spent id would let it count again, so a full session takes no new action (review N5).

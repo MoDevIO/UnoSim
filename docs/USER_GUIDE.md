@@ -295,6 +295,42 @@ Tutors.
 Ohne Tutor-Inhalte – und auch, wenn GitHub gerade nicht erreichbar ist – arbeitet
 er als freier Tutor direkt mit deinem Sketch.
 
+### Tutor-Diagnose im Debug-Tab
+
+Im Debug-Modus zeigt der Ausgabebereich unter **Debug** auch Tutor-Ereignisse.
+Die Kategorie **Tutor**, die Suche nach Anfrage-ID und die Filter für Schritt,
+Ergebnis und Grund helfen beim Nachvollziehen eines Testlaufs. **Details** öffnet
+die geprüften Metadaten; **Copy debug messages** kopiert alle zum Filter passenden
+gepufferten Einträge. Der angezeigte Umfang kann kleiner sein als der Kopierumfang.
+
+Die Meldungen unterscheiden unter anderem eine nicht gelieferte Grafik, eine
+Ablehnung, das Zurückhalten bis **Weiter** und die tatsächliche SVG-Darstellung.
+Für serverseitige Schritte muss der Betreiber die Tutor-Diagnose zusätzlich
+freigeben; andernfalls ist die Spur als unvollständig gekennzeichnet. Zugangsdaten,
+Dialogtexte, Sketches und Grafikquelltext werden nicht in diese Meldungen übernommen.
+Die Einträge bleiben im Arbeitsspeicher. Compile/Upload erhält Tutor-Einträge;
+**Clear debug messages** und ein Neuladen entfernen sie.
+
+#### Tutor-Testlauf zur Prüfung kopieren
+
+In der Kategorie **Tutor** zeigt der Debug-Tab zusätzlich den **Tutor review**:
+einen Mitschnitt deines Testlaufs mit gestellten Fragen, deinen Antworten,
+Feedback, Bewertungen und dem jeweils gesendeten Sketch einschließlich Headern
+und Board. Die Übersicht nennt Schritte, Kontextstände, Modelle, Grafiken und ob
+der Mitschnitt vollständig ist; jeder Schritt lässt sich als Text aufklappen.
+
+**Copy Tutor review** kopiert den gewählten Mitschnitt mit einem Klick vollständig,
+unabhängig von Filtern und vom Meldungspuffer. Daneben steht die Größe. Der Text
+beginnt mit einem lesbaren Protokoll, danach folgen Code, Legende und ein
+JSON-Teil; das [Exportformat](tutor-review-format.md) beschreibt ihn und enthält
+eine Prüfcheckliste. **Start new Tutor review** beginnt einen neuen Mitschnitt.
+
+Der Mitschnitt enthält Gesprächsinhalte und Code. Er bleibt nur im Speicher
+dieses Browser-Tabs, bis du **Clear debug messages** wählst oder neu lädst; mit
+dem Kopieren gibst du ihn bewusst weiter. Dein API-Key wird vor dem Speichern
+auch aus Texten entfernt. Debug-Modus aus beendet die Aufnahme; erneutes
+Einschalten beginnt einen neuen Mitschnitt.
+
 ## Einstellungen
 
 Unter **File → Settings** findest du außerdem:
