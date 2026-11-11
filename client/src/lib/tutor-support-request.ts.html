@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.25% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>13/16</span>
+                <span class='fraction'>18/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60% </span>
+                <span class="strong">62.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/20</span>
+                <span class='fraction'>15/24</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>12/12</span>
+                <span class='fraction'>15/15</span>
             </div>
         
             
@@ -110,7 +110,13 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -123,17 +129,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,12 +161,16 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { tutorSupportResponseSchema, type TutorSupportResponse } from "@shared/tutor-support";
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { rejectTutorDiagnosticResponse, bindTutorDiagnosticResponse, tutorDiagnosticFetch } from "./tutor-diagnostics";
+import { tutorSupportResponseSchema, type TutorSupportResponse } from "@shared/tutor-support";
 import type { TutorResponse } from "@shared/tutor";
 import type { TutorTranscriptContent } from "@/hooks/use-tutor";
 &nbsp;
@@ -169,19 +182,21 @@ export async function sendTutorSupportAction(
   body: Record&lt;string, unknown&gt;,
   signal: AbortSignal,
   failure: (body: unknown) =&gt; Error,
+  diagnosticTraceId?: string,
 ): Promise&lt;TutorSupportResponse | null&gt; {
-  const response = await fetch("/api/tutor/support", {
+  const response = await tutorDiagnosticFetch("/api/tutor/support", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify(body),
-  });
+  }, { traceId: diagnosticTraceId });
   const payload: unknown = await response.json().<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >n</span>ull)</span>;
   <span class="missing-if-branch" title="if path not taken" >I</span>if (signal.aborted) <span class="cstat-no" title="statement not covered" >return null;</span>
   if (!response.ok) throw failure(payload);
   const parsed = tutorSupportResponseSchema.safeParse(payload);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!parsed.success) <span class="cstat-no" title="statement not covered" >throw new Error("Der Tutor-Dienst hat eine ungültige Antwort geliefert.");</span>
+  if (!parsed.success) { rejectTutorDiagnosticResponse(payload); throw new Error("Der Tutor-Dienst hat eine ungültige Antwort geliefert."); }
+  bindTutorDiagnosticResponse(payload, parsed.data);
   return parsed.data;
 }
 &nbsp;
@@ -197,11 +212,14 @@ export function supportOutcome(result: TutorSupportResponse, question: string): 
       return { entry: { kind: "hint", question, text: result.explanation ?? <span class="branch-1 cbranch-no" title="branch not covered" >"" }</span> };
     case "reveal":
       return { entry: { kind: "reference", question, reference: result.reference ?? <span class="branch-1 cbranch-no" title="branch not covered" >{ status: "unavailable", reason: "no-reference" } }</span> };
-    case "skip":
+    case "skip": {
+      const next = result.next ? <span class="branch-0 cbranch-no" title="branch not covered" >{ ...result.next, provider: result.provider, model: result.model, ...(result.support ? { support: result.support } : {}) } : n</span>ull;
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (next &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >result.next) <span class="cstat-no" title="statement not covered" >b</span>indTutorDiagnosticResponse(result.next, next);</span>
       return {
         entry: { kind: "skip", question },
-        next: result.next ? <span class="branch-0 cbranch-no" title="branch not covered" >{ ...result.next, provider: result.provider, model: result.model, ...(result.support ? { support: result.support } : {}) } : n</span>ull,
+        next,
       };
+    }
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -211,7 +229,7 @@ export function supportOutcome(result: TutorSupportResponse, question: string): 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-10T10:35:11.221Z
+                at 2026-11-11T21:19:58.843Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

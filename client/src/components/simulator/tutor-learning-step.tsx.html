@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.15% </span>
+                <span class="strong">95.18% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>79/95</span>
+                <span class='fraction'>79/83</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.25% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>91/108</span>
+                <span class='fraction'>91/104</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.6% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>19/23</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.58% </span>
+                <span class="strong">98.61% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>71/82</span>
+                <span class='fraction'>71/72</span>
             </div>
         
             
@@ -350,23 +350,7 @@
 <a name='L285'></a><a href='#L285'>285</a>
 <a name='L286'></a><a href='#L286'>286</a>
 <a name='L287'></a><a href='#L287'>287</a>
-<a name='L288'></a><a href='#L288'>288</a>
-<a name='L289'></a><a href='#L289'>289</a>
-<a name='L290'></a><a href='#L290'>290</a>
-<a name='L291'></a><a href='#L291'>291</a>
-<a name='L292'></a><a href='#L292'>292</a>
-<a name='L293'></a><a href='#L293'>293</a>
-<a name='L294'></a><a href='#L294'>294</a>
-<a name='L295'></a><a href='#L295'>295</a>
-<a name='L296'></a><a href='#L296'>296</a>
-<a name='L297'></a><a href='#L297'>297</a>
-<a name='L298'></a><a href='#L298'>298</a>
-<a name='L299'></a><a href='#L299'>299</a>
-<a name='L300'></a><a href='#L300'>300</a>
-<a name='L301'></a><a href='#L301'>301</a>
-<a name='L302'></a><a href='#L302'>302</a>
-<a name='L303'></a><a href='#L303'>303</a>
-<a name='L304'></a><a href='#L304'>304</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L288'></a><a href='#L288'>288</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -374,22 +358,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -669,7 +637,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { MermaidPreview } from "./tutor-mermaid-preview";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
@@ -677,23 +646,6 @@ import type { TutorSupportState } from "@shared/tutor";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
 import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
-&nbsp;
-/** The renderer loads with the first diagram: most answers have none, and the initial load path has a byte budget. */
-function <span class="fstat-no" title="function not covered" >MermaidPreview({</span> source }: { readonly source: string }) {
-  const renderId = <span class="cstat-no" title="statement not covered" >useId().replaceAll(":", "");</span>
-  const [renderedSvg, setRenderedSvg] = <span class="cstat-no" title="statement not covered" >useState&lt;string | null&gt;(null);</span>
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >  useEffect(() =&gt; {</span></span>
-    let current = <span class="cstat-no" title="statement not covered" >true;</span>
-<span class="cstat-no" title="statement not covered" >    void import("@/lib/tutor-mermaid").then(({ <span class="fstat-no" title="function not covered" >renderMermaidSubset }) =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      if (current) <span class="cstat-no" title="statement not covered" >setRenderedSvg(renderMermaidSubset(source, `tutor-diagram-${renderId}`));</span></span>
-    });
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >    return () =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      current = false;</span>
-    };
-  }, [source, renderId]);
-<span class="cstat-no" title="statement not covered" >  if (!renderedSvg) <span class="cstat-no" title="statement not covered" >return null;</span></span>
-<span class="cstat-no" title="statement not covered" >  return &lt;div className="mt-4 overflow-x-auto text-muted-foreground" data-testid="tutor-mermaid" dangerouslySetInnerHTML={{ __html: renderedSvg }} /&gt;;</span>
-}
 &nbsp;
 /** The question an entry belongs to; it tells the current question's steps from the previous question's. */
 function entryQuestion(entry: TutorTranscriptEntry): string {
@@ -891,7 +843,7 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
       &lt;section aria-labelledby={headingId} data-testid="tutor-question"&gt;
         &lt;h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground"&gt;{questionHeading}&lt;/h3&gt;
         &lt;p className="mt-1 font-medium leading-relaxed text-foreground"&gt;&lt;TutorText text={question.question} /&gt;&lt;/p&gt;
-        {question.mermaid &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >&lt;MermaidPreview source={question.mermaid} /&gt;}</span>
+        {question.mermaid &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >&lt;MermaidPreview source={question.mermaid} subject={question} /&gt;}</span>
       &lt;/section&gt;
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
       &lt;div ref={stepRef} aria-live="polite" data-testid="tutor-current-step"&gt;
@@ -979,7 +931,7 @@ export function TutorLearningStep({ tutor, actions }: {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-10T10:35:11.221Z
+                at 2026-11-11T21:19:58.843Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -1,0 +1,529 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for client/src/components/features/tutor-review-panel.tsx</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">client/src/components/features</a> tutor-review-panel.tsx</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">86.41% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>70/81</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">72.13% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>44/61</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">74.19% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>23/31</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">95% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>57/60</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { ClipboardCopy, RotateCcw } from "lucide-react";
+import { ToolbarIconButton } from "@/components/ui/toolbar-icon-button";
+import { useToast } from "@/hooks/use-toast";
+import { getStatusTextClass } from "@/lib/status-semantics";
+import {
+  buildTutorReviewExport, formatTutorReviewStep, TutorReviewExportTooLargeError, tutorReviewStepRefs, type TutorReviewExportResult,
+} from "@/lib/tutor-review-export";
+import {
+  startNewTutorReviewRun, subscribeTutorReview, tutorReviewRemovedRuns, tutorReviewRuns, tutorReviewVersion, type TutorReviewRun,
+} from "@/lib/tutor-review-store";
+&nbsp;
+/** The export size is rebuilt this long after the last change, not for every incoming event. */
+const SIZE_DELAY_MS = 300;
+&nbsp;
+function runSummary(run: TutorReviewRun) {
+  const answers = run.steps.filter((step) =&gt; step.kind === "answer").length;
+  const questions = run.steps.filter((step) =&gt; step.response?.question !== undefined || step.response?.next !== undefined).length;
+  const open = run.steps.filter((step) =&gt; step.status === "open").length;
+  const models = new Set(run.steps.flatMap((step) =&gt; {
+    const returned = step.events.<span class="fstat-no" title="function not covered" >find((e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.modelReturned)</span>?.modelReturned ?? step.response?.model;
+    return returned ? [returned] : [];
+  }));
+  const graphics = run.steps.flatMap((step) =&gt; step.server?.entries.<span class="fstat-no" title="function not covered" >flatMap((e</span>ntry) =&gt; <span class="cstat-no" title="statement not covered" >entry.kind === "outcome" ? [entry.graphic] : [])</span> ?? []);
+  const rendered = run.steps.filter((step) =&gt; step.events.<span class="fstat-no" title="function not covered" >some((e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >event.stage === "renderer" &amp;&amp; event.outcome === "rendered")</span>).length;
+  return { answers, questions, open, models: [...models], kept: graphics.<span class="fstat-no" title="function not covered" >filter((g</span>raphic) =&gt; <span class="cstat-no" title="statement not covered" >graphic === "kept")</span>.length, discarded: graphics.<span class="fstat-no" title="function not covered" >filter((g</span>raphic) =&gt; <span class="cstat-no" title="statement not covered" >graphic === "discarded")</span>.length, rendered };
+}
+&nbsp;
+function StepDetails({ run, index, version }: { readonly run: TutorReviewRun; readonly index: number; readonly version: number }) {
+  const [open, setOpen] = useState(false);
+  const step = run.steps[index];
+  // Large texts are formatted only when a learner opens the step. The store changes its objects in place,
+  // so the store version, not object identity, tells when an open step must be formatted again.
+  const text = useMemo(() =&gt; {
+    if (!open || version &lt; 0) return "";
+    return formatTutorReviewStep(step, index + 1, tutorReviewStepRefs(run)).join("\n");
+  }, [index, open, run, step, version]);
+  return &lt;details className="border-b px-3 py-1" onToggle={(event) =&gt; setOpen(event.currentTarget.open)}&gt;
+    &lt;summary className="cursor-pointer rounded-sm text-ui-xs focus-visible:ring-2 focus-visible:ring-ring"&gt;
+      [{index + 1}] {step.kind} · {step.status}{step.request?.action ? <span class="branch-0 cbranch-no" title="branch not covered" >` · ${step.request.action}` : "</span>"}
+    &lt;/summary&gt;
+    {open &amp;&amp; &lt;pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-ui-xs text-foreground" data-testid="tutor-review-step-text"&gt;{text}&lt;/pre&gt;}
+  &lt;/details&gt;;
+}
+&nbsp;
+type BuiltExport = { readonly version: number; readonly runId: string; readonly result: TutorReviewExportResult | Error } | null;
+&nbsp;
+/** Builds the export; a failure becomes a value, so it cannot break the Debug tab. */
+function tryBuild(run: TutorReviewRun): TutorReviewExportResult | Error {
+  try {
+    return buildTutorReviewExport(run);
+  } catch (error) {
+    return error instanceof Error ? error : <span class="branch-1 cbranch-no" title="branch not covered" >new Error("Tutor review export failed");</span>
+  }
+}
+&nbsp;
+function failureText(error: Error): string {
+  return error instanceof TutorReviewExportTooLargeError ? "export above the size limit" : <span class="branch-1 cbranch-no" title="branch not covered" >"export could not be built";</span>
+}
+&nbsp;
+function sizeText(built: BuiltExport, run: TutorReviewRun | undefined, version: number): string {
+  if (!built || !run || built.runId !== run.runId) return "…";
+  if (built.result instanceof Error) return failureText(built.result);
+  const updating = built.version === version ? "" : <span class="branch-1 cbranch-no" title="branch not covered" >" (updating…)";</span>
+  return `${(built.result.bytes / 1024).toFixed(1)} KiB${updating}`;
+}
+&nbsp;
+function completenessText(run: TutorReviewRun): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (run.incomplete.size === 0 &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >run.notCaptured === 0) <span class="cstat-no" title="statement not covered" >r</span>eturn "complete";</span>
+  const notCaptured = run.notCaptured ? <span class="branch-0 cbranch-no" title="branch not covered" >[`${run.notCaptured} actions not captured`] : [</span>];
+  return `incomplete: ${[...run.incomplete, ...notCaptured].join(", ")}`;
+}
+&nbsp;
+function <span class="fstat-no" title="function not covered" >RunSelect({</span> runs, run, onSelect }: { readonly runs: readonly TutorReviewRun[]; readonly run: TutorReviewRun; readonly onSelect: (runId: string) =&gt; void }) {
+<span class="cstat-no" title="statement not covered" >  return &lt;label className="text-muted-foreground"&gt;Run &lt;select aria-label="Tutor review run" className="rounded border bg-background px-2 py-1 text-foreground" value={run.runId} <span class="fstat-no" title="function not covered" >onChange={(e</span>vent) =&gt; <span class="cstat-no" title="statement not covered" >onSelect(event.target.value)}&gt;</span></span>
+    {runs.<span class="fstat-no" title="function not covered" >map((c</span>andidate, position) =&gt; <span class="cstat-no" title="statement not covered" >&lt;option key={candidate.runId} value={candidate.runId}&gt;#{position + 1} {candidate.startedAt.slice(11, 19)} ({candidate.status})&lt;/option&gt;)</span>}
+  &lt;/select&gt;&lt;/label&gt;;
+}
+&nbsp;
+function RunSummary({ run }: { readonly run: TutorReviewRun }) {
+  const summary = runSummary(run);
+  const completeness = completenessText(run);
+  const open = summary.open ? `, ${summary.open} open` : "";
+  const stopped = run.stoppedReason ? <span class="branch-0 cbranch-no" title="branch not covered" >` (${run.stoppedReason})` : "</span>";
+  const removed = tutorReviewRemovedRuns();
+  return &lt;output className="block px-3 py-1" data-testid="tutor-review-summary"&gt;
+    {run.steps.length} steps, {run.contexts.length} contexts · complete run, independent of the message filter · {summary.answers} answers, {summary.questions} questions delivered{open} · models: {summary.models.join(", ") || <span class="branch-1 cbranch-no" title="branch not covered" >"unknown"} </span>· graphics: {summary.kept} kept, {summary.discarded} discarded, {summary.rendered} rendered · capture: {run.status}{stopped} · &lt;span className={getStatusTextClass(completeness === "complete" ? <span class="branch-0 cbranch-no" title="branch not covered" >"success" : "</span>warning")}&gt;{completeness}&lt;/span&gt;
+    {removed &gt; 0 &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >` · ${removed} older run(s) removed (limit 3)`}</span>
+  &lt;/output&gt;;
+}
+&nbsp;
+/**
+ * The Tutor review in the Debug tab (LearningQuestions 12.7): a summary of the selected run, its steps as
+ * plain text, and one copy action for the complete run regardless of the message filter.
+ */
+export function TutorReviewPanel() {
+  const version = useSyncExternalStore(subscribeTutorReview, tutorReviewVersion);
+  const runs = tutorReviewRuns();
+  const [selectedId, setSelectedId] = useState&lt;string | undefined&gt;();
+  const run = runs.find((candidate) =&gt; candidate.runId === selectedId) ?? runs.at(-1);
+  const [built, setBuilt] = useState&lt;BuiltExport&gt;(null);
+  const { toast } = useToast();
+&nbsp;
+  useEffect(() =&gt; {
+    if (!run) return;
+    const timer = setTimeout(() =&gt; setBuilt({ version, runId: run.runId, result: tryBuild(run) }), SIZE_DELAY_MS);
+    return () =&gt; clearTimeout(timer);
+  }, [run, version]);
+&nbsp;
+  const copy = async () =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!run) <span class="cstat-no" title="statement not covered" >return;</span>
+    // The copied text is built from the state at the click, so size and counts describe exactly that text.
+    const result = tryBuild(run);
+    setBuilt({ version, runId: run.runId, result });
+    if (result instanceof Error) {
+      toast({ title: "Copy failed", description: `The Tutor review ${failureText(result)}; nothing was copied.`, variant: "destructive" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(result.text);
+<span class="cstat-no" title="statement not covered" >      toast({ title: "Tutor review copied", description: `${result.steps} steps, ${result.contexts} contexts, ${(result.bytes / 1024).toFixed(1)} KiB` });</span>
+    } catch {
+      toast({ title: "Copy failed", description: "The browser did not allow writing to the clipboard; nothing was copied.", variant: "destructive" });
+    }
+  };
+&nbsp;
+  const size = sizeText(built, run, version);
+  return &lt;section aria-label="Tutor review" className="shrink-0 border-b text-ui-xs" data-testid="tutor-review-panel"&gt;
+    &lt;p className="px-3 py-1 text-muted-foreground"&gt;
+      Tutor review records questions, answers, feedback and the sent code while Debug mode is on. It stays in this tab&amp;apos;s memory until Clear or reload; copying shares it.
+    &lt;/p&gt;
+    {run ? &lt;&gt;
+      &lt;div className="flex flex-wrap items-center gap-2 px-3 py-1"&gt;
+        {runs.length &gt; 1 &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >&lt;RunSelect runs={runs} run={run} onSelect={setSelectedId} /&gt;}</span>
+        &lt;ToolbarIconButton icon={&lt;ClipboardCopy /&gt;} label="Copy Tutor review" onClick={() =&gt; void copy()} /&gt;
+        &lt;span data-testid="tutor-review-size"&gt;{size}&lt;/span&gt;
+        &lt;ToolbarIconButton icon={&lt;RotateCcw /&gt;} label="Start new Tutor review" onClick={startNewTutorReviewRun} /&gt;
+      &lt;/div&gt;
+      &lt;RunSummary run={run} /&gt;
+      &lt;details className="px-3 py-1"&gt;
+        &lt;summary className="cursor-pointer rounded-sm focus-visible:ring-2 focus-visible:ring-ring"&gt;Review steps ({run.steps.length})&lt;/summary&gt;
+        &lt;div className="max-h-64 overflow-y-auto"&gt;
+          {run.steps.map((step, index) =&gt; &lt;StepDetails key={step.stepId} run={run} index={index} version={version} /&gt;)}
+        &lt;/div&gt;
+      &lt;/details&gt;
+    &lt;/&gt; : &lt;p className="px-3 py-1 text-muted-foreground"&gt;No Tutor review recorded yet. Use the Tutor while Debug mode is on.&lt;/p&gt;}
+  &lt;/section&gt;;
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-11-11T21:19:58.843Z
+            </div>
+        <script src="../../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
+    </body>
+</html>
+    
