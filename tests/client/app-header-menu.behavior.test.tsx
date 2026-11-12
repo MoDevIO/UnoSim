@@ -13,8 +13,15 @@ vi.stubGlobal(
 
 const topLevelMenus = ["File", "Edit", "Sketch", "Tools", "Help"] as const;
 
+// Top-level triggers are found by their marker and label instead of a role query: `expectOnlyMenuOpen` reads all five
+// triggers in every `waitFor` round, and a role query computes the name of every open menu item each time.
 function getTrigger(name: string) {
-  return screen.getByRole("menuitem", { name });
+  const triggers = [...document.querySelectorAll<HTMLElement>("[data-top-level-menu-trigger]")].filter(
+    (trigger) => trigger.textContent?.trim() === name,
+  );
+  expect(triggers, `top-level trigger ${name}`).toHaveLength(1);
+  expect(triggers[0]).toHaveAttribute("role", "menuitem");
+  return triggers[0];
 }
 
 function getOpenMenus() {
