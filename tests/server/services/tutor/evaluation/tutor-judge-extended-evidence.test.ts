@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { readFileSync } from "node:fs";
 import {
-  buildJudgeInput,
   buildJudgePrompt,
   judgeEvidence,
   JUDGE_QUOTE_SOURCES,
@@ -10,6 +9,7 @@ import {
   TUTOR_QUALITY_JUDGE_PROMPT_REVISION,
   type TutorQualityJudgeInput,
 } from "../../../../../server/services/tutor/evaluation/judge";
+import { buildJudgeInput } from "./judge-input";
 import { ANCHOR_COURSE_CONTENT_FIXTURE_IDS } from "../../../../../server/services/tutor/evaluation/anchor-course-content";
 import { parseTutorQualityCorpus, type TutorQualityCorpusSource } from "../../../../../server/services/tutor/evaluation/anchor-corpus";
 

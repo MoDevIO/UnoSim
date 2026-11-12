@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  buildJudgeInput,
   buildJudgePrompt,
   JUDGE_QUOTE_SOURCES,
   parseJudgeResult,
   TUTOR_QUALITY_JUDGE_PROMPT_REVISION,
   type TutorQualityJudgeInput,
 } from "../../../../../server/services/tutor/evaluation/judge";
+import { buildJudgeInput } from "./judge-input";
 
 const judgeInput: TutorQualityJudgeInput = {
   sketch: "int counter = 3;",

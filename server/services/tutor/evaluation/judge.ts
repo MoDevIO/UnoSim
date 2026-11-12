@@ -207,14 +207,6 @@ export function judgeEvidence(
   };
 }
 
-export function buildJudgeInput(
-  scenario: Pick<TutorQualityScenarioSource, "sketch" | "judge">,
-  transcript: Pick<TutorQualityTranscript, "executionStatus" | "turns">,
-): TutorQualityJudgeInput | undefined {
-  const evidence = judgeEvidence(scenario, transcript);
-  return evidence.status === "ready" ? evidence.input : undefined;
-}
-
 export function buildJudgePrompt(input: TutorQualityJudgeInput): TutorQualityJudgePrompt {
   const systemPrompt = [
     "You are a strict educational response evaluator.",
