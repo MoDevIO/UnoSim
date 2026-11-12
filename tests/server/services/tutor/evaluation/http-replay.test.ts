@@ -6,7 +6,7 @@ import {
   type TutorQualityEvaluationScenario,
   type TutorQualityTranscript,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
-import { buildJudgeInput } from "../../../../../server/services/tutor/evaluation/judge";
+import { buildJudgeInput } from "./judge-input";
 import {
   IT061_CONCEPT_QUESTION,
   IT061_EXAMPLE_SKETCH,

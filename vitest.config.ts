@@ -48,6 +48,7 @@ const serializedHttpUnitTests = [
   "tests/server/routes/tutor-diagnostics.routes.test.ts",
   "tests/server/routes/tutor-review.routes.test.ts",
   "tests/server/routes/tutor-board.routes.test.ts",
+  "tests/server/routes/tutor-mocked-dialog.routes.test.ts",
   "tests/server/routes/websocket-lifecycle-handlers.test.ts",
   "tests/server/security/access-control.test.ts",
   "tests/server/services/protocol-version.test.ts",

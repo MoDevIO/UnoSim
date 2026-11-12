@@ -19,14 +19,16 @@ import {
 import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
-import type { TutorQualityExpectation, TutorQualityTransport } from "./anchor-corpus";
+import type { TutorQualityExpectation, TutorQualityJudgeFocus, TutorQualityTransport } from "./anchor-corpus";
 import { canonicalDigest, canonicalJson } from "./canonical";
 import { tutorTemperatureFor } from "../model-profile";
 import {
-  buildJudgeInput,
   callJudge,
+  judgeEvidence,
+  observedJudgeTurnKind,
   parseJudgeResult,
   JudgeProviderCallError,
+  type TutorQualityJudgeInput,
   type TutorQualityJudgePrompt,
   type TutorQualitySemanticEvaluation,
 } from "./judge";
@@ -95,6 +97,7 @@ export interface TutorQualityEvaluationScenario {
   readonly sketchDigest?: string;
   readonly corpusFileDigest?: string;
   readonly judge?: {
+    readonly focus?: TutorQualityJudgeFocus;
     readonly facts: readonly string[];
     readonly criteria: readonly { readonly id: string; readonly text: string }[];
   };
@@ -332,6 +335,10 @@ export interface TutorQualitySemanticEvaluationRecord {
   readonly scenarioId: string;
   readonly sampleIndex: number;
   readonly learningPhase?: string;
+  /** The scenario's Judge focus (R-JDG-2); recorded beside the turn kind so a result stays attributable. */
+  readonly focus?: TutorQualityJudgeFocus;
+  /** The kind of the judged (last) turn of the transcript: initial, dialog, clarify, hint, reveal or skip. */
+  readonly turnKind?: string;
   readonly evaluation: TutorQualitySemanticEvaluation;
 }
 
@@ -1410,13 +1417,7 @@ async function evaluateSamples(
           await evaluateSemanticSample(provider, options, scenario, transcript),
           [options.credential, options.judgeCredential],
         );
-        const phase = transcript.turns.at(-1)?.finalTutorResult?.learningPhase;
-        semanticEvaluations.push({
-          scenarioId: scenario.id,
-          sampleIndex,
-          ...(typeof phase === "string" ? { learningPhase: phase } : {}),
-          evaluation,
-        });
+        semanticEvaluations.push(semanticRecord(scenario.id, scenario.judge.focus, sampleIndex, transcript, evaluation));
       }
       const aggregate = byScenario[scenario.id];
       if (!aggregate) throw new Error(`Missing scenario aggregate for ${scenario.id}`);
@@ -1424,6 +1425,26 @@ async function evaluateSamples(
     }
   }
   return { transcripts, semanticEvaluations, byScenario };
+}
+
+function semanticRecord(
+  scenarioId: string,
+  focus: TutorQualityJudgeFocus | undefined,
+  sampleIndex: number,
+  transcript: TutorQualityTranscript,
+  evaluation: TutorQualitySemanticEvaluation,
+): TutorQualitySemanticEvaluationRecord {
+  const lastTurn = transcript.turns.at(-1);
+  const phase = lastTurn?.finalTutorResult?.learningPhase;
+  const turnKind = observedJudgeTurnKind(lastTurn);
+  return {
+    scenarioId,
+    sampleIndex,
+    ...(typeof phase === "string" ? { learningPhase: phase } : {}),
+    focus: focus ?? "response",
+    ...(turnKind ? { turnKind } : {}),
+    evaluation,
+  };
 }
 
 function redactSemanticEvaluation(
@@ -1460,11 +1481,12 @@ async function evaluateSemanticSample(
 ): Promise<TutorQualitySemanticEvaluation> {
   if (transcript.executionStatus !== "completed") return { status: "not-evaluated", reason: "tutor-turn-not-completed" };
   if (!options.judgeCredential) return { status: "judge-error", reason: "missing-credential" };
-  const input = buildJudgeInput(scenario, transcript);
-  if (!input) return { status: "not-evaluated", reason: "judge-evidence-unavailable" };
+  const evidence = judgeEvidence(scenario, transcript);
+  // R-JDG-2: no graphic, no semantic graphic check and no Judge call.
+  if (evidence.status === "not-evaluated") return { status: "not-evaluated", reason: evidence.reason };
   const startedAt = Date.now();
   try {
-    return await evaluateJudgeResponse(provider, options, input, startedAt);
+    return await evaluateJudgeResponse(provider, options, evidence.input, startedAt);
   } catch (error) {
     return classifyJudgeError(error, startedAt);
   }
@@ -1483,7 +1505,7 @@ function judgePromptMetadata(prompt: TutorQualityJudgePrompt, durationMs: number
 async function evaluateJudgeResponse(
   provider: CountingProvider,
   options: TutorQualityEvaluationOptions,
-  input: NonNullable<ReturnType<typeof buildJudgeInput>>,
+  input: TutorQualityJudgeInput,
   startedAt: number,
 ): Promise<TutorQualitySemanticEvaluation> {
   const { result, prompt } = await callJudge(provider, options.judgeModel!, options.judgeCredential!, input);

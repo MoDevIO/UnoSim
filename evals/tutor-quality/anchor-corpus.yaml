@@ -1,5 +1,5 @@
 corpusId: unosim-tutor-quality-anchor
-corpusVersion: 15
+corpusVersion: 17
 scenarios:
   - id: TQ-SEM-001
     sketch: evals/tutor-quality/semantic-fixtures/TQ-SEM-001-input-pullup.ino
@@ -670,3 +670,164 @@ scenarios:
           text: Das Feedback bezeichnet die Kernaussage der Antwort nicht als falsch und relativiert sie nicht als nur teilweise richtig.
         - id: no-false-claim
           text: Das Feedback enthält keine fachlich falsche Aussage über den Sketch oder die Schleife.
+
+  # --- Dice sketch regressions (Plan 2026-11-11, Anhang B). Synthetic cases built on the user's dialog; they do not
+  # reconstruct a request of that dialog. The facts are read off tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino:
+  # `show` contains no Serial call; `Serial.begin(115200)` in `setup` only initializes; the single `Serial.println(state)`
+  # line in `loop` is commented out; `t` is a local `static unsigned long` of `switchInit`, never updated in the code
+  # shown; `switchInit` is not called there.
+  - id: TQ-DICE-INITIAL
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: free
+    referenceProvenance: &dice-provenance "Hand-checked against TQ-REG-002-dice-context.ino (Plan 2026-11-11, Anhang A): synthetic case, not a reconstruction of a historical request"
+    turns:
+      - kind: initial
+        difficulty: 30
+    judge:
+      facts: &dice-facts
+        - In show(const byte x) steht kein Serial-Aufruf; show schreibt nur mit digitalWrite auf die LED-Pins.
+        - Serial.begin(115200) in setup initialisiert die serielle Schnittstelle, gibt aber keine Daten aus.
+        - Die einzige Zeile Serial.println(state) in loop ist auskommentiert und damit nicht aktiv.
+        - t ist in switchInit eine lokale static unsigned long Variable, die im gezeigten Code nicht aktualisiert wird; switchInit wird dort nicht aufgerufen.
+      criteria:
+        - id: concrete-reference
+          text: Die Frage nennt ihren konkreten Bezug im Sketch (eine Variable, Funktion oder Zeile beim Namen) und bleibt bei genau einer Frage.
+        - id: no-invented-serial-output
+          text: Die Frage setzt keine aktive serielle Ausgabe voraus, die der Sketch nicht hat, und verwechselt Serial.begin nicht mit einer Datenausgabe.
+        - id: no-invented-timestamp
+          text: Die Frage unterstellt nicht, dass t einen laufend aktualisierten Zeitstempel speichert.
+
+  - id: TQ-DICE-CLARIFY
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: dice-context
+    transport: http
+    referenceProvenance: *dice-provenance
+    turns:
+      - kind: initial
+      - kind: dialog
+        question: "Welchen Datentyp hat die lokale Variable `t` in `switchInit`?"
+        answer: Welche Variable meinst du?
+    expected:
+      learnerInput: clarification
+      supportAfter:
+        answerAttempts: 0
+        clarifications: 1
+        outcome: open
+    judge:
+      facts: *dice-facts
+      criteria:
+        - id: names-variable
+          text: Die Erklärung benennt die Variable t und die Funktion switchInit, auf die sich die Frage bezieht.
+        - id: no-invented-answer
+          text: Die Erklärung nennt nicht den gesuchten Datentyp als fertige Antwort und erfindet keine fachliche Antwort der lernenden Person.
+        - id: no-false-claim
+          text: Die Erklärung enthält keine fachlich falsche Aussage über den Sketch.
+
+  - id: TQ-DICE-SERIAL
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: free
+    referenceProvenance: *dice-provenance
+    turns:
+      - kind: dialog
+        question: "Welche serielle Ausgabe wird in show(const byte x) ausgeführt?"
+        answer: Keine, in show steht kein Serial-Aufruf.
+        difficulty: 30
+    expected:
+      answerRating: [4, 5]
+    judge:
+      facts: *dice-facts
+      criteria:
+        - id: accepts-core-statement
+          text: Das Feedback erkennt die Kernaussage als richtig an, dass in show kein Serial-Aufruf steht.
+        - id: no-active-output-claimed
+          text: Feedback und Folgefrage behaupten keine aktive serielle Datenausgabe in show.
+        - id: begin-not-output
+          text: Serial.begin wird nicht als Datenausgabe dargestellt.
+
+  - id: TQ-DICE-OBJECTION
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: free
+    # Synthetic history: an earlier answer was rated weak, and the (synthetic) earlier tutor feedback wrongly
+    # claimed an active serial output in show. That feedback is sent to the Tutor as history feedback; the facts
+    # describe the same history.
+    referenceProvenance: *dice-provenance
+    turns:
+      - kind: dialog
+        question: "Welche serielle Ausgabe wird in show(const byte x) ausgeführt?"
+        answer: Zeig mir den Serial-Aufruf in show; dort ist keiner.
+        difficulty: 30
+        history:
+          - question: "Welche serielle Ausgabe wird in show(const byte x) ausgeführt?"
+            answer: Keine.
+            answerRating: 2
+            feedback: "Nicht ganz: show gibt den gewürfelten Wert x mit Serial.println auf dem seriellen Monitor aus."
+    judge:
+      facts:
+        - "Synthetischer Verlauf, dem Tutor als frühere Rückmeldung übermittelt: \"Nicht ganz: show gibt den gewürfelten Wert x mit Serial.println auf dem seriellen Monitor aus.\" Diese Rückmeldung war falsch; die Antwort Keine wurde dafür schwach bewertet."
+        - In show(const byte x) steht kein Serial-Aufruf; die einzige Serial.println-Zeile in loop ist auskommentiert.
+        - Serial.begin(115200) in setup initialisiert die serielle Schnittstelle, gibt aber keine Daten aus.
+      criteria:
+        - id: self-correction
+          text: Das Feedback nimmt die frühere falsche Behauptung ausdrücklich zurück oder korrigiert sie, statt sie zu wiederholen.
+        - id: no-active-output-claimed
+          text: Das Feedback behauptet keinen aktiven Serial-Aufruf in show.
+        - id: engages-with-objection
+          text: Das Feedback geht auf den Einwand ein und belegt ihn am Code, ohne die lernende Person abzuwerten.
+
+  - id: TQ-DICE-FOLLOWUP
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: free
+    referenceProvenance: *dice-provenance
+    turns:
+      - kind: dialog
+        question: "Welchen Wertebereich kann eine Variable vom Typ `unsigned long` auf dem Arduino Uno speichern?"
+        answer: Auf dem Uno hat unsigned long 32 Bit, also die Werte von 0 bis 4294967295.
+        difficulty: 30
+    expected:
+      answerRating: [4, 5]
+      questionNotRepeat: exact-or-heuristic
+    judge:
+      facts:
+        - Auf dem Arduino Uno (AVR) hat unsigned long 32 Bit und speichert Werte von 0 bis 4294967295.
+        - t ist in switchInit als static unsigned long deklariert.
+      criteria:
+        - id: confirms-core
+          text: Das Feedback bestätigt den Kern der Antwort (32 Bit, 0 bis 4294967295) als richtig, ohne ihn als nur teilweise richtig zu relativieren.
+        - id: new-thinking-step
+          text: Die Folgefrage verlangt einen neuen Denkschritt und fragt nicht erneut nach dem Wertebereich von unsigned long.
+
+  # --- Graphic cases (Judge focus graphic): judged only if the turn delivered a graphic.
+  - id: TQ-GRAPH-PROCESS
+    sketch: tests/fixtures/tutor-quality/TQ-REG-001-pwm.ino
+    courseContent: free
+    referenceProvenance: "Hand-checked against TQ-REG-001-pwm.ino: setup sets ledPin 9 to OUTPUT; loop counts brightness from 0 to 255 in steps of 5 with analogWrite and delay(20), then counts down from 255 to 0 in steps of 5"
+    turns:
+      - kind: initial
+        difficulty: 30
+    judge:
+      focus: graphic
+      facts:
+        - setup setzt ledPin (Pin 9) mit pinMode auf OUTPUT.
+        - loop erhöht brightness von 0 bis 255 in Schritten von 5 und schreibt jeden Wert mit analogWrite auf ledPin, mit delay(20) dazwischen.
+        - Danach verringert loop brightness von 255 bis 0 in Schritten von 5 mit derselben Ausgabe.
+      criteria:
+        - id: graphic-matches-sketch
+          text: Die ausgelieferte Grafik gibt den Ablauf des Sketches richtig wieder; ihre Knoten und Kanten behaupten nichts, was der Sketch nicht tut.
+        - id: graphic-matches-question
+          text: Die Grafik gehört zur ausgelieferten Frage und erklärt deren Kontext.
+
+  - id: TQ-GRAPH-NO-SOLUTION
+    sketch: tests/fixtures/tutor-quality/TQ-REG-002-dice-context.ino
+    courseContent: free
+    referenceProvenance: *dice-provenance
+    turns:
+      - kind: initial
+        difficulty: 40
+    judge:
+      focus: graphic
+      facts: *dice-facts
+      criteria:
+        - id: context-without-answer
+          text: Die ausgelieferte Grafik erklärt den Kontext der Frage, ohne die gesuchte Antwort vollständig vorzugeben.
+        - id: graphic-matches-sketch
+          text: Die Kanten und Beschriftungen der Grafik stimmen mit dem Sketch überein; sie erfindet keine Funktionsaufrufe oder Serial-Ausgaben.
