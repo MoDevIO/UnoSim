@@ -149,7 +149,10 @@ describe("Tutor Quality anchor corpus contract", () => {
     const released = { ...current, corpusVersion: 5, digest: "e25167402c95450f63c2f5683cc5fc0874fb8619b9848fcba7deef8fc0a0918d" };
 
     expect(compareTutorQualityCorpusVersions(released, current)).toEqual({ valid: true });
-    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 15, digest: "e0cca52d078dd002366bcc1512dbd9bcc8dc8d4e90a6c44a52db95b18cf79e13" });
+    // v15 -> v16 (Plan 2026-11-11, Aufgabe 8): the dice and graphic cases and the Judge `focus` field; the digest is the one
+    // the parser computes from the extended corpus data. v16 -> v17 (Nachbesserung 2026-11-12, Befund A): TQ-DICE-OBJECTION
+    // sends its earlier false Tutor feedback as history `feedback`, and its Judge fact quotes that feedback.
+    expect({ corpusVersion: current.corpusVersion, digest: current.digest }).toEqual({ corpusVersion: 17, digest: "bd3d95d5be4504691592b35bac0c8f0668b99b2fad0366dd3dfa1cd7ecf10645" });
   });
 
   it("grounds the strong LEARN answer in the actual output without demanding unprinted behaviour", () => {
@@ -244,6 +247,29 @@ describe("Tutor Quality anchor corpus contract", () => {
     })],
   ])("rejects %s", (_label, mutate) => {
     expect(() => parseTutorQualityCorpus(mutate(validSource()), references)).toThrow();
+  });
+
+  describe("history feedback follows the dialog contract (TutorDialogTurn.feedback)", () => {
+    function withHistory(history: readonly Record<string, unknown>[]) {
+      const base = validSource().scenarios[0]!;
+      return { ...validSource(), scenarios: [{ ...base, turns: [{ ...base.turns[0]!, history }] }] } as unknown as TutorQualityCorpusSource;
+    }
+
+    it("keeps bounded feedback on a history entry", () => {
+      const feedback = "x".repeat(1_000);
+      const corpus = parseTutorQualityCorpus(withHistory([{ question: "Was ist x?", answer: "A", answerRating: 2, feedback }]), references);
+      const turn = corpus.scenarios[0]!.turns[0]!;
+      expect(turn.kind === "dialog" ? turn.history : undefined).toEqual([{ question: "Was ist x?", answer: "A", answerRating: 2, feedback }]);
+    });
+
+    it.each([
+      ["too long", { feedback: "x".repeat(1_001) }, /history\[0\]\.feedback must have at most 1000 characters/],
+      ["blank", { feedback: "  " }, /history\[0\]\.feedback must be a non-empty string/],
+      ["not a string", { feedback: 3 }, /history\[0\]\.feedback must be a non-empty string/],
+      ["beside an unknown field", { feedback: "ok", tutorNote: "frei erfunden" }, /history\[0\]\.tutorNote is unknown/],
+    ])("rejects feedback %s", (_label, extra, message) => {
+      expect(() => parseTutorQualityCorpus(withHistory([{ question: "Was ist x?", answer: "A", ...extra }]), references)).toThrow(message);
+    });
   });
 
   describe("R-TURN-3: Strategy cases bind their dialog turns to a planner-served question", () => {

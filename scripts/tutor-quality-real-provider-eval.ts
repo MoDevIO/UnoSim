@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { sha256 } from "../server/services/tutor/evaluation/canonical";
+import { severeFindings } from "../server/services/tutor/evaluation/quality-verdict";
 import { createAnchorCourseContent, ANCHOR_COURSE_CONTENT_FIXTURE_IDS, type AnchorCourseContentFixtureId } from "../server/services/tutor/evaluation/anchor-course-content";
 import { config } from "../server/config";
 import {
@@ -164,6 +165,9 @@ function historyEntry(entry: TutorQualityHistoryEntrySource): import("../shared/
     question: entry.question,
     answer: entry.answer ?? "synthetic scripted history",
     ...(entry.questionId === undefined ? {} : { questionId: entry.questionId }),
+    // Earlier Tutor feedback, bounded by the corpus parser like TutorDialogTurn.feedback; buildDialogPrompt gives it
+    // to the Tutor with an earlier weak attempt at the same question.
+    ...(entry.feedback === undefined ? {} : { feedback: entry.feedback }),
   };
   // The corpus parser rejects ratings on philosophical turns, matching the shared dialog schema.
   if (entry.responseStyle === "philosophical") return { ...common, responseStyle: "philosophical" };
@@ -321,6 +325,8 @@ export async function runTutorQualityCliMain(
       runStatus: report.runStatus,
       reason: report.reason,
       qualityVerdict: report.qualityVerdict.verdict,
+      // Visible whatever the verdict and exit code (Evaluation SSOT 12.4); `warn` and `inconclusive` are no release.
+      ...(severeFindings(report.qualityVerdict).length === 0 ? {} : { severeFindings: severeFindings(report.qualityVerdict) }),
       providerCalls: report.providerCalls,
     }));
     return tutorQualityExitCode(report);

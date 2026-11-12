@@ -140,6 +140,17 @@ function effectFor(findingClass: TutorQualityFindingClass, sampleCount: number, 
   }
 }
 
+/**
+ * Findings that stay visible whatever their effect and the process exit code (Evaluation SSOT §12.4): a single
+ * critical issue below the repeat threshold is only a `warn`, yet it must never disappear behind a green run. This
+ * is visibility only; the repeat rule and the verdict are unchanged.
+ */
+export const SEVERE_FINDING_CLASSES: readonly TutorQualityFindingClass[] = ["product-violation", "critical-issue"];
+
+export function severeFindings(verdict: Pick<TutorQualityVerdict, "findings">): readonly TutorQualityVerdictFinding[] {
+  return verdict.findings.filter(({ class: findingClass }) => SEVERE_FINDING_CLASSES.includes(findingClass));
+}
+
 function compareText(left: string, right: string): number {
   if (left < right) return -1;
   return left > right ? 1 : 0;

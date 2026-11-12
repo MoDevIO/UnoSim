@@ -205,7 +205,7 @@ personal data, or live learner data.
 | `referenceProvenance` | with `expected.referenceAnswer` | where the factual reference comes from, independent of the Tutor model |
 | `turns` | yes | ≥ 1 turn (§6.3) |
 | `expected` | no | expectation object (§6.4) |
-| `judge` | no | Judge block (§9.6) |
+| `judge` | no | Judge block (§9.6), with an optional `focus` (`response` default, or `graphic`; R-JDG-2) |
 
 ### 6.3 Turns and question binding
 
@@ -221,7 +221,25 @@ type TurnSource =
       history?: HistoryEntry[]; // bounded scripted prior dialog
     }
   | { kind: "support"; action: "clarify" | "hint" | "reveal" | "skip"; difficulty?: number }; // http only
+
+type HistoryEntry = {
+  question: string;
+  answer?: string;
+  responseStyle?: "normal" | "philosophical";
+  answerRating?: 1 | 2 | 3 | 4 | 5; // not with philosophical
+  questionId?: string;
+  feedback?: string;                 // earlier Tutor feedback, R-TURN-6
+};
 ```
+
+**R-TURN-6** A history entry has only the fields above; any other field is a
+parse error. `feedback` follows the dialog contract (`TutorDialogTurn.feedback`):
+a non-empty string of at most `INPUT_LIMITS.tutor.maxFeedbackChars` characters.
+The runner sends it to the Tutor exactly as the browser does, so an earlier weak
+attempt at the asked question reaches the Tutor with its feedback and without its
+rating (LearningQuestions R-SUP-9). A Judge fact may describe earlier Tutor
+feedback only when the case sends that feedback in its history; the fact quotes it
+word for word (`TQ-DICE-OBJECTION`, corpus v17).
 
 **R-TURN-5** An `http` case replays the production Tutor routes with learning
 support. It starts with exactly one `initial` turn; its dialog turns carry no
@@ -543,8 +561,34 @@ It is not a rubric system, ranking, calibration, or pairwise comparison.
 
 **R-JDG-1** The Judge runs for a sample only if: a Judge model is
 configured; the case has a `judge` block; `executionStatus` is `completed`;
-the final turn is a `dialog` turn; its final feedback and follow-up question
-are non-empty. Otherwise the record is `not-evaluated` with a reason.
+the final turn is judgeable; and what that kind needs is non-empty. The Judge
+still evaluates **only the last turn** of a case; an early step needs its own
+case with the matching conversation prefix (no free turn index, no second runner).
+Judgeable kinds:
+
+| Final turn | Needs | `turnKind` |
+| --- | --- | --- |
+| `dialog` | final feedback and follow-up question | `dialog` |
+| `support` `clarify` | explanation and the asked question | `clarify` |
+| `support` `hint` | explanation and the asked question | `hint` |
+| `initial` | the delivered question (feedback may be empty) | `initial` |
+
+`support` `reveal` and `skip` stay excluded: a `reveal` shows the reviewed
+reference and a `skip` asks a new question. Otherwise the record is
+`not-evaluated` with a reason (`judge-evidence-unavailable`, or
+`graphic-not-provided`, R-JDG-2).
+
+**R-JDG-2** A Judge block has a `focus`: `response` (default) or `graphic`. An
+invalid value is a corpus error. With the focus `graphic` the Judge is called
+only if the final turn **actually delivered** a Mermaid text (`finalTutorResult.mermaid`,
+non-blank); a draft the application discarded is not a delivered graphic. Without
+one, the record is `status: "not-evaluated"`, `reason: "graphic-not-provided"`, no
+Judge call is made and no semantic check of a graphic is claimed; the verdict path
+of R-VER-2 turns it into `inconclusive`. That a question needs no graphic is no
+product defect; such cases are separate from a graphic case. Every record carries
+the scenario's `focus` and the kind of the judged turn, so a result stays
+attributable. No SVG is rendered and no graphic is judged that the learner did
+not receive.
 
 ### 9.3 Input
 
@@ -552,27 +596,34 @@ are non-empty. Otherwise the record is `not-evaluated` with a reason.
 interface JudgeInput {
   sketch: string;
   facts: string[];
-  question: string;        // the answered question
-  learnerAnswer: string;
+  question: string;        // the answered question; for `initial` the delivered question
+  learnerAnswer: string;   // empty for `initial`: none is invented
+  turnKind?: "initial" | "dialog" | "clarify" | "hint";  // the real kind of the judged turn
   tutor: {
-    feedback: string;
-    followUpQuestion: string;
+    feedback: string;      // empty where the turn carries none (`initial`)
+    followUpQuestion: string; // for `initial` the delivered question itself
     answerRating?: number;
     learningPhase?: string;
+    mermaid?: string;      // only a graphic the turn actually delivered
   };
   criteria: { id: string; text: string }[];
 }
 ```
 
-The input contains no internal IDs, provider prompts, credentials, or
+`turnKind` is optional: an input built by hand without it is a valid `dialog`
+input. For `initial`, `tutor.followUpQuestion` carries the delivered question
+as the existing quote source, and no learner answer, rating or feedback is
+invented. The input contains no internal IDs, provider prompts, credentials, or
 runtime identities. Temperature is 0.
 
 ### 9.4 Evidence and quotes
 
 **R-EVD-1** Quote allowlist, exactly: `sketch`, `tutor.feedback`,
-`tutor.followUpQuestion`.
+`tutor.followUpQuestion`, `tutor.mermaid`. The fourth source replaced the earlier
+three-source contract with Judge prompt revision v3; the three earlier sources and
+every rejection are unchanged. An absent graphic is an empty source.
 
-**R-EVD-2** Not quotable: `facts`, `question`, `learnerAnswer`,
+**R-EVD-2** Not quotable: `facts`, `question`, `learnerAnswer`, `turnKind`,
 `answerRating`, `learningPhase`, any internal ID, the criterion texts.
 
 **R-EVD-3** The Judge prompt and the parser use one and the same allowlist,
@@ -580,7 +631,10 @@ defined once in code.
 
 **R-EVD-4** A quote is valid only if, after NFKC normalization and
 whitespace collapsing, it is fully contained in **one** normalized allowed
-source. Matches across the boundary of concatenated sources are invalid.
+source. Matches across the boundary of concatenated sources are invalid; there
+is no quote from feedback and graphic put together, and no widening to raw fields.
+Only the delivered Mermaid *text* is evidence; a rejected provider draft stays in
+the separately recorded provider attempts.
 
 **R-EVD-5** Quote semantics:
 - `fail`: a quote is mandatory: a non-empty string from an allowed source.
@@ -610,7 +664,11 @@ inconclusive and never a Tutor failure.
 
 **R-RSP-4** Every change to the Judge system prompt text MUST bump the Judge
 prompt revision identifier. Acceptance measurements (G1) are bound to the
-revision they measured.
+revision they measured. The current revision is
+`tutor-quality-minimal-criteria-v3` (v2 -> v3: fourth quote source `tutor.mermaid`,
+the `turnKind` field and the initial-turn sentence; corpus v15 -> v16). The
+main Tutor prompt and its revision are unaffected. The historical G1 measurement
+belongs to v1/v2 and is no calibration of v3.
 
 ### 9.6 Criteria authoring
 
@@ -826,6 +884,15 @@ which R-PYR-2 requires not to fail CI; the report still records
 exit codes) MUST bump the rule revision identifier and cite the evidence that
 justifies it.
 
+**R-VER-10** Severe single findings are visible whatever the verdict and exit code.
+The classes `product-violation` and `critical-issue` are *severe*. The report lists
+them in a separate "Severe findings" section and the CLI summary line carries them
+as `severeFindings`; both appear only when such a finding exists. This is visibility
+only: R-VER-4 (`k(n)`) and the verdict are unchanged, so a single critical issue
+stays `warn` with exit code 0 and is still no release of the model. `warn`,
+`inconclusive` and `not-run` are never an unrestricted model approval. A stricter
+release rule would be a separate contract decision.
+
 ## 13. Change control
 
 | Change | Required |
@@ -920,7 +987,7 @@ The steps before the correct answer of `TQ-SUP-IT061-CORRECTED` carry a
 turn-level `mustNotReveal` with the literals of the other two cases, checked in
 the raw and the delivered output of exactly those turns; the final confirmation
 may name the result. A run that reveals the result early fails even when its
-final turn is correct (L2 counter-probe in `http-replay.test.ts`, corpus v15).
+final turn is correct (L2 counter-probe in `http-replay.test.ts`, corpus v15; the corpus is v16 since the dice and graphic cases, v17 since history `feedback`, R-TURN-6).
 *Implemented (2026-11-09):* corpus v14 with the fixture
 `evals/tutor-quality/fixtures/it06-1-while-grenze-2000.ino` and the Course
 Content fixture `it06-1` (focus of the Example, no reference answer); the

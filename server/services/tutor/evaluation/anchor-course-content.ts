@@ -1,4 +1,5 @@
 import { it061Content, it064Content } from "./learning-support-fixtures";
+import { diceContextContent } from "./dice-context-fixture";
 import type { TutorCapability } from "../../course-content/course-content-loader";
 import { curriculumTopicSchema, validateCurriculumTopic, type CurriculumTopic } from "../curriculum/curriculum-schema";
 import { createTutorProgressionState, type TutorProgressionState } from "../curriculum/progression-state";
@@ -13,6 +14,8 @@ export const ANCHOR_COURSE_CONTENT_FIXTURE_IDS = [
   "it06-4",
   // The IT06.1 Example with its focus, without a reference answer (LearningQuestions R-SUP-9, R-SUP-E5).
   "it06-1",
+  // The dice sketch with two focus questions and no reference answer (Plan Aufgabe 8, TQ-DICE-CLARIFY).
+  "dice-context",
 ] as const;
 
 export type AnchorCourseContentFixtureId = typeof ANCHOR_COURSE_CONTENT_FIXTURE_IDS[number];
@@ -202,6 +205,8 @@ export function createAnchorCourseContent(fixtureId: AnchorCourseContentFixtureI
       return it064Content();
     case "it06-1":
       return it061Content();
+    case "dice-context":
+      return diceContextContent();
     case "variables":
     case "progression-learn":
       return variablesCourseContent();

@@ -51,7 +51,9 @@ describe("minimal Tutor Quality Judge", () => {
       }],
     } as never);
 
-    expect(input).toEqual(judgeInput);
+    // Migration (four-source contract, Plan Aufgabe 8): the built input now names the real turn kind. The hand-built
+    // `judgeInput` fixture stays without `turnKind`, as old manually built inputs remain valid for dialog tests.
+    expect(input).toEqual({ ...judgeInput, turnKind: "dialog" });
     expect(input).not.toHaveProperty("expected");
     expect(JSON.stringify(input)).not.toMatch(/secret-model-id|Tutor prompt secret|Tutor user secret|raw/);
   });
@@ -137,7 +139,7 @@ describe("minimal Tutor Quality Judge", () => {
   it("states the quote omission and null/empty normalization contract in the prompt", () => {
     const prompt = buildJudgePrompt(judgeInput);
 
-    expect(prompt.systemPrompt).toMatch(/only the sketch, tutor\.feedback, and tutor\.followUpQuestion.*quote sources/i);
+    expect(prompt.systemPrompt).toMatch(/only the sketch, tutor\.feedback, tutor\.followUpQuestion, and tutor\.mermaid.*quote sources/i);
     expect(prompt.systemPrompt).toMatch(/fail verdict.*non-empty exact quote from the allowed evidence/i);
     expect(prompt.systemPrompt).toMatch(/pass and unclear.*quote may be omitted, null, empty, or whitespace-only.*absent/i);
   });
@@ -146,14 +148,16 @@ describe("minimal Tutor Quality Judge", () => {
       sketch: judgeInput.sketch,
       "tutor.feedback": judgeInput.tutor.feedback,
       "tutor.followUpQuestion": judgeInput.tutor.followUpQuestion,
+      // A graphic-less input has an empty fourth source; its exact quotes are covered in tutor-judge-extended-evidence.test.ts.
+      "tutor.mermaid": "flowchart LR\n  A[counter] --> B[drei]",
     };
     const quoteWith = (quote: string) => ({
       criteria: [{ ...validResult.criteria[0], verdict: "fail", quote }],
       criticalIssues: [],
     });
 
-    it("defines the quote allowlist once, with exactly the three normative sources", () => {
-      expect([...JUDGE_QUOTE_SOURCES]).toEqual(["sketch", "tutor.feedback", "tutor.followUpQuestion"]);
+    it("defines the quote allowlist once, with exactly the four normative sources (the three earlier ones plus tutor.mermaid)", () => {
+      expect([...JUDGE_QUOTE_SOURCES]).toEqual(["sketch", "tutor.feedback", "tutor.followUpQuestion", "tutor.mermaid"]);
     });
 
     it("names exactly the allowlist constant in the prompt", () => {
@@ -164,7 +168,8 @@ describe("minimal Tutor Quality Judge", () => {
     });
 
     it.each([...JUDGE_QUOTE_SOURCES])("accepts a quote taken from the allowed source %s", (source) => {
-      expect(parseJudgeResult(quoteWith(sourceText[source]), judgeInput).status).toBe("evaluated");
+      const input = source === "tutor.mermaid" ? { ...judgeInput, tutor: { ...judgeInput.tutor, mermaid: sourceText["tutor.mermaid"] } } : judgeInput;
+      expect(parseJudgeResult(quoteWith(sourceText[source]), input).status).toBe("evaluated");
     });
 
     it.each(["facts", "question", "learnerAnswer", "criterion text"] as const)("rejects a quote taken from the non-quotable %s", (field) => {
@@ -207,9 +212,10 @@ describe("minimal Tutor Quality Judge", () => {
   it("bumps the Judge prompt revision when the system prompt text changed (R-RSP-4)", () => {
     const prompt = buildJudgePrompt(judgeInput);
 
-    expect(TUTOR_QUALITY_JUDGE_PROMPT_REVISION).toBe("tutor-quality-minimal-criteria-v2");
+    // v2 -> v3: the fourth quote source tutor.mermaid, the turnKind field and the initial-turn sentence (Plan Aufgabe 8).
+    expect(TUTOR_QUALITY_JUDGE_PROMPT_REVISION).toBe("tutor-quality-minimal-criteria-v3");
     // Pins the prompt text to its revision: changing the text requires a new revision and a new digest here.
-    expect(prompt.revision).toBe("tutor-quality-minimal-criteria-v2");
-    expect(prompt.systemDigest).toBe("71ac0c843a76de32142943ae1e6f98097b7e5324a1723b8b3935701e70da7e86");
+    expect(prompt.revision).toBe("tutor-quality-minimal-criteria-v3");
+    expect(prompt.systemDigest).toBe("e7d17898c7708f5d8ab4d5b987995973ebc9a9e932f7d13663f2d7817574df60");
   });
 });

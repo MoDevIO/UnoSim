@@ -4,7 +4,7 @@ import { canonicalDigest, sha256 } from "./canonical";
 import { TUTOR_QUALITY_JUDGE_PROMPT_REVISION } from "./judge";
 import { tutorTemperatureFor } from "../model-profile";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";
-import type { TutorQualityVerdict } from "./quality-verdict";
+import { severeFindings, type TutorQualityVerdict } from "./quality-verdict";
 import type {
   TutorQualityCheckOutcome,
   TutorQualityDeterministicCheck,
@@ -269,7 +269,9 @@ function createDeterministicDiagnostics(
         + "; phase after: " + (transcript.stateAfter?.phase ?? "none")
         + "; calls: list " + calls.modelListCalls + ", tutor " + calls.generationCalls,
       "- duration: " + transcript.metadata.sampleDurationMs + " ms",
-      "- judge: " + (semantic?.evaluation.status ?? "not requested"),
+      "- judge: " + (semantic?.evaluation.status ?? "not requested")
+        + (semantic?.evaluation.reason && semantic.evaluation.status === "not-evaluated" ? " (" + semantic.evaluation.reason + ")" : "")
+        + (semantic ? "; focus " + (semantic.focus ?? "response") + ", turn " + (semantic.turnKind ?? "unknown") : ""),
       ...(transcript.technicalError ? ["- technical error: " + transcript.technicalError.kind] : []),
       ...transcript.turns.flatMap((turn, index) => formatTurnLines(turnDiagnostics(turn, index === transcript.turns.length - 1, transcript))),
       ...transcript.invariantViolations.filter(({ turnIndex }) => turnIndex === undefined).map((violation) => "- violation " + violation.source + " / " + violation.code),
@@ -292,6 +294,9 @@ function createVerdictLines(verdict: TutorQualityVerdict): string[] {
     "Rule: " + verdict.ruleRevision + "; samples per case " + verdict.samplesPerCase + "; repeat threshold " + verdict.repeatThreshold
       + "; Judge " + (verdict.judgeConfigured ? "configured" : "not configured"),
     ...(verdict.findings.length ? verdict.findings.map(formatFinding) : ["- no findings"]),
+    ...(severeFindings(verdict).length
+      ? ["", "Severe findings (listed whatever the verdict and exit code; `warn`, `inconclusive` and `not-run` are no release of the model):", ...severeFindings(verdict).map(formatFinding)]
+      : []),
     "",
   ];
 }

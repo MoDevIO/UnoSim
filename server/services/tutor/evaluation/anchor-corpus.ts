@@ -12,6 +12,7 @@ import {
   type TutorQuestionOutcome,
   type TutorSupportAction,
 } from "@shared/tutor";
+import { INPUT_LIMITS } from "@shared/input-limits";
 import { canonicalDigest } from "./canonical";
 import { isValidRevealLiteral, normalizeRevealLiteral } from "./reveal-check";
 
@@ -21,7 +22,11 @@ export interface TutorQualityHistoryEntrySource {
   readonly responseStyle?: "normal" | "philosophical";
   readonly answerRating?: 1 | 2 | 3 | 4 | 5;
   readonly questionId?: string;
+  /** Earlier Tutor feedback on this answer, sent to the Tutor like the browser does (TutorDialogTurn.feedback). */
+  readonly feedback?: string;
 }
+
+const HISTORY_ENTRY_KEYS: ReadonlySet<string> = new Set(["question", "answer", "responseStyle", "answerRating", "questionId", "feedback"]);
 
 export type TutorQualityTurnSource =
   | {
@@ -99,7 +104,13 @@ export interface TutorQualityExpectation {
   readonly actionRejected?: "SUPPORT_LOCKED";
 }
 
+/** What a Judge block evaluates: the tutor's response (default) or the graphic it delivered (R-JDG-2). */
+export type TutorQualityJudgeFocus = "response" | "graphic";
+export const TUTOR_QUALITY_JUDGE_FOCI: readonly TutorQualityJudgeFocus[] = ["response", "graphic"];
+
 export interface TutorQualityJudgeSource {
+  /** Default `response`; `graphic` is judged only if the final turn actually delivered a graphic. */
+  readonly focus?: TutorQualityJudgeFocus;
   readonly facts: readonly string[];
   readonly criteria: readonly {
     readonly id: string;
@@ -146,6 +157,21 @@ function hasPhilosophicalAnswerRating(entry: Record<string, unknown>): boolean {
   return entry.responseStyle === "philosophical" && entry.answerRating !== undefined;
 }
 
+// The same bound as the dialog contract (shared/tutor.ts, `feedback`), so the corpus cannot send what the route rejects.
+function assertHistoryFeedback(value: unknown, label: string): void {
+  if (value === undefined) return;
+  assertNonEmptyString(value, `${label}.feedback`);
+  if (value.trim().length > INPUT_LIMITS.tutor.maxFeedbackChars) {
+    fail(`${label}.feedback must have at most ${INPUT_LIMITS.tutor.maxFeedbackChars} characters`);
+  }
+}
+
+// A history entry carries only TutorDialogTurn fields; anything else would be dropped silently on the way to the Tutor.
+function assertKnownHistoryKeys(entry: Record<string, unknown>, label: string): void {
+  const unknown = Object.keys(entry).find((key) => !HISTORY_ENTRY_KEYS.has(key));
+  if (unknown !== undefined) fail(`${label}.${unknown} is unknown`);
+}
+
 function parseHistory(value: unknown, label: string): readonly TutorQualityHistoryEntrySource[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value)) fail(`${label}.history must be an array`);
@@ -166,6 +192,8 @@ function parseHistory(value: unknown, label: string): readonly TutorQualityHisto
       fail(`${historyLabel}.answerRating is not allowed for philosophical responses`);
     }
     if (entry.questionId !== undefined) assertNonEmptyString(entry.questionId, `${historyLabel}.questionId`);
+    assertHistoryFeedback(entry.feedback, historyLabel);
+    assertKnownHistoryKeys(entry, historyLabel);
   }
   return value as readonly TutorQualityHistoryEntrySource[];
 }
@@ -470,7 +498,10 @@ function parseJudge(value: unknown, label: string): TutorQualityJudgeSource | un
     assertNonEmptyString(criterion.text, `${criterionLabel}.text`);
     return { id: criterion.id, text: criterion.text };
   });
-  return { facts: value.facts as string[], criteria };
+  if (value.focus !== undefined && !TUTOR_QUALITY_JUDGE_FOCI.includes(value.focus as TutorQualityJudgeFocus)) {
+    fail(`${label}.judge.focus must be one of ${TUTOR_QUALITY_JUDGE_FOCI.join(", ")}`);
+  }
+  return { ...(value.focus === undefined ? {} : { focus: value.focus as TutorQualityJudgeFocus }), facts: value.facts as string[], criteria };
 }
 
 function parseTurns(value: unknown, label: string): readonly TutorQualityTurnSource[] {
