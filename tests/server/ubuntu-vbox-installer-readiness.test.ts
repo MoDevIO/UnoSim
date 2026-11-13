@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createServer, type AddressInfo, type Server } from "node:net";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 const repoRoot = join(__dirname, "../..");
 const installer = readFileSync(join(repoRoot, "scripts/install-ubuntu-vbox.sh"), "utf8");
@@ -46,7 +46,8 @@ function curl(options: string[], url: string): Promise<{ exitCode: number; stdou
   });
 }
 
-afterEach(async () => {
+// afterAll, not afterEach: the retry cases run concurrently, and closing after each test would close the other's server.
+afterAll(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
 
@@ -55,9 +56,10 @@ describe("Ubuntu/VBox installer readiness checks", () => {
     expect(Object.keys(readinessCurlOptions()).sort()).toEqual(["BACKEND_READINESS", "GATEWAY_READINESS"]);
   });
 
-  it.each(["BACKEND_READINESS", "GATEWAY_READINESS"])(
+  // Each case waits out the installer's real 2 s retry delay, so both run at the same time.
+  it.concurrent.for(["BACKEND_READINESS", "GATEWAY_READINESS"])(
     "%s keeps retrying while the published port resets connections",
-    async (check) => {
+    async (check, { expect }) => {
       const backend = await startResettingBackend(1);
 
       const result = await curl(readinessCurlOptions()[check], backend.url);
