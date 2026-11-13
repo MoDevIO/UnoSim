@@ -67,3 +67,28 @@ Die Assertions sind knapp zusammengefasst; die Testnamen in den Dateien tragen d
 | `TQ-GRAPH-NO-SOLUTION`: gültiges Grafikpaar | Plan Anhang B | dto. „graphic cases …“ | Tutor- und Judge-Fake | eine Frage mit eindeutiger Antwort `run`; Kontextgrafik (Bedingung, unbenannte Aktion) besteht; verratende Grafik nennt `run()` am gefragten Knoten ohne „Lösung“ und ergibt genau `criterion/context-without-answer`; beide unverändert ausgeliefert und als `tutor.mermaid` beurteilt; die Fake-Regel gilt nur für dieses Paar (Gegenprobe B1) | TQ, UN | belegt |
 | Schwere Einzelbefunde sichtbar | TutorQualityEvaluation-SSOT R-VER-10 | dto. „severe single findings …“ | Provider-/Judge-Fake | ein `critical-issue`: `warn`, Exitcode 0, aber `severeFindings` und Berichtsabschnitt | TQ, UN | belegt |
 | Echte Modellqualität der Fälle in Anhang B | Plan Aufg. 8 | `npm run eval:tutor-quality:real` | – | nicht ausgeführt – kein Budget beauftragt | – | Modellmessung offen |
+
+## Klassisches UML-Profil (2026-11-13)
+
+Alle Produkt-/Browserbelege verwenden kontrollierte Provider; die Rendererfälle
+verwenden zusätzlich die echte gepinnte PlantUML-/JRE-/Fontlaufzeit. Sie belegen
+keine Qualität frei erzeugter Modellvorschläge. Integration und finale Gates
+werden im `docs/proposals/report-tutor-classic-uml.md` nachgewiesen.
+
+| Qualitätsfall | Konkrete Tests | Geprüfte Regel |
+| --- | --- | --- |
+| Leere setup/loop mit Kommentaren | `uml/contract.test.ts`, `e2e/tutor-classic-uml.spec.ts` | keine Kommentaraktion, kein erfundenes Ende; Text bleibt |
+| Unklare Datentypfrage | `uml/contract.test.ts`, UML-E2E | keine globale Sketch-Klasse oder fachfremde Begriffskette |
+| IT08.6 Funktionstest, echte Frage | `uml/contract.test.ts`, UML-E2E | keine lineare Sollwertaktion oder fertige Lösungsbegründung; exakte Frage bleibt |
+| Verzweigung | `uml/export-contract.test.ts`, `uml/review-round1.test.ts`, UML-E2E | echte Raute, Guards, beide Pfade; gemischte Klammerung konservativ abweisen |
+| Schleife/Arduino-Laufzeit | `uml/review-round1.test.ts`, UML-E2E | app-eigener Board/Core-Katalog, setup einmal, loop wiederholt, Rückkante ohne Endsymbol |
+| Klassen | `uml/contract.test.ts`, `uml/evidence-boundaries.test.ts`, UML-E2E | echte Deklarationen, Sichtbarkeit, Member und Vererbungsrichtung |
+| Objektinteraktion | `uml/contract.test.ts`, `uml/review-round1.test.ts`, UML-E2E | Reihenfolge/Aufruf/Rückgabe/Selbstaufruf; keine globale Bindung bei Parameterverdeckung |
+| Andere Frage zum gleichen Code | `uml/contract.test.ts` | bekannte Relevanz-/Antwortverratsgrenzen; allgemeine semantische Eignung bleibt Modellmessung offen |
+| Angriff im Text | `uml/export-contract.test.ts`, `uml/svg.test.ts`, `tutor-uml-review.test.ts` | Rendererlabels bleiben Daten, keine Ressourcen/aktiven SVGs; Credentialbereinigung vor Speicherung |
+| Runtime/Queue/Budget/Abort | `uml/renderer.test.ts`, `uml/runtime.test.ts`, `uml/artifacts.test.ts`, `uml/service.test.ts` | feste Gründe, kein bezahlter Zusatzaufruf bei bekanntem Ausfall, Freigabe/kein fachlicher Commit nach Abort |
+| Schmal/XXL/Theme/Vergrößern | `uml-image.test.tsx`, `uml-browser.test.tsx`, UML-E2E | natürliche Mindestgröße, Scrollen, Blob-Freigabe, Tastatur, keine neue Grafik durch Anzeigewechsel |
+| Retain/Skip/Weiter/Replay/Reset/Epochen | `tutor-uml.routes.test.ts`, `uml/support-artifacts.test.ts`, `tutor-uml-diagnostics.test.ts`, UML-E2E | passende private Referenzen und Cache ohne SVG; veraltete Ereignisse bleiben verworfen |
+
+Kurzpfade `uml/…` meinen `tests/server/services/tutor/uml/…`; Clientdateien
+liegen unter `tests/client/`, Routentests unter `tests/server/routes/`.

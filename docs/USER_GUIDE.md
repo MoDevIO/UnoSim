@@ -295,6 +295,37 @@ Tutors.
 Ohne Tutor-Inhalte – und auch, wenn GitHub gerade nicht erreichbar ist – arbeitet
 er als freier Tutor direkt mit deinem Sketch.
 
+### Grafiken zu Tutorfragen anfordern
+
+Unter **File → Settings → Tutor** kannst du **Grafiken immer anfordern** einschalten.
+Die Einstellung bleibt lokal gespeichert und gilt ab der nächsten angeforderten
+Frage, auch nach Überspringen. Standardmäßig entscheidet der Tutor weiterhin selbst.
+Eine zusätzliche Grafikanfrage kann mehr Zeit und Modellaufrufe benötigen.
+
+Die Grafik gehört zur endgültigen Frage. Eine Folgegrafik erscheint zusammen mit
+der Folgefrage erst nach **Weiter**. Hilfe, Musterantwort und eine offen bleibende
+Frage lösen keine zusätzliche Grafikanfrage aus. Ein Wechsel des Schalters ändert
+bereits laufende Anfragen nicht.
+
+Bei einem Server mit klassischem UML-Profil werden Aktivitäts-, Klassen- oder
+Sequenzdiagramme verwendet. Aktionen, Klassen und Aufrufe müssen zum gesendeten
+Code passen. Die Grafik steht auf hellem Grund in ihrer natürlichen Größe;
+**UML-Grafik vergrößern** öffnet eine Ansicht mit Zoom und Scrollen. Mit Escape
+schließt du sie. Themewechsel und Vergrößern erzeugen keine neue Modellanfrage.
+Ältere Server behalten ihr bisheriges Mermaid-Format.
+
+Auch mit eingeschaltetem Schalter kann der Tutor auf eine Grafik verzichten:
+**Zu dieser Frage ist keine hilfreiche zusätzliche UML-Grafik verfügbar.** ist ein zulässiges
+Ergebnis, etwa bei einer unklaren Frage oder wenn die Grafik die Antwort verraten
+würde. Die Codeprüfung unterstützt bewusst nur eindeutige Ausschnitte und keine
+vollständige C++-Semantik. Eine technisch akzeptierte Grafik ist deshalb weiter
+fachlich zu beurteilen.
+
+Falls das Modell keine nutzbare Grafik liefert, bleibt die Frage beantwortbar und
+zeigt **Grafik konnte nicht bereitgestellt werden.** Lehnt der lokale Renderer die
+Syntax ab, steht dort **Grafik konnte nicht dargestellt werden.** Der Schalter
+fordert Grafiken ausdrücklich an; ihre fachliche Qualität ist weiter zu prüfen.
+
 ### Tutor-Diagnose im Debug-Tab
 
 Im Debug-Modus zeigt der Ausgabebereich unter **Debug** auch Tutor-Ereignisse.

@@ -49,6 +49,24 @@ installiert auch die Pakete unter `packages/` (derzeit der Emulationskern
 `@unosim/avr-emulator`) und verlinkt sie unter `node_modules/@unosim/`. In
 `packages/` selbst ist kein eigenes `npm install` nötig.
 
+## Lokaler UML-Renderer für Tutorfragen
+
+Nach `npm ci` einmal ausführen:
+
+```bash
+npm run provision:tutor-uml
+npm run check:tutor-uml-runtime
+```
+
+Die Bereitstellung lädt SHA-256-geprüfte PlantUML-MIT-, Temurin-JRE- und
+DejaVu-Artefakte nach `cache/tutor-uml`. Unterstützt sind macOS arm64 sowie
+Linux amd64/arm64. Eine globale Java- oder Graphviz-Installation ist nicht nötig;
+das Layout verwendet Smetana aus dem gepinnten JAR. Unter Linux werden zusätzlich
+`fontconfig` und `libfreetype6` benötigt. Fehlt die Laufzeit, bleiben Tutorfragen
+als Text nutzbar; beim Anfordern einer Grafik wird nichts spontan installiert.
+Versionen, Lizenzen und Betriebsgrenzen stehen im
+[UML-Arbeitsbericht](proposals/report-tutor-classic-uml.md).
+
 ## Start
 
 Backend und Vite-Frontend mit Hot Reload:

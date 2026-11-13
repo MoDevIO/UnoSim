@@ -1,0 +1,22 @@
+@startuml
+!pragma layout smetana
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam classBackgroundColor #FFFFFF
+skinparam participantBackgroundColor #FFFFFF
+skinparam style strictuml
+hide footbox
+participant "Sketch-Ausführung" as Sketch
+participant "led : Led" as Led
+Sketch -> Led : set(true)
+activate Led
+Led -> Led : update()
+activate Led
+Led --> Led : Rückkehr
+ deactivate Led
+Led --> Sketch : Rückkehr
+ deactivate Led
+@enduml

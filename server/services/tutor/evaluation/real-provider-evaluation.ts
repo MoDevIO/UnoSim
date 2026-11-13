@@ -400,6 +400,13 @@ export class CountingProvider implements LLMProvider, StructuredLLMProvider {
     }
   }
 
+  async generateGraphic(request: LLMProviderRequest, credential: string, signal?: AbortSignal): Promise<ProviderStructuredResult> {
+    if (!this.provider.generateGraphic) throw new TutorProviderError("provider-unavailable");
+    this.reserveCall();
+    this.generationCalls += 1;
+    return this.provider.generateGraphic(request, credential, signal);
+  }
+
   async generateStructuredResponse(
     request: StructuredLLMProviderRequest,
     credential: string,

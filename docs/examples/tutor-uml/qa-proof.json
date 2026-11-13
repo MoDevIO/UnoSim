@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-13",
+  "baseCommit": "1f5c59512",
+  "branch": "feature/tutor-question-graphics-mode",
+  "committed": false,
+  "app": {
+    "passed": 4810,
+    "skipped": 1,
+    "coverageMs": 52911
+  },
+  "emulator": {
+    "fullPassed": 697,
+    "coveragePassed": 402,
+    "coverageCorpusSkipped": 295
+  },
+  "tutorQuality": {
+    "passed": 1092,
+    "files": 81,
+    "ms": 8318,
+    "budgetMs": 15000
+  },
+  "browser": {
+    "passed": 43,
+    "specs": 7,
+    "retries": 0
+  },
+  "initialPathBytes": 729222,
+  "initialPathLimitBytes": 745000,
+  "sonar": {
+    "analysisId": "cb99ceb9-5b7e-4855-b73d-fc14d279785e",
+    "gate": {
+      "projectStatus": {
+        "status": "OK",
+        "conditions": [
+          {
+            "status": "OK",
+            "metricKey": "new_coverage",
+            "comparator": "LT",
+            "errorThreshold": "80",
+            "actualValue": "86.9"
+          },
+          {
+            "status": "OK",
+            "metricKey": "new_duplicated_lines_density",
+            "comparator": "GT",
+            "errorThreshold": "3",
+            "actualValue": "0.0196"
+          },
+          {
+            "status": "OK",
+            "metricKey": "new_security_hotspots_reviewed",
+            "comparator": "LT",
+            "errorThreshold": "100",
+            "actualValue": "100.0"
+          },
+          {
+            "status": "OK",
+            "metricKey": "new_violations",
+            "comparator": "GT",
+            "errorThreshold": "0",
+            "actualValue": "0"
+          }
+        ],
+        "ignoredConditions": false,
+        "period": {
+          "mode": "PREVIOUS_VERSION",
+          "date": "2026-04-07T17:00:33+0000"
+        },
+        "caycStatus": "compliant"
+      }
+    }
+  },
+  "realTutorCalls": 0,
+  "realJudgeCalls": 0,
+  "review": {
+    "importantFindings": 2,
+    "resolved": 2,
+    "remaining": 0,
+    "independentRereview": "PASS"
+  }
+}

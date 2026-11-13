@@ -1,0 +1,167 @@
+{
+  "note": "Real SVG in actual Tutor container; controlled API fixture, not UML product integration.",
+  "metrics": [
+    {
+      "kind": "activity",
+      "requestedWidth": 320,
+      "fontScale": 1,
+      "frame": 320,
+      "rendered": 484,
+      "natural": 484,
+      "scroll": 484
+    },
+    {
+      "kind": "activity",
+      "requestedWidth": 480,
+      "fontScale": 1,
+      "frame": 480,
+      "rendered": 484,
+      "natural": 484,
+      "scroll": 484
+    },
+    {
+      "kind": "activity",
+      "requestedWidth": 800,
+      "fontScale": 1,
+      "frame": 800,
+      "rendered": 484,
+      "natural": 484,
+      "scroll": 800
+    },
+    {
+      "kind": "activity",
+      "requestedWidth": 320,
+      "fontScale": 1.5,
+      "frame": 320,
+      "rendered": 726,
+      "natural": 484,
+      "scroll": 726
+    },
+    {
+      "kind": "activity",
+      "requestedWidth": 480,
+      "fontScale": 1.5,
+      "frame": 480,
+      "rendered": 726,
+      "natural": 484,
+      "scroll": 726
+    },
+    {
+      "kind": "activity",
+      "requestedWidth": 800,
+      "fontScale": 1.5,
+      "frame": 800,
+      "rendered": 726,
+      "natural": 484,
+      "scroll": 800
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 320,
+      "fontScale": 1,
+      "frame": 320,
+      "rendered": 203,
+      "natural": 203,
+      "scroll": 320
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 480,
+      "fontScale": 1,
+      "frame": 480,
+      "rendered": 203,
+      "natural": 203,
+      "scroll": 480
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 800,
+      "fontScale": 1,
+      "frame": 800,
+      "rendered": 203,
+      "natural": 203,
+      "scroll": 800
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 320,
+      "fontScale": 1.5,
+      "frame": 320,
+      "rendered": 304.5,
+      "natural": 203,
+      "scroll": 320
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 480,
+      "fontScale": 1.5,
+      "frame": 480,
+      "rendered": 304.5,
+      "natural": 203,
+      "scroll": 480
+    },
+    {
+      "kind": "class",
+      "requestedWidth": 800,
+      "fontScale": 1.5,
+      "frame": 800,
+      "rendered": 304.5,
+      "natural": 203,
+      "scroll": 800
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 320,
+      "fontScale": 1,
+      "frame": 320,
+      "rendered": 305,
+      "natural": 305,
+      "scroll": 320
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 480,
+      "fontScale": 1,
+      "frame": 480,
+      "rendered": 305,
+      "natural": 305,
+      "scroll": 480
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 800,
+      "fontScale": 1,
+      "frame": 800,
+      "rendered": 305,
+      "natural": 305,
+      "scroll": 800
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 320,
+      "fontScale": 1.5,
+      "frame": 320,
+      "rendered": 457.5,
+      "natural": 305,
+      "scroll": 458
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 480,
+      "fontScale": 1.5,
+      "frame": 480,
+      "rendered": 457.5,
+      "natural": 305,
+      "scroll": 480
+    },
+    {
+      "kind": "sequence",
+      "requestedWidth": 800,
+      "fontScale": 1.5,
+      "frame": 800,
+      "rendered": 457.5,
+      "natural": 305,
+      "scroll": 800
+    }
+  ]
+}

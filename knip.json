@@ -33,6 +33,8 @@
         "scripts/provision-libraries.mjs!",
         "scripts/coverage-guard.mjs!",
         "scripts/start-local-dev.mjs!",
+        "scripts/provision-tutor-uml.mjs!",
+        "scripts/check-tutor-uml-runtime.ts!",
         "scripts/wait-for-backend.mjs!",
         "scripts/test-budget-reporter.mjs!",
         "playwright.scalability.config.ts"

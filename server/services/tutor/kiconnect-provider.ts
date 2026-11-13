@@ -223,7 +223,8 @@ function parseProviderQuestion(body: unknown): ProviderQuestionResult {
   const content = textContentFromMessage(parsed.data.choices[0].message.content);
   if (!content) throw new TutorProviderError("invalid-response");
 
-  return { model: parsed.data.model, result: parseTutorContent(content) };
+  const candidate = extractJsonContent(content);
+  return { model: parsed.data.model, result: parseTutorContent(content), ...(candidate && typeof candidate === "object" && "diagram" in candidate ? { diagramProposal: candidate.diagram } : {}) };
 }
 
 export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
@@ -254,6 +255,7 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
     signal?: AbortSignal,
   ): Promise<ProviderQuestionResult> {
     const model = await this.resolveModel(request.model, credential, signal);
+    request.onModelSelected?.(model);
     beginTutorProviderAttempt();
     reportTutorModel(model);
     try {
@@ -274,6 +276,10 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
       reportTutorDiagnostic({ origin: "provider", stage: "parsing", outcome: "unavailable" });
       throw error;
     }
+  }
+
+  async generateGraphic(request: LLMProviderRequest, credential: string, signal?: AbortSignal): Promise<ProviderStructuredResult> {
+    return this.generateStructuredResponse({ ...request, temperature: tutorTemperatureFor(request.model) }, credential, signal);
   }
 
   async generateStructuredResponse(

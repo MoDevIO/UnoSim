@@ -1,0 +1,274 @@
+[
+  {
+    "platform": "linux-arm64",
+    "results": [
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 389
+      },
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2055,
+        "durationMs": 390
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3975,
+        "durationMs": 286
+      }
+    ],
+    "peakProcessTreeRssKiB": 204184,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "environment": "Docker Desktop macOS arm64; native arm64 Linux VM",
+    "stage": "builder smoke, before final integration fixes"
+  },
+  {
+    "platform": "linux-x64",
+    "results": [
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2055,
+        "durationMs": 2305
+      },
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 2305
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3975,
+        "durationMs": 1512
+      }
+    ],
+    "peakProcessTreeRssKiB": 323424,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "environment": "Docker Desktop macOS arm64; x86_64 emulated",
+    "stage": "builder smoke, before final integration fixes"
+  },
+  {
+    "platform": "linux-arm64",
+    "results": [
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 343
+      },
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 349
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 256
+      }
+    ],
+    "peakProcessTreeRssKiB": 195780,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "production runner as node, --network none; before final QA-only refactoring",
+    "environment": "Docker Desktop macOS arm64; native arm64 Linux VM"
+  },
+  {
+    "platform": "linux-x64",
+    "results": [
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 5795
+      },
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 5923
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 2651
+      }
+    ],
+    "peakProcessTreeRssKiB": 316928,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "production runner as node, --network none; before final QA-only refactoring",
+    "environment": "Docker Desktop macOS arm64; x86_64 emulated"
+  },
+  {
+    "platform": "linux-arm64",
+    "results": [
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 1330
+      },
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 1333
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 662
+      }
+    ],
+    "peakProcessTreeRssKiB": 199900,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "final production runner after quality refactors as node, --network none",
+    "environment": "Docker Desktop macOS arm64; native arm64 Linux VM"
+  },
+  {
+    "platform": "linux-x64",
+    "results": [
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 2454
+      },
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 2455
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 2018
+      }
+    ],
+    "peakProcessTreeRssKiB": 324580,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "final production runner after quality refactors as node, --network none",
+    "environment": "Docker Desktop macOS arm64; x86_64 emulated"
+  },
+  {
+    "platform": "linux-arm64",
+    "results": [
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 384
+      },
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 396
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 271
+      }
+    ],
+    "peakProcessTreeRssKiB": 199384,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "production runner after final functional fix as node, --network none; renderer unchanged by optional-chain style fix",
+    "environment": "Docker Desktop macOS arm64; native arm64 Linux VM"
+  },
+  {
+    "platform": "linux-x64",
+    "results": [
+      {
+        "kind": "activity",
+        "width": 484,
+        "height": 335,
+        "bytes": 6258,
+        "durationMs": 1813
+      },
+      {
+        "kind": "class",
+        "width": 203,
+        "height": 214,
+        "bytes": 2049,
+        "durationMs": 1832
+      },
+      {
+        "kind": "sequence",
+        "width": 305,
+        "height": 217,
+        "bytes": 3969,
+        "durationMs": 1463
+      }
+    ],
+    "peakProcessTreeRssKiB": 324300,
+    "fontFiles": 22,
+    "active": {
+      "active": 0,
+      "queued": 0
+    },
+    "stage": "production runner after final functional fix as node, --network none; renderer unchanged by optional-chain style fix",
+    "environment": "Docker Desktop macOS arm64; x86_64 emulated"
+  }
+]

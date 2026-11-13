@@ -1,3 +1,5 @@
+import { TutorUmlPreview } from "./tutor-uml-preview";
+import { TUTOR_GRAPHIC_UNAVAILABLE } from "@shared/tutor-graphics";
 import { MermaidPreview } from "./tutor-mermaid-preview";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
@@ -201,10 +203,13 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
           <TutorEntry entry={skippedEntry} placement="previous" />
         </section>
       )}
-      <section aria-labelledby={headingId} data-testid="tutor-question">
+      <section aria-labelledby={headingId} data-testid="tutor-question" className="min-w-0">
         <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">{questionHeading}</h3>
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
-        {question.mermaid && <MermaidPreview source={question.mermaid} subject={question} />}
+        {question.diagram && <TutorUmlPreview diagram={question.diagram} subject={question} />}
+        {!question.diagram && question.mermaid && <MermaidPreview source={question.mermaid} subject={question} showFailure={question.graphicStatus === "provided"} />}
+        {question.graphicStatus === "not-useful" && <output className="mt-2 block text-ui-sm text-muted-foreground">Zu dieser Frage ist keine hilfreiche zusätzliche UML-Grafik verfügbar.</output>}
+        {question.graphicStatus === "unavailable" && <output className="mt-2 block text-ui-sm text-muted-foreground">{TUTOR_GRAPHIC_UNAVAILABLE}</output>}
       </section>
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
       <div ref={stepRef} aria-live="polite" data-testid="tutor-current-step">
@@ -242,7 +247,7 @@ export function TutorLearningStep({ tutor, actions }: {
   return (
     <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 text-left" data-testid="tutor-dialog-scroll">
       {/* While the floating navigation is shown (phone, tablet), it stays beside the text and `Weiter`, never over them. */}
-      <div className="flex w-full flex-col gap-5 pr-(--ui-floating-nav-inset)">
+      <div className="flex min-w-0 w-full flex-col gap-5 pr-(--ui-floating-nav-inset)">
         {!tutor.capabilities.canUseTutor && (
           <output className="text-ui-sm text-muted-foreground" aria-live="polite">Serververbindung erforderlich</output>
         )}

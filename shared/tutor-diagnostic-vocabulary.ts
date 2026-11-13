@@ -1,6 +1,8 @@
 export const TUTOR_DIAGNOSTIC_STAGES = ["request", "provider", "parsing", "safety", "content", "browser", "renderer", "buffer"] as const;
 export const TUTOR_DIAGNOSTIC_OUTCOMES = ["started", "completed", "failed", "aborted", "provided", "accepted", "rejected", "not-provided", "null", "empty", "unavailable", "received", "held", "displayed", "rendered", "discarded", "replayed", "truncated", "skipped"] as const;
 export const TUTOR_DIAGNOSTIC_REASONS = [
+  "renderer-unavailable", "renderer-timeout", "render-output-invalid", "render-queue-limit", "render-artifact-limit",
+  "proposal-too-large", "invalid-schema", "element-limit", "irrelevant", "answer-leak", "unsupported-code", "invalid-evidence", "ambiguous-question", "no-useful-context",
   "not-provided", "null-field", "empty", "invalid-field-type", "too-long", "diagram-type-unsupported",
   "markup-disallowed", "external-content-disallowed", "directive-disallowed", "syntax-unsupported",
   "no-renderable-graph", "invalid-marker-id", "question-replaced", "support-graphics-not-supported",

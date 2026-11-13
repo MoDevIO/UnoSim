@@ -1,0 +1,11 @@
+{
+  "renderer": "PlantUML MIT 1.2026.10",
+  "java": "21.0.13+9",
+  "layout": "Smetana; external dot disabled",
+  "parallelProcesses": 2,
+  "peakCombinedProcessTreeRssKiB": 286960,
+  "maxProcessesObserved": 2,
+  "abortReaped": true,
+  "fileSentinelNotRead": true,
+  "networkRequests": 0
+}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tutorUmlProposalSchema } from "@shared/tutor-uml";
 import { boardIdSchema } from "@shared/boards";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import {
@@ -302,10 +303,12 @@ function requestRecord(endpoint: Endpoint, body: Record<string, unknown>, run: T
   const action = body.action;
   return {
     endpoint,
+    ...(endpoint !== "models" ? { graphicsMode: body.graphicsMode === "always" ? "always" as const : "auto" as const } : {}),
+    ...(endpoint !== "models" && body.graphicsProfile === "uml1-classic-v1" ? { graphicsProfile: "uml1-classic-v1" as const } : {}),
     ...(action === "clarify" || action === "hint" || action === "reveal" || action === "skip" ? { action } : {}),
     ...(endpoint === "dialog" && typeof body.question === "string" ? { askedQuestion: redactedText(body.question, 2_000, run, credential)! } : {}),
     ...(endpoint === "dialog" && typeof body.answer === "string" ? { answer: redactedText(body.answer, 2_000, run, credential)! } : {}),
-    ...(typeof body.difficulty === "number" && Number.isInteger(body.difficulty) && body.difficulty >= 1 && body.difficulty <= 100 ? { difficulty: body.difficulty } : {}),
+    ...optionalNumber(body.difficulty, "difficulty", 1, 100),
     ...(typeof body.model === "string" ? { requestedModel: redactedText(body.model, 128, run, credential)! } : {}),
     // Only the identifiers of course content, never the session handle that continues it; redacted like every text.
     ...(typeof course.repository === "string" && typeof course.ref === "string" && typeof course.revision === "string" ? {
@@ -440,6 +443,23 @@ function focusOf(value: unknown, free: Free) {
   } } : {};
 }
 
+/** Only the normalized proposal and renderer identity enter review; images and handles never do. */
+function diagramOf(value: unknown, free: Free) {
+  const diagram = asRecord(value);
+  const kind = code(z.enum(["activity", "class", "sequence"]), diagram.kind);
+  const purpose = free(diagram.purpose, 320);
+  if (diagram.profile !== "uml1-classic-v1" || !kind || purpose === undefined || !diagram.proposal || typeof diagram.proposal !== "object") return {};
+  const parsed = tutorUmlProposalSchema.safeParse(diagram.proposal);
+  if (!parsed.success || parsed.data.status !== "diagram" || parsed.data.kind !== kind || parsed.data.purpose !== diagram.purpose) return {};
+  const serialized = JSON.stringify(parsed.data);
+  if (utf8Bytes(serialized) > 16 * 1024) return {};
+  const proposalJson = free(serialized, 16 * 1024);
+  if (proposalJson === undefined) return {};
+  return { diagram: { profile: "uml1-classic-v1" as const, kind, purpose, proposalJson,
+    ...present("rendererRevision", free(asRecord(diagram.image).rendererRevision, 160)),
+  } };
+}
+
 /** The question a skip moved to, with everything the learning area shows of it, graphic and metadata included. */
 function nextOf(value: unknown, free: Free) {
   const next = asRecord(value);
@@ -448,6 +468,8 @@ function nextOf(value: unknown, free: Free) {
   return { next: {
     question, ...present("feedback", free(next.feedback, 1_000)), ...present("topic", free(next.topic, 120)),
     ...optionalNumber(next.difficulty, "difficulty", 1, 100), ...present("mermaid", free(next.mermaid, 12_000)),
+    ...present("graphicStatus", code(z.enum(["provided", "unavailable", "not-useful"]), next.graphicStatus)),
+    ...diagramOf(next.diagram, free),
     ...learningOf(next, free), ...focusOf(next.focusProgress, free),
   } };
 }
@@ -479,7 +501,9 @@ function responseRecord(body: Record<string, unknown>, run: TutorReviewRun, cred
     ...present("learnerInput", code(tutorLearnerInputSchema, body.learnerInput)),
     ...present("questionStatus", code(z.enum(["open", "closed"]), body.questionStatus)),
     ...present("topic", free(body.topic, 120)), ...optionalNumber(body.difficulty, "difficulty", 1, 100),
+    ...present("graphicStatus", code(z.enum(["provided", "unavailable", "not-useful"]), body.graphicStatus)),
     ...present("mermaid", free(body.mermaid, 12_000)), ...present("model", free(body.model, 128)),
+    ...diagramOf(body.diagram, free),
     ...present("explanation", free(body.explanation, 1_000)),
     ...referenceOf(body.reference, free),
     ...nextOf(body.next, free),

@@ -34,6 +34,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run provision:tutor-uml
+      - run: npm run check:tutor-uml-runtime
       - run: npm run check:node-version
       # Same projects and 120 s limit as the local app pass; every file runs
       # in exactly one shard. HTTP files remain serial within each runner.
@@ -75,6 +77,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm run provision:tutor-uml
+      - run: npm run check:tutor-uml-runtime
       - run: npm run check:node-version
       - run: npm run check
       - name: Dead-code gate (knip, reviewed baseline)
@@ -115,6 +119,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - run: npm run provision:tutor-uml
+      - run: npm run check:tutor-uml-runtime
 
       - name: Static Analysis & Unit Tests
         run: |
@@ -180,6 +187,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - run: npm run provision:tutor-uml
+      - run: npm run check:tutor-uml-runtime
 
       - name: Build application
         run: npm run build

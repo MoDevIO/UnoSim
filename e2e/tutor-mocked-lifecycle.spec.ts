@@ -146,7 +146,7 @@ async function open(page: Page) {
   });
   await page.route("**/api/config", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, json: { ...await response.json(), tutorDiagnosticsAvailable: true } });
+    await route.fulfill({ response, json: { ...await response.json(), tutorGraphics: undefined, tutorDiagnosticsAvailable: true } });
   });
   // The selected course: a repository at a pinned revision, so that the browser asks for Course Content itself.
   await page.route(/\/api\/examples(\?.*)?$/, (route) => route.fulfill({ json: {
