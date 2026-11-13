@@ -151,37 +151,6 @@ async function waitForReadiness(child: ChildProcess, port: number, output: () =>
 }
 
 describe("local development entrypoint", () => {
-  it("preserves the complete CSP in final HTTP responses with configured frame ancestors", async () => {
-    const port = await reservePort();
-    const env = createLocalServerEnv(port);
-    env.SIMULATOR_ALLOWED_PARENT_ORIGINS = "'self',https://course.example,https://course.example";
-    env.UNOSIM_EXAMPLES_SOURCE = "";
-    const child = spawnLocalDevelopment(env);
-    const output = collectOutput(child);
-    try {
-      await waitForReadiness(child, port, output);
-      for (const route of ["/api/readiness", "/examples"]) {
-        const response = await fetch(`http://127.0.0.1:${port}${route}`);
-        const policy = response.headers.get("content-security-policy");
-        expect(policy).not.toBeNull();
-        const directives = new Map(policy!.split(";").map((directive) => {
-          const [name, ...values] = directive.trim().split(/\s+/);
-          return [name, values];
-        }));
-        expect(directives.get("default-src")).toEqual(["'self'"]);
-        expect(directives.get("script-src")).toContain("'self'");
-        expect(directives.get("connect-src")).toEqual(["'self'", "ws:", "wss:"]);
-        // Fonts are self-hosted; the page loads nothing from third-party hosts.
-        expect(policy).not.toMatch(/https?:\/\/(?!course\.example)/);
-        expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
-        expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
-        expect(response.headers.get("x-frame-options")).toBeNull();
-      }
-    } finally {
-      await stopProcess(child);
-    }
-  }, 20_000);
-
   it("ignores inherited removed runtime selectors while preserving local startup and capacity overrides", async () => {
     const port = await reservePort();
     const env = createLocalServerEnv(port);
@@ -219,24 +188,48 @@ describe("local development entrypoint", () => {
 });
 
 /**
- * One server with the default local environment serves these tests, so the serialized HTTP group starts `tsx` with
- * the whole server once instead of three times. They run in file order; the last one shuts the server down with
- * SIGTERM, and afterAll stops it with SIGINT when that test did not run (for example under `-t`).
+ * One server serves these tests, so the serialized HTTP group starts `tsx` with the whole server once instead of four
+ * times. Besides the default local environment it only configures frame ancestors for the CSP test and no GitHub
+ * examples source. The tests run in file order; the last one shuts the server down with SIGTERM, and afterAll stops it
+ * with SIGINT when that test did not run (for example under `-t`).
  */
-describe("local development entrypoint with the default environment", () => {
+describe("local development entrypoint on a shared server", () => {
   let port: number;
   let child: ChildProcess;
   let output: () => string;
 
   beforeAll(async () => {
     port = await reservePort();
-    child = spawnLocalDevelopment(createLocalServerEnv(port));
+    const env = createLocalServerEnv(port);
+    env.SIMULATOR_ALLOWED_PARENT_ORIGINS = "'self',https://course.example,https://course.example";
+    env.UNOSIM_EXAMPLES_SOURCE = "";
+    child = spawnLocalDevelopment(env);
     output = collectOutput(child);
     await waitForReadiness(child, port, output);
   }, 20_000);
 
   afterAll(async () => {
     if (child && !hasExited(child)) await stopProcess(child);
+  }, 20_000);
+
+  it("preserves the complete CSP in final HTTP responses with configured frame ancestors", async () => {
+    for (const route of ["/api/readiness", "/examples"]) {
+      const response = await fetch(`http://127.0.0.1:${port}${route}`);
+      const policy = response.headers.get("content-security-policy");
+      expect(policy).not.toBeNull();
+      const directives = new Map(policy!.split(";").map((directive) => {
+        const [name, ...values] = directive.trim().split(/\s+/);
+        return [name, values];
+      }));
+      expect(directives.get("default-src")).toEqual(["'self'"]);
+      expect(directives.get("script-src")).toContain("'self'");
+      expect(directives.get("connect-src")).toEqual(["'self'", "ws:", "wss:"]);
+      // Fonts are self-hosted; the page loads nothing from third-party hosts.
+      expect(policy).not.toMatch(/https?:\/\/(?!course\.example)/);
+      expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
+      expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
+      expect(response.headers.get("x-frame-options")).toBeNull();
+    }
   }, 20_000);
 
   it("does not log sketch source included in a REST response", async () => {
