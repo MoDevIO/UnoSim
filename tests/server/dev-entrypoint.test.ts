@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const removedRuntimeSelectors = [
   "UNOSIM_SIMULATION_MODE",
@@ -145,43 +145,12 @@ async function waitForReadiness(child: ChildProcess, port: number, output: () =>
     } catch {
       // The server may still be starting.
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for development readiness:\n${output()}`);
 }
 
 describe("local development entrypoint", () => {
-  it("preserves the complete CSP in final HTTP responses with configured frame ancestors", async () => {
-    const port = await reservePort();
-    const env = createLocalServerEnv(port);
-    env.SIMULATOR_ALLOWED_PARENT_ORIGINS = "'self',https://course.example,https://course.example";
-    env.UNOSIM_EXAMPLES_SOURCE = "";
-    const child = spawnLocalDevelopment(env);
-    const output = collectOutput(child);
-    try {
-      await waitForReadiness(child, port, output);
-      for (const route of ["/api/readiness", "/examples"]) {
-        const response = await fetch(`http://127.0.0.1:${port}${route}`);
-        const policy = response.headers.get("content-security-policy");
-        expect(policy).not.toBeNull();
-        const directives = new Map(policy!.split(";").map((directive) => {
-          const [name, ...values] = directive.trim().split(/\s+/);
-          return [name, values];
-        }));
-        expect(directives.get("default-src")).toEqual(["'self'"]);
-        expect(directives.get("script-src")).toContain("'self'");
-        expect(directives.get("connect-src")).toEqual(["'self'", "ws:", "wss:"]);
-        // Fonts are self-hosted; the page loads nothing from third-party hosts.
-        expect(policy).not.toMatch(/https?:\/\/(?!course\.example)/);
-        expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
-        expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
-        expect(response.headers.get("x-frame-options")).toBeNull();
-      }
-    } finally {
-      await stopProcess(child);
-    }
-  }, 20_000);
-
   it("ignores inherited removed runtime selectors while preserving local startup and capacity overrides", async () => {
     const port = await reservePort();
     const env = createLocalServerEnv(port);
@@ -216,63 +185,86 @@ describe("local development entrypoint", () => {
     expect(child.exitCode).toBe(0);
   }, 20_000);
 
-  it("forwards SIGTERM to the server and exits cleanly", async () => {
-    const port = await reservePort();
-    const child = spawnLocalDevelopment(createLocalServerEnv(port));
-    const output = collectOutput(child);
-    try {
-      await waitForReadiness(child, port, output);
-    } finally {
-      await stopProcess(child, "SIGTERM");
+});
+
+/**
+ * One server serves these tests, so the serialized HTTP group starts `tsx` with the whole server once instead of four
+ * times. Besides the default local environment it only configures frame ancestors for the CSP test and no GitHub
+ * examples source. The tests run in file order; the last one shuts the server down with SIGTERM, and afterAll stops it
+ * with SIGINT when that test did not run (for example under `-t`).
+ */
+describe("local development entrypoint on a shared server", () => {
+  let port: number;
+  let child: ChildProcess;
+  let output: () => string;
+
+  beforeAll(async () => {
+    port = await reservePort();
+    const env = createLocalServerEnv(port);
+    env.SIMULATOR_ALLOWED_PARENT_ORIGINS = "'self',https://course.example,https://course.example";
+    env.UNOSIM_EXAMPLES_SOURCE = "";
+    child = spawnLocalDevelopment(env);
+    output = collectOutput(child);
+    await waitForReadiness(child, port, output);
+  }, 20_000);
+
+  afterAll(async () => {
+    if (child && !hasExited(child)) await stopProcess(child);
+  }, 20_000);
+
+  it("preserves the complete CSP in final HTTP responses with configured frame ancestors", async () => {
+    for (const route of ["/api/readiness", "/examples"]) {
+      const response = await fetch(`http://127.0.0.1:${port}${route}`);
+      const policy = response.headers.get("content-security-policy");
+      expect(policy).not.toBeNull();
+      const directives = new Map(policy!.split(";").map((directive) => {
+        const [name, ...values] = directive.trim().split(/\s+/);
+        return [name, values];
+      }));
+      expect(directives.get("default-src")).toEqual(["'self'"]);
+      expect(directives.get("script-src")).toContain("'self'");
+      expect(directives.get("connect-src")).toEqual(["'self'", "ws:", "wss:"]);
+      // Fonts are self-hosted; the page loads nothing from third-party hosts.
+      expect(policy).not.toMatch(/https?:\/\/(?!course\.example)/);
+      expect(directives.get("worker-src")).toEqual(["'self'", "blob:", "data:"]);
+      expect(directives.get("frame-ancestors")).toEqual(["'self'", "https://course.example"]);
+      expect(response.headers.get("x-frame-options")).toBeNull();
     }
-    expect(output()).toContain("[Shutdown] Received SIGTERM");
-    expect(child.exitCode).toBe(0);
   }, 20_000);
 
   it("does not log sketch source included in a REST response", async () => {
-    const port = await reservePort();
-    const child = spawnLocalDevelopment(createLocalServerEnv(port));
-    const output = collectOutput(child);
     // The read-only sketch API returns the default sketch source; the access log must not contain it.
     const sourceLine = "put your setup code here";
-    try {
-      await waitForReadiness(child, port, output);
-      const response = await fetch(`http://127.0.0.1:${port}/api/sketches`);
+    const response = await fetch(`http://127.0.0.1:${port}/api/sketches`);
 
-      expect(response.status).toBe(200);
-      expect(JSON.stringify(await response.json())).toContain(sourceLine);
-      const deadline = Date.now() + 1_000;
-      while (!output().includes("GET /api/sketches 200") && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-      expect(output()).toContain("GET /api/sketches 200");
-      expect(output()).not.toContain(sourceLine);
-    } finally {
-      await stopProcess(child);
+    expect(response.status).toBe(200);
+    expect(JSON.stringify(await response.json())).toContain(sourceLine);
+    const deadline = Date.now() + 1_000;
+    while (!output().includes("GET /api/sketches 200") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
+    expect(output()).toContain("GET /api/sketches 200");
+    expect(output()).not.toContain(sourceLine);
   }, 20_000);
-});
 
-describe("local development entrypoint API request guard", () => {
   it("rejects form-encoded and cross-site API mutations but keeps JSON working", async () => {
-    const port = await reservePort();
-    const child = spawnLocalDevelopment(createLocalServerEnv(port));
-    const output = collectOutput(child);
-    try {
-      await waitForReadiness(child, port, output);
-      const compile = (headers: Record<string, string>, body: string) =>
-        fetch(`http://127.0.0.1:${port}/api/compile`, { method: "POST", headers, body });
+    const compile = (headers: Record<string, string>, body: string) =>
+      fetch(`http://127.0.0.1:${port}/api/compile`, { method: "POST", headers, body });
 
-      const form = await compile({ "content-type": "application/x-www-form-urlencoded" }, "code=void+setup(){}+void+loop(){}");
-      const crossSite = await compile({ "content-type": "application/json", "sec-fetch-site": "cross-site" }, JSON.stringify({ code: "x" }));
-      const json = await compile({ "content-type": "application/json", "sec-fetch-site": "same-origin" }, JSON.stringify({ code: 42 }));
+    const form = await compile({ "content-type": "application/x-www-form-urlencoded" }, "code=void+setup(){}+void+loop(){}");
+    const crossSite = await compile({ "content-type": "application/json", "sec-fetch-site": "cross-site" }, JSON.stringify({ code: "x" }));
+    const json = await compile({ "content-type": "application/json", "sec-fetch-site": "same-origin" }, JSON.stringify({ code: 42 }));
 
-      expect(form.status).toBe(415);
-      expect(crossSite.status).toBe(403);
-      // Reaches the compile route, which rejects the invalid payload itself.
-      expect(json.status).toBe(400);
-    } finally {
-      await stopProcess(child);
-    }
+    expect(form.status).toBe(415);
+    expect(crossSite.status).toBe(403);
+    // Reaches the compile route, which rejects the invalid payload itself.
+    expect(json.status).toBe(400);
+  }, 20_000);
+
+  it("forwards SIGTERM to the server and exits cleanly", async () => {
+    await stopProcess(child, "SIGTERM");
+
+    expect(output()).toContain("[Shutdown] Received SIGTERM");
+    expect(child.exitCode).toBe(0);
   }, 20_000);
 });

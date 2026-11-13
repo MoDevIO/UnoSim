@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vite
 // use fake timers globally for all tests in this file; individual beforeEach will
 // reconfigure as needed
 vi.useFakeTimers();
-import { render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { useSerialIO } from "@/hooks/use-serial-io";
 import React, { act } from "react";
 
@@ -32,7 +32,8 @@ const TestSerialMonitor = React.forwardRef<
     clear: () => void;
   },
   { baudrate?: number }
->(({ baudrate =9600 }, ref) => {
+>(({ baudrate }, ref) => {
+  // No default: every test passes its baud rate, and T-BAUD-RENDER-10 needs `undefined` to reach the renderer.
   const {
     renderedSerialText,
     appendSerialOutput,
@@ -82,7 +83,9 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
   beforeEach(() => {
     // fake timers plus rAF/cancel so renderer steps advance predictably
     // fake timers and rAF; we stub cancelAnimationFrame manually afterwards
-    vi.useFakeTimers({ toFake: ["timers", "requestAnimationFrame"] });
+    // The default set fakes setTimeout and Date as well. The former `toFake: ["timers", ...]` named no real timer,
+    // so only requestAnimationFrame was fake and every test waited in real time.
+    vi.useFakeTimers();
     // stub performance.now to align with fake clock
     vi.stubGlobal('performance', { now: () => Date.now() });
     // ensure requestAnimationFrame and cancelAnimationFrame exist on each test
@@ -94,6 +97,8 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
     // don't unstub globals here - we want requestAnimationFrame/cancelAnimationFrame
     // to remain available until the very end of the suite, otherwise component
     // unmounts will fail when they call cancelAnimationFrame.
+    // Unmount while the fake clock still provides cancelAnimationFrame: the renderer cancels its frame on unmount.
+    cleanup();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -398,8 +403,8 @@ describe("Serial Monitor - Baudrate-Based Character Rendering", () => {
         vi.advanceTimersByTime(16);
       });
 
-      // Sollte sofort da sein (kein Delay)
-      await waitFor(() => expect(output.textContent).toBe("Immediate render"));
+      // Sollte sofort da sein (kein Delay): after one frame, without a waitFor that would advance the fake clock.
+      expect(output.textContent).toBe("Immediate render");
     });
   });
 });

@@ -3,12 +3,26 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PinInfos } from "@/components/features/pin-infos";
 
-const row = (label: string) =>
-  screen.getByRole("row", {
-    name: new RegExp(
-      "^" + label.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`) + "(?: |$)",
-    ),
-  });
+// A row is named by its first cell (the pin label, then its code). Matching that cell directly avoids computing the
+// accessible name of every table row per lookup, which made this file the slowest client test under coverage.
+const rowsLabelled = (label: string) => {
+  const name = new RegExp(
+    "^" + label.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`) + "(?: |$)",
+  );
+  return [...document.querySelectorAll<HTMLTableRowElement>("tbody tr")].filter(
+    (tr) => name.test(tr.cells[0]?.textContent ?? ""),
+  );
+};
+const queryRow = (label: string) => {
+  const rows = rowsLabelled(label);
+  if (rows.length > 1) throw new Error(`${rows.length} rows are labelled ${label}`);
+  return rows[0] ?? null;
+};
+const row = (label: string) => {
+  const found = queryRow(label);
+  if (!found) throw new Error(`no row is labelled ${label}`);
+  return found;
+};
 
 describe("Pin Infos", () => {
   it("uses one header row and groups every bus role in one column", () => {
@@ -70,7 +84,7 @@ describe("Pin Infos", () => {
     await user.type(search, "I2C");
     expect(row("A4")).toBeVisible();
     expect(row("A5")).toBeVisible();
-    expect(screen.queryByRole("row", { name: /^D0 / })).not.toBeInTheDocument();
+    expect(queryRow("D0")).toBeNull();
     await user.clear(search);
     await user.type(search, "MOSI");
     expect(row("D11")).toBeVisible();
@@ -86,7 +100,7 @@ describe("Pin Infos", () => {
     view.rerender(<PinInfos boardId="attiny85" />);
     expect(screen.getByRole("searchbox")).toHaveValue("");
     expect(row("PB4")).toBeVisible();
-    expect(screen.queryByRole("row", { name: /^A5 / })).not.toBeInTheDocument();
+    expect(queryRow("A5")).toBeNull();
   });
 
   it("labels power contacts as reference-only without adding programmable pin numbers", () => {

@@ -6,6 +6,12 @@ import { analyzeStaticIO } from "../../shared/io-registry-parser";
  * The comment regex rescanned the rest of the text for every opener of an unterminated comment: 48 KB of
  * "/*a" took 1.7 s, 96 KB 6.6 s, blocking the server. The scan is linear and gives the same text.
  */
+/**
+ * The old regex took 1.7 s for 48 KB and over 10 s for these 120 KB cases; the linear scan takes a few milliseconds.
+ * 1 s still catches a quadratic scan many times over without failing on a loaded coverage run (467 ms seen locally).
+ */
+const LINEAR_TIME_LIMIT_MS = 1_000;
+
 const referenceStrip = (code: string): string =>
   code
     .replaceAll(/\/\*[^*]*(?:\*+[^*/][^*]*)*\*\//g, (match) => match.replaceAll(/[^\n]/g, " "))
@@ -41,7 +47,7 @@ describe("stripComments", () => {
     stripComments(code);
     analyzeStaticIO(code);
 
-    expect(performance.now() - started).toBeLessThan(250);
+    expect(performance.now() - started).toBeLessThan(LINEAR_TIME_LIMIT_MS);
   });
 });
 
@@ -67,6 +73,6 @@ describe("blankCommentsAndLiterals", () => {
     blankCommentsAndLiterals(code);
     analyzeStaticIO(code);
 
-    expect(performance.now() - started).toBeLessThan(250);
+    expect(performance.now() - started).toBeLessThan(LINEAR_TIME_LIMIT_MS);
   });
 });

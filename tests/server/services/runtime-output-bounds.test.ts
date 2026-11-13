@@ -122,9 +122,11 @@ describe("runtime text storm through the shared stream path", () => {
     const parser = new ArduinoOutputParser();
     const streamHandler = new StreamHandler({} as never);
     const onError = vi.fn();
+    // One callback set for the whole run, like a real simulation; two fresh mocks per line made up most of the test time.
+    const callbacks = { onOutput: vi.fn(), onError, onPinState: vi.fn() };
 
     for (let index = 0; index < 100_000; index++) {
-      delegateParsedLineToStreamHandler(parser.parseStderrLine("flood", 0), state, { onOutput: vi.fn(), onError, onPinState: vi.fn() }, {
+      delegateParsedLineToStreamHandler(parser.parseStderrLine("flood", 0), state, callbacks, {
         registryManager,
         streamHandler,
       });
