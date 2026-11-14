@@ -10,7 +10,11 @@ import { stripComments } from "@shared/parser-patterns";
 /** "der betrachteten Variable", "die genannte Stelle": a participle that points at an earlier mention. */
 const POINTING_PARTICIPLE = /\b(?:betrachtete|genannte|erwähnte|besagte|obige)[nrms]?\s+[A-ZÄÖÜ]/;
 /** "diese Variable", "dieser Wert": a demonstrative with a sketch element. */
-const DEMONSTRATIVE_ELEMENT = /\bdiese[rsmn]?\s+(?:Variablen?|Werte?s?|Konstanten?|Funktion|Schleife|Bedingung|Stelle|Zeile|Arrays?|Pins?|Datentyps?|Ausdrucks?|Anweisung|Aufrufs?)\b/i;
+const DEMONSTRATIVE = /\bdiese[rsmn]?\s+([A-Za-zÄÖÜäöüß]{1,40})/gi;
+const SKETCH_ELEMENTS = new Set([
+  "variable", "variablen", "wert", "werte", "wertes", "werts", "konstante", "konstanten", "funktion", "schleife", "bedingung",
+  "stelle", "zeile", "array", "arrays", "pin", "pins", "datentyp", "datentyps", "ausdruck", "ausdrucks", "anweisung", "aufruf", "aufrufs",
+]);
 /** "der in der Variable gespeicherte Wert": one definite variable, as if the sketch had only one. */
 const DEFINITE_VARIABLE = /\b(?:der|die)\s+Variable\b/;
 /** "Wähle eine Variable …", "Nenne einen Aufruf …": the learner names the element, so a later reference is clear. */
@@ -44,7 +48,8 @@ export function declaredSketchNames(code: string): ReadonlySet<string> {
 }
 
 function hasSilentReference(question: string): boolean {
-  return POINTING_PARTICIPLE.test(question) || DEMONSTRATIVE_ELEMENT.test(question) || DEFINITE_VARIABLE.test(question);
+  if (POINTING_PARTICIPLE.test(question) || DEFINITE_VARIABLE.test(question)) return true;
+  return [...question.matchAll(DEMONSTRATIVE)].some((match) => SKETCH_ELEMENTS.has((match[1] ?? "").toLowerCase()));
 }
 
 function namesSketchElement(question: string, code: string): boolean {
