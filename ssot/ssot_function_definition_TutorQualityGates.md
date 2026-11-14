@@ -73,6 +73,16 @@ The Stage 1 hard gate covers at least these invariants:
 9. Provider output exposes one primary question field. Deterministically clear
    multi-question output (more than one question mark) is invalid. This is a
    syntax invariant, not a semantic judgment of question quality.
+10. A question the application puts in place of the provider's question (a Topic
+    question, a hint or a fallback) MUST NOT refer to a sketch element it does
+    not name ("der betrachteten Variable", "dieser Wert", "der Variable"). The
+    reference counts as named when the question contains a name the sketch
+    declares, quotes code, or asks the learner to pick the element first. A
+    replacement that fails is dropped: the learner receives the provider's
+    question, and no progression state is committed for the dropped question.
+    The provider's own question is not rejected by this rule, because no
+    better question is available at that point. This is a bounded wording
+    rule (`question-concreteness.ts`), not a judgment of meaning.
 
 ## 4. Course Content authoring quality
 
@@ -94,6 +104,11 @@ It fails on:
 - prerequisites that cannot be reached in progression order;
 - too few remaining non-recall questions, or missing required question kinds,
   to satisfy DEEPEN after a minimal mastery witness;
+- a Topic question that refers to a sketch element it does not name
+  (`question-silent-reference`, the wording rule of invariant 10 without a
+  sketch: only quoted code or a learner selection names the element);
+- a Topic question given as a `template`: nothing fills its slots before
+  delivery (`question-template-unfilled`);
 - loader failures, invalid references, inconsistent hashes, or an invalid
   Course Content bundle.
 
@@ -108,9 +123,10 @@ answers, or post-mastery (DEEPEN) capacity outside the quality cases. The
 check keeps the gate aligned with every real Example, not only with the cases
 an author chose.
 
-Question–Indicator–Objective semantic coherence is outside this gate. Authors
-and later evaluation stages remain responsible for meaning, clarity, difficulty,
-feedback quality, and actual learning effect.
+Question–Indicator–Objective semantic coherence is outside this gate. Apart
+from the wording rule above, authors and later evaluation stages remain
+responsible for meaning, clarity, difficulty, feedback quality, and actual
+learning effect.
 
 ## 5. Scenario regression contract
 
@@ -132,6 +148,12 @@ remain in tests so failures show the violated invariant directly.
 must not activate `variables-and-serial`; after a strong answer an exact or
 heuristically near repeated question must be replaced; and result/state metadata
 must remain coherent through transition or blocked planning outcomes.
+
+`TQ-REG-003` permanently covers the observed unclear Topic question: on a
+temperature controller sketch that activates `variables-and-serial` through its
+serial output alone, the Topic question "Welche Rolle spielt der Datentyp der
+betrachteten Variable im aktuellen Sketch?" must not reach the learner, and no
+turn of the dialog delivers a question with an unnamed reference.
 
 ## 6. CI contract
 

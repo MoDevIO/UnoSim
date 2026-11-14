@@ -5,6 +5,7 @@ import type { UmlCodeContext } from "@shared/tutor-uml";
 type TutorGraphicsProfile = "uml1-classic-v1";
 import type { TutorGraphicsMode } from "@shared/tutor-graphics";
 import { ensureTutorQuestionGraphic, TUTOR_REQUIRED_GRAPHICS_GUIDANCE, TUTOR_GRAPHIC_PROMPT } from "./tutor-question-graphics";
+import { hasUnanchoredReference } from "./question-concreteness";
 import { reportTutorDiagnostic, reportTutorModelList, reportTutorReview, tutorReviewDraftHadGraphic } from "./tutor-diagnostics";
 import { TUTOR_REVIEW_LIMITS, type TutorReviewTrigger } from "@shared/tutor-review";
 import { TUTOR_DIFFICULTY_GUIDANCE, TUTOR_RATING_RUBRIC } from "@shared/tutor-assessment-guidance";
@@ -784,8 +785,16 @@ const finalResultLogger = new Logger("TutorService");
  * hint or a fallback was put in. A result that fails them is replaced by the checked provider result,
  * and the session does not take over the progress of a turn it did not deliver.
  */
-function finalizeTutorResult(planned: TutorContentResult, providerResult: TutorContentResult, graphicOriginal: TutorContentResult = providerResult): { readonly result: TutorContentResult; readonly accepted: boolean } {
-  const accepted = inspectLearningQuestion(planned, undefined, false).violations.length === 0;
+/**
+ * A question the application put in place of the provider's must say which sketch element it means. The
+ * provider's own question is not held to this here: there is nothing better to fall back to.
+ */
+function replacesWithSilentReference(planned: TutorContentResult, providerResult: TutorContentResult, code: string): boolean {
+  return planned.question !== providerResult.question && hasUnanchoredReference(planned.question, code);
+}
+
+function finalizeTutorResult(planned: TutorContentResult, providerResult: TutorContentResult, code: string, graphicOriginal: TutorContentResult = providerResult): { readonly result: TutorContentResult; readonly accepted: boolean } {
+  const accepted = inspectLearningQuestion(planned, undefined, false).violations.length === 0 && !replacesWithSilentReference(planned, providerResult, code);
   if (!accepted) {
     finalResultLogger.warn("A planned Tutor question failed the quality rules; the provider's question is used instead");
     reportReviewDecision("planned-question-rejected", planned.question, providerResult.question);
@@ -812,10 +821,10 @@ function beginTutorPlanningTransaction(courseContent?: TutorPlanningContentConte
   };
 }
 
-function finalizeInitialQuestion(validatedResult: TutorContentResult, planningResult: PlanningResult | null, strategy: StrategyResolution, plan: TutorPlan | undefined): ReturnType<typeof finalizeTutorResult> {
+function finalizeInitialQuestion(validatedResult: TutorContentResult, planningResult: PlanningResult | null, strategy: StrategyResolution, plan: TutorPlan | undefined, code: string): ReturnType<typeof finalizeTutorResult> {
   const plannedResult = planningResult ? applyPlanningOutcome(validatedResult, planningResult) : applyStrategyMetadata(validatedResult, strategy);
   if (plan && plannedResult.question !== validatedResult.question) reportReviewDecision("planner-question", validatedResult.question, plannedResult.question);
-  return finalizeTutorResult(plannedResult, applyStrategyMetadata(validatedResult, strategy));
+  return finalizeTutorResult(plannedResult, applyStrategyMetadata(validatedResult, strategy), code);
 }
 
 function strategyFromPlanningResult(planningResult: PlanningResult | null): StrategyResolution | undefined {
@@ -1130,7 +1139,7 @@ export class TutorService {
     const validatedResult = stripProviderPlanningMetadata(validateLearningQuestion(providerResult.result, difficulty));
     // A question left by skipping is not asked again right away (R-SUP-4).
     if (!plan && repeatsAvoidedQuestion(validatedResult.question, options.avoidQuestions)) throw new TutorProviderError("invalid-response");
-    const final = finalizeInitialQuestion(validatedResult, planningResult, strategy, plan);
+    const final = finalizeInitialQuestion(validatedResult, planningResult, strategy, plan, sketchText);
     throwIfTutorRequestAborted(signal);
     const graphic = await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal });
     const graphicResult = graphic.result;
@@ -1206,7 +1215,7 @@ export class TutorService {
     });
     throwIfTutorRequestAborted(signal);
     const finalResult = followUp.result.strategyId ? followUp.result : applyStrategyMetadata(followUp.result, strategy);
-    const final = finalizeTutorResult(finalResult, applyStrategyMetadata(validatedResult, strategy));
+    const final = finalizeTutorResult(finalResult, applyStrategyMetadata(validatedResult, strategy), sketchText);
     throwIfTutorRequestAborted(signal);
     const graphic = graphicsProfile || final.result.question !== question
       ? await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal })
@@ -1290,7 +1299,7 @@ export class TutorService {
     throwIfTutorRequestAborted(signal);
     const withStrategy = result.strategyId ? result : applyStrategyMetadata(result, strategy);
     const fallback = applyStrategyMetadata(retained ? { ...graphicForQuestion(validatedResult, question), question } : validatedResult, strategy);
-    const final = finalizeTutorResult(withStrategy, fallback, validatedResult);
+    const final = finalizeTutorResult(withStrategy, fallback, code, validatedResult);
     throwIfTutorRequestAborted(signal);
     const graphic = context.graphicsProfile || (!retained && final.result.question !== question)
       ? await this.finalGraphics(final.result, { profile: context.graphicsProfile, mode: context.graphicsMode, proposal: final.result.question === context.primaryQuestion ? context.diagramProposal : undefined, model: context.graphicModel, code: context.originalCode, source: context.source, sketchText: code, context: context.graphicContext, credential: context.credential, signal, ...(retained && final.result.question === question ? { retained: support } : {}) })

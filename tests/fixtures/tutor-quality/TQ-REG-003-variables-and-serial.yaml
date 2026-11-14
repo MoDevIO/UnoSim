@@ -1,0 +1,101 @@
+schemaVersion: 1
+id: variables-and-serial
+title: Variablen, Literale und Serial-Ausgabe
+locale: de-DE
+activation:
+  any:
+    - fact: serial-call
+      values: [print]
+concepts:
+  - id: variable-values
+    title: Variablenwerte
+    objective: Den Zusammenhang zwischen dem Wert einer Variablen und seiner Verwendung erklären.
+    prerequisites: []
+    difficulty:
+      entry: [1, 50]
+      transfer: [20, 80]
+    misconceptions:
+      - id: declaration-is-output
+        description: Schon die Definition einer Variablen erzeugt eine Ausgabe im seriellen Monitor.
+    indicators:
+      - id: relates-value-to-use
+        description: Ordnet einen Variablenwert seiner Verwendung im Sketch zu.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 3
+      requiredIndicators: [relates-value-to-use]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+  - id: serial-output
+    title: Serielle Ausgabe
+    objective: Beschreiben, wie ein Wert über eine Serial-Ausgabe sichtbar wird.
+    prerequisites: []
+    difficulty:
+      entry: [1, 50]
+      transfer: [20, 80]
+    misconceptions:
+      - id: print-is-storage
+        description: Serial.print speichert den Wert dauerhaft, statt ihn nur zur Ausgabe zu übertragen.
+    indicators:
+      - id: explains-serial-output
+        description: Erklärt die Rolle eines Serial-Ausgabeaufrufs.
+    mastery:
+      minimumSuccessfulProbes: 1
+      successRatingAtLeast: 3
+      requiredIndicators: [explains-serial-output]
+      minimumDistinctQuestionKinds: 1
+      recentWeakAnswersAllowed: 0
+questions:
+  - id: variable-value-recall
+    concept: variable-values
+    indicator: relates-value-to-use
+    kind: recall
+    difficulty: [1, 50]
+    requires:
+      - fact: type-used
+        values: [char, byte, int, long, float]
+    text: Welche Rolle spielt der Datentyp der betrachteten Variable im aktuellen Sketch?
+  - id: serial-output-concept
+    concept: serial-output
+    indicator: explains-serial-output
+    kind: concept
+    difficulty: [1, 50]
+    requires:
+      - fact: serial-call
+        values: [print]
+    text: Welche Rolle hat der Serial-Ausgabeaufruf in diesem Sketch?
+  - id: variable-output-application
+    concept: variable-values
+    indicator: relates-value-to-use
+    kind: application
+    difficulty: [20, 80]
+    requires:
+      - fact: type-used
+        values: [char, byte, int, long, float]
+      - fact: serial-call
+        values: [print]
+    text: Wie hängt der in der Variable gespeicherte Wert mit der sichtbaren seriellen Ausgabe im aktuellen Sketch zusammen?
+  - id: serial-output-transfer
+    concept: serial-output
+    indicator: explains-serial-output
+    kind: transfer
+    difficulty: [20, 80]
+    requires:
+      - fact: serial-call
+        values: [print]
+    text: Welche gezielte Wertänderung im aktuellen Sketch würdest du an der seriellen Ausgabe prüfen, und welche Beobachtung erwartest du?
+scaffolds:
+  - id: serial-output-scaffold
+    forConcept: serial-output
+    strategy: concrete-model
+    level: 1
+    hint: Betrachte zuerst, welcher Wert an Serial übergeben wird und was dadurch beobachtbar wird.
+    nextQuestion: serial-output-concept
+progression:
+  entryConcepts: [variable-values]
+  preferredOrder: [variable-values, serial-output]
+  onRating:
+    1-2: remediate
+    3: clarify-same-indicator
+    4: probe-missing-indicator
+    5: evaluate-mastery-and-advance

@@ -92,6 +92,25 @@ describe("deterministic Tutor Course Content quality", () => {
     expect(validateTutorContentQuality([validTopic()], cases())).toEqual([]);
   });
 
+  it("reports a question that refers to a sketch element it does not name", () => {
+    const topic = validTopic();
+    topic.questions[0] = { ...topic.questions[0], text: "Welche Rolle spielt der Datentyp der betrachteten Variable im aktuellen Sketch?" };
+    topic.questions[1] = { ...topic.questions[1], text: "Nenne eine Variable aus dem aktuellen Sketch: Wozu wird dieser Wert verwendet?" };
+
+    const issues = validateTutorContentQuality([topic], cases());
+
+    expect(issues).toEqual([expect.objectContaining({ code: "question-silent-reference", topicId: topic.id, conceptId: "values", indicatorId: "value-use" })]);
+    expect(issues[0].message).toContain("learn-concept");
+  });
+
+  it("reports a template question, whose slots nothing fills before delivery", () => {
+    const topic = validTopic();
+    const { text: _text, ...rest } = topic.questions[0];
+    topic.questions[0] = { ...rest, template: "Welchen Wert hat {name}?", slots: ["name"] };
+
+    expect(codes(validateTutorContentQuality([topic], cases()))).toEqual(["question-template-unfilled"]);
+  });
+
   it("reports positive and negative activation mismatches and missing Topic coverage", () => {
     const topic = validTopic();
     const activationCases: ResolvedTutorQualityCase[] = [{
