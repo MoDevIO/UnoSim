@@ -4,7 +4,7 @@ Stand: 2026-11-11, nachgebessert 2026-11-12 (unabhängige Prüfung, Befunde A–
 
 Status ausschließlich: `belegt`, `zu ergänzen`, `Produktbefund`, `Modellmessung offen`. `belegt` bedeutet: die genannten Assertions erzwingen die Regel mit kontrolliertem Provider; es ist kein Beleg für Modellqualität. Pfade stehen bewusst ohne Link, weil geplante Dateien noch nicht existieren.
 
-Gates: `TQ` = `npm run test:tutor-quality` (Projekt `unit-node`, Budget 15000 ms), `UN` = `npm run test:unit` (`unit-node`, `unit-node-http`, `unit-client`), `E2E` = Playwright-Projekt `browser`.
+Gates: `TQ` = `npm run test:tutor-quality` (Projekt `unit-node`, Warnschwelle 15000 ms, Hard Fail 30000 ms; die Tests mit echtem UML-Renderer brauchen auf den CI-Runnern rund 19 s), `UN` = `npm run test:unit` (`unit-node`, `unit-node-http`, `unit-client`), `E2E` = Playwright-Projekt `browser`.
 
 ## A. Vorhandene Abdeckung (Aufgabe 1)
 
