@@ -10,7 +10,7 @@ import { stripComments } from "@shared/parser-patterns";
 /** "der betrachteten Variable", "die genannte Stelle": a participle that points at an earlier mention. */
 const POINTING_PARTICIPLE = /\b(?:betrachtete|genannte|erwähnte|besagte|obige)[nrms]?\s+[A-ZÄÖÜ]/;
 /** "diese Variable", "dieser Wert": a demonstrative with a sketch element. */
-const DEMONSTRATIVE = /\bdiese[rsmn]?\s+([A-Za-zÄÖÜäöüß]{1,40})/gi;
+const DEMONSTRATIVE = /\bdiese[rsmn]?\s+([a-zäöüß]{1,40})/gi;
 const SKETCH_ELEMENTS = new Set([
   "variable", "variablen", "wert", "werte", "wertes", "werts", "konstante", "konstanten", "funktion", "schleife", "bedingung",
   "stelle", "zeile", "array", "arrays", "pin", "pins", "datentyp", "datentyps", "ausdruck", "ausdrucks", "anweisung", "aufruf", "aufrufs",
