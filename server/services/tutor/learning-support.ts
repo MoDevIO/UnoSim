@@ -57,6 +57,8 @@ const CLARIFICATION_REQUESTS = [
   /\b(?:frage|aufgabe) (?:ist )?(?:unklar|nicht klar|verwirrend|unverstaendlich)\b/,
   /^(?:das ist |ist )?(?:unklar|verwirrend|unverstaendlich)$/,
   /\bwas bedeutet\b/,
+  // A wish addressed to the Tutor is no answer: "Gib mir doch mal eine Frage mit UML-Grafik", "Stelle eine andere Frage".
+  /^(?:gib|gebe|stell|stelle|zeig|zeige) (?:(?:doch|endlich|lieber) )*(?:eine?n?|andere[ns]?|naechste|neue) .*\b(?:fragen?|aufgaben?|grafik|diagramm|uml|bild)\b/,
 ];
 
 /** A question word followed later by a word that asks about the meaning: "Was ist mit … gemeint?". */
