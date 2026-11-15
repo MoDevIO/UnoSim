@@ -698,6 +698,8 @@ export const config = {
 
   tutor: {
     diagnosticsEnabled: parseTutorDiagnosticsEnabled(process.env.UNOSIM_TUTOR_DIAGNOSTICS_ENABLED, process.env.NODE_ENV ?? "development"),
+    /** The aspect flow plans instead of the Topic catalog, for Course Content with aspect files (Tutor concept, stage 2). */
+    aspectPlanning: envBool("UNOSIM_TUTOR_ASPECT_PLANNING", false),
     /** The Tutor always uses the user's personal KI:connect credential. */
     provider: "kiconnect" as const,
     /** Server-controlled OpenAI-compatible provider base URL. */

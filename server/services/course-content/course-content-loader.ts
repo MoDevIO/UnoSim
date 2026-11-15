@@ -19,6 +19,7 @@ import {
   validateCurriculumTopic,
   type CurriculumTopic,
 } from "../tutor/curriculum/curriculum-schema";
+import { aspectDefinitionSchema, validateAspectDefinition, type AspectDefinition } from "../tutor/curriculum/aspect-schema";
 import {
   effectiveTutorStrategySchema,
   type EffectiveTutorStrategy,
@@ -34,6 +35,8 @@ export type TutorCapability =
     readonly manifest: CourseContentTutorManifest;
     readonly topics: readonly CurriculumTopic[];
     readonly strategies: readonly EffectiveTutorStrategy[];
+    /** Present when the repository provides the aspect flow. */
+    readonly aspects?: readonly AspectDefinition[];
   };
 
 export interface LoadedCourseContentSnapshot {
@@ -120,6 +123,7 @@ export class CourseContentLoader {
     const tutorBytes = tutor.status === "valid"
       ? tutor.topics.reduce((sum, topic) => sum + JSON.stringify(topic).length, 0)
         + tutor.strategies.reduce((sum, strategy) => sum + JSON.stringify(strategy).length, 0)
+        + (tutor.aspects ?? []).reduce((sum, aspect) => sum + JSON.stringify(aspect).length, 0)
       : 0;
     if (exampleBytes + tutorBytes > config.examples.maxTotalBytes) {
       throw new ExamplesError("INVALID_SNAPSHOT", "Course Content exceeds the total size limit");
@@ -140,8 +144,9 @@ export class CourseContentLoader {
       const manifest = validateTutorManifest(manifestParsed.data);
       const topicEntries = await this.loadTopics(base, manifest, signal);
       const strategies = await this.loadStrategies(base, manifest, signal);
+      const aspects = await this.loadAspects(base, manifest, signal);
       validateTutorReferences(manifest, topicEntries, strategies, annotations);
-      return { status: "valid", manifest, topics: topicEntries, strategies };
+      return { status: "valid", manifest, topics: topicEntries, strategies, ...(aspects.length > 0 ? { aspects } : {}) };
     } catch (error) {
       if (signal?.aborted) {
         throw signal?.reason ?? error;
@@ -161,6 +166,20 @@ export class CourseContentLoader {
       const parsed = curriculumTopicSchema.safeParse(parseSafeYaml(source));
       if (!parsed.success || parsed.data.id !== entry.id) throw new Error(`Tutor topic is invalid: ${entry.id}`);
       return validateCurriculumTopic(parsed.data);
+    });
+  }
+
+  private loadAspects(
+    base: URL,
+    manifest: CourseContentTutorManifest,
+    signal?: AbortSignal,
+  ): Promise<AspectDefinition[]> {
+    return this.map(manifest.aspects ?? [], async (entry) => {
+      const source = await this.fetcher.fetchText(relativeUrl(base, entry.path), config.examples.maxFileBytes, signal);
+      verifyDigest(source, entry.sha256, entry.id);
+      const parsed = aspectDefinitionSchema.safeParse(parseSafeYaml(source));
+      if (!parsed.success || parsed.data.id !== entry.id) throw new Error(`Tutor aspect is invalid: ${entry.id}`);
+      return validateAspectDefinition(parsed.data);
     });
   }
 
@@ -189,6 +208,7 @@ export class CourseContentLoader {
 function validateTutorManifest(manifest: CourseContentTutorManifest): CourseContentTutorManifest {
   assertUnique(manifest.topics.map(({ id }) => id), "Tutor topic");
   assertUnique(manifest.strategies.map(({ id }) => id), "Tutor strategy");
+  assertUnique((manifest.aspects ?? []).map(({ id }) => id), "Tutor aspect");
   return manifest;
 }
 

@@ -1,5 +1,6 @@
 import type { CurriculumTopic, TopicDeepening } from "./curriculum-schema";
 import type { Observation } from "./learning-planner";
+import { cloneAspectSessionState, type AspectSessionState } from "./competence-state";
 
 export const DIDACTIC_PHASES = ["LEARN", "DEEPEN", "EXPAND"] as const;
 export type DidacticPhase = typeof DIDACTIC_PHASES[number];
@@ -18,6 +19,8 @@ export interface TutorProgressionState {
   /** Questions left without evidence, by skipping or after the reference answer (LearningQuestions R-SUP-5). */
   leftQuestionIds: Record<string, string[]>;
   progressionBlockedReason?: ProgressionBlockedReason;
+  /** The aspect flow of the session (Tutor concept, stage 2); absent while the Topic catalog plans. */
+  aspects?: AspectSessionState;
 }
 
 export const DEFAULT_DEEPENING: TopicDeepening = {
@@ -48,6 +51,7 @@ export function cloneTutorProgressionState(state: TutorProgressionState): TutorP
     retainedPhases: { ...state.retainedPhases },
     usedExpansionTargetTopicIds: cloneIdLists(state.usedExpansionTargetTopicIds),
     leftQuestionIds: cloneIdLists(state.leftQuestionIds ?? {}),
+    ...(state.aspects ? { aspects: cloneAspectSessionState(state.aspects) } : {}),
   };
 }
 
@@ -66,6 +70,8 @@ export function commitTutorProgressionState(target: TutorProgressionState, sourc
   target.usedExpansionTargetTopicIds = cloneIdLists(source.usedExpansionTargetTopicIds);
   target.leftQuestionIds = cloneIdLists(source.leftQuestionIds ?? {});
   target.progressionBlockedReason = source.progressionBlockedReason;
+  if (source.aspects) target.aspects = cloneAspectSessionState(source.aspects);
+  else delete target.aspects;
 }
 
 function cloneEvidence(evidence: Record<string, Observation[]>): Record<string, Observation[]> {
@@ -84,6 +90,7 @@ export function resetTutorProgressionState(state: TutorProgressionState, revisio
   state.usedExpansionTargetTopicIds = {};
   state.leftQuestionIds = {};
   state.progressionBlockedReason = undefined;
+  delete state.aspects;
   state.revision = revision;
 }
 

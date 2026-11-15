@@ -1,0 +1,74 @@
+schemaVersion: 1
+id: variables
+title: Variablen, Datentypen und Konstanten
+objective: >-
+  Die Lernenden können für eine Variable oder Konstante des Sketches Datentyp und Aufgabe erklären,
+  ihre Werte im Ablauf vorhersagen und die Folgen einer Änderung abschätzen.
+assignments:
+  - id: variables-find-type
+    level: 1
+    task: >-
+      Lass Datentyp und Anfangswert dieser Definition benennen. Nenne den Namen, aber nicht Typ oder Wert.
+    needs: [type, initial-value]
+    fallback: "Welchen Datentyp und welchen Anfangswert hat {name} im Sketch?"
+  - id: variables-find-use
+    level: 1
+    task: >-
+      Lass eine Stelle im Sketch nennen, an der dieser Name verwendet wird, und was dort mit ihm geschieht.
+    needs: [type]
+    fallback: "Nenne eine Stelle im Sketch, an der {name} verwendet wird: Was geschieht dort mit dem Wert?"
+  - id: variables-explain-role
+    level: 2
+    task: >-
+      Lass erklären, welche Aufgabe dieser Name im Sketch hat: wofür sein Wert steht und welche Anweisung ihn braucht.
+    needs: [type]
+    fallback: "Welche Aufgabe hat {name} im Sketch: Wofür steht der Wert, und welche Anweisung braucht ihn?"
+  - id: variables-explain-type
+    level: 2
+    task: >-
+      Lass begründen, warum der gewählte Datentyp zu den Werten passt, die hier vorkommen können.
+      Nenne den Namen und den Datentyp wörtlich.
+    needs: [variable, type]
+    fallback: "Warum passt der Datentyp in der Definition {code} zu den Werten, die {name} im Sketch annehmen kann?"
+  - id: variables-explain-constant
+    level: 2
+    task: >-
+      Lass erklären, welchen Vorteil es hat, dass dieser Wert einen Namen hat und nicht verändert werden kann,
+      statt als Zahl an jeder Stelle zu stehen.
+    needs: [constant]
+    fallback: "Welchen Vorteil hat es, dass der Wert in {code} einen Namen hat und nicht verändert werden kann?"
+  - id: variables-predict-value
+    level: 3
+    task: >-
+      Lass für einen von dir gewählten konkreten Eingangswert vorhersagen, welchen Wert diese Variable nach
+      ihrer Definition hat. Nenne die Definition und den Eingangswert wörtlich und fordere zur Prüfung im Simulator auf.
+    needs: [variable, initial-value]
+    fallback: "Betrachte die Definition {code} in {function}: Wähle einen konkreten Eingangswert und sage vorher, welchen Wert {name} danach hat; wie prüfst du das im Simulator?"
+  - id: variables-predict-change
+    level: 3
+    task: >-
+      Lass vorhersagen, wie sich das Verhalten des Sketches ändert, wenn dieser Wert auf einen von dir
+      genannten anderen Wert gesetzt wird. Nenne den Namen und den neuen Wert wörtlich.
+    needs: [constant, initial-value]
+    fallback: "Wie ändert sich das Verhalten des Sketches, wenn du den Wert in {code} deutlich vergrößerst, und woran siehst du das im Simulator?"
+  - id: variables-predict-lifetime
+    level: 3
+    task: >-
+      Lass vorhersagen, welchen Wert diese Variable zu Beginn des nächsten Durchlaufs von loop() hat, und
+      lass das mit dem Ort ihrer Definition begründen.
+    needs: [variable, type]
+    fallback: "Welchen Wert hat {name} zu Beginn des nächsten Durchlaufs von loop(), und wie folgt das aus dem Ort der Definition {code}?"
+  - id: variables-change-type
+    level: 4
+    task: >-
+      Lass abschätzen, was sich ändert, wenn der Datentyp dieser Definition durch einen von dir genannten
+      anderen ersetzt wird, und welche Beobachtung im Simulator das zeigt.
+    needs: [type]
+    fallback: "Was ändert sich, wenn du in der Definition {code} einen anderen Datentyp wählst, und welche Beobachtung im Simulator zeigt es?"
+  - id: variables-change-scope
+    level: 4
+    task: >-
+      Lass überlegen, was sich ändert, wenn diese Definition an eine andere Stelle des Sketches verschoben wird
+      (global statt lokal oder umgekehrt), und ob der Sketch dann noch dasselbe tut.
+    needs: [type]
+    fallback: "Was ändert sich, wenn du die Definition {code} an eine andere Stelle des Sketches verschiebst, global statt lokal oder umgekehrt?"

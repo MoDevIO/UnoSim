@@ -476,6 +476,55 @@ The Examples capability remains active whenever its own core snapshot is valid.
 Tutor diagnostics MUST expose the capability fallback reason without exposing
 secrets or raw untrusted file contents.
 
+### 7.1 Aspect files
+
+A Tutor manifest of either schema version MAY list aspect files:
+
+~~~yaml
+aspects:
+  - id: branching
+    path: tutor/aspects/branching.yaml
+    sha256: <64 lowercase hexadecimal characters>
+~~~
+
+An aspect file describes one aspect of a sketch the application detects itself
+(the fixed set of the aspect detector, for example `branching`, `loops`,
+`variables`) and the question assignments that probe it:
+
+~~~yaml
+schemaVersion: 1
+id: branching
+title: Verzweigungen
+objective: <what the learner can do>
+assignments:
+  - id: branching-predict-value
+    level: 3            # 1 recognize, 2 explain, 3 predict, 4 change
+    task: <what the question must make the learner do, addressed to the model>
+    needs: [condition, variable]   # what the chosen place must offer
+    fallback: "Betrachte die Bedingung {code} in {function}: ...?"
+    graphic: activity   # optional
+~~~
+
+An assignment holds no finished question. `task` tells the model what to ask
+about a place the application chose; `fallback` is the question the learner
+receives when the model's wording does not name that place. A fallback uses
+only the slots `{code}`, `{function}` and `{name}`, contains `{code}` or
+`{name}`, is exactly one question and passes the wording rule of
+[TutorQualityGates](ssot_function_definition_TutorQualityGates.md) invariant
+10. Every aspect file provides at least two assignments on each of the four
+levels. `id` is unique within the manifest and equals the `id` of the file.
+
+Aspect files are part of the Tutor bundle: a missing, hash-mismatched or
+invalid aspect file invalidates the whole Tutor capability, like a Topic. A
+manifest without `aspects` is valid and keeps the Topic catalog in charge.
+An application that does not know the `aspects` field rejects the manifest as
+an unknown field; a repository therefore adds aspect files only after every
+consuming application supports them.
+
+The aspect files are used only while the application's aspect flow is switched
+on (`UNOSIM_TUTOR_ASPECT_PLANNING`); the flow is specified in
+[TutorQualityGates section 9](ssot_function_definition_TutorQualityGates.md#9-aspect-flow).
+
 ## 8. Topic model
 
 Topics describe what should be learned. A generic topic owns:

@@ -1,0 +1,61 @@
+schemaVersion: 1
+id: loops
+title: Schleifen
+objective: >-
+  Die Lernenden können an einer Schleife des Sketches erklären, wie oft und wie lange sie läuft,
+  ihren Ablauf für konkrete Werte vorhersagen und sie gezielt verändern.
+assignments:
+  - id: loops-find-condition
+    level: 1
+    task: >-
+      Lass die Bedingung benennen, die entscheidet, ob die Schleife weiterläuft. Frage nicht nach der Anzahl der Durchläufe.
+    needs: [condition]
+    fallback: "Betrachte die Schleife mit {code} in {function}: Welche Bedingung entscheidet, ob sie weiterläuft?"
+  - id: loops-find-counter
+    level: 1
+    task: >-
+      Lass benennen, welche Größe sich von Durchlauf zu Durchlauf ändert und an welcher Stelle der Schleife das geschieht.
+    needs: [condition]
+    fallback: "Betrachte die Schleife mit {code} in {function}: Welche Größe ändert sich von Durchlauf zu Durchlauf, und wo geschieht das?"
+  - id: loops-explain-purpose
+    level: 2
+    task: >-
+      Lass erklären, wozu der Sketch diese Schleife braucht: Was würde fehlen, wenn ihr Rumpf nur einmal ausgeführt würde.
+    needs: [condition]
+    fallback: "Wozu braucht der Sketch die Schleife mit {code} in {function}: Was würde fehlen, wenn ihr Rumpf nur einmal liefe?"
+  - id: loops-explain-end
+    level: 2
+    task: >-
+      Lass erklären, wodurch die Schleife endet: Welche Änderung im Rumpf oder im Schleifenkopf macht die Bedingung irgendwann falsch.
+    needs: [condition]
+    fallback: "Wodurch endet die Schleife mit {code} in {function}: Welche Änderung macht ihre Bedingung irgendwann falsch?"
+  - id: loops-predict-count
+    level: 3
+    task: >-
+      Lass vorhersagen, wie oft der Rumpf der Schleife ausgeführt wird, und lass die Zahl aus Startwert,
+      Bedingung und Änderung herleiten. Fordere dazu auf, die Vorhersage im Simulator zu prüfen.
+    needs: [condition, counter]
+    fallback: "Wie oft wird der Rumpf der Schleife mit {code} in {function} ausgeführt, und wie leitest du die Zahl aus Startwert, Bedingung und Änderung her?"
+    graphic: activity
+  - id: loops-predict-last
+    level: 3
+    task: >-
+      Lass vorhersagen, welchen Wert die Größe aus der Bedingung im letzten Durchlauf hat und welchen direkt
+      nach dem Ende der Schleife. Nenne die Bedingung wörtlich.
+    needs: [condition]
+    fallback: "Betrachte die Schleife mit {code} in {function}: Welchen Wert hat die geprüfte Größe im letzten Durchlauf und welchen direkt nach dem Ende der Schleife?"
+    graphic: activity
+  - id: loops-change-count
+    level: 4
+    task: >-
+      Lass beschreiben, was an der Schleife zu ändern wäre, damit ihr Rumpf einmal öfter läuft, und welche
+      Folge das im Sketch hätte, etwa bei einem Zugriff auf ein Array. Verlange keine fertige Codezeile.
+    needs: [condition]
+    fallback: "Was müsstest du an der Schleife mit {code} in {function} ändern, damit ihr Rumpf einmal öfter läuft, und welche Folge hätte das im Sketch?"
+  - id: loops-change-kind
+    level: 4
+    task: >-
+      Lass überlegen, wie sich dieselbe Wiederholung mit einer anderen Schleifenart ausdrücken ließe und
+      worauf dabei zu achten ist, damit sie gleich oft läuft.
+    needs: [condition]
+    fallback: "Wie ließe sich die Wiederholung der Schleife mit {code} in {function} mit einer anderen Schleifenart ausdrücken, und worauf musst du achten, damit sie gleich oft läuft?"

@@ -1,0 +1,79 @@
+schemaVersion: 1
+id: branching
+title: Verzweigungen
+objective: >-
+  Die Lernenden können an einer Verzweigung des Sketches erklären, wann welcher Zweig läuft,
+  den Ablauf für konkrete Werte vorhersagen und die Bedingung gezielt verändern.
+assignments:
+  - id: branching-find-condition
+    level: 1
+    task: >-
+      Lass die Bedingung dieser Verzweigung in eigenen Worten wiedergeben: Welche Größe wird womit verglichen.
+      Frage nicht nach dem Zweck.
+    needs: [condition, variable]
+    fallback: "Betrachte die Verzweigung mit der Bedingung {code} in {function}: Welche Größe wird hier womit verglichen?"
+  - id: branching-count-branches
+    level: 1
+    task: >-
+      Lass benennen, wie viele verschiedene Wege diese Verzweigung insgesamt hat und woran man jeden im Code erkennt.
+    needs: [condition]
+    fallback: "Betrachte die Verzweigung, die mit der Bedingung {code} in {function} beginnt: Wie viele verschiedene Wege hat sie insgesamt?"
+  - id: branching-explain-purpose
+    level: 2
+    task: >-
+      Lass erklären, was der Sketch tut, wenn diese Bedingung erfüllt ist, und wozu das im Sketch dient.
+      Nenne die Bedingung wörtlich, aber nicht die Anweisungen im Zweig.
+    needs: [condition]
+    fallback: "Was bewirkt der Sketch in {function}, wenn die Bedingung {code} erfüllt ist, und wozu dient das?"
+  - id: branching-explain-else
+    level: 2
+    task: >-
+      Lass erklären, in welchem Fall der letzte Zweig ohne eigene Bedingung (else) erreicht wird.
+      Die Lernenden sollen den Fall mit Werten oder Bedingungen beschreiben, nicht nur "sonst" sagen.
+    needs: [condition, else-branch]
+    fallback: "Die Verzweigung in {function} beginnt mit der Bedingung {code}: In welchem Fall wird ihr letzter Zweig ohne eigene Bedingung erreicht?"
+  - id: branching-explain-early-return
+    level: 2
+    task: >-
+      Lass erklären, was mit den Anweisungen geschieht, die in derselben Funktion nach dieser Verzweigung stehen,
+      wenn die Bedingung erfüllt ist und der Zweig die Funktion vorzeitig verlässt.
+    needs: [condition, early-return]
+    fallback: "Was geschieht mit den Anweisungen, die in {function} nach der Verzweigung mit der Bedingung {code} stehen, wenn diese Bedingung erfüllt ist?"
+  - id: branching-predict-value
+    level: 3
+    task: >-
+      Lass vorhersagen, welcher Zweig bei einem konkreten Wert ausgeführt wird. Wähle selbst einen Wert,
+      der die Verzweigung eindeutig entscheidet, und nenne ihn und die Bedingung wörtlich.
+      Fordere dazu auf, die Vorhersage im Simulator zu prüfen.
+    needs: [condition, variable]
+    fallback: "Betrachte die Bedingung {code} in {function}: Wähle einen konkreten Wert für {name} und sage vorher, welcher Zweig damit läuft; wie prüfst du das im Simulator?"
+    graphic: activity
+  - id: branching-predict-boundary
+    level: 3
+    task: >-
+      Lass vorhersagen, welcher Zweig läuft, wenn die verglichene Größe genau den Grenzwert der Bedingung hat,
+      und lass die Antwort mit dem Vergleichsoperator begründen. Nenne die Bedingung wörtlich.
+    needs: [condition, variable]
+    fallback: "Betrachte die Bedingung {code} in {function}: Welcher Zweig läuft, wenn beide Seiten des Vergleichs genau gleich sind, und warum?"
+    graphic: activity
+  - id: branching-change-condition
+    level: 4
+    task: >-
+      Lass beschreiben, wie die Bedingung geändert werden müsste, damit auch der Grenzfall in diesen Zweig fällt,
+      und welche Beobachtung im Simulator die Änderung bestätigt. Verlange keine fertige Codezeile.
+    needs: [condition, variable]
+    fallback: "Wie müsstest du die Bedingung {code} in {function} ändern, damit auch der Grenzfall in diesen Zweig fällt, und woran erkennst du im Simulator, dass es wirkt?"
+  - id: branching-change-order
+    level: 4
+    task: >-
+      Lass überlegen, was sich am Verhalten ändert, wenn die Reihenfolge der geprüften Bedingungen in dieser
+      Verzweigung vertauscht wird, und wie sich das im Simulator zeigen ließe.
+    needs: [condition, else-if]
+    fallback: "Die Verzweigung in {function} prüft zuerst {code}: Was ändert sich am Verhalten, wenn du die Reihenfolge ihrer Bedingungen vertauschst, und wie zeigst du das im Simulator?"
+  - id: branching-change-extend
+    level: 4
+    task: >-
+      Lass beschreiben, wie die Verzweigung um einen weiteren Fall erweitert werden könnte, der im Sketch
+      sinnvoll wäre, und welche Bedingung dieser Fall bräuchte.
+    needs: [condition]
+    fallback: "Die Verzweigung in {function} prüft die Bedingung {code}: Welchen weiteren Fall könntest du sinnvoll ergänzen, und welche Bedingung bräuchte er?"

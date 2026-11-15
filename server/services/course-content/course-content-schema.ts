@@ -30,11 +30,19 @@ export const courseContentStrategyEntrySchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/i),
 }).strict();
 
+/** Aspect files of the aspect flow (Tutor concept, stage 2); a repository without them keeps the Topic catalog. */
+const courseContentAspectEntrySchema = z.object({
+  id: z.string().regex(SAFE_ID),
+  path: z.string().regex(/^tutor\/aspects\/[a-z][a-z0-9-]{0,63}\.yaml$/),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/i),
+}).strict();
+
 const tutorManifestV1Schema = z.object({
   schemaVersion: z.literal(1),
   defaultStrategy: z.string().regex(SAFE_ID).optional(),
   topics: boundedArray(courseContentTopicEntrySchema, 64),
   strategies: boundedArray(courseContentStrategyEntrySchema, 64),
+  aspects: boundedArray(courseContentAspectEntrySchema, 16).optional(),
 }).strict();
 
 const phaseStrategiesSchema = z.object({
@@ -47,6 +55,7 @@ const tutorManifestV2Schema = z.object({
   defaultStrategy: z.string().regex(SAFE_ID).optional(),
   topics: boundedArray(courseContentTopicEntrySchema, 64),
   strategies: boundedArray(courseContentStrategyEntrySchema, 64),
+  aspects: boundedArray(courseContentAspectEntrySchema, 16).optional(),
   phaseStrategies: phaseStrategiesSchema.optional(),
 }).strict();
 

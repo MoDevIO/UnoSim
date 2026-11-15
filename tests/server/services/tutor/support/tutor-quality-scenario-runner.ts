@@ -25,6 +25,8 @@ export interface TutorQualityScenario {
   readonly provider: ProviderBehavior;
   readonly difficulty?: TutorDifficulty;
   readonly courseContent?: TutorPlanningContentContext;
+  /** The aspect flow plans instead of the Topic catalog (Tutor concept, stage 2). */
+  readonly aspectPlanning?: boolean;
 }
 
 export interface TutorQualityScenarioTrace {
@@ -54,7 +56,7 @@ export async function runTutorQualityScenario(scenario: TutorQualityScenario): P
   const stateBefore = cloneState(scenario.courseContent?.progressionState);
   // TutorQuality SSOT §5: only the external provider is faked; Course Content is always planned by
   // the real adapter, so a scenario cannot script a planning outcome.
-  const planning = scenario.courseContent ? new CurriculumTutorAdapter() : undefined;
+  const planning = scenario.courseContent ? new CurriculumTutorAdapter({ aspectPlanning: scenario.aspectPlanning ?? false }) : undefined;
   const service = new TutorService(provider, planning);
   try {
     const response = scenario.action.kind === "initial"
