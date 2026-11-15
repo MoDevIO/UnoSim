@@ -119,12 +119,17 @@ function pickOnLevel(aspect: AspectDefinition, sites: readonly AspectSite[], pro
   const freshSites = [...unused.filter((site) => !usedKinds.has(siteKind(site))), ...unused.filter((site) => usedKinds.has(siteKind(site)))];
   const usedSites = usable.filter(({ id }) => progress.usedSiteIds.includes(id));
   // Another site first; on a site already used only an assignment that was not used yet.
-  const order: [readonly AspectSite[], readonly AspectAssignment[]][] = [[freshSites, fresh], [freshSites, assignments], [usedSites, fresh]];
-  for (const [siteList, assignmentList] of order) {
-    for (const site of siteList) {
+  for (const assignmentList of [fresh, assignments]) {
+    for (const site of freshSites) {
       const assignment = assignmentList.find((candidate) => offers(site, candidate));
       if (assignment) return { assignment, site };
     }
+  }
+  // Every site was asked about: the file's order of assignments decides, so the first one that fits any
+  // site wins, not whatever fits the first site.
+  for (const assignment of fresh) {
+    const site = usedSites.find((candidate) => offers(candidate, assignment));
+    if (site) return { assignment, site };
   }
   return null;
 }

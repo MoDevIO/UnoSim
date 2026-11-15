@@ -89,7 +89,8 @@ describe("aspect planner", () => {
     const { state, aspects } = session();
     ask(state, aspects, 5);
     ask(state, aspects, 5);
-    expect(ask(state, aspects, 5)).toMatchObject({ aspect: { id: "branching" }, level: 4 });
+    // Both sites were asked about: the first level 4 assignment of the file that fits a site is taken.
+    expect(ask(state, aspects, 5)).toMatchObject({ aspect: { id: "branching" }, level: 4, assignment: { id: "branching-change-condition" }, site: { code: "(temperature < TEMP_MIN)" } });
     expect(ask(state, aspects)?.aspect.id).toBe("variables");
     expect(state.progress.branching).toMatchObject({ asked: 3, done: true });
   });
