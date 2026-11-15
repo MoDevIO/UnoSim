@@ -1618,7 +1618,7 @@ export const TUTOR_PROMPT_REVISION = {
   // v12: negotiated classic UML proposal, source-file context, and server-only rendered artifact.
   // v13: question assignments of the aspect flow: the application names aspect, level and site, per rating
   // for a follow-up question, and the model words the question.
-  id: "tutor-prompts-v13",
+  id: "tutor-prompts-v14",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;
