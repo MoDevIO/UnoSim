@@ -24,7 +24,10 @@ async function startResettingBackend(resets: number): Promise<{ url: string; con
   const server = createServer((socket) => {
     connections++;
     if (connections <= resets) {
-      socket.resetAndDestroy();
+      // Reset once the request has arrived. A reset right after accept can reach curl while it still
+      // checks its connect, and curl then reports "could not connect" (exit 7) instead of a failed
+      // receive (exit 56); under load on CI that happened repeatedly.
+      socket.once("data", () => socket.resetAndDestroy());
       return;
     }
     socket.once("data", () => {
