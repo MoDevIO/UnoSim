@@ -1195,15 +1195,14 @@ export class TutorService {
     throwIfTutorRequestAborted(signal);
     const graphics = questionGraphicRequest(model, graphicsMode, graphicsProfile, { code, headers: Object.fromEntries((source.headers ?? []).map(header => [header.name, header.content])), entryFile: source.entryFile ?? "sketch.ino", board: source.board ?? "uno" });
     // The follow-up's assignment depends on the rating this call produces, so the prompt carries one per rating.
-    const followUps = await this.planningExtension?.previewFollowups?.({ code: sketchText, history: parsedHistory, currentQuestion: question, difficulty, courseContent: transaction.courseContent, ...(support ? { supportCycle: true } : {}) });
-    throwIfTutorRequestAborted(signal);
+    const followUps = await this.previewFollowUps({ code: sketchText, history: parsedHistory, currentQuestion: question, difficulty, courseContent: transaction.courseContent, supportCycle: support !== undefined }, signal);
     const providerResult = await this.provider.generateLearningQuestion(
       {
         model,
         ...graphics.request,
         userPrompt: buildDialogPrompt(sketchText, context, parsedHistory, question, answer, difficulty, {
           didacticBrief: currentPlanningResult && isTutorPlan(currentPlanningResult) ? currentPlanningResult : undefined,
-          ...(followUps?.length ? { followUps } : {}),
+          followUps,
           strategy: strategy.strategy,
           learningObjectives: this.learningObjectives(sketchText, transaction.courseContent),
           ...supportPromptOptions(support),
@@ -1415,6 +1414,16 @@ export class TutorService {
       }
     }
     return { result, followUpSource };
+  }
+
+  /** The follow-up assignments per rating; empty unless the aspect flow plans the follow-up. */
+  private async previewFollowUps(
+    input: Parameters<NonNullable<TutorPlanningExtension["previewFollowups"]>>[0],
+    signal: AbortSignal | undefined,
+  ): Promise<readonly TutorFollowUpPreview[]> {
+    const previews = await this.planningExtension?.previewFollowups?.(input) ?? [];
+    throwIfTutorRequestAborted(signal);
+    return previews;
   }
 
   private async planAnsweredQuestion(

@@ -134,32 +134,35 @@ function isElseIf(node: SyntaxNode): boolean {
   return node.name === "IfStatement" && node.parent?.name === "IfStatement" && node.prevSibling?.name === "else";
 }
 
+/** The ways of an `if` chain: one per condition, one more for a closing `else`. */
+function chainShape(node: SyntaxNode): { branches: number; elseIf: boolean; elseBranch: boolean } {
+  let branches = 0;
+  let elseIf = false;
+  for (let current: SyntaxNode | undefined = node; current; ) {
+    branches++;
+    const parts = kids(current);
+    const next: SyntaxNode | undefined = parts[parts.findIndex(({ name }) => name === "else") + 1];
+    const afterElse = parts.some(({ name }) => name === "else") ? next : undefined;
+    if (afterElse?.name !== "IfStatement") return { branches: branches + (afterElse ? 1 : 0), elseIf, elseBranch: afterElse !== undefined };
+    elseIf = true;
+    current = afterElse;
+  }
+  return { branches, elseIf, elseBranch: false };
+}
+
 function branchFeatures(source: Source, node: SyntaxNode, functionBody: SyntaxNode | undefined): { has: Set<SiteFeature>; branches: number } {
   const has = new Set<SiteFeature>(["condition"]);
-  let branches = 0;
-  if (node.name === "SwitchStatement") {
-    branches = descendants(node).filter(({ name }) => name === "CaseStatement").length;
-  } else {
-    for (let current: SyntaxNode | null = node; current; ) {
-      branches++;
-      const parts = kids(current);
-      const elseIndex = parts.findIndex(({ name }) => name === "else");
-      const next = elseIndex >= 0 ? parts[elseIndex + 1] : undefined;
-      if (!next) break;
-      if (next.name === "IfStatement") {
-        has.add("else-if");
-        current = next;
-      } else {
-        has.add("else-branch");
-        branches++;
-        current = null;
-      }
-    }
-  }
   const inner = descendants(node);
+  let branches = inner.filter(({ name }) => name === "CaseStatement").length;
+  if (node.name === "IfStatement") {
+    const shape = chainShape(node);
+    branches = shape.branches;
+    if (shape.elseIf) has.add("else-if");
+    if (shape.elseBranch) has.add("else-branch");
+  }
   if (inner.some((child) => BRANCH_NODES.has(child.name) && !isElseIf(child))) has.add("nested");
   // A return inside a branch ends the function early when statements follow the branch.
-  const followed = functionBody !== undefined && node.to < functionBody.to - 1 && source.text.slice(node.to, functionBody.to - 1).trim() !== "";
+  const followed = functionBody !== undefined && source.text.slice(node.to, Math.max(node.to, functionBody.to - 1)).trim() !== "";
   if (followed && inner.some(({ name }) => name === "ReturnStatement")) has.add("early-return");
   const condition = kids(node).find(({ name }) => name === "ConditionClause");
   if (condition && identifiers(source, condition).length > 0) has.add("variable");
@@ -182,140 +185,182 @@ function operatorCount(node: SyntaxNode): number {
   return own + descendants(node).filter(({ name }) => name === "BinaryExpression").length;
 }
 
-function collect(source: Source, root: SyntaxNode): { sites: Collected; weights: Record<AspectId, number> } {
-  const sites: Collected = Object.fromEntries(ASPECT_IDS.map((id) => [id, [] as Site[]])) as Collected;
-  const add = (aspect: AspectId, site: Site) => {
-    if (sites[aspect].length < MAX_SITES_PER_ASPECT) sites[aspect].push(site);
-  };
-  const all = descendants(root);
-  const functions = all.filter(({ name }) => name === "FunctionDefinition");
-  const functionOf = (node: SyntaxNode) => enclosing(node, new Set(["FunctionDefinition"]));
-  const nameOfFunction = (definition: SyntaxNode | null): string | undefined => {
+const FUNCTION_NODE = new Set(["FunctionDefinition"]);
+
+/** Walks the tree once and files every node under the aspects it shows. */
+class Collector {
+  readonly sites: Collected = Object.fromEntries(ASPECT_IDS.map((id) => [id, [] as Site[]])) as Collected;
+  private readonly all: SyntaxNode[];
+  private readonly globals = new Set<string>();
+  private readonly types = new Set<string>();
+  private branchCount = 0;
+  private nesting = 0;
+  private earlyReturns = 0;
+  private calls = 0;
+  private stateNames: string[] = [];
+
+  constructor(private readonly source: Source, root: SyntaxNode) {
+    this.all = descendants(root);
+    for (const node of this.all) this.visit(node);
+    this.ownFunctions();
+    this.programFlow();
+  }
+
+  private add(aspect: AspectId, site: Site): void {
+    if (this.sites[aspect].length < MAX_SITES_PER_ASPECT) this.sites[aspect].push(site);
+  }
+
+  private functionName(definition: SyntaxNode | null): string | undefined {
     const declarator = definition && kids(definition).find(({ name }) => name === "FunctionDeclarator");
     const id = declarator?.firstChild;
-    return id ? source.of(id) : undefined;
-  };
-  const bodyOf = (definition: SyntaxNode | null) => (definition ? kids(definition).find(({ name }) => name === "CompoundStatement") : undefined);
+    return id ? this.source.of(id) : undefined;
+  }
 
-  // Variables, constants, arrays, scope
-  const globals = new Set<string>();
-  const types = new Set<string>();
-  let branchCount = 0;
-  let nesting = 0;
-  let earlyReturns = 0;
-  for (const node of all) {
-    const owner = functionOf(node);
-    const inFunction = nameOfFunction(owner);
-    if (node.name === "PreprocDirective" && node.firstChild?.name === "#define") {
-      const id = kids(node).find(({ name }) => name === "Identifier");
-      if (id) add("variables", { node, code: source.compact(node), names: [source.of(id)], has: new Set(["constant", "initial-value"]) });
-    }
-    if (node.name === "Declaration" && node.parent?.name !== "ForStatement") {
-      const type = typeText(source, node);
-      const constant = hasKeyword(node, "const");
-      for (const { name, array, initialized } of declaredNames(source, node)) {
-        if (type) types.add(type);
-        if (!owner) globals.add(name);
-        const has = new Set<SiteFeature>(["type", constant ? "constant" : "variable"]);
-        if (initialized) has.add("initial-value");
-        add(array ? "arrays" : "variables", { function: inFunction, node, code: source.compact(node), names: [name], has });
-        if (owner && hasKeyword(node, "static")) add("scope", { function: inFunction, node, code: source.compact(node), names: [name], has: new Set(["variable", "state"]) });
-        if (owner && globals.has(name)) add("scope", { function: inFunction, node, code: source.compact(node), names: [name], has: new Set(["variable"]) });
-      }
-    }
-    if (node.name === "StructSpecifier" && node.parent?.name !== "Declaration") {
-      const id = kids(node).find(({ name }) => name === "TypeIdentifier");
-      if (id) add("arrays", { node, code: `struct ${source.of(id)}`, names: [source.of(id)], has: new Set(["type"]) });
-    }
-    if (BRANCH_NODES.has(node.name) && !isElseIf(node)) {
-      const { has, branches } = branchFeatures(source, node, bodyOf(owner));
-      const condition = kids(node).find(({ name }) => name === "ConditionClause");
-      branchCount += branches;
-      if (has.has("nested")) nesting++;
-      if (has.has("early-return")) earlyReturns++;
-      add("branching", { function: inFunction, node, code: source.compact(condition ?? node), names: condition ? identifiers(source, condition) : [], has });
-    }
-    if (LOOP_NODES.has(node.name)) {
-      const { condition, counter } = loopParts(node);
-      const has = new Set<SiteFeature>();
-      if (condition) has.add("condition");
-      if (counter) has.add("counter");
-      if (condition && identifiers(source, condition).some((name) => !counter || !identifiers(source, counter).includes(name))) has.add("bound");
-      const inner = descendants(node);
-      if (inner.some(({ name }) => LOOP_NODES.has(name))) has.add("nested");
-      if (inner.some(({ name }) => name === "SubscriptExpression")) has.add("index");
-      add("loops", { function: inFunction, node, code: source.compact(condition ?? node), names: identifiers(source, condition ?? node), has });
-    }
-    if (node.name === "BinaryExpression" && node.parent?.name !== "BinaryExpression" && node.parent?.name !== "ParenthesizedExpression" && operatorCount(node) >= 2) {
-      add("expressions", { function: inFunction, node, code: source.compact(node), names: identifiers(source, node), has: new Set(["variable"]) });
-    }
-    if (node.name === "CallExpression") {
-      const callee = calleeName(source, node);
-      const args = kids(node).find(({ name }) => name === "ArgumentList");
-      const argNames = args ? identifiers(source, args) : [];
-      if (PIN_CALLS.has(callee)) {
-        add("pins", { function: inFunction, node, code: source.compact(node), names: argNames, has: new Set(["pin", PIN_INPUT_CALLS.has(callee) ? "input" : "output"]) });
-      }
-      if (TIMING_CALLS.has(callee)) {
-        const compared = callee !== "delay" && callee !== "delayMicroseconds";
-        add("timing", { function: inFunction, node, code: source.compact(node), names: argNames, has: new Set(compared ? ["interval"] : []) });
-      }
-      if (callee.startsWith("Serial.")) {
-        const has = new Set<SiteFeature>();
-        if (SERIAL_INPUT_CALLS.has(callee.slice("Serial.".length))) has.add("input");
-        else if (argNames.length > 0) has.add("output-value");
-        add("serial", { function: inFunction, node, code: source.compact(node), names: argNames, has });
-      }
+  private body(definition: SyntaxNode | null): SyntaxNode | undefined {
+    return definition ? kids(definition).find(({ name }) => name === "CompoundStatement") : undefined;
+  }
+
+  private visit(node: SyntaxNode): void {
+    const owner = enclosing(node, FUNCTION_NODE);
+    const inFunction = this.functionName(owner);
+    if (node.name === "PreprocDirective") this.define(node);
+    else if (node.name === "Declaration") this.declaration(node, owner, inFunction);
+    else if (node.name === "StructSpecifier") this.struct(node);
+    else if (BRANCH_NODES.has(node.name)) this.branch(node, owner, inFunction);
+    else if (LOOP_NODES.has(node.name)) this.loop(node, inFunction);
+    else if (node.name === "BinaryExpression") this.expression(node, inFunction);
+    else if (node.name === "CallExpression") this.call(node, inFunction);
+  }
+
+  private define(node: SyntaxNode): void {
+    const id = node.firstChild?.name === "#define" ? kids(node).find(({ name }) => name === "Identifier") : undefined;
+    if (id) this.add("variables", { node, code: this.source.compact(node), names: [this.source.of(id)], has: new Set(["constant", "initial-value"]) });
+  }
+
+  private declaration(node: SyntaxNode, owner: SyntaxNode | null, inFunction: string | undefined): void {
+    if (node.parent?.name === "ForStatement") return;
+    const type = typeText(this.source, node);
+    const kind: SiteFeature = hasKeyword(node, "const") ? "constant" : "variable";
+    const code = this.source.compact(node);
+    for (const { name, array, initialized } of declaredNames(this.source, node)) {
+      if (type) this.types.add(type);
+      const has = new Set<SiteFeature>(initialized ? ["type", kind, "initial-value"] : ["type", kind]);
+      this.add(array ? "arrays" : "variables", { function: inFunction, node, code, names: [name], has });
+      if (owner) this.localScope(node, name, inFunction, code);
+      else this.globals.add(name);
     }
   }
 
-  // Own functions
-  let calls = 0;
-  for (const definition of functions) {
-    const name = nameOfFunction(definition);
-    if (!name || ENTRY_FUNCTIONS.has(name)) continue;
-    const declarator = kids(definition).find((child) => child.name === "FunctionDeclarator");
+  private localScope(node: SyntaxNode, name: string, inFunction: string | undefined, code: string): void {
+    if (hasKeyword(node, "static")) this.add("scope", { function: inFunction, node, code, names: [name], has: new Set(["variable", "state"]) });
+    if (this.globals.has(name)) this.add("scope", { function: inFunction, node, code, names: [name], has: new Set(["variable"]) });
+  }
+
+  private struct(node: SyntaxNode): void {
+    const id = node.parent?.name === "Declaration" ? undefined : kids(node).find(({ name }) => name === "TypeIdentifier");
+    if (id) this.add("arrays", { node, code: `struct ${this.source.of(id)}`, names: [this.source.of(id)], has: new Set(["type"]) });
+  }
+
+  private branch(node: SyntaxNode, owner: SyntaxNode | null, inFunction: string | undefined): void {
+    if (isElseIf(node)) return;
+    const { has, branches } = branchFeatures(this.source, node, this.body(owner));
+    const condition = kids(node).find(({ name }) => name === "ConditionClause");
+    this.branchCount += branches;
+    if (has.has("nested")) this.nesting++;
+    if (has.has("early-return")) this.earlyReturns++;
+    this.add("branching", { function: inFunction, node, code: this.source.compact(condition ?? node), names: condition ? identifiers(this.source, condition) : [], has });
+  }
+
+  private loop(node: SyntaxNode, inFunction: string | undefined): void {
+    const { condition, counter } = loopParts(node);
     const has = new Set<SiteFeature>();
-    if (declarator && descendants(declarator).some((child) => child.name === "ParameterDeclaration")) has.add("parameter");
-    if (typeText(source, definition) !== "void") has.add("return-value");
-    const called = all.filter((node) => node.name === "CallExpression" && calleeName(source, node) === name).length;
-    if (called > 0) has.add("call");
-    calls += called;
-    add("functions", { function: name, node: definition, code: declarator ? `${typeText(source, definition)} ${source.compact(declarator)}`.trim() : name, names: [name], has });
+    const counterNames = counter ? identifiers(this.source, counter) : [];
+    if (condition) has.add("condition");
+    if (counter) has.add("counter");
+    if (condition && identifiers(this.source, condition).some((name) => !counterNames.includes(name))) has.add("bound");
+    const inner = descendants(node);
+    if (inner.some(({ name }) => LOOP_NODES.has(name))) has.add("nested");
+    if (inner.some(({ name }) => name === "SubscriptExpression")) has.add("index");
+    this.add("loops", { function: inFunction, node, code: this.source.compact(condition ?? node), names: identifiers(this.source, condition ?? node), has });
   }
 
-  // Globals written in loop() keep their value over the passes: the state of the program.
-  const loopBody = bodyOf(functions.find((definition) => nameOfFunction(definition) === "loop") ?? null);
-  const stateNames = loopBody
-    ? [...new Set(descendants(loopBody)
-      .filter(({ name }) => name === "AssignmentExpression" || name === "UpdateExpression")
-      .flatMap((node) => (node.firstChild?.name === "Identifier" ? [source.of(node.firstChild)] : node.lastChild?.name === "Identifier" ? [source.of(node.lastChild)] : []))
-      .filter((name) => globals.has(name)))]
-    : [];
-  for (const definition of functions) {
-    const name = nameOfFunction(definition);
-    if (name && ENTRY_FUNCTIONS.has(name)) {
-      add("program-flow", { function: name, node: definition, code: `void ${name}()`, names: name === "loop" ? stateNames : [], has: new Set(name === "loop" && stateNames.length > 0 ? ["state"] : []) });
+  private expression(node: SyntaxNode, inFunction: string | undefined): void {
+    const outermost = node.parent?.name !== "BinaryExpression" && node.parent?.name !== "ParenthesizedExpression";
+    if (!outermost || operatorCount(node) < 2) return;
+    this.add("expressions", { function: inFunction, node, code: this.source.compact(node), names: identifiers(this.source, node), has: new Set(["variable"]) });
+  }
+
+  private call(node: SyntaxNode, inFunction: string | undefined): void {
+    const callee = calleeName(this.source, node);
+    const args = kids(node).find(({ name }) => name === "ArgumentList");
+    const site = { function: inFunction, node, code: this.source.compact(node), names: args ? identifiers(this.source, args) : [] };
+    if (PIN_CALLS.has(callee)) this.add("pins", { ...site, has: new Set(["pin", PIN_INPUT_CALLS.has(callee) ? "input" : "output"]) });
+    if (TIMING_CALLS.has(callee)) this.add("timing", { ...site, has: new Set(callee.startsWith("delay") ? [] : ["interval"]) });
+    if (callee.startsWith("Serial.")) this.add("serial", { ...site, has: serialFeatures(callee, site.names) });
+  }
+
+  private ownFunctions(): void {
+    for (const definition of this.all.filter(({ name }) => name === "FunctionDefinition")) {
+      const name = this.functionName(definition);
+      if (!name || ENTRY_FUNCTIONS.has(name)) continue;
+      const declarator = kids(definition).find((child) => child.name === "FunctionDeclarator");
+      const has = new Set<SiteFeature>();
+      if (declarator && descendants(declarator).some((child) => child.name === "ParameterDeclaration")) has.add("parameter");
+      if (typeText(this.source, definition) !== "void") has.add("return-value");
+      const called = this.all.filter((node) => node.name === "CallExpression" && calleeName(this.source, node) === name).length;
+      if (called > 0) has.add("call");
+      this.calls += called;
+      const code = declarator ? `${typeText(this.source, definition)} ${this.source.compact(declarator)}`.trim() : name;
+      this.add("functions", { function: name, node: definition, code, names: [name], has });
     }
   }
 
-  const count = (aspect: AspectId, cap: number) => Math.min(sites[aspect].length, cap);
-  const any = (aspect: AspectId, feature: SiteFeature) => sites[aspect].some(({ has }) => has.has(feature));
-  const inputSteersOutput = any("pins", "input") && any("pins", "output");
-  const weights: Record<AspectId, number> = {
-    variables: sites.variables.length === 0 ? 0 : count("variables", 6) + Math.min(types.size, 4),
-    expressions: count("expressions", 4) * 2,
-    branching: branchCount * 3 + nesting * 2 + earlyReturns * 3,
-    loops: count("loops", 4) * 4 + (any("loops", "nested") ? 2 : 0) + (any("loops", "bound") ? 2 : 0),
-    functions: count("functions", 4) * 3 + Math.min(calls, 3) + (any("functions", "parameter") ? 2 : 0) + (any("functions", "return-value") ? 2 : 0),
-    arrays: count("arrays", 3) * 3 + (sites.loops.some(({ has }) => has.has("index")) ? 3 : 0),
-    scope: count("scope", 3) * 3,
-    serial: sites.serial.length === 0 ? 0 : count("serial", 3) + (any("serial", "output-value") ? 2 : 0) + (any("serial", "input") ? 3 : 0),
-    pins: sites.pins.length === 0 ? 0 : count("pins", 4) + (inputSteersOutput ? 3 : 0),
-    timing: sites.timing.length === 0 ? 0 : 1 + count("timing", 2) + (any("timing", "interval") ? 5 : 0),
-    "program-flow": sites["program-flow"].length === 0 ? 0 : 2 + (stateNames.length > 0 ? 4 : 0),
-  };
-  return { sites, weights };
+  /** A global written in loop() keeps its value over the passes: the state of the program. */
+  private writtenGlobals(loopBody: SyntaxNode): string[] {
+    const written = descendants(loopBody)
+      .filter(({ name }) => name === "AssignmentExpression" || name === "UpdateExpression")
+      .map((node) => (node.firstChild?.name === "Identifier" ? node.firstChild : node.lastChild))
+      .flatMap((target) => (target?.name === "Identifier" ? [this.source.of(target)] : []));
+    return [...new Set(written.filter((name) => this.globals.has(name)))];
+  }
+
+  private programFlow(): void {
+    const entries = this.all.filter((node) => node.name === "FunctionDefinition" && ENTRY_FUNCTIONS.has(this.functionName(node) ?? ""));
+    const loopBody = this.body(entries.find((definition) => this.functionName(definition) === "loop") ?? null);
+    this.stateNames = loopBody ? this.writtenGlobals(loopBody) : [];
+    for (const definition of entries) {
+      const name = this.functionName(definition) ?? "";
+      const state = name === "loop" && this.stateNames.length > 0;
+      this.add("program-flow", { function: name, node: definition, code: `void ${name}()`, names: state ? this.stateNames : [], has: new Set(state ? ["state"] : []) });
+    }
+  }
+
+  weights(): Record<AspectId, number> {
+    const { sites } = this;
+    const count = (aspect: AspectId, cap: number) => Math.min(sites[aspect].length, cap);
+    const any = (aspect: AspectId, feature: SiteFeature) => sites[aspect].some(({ has }) => has.has(feature));
+    const bonus = (condition: boolean, value: number) => (condition ? value : 0);
+    /** Zero for an aspect the sketch does not show, whatever its bonuses add up to. */
+    const present = (aspect: AspectId, weight: number) => bonus(sites[aspect].length > 0, weight);
+    return {
+      variables: present("variables", count("variables", 6) + Math.min(this.types.size, 4)),
+      expressions: count("expressions", 4) * 2,
+      branching: this.branchCount * 3 + this.nesting * 2 + this.earlyReturns * 3,
+      loops: count("loops", 4) * 4 + bonus(any("loops", "nested"), 2) + bonus(any("loops", "bound"), 2),
+      functions: count("functions", 4) * 3 + Math.min(this.calls, 3) + bonus(any("functions", "parameter"), 2) + bonus(any("functions", "return-value"), 2),
+      arrays: count("arrays", 3) * 3 + bonus(any("loops", "index"), 3),
+      scope: count("scope", 3) * 3,
+      serial: present("serial", count("serial", 3) + bonus(any("serial", "output-value"), 2) + bonus(any("serial", "input"), 3)),
+      pins: present("pins", count("pins", 4) + bonus(any("pins", "input") && any("pins", "output"), 3)),
+      timing: present("timing", 1 + count("timing", 2) + bonus(any("timing", "interval"), 5)),
+      "program-flow": present("program-flow", 2 + bonus(this.stateNames.length > 0, 4)),
+    };
+  }
+}
+
+function serialFeatures(callee: string, argumentNames: readonly string[]): Set<SiteFeature> {
+  if (SERIAL_INPUT_CALLS.has(callee.slice("Serial.".length))) return new Set(["input"]);
+  return new Set(argumentNames.length > 0 ? ["output-value"] : []);
 }
 
 function publicSites(source: Source, aspect: AspectId, sites: readonly Site[]): AspectSite[] {
@@ -343,8 +388,9 @@ function publicSites(source: Source, aspect: AspectId, sites: readonly Site[]): 
 export function detectAspects(code: string): DetectedAspect[] {
   if (code.length > MAX_SOURCE_CHARS) return [];
   const source = new Source(code);
-  const root = parser.parse(code).topNode;
-  const { sites, weights } = collect(source, root);
+  const collector = new Collector(source, parser.parse(code).topNode);
+  const { sites } = collector;
+  const weights = collector.weights();
   return ASPECT_IDS
     .filter((id) => weights[id] > 0 && sites[id].length > 0)
     .map((id) => ({ id, weight: weights[id], sites: publicSites(source, id, sites[id]) }))

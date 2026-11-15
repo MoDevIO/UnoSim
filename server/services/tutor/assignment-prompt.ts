@@ -13,7 +13,8 @@ export const TUTOR_ASSIGNMENT_GUIDANCE_TEXT = {
 
 function describe({ aspectTitle, level, levelName, task, site }: TutorAssignment): string {
   const place = site.function ? `Funktion \`${site.function}()\`, Zeile ${site.line}` : `Zeile ${site.line}`;
-  const names = site.names.length > 0 ? ` Bezeichner: ${site.names.map((name) => `\`${name}\``).join(", ")}.` : "";
+  const quoted = site.names.map((name) => "`" + name + "`").join(", ");
+  const names = quoted ? ` Bezeichner: ${quoted}.` : "";
   return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}`;
 }
 

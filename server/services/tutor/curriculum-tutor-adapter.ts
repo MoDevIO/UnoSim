@@ -1,4 +1,4 @@
-import type { TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
+import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import { Logger } from "@shared/logger";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import {
@@ -30,6 +30,7 @@ import type {
   TutorPlanningResult,
   TutorExpansionBrief,
   TutorFocusSummary,
+  TutorFollowUpPreview,
 } from "./tutor-planning";
 import {
   appendEvidence,
@@ -49,8 +50,6 @@ import {
   aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
 } from "./curriculum/aspect-flow";
 import type { AspectDefinition } from "./curriculum/aspect-schema";
-import type { TutorAnswerRating } from "@shared/tutor";
-import type { TutorFollowUpPreview } from "./tutor-planning";
 
 /**
  * Course Content reaches the adapter only as the context passed into each
@@ -170,7 +169,12 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   async leaveQuestion(input: Omit<TutorFollowupInput, "rating">): Promise<void> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
-    if (!context) this.aspects(input, (flow) => (aspectLeaveQuestion(flow, input.currentQuestion), null));
+    if (!context) {
+      this.aspects(input, (flow) => {
+        aspectLeaveQuestion(flow, input.currentQuestion);
+        return null;
+      });
+    }
     if (!context || context.blocked) return;
     const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
     if (question) markQuestionLeft(context.state, context.topic.id, question.id);
