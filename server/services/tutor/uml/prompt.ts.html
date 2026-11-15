@@ -1,0 +1,157 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for server/services/tutor/uml/prompt.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/services/tutor/uml</a> prompt.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>3/3</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>3/3</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/** Changes whenever provider-visible selection/schema/evidence instructions change. */
+export const UML_PROMPT_REVISION = "tutor-uml1-classic-v1-r3";
+export const UML_QUALITY_RUBRIC = [
+  "Fragebezug: Die endgültige Frage bleibt unverändert; die Grafik ergänzt konkret hilfreichen Kontext.",
+  "Belege: Jede gezeigte Aktion, Deklaration und Nachricht ist durch die tatsächlich gesendeten Dateien und Zeilen belegt; Kommentare sind keine Aktionen.",
+  "Notation und Semantik: Diagrammart, Kontrollfluss, Guards, Sichtbarkeiten, Beziehungsrichtung und Aufruf-/Rückgabereihenfolge stimmen mit dem unterstützten Code überein.",
+  "Kein Lösungsverrat: Die gesuchte Antwort oder erfolgreiche Testbegründung steht nicht bereits in der Grafik; keine Umformulierung der Lehrkraftfrage.",
+  "Lesbarkeit: Kleiner erkennbarer Ausschnitt, konkrete Codebezeichner, mindestens 14px App-Schrift, lesbare Guards und getrennte Klassenbereiche.",
+  "Ehrliche Ablehnung und Aufwand: not-useful ist bei fehlendem Nutzen oder nicht belegbarer Struktur erwünscht; Validierung/Rendern sind keine Modellbewertung und erzeugen keine weiteren KI-Schleifen.",
+] as const;
+export const TUTOR_UML_PROMPT_DIRECTIVES = `
+UML-Zusatz zur endgültigen Tutorfrage (${UML_PROMPT_REVISION}). Verwende im Antwort-JSON das Modellfeld "diagram" für genau einen Vorschlag (oder not-useful); das öffentliche Bild-DTO wird ausschließlich von der App erzeugt.
+Die endgültige Frage und das Lernziel bleiben unverändert. Liefere entweder einen strukturierten Vorschlag oder not-useful. Keine Rohgrafik, SVG, Pixel, Koordinaten, URLs, PlantUML, Formatierungsbefehle oder Renderer-Metadaten.
+Profil immer "uml1-classic-v1", version immer 1. Unbekannte Felder sind verboten. Höchstens 16 KiB JSON, 12 Knoten/Beteiligte einschließlich erzeugter Start-/End-/Mergeknoten, 24 Kanten/Nachrichten und insgesamt 24 Klassenmember.
+Jede Referenz hat {file,startLine,endLine}: exakter gesendeter Dateiname, inklusive 1-basierte Zeilen der ganzen belegten Syntaxeinheit. Fehlende Header, Parserfehler, Makros, Templates, mehrdeutige Namen und unbekannte Bibliotheksimplementierungen sind kein Beleg. Kommentare und bloße Namenstreffer belegen keine Ausführung.
+Vorschlag nicht nützlich: {version:1,profile:"uml1-classic-v1",status:"not-useful",reason:"irrelevant"|"answer-leak"|"ambiguous-question"|"unsupported-code"|"no-useful-context",explanation:"kurze konkrete Erklärung"}.
+Diagrammbasis: {version:1,profile:"uml1-classic-v1",status:"diagram",kind:"activity"|"class"|"sequence",purpose:"konkreter ergänzender Beitrag zur Frage",scope:{file,startLine,endLine},...}. purpose erklärt den Nutzen, nicht bereits die gesuchte Lösung. Kein freies action-Label: code, condition und declaration werden exakt aus dem Code übernommen, einschließlich Stringliteralen und ihrer Leerzeichen.
+activity: zusätzlich body:[Schritte]. Ein Schritt ist {type:"action",code:"vollständige ausführbare Anweisung",ref}, {type:"decision",condition:"Ausdruck ohne äußere Klammern",ref,whenTrue:[Schritte],whenFalse:[Schritte]} oder {type:"loop",condition:"Ausdruck",ref,body:[Schritte]}. Vollständiger regulärer Funktionskörper; nur if/else und while mit geschweiften Klammern. Keine ausgelassenen Zwischenschritte, keine selbst erfundenen Kanten. Entscheidungen, Zusammenführungen, Start/Ende und Guards erzeugt die App. Ein Soll-Wert ist keine nachträglich ausgeführte Aktion. Für den Arduino-Callbackausschnitt verwende statt body die strikte Variante runtime:"arduino-setup-loop",setup:{ref,body:[Schritte]},loop:{ref,body:[Schritte]}; scope umfasst beide vollständigen Callbackdefinitionen in der EntryFile. Leere Callbackkörper werden als [] belegt, beide vollständig leer sind nicht hilfreich. Board, Profil und Coreversion sowie setup einmal und loop wiederholt liefert ausschließlich der App-Faktenkatalog; das Modell darf dafür keine eigenen facts, board, Guard-/Endfelder oder Metadaten ergänzen. Der Katalog unterstützt uno/nano/mega2560 mit arduino:avr@1.8.8. Die App erzeugt die echte Rückkante mit festem [immer]-Guard und ohne Ende; Start, beide Callbackaufrufe und zwei Rauten zählen als fünf zusätzliche Knoten. Keine eigenen main-/Init-/Serial-Hooks oder reentranten setup/loop-Aufrufe. Einzelne setup/loop-Körper ohne diese Runtime-Bindung bleiben unzulässig.
+class: zusätzlich classes:[{name,ref,members:[{kind:"attribute"|"operation",declaration:"vollständige C++-Deklaration ohne Semikolon bzw. Methodenrumpf",visibility:"public"|"protected"|"private",ref}]}],relations:[{kind:"generalization"|"association",from:"Klassenname",to:"Klassenname",ref}]. generalization zeigt von abgeleiteter Klasse zur direkten Basis; ref belegt die Basisklausel. association belegt den Attributtyp. Keine erfundene Klasse Sketch aus globalen Variablen; keine Komposition, Aggregation oder Multiplizität.
+sequence: zusätzlich participants:[{kind:"context",name:"Name der definierten freien Funktion",ref}|{kind:"object",name:"Objektname",className:"deklarierter Klassentyp",ref}],messages:[{type:"call"|"return",from:"Beteiligtenname",to:"Beteiligtenname",code:"exakter Aufrufausdruck ohne Semikolon oder exakte return-Anweisung",ref}]. scope ist die ganze aufrufende Funktion. Alle echten Aufrufe im unterstützten geraden Pfad bleiben in ihrer Reihenfolge erhalten; explizite Rückgaben dürfen gezeigt werden und sind keine Aufrufe. Nur eindeutige Definitionen aus den gesendeten Dateien, keine verschachtelten Aufrufe in Argumenten und keine UML-2-Fragmente.
+Atomare Datentyp-Fragen erhalten keine beliebige Plotter-/Deklarationskette. Unklarer Variablenbezug wird nicht durch einen erfundenen Zielbezeichner repariert. Leere setup/loop-Körper ergeben keine Kommentar-Aktionen. Bei der IT08.6-Frage zum bestandenen mittelwert(4, 8)-Test ist not-useful wegen Lösungsverrat vorgesehen; die Begründung für den erfolgreichen Test darf nicht vorweggenommen werden.
+Prüfe intern vor Ausgabe: ${UML_QUALITY_RUBRIC.join(" ")}
+Die App bestätigt nur das unterstützte Profil und die geprüften Codebelege, keine allgemeine fachliche Korrektheit. Bei Unsicherheit not-useful statt erfundener Sicherheit.
+`.trim();
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-11-15T08:26:43.169Z
+            </div>
+        <script src="../../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
+    </body>
+</html>
+    
