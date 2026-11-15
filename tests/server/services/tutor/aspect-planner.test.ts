@@ -205,4 +205,31 @@ describe("aspect planner", () => {
     expect(dropped.state.open).toBeUndefined();
     expect(dropped.state.progress.branching?.asked).toBe(0);
   });
+
+  // Live run of 2026-11-15: a boundary question was asked about `emergencyButton == LOW`, which has no boundary.
+  it("asks about a boundary only where the condition compares by order", () => {
+    const code = "void setup() {}\nvoid loop() {\n  if (digitalRead(2) == LOW) { digitalWrite(13, HIGH); }\n  delay(10);\n}\n";
+    const { state, aspects } = session(code);
+    const asked: string[] = [];
+    for (let turn = 0; turn < 6; turn++) {
+      const step = ask(state, aspects, 5);
+      if (step?.aspect.id === "branching") asked.push(step.assignment.id);
+    }
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked).not.toContain("branching-predict-boundary");
+    expect(asked).not.toContain("branching-change-condition");
+    const relational = detectAspects(TEMPERATURE_CONTROLLER).find(({ id }) => id === "branching")?.sites.map(({ has }) => has.includes("relational"));
+    expect(relational).toEqual([false, true]);
+  });
+
+  // Live run of 2026-11-15: after `tempPin` the next question took `buttonPin`, the same kind of pin constant.
+  it("takes a site of another kind before a second site of the same kind", () => {
+    const { state, aspects } = session();
+    state.activeAspectId = "variables";
+    const first = ask(state, aspects, 3);
+    const second = ask(state, aspects);
+    expect(first?.aspect.id).toBe("variables");
+    expect(second?.aspect.id).toBe("variables");
+    expect(`${second?.site.function}|${second?.site.has.join(",")}`).not.toBe(`${first?.site.function}|${first?.site.has.join(",")}`);
+  });
 });

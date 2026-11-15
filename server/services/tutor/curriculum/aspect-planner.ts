@@ -103,11 +103,20 @@ function quotable(site: AspectSite): boolean {
   return !site.code.includes("?") && site.code.trim() !== "";
 }
 
+/** What kind of place a site is: where it stands and what it offers. */
+function siteKind(site: AspectSite): string {
+  return `${site.function ?? ""}|${site.has.join(",")}`;
+}
+
 function pickOnLevel(aspect: AspectDefinition, sites: readonly AspectSite[], progress: AspectProgress, level: AspectLevel): { assignment: AspectAssignment; site: AspectSite } | null {
   const assignments = aspect.assignments.filter((assignment) => assignment.level === level);
   const fresh = assignments.filter(({ id }) => !progress.usedAssignmentIds.includes(id));
   const usable = sites.filter(quotable);
-  const freshSites = usable.filter(({ id }) => !progress.usedSiteIds.includes(id));
+  // Among the sites not asked about yet, one of another kind comes first: a sketch with five pin
+  // constants should not get three questions about pin constants.
+  const usedKinds = new Set(sites.filter(({ id }) => progress.usedSiteIds.includes(id)).map(siteKind));
+  const unused = usable.filter(({ id }) => !progress.usedSiteIds.includes(id));
+  const freshSites = [...unused.filter((site) => !usedKinds.has(siteKind(site))), ...unused.filter((site) => usedKinds.has(siteKind(site)))];
   const usedSites = usable.filter(({ id }) => progress.usedSiteIds.includes(id));
   // Another site first; on a site already used only an assignment that was not used yet.
   const order: [readonly AspectSite[], readonly AspectAssignment[]][] = [[freshSites, fresh], [freshSites, assignments], [usedSites, fresh]];

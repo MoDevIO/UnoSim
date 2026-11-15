@@ -53,7 +53,7 @@ assignments:
     task: >-
       Lass vorhersagen, welcher Zweig läuft, wenn die verglichene Größe genau den Grenzwert der Bedingung hat,
       und lass die Antwort mit dem Vergleichsoperator begründen. Nenne die Bedingung wörtlich.
-    needs: [condition, variable]
+    needs: [condition, variable, relational]
     fallback: "Betrachte die Bedingung {code} in {function}: Welcher Zweig läuft, wenn beide Seiten des Vergleichs genau gleich sind, und warum?"
     graphic: activity
   - id: branching-change-condition
@@ -61,7 +61,7 @@ assignments:
     task: >-
       Lass beschreiben, wie die Bedingung geändert werden müsste, damit auch der Grenzfall in diesen Zweig fällt,
       und welche Beobachtung im Simulator die Änderung bestätigt. Verlange keine fertige Codezeile.
-    needs: [condition, variable]
+    needs: [condition, variable, relational]
     fallback: "Wie müsstest du die Bedingung {code} in {function} ändern, damit auch der Grenzfall in diesen Zweig fällt, und woran erkennst du im Simulator, dass es wirkt?"
   - id: branching-change-order
     level: 4

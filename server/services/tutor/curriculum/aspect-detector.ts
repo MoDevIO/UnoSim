@@ -13,7 +13,7 @@ export type AspectId = typeof ASPECT_IDS[number];
 
 /** What a site offers; a question assignment names what it needs (`needs`). */
 export const SITE_FEATURES = [
-  "condition", "variable", "constant", "type", "initial-value", "else-branch", "else-if", "early-return", "nested",
+  "condition", "relational", "variable", "constant", "type", "initial-value", "else-branch", "else-if", "early-return", "nested",
   "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "interval", "state",
 ] as const;
 export type SiteFeature = typeof SITE_FEATURES[number];
@@ -166,6 +166,7 @@ function branchFeatures(source: Source, node: SyntaxNode, functionBody: SyntaxNo
   if (followed && inner.some(({ name }) => name === "ReturnStatement")) has.add("early-return");
   const condition = kids(node).find(({ name }) => name === "ConditionClause");
   if (condition && identifiers(source, condition).length > 0) has.add("variable");
+  if (isRelational(source, condition)) has.add("relational");
   return { has, branches };
 }
 
@@ -178,6 +179,13 @@ function loopParts(node: SyntaxNode): { condition?: SyntaxNode; counter?: Syntax
     };
   }
   return { condition: parts.find(({ name }) => name === "ConditionClause" || name === "ParenthesizedExpression") };
+}
+
+const RELATIONAL_OPERATORS = new Set(["<", ">", "<=", ">="]);
+
+/** The condition compares by order, so it has a boundary a value can sit exactly on. */
+function isRelational(source: Source, condition: SyntaxNode | undefined): boolean {
+  return condition !== undefined && descendants(condition).some((node) => node.name === "CompareOp" && RELATIONAL_OPERATORS.has(source.of(node)));
 }
 
 function operatorCount(node: SyntaxNode): number {
@@ -276,6 +284,7 @@ class Collector {
     const has = new Set<SiteFeature>();
     const counterNames = counter ? identifiers(this.source, counter) : [];
     if (condition) has.add("condition");
+    if (isRelational(this.source, condition)) has.add("relational");
     if (counter) has.add("counter");
     if (condition && identifiers(this.source, condition).some((name) => !counterNames.includes(name))) has.add("bound");
     const inner = descendants(node);
