@@ -57,6 +57,18 @@ describe("aspect detector", () => {
     expect(new Set(timing?.sites.map(({ id }) => id)).size).toBe(2);
   });
 
+  it("keeps pinMode apart from reading and writing a pin", () => {
+    const code = "void setup() { pinMode(2, INPUT_PULLUP); }\nvoid loop() { digitalWrite(8, digitalRead(2)); }";
+    const pins = detectAspects(code).find(({ id }) => id === "pins");
+    expect(pins?.sites.map(({ has }) => has)).toEqual([["pin", "mode"], ["output", "pin"], ["input", "pin"]]);
+  });
+
+  it("keeps Serial.begin apart from the calls that put something on the monitor", () => {
+    const code = "void setup() { Serial.begin(9600); }\nvoid loop() { int v = 1; Serial.print(\"v\"); Serial.println(v); }";
+    const serial = detectAspects(code).find(({ id }) => id === "serial");
+    expect(serial?.sites.map(({ has }) => has)).toEqual([["mode"], ["output"], ["output-value", "output"]]);
+  });
+
   it("finds a global written in loop() as the state of the program", () => {
     const code = "int count = 0;\nvoid setup() {}\nvoid loop() { count++; }";
     const flow = detectAspects(code).find(({ id }) => id === "program-flow");

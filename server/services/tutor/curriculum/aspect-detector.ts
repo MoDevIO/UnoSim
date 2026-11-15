@@ -14,7 +14,7 @@ export type AspectId = typeof ASPECT_IDS[number];
 /** What a site offers; a question assignment names what it needs (`needs`). */
 export const SITE_FEATURES = [
   "condition", "relational", "variable", "constant", "type", "initial-value", "else-branch", "else-if", "early-return", "nested",
-  "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "interval", "state",
+  "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "mode", "interval", "state",
 ] as const;
 export type SiteFeature = typeof SITE_FEATURES[number];
 
@@ -43,7 +43,14 @@ const MAX_SITE_CODE_CHARS = 120;
 const ENTRY_FUNCTIONS = new Set(["setup", "loop"]);
 const PIN_CALLS = new Set(["pinMode", "digitalRead", "digitalWrite", "analogRead", "analogWrite"]);
 const PIN_INPUT_CALLS = new Set(["digitalRead", "analogRead"]);
+/** `pinMode` prepares a pin; it neither reads nor writes a signal a learner could observe. */
+function pinFeature(callee: string): SiteFeature {
+  if (callee === "pinMode") return "mode";
+  return PIN_INPUT_CALLS.has(callee) ? "input" : "output";
+}
+
 const TIMING_CALLS = new Set(["delay", "delayMicroseconds", "millis", "micros"]);
+const SERIAL_OUTPUT_CALLS = new Set(["print", "println", "write"]);
 const SERIAL_INPUT_CALLS = new Set(["read", "available", "parseInt", "parseFloat", "readString", "readStringUntil", "peek"]);
 const LOOP_NODES = new Set(["ForStatement", "WhileStatement", "DoStatement"]);
 const BRANCH_NODES = new Set(["IfStatement", "SwitchStatement"]);
@@ -303,7 +310,7 @@ class Collector {
     const callee = calleeName(this.source, node);
     const args = kids(node).find(({ name }) => name === "ArgumentList");
     const site = { function: inFunction, node, code: this.source.compact(node), names: args ? identifiers(this.source, args) : [] };
-    if (PIN_CALLS.has(callee)) this.add("pins", { ...site, has: new Set(["pin", PIN_INPUT_CALLS.has(callee) ? "input" : "output"]) });
+    if (PIN_CALLS.has(callee)) this.add("pins", { ...site, has: new Set(["pin", pinFeature(callee)]) });
     if (TIMING_CALLS.has(callee)) this.add("timing", { ...site, has: new Set(callee.startsWith("delay") ? [] : ["interval"]) });
     if (callee.startsWith("Serial.")) this.add("serial", { ...site, has: serialFeatures(callee, site.names) });
   }
@@ -368,8 +375,11 @@ class Collector {
 }
 
 function serialFeatures(callee: string, argumentNames: readonly string[]): Set<SiteFeature> {
-  if (SERIAL_INPUT_CALLS.has(callee.slice("Serial.".length))) return new Set(["input"]);
-  return new Set(argumentNames.length > 0 ? ["output-value"] : []);
+  const method = callee.slice("Serial.".length);
+  if (SERIAL_INPUT_CALLS.has(method)) return new Set(["input"]);
+  // `Serial.begin` and its kind set the interface up; only print, println and write put something on the monitor.
+  if (!SERIAL_OUTPUT_CALLS.has(method)) return new Set(["mode"]);
+  return new Set(argumentNames.length > 0 ? ["output", "output-value"] : ["output"]);
 }
 
 function publicSites(source: Source, aspect: AspectId, sites: readonly Site[]): AspectSite[] {
