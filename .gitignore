@@ -101,3 +101,6 @@ benchmark-*.json
 
 server/arduino-cache/
 .run-tests.lock/
+
+# Local Tutor review exports (learner answers and sketches); development only
+tutor_reviews/
