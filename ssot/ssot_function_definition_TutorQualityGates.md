@@ -283,13 +283,26 @@ With the switch on and aspect files present:
    an identifier of the site or the site's code; otherwise the assignment's
    fallback question, filled with the site, is delivered. Invariant 10 holds
    for both. The session state is committed as in invariant 2.
+   An assignment of level 4 that asks for two parts (a change and its
+   observation) makes the question name both, with "erstens" and "zweitens".
+5. **Diagram.** For a question whose assignment carries `graphic: activity`,
+   and when the client negotiated the classic UML profile, the application
+   builds the activity diagram itself: the control statement of the site
+   (`if` with `else if` and `else`, `while`, `for`; branches with or without
+   braces; a `return` ends its path), with runs of plain statements as one
+   action each. The provider's proposal is not used and no further provider
+   call is made. The diagram passes the same validation and rendering as a
+   provider proposal; the validator accepts this variant (`excerpt:
+   "statement"`) only when it equals what the application builds for the
+   scope. A statement that holds `break`, `continue`, `switch`, `do`, code
+   after a `return` or an empty loop body gets no application-built diagram;
+   the provider's proposal is then handled as before.
 
-The deterministic tests are `aspect-detector.test.ts`, `aspect-planner.test.ts`
-and `aspect-flow.test.ts` under `tests/server/services/tutor/`: each aspect
+The deterministic tests are `aspect-detector.test.ts`, `aspect-planner.test.ts`,
+`aspect-flow.test.ts` and `uml/excerpt.test.ts` under `tests/server/services/tutor/`: each aspect
 with a positive and a negative sketch, each rule of the planner as a case, and
 the flow through `TutorService` with only the provider faked.
 
 Not yet covered by the flow: questions that connect two aspects and the
-overview at the end, question identity across an edit in the learning-support
-store, and a diagram generated from the code for assignments with
-`graphic: activity`.
+overview at the end, and question identity across an edit in the
+learning-support store.
