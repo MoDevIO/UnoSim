@@ -186,4 +186,14 @@ export interface TutorPlanningExtension {
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
   }): Promise<void>;
+  /**
+   * The graphic the application builds itself for the delivered question: the activity diagram of the
+   * control statement whose head holds `siteCode`. Undefined when the question's assignment asks for none.
+   */
+  questionGraphic?(input: {
+    readonly code: string;
+    readonly currentQuestion: string;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): { readonly kind: "activity"; readonly siteCode: string } | undefined;
 }

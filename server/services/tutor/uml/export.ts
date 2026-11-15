@@ -24,20 +24,25 @@ const preamble = [
   "skinparam classBackgroundColor #FFFFFF",
   "skinparam participantBackgroundColor #FFFFFF",
 ];
-function activity(steps: readonly UmlActivityStep[]): string[] {
+/** Only an excerpt shows a return inside a branch: the function ends there, the path does not rejoin. */
+const ENDS_WITH_RETURN = /(?:^|\n)return\b[^\n]*$/;
+function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] {
   return steps.flatMap((step) => {
-    if (step.type === "action") return [`:${literal(step.code)};`];
+    if (step.type === "action")
+      return excerpt && ENDS_WITH_RETURN.test(step.code)
+        ? [`:${literal(step.code)};`, "stop"]
+        : [`:${literal(step.code)};`];
     if (step.type === "decision")
       return [
         `if (${literal(step.condition)}) then ([ja])`,
-        ...activity(step.whenTrue),
+        ...activity(step.whenTrue, excerpt),
         "else ([nein])",
-        ...activity(step.whenFalse),
+        ...activity(step.whenFalse, excerpt),
         "endif",
       ];
     return [
       `while (${literal(step.condition)}) is ([ja])`,
-      ...activity(step.body),
+      ...activity(step.body, excerpt),
       "endwhile ([nein])",
     ];
   });
@@ -62,6 +67,12 @@ function activityDiagram(
       ...activity(proposal.loop.body),
       "repeat while (true) is ([immer])",
       "detach",
+    );
+  else if ("excerpt" in proposal)
+    output.push(
+      `title Ausschnitt: Zeilen ${proposal.scope.startLine} bis ${proposal.scope.endLine}`,
+      ...activity(proposal.body, true),
+      "stop",
     );
   else output.push(...activity(proposal.body), "stop");
   return output;

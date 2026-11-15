@@ -144,3 +144,11 @@ export function aspectLeaveQuestion(input: AspectFlowInput, currentQuestion: str
   const { session } = prepare(input);
   if (ownsQuestion(session, currentQuestion)) leaveOpen(session);
 }
+
+/** The site of the delivered question when its assignment asks for an activity diagram. */
+export function aspectQuestionGraphic(input: AspectFlowInput, currentQuestion: string): { kind: "activity"; siteCode: string } | null {
+  const { session, aspects } = prepare(input);
+  if (!ownsQuestion(session, currentQuestion)) return null;
+  const step = openStep(session, aspects, input.definitions);
+  return step?.assignment.graphic === "activity" ? { kind: "activity", siteCode: step.site.code } : null;
+}

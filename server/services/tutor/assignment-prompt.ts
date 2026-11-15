@@ -8,7 +8,7 @@ export const TUTOR_ASSIGNMENT_GUIDANCE_TEXT = {
   initial: "Frageauftrag der Anwendung (verbindlich für `question`, Vorrang vor allgemeinen Hinweisen zur Themenwahl):",
   followUp: "Frageauftrag der Anwendung für die Folgefrage (verbindlich für `question`, Vorrang vor allgemeinen Hinweisen zur Folgefrage). Er hängt von deinem answerRating ab:",
   rule: "Die Frage betrifft genau diese Stelle und nennt sie wörtlich: den Code der Stelle in Backticks oder einen ihrer Bezeichner. Sie nennt die gesuchte Antwort nicht.",
-  parts: "Verlangt der Auftrag zwei Teile (etwa eine Änderung und eine Beobachtung im Simulator), nennt die Frage beide ausdrücklich als Teile der erwarteten Antwort, mit „erstens“ und „zweitens“, und bleibt dabei ein einziger Fragesatz.",
+  parts: "Verlangt ein Auftrag der Stufe 4 zwei Teile (etwa eine Änderung und eine Beobachtung im Simulator), nennt die Frage beide ausdrücklich als Teile der erwarteten Antwort, mit „erstens“ und „zweitens“, und bleibt dabei ein einziger Fragesatz.",
   weak: "Bei answerRating 1 oder 2 bleibt die aktuelle Frage offen: gib im feedback einen Hinweis und wiederhole in `question` die aktuelle Frage sinngemäß.",
 } as const;
 
@@ -19,9 +19,14 @@ function describe({ aspectTitle, level, levelName, task, site }: TutorAssignment
   return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}`;
 }
 
+/** Only a level 4 assignment asks for a change and its observation; lower levels read stiff with the rule. */
+function partsRule(assignments: readonly TutorAssignment[]): string[] {
+  return assignments.some(({ level }) => level === 4) ? [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.parts] : [];
+}
+
 export function buildAssignmentGuidance(assignment: TutorAssignment | undefined): string[] {
   if (!assignment) return [];
-  return [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.initial, describe(assignment), TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule, TUTOR_ASSIGNMENT_GUIDANCE_TEXT.parts];
+  return [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.initial, describe(assignment), TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule, ...partsRule([assignment])];
 }
 
 function ratingsText(ratings: readonly number[]): string {
@@ -36,7 +41,7 @@ export function buildFollowUpAssignmentGuidance(previews: readonly TutorFollowUp
     ...previews.map(({ ratings, assignment }) => `- Bei answerRating ${ratingsText(ratings)}: ${describe(assignment)}`),
     `- ${TUTOR_ASSIGNMENT_GUIDANCE_TEXT.weak}`,
     TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule,
-    TUTOR_ASSIGNMENT_GUIDANCE_TEXT.parts,
+    ...partsRule(previews.map(({ assignment }) => assignment)),
   ];
 }
 

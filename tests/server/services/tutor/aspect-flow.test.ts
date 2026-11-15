@@ -7,6 +7,7 @@ import type { TutorPlanningContentContext } from "../../../../server/services/tu
 import { aspectFixtures, fixtureText, TEMPERATURE_CONTROLLER } from "./support/aspect-fixtures";
 import { curriculumTopicSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { parse as parseYaml } from "yaml";
+import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
 import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner";
 
 const revision = "4".repeat(40);
@@ -167,5 +168,19 @@ describe("aspect flow in the Tutor service", () => {
       expect(second.result?.topicId ?? "").not.toMatch(/^aspect-/);
       expect(content.progressionState.aspects).toBeUndefined();
     });
+  });
+
+  it("names the site for the diagram only when the assignment asks for one", async () => {
+    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const content = courseContent();
+    const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
+    if (!plan || "kind" in plan) throw new Error("plan expected");
+    // The first question explains a branch: its diagram would show the answer.
+    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: plan.question, courseContent: content })).toBeUndefined();
+    const next = await adapter.planFollowup({ code: TEMPERATURE_CONTROLLER, history: [], currentQuestion: plan.question, rating: 5, difficulty: 30, courseContent: content });
+    if (!next || "kind" in next) throw new Error("follow-up expected");
+    expect(next.assignment?.graphic).toBe("activity");
+    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: content })).toEqual({ kind: "activity", siteCode: next.assignment?.site.code });
+    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: "Was ist ein Pin?", courseContent: content })).toBeUndefined();
   });
 });

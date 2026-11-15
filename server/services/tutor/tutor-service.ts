@@ -1,3 +1,4 @@
+import { activityExcerptProposal } from "./uml/excerpt";
 import { prepareTutorUml, withoutTutorGraphics, type PreparedTutorUml } from "./uml/service";
 import { TUTOR_UML_PROMPT_DIRECTIVES } from "./uml/prompt";
 import type { TutorUmlArtifactHandle } from "./uml/artifacts";
@@ -985,7 +986,7 @@ export class TutorService {
     profile?: TutorGraphicsProfile; mode?: TutorGraphicsMode; proposal?: unknown;
     model: string; credential: string; signal?: AbortSignal;
     code: string; source: TutorSource; sketchText: string; context: unknown;
-    retained?: TutorDialogSupport;
+    retained?: TutorDialogSupport; courseContent?: TutorPlanningContentContext;
   }): Promise<{ result: TutorContentResult; _diagramArtifact?: TutorUmlArtifactHandle }> {
     if (!input.profile) return { result: await ensureTutorQuestionGraphic(this.provider, { result, mode: input.retained ? undefined : input.mode, model: input.model, credential: input.credential, signal: input.signal, sketchText: input.sketchText, context: input.context }) };
     const text = withoutTutorGraphics(result);
@@ -993,7 +994,10 @@ export class TutorService {
       ? { result: { ...text, ...input.retained.graphic }, ...(input.retained.diagramArtifact ? { _diagramArtifact: input.retained.diagramArtifact } : {}) }
       : { result: text };
     const codeContext: UmlCodeContext = { question: result.question, code: input.code, entryFile: input.source.entryFile ?? "sketch.ino", board: input.source.board ?? "uno", headers: Object.fromEntries((input.source.headers ?? []).map(h => [h.name, h.content])) };
-    const prepared: PreparedTutorUml = await prepareTutorUml(this.provider, codeContext, { ...this.umlOptions, mode: input.retained ? "auto" : input.mode, proposal: input.proposal, model: input.model, credential: input.credential, signal: input.signal });
+    // An assignment that asks for a diagram gets the one the application builds from the code (stage 3).
+    const own = this.planningExtension?.questionGraphic?.({ code: input.sketchText, currentQuestion: result.question, courseContent: input.courseContent });
+    const proposal = (own && activityExcerptProposal(codeContext, own.siteCode)) ?? input.proposal;
+    const prepared: PreparedTutorUml = await prepareTutorUml(this.provider, codeContext, { ...this.umlOptions, mode: input.retained ? "auto" : input.mode, proposal, model: input.model, credential: input.credential, signal: input.signal });
     const { _diagramArtifact, ...publicDiagram } = prepared;
     if (input.retained && !prepared.diagram && prepared.graphicStatus !== "not-useful" && input.retained.graphic) return { result: { ...text, ...input.retained.graphic }, _diagramArtifact: input.retained.diagramArtifact };
     return { result: { ...text, ...publicDiagram }, ...(_diagramArtifact ? { _diagramArtifact } : {}) };
@@ -1156,7 +1160,7 @@ export class TutorService {
     if (!plan && repeatsAvoidedQuestion(validatedResult.question, options.avoidQuestions)) throw new TutorProviderError("invalid-response");
     const final = finalizeInitialQuestion(validatedResult, planningResult, strategy, plan, sketchText);
     throwIfTutorRequestAborted(signal);
-    const graphic = await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal });
+    const graphic = await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal, courseContent: transaction.courseContent });
     const graphicResult = graphic.result;
     throwIfTutorRequestAborted(signal);
     if (final.accepted) transaction.commit();
@@ -1236,7 +1240,7 @@ export class TutorService {
     const final = finalizeTutorResult(finalResult, applyStrategyMetadata(validatedResult, strategy), sketchText);
     throwIfTutorRequestAborted(signal);
     const graphic = graphicsProfile || final.result.question !== question
-      ? await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal })
+      ? await this.finalGraphics(final.result, { profile: graphicsProfile, mode: graphicsMode, proposal: final.result.question === providerResult.result.question ? providerResult.diagramProposal : undefined, model: graphics.selectedModel(), code, source, sketchText, context: { ...context, entryFile: source.entryFile }, credential: requestCredential, signal, courseContent: transaction.courseContent })
       : { result: final.result };
     const graphicResult = graphic.result;
     throwIfTutorRequestAborted(signal);
@@ -1320,7 +1324,7 @@ export class TutorService {
     const final = finalizeTutorResult(withStrategy, fallback, code, validatedResult);
     throwIfTutorRequestAborted(signal);
     const graphic = context.graphicsProfile || (!retained && final.result.question !== question)
-      ? await this.finalGraphics(final.result, { profile: context.graphicsProfile, mode: context.graphicsMode, proposal: final.result.question === context.primaryQuestion ? context.diagramProposal : undefined, model: context.graphicModel, code: context.originalCode, source: context.source, sketchText: code, context: context.graphicContext, credential: context.credential, signal, ...(retained && final.result.question === question ? { retained: support } : {}) })
+      ? await this.finalGraphics(final.result, { profile: context.graphicsProfile, mode: context.graphicsMode, proposal: final.result.question === context.primaryQuestion ? context.diagramProposal : undefined, model: context.graphicModel, code: context.originalCode, source: context.source, sketchText: code, context: context.graphicContext, credential: context.credential, signal, courseContent: transaction.courseContent, ...(retained && final.result.question === question ? { retained: support } : {}) })
       : { result: withRetainedGraphic(final.result, question, support) };
     const graphicResult = graphic.result;
     throwIfTutorRequestAborted(signal);
@@ -1618,7 +1622,8 @@ export const TUTOR_PROMPT_REVISION = {
   // v12: negotiated classic UML proposal, source-file context, and server-only rendered artifact.
   // v13: question assignments of the aspect flow: the application names aspect, level and site, per rating
   // for a follow-up question, and the model words the question.
-  id: "tutor-prompts-v14",
+  // v14/v15: a level 4 assignment with two parts names both in the question ("erstens", "zweitens").
+  id: "tutor-prompts-v15",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;

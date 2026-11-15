@@ -86,8 +86,19 @@ export const umlArduinoActivityProposalSchema = z.strictObject({
     body: boundedArray(stepSchema, 12),
   }),
 });
+/** One control statement, built by the application from the code; a provider cannot widen it. */
+export const umlExcerptActivityProposalSchema = z.strictObject({
+  ...base,
+  kind: z.literal("activity"),
+  excerpt: z.literal("statement"),
+  body: boundedArray(stepSchema, 12, 1),
+});
+export type UmlExcerptActivityProposal = z.infer<
+  typeof umlExcerptActivityProposalSchema
+>;
 export const umlActivityProposalSchema = z.union([
   umlFunctionActivityProposalSchema,
+  umlExcerptActivityProposalSchema,
   umlArduinoActivityProposalSchema,
 ]);
 export type UmlArduinoActivityProposal = z.infer<

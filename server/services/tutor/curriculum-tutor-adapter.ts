@@ -47,7 +47,7 @@ import {
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
 import {
-  aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
+  aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
 } from "./curriculum/aspect-flow";
 import type { AspectDefinition } from "./curriculum/aspect-schema";
 
@@ -178,6 +178,10 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (!context || context.blocked) return;
     const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
     if (question) markQuestionLeft(context.state, context.topic.id, question.id);
+  }
+
+  questionGraphic(input: { readonly code: string; readonly currentQuestion: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): { readonly kind: "activity"; readonly siteCode: string } | undefined {
+    return this.aspects(input, (flow) => aspectQuestionGraphic(flow, input.currentQuestion)) ?? undefined;
   }
 
   /** The aspect files that plan for this request; undefined while the Topic catalog or a free Tutor is in charge. */
