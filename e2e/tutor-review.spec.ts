@@ -67,7 +67,7 @@ async function open(page: Page) {
   });
   await page.route("**/api/config", async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, json: { ...await response.json(), tutorDiagnosticsAvailable: true } });
+    await route.fulfill({ response, json: { ...await response.json(), tutorGraphics: undefined, tutorDiagnosticsAvailable: true } });
   });
   await page.route("**/api/tutor/**", async (route) => {
     const incoming = route.request();

@@ -1,0 +1,33 @@
+import { afterEach, expect, it } from 'vitest';
+import { TUTOR_DIFFICULTY_GUIDANCE, TUTOR_RATING_RUBRIC } from '@shared/tutor-assessment-guidance';
+import { beginTutorReviewRequest, clearTutorReviewRuns, completeTutorReviewStep, receiveTutorReviewResponse, tutorReviewRuns } from '@/lib/tutor-review-store';
+import { buildTutorReviewExport } from '@/lib/tutor-review-export';
+const credential = 'private-credential';
+const proposal = { version:1,profile:'uml1-classic-v1',status:'diagram',kind:'activity',purpose:`Kontext ${credential}`,scope:{file:'sketch.ino',startLine:1,endLine:3},body:[{type:'action',code:`print("${credential}")`,ref:{file:'sketch.ino',startLine:2,endLine:2}}] };
+const diagram = { version:1,profile:'uml1-classic-v1',kind:'activity',purpose:proposal.purpose,proposal,image:{svg:'<svg>private-image</svg>',width:200,height:150,bytes:30,rendererRevision:'fixed-renderer'} };
+afterEach(() => { clearTutorReviewRuns(); localStorage.clear(); });
+it('captures normalized UML evidence and decisions without any image or private handle', () => {
+ localStorage.setItem('unoDebugMode','1');clearTutorReviewRuns();
+ const ids={traceId:crypto.randomUUID(),requestId:crypto.randomUUID()};
+ const handle=beginTutorReviewRequest({...ids,endpoint:'question',body:JSON.stringify({code:'void run(){}',credential,graphicsProfile:'uml1-classic-v1'})});
+ receiveTutorReviewResponse(handle,{ok:true,serverAvailable:true,body:{question:'Welche Folge?',graphicStatus:'provided',diagram,_diagramArtifact:'private-handle'},review:{...ids,version:1,operation:'question',promptRevision:{id:'tutor-prompts-v12',templateDigest:'a'.repeat(64)},guidanceRevision:'assessment-guidance-v1',guidance:{ratingRubric:TUTOR_RATING_RUBRIC,difficultyGuidance:TUTOR_DIFFICULTY_GUIDANCE},entries:[{kind:'uml',profile:'uml1-classic-v1',state:'provided',attempt:0,question:'Welche Folge?',promptRevision:'tutor-uml1-classic-v1-r3',rendererRevision:'fixed-renderer',proposalJson:JSON.stringify(proposal)}],dropped:0,sanitized:0}});
+ completeTutorReviewStep(handle);
+ const run=tutorReviewRuns().at(-1)!;const step=run.steps[0];
+ expect(step.request?.graphicsProfile).toBe('uml1-classic-v1');
+ expect(step.response?.diagram).toMatchObject({profile:'uml1-classic-v1',kind:'activity',purpose:'Kontext [REDACTED-CREDENTIAL]',rendererRevision:'fixed-renderer'});
+ expect(step.response?.diagram?.proposalJson).toContain('[REDACTED-CREDENTIAL]');
+ const exportText=buildTutorReviewExport(run).text;
+ expect(exportText).toContain('UML-Profil: uml1-classic-v1');
+ expect(exportText).toContain('UML-Vorschlag');
+ expect(exportText).not.toMatch(/private-image|private-handle|private-credential|<svg>/);
+ expect(JSON.stringify(run)).not.toMatch(/private-image|private-handle|private-credential|<svg>/);
+});
+it('captures not-useful and the complete diagram of a skipped-to question',()=>{
+ localStorage.setItem('unoDebugMode','1');clearTutorReviewRuns();
+ const handle=beginTutorReviewRequest({traceId:crypto.randomUUID(),requestId:crypto.randomUUID(),endpoint:'support',body:JSON.stringify({code:'void run(){}',action:'skip',credential})});
+ receiveTutorReviewResponse(handle,{ok:true,body:{graphicStatus:'not-useful',next:{question:'Nächste Frage?',graphicStatus:'provided',diagram}},serverAvailable:false});
+ completeTutorReviewStep(handle);const step=tutorReviewRuns().at(-1)!.steps[0];
+ expect(step.response?.graphicStatus).toBe('not-useful');
+ expect(step.response?.next?.diagram?.kind).toBe('activity');
+ expect(JSON.stringify(step)).not.toContain('private-image');
+});

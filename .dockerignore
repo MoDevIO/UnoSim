@@ -27,3 +27,7 @@ temp
 # mode 0750), which the host user cannot read; sending it as build context
 # would fail with "permission denied". It is never copied into an image.
 storage
+
+# Renderer is provisioned and verified in the image build, never copied from host.
+cache
+.superpowers

@@ -1,3 +1,4 @@
+import { normalizeTutorUmlPayload } from "./tutor-uml-image";
 import { rejectTutorDiagnosticResponse, bindTutorDiagnosticResponse, tutorDiagnosticFetch } from "./tutor-diagnostics";
 import { tutorSupportResponseSchema, type TutorSupportResponse } from "@shared/tutor-support";
 import type { TutorResponse } from "@shared/tutor";
@@ -12,6 +13,7 @@ export async function sendTutorSupportAction(
   signal: AbortSignal,
   failure: (body: unknown) => Error,
   diagnosticTraceId?: string,
+  graphicsProfile?: string | null,
 ): Promise<TutorSupportResponse | null> {
   const response = await tutorDiagnosticFetch("/api/tutor/support", {
     method: "POST",
@@ -23,7 +25,7 @@ export async function sendTutorSupportAction(
   const payload: unknown = await response.json().catch(() => null);
   if (signal.aborted) return null;
   if (!response.ok) throw failure(payload);
-  const parsed = tutorSupportResponseSchema.safeParse(payload);
+  const parsed = tutorSupportResponseSchema.safeParse(typeof payload === "object" && payload !== null && "next" in payload ? { ...payload, next: normalizeTutorUmlPayload(payload.next, graphicsProfile) } : payload);
   if (!parsed.success) { rejectTutorDiagnosticResponse(payload); throw new Error("Der Tutor-Dienst hat eine ungültige Antwort geliefert."); }
   bindTutorDiagnosticResponse(payload, parsed.data);
   return parsed.data;

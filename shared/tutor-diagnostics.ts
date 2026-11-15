@@ -19,6 +19,11 @@ export const tutorDiagnosticEventSchema = z.object({
   durationMs: smallNumber.optional(), chars: smallNumber.optional(), nodes: smallNumber.optional(), edges: smallNumber.optional(),
   modelRequested: model.optional(), modelReturned: model.optional(),
   source: z.enum(["provider", "planner", "application-fallback", "support-cache"]).optional(),
+  graphicsMode: z.enum(["auto", "always"]).optional(),
+  graphicAttempt: z.number().int().min(0).max(1).optional(),
+  graphicsProfile: z.literal("uml1-classic-v1").optional(),
+  umlKind: z.enum(["activity", "class", "sequence"]).optional(),
+  bytes: smallNumber.optional(), width: z.number().positive().max(2400).optional(), height: z.number().positive().max(4000).optional(),
   dropped: smallNumber.optional(),
 }).strict().refine((event) => diagnosticBytes(event) <= TUTOR_DIAGNOSTIC_LIMITS.eventBytes);
 export type TutorDiagnosticEvent = z.infer<typeof tutorDiagnosticEventSchema>;

@@ -10,6 +10,9 @@ COPY package.json package-lock.json ./
 # npm workspaces: every workspace manifest must exist before npm ci.
 COPY packages/avr-emulator/package.json ./packages/avr-emulator/package.json
 RUN npm ci
+# Provision the same verified local renderer used in development/tests; no request-time downloads.
+COPY scripts/provision-tutor-uml.mjs scripts/tutor-uml-runtime.lock.json ./scripts/
+RUN npm run provision:tutor-uml && rm -f cache/tutor-uml/*-jre.tar.gz cache/tutor-uml/fonts.tar.bz2
 COPY tsconfig.json tsconfig.eslint.json vite.config.ts postcss.config.js tailwind.config.ts components.json ./
 COPY scripts/check-bundle-budget.mjs ./scripts/check-bundle-budget.mjs
 COPY public ./public
@@ -17,6 +20,9 @@ COPY client ./client
 COPY server ./server
 COPY shared ./shared
 COPY packages ./packages
+COPY docs/examples/tutor-uml ./docs/examples/tutor-uml
+COPY scripts/check-tutor-uml-runtime.ts ./scripts/
+RUN npm run check:tutor-uml-runtime
 RUN npm run build
 
 ########################################
@@ -37,12 +43,15 @@ COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    fontconfig libfreetype6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/server/arduino-cache /app/storage/binaries /app/temp
 
 # Copy built artifacts
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/cache/tutor-uml ./cache/tutor-uml
+COPY --from=builder /app/docs/examples/tutor-uml/*.puml ./docs/examples/tutor-uml/
 
 # Copy package metadata and install dependencies
 COPY package.json package-lock.json ./

@@ -195,18 +195,28 @@ export function bindTutorDiagnosticResponse(source: unknown, target: object): vo
     completeTutorReviewStep(context.review);
   }
   const value = target as Record<string, unknown>;
-  if (typeof value.mermaid === "string") {
+  const graphic = receivedGraphic(value);
+  if (graphic) {
     context.diagramId ??= crypto.randomUUID();
     if (!context.graphicReceived) {
       context.graphicReceived = true;
-      report(context, { origin: "frontend", stage: "browser", outcome: "received", chars: value.mermaid.length, diagramType: tutorDiagramType(value.mermaid) });
+      report(context, { origin: "frontend", stage: "browser", ...graphic });
     }
   }
   if (typeof value.next === "object" && value.next !== null) bindTutorDiagnosticResponse(target, value.next);
 }
+function receivedGraphic(value: Record<string, unknown>): Omit<Partial<TutorDiagnosticData>, "outcome"> & Pick<TutorDiagnosticData, "outcome"> | undefined {
+  if (typeof value.mermaid === "string") return { outcome: "received", chars: value.mermaid.length, diagramType: tutorDiagramType(value.mermaid) };
+  const diagram = value.diagram as { profile?: unknown; kind?: unknown } | undefined;
+  if (diagram?.profile === "uml1-classic-v1" && (diagram.kind === "activity" || diagram.kind === "class" || diagram.kind === "sequence")) {
+    return { outcome: "received", graphicsProfile: "uml1-classic-v1", umlKind: diagram.kind };
+  }
+  if (value.graphicStatus === "unavailable" || value.graphicStatus === "not-useful") return { outcome: "not-provided" };
+  return undefined;
+}
 export function reportTutorGraphic(subject: object, data: Omit<TutorDiagnosticData, "origin">): void {
   const context = responses.get(subject);
-  if (!context || typeof (subject as Record<string, unknown>).mermaid !== "string") return;
+  if (!context || !receivedGraphic(subject as Record<string, unknown>)) return;
   report(context, { ...data, origin: data.stage === "renderer" ? "renderer" : "frontend" });
 }
 

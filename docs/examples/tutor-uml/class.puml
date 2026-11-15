@@ -1,0 +1,21 @@
+@startuml
+!pragma layout smetana
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam classBackgroundColor #FFFFFF
+skinparam participantBackgroundColor #FFFFFF
+skinparam classAttributeIconSize 0
+hide circle
+class Device {
+ -pin : byte
+ +begin() : void
+}
+class Led {
+ -active : bool
+ +set(value : bool) : void
+}
+Device <|-- Led
+@enduml

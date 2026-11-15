@@ -1,0 +1,369 @@
+import { parser } from "@lezer/cpp";
+import { BOARD_CATALOG } from "@shared/boards";
+import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
+import type { SyntaxNode } from "@lezer/common";
+import type {
+  UmlActivityStep,
+  UmlCodeContext,
+  UmlSourceRef,
+} from "@shared/tutor-uml";
+
+export interface UmlSourceDocument {
+  file: string;
+  text: string;
+  root: SyntaxNode;
+  nodes: SyntaxNode[];
+}
+export const children = (node: SyntaxNode): SyntaxNode[] => {
+  const list: SyntaxNode[] = [];
+  for (let child = node.firstChild; child; child = child.nextSibling)
+    list.push(child);
+  return list;
+};
+export const codeText = (doc: UmlSourceDocument, node: SyntaxNode): string =>
+  doc.text.slice(node.from, node.to);
+export const normalizedCode = (value: string): string => value.trim();
+export const sourceLine = (doc: UmlSourceDocument, offset: number): number =>
+  doc.text.slice(0, offset).split("\n").length;
+export function matchesRef(
+  doc: UmlSourceDocument,
+  node: SyntaxNode,
+  ref: UmlSourceRef,
+): boolean {
+  return (
+    ref.file === doc.file &&
+    ref.startLine === sourceLine(doc, node.from) &&
+    ref.endLine === sourceLine(doc, Math.max(node.from, node.to - 1))
+  );
+}
+export function nodesNamed(doc: UmlSourceDocument, name: string): SyntaxNode[] {
+  return doc.nodes.filter((node) => node.name === name);
+}
+export function functionName(
+  doc: UmlSourceDocument,
+  node: SyntaxNode,
+): string | undefined {
+  const declarator = children(node).find(
+    (child) => child.name === "FunctionDeclarator",
+  );
+  const name =
+    declarator &&
+    children(declarator).find(
+      (child) =>
+        child.name === "Identifier" || child.name === "FieldIdentifier",
+    );
+  return name && codeText(doc, name);
+}
+// ES2021-compatible own-property check, matching the course-content schema boundary.
+function hasOwn(
+  value: Readonly<Record<string, string>> | undefined,
+  key: string,
+): boolean {
+  return (
+    value !== undefined &&
+    Reflect.getOwnPropertyDescriptor(value, key) !== undefined
+  );
+}
+/** No macro expansion or compiler claim: ambiguous preprocessing and any parse error reject the evidence. */
+export function readUmlSources(
+  context: UmlCodeContext,
+): UmlSourceDocument[] | null {
+  if (!context.entryFile || !context.board || !context.question.trim())
+    return null;
+  const files = {
+    ...context.headers,
+    [context.entryFile]: context.code,
+  };
+  if (hasOwn(context.headers, context.entryFile)) return null;
+  const docs: UmlSourceDocument[] = [];
+  for (const [file, text] of Object.entries(files)) {
+    const root = parser.parse(text).topNode;
+    const nodes: SyntaxNode[] = [];
+    const walk = (node: SyntaxNode): void => {
+      nodes.push(node);
+      children(node).forEach(walk);
+    };
+    walk(root);
+    // Preprocessor directives must not silently change the apparent tree. Includes are
+    // only accepted when their exact target is among the files sent to the provider.
+    if (nodes.some((node) => node.type.isError)) return null;
+    for (const node of nodes.filter((node) => /Preproc/.test(node.name))) {
+      const directive = text.slice(node.from, node.to).trim();
+      const include = /^#\s*include\s*"([^"\n]+)"\s*$/.exec(directive);
+      if (!include || !hasOwn(context.headers, include[1])) return null;
+    }
+    docs.push({ file, text, root, nodes });
+  }
+  return docs;
+}
+function statementChildren(node: SyntaxNode): SyntaxNode[] {
+  return children(node).filter(
+    (child) =>
+      !["{", "}", "Comment", "LineComment", "BlockComment"].includes(
+        child.name,
+      ),
+  );
+}
+function proveAction(
+  doc: UmlSourceDocument,
+  block: SyntaxNode,
+  statement: SyntaxNode,
+  step: Extract<UmlActivityStep, { type: "action" }>,
+  index: number,
+  length: number,
+): boolean {
+  if (
+    !["ExpressionStatement", "Declaration", "ReturnStatement"].includes(
+      statement.name,
+    )
+  )
+    return false;
+  if (
+    statement.name === "ExpressionStatement" &&
+    !children(statement).some((n) =>
+      ["CallExpression", "AssignmentExpression", "UpdateExpression"].includes(
+        n.name,
+      ),
+    )
+  )
+    return false;
+  if (
+    statement.name === "Declaration" &&
+    !children(statement).some((n) => n.name === "InitDeclarator")
+  )
+    return false;
+  // Return is terminal; unsupported early exits cannot be flattened.
+  if (
+    statement.name === "ReturnStatement" &&
+    (index !== length - 1 || block.parent?.name !== "FunctionDefinition")
+  )
+    return false;
+  return normalizedCode(codeText(doc, statement)) === normalizedCode(step.code);
+}
+function proveBranches(
+  doc: UmlSourceDocument,
+  branches: readonly SyntaxNode[],
+  step: Exclude<UmlActivityStep, { type: "action" }>,
+): boolean {
+  // Keep branch positions: unbraced branches must never be omitted or reversed.
+  if (step.type === "loop")
+    return (
+      branches.length === 1 &&
+      branches[0].name === "CompoundStatement" &&
+      proveActivity(doc, branches[0], step.body)
+    );
+  if (branches[0]?.name !== "CompoundStatement") return false;
+  if (branches.length === 1)
+    return (
+      step.whenFalse.length === 0 &&
+      proveActivity(doc, branches[0], step.whenTrue)
+    );
+  return (
+    branches.length === 3 &&
+    branches[1].name === "else" &&
+    branches[2].name === "CompoundStatement" &&
+    proveActivity(doc, branches[0], step.whenTrue) &&
+    proveActivity(doc, branches[2], step.whenFalse)
+  );
+}
+function proveControlStep(
+  doc: UmlSourceDocument,
+  statement: SyntaxNode,
+  step: Exclude<UmlActivityStep, { type: "action" }>,
+): boolean {
+  if (
+    statement.name !==
+    (step.type === "decision" ? "IfStatement" : "WhileStatement")
+  )
+    return false;
+  const parts = children(statement);
+  const condition = parts.find((n) => n.name === "ConditionClause");
+  if (!condition) return false;
+  const conditionText = codeText(doc, condition).trim().slice(1, -1);
+  if (/^(?:true|false|\d+)$/.test(conditionText.trim())) return false;
+  if (normalizedCode(conditionText) !== normalizedCode(step.condition))
+    return false;
+  const branches = parts
+    .slice(parts.indexOf(condition) + 1)
+    .filter(
+      (n) => !["Comment", "LineComment", "BlockComment"].includes(n.name),
+    );
+  return proveBranches(doc, branches, step);
+}
+/** The complete selected function body is retained: omission cannot invent adjacency. */
+export function proveActivity(
+  doc: UmlSourceDocument,
+  block: SyntaxNode,
+  steps: readonly UmlActivityStep[],
+): boolean {
+  const statements = statementChildren(block);
+  if (statements.length !== steps.length) return false;
+  return statements.every((statement, index) => {
+    const step = steps[index];
+    if (!matchesRef(doc, statement, step.ref)) return false;
+    return step.type === "action"
+      ? proveAction(doc, block, statement, step, index, statements.length)
+      : proveControlStep(doc, statement, step);
+  });
+}
+export function scopedFunction(
+  docs: readonly UmlSourceDocument[],
+  ref: UmlSourceRef,
+): { doc: UmlSourceDocument; node: SyntaxNode } | undefined {
+  const found = docs.flatMap((doc) =>
+    nodesNamed(doc, "FunctionDefinition")
+      .filter((node) => matchesRef(doc, node, ref))
+      .map((node) => ({ doc, node })),
+  );
+  return found.length === 1 ? found[0] : undefined;
+}
+export function className(
+  doc: UmlSourceDocument,
+  node: SyntaxNode,
+): string | undefined {
+  const name = children(node).find((n) => n.name === "TypeIdentifier");
+  return name && codeText(doc, name);
+}
+export function memberDeclaration(
+  doc: UmlSourceDocument,
+  node: SyntaxNode,
+): string {
+  const body = children(node).find((n) => n.name === "CompoundStatement");
+  return normalizedCode(
+    doc.text
+      .slice(node.from, body?.from ?? node.to)
+      .trim()
+      .replace(/;$/, ""),
+  );
+}
+export function classMembers(
+  doc: UmlSourceDocument,
+  node: SyntaxNode,
+): {
+  node: SyntaxNode;
+  visibility: string;
+  kind: "attribute" | "operation";
+  declaration: string;
+}[] {
+  const fieldList = children(node).find(
+    (n) => n.name === "FieldDeclarationList",
+  );
+  if (!fieldList) return [];
+  let visibility = /^struct\b/.test(codeText(doc, node)) ? "public" : "private";
+  const members: ReturnType<typeof classMembers> = [];
+  for (const child of children(fieldList)) {
+    if (child.name === "AccessSpecifier")
+      visibility = codeText(doc, child).replace(/:$/, "").trim();
+    else if (
+      child.name === "FieldDeclaration" ||
+      child.name === "FunctionDefinition"
+    )
+      members.push({
+        node: child,
+        visibility,
+        kind: children(child).some((n) => n.name === "FunctionDeclarator")
+          ? "operation"
+          : "attribute",
+        declaration: memberDeclaration(doc, child),
+      });
+  }
+  return members;
+}
+/** This profile only proves literal defaults; evaluating other initializers may hide calls. */
+export function hasUnsupportedSequenceDefaults(
+  doc: UmlSourceDocument,
+  fn: SyntaxNode,
+): boolean {
+  const declarator = children(fn).find((n) => n.name === "FunctionDeclarator");
+  if (!declarator) return true;
+  return doc.nodes.some((node) => {
+    if (
+      node.name !== "OptionalParameterDeclaration" ||
+      node.from < declarator.from ||
+      node.to > declarator.to
+    ) return false;
+    const initializer = children(node).at(-1);
+    return (
+      !initializer ||
+      !["Number", "String", "CharLiteral", "True", "False", "nullptr"].includes(
+        initializer.name,
+      )
+    );
+  });
+}
+export function straightStatements(node: SyntaxNode): SyntaxNode[] | undefined {
+  const body = children(node).find((n) => n.name === "CompoundStatement");
+  if (!body) return undefined;
+  const statements = statementChildren(body);
+  return statements.every((n) =>
+    ["ExpressionStatement", "ReturnStatement"].includes(n.name),
+  )
+    ? statements
+    : undefined;
+}
+
+/** App-owned projection of the pinned Arduino AVR main.cpp callback contract.
+ * Source inspected: arduino:avr@1.8.8, cores/arduino/main.cpp: setup(); for (;;) { loop(); ... }
+ * Core initialization/USB/serial hooks are outside this explicitly named callback view.
+ */
+export const ARDUINO_UML_RUNTIME_FACTS = Object.freeze({
+  profile: TUTOR_UML_PROFILE,
+  revision: "arduino-avr-1.8.8-main-callbacks-v1",
+  core: Object.freeze({ id: "arduino:avr", version: "1.8.8" }),
+  boards: Object.freeze(["uno", "nano", "mega2560"] as const),
+  setupCalls: 1,
+  loopCalls: "repeat-forever",
+  end: false,
+} as const);
+export function hasArduinoRuntimeFacts(context: UmlCodeContext): boolean {
+  const board = BOARD_CATALOG.find((b) => b.id === context.board);
+  return (
+    !!board &&
+    (ARDUINO_UML_RUNTIME_FACTS.boards as readonly string[]).includes(
+      context.board,
+    ) &&
+    board.core.id === ARDUINO_UML_RUNTIME_FACTS.core.id &&
+    board.core.version === ARDUINO_UML_RUNTIME_FACTS.core.version
+  );
+}
+/** Conservative scope binding: parameters and class members cannot be mistaken for globals. */
+export function hasParticipantShadow(
+  doc: UmlSourceDocument,
+  fn: SyntaxNode,
+  names: ReadonlySet<string>,
+): boolean {
+  const declarator = children(fn).find((n) => n.name === "FunctionDeclarator");
+  if (!declarator) return true;
+  const parameters = doc.nodes.filter(
+    (n) =>
+      n.name === "ParameterDeclaration" &&
+      n.from >= declarator.from &&
+      n.to <= declarator.to,
+  );
+  if (
+    parameters.some((parameter) =>
+      doc.nodes.some(
+        (n) =>
+          n.name === "Identifier" &&
+          n.from >= parameter.from &&
+          n.to <= parameter.to &&
+          names.has(codeText(doc, n)),
+      ),
+    )
+  )
+    return true;
+  const klass =
+    fn.parent?.name === "FieldDeclarationList" ? fn.parent.parent : undefined;
+  if (!klass) return false;
+  // Inherited lookup is outside this small sequence proof.
+  if (children(klass).some((n) => n.name === "BaseClassClause")) return true;
+  return classMembers(doc, klass).some((member) =>
+    doc.nodes.some(
+      (n) =>
+        n.name === "FieldIdentifier" &&
+        n.from >= member.node.from &&
+        n.to <= member.node.to &&
+        names.has(codeText(doc, n)),
+    ),
+  );
+}

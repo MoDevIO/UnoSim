@@ -69,6 +69,21 @@ Die vollständige Kapazitäts- und Timeout-Semantik steht in
 Validierungsprofile sind Testprofile und keine automatischen
 Produktionsvorgaben.
 
+## Tutor-UML-Laufzeit
+
+Der Server-Imagebuild provisioniert die gleiche SHA-256-geprüfte PlantUML-MIT-
+Distribution, Temurin-JRE und DejaVu-Schriftfamilie wie die lokale Installation.
+Ein Smokecheck rendert alle drei Diagrammarten, davon zwei parallel. Der
+Ubuntu/VBox-Installer verwendet dieses Dockerfile und benötigt keinen getrennten
+Java-Installationsschritt. Zur Laufzeit gibt es keinen Download und keinen
+öffentlichen Renderdienst. Fehlende/beschädigte Abhängigkeiten deaktivieren die
+Grafikbereitstellung; der Tutortext bleibt nutzbar.
+
+Der Renderer hat 256 MiB Java-Heap je Prozess, höchstens zwei aktive Prozesse und
+acht Wartende, ein Zeitlimit von zehn Sekunden und begrenzte Bildausgabe. Dies
+ist keine harte Grenze für den gesamten Prozessbaum-RAM. Messwerte und Lizenzen
+stehen im [UML-Arbeitsbericht](proposals/report-tutor-classic-uml.md).
+
 ## Gateway-Vertrag
 
 Das Gateway muss:

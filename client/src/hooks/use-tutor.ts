@@ -1,3 +1,7 @@
+import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
+import { boundTutorUmlResponse, normalizeTutorUmlPayload } from "@/lib/tutor-uml-image";
+import type { TutorGraphicsMode } from "@shared/tutor-graphics";
+import { readTutorGraphicsMode } from "@/lib/tutor-graphics-preference";
 import { rejectTutorDiagnosticResponse, bindTutorDiagnosticResponse, reportTutorGraphic, reportTutorReviewAction, reportTutorReviewRatingSummary, reportTutorReviewReset, setTutorDiagnosticsAvailable, tutorDiagnosticFetch, tutorRequestTrace } from "@/lib/tutor-diagnostics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -100,9 +104,9 @@ export type TutorRequestKind = "question" | "answer" | "support";
 /** A failed request with all it sent, so that a repeat sends the same content with the same action id. */
 type TutorFailedRequest = (
   | { readonly kind: "models" }
-  | { readonly kind: "question"; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
-  | { readonly kind: "answer"; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
-  | { readonly kind: "support"; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
+  | { readonly kind: "question"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
+  | { readonly kind: "answer"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
+  | { readonly kind: "support"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
 
 export type TutorFailedRequestKind = TutorFailedRequest["kind"];
 
@@ -312,15 +316,6 @@ function supportBinding(support: TutorSupportState, actionId: string) {
  * The action id of an answer. The same answer to the same code keeps its id; another answer or other code is
  * another action, because the server keeps a result per id.
  */
-function answerActionId(
-  support: TutorSupportState,
-  answer: string,
-  sketch: TutorSketch,
-  pending: { current: { readonly key: string; readonly actionId: string } | null },
-): string {
-  return actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}`);
-}
-
 /** The action id and binding of an answer; none outside the support cycle, the failed one's id on a repeat. */
 function answerBindingFor(
   support: TutorSupportState | null,
@@ -328,9 +323,11 @@ function answerBindingFor(
   sketch: TutorSketch,
   pending: { current: { readonly key: string; readonly actionId: string } | null },
   repeatedActionId?: string,
+  graphicsMode: TutorGraphicsMode = "auto",
+  graphicsProfile?: typeof TUTOR_UML_PROFILE | null,
 ) {
   if (!support) return { actionId: undefined, binding: {} };
-  const actionId = repeatedActionId ?? answerActionId(support, answer, sketch, pending);
+  const actionId = repeatedActionId ?? actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}|${graphicsMode}|${graphicsProfile ?? "legacy"}`);
   return { actionId, binding: supportBinding(support, actionId) };
 }
 
@@ -350,7 +347,7 @@ function answerEntry(turn: TutorDialogTurn, support: TutorSupportState | null): 
 }
 
 /** Sends an answer; null when the request was aborted. */
-async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal, diagnosticTraceId?: string): Promise<{ readonly data: TutorResponse } | null> {
+async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSignal, diagnosticTraceId?: string, graphicsProfile?: string | null): Promise<{ readonly data: TutorResponse } | null> {
   const response = await tutorDiagnosticFetch("/api/tutor/dialog", {
     method: "POST",
     credentials: "include",
@@ -361,7 +358,7 @@ async function postDialogAnswer(body: Record<string, unknown>, signal: AbortSign
   const payload: unknown = await response.json().catch(() => null);
   if (signal.aborted) return null;
   if (!response.ok) throw getTutorFailure(payload);
-  const parsed = tutorResponseSchema.safeParse(payload);
+  const parsed = tutorResponseSchema.safeParse(normalizeTutorUmlPayload(payload, graphicsProfile));
   if (!parsed.success) { rejectTutorDiagnosticResponse(payload); throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE); }
   bindTutorDiagnosticResponse(payload, parsed.data);
   return { data: parsed.data };
@@ -393,6 +390,7 @@ export function useTutor(
   // Set when a dialog starts: the dialog stays with its context until the next learning situation.
   const dialogCourseContent = useRef<TutorCourseContentContext | undefined>(undefined);
   const [courseContentSession, setCourseContentSession] = useState<string | undefined>();
+  const umlProfile = useRef<typeof TUTOR_UML_PROFILE | undefined>(undefined);
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
   const [selectedModel, setSelectedModel] = useState("auto");
@@ -472,10 +470,12 @@ export function useTutor(
     fetch("/api/config", { cache: "no-store", credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Tutor configuration is unavailable.");
-        return response.json() as Promise<{ tutor?: Partial<TutorConfig>; tutorDiagnosticsAvailable?: boolean }>;
+        return response.json() as Promise<{ tutor?: Partial<TutorConfig>; tutorDiagnosticsAvailable?: boolean; tutorGraphics?: { profiles?: unknown; available?: boolean } }>;
       })
       .then((data) => {
-        if (cancelled || !data.tutor) return;
+        if (cancelled) return;
+        umlProfile.current = Array.isArray(data.tutorGraphics?.profiles) && data.tutorGraphics.profiles.includes(TUTOR_UML_PROFILE) ? TUTOR_UML_PROFILE : undefined;
+        if (!data.tutor) return;
         if (typeof data.tutorDiagnosticsAvailable === "boolean") setTutorDiagnosticsAvailable(data.tutorDiagnosticsAvailable);
         setConfig({
           provider: data.tutor.provider ?? DEFAULT_CONFIG.provider,
@@ -539,7 +539,7 @@ export function useTutor(
     setIsLoading(false);
   }, []);
 
-  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string) => {
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!capabilities.canUseTutor) return;
     clearError();
     if (!sketch.code.trim()) {
@@ -572,6 +572,8 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
+          ...(graphicsMode === "always" ? { graphicsMode } : {}),
+        ...(graphicsProfile ? { graphicsProfile } : {}),
           // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3).
           ...getCourseContentRequest(undefined, courseContent),
           learningSupport: true,
@@ -580,10 +582,10 @@ export function useTutor(
       const body: unknown = await response.json().catch(() => null);
       if (controller.signal.aborted) return;
       if (!response.ok) throw getTutorFailure(body);
-      const parsed = tutorResponseSchema.safeParse(body);
+      const parsed = tutorResponseSchema.safeParse(normalizeTutorUmlPayload(body, graphicsProfile));
       if (!parsed.success) { rejectTutorDiagnosticResponse(body); throw new TutorRequestError("INVALID_PROVIDER_RESPONSE", INVALID_RESPONSE); }
       bindTutorDiagnosticResponse(body, parsed.data);
-      setQuestion(parsed.data);
+      setQuestion(boundTutorUmlResponse(parsed.data, []));
       setSupport(parsed.data.support ?? null);
       setCompleted(false);
       setFocusProgress(parsed.data.focusProgress ?? null);
@@ -592,7 +594,7 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "question", sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "question", graphicsMode, graphicsProfile, sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -658,14 +660,14 @@ export function useTutor(
   }, [applyDialogResponse, courseContentSession]);
 
   /** Sends one answer as it is given; a repeat passes the action id of the failed attempt (R-SUP-1). */
-  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string, diagnosticTraceId?: string) => {
+  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!question || heldNext) return;
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    const { actionId, binding } = answerBindingFor(currentSupport, submittedAnswer, sketch, pendingAction, repeatedActionId);
+    const { actionId, binding } = answerBindingFor(currentSupport, submittedAnswer, sketch, pendingAction, repeatedActionId, graphicsMode, graphicsProfile);
 
     clearError();
     setIsLoading(true);
@@ -682,17 +684,21 @@ export function useTutor(
         credential,
         ...(requestedModel ? { model: requestedModel } : {}),
         difficulty: effectiveDifficulty,
+        ...(graphicsMode === "always" ? { graphicsMode } : {}),
+        ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...binding,
-      }, controller.signal, diagnosticTraceId);
+      }, controller.signal, diagnosticTraceId, graphicsProfile);
       if (!parsed) return;
       pendingAction.current = null;
-      applyAnswerResult(parsed.data, { question: currentQuestion, history: currentHistory, support: currentSupport, answer: submittedAnswer });
+      const bounded = boundTutorUmlResponse(parsed.data, [currentQuestion]);
+      bindTutorDiagnosticResponse(parsed.data, bounded);
+      applyAnswerResult(bounded, { question: currentQuestion, history: currentHistory, support: currentSupport, answer: submittedAnswer });
     } catch (requestError) {
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "answer", sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}), diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "answer", graphicsMode, graphicsProfile, sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}), diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -725,7 +731,7 @@ export function useTutor(
     setHeldNext(null);
   }, [heldNext]);
 
-  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string, diagnosticTraceId?: string) => {
+  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!capabilities.canUseTutor || !question || !support || heldNext) return;
     clearError();
     const sketch = asTutorSketch(input);
@@ -736,7 +742,7 @@ export function useTutor(
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     const currentQuestion = question;
     const actionId = repeatedActionId
-      ?? actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}|${sketchKey(sketch)}`);
+      ?? actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}|${sketchKey(sketch)}|${graphicsMode}|${graphicsProfile ?? "legacy"}`);
     setIsLoading(true);
     setPendingRequest("support");
     const controller = new AbortController();
@@ -752,9 +758,11 @@ export function useTutor(
         credential,
         ...(requestedModel ? { model: requestedModel } : {}),
         difficulty: effectiveDifficulty,
+        ...(graphicsMode === "always" ? { graphicsMode } : {}),
+        ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...supportBinding(support, actionId),
-      }, controller.signal, getTutorFailure, diagnosticTraceId);
+      }, controller.signal, getTutorFailure, diagnosticTraceId, graphicsProfile);
       if (!result || controller.signal.aborted) return;
       pendingAction.current = null;
       setCourseContentSession(result.courseContentSession ?? courseContentSession);
@@ -763,13 +771,17 @@ export function useTutor(
       setTranscript((current) => [...current, withEntryId(outcome.entry)]);
       if (outcome.next !== undefined) {
         setAnswer("");
-        setQuestion(outcome.next);
+        if (outcome.next) {
+          const bounded = boundTutorUmlResponse(outcome.next, []);
+          bindTutorDiagnosticResponse(outcome.next, bounded);
+          setQuestion(bounded);
+        } else setQuestion(null);
         setCompleted(outcome.next === null);
       }
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "support", action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "support", graphicsMode, graphicsProfile, action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -784,12 +796,12 @@ export function useTutor(
     if (sketchKey(failedRequest.sketch) !== sketchKey(asTutorSketch(current))) return null;
     switch (failedRequest.kind) {
       case "question":
-        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId);
+        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
       case "answer":
         if (answer.trim() !== failedRequest.answer) return null;
-        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId);
+        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
       case "support":
-        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId, failedRequest.diagnosticTraceId);
+        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
     }
   }, [answer, failedRequest, loadModels, requestQuestion, requestSupport, sendAnswer]);
 

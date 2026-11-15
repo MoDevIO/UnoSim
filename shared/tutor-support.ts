@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TUTOR_GRAPHICS_MODES } from "./tutor-graphics";
 import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
@@ -50,6 +51,8 @@ export const tutorSupportRequestSchema = z
     ...tutorSupportBindingFields,
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
+    graphicsMode: z.enum(TUTOR_GRAPHICS_MODES).optional(),
+    graphicsProfile: z.literal("uml1-classic-v1").optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),

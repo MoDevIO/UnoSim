@@ -2,6 +2,7 @@ import { z } from "zod";
 import { INPUT_LIMITS } from "./input-limits";
 import { examplesRefSchema, fullCommitShaSchema, repositorySlugSchema } from "./examples";
 import { boundedArray } from "./bounded-array";
+import { tutorUmlDiagramSchema } from "./tutor-uml";
 
 export const tutorModelSchema = z
   .string()
@@ -128,6 +129,9 @@ export const tutorContentFields = {
   topic: z.string().trim().min(1).max(120).optional(),
   difficulty: tutorDifficultySchema.optional(),
   mermaid: z.string().trim().min(1).max(12_000).optional(),
+  diagram: tutorUmlDiagramSchema.optional(),
+  /** Application-owned delivery status, independent of the browser renderer. */
+  graphicStatus: z.enum(["provided", "unavailable", "not-useful"]).optional(),
   focusProgress: tutorFocusProgressSchema.optional(),
   ...tutorLearningMetadataFields,
 };

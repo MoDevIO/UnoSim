@@ -1,0 +1,24 @@
+@startuml
+!pragma layout smetana
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam classBackgroundColor #FFFFFF
+skinparam participantBackgroundColor #FFFFFF
+skinparam conditionEndStyle diamond
+skinparam conditionStyle InsideDiamond
+skinparam activityBackgroundColor #FFFFFF
+skinparam activityBorderColor #202020
+start
+:pinMode(LED, OUTPUT);
+while (digitalRead(BTN) == LOW) is ([ja])
+  if (state) then ([ja])
+    :digitalWrite(LED, HIGH);
+  else ([nein])
+    :digitalWrite(LED, LOW);
+  endif
+endwhile ([nein])
+stop
+@enduml
