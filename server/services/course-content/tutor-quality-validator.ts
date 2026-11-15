@@ -9,6 +9,7 @@ import {
 import { deepeningCriteria, hasMetDeepeningCriteria } from "../tutor/curriculum/progression-state";
 import { DefaultSketchFactExtractor, type SketchFacts } from "../tutor/curriculum/sketch-facts";
 import { DefaultTopicMatcher } from "../tutor/curriculum/topic-matcher";
+import { hasUnanchoredReference } from "../tutor/question-concreteness";
 import { BUILT_IN_TUTOR_STRATEGY, type EffectiveTutorStrategy } from "../tutor/strategy/effective-tutor-strategy";
 
 export interface ResolvedTutorQualityCase {
@@ -37,6 +38,8 @@ export type TutorContentQualityIssueCode =
   | "learn-content-exhausted"
   | "deepen-content-exhausted"
   | "unmasterable-example-activation"
+  | "question-silent-reference"
+  | "question-template-unfilled"
   | "inline-focus-term-not-in-sketch"
   | "inline-focus-question-without-term"
   | "inline-focus-multiple-questions"
@@ -148,11 +151,26 @@ function validateTopic(
     issues.push(issue("missing-negative-activation-case", `Topic ${topic.id} has no negative activation case`, undefined, topic.id));
   }
 
+  validateQuestionWording(topic, issues);
   validateGlobalReachability(topic, positive, issues);
   for (const context of positive) {
     if (!context.activatedTopicIds.has(topic.id)) continue;
     validateCaseStructure(topic, context, issues);
     validateExecutablePath(topic, context, issues);
+  }
+}
+
+/**
+ * A Topic question reaches the learner word for word, for whatever sketch activated the Topic. So it must
+ * not point at an element it does not name, and a template is delivered with its placeholders unfilled.
+ */
+function validateQuestionWording(topic: CurriculumTopic, issues: TutorContentQualityIssue[]): void {
+  for (const question of topic.questions) {
+    if (question.template !== undefined) {
+      issues.push(issue("question-template-unfilled", `Question ${question.id} is a template; its slots are not filled before delivery`, undefined, topic.id, question.concept, question.indicator));
+    } else if (question.text !== undefined && hasUnanchoredReference(question.text)) {
+      issues.push(issue("question-silent-reference", `Question ${question.id} refers to a sketch element it does not name`, undefined, topic.id, question.concept, question.indicator));
+    }
   }
 }
 
