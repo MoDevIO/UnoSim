@@ -68,6 +68,9 @@ export interface TutorPlan {
   readonly expansionBrief?: TutorExpansionBrief;
   /** Set by the aspect flow: the model's question is kept when it names the assignment's site. */
   readonly assignment?: TutorAssignment;
+  /** Aspect flow: the aspects of the sketch with assignments, and the one the learner chose. */
+  readonly aspectChoices?: readonly TutorAspectChoice[];
+  readonly aspectFocus?: string;
 }
 
 /** The learner's place in the teacher's focus, and what the free Tutor should still work on. */
@@ -114,6 +117,14 @@ export function isTutorPlan(result: TutorPlanningResult | null): result is Tutor
 
 export function isTutorPlanningBlocked(result: TutorPlanningResult | null): result is TutorPlanningBlocked {
   return result !== null && "kind" in result && result.kind === "blocked";
+}
+
+/** An aspect of the sketch the learner can choose to deepen. */
+export interface TutorAspectChoice {
+  readonly id: string;
+  readonly title: string;
+  /** `shown`: a question of level 3 or 4 was answered well; `done`: no further question is planned here. */
+  readonly state: "open" | "shown" | "done";
 }
 
 export interface TutorPlanningExtension {

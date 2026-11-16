@@ -122,3 +122,29 @@ it("never sends a negotiated response through the legacy Mermaid renderer", asyn
   await act(() => result.current.generateQuestion(CODE));
   expect(result.current.question?.mermaid).toBeUndefined(); expect(result.current.question?.graphicStatus).toBe("unavailable");
 });
+
+it("lets the learner choose an aspect and sends the choice with the next answer", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const aspectChoices = [{ id: "branching", title: "Verzweigungen", state: "shown" }, { id: "variables", title: "Variablen", state: "open" }];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (String(url) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }));
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({ ...question, topic: "Verzweigungen", topicId: "aspect-branching", indicatorId: "level-2", aspectChoices, courseContentSession: "33333333-3333-4333-8333-333333333333" }));
+  });
+  const { result } = renderHook(() => useTutor());
+  act(() => result.current.setCredential("key"));
+  await act(() => result.current.generateQuestion(CODE));
+  const actions = {} as Parameters<typeof TutorLearningStep>[0]["actions"];
+  const view = render(<TutorLearningStep tutor={result.current} actions={actions} />);
+  expect(screen.getByTestId("tutor-question")).toHaveTextContent("Verzweigungen · Stufe 2 von 4: Erklären");
+  const chip = screen.getByRole("button", { name: "Variablen" });
+  expect(chip).toHaveAttribute("aria-pressed", "false");
+  act(() => chip.click());
+  view.rerender(<TutorLearningStep tutor={result.current} actions={actions} />);
+  expect(screen.getByRole("button", { name: "Variablen" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByTestId("tutor-aspect-choice-note")).toBeInTheDocument();
+  act(() => result.current.setAnswer("Antwort"));
+  await act(() => result.current.submitAnswer(CODE));
+  expect(bodies.at(-1)?.aspectFocus).toBe("variables");
+  expect(bodies[0]).not.toHaveProperty("aspectFocus");
+});

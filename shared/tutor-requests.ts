@@ -7,7 +7,7 @@ import { boundedArray } from "./bounded-array";
 import {
   TUTOR_DEFAULT_DIFFICULTY,
   tutorCourseContentContextSchema,
-  tutorCourseContentSessionSchema,
+  tutorCourseContentSessionSchema, tutorAspectFocusRequestSchema,
   tutorDialogTurnSchema,
   tutorDifficultySchema,
   tutorModelSchema,
@@ -30,6 +30,7 @@ export const tutorQuestionRequestSchema = z
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
+    aspectFocus: tutorAspectFocusRequestSchema,
     /** Opts into the learning-support cycle (LearningQuestions 3.10); the response then carries `support`. */
     learningSupport: z.literal(true).optional(),
   })
@@ -57,6 +58,7 @@ export const tutorDialogRequestSchema = z
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
+    aspectFocus: tutorAspectFocusRequestSchema,
     // Compatibility rule (LearningQuestions 9.1): without these three fields the dialog keeps the MVP behavior.
     supportSession: tutorSupportBindingFields.supportSession.optional(),
     questionHandle: tutorSupportBindingFields.questionHandle.optional(),

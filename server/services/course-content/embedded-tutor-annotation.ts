@@ -51,6 +51,8 @@ export const embeddedTutorAnnotationSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   focus: boundedArray(focusAreaSchema, 8, 1).optional(),
   afterFocus: z.enum(["free", "topics"]).optional(),
+  /** The aspects the teacher wants asked first for this Example, in this order (aspect flow). */
+  aspects: boundedArray(z.string().regex(SAFE_TUTOR_ID), 11, 1).optional(),
   topics: boundedArray(z.string().regex(SAFE_TUTOR_ID), 32, 1).optional(),
   primaryTopic: z.string().regex(SAFE_TUTOR_ID).optional(),
   strategy: z.string().regex(SAFE_TUTOR_ID).optional(),
@@ -61,6 +63,9 @@ export const embeddedTutorAnnotationSchema = z.object({
   }
   if (value.schemaVersion !== 3 && value.focus?.some(({ questions }) => questions.some(({ reference }) => reference !== undefined))) {
     context.addIssue({ code: "custom", path: ["focus"], message: "reference answers require schemaVersion 3" });
+  }
+  if (value.aspects !== undefined && (value.schemaVersion === 1 || new Set(value.aspects).size !== value.aspects.length)) {
+    context.addIssue({ code: "custom", path: ["aspects"], message: "aspects require schemaVersion 2 and must be unique" });
   }
   if (value.afterFocus !== undefined && value.focus === undefined) {
     context.addIssue({ code: "custom", path: ["afterFocus"], message: "afterFocus requires focus" });

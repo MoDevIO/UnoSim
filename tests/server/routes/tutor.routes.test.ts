@@ -1,3 +1,4 @@
+import { createAspectSessionState } from "../../../server/services/tutor/curriculum/competence-state";
 import express from "express";
 import http from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -648,5 +649,28 @@ describe("Tutor Course Content session lifecycle", () => {
     expect((resolver as { resolveTutorContent: ReturnType<typeof vi.fn> }).resolveTutorContent).not.toHaveBeenCalled();
     expect(service.generateQuestion).not.toHaveBeenCalled();
     expect(store.stats().sessions).toBe(0);
+  });
+
+  it("keeps the aspect a learner chose in the session and clears it on request", async () => {
+    const service = {
+      generateQuestion: vi.fn().mockImplementation(async (...args: unknown[]) => {
+        (args[4] as { progressionState: { aspects?: unknown } }).progressionState.aspects = createAspectSessionState();
+        return { model: "pilot-model", result: { question: "Frage?" } };
+      }),
+      generateDialogResponse: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Weiter?" } }),
+    };
+    const { url } = await startSessions(service);
+    const first = await post(url, "/api/tutor/question", questionBody);
+    const session = (first.body as { courseContentSession: string }).courseContentSession;
+    const focusOf = (call: number) => (service.generateDialogResponse.mock.calls[call]?.[7] as { progressionState: { aspects?: { focusAspectId?: string } } }).progressionState.aspects?.focusAspectId;
+
+    const chosen = await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectFocus: "variables" });
+    expect([chosen.status, focusOf(0)]).toEqual([200, "variables"]);
+    await post(url, "/api/tutor/dialog", dialogBody(session));
+    expect(focusOf(1)).toBe("variables");
+    await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectFocus: null });
+    expect(focusOf(2)).toBeUndefined();
+    const invalid = await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectFocus: "Not An Id" });
+    expect(invalid.status).toBe(400);
   });
 });

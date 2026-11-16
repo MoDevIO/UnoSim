@@ -205,7 +205,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       if (!aspectFlowApplies(input.code, definitions)) return null;
       const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
       if (state.revision !== snapshot.revision) resetTutorProgressionState(state, snapshot.revision);
-      return step({ code: input.code, state, definitions, revision: snapshot.revision, strategy: this.resolveSnapshotStrategy(snapshot, undefined, "LEARN") });
+      const annotation = (snapshot.exampleId ?? input.exampleId) === undefined ? undefined : snapshot.exampleTutorAnnotation;
+      return step({ code: input.code, state, definitions, revision: snapshot.revision, strategy: this.resolveSnapshotStrategy(snapshot, undefined, "LEARN"), ...(annotation?.aspects ? { preferredAspects: annotation.aspects } : {}) });
     } catch (error) {
       this.logger.warn(`Aspect planning failed; continuing without a plan: ${describeError(error)}`);
       return null;

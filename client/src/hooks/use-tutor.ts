@@ -51,6 +51,9 @@ export interface TutorPanelState {
   readonly question: TutorResponse | null;
   /** Where the learner stands in the teacher's focus; null without a focus. */
   readonly focusProgress: TutorFocusProgress | null;
+  /** The aspect the learner chose to deepen; null without a choice. It applies from the next planned question. */
+  readonly aspectFocus: string | null;
+  readonly setAspectFocus: (aspectId: string | null) => void;
   readonly history: readonly TutorDialogTurn[];
   /** Everything the learner sees in order: answers, clarifications, hints, the reference answer and skips. */
   readonly transcript: readonly TutorTranscriptEntry[];
@@ -401,6 +404,13 @@ export function useTutor(
   const [modelsLoading, setModelsLoading] = useState(false);
   const [question, setQuestion] = useState<TutorResponse | null>(null);
   const [focusProgress, setFocusProgress] = useState<TutorFocusProgress | null>(null);
+  const [aspectFocus, setAspectFocusState] = useState<string | null>(null);
+  // Requests read the choice from a ref, so choosing does not rebuild the request callbacks.
+  const aspectFocusRef = useRef<string | null>(null);
+  const setAspectFocus = useCallback((aspectId: string | null) => {
+    aspectFocusRef.current = aspectId;
+    setAspectFocusState(aspectId);
+  }, []);
   const [history, setHistory] = useState<readonly TutorDialogTurn[]>([]);
   const [transcript, setTranscript] = useState<readonly TutorTranscriptEntry[]>([]);
   const [support, setSupport] = useState<TutorSupportState | null>(null);
@@ -439,6 +449,8 @@ export function useTutor(
     }
     graphicSubjects.current = { question: null, held: null };
     reportTutorReviewReset();
+    aspectFocusRef.current = null;
+    setAspectFocusState(null);
     abortPendingTutorRequests();
     // The aborted request may still wait for the shared catalog; the new situation must not wait with it.
     loadingRequest.current = null;
@@ -687,6 +699,7 @@ export function useTutor(
         ...(graphicsMode === "always" ? { graphicsMode } : {}),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
+        ...(question?.aspectChoices?.length ? { aspectFocus: aspectFocusRef.current } : {}),
         ...binding,
       }, controller.signal, diagnosticTraceId, graphicsProfile);
       if (!parsed) return;
@@ -761,6 +774,7 @@ export function useTutor(
         ...(graphicsMode === "always" ? { graphicsMode } : {}),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
+        ...(question?.aspectChoices?.length ? { aspectFocus: aspectFocusRef.current } : {}),
         ...supportBinding(support, actionId),
       }, controller.signal, getTutorFailure, diagnosticTraceId, graphicsProfile);
       if (!result || controller.signal.aborted) return;
@@ -845,6 +859,8 @@ export function useTutor(
     loadModels,
     question,
     focusProgress,
+    aspectFocus,
+    setAspectFocus,
     history,
     transcript,
     support,
@@ -885,6 +901,8 @@ export function useTutor(
     modelsLoading,
     question,
     focusProgress,
+    aspectFocus,
+    setAspectFocus,
     history,
     answer,
     submitAnswer,

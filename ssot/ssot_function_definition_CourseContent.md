@@ -285,6 +285,12 @@ question left, the Tutor continues as the free Tutor and no repository Topic
 is used for this Example. With `afterFocus: topics` it continues with the
 fact-matched repository Topics instead.
 
+An annotation of schema version 2 or 3 MAY list `aspects`: up to eleven
+distinct aspect ids (section 7.1). When the aspect flow plans, these aspects
+are asked first, in the listed order, before the remaining aspects of the
+sketch; an aspect the learner chose to deepen still comes before them. An
+aspect the sketch does not have or the repository has no file for is ignored.
+
 The current sketch stays the factual authority (section 14) for the focus too.
 Code terms in question texts MUST be written in backticks, and every question
 MUST name at least one; the Course Content quality validator rejects a question

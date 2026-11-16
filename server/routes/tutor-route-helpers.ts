@@ -15,6 +15,7 @@ import {
 import { ExamplesError } from "../services/examples/examples-error";
 import type { RequestContext } from "../services/examples/source-provider";
 import type { TutorCourseContentContext } from "@shared/tutor";
+import { setFocus } from "../services/tutor/curriculum/aspect-planner";
 
 /** Shared request handling of the Tutor routes. */
 
@@ -151,6 +152,8 @@ export async function resolveTutorContent(
   resolver: TutorCourseContentResolver | undefined,
   sessions: TutorCourseContentSessionStore,
   signal: AbortSignal,
+  /** The aspect the learner chose to deepen: an id, `null` to clear it, absent to leave it. */
+  aspectFocus?: string | null,
 ): Promise<TutorRequestContent | undefined> {
   if (signal.aborted) return undefined;
   if (sessionHandle === undefined && request === undefined) return undefined;
@@ -166,6 +169,8 @@ export async function resolveTutorContent(
       responseError(res, 400, "INVALID_REQUEST", "Der Tutor-Kontext ist abgelaufen oder ungültig.");
       return undefined;
     }
+    // The choice belongs to the session and takes effect with the next question that is planned.
+    if (aspectFocus !== undefined && pinned.progressionState.aspects) setFocus(pinned.progressionState.aspects, aspectFocus);
     return { identity, content: pinned, session: sessionHandle };
   }
   if (request === undefined) return undefined;

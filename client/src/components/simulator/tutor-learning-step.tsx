@@ -5,7 +5,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } f
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
-import type { TutorSupportState } from "@shared/tutor";
+import type { TutorAspectChoice, TutorSupportState } from "@shared/tutor";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
 import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
@@ -172,6 +172,30 @@ function useFeedbackInView(stepRef: RefObject<HTMLDivElement | null>, awaitingNe
   }, [awaitingNext, stepRef]);
 }
 
+/**
+ * Lets the learner choose the aspect of the sketch to deepen. The choice travels with the next request and
+ * applies from the next question the Tutor plans; choosing the chosen aspect again clears it.
+ */
+function TutorAspectChooser({ choices, focus, onChoose }: {
+  readonly choices: readonly TutorAspectChoice[];
+  readonly focus: string | null;
+  readonly onChoose: (aspectId: string | null) => void;
+}) {
+  return (
+    <fieldset className="min-w-0 border-t border-border pt-3" data-testid="tutor-aspect-choice">
+      <legend className="float-left w-full text-ui-xs font-semibold text-muted-foreground">Was möchtest du vertiefen?</legend>
+      <div className="mt-1 flex flex-wrap gap-1.5 clear-both">
+        {choices.map(({ id, title, state }) => (
+          <Button key={id} type="button" size="sm" variant={focus === id ? "default" : "outline"} aria-pressed={focus === id} onClick={() => onChoose(focus === id ? null : id)}>
+            {title}{state === "shown" && <span className="sr-only"> (schon gezeigt)</span>}{state === "shown" && <span aria-hidden="true"> ✓</span>}
+          </Button>
+        ))}
+      </div>
+      {focus && <p className="mt-1 text-ui-xs text-muted-foreground" data-testid="tutor-aspect-choice-note">Gilt ab der nächsten neuen Frage.</p>}
+    </fieldset>
+  );
+}
+
 const LEVEL_NAMES: Readonly<Record<string, string>> = { "level-1": "Erkennen", "level-2": "Erklären", "level-3": "Vorhersagen", "level-4": "Verändern" };
 
 /**
@@ -233,6 +257,9 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
       {tutor.awaitingNext
         ? <TutorContinue onContinue={actions.continueToNextQuestion} />
         : <TutorComposer tutor={tutor} actions={actions} pendingLabel={pendingLabel} canRequest={canRequest} />}
+      {question.aspectChoices && question.aspectChoices.length > 1 && (
+        <TutorAspectChooser choices={question.aspectChoices} focus={tutor.aspectFocus} onChoose={tutor.setAspectFocus} />
+      )}
     </>
   );
 }

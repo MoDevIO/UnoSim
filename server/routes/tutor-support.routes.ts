@@ -258,6 +258,7 @@ type DialogRequest = SketchFields & {
   readonly difficulty: number;
   readonly courseContent?: NonNullable<TutorSupportRequest["courseContent"]>;
   readonly courseContentSession?: string;
+  readonly aspectFocus?: string | null;
   readonly supportSession?: string;
   readonly questionHandle?: string;
   readonly actionId?: string;
@@ -275,6 +276,7 @@ async function runSupportAction<T>(
     readonly actionId: string;
     readonly courseContent?: NonNullable<TutorSupportRequest["courseContent"]>;
     readonly courseContentSession?: string;
+    readonly aspectFocus?: string | null;
   },
   signal: AbortSignal,
   context: TutorSupportContext,
@@ -303,6 +305,7 @@ async function runSupportAction<T>(
       context.courseContent,
       context.sessionStore,
       signal,
+      request.aspectFocus,
     );
     if (signal.aborted || res.headersSent) return;
     const run = action(content);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectAspects } from "../../../../server/services/tutor/curriculum/aspect-detector";
 import {
-  leaveOpen, MAX_QUESTIONS_PER_ASPECT, planNext, recordAnswer, syncSketch, type AspectStep,
+  leaveOpen, MAX_QUESTIONS_PER_ASPECT, planNext, recordAnswer, setFocus, syncSketch, type AspectStep,
 } from "../../../../server/services/tutor/curriculum/aspect-planner";
 import { aspectDefinitionSchema, fillFallback, validateAspectDefinition } from "../../../../server/services/tutor/curriculum/aspect-schema";
 import { createAspectSessionState, type AspectSessionState } from "../../../../server/services/tutor/curriculum/competence-state";
@@ -232,5 +232,53 @@ describe("aspect planner", () => {
     expect(first?.aspect.id).toBe("variables");
     expect(second?.aspect.id).toBe("variables");
     expect(`${second?.site.function}|${second?.site.has.join(",")}`).not.toBe(`${first?.site.function}|${first?.site.has.join(",")}`);
+  });
+
+  describe("order of the aspects", () => {
+    it("plans the aspect the learner chose before the heaviest one", () => {
+      const { state, aspects } = session();
+      setFocus(state, "variables");
+      expect(planNext(state, aspects, definitions)?.aspect.id).toBe("variables");
+    });
+
+    it("plans the teacher's aspects before the rest and stays with an aspect in progress", () => {
+      const { state, aspects } = session();
+      const first = planNext(state, aspects, definitions, ["variables"]);
+      recordAnswer(state, 3, { closeAfterWeak: true });
+      expect([first?.aspect.id, planNext(state, aspects, definitions, ["variables"])?.aspect.id]).toEqual(["variables", "variables"]);
+    });
+
+    it("puts the learner's choice before the teacher's aspects", () => {
+      const { state, aspects } = session();
+      setFocus(state, "branching");
+      expect(planNext(state, aspects, definitions, ["variables"])?.aspect.id).toBe("branching");
+    });
+
+    it("switches to the chosen aspect with the next question, not within the open one", () => {
+      const { state, aspects } = session();
+      const open = planNext(state, aspects, definitions);
+      setFocus(state, "variables");
+      expect(planNext(state, aspects, definitions)).toEqual(open);
+      recordAnswer(state, 3, { closeAfterWeak: true });
+      expect(planNext(state, aspects, definitions)?.aspect.id).toBe("variables");
+    });
+
+    it("opens a finished aspect again when the learner chooses it, and follows the weight again once the choice is cleared", () => {
+      const { state, aspects } = session();
+      while (ask(state, aspects, 5)?.aspect.id === "branching") { /* answer every branching question well */ }
+      expect(state.progress.branching?.done).toBe(true);
+      recordAnswer(state, 3, { closeAfterWeak: true });
+      setFocus(state, "branching");
+      expect(planNext(state, aspects, definitions)?.aspect.id).toBe("branching");
+      recordAnswer(state, 5, { closeAfterWeak: true });
+      setFocus(state, null);
+      expect(state.focusAspectId).toBeUndefined();
+    });
+
+    it("ignores a chosen aspect the sketch does not have", () => {
+      const { state, aspects } = session();
+      setFocus(state, "loops");
+      expect(planNext(state, aspects, definitions)?.aspect.id).toBe("branching");
+    });
   });
 });

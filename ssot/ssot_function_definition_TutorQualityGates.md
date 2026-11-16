@@ -259,9 +259,17 @@ With the switch on and aspect files present:
      with learning potential (the last rating is better than the one before,
      or the level just rose and the aspect is not shown) up to five. After an
      aspect is shown exactly one level 4 question may follow within that cap.
-   - The next aspect is the heaviest open one. It starts on level 3 when the
-     mean of the last three ratings is at least 4, on level 1 when it is at
-     most 2, otherwise on level 2.
+   - The next aspect is chosen in this order: the aspect the learner chose
+     to deepen, the aspect in progress, the aspects the teacher listed for
+     the Example (`aspects` of the annotation, in their order), then the
+     heaviest open one. The learner's choice travels with each request
+     (`aspectFocus`: an aspect id, `null` to clear it), is kept in the
+     session and applies from the next question that is planned; choosing an
+     aspect that was finished on this sketch opens it again. Each planned
+     question carries the aspects the learner can choose from
+     (`aspectChoices`) and the chosen one.
+   - A new aspect starts on level 3 when the mean of the last three ratings
+     is at least 4, on level 1 when it is at most 2, otherwise on level 2.
    - Clarification, hints, reference answers and skipping add no rating; a
      skipped question counts for the cap.
    - The Topic catalog does not plan. A teacher's focus runs first; the

@@ -1,11 +1,11 @@
 import type { TutorAnswerRating } from "@shared/tutor";
 import { namesAssignmentSite } from "../assignment-prompt";
 import type { StrategyResolution } from "../strategy/effective-tutor-strategy";
-import type { TutorPlan, TutorPlanningBlocked } from "../tutor-planning";
+import type { TutorAspectChoice, TutorPlan, TutorPlanningBlocked } from "../tutor-planning";
 import { detectAspects, type DetectedAspect } from "./aspect-detector";
 import { leaveOpen, openStep, planNext, recordAnswer, syncSketch, type AspectStep } from "./aspect-planner";
 import { ASPECT_LEVEL_NAMES, type AspectDefinition, type AspectLevel } from "./aspect-schema";
-import { createAspectSessionState, type AspectSessionState } from "./competence-state";
+import { competenceOf, createAspectSessionState, type AspectSessionState } from "./competence-state";
 import type { TutorProgressionState } from "./progression-state";
 
 /**
@@ -19,6 +19,8 @@ export interface AspectFlowInput {
   readonly definitions: readonly AspectDefinition[];
   readonly revision: string;
   readonly strategy: StrategyResolution;
+  /** The teacher's aspects of the Example, in their order; they come before the rest. */
+  readonly preferredAspects?: readonly string[];
 }
 
 const QUESTION_KIND: Readonly<Record<AspectLevel, TutorPlan["questionKind"]>> = { 1: "recall", 2: "concept", 3: "prediction", 4: "transfer" };
@@ -40,7 +42,22 @@ function strategyFields({ strategy }: AspectFlowInput) {
   };
 }
 
-function toPlan(input: AspectFlowInput, { aspect, assignment, level, site, fallbackQuestion }: AspectStep): TutorPlan {
+function choiceState(session: AspectSessionState, aspectId: string): TutorAspectChoice["state"] {
+  if (session.progress[aspectId]?.done) return "done";
+  return session.competence[aspectId] && competenceOf(session, aspectId).shown ? "shown" : "open";
+}
+
+/** The aspects the learner can choose from: those of the sketch that have assignments. */
+function choices(input: AspectFlowInput, session: AspectSessionState, aspects: readonly DetectedAspect[]): Pick<TutorPlan, "aspectChoices" | "aspectFocus"> {
+  const aspectChoices = aspects.flatMap(({ id }) => {
+    const definition = input.definitions.find((candidate) => candidate.id === id);
+    return definition ? [{ id, title: definition.title, state: choiceState(session, id) }] : [];
+  });
+  const focus = aspectChoices.some(({ id }) => id === session.focusAspectId) ? session.focusAspectId : undefined;
+  return { aspectChoices, ...(focus ? { aspectFocus: focus } : {}) };
+}
+
+function toPlan(input: AspectFlowInput, { aspect, assignment, level, site, fallbackQuestion }: AspectStep, offered: Pick<TutorPlan, "aspectChoices" | "aspectFocus">): TutorPlan {
   const topicId = `${ASPECT_TOPIC_PREFIX}${aspect.id}`;
   return {
     topicId,
@@ -59,6 +76,7 @@ function toPlan(input: AspectFlowInput, { aspect, assignment, level, site, fallb
     activeTopicId: topicId,
     masteredTopicIds: [...input.state.masteredTopicIds],
     ...strategyFields(input),
+    ...offered,
     assignment: {
       aspectId: aspect.id,
       aspectTitle: aspect.title,
@@ -84,8 +102,8 @@ function exhausted(input: AspectFlowInput): TutorPlanningBlocked {
 }
 
 function next(input: AspectFlowInput, session: AspectSessionState, aspects: readonly DetectedAspect[]): TutorPlan | TutorPlanningBlocked {
-  const step = planNext(session, aspects, input.definitions);
-  return step ? toPlan(input, step) : exhausted(input);
+  const step = planNext(session, aspects, input.definitions, input.preferredAspects);
+  return step ? toPlan(input, step, choices(input, session, aspects)) : exhausted(input);
 }
 
 /** The open assignment is the question the learner acts on: by its fallback wording or by its site. */
@@ -120,7 +138,7 @@ export function aspectAnsweredPlan(input: AspectFlowInput, currentQuestion: stri
   const { session, aspects } = prepare(input);
   if (!ownsQuestion(session, currentQuestion)) return null;
   const step = openStep(session, aspects, input.definitions);
-  return step ? toPlan(input, step) : null;
+  return step ? toPlan(input, step, choices(input, session, aspects)) : null;
 }
 
 export function aspectFollowupPlan(input: AspectFlowInput, currentQuestion: string, rating: TutorAnswerRating, supportCycle: boolean): TutorPlan | TutorPlanningBlocked {
@@ -136,7 +154,7 @@ export function aspectRetryPlan(input: AspectFlowInput, currentQuestion: string,
   if (!ownsQuestion(session, currentQuestion)) return null;
   if (!assisted) recordAnswer(session, rating);
   const step = openStep(session, aspects, input.definitions);
-  return step ? toPlan(input, step) : null;
+  return step ? toPlan(input, step, choices(input, session, aspects)) : null;
 }
 
 /** The question is left by skipping or after the reference answer: no rating, the cap still counts it. */

@@ -51,6 +51,8 @@ export interface AspectSessionState {
   progress: Record<string, AspectProgress>;
   activeAspectId?: string;
   open?: OpenAssignment;
+  /** The aspect the learner chose to deepen; it is planned before every other aspect. */
+  focusAspectId?: string;
   /** A first question was planned in this session. */
   started: boolean;
 }

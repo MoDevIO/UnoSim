@@ -8,6 +8,7 @@ import { aspectFixtures, fixtureText, TEMPERATURE_CONTROLLER } from "./support/a
 import { curriculumTopicSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { parse as parseYaml } from "yaml";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
+import { setFocus } from "../../../../server/services/tutor/curriculum/aspect-planner";
 import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner";
 
 const revision = "4".repeat(40);
@@ -182,5 +183,28 @@ describe("aspect flow in the Tutor service", () => {
     expect(next.assignment?.graphic).toBe("activity");
     expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: content })).toEqual({ kind: "activity", siteCode: next.assignment?.site.code });
     expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: "Was ist ein Pin?", courseContent: content })).toBeUndefined();
+  });
+
+  it("offers the sketch's aspects for the learner to choose and names the chosen one", async () => {
+    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const content = courseContent();
+    const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
+    if (!plan || "kind" in plan) throw new Error("plan expected");
+    expect(plan.aspectChoices?.map(({ id, state }) => `${id}:${state}`)).toEqual(["branching:open", "variables:open"]);
+    expect(plan.aspectFocus).toBeUndefined();
+    const aspects = content.progressionState.aspects;
+    if (!aspects) throw new Error("aspect state expected");
+    setFocus(aspects, "variables");
+    const next = await adapter.planFollowup({ code: TEMPERATURE_CONTROLLER, history: [], currentQuestion: plan.question, rating: 5, difficulty: 30, courseContent: content });
+    if (!next || "kind" in next) throw new Error("follow-up expected");
+    expect([next.topicId, next.aspectFocus]).toEqual(["aspect-variables", "variables"]);
+  });
+
+  it("asks the aspects a teacher listed for the Example first", async () => {
+    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const content = { ...courseContent(), exampleId: "temperaturregler", exampleTutorAnnotation: { schemaVersion: 2 as const, aspects: ["variables"] } };
+    const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
+    if (!plan || "kind" in plan) throw new Error("plan expected");
+    expect(plan.topicId).toBe("aspect-variables");
   });
 });

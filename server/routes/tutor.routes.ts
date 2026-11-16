@@ -152,6 +152,7 @@ export function registerTutorRoutes(
         deps.courseContent,
         sessionStore,
         signal,
+        parsed.data.aspectFocus,
       );
       if (signal.aborted) return;
       if (res.headersSent) return;
@@ -283,6 +284,7 @@ export function registerTutorRoutes(
         deps.courseContent,
         sessionStore,
         signal,
+        parsed.data.aspectFocus,
       );
       if (signal.aborted) return;
       if (res.headersSent) return;

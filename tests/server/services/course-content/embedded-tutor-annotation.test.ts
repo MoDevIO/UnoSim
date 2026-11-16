@@ -169,4 +169,15 @@ describe("embedded Tutor annotation parser", () => {
     expect(result.status).toBe("invalid");
     expect(result.cleanedSource).toBe("void setup() {}\n");
   });
+
+  it.each([
+    ["accepts the teacher's aspects in schema version 2", "schemaVersion: 2\naspects:\n  - branching\n  - variables", "valid"],
+    ["rejects aspects in schema version 1", "schemaVersion: 1\naspects:\n  - branching", "invalid"],
+    ["rejects an aspect listed twice", "schemaVersion: 2\naspects:\n  - branching\n  - branching", "invalid"],
+  ])("%s", (_name, body, status) => {
+    const source = `void setup() {}\nvoid loop() {}\n\n/* @unosim-tutor\n${body}\n@end-unosim-tutor */\n`;
+    const result = extractEmbeddedTutorAnnotation(source, "main.ino", { isMainFile: true });
+    expect(result.status).toBe(status);
+    if (result.status === "valid") expect(result.annotation.aspects).toEqual(["branching", "variables"]);
+  });
 });

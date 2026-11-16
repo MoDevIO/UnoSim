@@ -64,6 +64,17 @@ const tutorLearningMetadataFields = {
  * every area was understood, `open` that the questions ran out first, `paused` that the sketch no longer
  * fits the focus. The free Tutor answers in all but `active`.
  */
+/** An aspect of the sketch the learner can choose to deepen (aspect flow). */
+export const tutorAspectIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/);
+export const tutorAspectChoiceSchema = z.object({
+  id: tutorAspectIdSchema,
+  title: z.string().trim().min(1).max(160),
+  state: z.enum(["open", "shown", "done"]),
+}).strict();
+export type TutorAspectChoice = z.infer<typeof tutorAspectChoiceSchema>;
+/** The learner's choice as a request field: an aspect, `null` to clear it, absent to leave it. */
+export const tutorAspectFocusRequestSchema = tutorAspectIdSchema.nullable().optional();
+
 export const tutorFocusProgressSchema = z.object({
   state: z.enum(["active", "completed", "open", "paused"]),
   understoodAreas: z.number().int().min(0).max(8),
@@ -133,6 +144,8 @@ export const tutorContentFields = {
   /** Application-owned delivery status, independent of the browser renderer. */
   graphicStatus: z.enum(["provided", "unavailable", "not-useful"]).optional(),
   focusProgress: tutorFocusProgressSchema.optional(),
+  aspectChoices: boundedArray(tutorAspectChoiceSchema, 16).optional(),
+  aspectFocus: tutorAspectIdSchema.optional(),
   ...tutorLearningMetadataFields,
 };
 

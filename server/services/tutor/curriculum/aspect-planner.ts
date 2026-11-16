@@ -169,7 +169,7 @@ export function openStep(state: AspectSessionState, aspects: readonly DetectedAs
  * Plans the next question and marks it as open. An open question is returned unchanged. Null means that
  * every aspect with assignments has been handled on this sketch.
  */
-export function planNext(state: AspectSessionState, aspects: readonly DetectedAspect[], definitions: readonly AspectDefinition[]): AspectStep | null {
+export function planNext(state: AspectSessionState, aspects: readonly DetectedAspect[], definitions: readonly AspectDefinition[], preferred: readonly string[] = []): AspectStep | null {
   const stillOpen = openStep(state, aspects, definitions);
   if (stillOpen) return stillOpen;
   state.open = undefined;
@@ -177,8 +177,11 @@ export function planNext(state: AspectSessionState, aspects: readonly DetectedAs
     const definition = definitions.find(({ id }) => id === detected.id);
     return definition ? [{ detected, definition }] : [];
   });
-  const active = available.find(({ detected }) => detected.id === state.activeAspectId);
-  const candidates = [...(active ? [active] : []), ...available.filter((entry) => entry !== active)];
+  // The learner's choice first, then the aspect in progress, then the teacher's aspects in their order,
+  // then the rest by weight.
+  const wanted = [state.focusAspectId, state.activeAspectId, ...preferred].filter((id): id is string => id !== undefined);
+  const first = [...new Set(wanted)].flatMap((id) => available.filter(({ detected }) => detected.id === id));
+  const candidates = [...first, ...available.filter((entry) => !first.includes(entry))];
   for (const { detected, definition } of candidates) {
     const progress = progressOf(state, detected.id);
     const level = nextLevelFor(progress);
@@ -212,6 +215,21 @@ function close(state: AspectSessionState, progress: AspectProgress, nextLevel: A
   progress.nextLevel = nextLevel;
   progress.levelRose = rose;
   state.open = undefined;
+}
+
+/**
+ * Sets or clears the aspect the learner wants to deepen. Choosing an aspect that was finished on this
+ * sketch opens it again: the learner asked for more of it.
+ */
+export function setFocus(state: AspectSessionState, aspectId: string | null): void {
+  if (aspectId === null) {
+    delete state.focusAspectId;
+    return;
+  }
+  if (state.focusAspectId === aspectId) return;
+  state.focusAspectId = aspectId;
+  const progress = state.progress[aspectId];
+  if (progress?.done) Object.assign(progress, { asked: 0, done: false, deepeningAsked: false, confirming: false });
 }
 
 /**

@@ -680,6 +680,8 @@ function stripProviderPlanningMetadata(result: TutorContentResult): TutorContent
     progressionBlockedReason: _progressionBlockedReason,
     extensionTargetTopicId: _extensionTargetTopicId,
     focusProgress: _focusProgress,
+    aspectChoices: _aspectChoices,
+    aspectFocus: _aspectFocus,
     graphicStatus: _graphicStatus,
     diagram: _diagram,
     ...content
@@ -708,6 +710,8 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     indicatorId: plan.indicatorId,
     questionKind: plan.questionKind,
     contentRevision: plan.contentRevision,
+    ...(plan.aspectChoices ? { aspectChoices: [...plan.aspectChoices] } : {}),
+    ...(plan.aspectFocus ? { aspectFocus: plan.aspectFocus } : {}),
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
     ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),

@@ -8,7 +8,7 @@ import {
   TUTOR_DEFAULT_DIFFICULTY,
   tutorContentFields,
   tutorCourseContentContextSchema,
-  tutorCourseContentSessionSchema,
+  tutorCourseContentSessionSchema, tutorAspectFocusRequestSchema,
   tutorDialogTurnSchema,
   tutorDifficultySchema,
   tutorFocusProgressSchema,
@@ -56,6 +56,7 @@ export const tutorSupportRequestSchema = z
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
+    aspectFocus: tutorAspectFocusRequestSchema,
   })
   .strict()
   .superRefine(rejectEntryHeaderCollision);
