@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>27/27</span>
+                <span class='fraction'>28/28</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">88.88% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>16/18</span>
+                <span class='fraction'>20/22</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>20/20</span>
+                <span class='fraction'>21/21</span>
             </div>
         
             
@@ -126,7 +126,9 @@
 <a name='L61'></a><a href='#L61'>61</a>
 <a name='L62'></a><a href='#L62'>62</a>
 <a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -141,20 +143,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">22x</span>
-<span class="cline-any cline-yes">22x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">317x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">318x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -200,14 +204,16 @@ export const TUTOR_ASSIGNMENT_GUIDANCE_TEXT = {
   followUp: "Frageauftrag der Anwendung für die Folgefrage (verbindlich für `question`, Vorrang vor allgemeinen Hinweisen zur Folgefrage). Er hängt von deinem answerRating ab:",
   rule: "Die Frage betrifft genau diese Stelle und nennt sie wörtlich: den Code der Stelle in Backticks oder einen ihrer Bezeichner. Sie nennt die gesuchte Antwort nicht.",
   parts: "Verlangt ein Auftrag der Stufe 4 zwei Teile (etwa eine Änderung und eine Beobachtung im Simulator), nennt die Frage beide ausdrücklich als Teile der erwarteten Antwort, mit „erstens“ und „zweitens“, und bleibt dabei ein einziger Fragesatz.",
+  errorDiagram: "Die Anwendung zeigt zur Frage ein Aktivitätsdiagramm dieser Anweisung, in das sie genau einen Fehler eingebaut hat. Die Frage fordert auf, den Fehler im Diagramm durch Vergleich mit dem Code zu finden und zu begründen; sie verrät weder die Stelle noch die Art des Fehlers. Eingebauter Fehler, nur für deine Bewertung:",
   weak: "Bei answerRating 1 oder 2 bleibt die aktuelle Frage offen: gib im feedback einen Hinweis und wiederhole in `question` die aktuelle Frage sinngemäß.",
 } as const;
 &nbsp;
-function describe({ aspectTitle, level, levelName, task, site }: TutorAssignment): string {
+function describe({ aspectTitle, level, levelName, task, site, graphic, graphicNote }: TutorAssignment): string {
   const place = site.function ? `Funktion \`${site.function}()\`, Zeile ${site.line}` : `Zeile ${site.line}`;
   const quoted = site.names.map((name) =&gt; "`" + name + "`").join(", ");
   const names = quoted ? ` Bezeichner: ${quoted}.` : <span class="branch-1 cbranch-no" title="branch not covered" >"";</span>
-  return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}`;
+  const diagram = graphic === "activity-error" &amp;&amp; graphicNote ? ` ${TUTOR_ASSIGNMENT_GUIDANCE_TEXT.errorDiagram} ${graphicNote}` : "";
+  return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}${diagram}`;
 }
 &nbsp;
 /** Only a level 4 assignment asks for a change and its observation; lower levels read stiff with the rule. */
@@ -259,7 +265,7 @@ export function namesAssignmentSite(question: string, site: Pick&lt;TutorAssignm
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-16T09:30:26.571Z
+                at 2026-11-16T09:38:04.327Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

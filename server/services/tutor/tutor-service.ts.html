@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.17% </span>
+                <span class="strong">96.19% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>503/523</span>
+                <span class='fraction'>506/526</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.35% </span>
+                <span class="strong">92.12% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>544/589</span>
+                <span class='fraction'>550/597</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">99.09% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>109/110</span>
+                <span class='fraction'>110/111</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.48% </span>
+                <span class="strong">97.49% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>426/437</span>
+                <span class='fraction'>428/439</span>
             </div>
         
             
@@ -1700,7 +1700,13 @@
 <a name='L1635'></a><a href='#L1635'>1635</a>
 <a name='L1636'></a><a href='#L1636'>1636</a>
 <a name='L1637'></a><a href='#L1637'>1637</a>
-<a name='L1638'></a><a href='#L1638'>1638</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1638'></a><a href='#L1638'>1638</a>
+<a name='L1639'></a><a href='#L1639'>1639</a>
+<a name='L1640'></a><a href='#L1640'>1640</a>
+<a name='L1641'></a><a href='#L1641'>1641</a>
+<a name='L1642'></a><a href='#L1642'>1642</a>
+<a name='L1643'></a><a href='#L1643'>1643</a>
+<a name='L1644'></a><a href='#L1644'>1644</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2694,6 +2700,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">837x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2834,7 +2846,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">326x</span>
 <span class="cline-any cline-yes">326x</span>
-<span class="cline-any cline-yes">326x</span>
+<span class="cline-any cline-yes">325x</span>
 <span class="cline-any cline-yes">325x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -3338,7 +3350,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { activityExcerptProposal } from "./uml/excerpt";
-import { prepareTutorUml, withoutTutorGraphics, type PreparedTutorUml } from "./uml/service";
+import { prepareTutorUml, tutorUmlRenderer, withoutTutorGraphics, type PreparedTutorUml } from "./uml/service";
 import { TUTOR_UML_PROMPT_DIRECTIVES } from "./uml/prompt";
 import type { TutorUmlArtifactHandle } from "./uml/artifacts";
 import type { UmlCodeContext } from "@shared/tutor-uml";
@@ -4329,6 +4341,12 @@ export class TutorService {
     private readonly umlOptions: Pick&lt;Parameters&lt;typeof prepareTutorUml&gt;[2], "renderer" | "artifacts"&gt; = {},
   ) {}
 &nbsp;
+  /** Tells the planner whether this request can show a diagram the application builds. */
+  private async withDiagrams(courseContent: TutorPlanningContentContext | undefined, profile: TutorGraphicsProfile | undefined): Promise&lt;TutorPlanningContentContext | undefined&gt; {
+    if (!courseContent || !profile) return courseContent;
+    return (await (this.umlOptions.renderer ?? <span class="branch-1 cbranch-no" title="branch not covered" >tutorUmlRenderer)</span>.available()) ? { ...courseContent, diagrams: true } : <span class="branch-1 cbranch-no" title="branch not covered" >courseContent;</span>
+  }
+&nbsp;
   private async finalGraphics(result: TutorContentResult, input: {
     profile?: TutorGraphicsProfile; mode?: TutorGraphicsMode; proposal?: unknown;
     model: string; credential: string; signal?: AbortSignal;
@@ -4343,7 +4361,7 @@ export class TutorService {
     const codeContext: UmlCodeContext = { question: result.question, code: input.code, entryFile: input.source.entryFile ?? <span class="branch-1 cbranch-no" title="branch not covered" >"sketch.ino", b</span>oard: input.source.board ?? "uno", headers: Object.fromEntries((input.source.headers ?? []).map(h =&gt; [h.name, h.content])) };
     // An assignment that asks for a diagram gets the one the application builds from the code (stage 3).
     const own = this.planningExtension?.questionGraphic?.({ code: input.sketchText, currentQuestion: result.question, courseContent: input.courseContent });
-    const proposal = (own &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >activityExcerptProposal(codeContext, own.siteCode)) ?? i</span>nput.proposal;
+    const proposal = (own &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >activityExcerptProposal(codeContext, own.siteCode, own.kind === "activity-error")) ?? i</span>nput.proposal;
     const prepared: PreparedTutorUml = await prepareTutorUml(this.provider, codeContext, { ...this.umlOptions, mode: input.retained ? "auto" : input.mode, proposal, model: input.model, credential: input.credential, signal: input.signal });
     const { _diagramArtifact, ...publicDiagram } = prepared;
     if (input.retained &amp;&amp; !prepared.diagram &amp;&amp; prepared.graphicStatus !== "not-useful" &amp;&amp; input.retained.graphic) return { result: { ...text, ...input.retained.graphic }, _diagramArtifact: input.retained.diagramArtifact };
@@ -4470,7 +4488,7 @@ export class TutorService {
     // Planner, strategy and prompt see the same project: a topic the sketch's facts select (an array, a
     // type, a Serial call) must not depend on which file the declaration sits in.
     const sketchText = tutorSketchText(code, source);
-    const transaction = beginTutorPlanningTransaction(courseContent);
+    const transaction = beginTutorPlanningTransaction(await this.withDiagrams(courseContent, graphicsProfile));
     const planningResult = await this.planQuestion(request, sketchText, transaction);
     if (options.completeWhenBlocked &amp;&amp; isTutorPlanningBlocked(planningResult)) {
       transaction.commit();
@@ -4531,7 +4549,7 @@ export class TutorService {
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) =&gt; tutorDialogTurnSchema.parse(entry));
     const sketchText = tutorSketchText(code, source);
-    const transaction = beginTutorPlanningTransaction(courseContent);
+    const transaction = beginTutorPlanningTransaction(await this.withDiagrams(courseContent, graphicsProfile));
     if (isClearlyNonLearningAnswer(answer)) {
       return this.nonLearningAnswer({ sketchText, history: parsedHistory, question, difficulty, requestedModel, signal, support }, transaction);
     }
@@ -4970,7 +4988,7 @@ export const TUTOR_PROMPT_REVISION = {
   // v13: question assignments of the aspect flow: the application names aspect, level and site, per rating
   // for a follow-up question, and the model words the question.
   // v14/v15: a level 4 assignment with two parts names both in the question ("erstens", "zweitens").
-  id: "tutor-prompts-v15",
+  id: "tutor-prompts-v16",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;
@@ -4981,7 +4999,7 @@ export const TUTOR_PROMPT_REVISION = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-16T09:30:26.571Z
+                at 2026-11-16T09:38:04.327Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
