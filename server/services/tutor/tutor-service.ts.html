@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.16% </span>
+                <span class="strong">96.17% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>502/522</span>
+                <span class='fraction'>503/523</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.47% </span>
+                <span class="strong">92.35% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>541/585</span>
+                <span class='fraction'>544/589</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">99.08% </span>
+                <span class="strong">99.09% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>108/109</span>
+                <span class='fraction'>109/110</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.47% </span>
+                <span class="strong">97.48% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>425/436</span>
+                <span class='fraction'>426/437</span>
             </div>
         
             
@@ -1692,7 +1692,15 @@
 <a name='L1627'></a><a href='#L1627'>1627</a>
 <a name='L1628'></a><a href='#L1628'>1628</a>
 <a name='L1629'></a><a href='#L1629'>1629</a>
-<a name='L1630'></a><a href='#L1630'>1630</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1630'></a><a href='#L1630'>1630</a>
+<a name='L1631'></a><a href='#L1631'>1631</a>
+<a name='L1632'></a><a href='#L1632'>1632</a>
+<a name='L1633'></a><a href='#L1633'>1633</a>
+<a name='L1634'></a><a href='#L1634'>1634</a>
+<a name='L1635'></a><a href='#L1635'>1635</a>
+<a name='L1636'></a><a href='#L1636'>1636</a>
+<a name='L1637'></a><a href='#L1637'>1637</a>
+<a name='L1638'></a><a href='#L1638'>1638</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2377,8 +2385,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">774x</span>
 <span class="cline-any cline-yes">774x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">477x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2392,6 +2407,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">477x</span>
 <span class="cline-any cline-yes">477x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -4003,11 +4019,18 @@ function stripProviderPlanningMetadata(result: TutorContentResult): TutorContent
     progressionBlockedReason: _progressionBlockedReason,
     extensionTargetTopicId: _extensionTargetTopicId,
     focusProgress: _focusProgress,
+    aspectChoices: _aspectChoices,
+    aspectFocus: _aspectFocus,
     graphicStatus: _graphicStatus,
     diagram: _diagram,
     ...content
   } = result;
   return content;
+}
+&nbsp;
+/** The aspects the learner can choose from, as the planned question carries them. */
+function aspectChoiceFields({ aspectChoices, aspectFocus }: TutorPlan): Pick&lt;TutorContentResult, "aspectChoices" | "aspectFocus"&gt; {
+  return { ...(aspectChoices ? { aspectChoices: [...aspectChoices] } : {}), ...(aspectFocus ? <span class="branch-0 cbranch-no" title="branch not covered" >{ aspectFocus } : {</span>}) };
 }
 &nbsp;
 function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): TutorContentResult {
@@ -4031,6 +4054,7 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     indicatorId: plan.indicatorId,
     questionKind: plan.questionKind,
     contentRevision: plan.contentRevision,
+    ...aspectChoiceFields(plan),
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
     ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),
@@ -4957,7 +4981,7 @@ export const TUTOR_PROMPT_REVISION = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-16T08:37:20.573Z
+                at 2026-11-16T09:30:26.571Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
