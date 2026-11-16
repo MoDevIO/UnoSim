@@ -172,6 +172,19 @@ function useFeedbackInView(stepRef: RefObject<HTMLDivElement | null>, awaitingNe
   }, [awaitingNext, stepRef]);
 }
 
+const LEVEL_NAMES: Readonly<Record<string, string>> = { "level-1": "Erkennen", "level-2": "Erklären", "level-3": "Vorhersagen", "level-4": "Verändern" };
+
+/**
+ * What the question is about, as its heading: the topic, and for a question of the aspect flow its level
+ * ("Verzweigungen · Stufe 3 von 4: Vorhersagen"). Undefined for a question without learning context.
+ */
+export function questionSubject(question: { readonly topic?: string; readonly topicId?: string; readonly indicatorId?: string }): string | undefined {
+  const topic = question.topic?.trim();
+  if (!topic || !question.topicId) return undefined;
+  const level = question.indicatorId ? LEVEL_NAMES[question.indicatorId] : undefined;
+  return level && question.indicatorId ? `${topic} · Stufe ${question.indicatorId.slice(-1)} von 4: ${level}` : topic;
+}
+
 /**
  * The open question with the feedback that belongs to it, the answer field right below, and help on demand;
  * after an answer that closed it, the answered question with its feedback and stars and `Weiter`
@@ -192,8 +205,9 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
   const currentEntry = last && entryQuestion(last) === question.question ? last : null;
   // An answer's feedback stays with its question until `Weiter`; only a skipped question is noted above the next one.
   const skippedEntry = last && !currentEntry && last.kind === "skip" ? last : null;
-  let questionHeading = "Aktuelle Frage";
-  if (tutor.awaitingNext) questionHeading = "Beantwortete Frage";
+  const subject = questionSubject(question);
+  let questionHeading = subject ?? "Aktuelle Frage";
+  if (tutor.awaitingNext) questionHeading = subject ? `Beantwortet · ${subject}` : "Beantwortete Frage";
   else if (question.responseStyle === "philosophical") questionHeading = "Nachdenkliche Frage";
 
   return (
@@ -208,7 +222,6 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
         {question.diagram && <TutorUmlPreview diagram={question.diagram} subject={question} />}
         {!question.diagram && question.mermaid && <MermaidPreview source={question.mermaid} subject={question} showFailure={question.graphicStatus === "provided"} />}
-        {question.graphicStatus === "not-useful" && <output className="mt-2 block text-ui-sm text-muted-foreground">Zu dieser Frage ist keine hilfreiche zusätzliche UML-Grafik verfügbar.</output>}
         {question.graphicStatus === "unavailable" && <output className="mt-2 block text-ui-sm text-muted-foreground">{TUTOR_GRAPHIC_UNAVAILABLE}</output>}
       </section>
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}

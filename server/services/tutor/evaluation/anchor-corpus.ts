@@ -13,7 +13,7 @@ import {
   type TutorSupportAction,
 } from "@shared/tutor";
 import { INPUT_LIMITS } from "@shared/input-limits";
-import { canonicalDigest } from "./canonical";
+import { canonicalDigest } from "../canonical";
 import { isValidRevealLiteral, normalizeRevealLiteral } from "./reveal-check";
 
 export interface TutorQualityHistoryEntrySource {

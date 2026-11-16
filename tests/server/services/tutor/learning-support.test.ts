@@ -297,6 +297,13 @@ describe("learner inputs (LearningQuestions R-SUP-1)", () => {
     ["Formuliere die Frage bitte anders.", "clarification"],
     ["Ich erkläre es so: 200 hat Bit 7 gesetzt, also 1.", "answer"],
     ["Kannst du mir das erklären?", "clarification"],
+    // Tutor review of 2026-11-15: a wish addressed to the Tutor was rated 1/5 as an answer.
+    ["Gib mir doch bitte mal eine Frage mit UML-Grafik!!!!!", "clarification"],
+    ["Bitte stelle endlich eine Frage mit UML!", "clarification"],
+    ["Stell mir bitte eine andere Frage.", "clarification"],
+    ["Zeig mir ein Diagramm dazu.", "clarification"],
+    ["Stelle 3 im Diagramm der Aufgabe zeigt den Wert 1.", "answer"],
+    ["Zeigt eine 1 im Diagramm.", "answer"],
     // Answers that only look similar stay answers.
     ["Ich verstehe es so, dass i nicht bei 7 bleibt.", "answer"],
     ["Das lässt sich mit der Verschiebung erklären: 1.", "answer"],

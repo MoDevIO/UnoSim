@@ -41,6 +41,9 @@ The existing trust boundaries remain authoritative:
 - `TutorService` validates/repairs provider content, applies the plan, and
   commits progression state only after the complete request succeeds.
 
+With the aspect flow (section 9) the planner owns aspect, level, assignment and
+place, and the provider owns the wording of the question for that assignment.
+
 Provider-supplied planning metadata is untrusted and MUST NOT survive when it
 conflicts with application-owned planning or Strategy resolution. A real
 `TutorPlan` MAY replace provider question text deliberately. Transition and
@@ -227,3 +230,79 @@ action under LearningQuestions R-SUP-7. These exceptions must not disable the
 guards globally. Fake-provider tests prove the protocol, not correct grading
 by a real model; the complementary live/HTTP requirements are in
 [TutorQualityEvaluation section 15](ssot_function_definition_TutorQualityEvaluation.md#15-planned-learning-support-and-http-dialog-evaluation-not-implemented).
+
+## 9. Aspect flow
+
+Status: implemented behind the switch `UNOSIM_TUTOR_ASPECT_PLANNING` (off by
+default). While it is off, or for Course Content without aspect files
+([CourseContent 7.1](ssot_function_definition_CourseContent.md#71-aspect-files)),
+the Topic catalog plans as before.
+
+With the switch on and aspect files present:
+
+1. **Detection.** The application detects the aspects of the current sketch
+   from its syntax tree, without macro expansion: variables, expressions,
+   branching, loops, functions, arrays, scope, serial, pins, timing and
+   program flow. Each aspect has places ("sites": function, lines, a quotable
+   code text, the identifiers that name it, the features it offers) and a
+   weight. A site id does not contain line numbers.
+2. **Planning.** The planner is deterministic: the same sketch, answers and
+   ratings give the same sequence of aspect, level, assignment and site.
+   - The first question of a session probes the heaviest aspect with
+     assignments on level 2 (explain).
+   - A rating of 4 or 5 raises the level by one; on level 3 or 4 the aspect
+     counts as shown. A rating of 3 keeps the level and takes another site,
+     or another assignment when no other site fits. A rating of 1 or 2 keeps
+     the question open; after the second weak answer the level drops by one
+     once the question is closed.
+   - An aspect is left when it is shown, otherwise after three questions;
+     with learning potential (the last rating is better than the one before,
+     or the level just rose and the aspect is not shown) up to five. After an
+     aspect is shown exactly one level 4 question may follow within that cap.
+   - The next aspect is the heaviest open one. It starts on level 3 when the
+     mean of the last three ratings is at least 4, on level 1 when it is at
+     most 2, otherwise on level 2.
+   - Clarification, hints, reference answers and skipping add no rating; a
+     skipped question counts for the cap.
+   - The Topic catalog does not plan. A teacher's focus runs first; the
+     aspect flow follows, unless the Example sets `afterFocus: free`.
+   - When every aspect with assignments is handled the plan reports
+     `content-exhausted` and the free Tutor continues.
+3. **Competence.** The competence per aspect (highest level passed, shown or
+   not, recent ratings) is kept in the session's progression state, apart
+   from the counters of the current sketch. Another sketch (fewer than half
+   of the earlier sites remain) starts the counters anew and keeps the
+   competence; an aspect shown before starts on level 3 with one confirming
+   question. After an edit a level 1 or 2 question whose site is gone is
+   dropped without counting; a level 3 or 4 question stays.
+4. **Wording.** The prompt names aspect, level, task and site of the
+   assignment. For a dialog turn the application plans the follow-up on a copy
+   of the session state for each rating from 3 to 5 and the prompt carries the
+   assignment per rating, so one provider call yields the rating and the final
+   follow-up question. The provider's question is delivered when it contains
+   an identifier of the site or the site's code; otherwise the assignment's
+   fallback question, filled with the site, is delivered. Invariant 10 holds
+   for both. The session state is committed as in invariant 2.
+   An assignment of level 4 that asks for two parts (a change and its
+   observation) makes the question name both, with "erstens" and "zweitens".
+5. **Diagram.** For a question whose assignment carries `graphic: activity`,
+   and when the client negotiated the classic UML profile, the application
+   builds the activity diagram itself: the control statement of the site
+   (`if` with `else if` and `else`, `while`, `for`; branches with or without
+   braces; a `return` ends its path), with runs of plain statements as one
+   action each. The provider's proposal is not used and no further provider
+   call is made. The diagram passes the same validation and rendering as a
+   provider proposal; the validator accepts this variant (`excerpt:
+   "statement"`) only when it equals what the application builds for the
+   scope. A statement that holds `break`, `continue`, `switch`, `do`, code
+   after a `return` or an empty loop body gets no application-built diagram;
+   the provider's proposal is then handled as before.
+
+The deterministic tests are `aspect-detector.test.ts`, `aspect-planner.test.ts`,
+`aspect-flow.test.ts` and `uml/excerpt.test.ts` under `tests/server/services/tutor/`: each aspect
+with a positive and a negative sketch, each rule of the planner as a case, and
+the flow through `TutorService` with only the provider faked.
+
+Not yet covered by the flow: questions that connect two aspects and the
+overview at the end, and question identity across an edit in the
+learning-support store.

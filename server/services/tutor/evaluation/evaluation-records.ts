@@ -1,6 +1,6 @@
 import type { LLMProviderRequest, ProviderQuestionResult } from "../llm-provider";
 import { TutorProviderError } from "../llm-provider";
-import { sha256 } from "./canonical";
+import { sha256 } from "../canonical";
 import { findRevealedLiteral } from "./reveal-check";
 import type {
   TutorQualityDeterministicCheck,

@@ -10,7 +10,7 @@ import {
   runTutorQualityEvaluation,
   type TutorQualityEvaluationScenario,
 } from "../../../../../server/services/tutor/evaluation/real-provider-evaluation";
-import { sha256 } from "../../../../../server/services/tutor/evaluation/canonical";
+import { sha256 } from "../../../../../server/services/tutor/canonical";
 import { createTutorQualityRunManifest } from "../../../../../server/services/tutor/evaluation/report";
 import { TutorProviderError, type LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 

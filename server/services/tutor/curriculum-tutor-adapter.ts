@@ -1,4 +1,4 @@
-import type { TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
+import type { TutorAnswerRating, TutorDialogTurn, TutorDifficulty, TutorFocusProgress } from "@shared/tutor";
 import { Logger } from "@shared/logger";
 import type { ExampleTutorAnnotation } from "../course-content/embedded-tutor-annotation";
 import {
@@ -30,6 +30,7 @@ import type {
   TutorPlanningResult,
   TutorExpansionBrief,
   TutorFocusSummary,
+  TutorFollowUpPreview,
 } from "./tutor-planning";
 import {
   appendEvidence,
@@ -45,6 +46,10 @@ import {
   type TutorProgressionState,
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
+import {
+  aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
+} from "./curriculum/aspect-flow";
+import type { AspectDefinition } from "./curriculum/aspect-schema";
 
 /**
  * Course Content reaches the adapter only as the context passed into each
@@ -54,6 +59,11 @@ export interface CurriculumTutorAdapterDependencies {
   readonly factExtractor?: SketchFactExtractor;
   readonly topicMatcher?: TopicMatcher;
   readonly planner?: LearningPlanner;
+  /**
+   * The aspect flow (Tutor concept, stage 2) plans instead of the Topic catalog, for Course Content that
+   * provides aspect files. Off by default: the catalog stays in charge until the flow has passed its runs.
+   */
+  readonly aspectPlanning?: boolean;
 }
 
 type TutorFollowupInput = {
@@ -73,8 +83,10 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   private readonly factExtractor: SketchFactExtractor;
   private readonly topicMatcher: TopicMatcher;
   private readonly planner: LearningPlanner;
+  private readonly aspectPlanning: boolean;
 
   constructor(deps: CurriculumTutorAdapterDependencies = {}) {
+    this.aspectPlanning = deps.aspectPlanning ?? false;
     this.factExtractor = deps.factExtractor ?? new DefaultSketchFactExtractor();
     this.topicMatcher = deps.topicMatcher ?? new DefaultTopicMatcher();
     this.planner = deps.planner ?? new DefaultLearningPlanner();
@@ -93,7 +105,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   async planInitial(input: { code: string; history: readonly TutorDialogTurn[]; difficulty: TutorDifficulty; exampleId?: string; courseContent?: TutorPlanningContentContext }): Promise<TutorPlanningResult | null> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
-    if (!context) return null;
+    if (!context) return this.aspects(input, (flow) => aspectStartPlan(flow));
     if (context.blocked) return context.blocked;
     return this.startPlan(context, sessionHistory(context.topic, input.history, context.state), input.difficulty, context.phase);
   }
@@ -106,14 +118,30 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) }
       : snapshot;
     const context = await this.match(input.code, input.history, input.difficulty, readOnly, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
-    if (!context) return null;
+    if (!context) return this.aspects({ ...input, courseContent: readOnly }, (flow) => aspectAnsweredPlan(flow, input.currentQuestion));
     if (context.blocked) return context.blocked;
     return answeredQuestionPlan(context, input.currentQuestion, input.history);
   }
 
+  async previewFollowups(input: Omit<TutorFollowupInput, "rating">): Promise<readonly TutorFollowUpPreview[]> {
+    const snapshot = input.courseContent;
+    if (!snapshot?.progressionState || !this.aspectDefinitions(snapshot, input.exampleId)) return [];
+    const previews: TutorFollowUpPreview[] = [];
+    for (const rating of [5, 4, 3] as const satisfies readonly TutorAnswerRating[]) {
+      const copy = { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) };
+      const plan = await this.planFollowup({ ...input, rating, courseContent: copy });
+      const assignment = plan && !("kind" in plan) ? plan.assignment : undefined;
+      if (!assignment) continue;
+      const same = previews.find((preview) => JSON.stringify(preview.assignment) === JSON.stringify(assignment));
+      if (same) previews[previews.indexOf(same)] = { ratings: [...same.ratings, rating], assignment };
+      else previews.push({ ratings: [rating], assignment });
+    }
+    return previews;
+  }
+
   async planFollowup(input: TutorFollowupInput): Promise<TutorPlanningResult | null> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.supportCycle ? input.currentQuestion : undefined);
-    if (!context) return null;
+    if (!context) return this.aspects(input, (flow) => aspectFollowupPlan(flow, input.currentQuestion, input.rating, input.supportCycle === true));
     if (context.blocked) return context.blocked;
     // The session view of the answered turn's past, taken before the answer is recorded: the
     // planner adds the current answer itself and must not count it twice.
@@ -123,14 +151,16 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (retry) return retry;
     const stateUpdate = updateStateAfterFollowup(context, input);
     const refreshed = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId);
-    if (!refreshed) return null;
+    // The teacher's focus is finished: the aspect flow takes over with its first question.
+    if (!refreshed) return this.aspects(input, (flow) => aspectStartPlan(flow));
     if (refreshed.blocked) return refreshed.blocked;
-    return this.continueFollowup(context, refreshed, input, stateUpdate, answeredHistory);
+    return this.continueFollowup(context, refreshed, input, stateUpdate, answeredHistory)
+      ?? this.aspects(input, (flow) => aspectStartPlan(flow));
   }
 
   async planRetry(input: TutorFollowupInput & { readonly assisted: boolean }): Promise<TutorPlanningResult | null> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
-    if (!context) return null;
+    if (!context) return this.aspects(input, (flow) => aspectRetryPlan(flow, input.currentQuestion, input.rating, input.assisted));
     if (context.blocked) return context.blocked;
     // An answer after the reference answer was shown repeats it; it is no evidence (R-SUP-5).
     if (!input.assisted) recordFollowupObservation(context, input);
@@ -139,9 +169,47 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
 
   async leaveQuestion(input: Omit<TutorFollowupInput, "rating">): Promise<void> {
     const context = await this.match(input.code, input.history, input.difficulty, input.courseContent, input.exampleId, input.currentQuestion);
+    if (!context) {
+      this.aspects(input, (flow) => {
+        aspectLeaveQuestion(flow, input.currentQuestion);
+        return null;
+      });
+    }
     if (!context || context.blocked) return;
     const question = findCurriculumQuestion(context.topic, input.currentQuestion, input.history);
     if (question) markQuestionLeft(context.state, context.topic.id, question.id);
+  }
+
+  questionGraphic(input: { readonly code: string; readonly currentQuestion: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): { readonly kind: "activity"; readonly siteCode: string } | undefined {
+    return this.aspects(input, (flow) => aspectQuestionGraphic(flow, input.currentQuestion)) ?? undefined;
+  }
+
+  /** The aspect files that plan for this request; undefined while the Topic catalog or a free Tutor is in charge. */
+  private aspectDefinitions(snapshot: TutorPlanningContentContext | undefined, requestedExampleId?: string): readonly AspectDefinition[] | undefined {
+    if (!this.aspectPlanning || snapshot?.tutor?.status !== "valid" || !snapshot.tutor.aspects?.length) return undefined;
+    const annotation = (snapshot.exampleId ?? requestedExampleId) === undefined ? undefined : snapshot.exampleTutorAnnotation;
+    // A teacher who set `afterFocus: free` wants the free Tutor after the focus, not the aspect flow.
+    if (annotation?.focus !== undefined && annotation.afterFocus === "free") return undefined;
+    return snapshot.tutor.aspects;
+  }
+
+  /** Runs one step of the aspect flow on the session state; null when the flow is not in charge of this sketch. */
+  private aspects<T>(
+    input: { readonly code: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext },
+    step: (flow: AspectFlowInput) => T | null,
+  ): T | null {
+    const snapshot = input.courseContent;
+    const definitions = this.aspectDefinitions(snapshot, input.exampleId);
+    if (!snapshot || !definitions) return null;
+    try {
+      if (!aspectFlowApplies(input.code, definitions)) return null;
+      const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
+      if (state.revision !== snapshot.revision) resetTutorProgressionState(state, snapshot.revision);
+      return step({ code: input.code, state, definitions, revision: snapshot.revision, strategy: this.resolveSnapshotStrategy(snapshot, undefined, "LEARN") });
+    } catch (error) {
+      this.logger.warn(`Aspect planning failed; continuing without a plan: ${describeError(error)}`);
+      return null;
+    }
   }
 
   private continueFollowup(
@@ -265,8 +333,10 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     const facts = this.factExtractor.extract(code);
     const inline = inlineFocusMatch(exampleContextId, annotation, code);
     // The teacher's focus runs first; by default the Tutor then continues freely, without repository Topics.
-    const focusThenFree = exampleContextId !== undefined && annotation?.focus !== undefined && (annotation.afterFocus ?? "free") === "free";
-    const matches = focusThenFree ? [] : this.topicMatcher.match(snapshot.tutor.topics, facts);
+    const aspectFlow = this.aspectDefinitions(snapshot, requestedExampleId) !== undefined;
+    const focusThenFree = exampleContextId !== undefined && annotation?.focus !== undefined && (aspectFlow || (annotation.afterFocus ?? "free") === "free");
+    // With the aspect flow the Topic catalog does not plan: only the teacher's focus is matched here.
+    const matches = focusThenFree || aspectFlow ? [] : this.topicMatcher.match(snapshot.tutor.topics, facts);
     const orderedMatches = [...(inline ? [inline] : []), ...orderTopicMatches(matches, annotation)];
     const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
     const resetsRevision = state.revision !== snapshot.revision;

@@ -313,7 +313,7 @@ test.describe("Tutor learning flow", () => {
 
     const next = page.getByTestId("tutor-continue");
     await expect(next).toBeFocused();
-    await expect(page.getByTestId("tutor-question")).toContainText("Beantwortete Frage");
+    await expect(page.getByTestId("tutor-question")).toContainText("Beantwortet · Der Pin");
     await expect(page.getByTestId("tutor-question")).toContainText("pinMode");
     const step = page.getByTestId("tutor-current-step");
     await expect(step).toContainText("Er legt fest, ob der Pin Ein- oder Ausgang ist.");

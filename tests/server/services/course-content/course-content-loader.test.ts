@@ -294,6 +294,48 @@ describe("unified Course Content loader", () => {
     expect(loaded.tutor).toMatchObject({ status: "invalid" });
   });
 
+  describe("aspect files", () => {
+    const aspectPath = "tests/fixtures/tutor-aspects/branching.yaml";
+    const load = async (aspect: string, entry: { id?: string; sha256?: string } = {}) => {
+      const { fetchText } = fetcherFor({
+        [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example], tutor: { manifest: "tutor/manifest.yaml" } }),
+        [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n",
+        [`/owner/repo/${revision}/tutor/manifest.yaml`]: [
+          "schemaVersion: 1", "topics: []", "strategies: []", "aspects:",
+          `  - id: ${entry.id ?? "branching"}`, "    path: tutor/aspects/branching.yaml", `    sha256: ${entry.sha256 ?? digest(aspect)}`, "",
+        ].join("\n"),
+        [`/owner/repo/${revision}/tutor/aspects/branching.yaml`]: aspect,
+      });
+      return (await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision)).tutor;
+    };
+
+    it("loads the aspect files the manifest lists", async () => {
+      const tutor = await load(await readFile(path.resolve(process.cwd(), aspectPath), "utf8"));
+      expect(tutor).toMatchObject({ status: "valid", aspects: [{ id: "branching", title: "Verzweigungen" }] });
+    });
+
+    it("has no aspects for a manifest without them", async () => {
+      const { fetchText } = fetcherFor({
+        [`/owner/repo/${revision}/manifest.json`]: JSON.stringify({ schemaVersion: 2, examples: [example], tutor: { manifest: "tutor/manifest.yaml" } }),
+        [`/owner/repo/${revision}/examples/main.ino`]: "void setup() {}\n",
+        [`/owner/repo/${revision}/tutor/manifest.yaml`]: "schemaVersion: 1\ntopics: []\nstrategies: []\n",
+      });
+      const tutor = (await new CourseContentLoader({ fetchText }, 2).load("owner/repo", revision)).tutor;
+      expect(tutor).toMatchObject({ status: "valid" });
+      expect(tutor).not.toHaveProperty("aspects");
+    });
+
+    it.each([
+      ["a wrong digest", (aspect: string) => load(aspect, { sha256: "0".repeat(64) })],
+      ["an id that differs from the file", (aspect: string) => load(aspect, { id: "loops" })],
+      ["an aspect with too few assignments on a level", (aspect: string) => load(aspect.replace(/  - id: branching-change-[\s\S]*$/, ""))],
+      ["an unknown key", (aspect: string) => load(`${aspect}extra: true\n`)],
+    ])("rejects the Tutor content for %s", async (_name, run) => {
+      const tutor = await run(await readFile(path.resolve(process.cwd(), aspectPath), "utf8"));
+      expect(tutor).toMatchObject({ status: "invalid" });
+    });
+  });
+
   it("loads manifest and Topic v2 phase data atomically", async () => {
     const topicV1 = await readFile(path.resolve(process.cwd(), "curriculum/topics/memory-and-data-types.yaml"), "utf8");
     const topic = topicV1.replace("schemaVersion: 1", "schemaVersion: 2\nextensions:\n  - topic: memory-and-data-types\n    objective: Ein verwandtes Beispiel vergleichen.\n");

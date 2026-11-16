@@ -15,6 +15,32 @@ export interface TutorPlanningContentContext {
   readonly progressionState?: TutorProgressionState;
 }
 
+/**
+ * A question assignment of the aspect flow: the application chose what to ask and where, the model words
+ * the question. `TutorPlan.question` then holds the wording used when the model's does not name the site.
+ */
+export interface TutorAssignment {
+  readonly aspectId: string;
+  readonly aspectTitle: string;
+  readonly level: 1 | 2 | 3 | 4;
+  readonly levelName: string;
+  readonly task: string;
+  readonly site: {
+    readonly function?: string;
+    readonly line: number;
+    readonly endLine: number;
+    readonly code: string;
+    readonly names: readonly string[];
+  };
+  readonly graphic?: "activity";
+}
+
+/** The assignment that follows when the answer being rated receives one of `ratings`. */
+export interface TutorFollowUpPreview {
+  readonly ratings: readonly TutorAnswerRating[];
+  readonly assignment: TutorAssignment;
+}
+
 /** Normalized, implementation-independent plan data consumed by TutorService. */
 export interface TutorPlan {
   readonly topicId: string;
@@ -40,6 +66,8 @@ export interface TutorPlan {
   readonly progressionBlockedReason?: ProgressionBlockedReason;
   readonly extensionTargetTopicId?: string;
   readonly expansionBrief?: TutorExpansionBrief;
+  /** Set by the aspect flow: the model's question is kept when it names the assignment's site. */
+  readonly assignment?: TutorAssignment;
 }
 
 /** The learner's place in the teacher's focus, and what the free Tutor should still work on. */
@@ -107,6 +135,20 @@ export interface TutorPlanningExtension {
     readonly courseContent?: TutorPlanningContentContext;
     readonly supportCycle?: boolean;
   }): Promise<TutorPlanningResult | null>;
+  /**
+   * The assignments that would follow the answer being rated, per rating, computed on a copy of the session
+   * state. The dialog prompt carries them, so that one provider call yields the rating and the final follow-up
+   * question. Absent or empty when no assignment follows (Topic catalog, focus, free Tutor).
+   */
+  previewFollowups?(input: {
+    readonly code: string;
+    readonly history: readonly TutorDialogTurn[];
+    readonly currentQuestion: string;
+    readonly difficulty: TutorDifficulty;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+    readonly supportCycle?: boolean;
+  }): Promise<readonly TutorFollowUpPreview[]>;
   planFollowup(input: {
     readonly code: string;
     readonly history: readonly TutorDialogTurn[];
@@ -144,4 +186,14 @@ export interface TutorPlanningExtension {
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
   }): Promise<void>;
+  /**
+   * The graphic the application builds itself for the delivered question: the activity diagram of the
+   * control statement whose head holds `siteCode`. Undefined when the question's assignment asks for none.
+   */
+  questionGraphic?(input: {
+    readonly code: string;
+    readonly currentQuestion: string;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): { readonly kind: "activity"; readonly siteCode: string } | undefined;
 }

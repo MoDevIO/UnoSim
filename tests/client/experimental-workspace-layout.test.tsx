@@ -217,7 +217,8 @@ describe("experimental workspace layout", () => {
 
     // The learning step loads when the Tutor column opens.
     const answerField = await screen.findByLabelText("Deine Antwort oder Rückfrage");
-    expect(answerField).toHaveFocus();
+    // The focus is set in an effect, which may run after the field appears.
+    await waitFor(() => expect(answerField).toHaveFocus());
     expect(screen.getByText("Tutor", { exact: true })).toHaveClass("text-status-success");
     expect(screen.getByTestId("tutor-panel").querySelector("svg.lucide-graduation-cap")).toHaveClass("text-status-success");
     expect(screen.getByTestId("tutor-status-icon")).toHaveAttribute("aria-label", "Tutor wartet auf deine Antwort");
@@ -291,7 +292,7 @@ describe("experimental workspace layout", () => {
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={answered} />);
     const next = await screen.findByTestId("tutor-continue");
     expect(next).toHaveTextContent("Weiter zur nächsten Frage");
-    expect(next).toHaveFocus();
+    await waitFor(() => expect(next).toHaveFocus());
     expect(screen.getByTestId("tutor-question")).toHaveTextContent("Beantwortete FrageWas beobachtest du?");
     const step = screen.getByTestId("tutor-current-step");
     expect(step).toHaveTextContent("Deine AntwortDer Pin ist HIGH.");

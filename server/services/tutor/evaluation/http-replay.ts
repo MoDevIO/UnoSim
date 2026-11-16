@@ -21,7 +21,7 @@ import {
   safeResult,
   type ProviderCapture,
 } from "./evaluation-records";
-import { canonicalJson } from "./canonical";
+import { canonicalJson } from "../canonical";
 import { findRevealedLiteral } from "./reveal-check";
 import type {
   CountingProvider,

@@ -20,7 +20,7 @@ import { CurriculumTutorAdapter } from "../curriculum-tutor-adapter";
 import type { TutorPlanningContentContext } from "../tutor-planning";
 import type { TutorProgressionState } from "../curriculum/progression-state";
 import type { TutorQualityExpectation, TutorQualityJudgeFocus, TutorQualityTransport } from "./anchor-corpus";
-import { canonicalDigest, canonicalJson } from "./canonical";
+import { canonicalDigest, canonicalJson } from "../canonical";
 import { tutorTemperatureFor } from "../model-profile";
 import {
   callJudge,

@@ -8,7 +8,7 @@ import {
   type TutorQualityCorpus,
   type TutorQualityCorpusSource,
 } from "../../../../../server/services/tutor/evaluation/anchor-corpus";
-import { canonicalDigest } from "../../../../../server/services/tutor/evaluation/canonical";
+import { canonicalDigest } from "../../../../../server/services/tutor/canonical";
 import {
   ANCHOR_COURSE_CONTENT_FIXTURE_IDS,
   createAnchorCourseContent,

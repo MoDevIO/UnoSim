@@ -59,6 +59,11 @@ const CLARIFICATION_REQUESTS = [
   /\bwas bedeutet\b/,
 ];
 
+/** A wish addressed to the Tutor is no answer: "Gib mir doch mal eine Frage mit UML-Grafik", "Stelle eine andere Frage". */
+const WISH_START = /^(?:gib|gebe|stell|stelle|zeig|zeige) (?:(?:doch|endlich|lieber) )*(?:eine?n?|andere[ns]?|naechste|neue) /;
+const WISH_OBJECT = /\b(?:fragen?|aufgaben?|grafik|diagramm|uml|bild)\b/;
+const isWishToTutor = (text: string): boolean => WISH_START.test(text) && WISH_OBJECT.test(text);
+
 /** A question word followed later by a word that asks about the meaning: "Was ist mit … gemeint?". */
 const ASKS_ABOUT = /\b(?:was|wie|welche[nrs]?) (?:ist|wird|soll|meinst|bedeutet|heisst)?/;
 const ABOUT_MEANING = /\b(?:gemeint|gefragt|gesucht|meinst du)\b/;
@@ -82,7 +87,7 @@ export function classifyLearnerInput(input: string): TutorLearnerInput {
   const text = inputCore(input);
   if (HELP_REQUESTS.some((pattern) => pattern.test(text))) return "help";
   if (text.length > 300) return "answer";
-  if (CLARIFICATION_REQUESTS.some((pattern) => pattern.test(text))) return "clarification";
+  if (isWishToTutor(text) || CLARIFICATION_REQUESTS.some((pattern) => pattern.test(text))) return "clarification";
   return ASKS_ABOUT.test(text) && ABOUT_MEANING.test(text) ? "clarification" : "answer";
 }
 

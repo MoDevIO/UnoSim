@@ -15,7 +15,7 @@ import type { BoardId } from "@shared/boards";
 import type { Logger } from "@shared/logger";
 import { config } from "../config";
 import type { RequestIdentity } from "../security/access-control";
-import { canonicalDigest } from "../services/tutor/evaluation/canonical";
+import { canonicalDigest } from "../services/tutor/canonical";
 import { TutorProviderError } from "../services/tutor/llm-provider";
 import { classifyLearnerInput } from "../services/tutor/learning-support";
 import { reportTutorReview } from "../services/tutor/tutor-diagnostics";

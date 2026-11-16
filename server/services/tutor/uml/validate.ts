@@ -31,6 +31,7 @@ import {
   straightStatements,
   type UmlSourceDocument,
 } from "./source";
+import { proveActivityExcerpt } from "./excerpt";
 
 function nestedSteps(step: UmlActivityStep): UmlActivityStep[][] {
   if (step.type === "decision") return [step.whenTrue, step.whenFalse];
@@ -562,6 +563,8 @@ function proveDiagram(
   if (proposal.kind === "activity") {
     if ("runtime" in proposal)
       proven = proveArduinoActivity(proposal, context, docs);
+    else if ("excerpt" in proposal)
+      proven = proveActivityExcerpt(proposal, docs);
     else {
       const scope = scopedFunction(docs, proposal.scope);
       // Standalone callbacks require the app-owned runtime variant.

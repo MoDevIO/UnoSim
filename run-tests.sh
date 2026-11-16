@@ -17,7 +17,7 @@ fi
 
 # Konfiguration
 LOG_FILE="run-tests_output.log"
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 STEP=0
 SERVER_PID=""
 REQUIRE_RELEASE_GATE="${REQUIRE_RELEASE_GATE:-0}"
@@ -483,6 +483,10 @@ if [ "$KNIP_GATE_ONLY" -eq 1 ]; then
     exit 0
 fi
 
+# Every source module must be reachable from a runtime entry point or be listed
+# as offline tooling (.dependency-cruiser.cjs).
+run_task "Reachability Check (dependency-cruiser)" "npm run check:reachability"
+
 # 3. Unit tests and complete coverage report for the SonarQube scan
 run_task "Unit Tests" "NODE_OPTIONS='--no-warnings' npm run test:coverage"
 parse_test_results "Tests.*passed"
@@ -527,7 +531,7 @@ if [ "$DOCKER_AVAILABLE" -eq 1 ]; then
         echo "$stale_after" | xargs docker rm -f >/dev/null 2>&1
     fi
 else
-  [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 5+6)"
+  [ "$DOCKER_LOST" -eq 0 ] && echo -e "  ${WARN} Docker not available – Docker tests skipped (Steps 6+7)"
   if [ "$REQUIRE_RELEASE_GATE" = "1" ]; then
     echo -e "  ${FAIL} Release-Gate requires Docker for mandatory Docker tests"
     exit 1

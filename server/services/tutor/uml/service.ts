@@ -1,4 +1,4 @@
-import { canonicalDigest } from "../evaluation/canonical";
+import { canonicalDigest } from "../canonical";
 import { tutorUmlProposalSchema } from "@shared/tutor-uml";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { TutorContentResult } from "@shared/tutor";
