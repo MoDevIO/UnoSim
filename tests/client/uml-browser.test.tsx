@@ -146,14 +146,14 @@ it("offers the aspects in a list with Automatik and asks about a chosen aspect a
   expect([...list.options].map(({ text }) => text)).toEqual(["Automatik", "Verzweigungen ✓", "Variablen"]);
   expect(list.value).toBe("");
 
-  await act(async () => { fireEvent.change(list, { target: { value: "variables" } }); });
+  fireEvent.change(list, { target: { value: "variables" } });
   await waitFor(() => expect([result.current.error, requests.length, result.current.question?.question]).toEqual([null, 2, "Welche Aufgabe hat `raw`?"]));
   view.rerender(<TutorLearningStep tutor={result.current} actions={actions} />);
   expect((screen.getByLabelText("Vertiefen") as HTMLSelectElement).value).toBe("variables");
   expect(requests.at(-1)).toMatchObject({ url: "/api/tutor/support", body: { action: "skip", refocus: true, aspectFocus: "variables" } });
 
   const before = requests.length;
-  await act(async () => { fireEvent.change(screen.getByLabelText("Vertiefen"), { target: { value: "" } }); });
+  fireEvent.change(screen.getByLabelText("Vertiefen"), { target: { value: "" } });
   expect(result.current.aspectFocus).toBeNull();
   expect(requests).toHaveLength(before);
   act(() => result.current.setAnswer("Antwort"));

@@ -237,6 +237,12 @@ function getCourseContentRequest(
   return {};
 }
 
+/** The learner's aspect choice as request fields; only a question of the aspect flow offers a choice. */
+function aspectRequestFields(question: TutorResponse | null, aspectFocus: string | null, refocus: boolean): { aspectFocus?: string | null; refocus?: true } {
+  if (!question?.aspectChoices?.length) return {};
+  return refocus ? { aspectFocus, refocus: true } : { aspectFocus };
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
@@ -702,7 +708,7 @@ export function useTutor(
         ...(graphicsMode === "always" ? { graphicsMode } : {}),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
-        ...(question?.aspectChoices?.length ? { aspectFocus: aspectFocusRef.current } : {}),
+        ...aspectRequestFields(question, aspectFocusRef.current, false),
         ...binding,
       }, controller.signal, diagnosticTraceId, graphicsProfile);
       if (!parsed) return;
@@ -777,8 +783,7 @@ export function useTutor(
         ...(graphicsMode === "always" ? { graphicsMode } : {}),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
-        ...(question?.aspectChoices?.length ? { aspectFocus: aspectFocusRef.current } : {}),
-        ...(refocusPending.current ? { refocus: true as const } : {}),
+        ...aspectRequestFields(question, aspectFocusRef.current, refocusPending.current),
         ...supportBinding(support, actionId),
       }, controller.signal, getTutorFailure, diagnosticTraceId, graphicsProfile);
       if (!result || controller.signal.aborted) return;
