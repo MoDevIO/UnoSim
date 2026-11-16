@@ -1,0 +1,80 @@
+schemaVersion: 1
+id: program-flow
+title: Programmablauf mit setup() und loop()
+objective: >-
+  Die Lernenden können erklären, wann und wie oft setup() und loop() laufen, was zwischen zwei Durchläufen
+  erhalten bleibt, den Ablauf über mehrere Durchläufe vorhersagen und Anweisungen gezielt einordnen.
+assignments:
+  - id: program-flow-find-count
+    level: 1
+    task: >-
+      Lass benennen, wann diese Funktion nach dem Start des Arduino zum ersten Mal läuft und wie oft sie
+      insgesamt läuft. Frage nicht nach dem Zweck.
+    fallback: "Wann läuft {code} nach dem Start des Arduino zum ersten Mal, und wie oft läuft die Funktion insgesamt?"
+  - id: program-flow-find-order
+    level: 1
+    task: >-
+      Lass benennen, welche Anweisung dieser Funktion als erste und welche als letzte ausgeführt wird.
+    fallback: "Welche Anweisung von {code} wird als erste ausgeführt, und welche als letzte?"
+  - id: program-flow-explain-place
+    level: 2
+    task: >-
+      Lass erklären, warum die Anweisungen dieser Funktion gerade hier stehen und nicht in der jeweils
+      anderen der beiden Funktionen setup() und loop().
+    fallback: "Warum stehen die Anweisungen von {code} gerade dort und nicht in der jeweils anderen der beiden Funktionen setup() und loop()?"
+  - id: program-flow-explain-state
+    level: 2
+    task: >-
+      Lass erklären, warum diese Variable ihren Wert von einem Durchlauf von loop() zum nächsten behält und
+      wozu der Sketch das braucht.
+    needs: [state]
+    fallback: "Warum behält {name} den Wert von einem Durchlauf von loop() zum nächsten, und wozu braucht der Sketch das?"
+  - id: program-flow-explain-end
+    level: 2
+    task: >-
+      Lass erklären, was geschieht, nachdem die letzte Anweisung dieser Funktion ausgeführt wurde, und wer
+      dafür sorgt.
+    fallback: "Was geschieht, nachdem die letzte Anweisung von {code} ausgeführt wurde, und wer sorgt dafür?"
+  - id: program-flow-predict-passes
+    level: 3
+    task: >-
+      Lass vorhersagen, was im Simulator nacheinander zu beobachten ist, während loop() zum ersten und zum
+      zweiten Mal läuft, und worin sich die beiden Durchläufe unterscheiden. Fordere zur Prüfung im Simulator auf.
+    needs: [repeated]
+    fallback: "Was ist im Simulator nacheinander zu beobachten, während {code} zum ersten und zum zweiten Mal läuft, und worin unterscheiden sich die beiden Durchläufe?"
+  - id: program-flow-predict-state
+    level: 3
+    task: >-
+      Lass vorhersagen, welchen Wert diese Variable nach drei Durchläufen von loop() hat, ausgehend von einer
+      von dir genannten Situation im Simulator, und lass den Weg dorthin begründen.
+    needs: [state]
+    fallback: "Welchen Wert hat {name} nach drei Durchläufen von loop(), wenn sich im Simulator nichts ändert, und wie kommst du darauf?"
+  - id: program-flow-predict-move
+    level: 3
+    task: >-
+      Lass vorhersagen, was sich am beobachtbaren Verhalten ändert, wenn die erste Anweisung dieser Funktion
+      in die jeweils andere der beiden Funktionen setup() und loop() verschoben wird. Fordere zur Prüfung
+      im Simulator auf.
+    fallback: "Was ändert sich am beobachtbaren Verhalten, wenn du die erste Anweisung von {code} in die jeweils andere der beiden Funktionen setup() und loop() verschiebst?"
+  - id: program-flow-change-once
+    level: 4
+    task: >-
+      Lass beschreiben, wie der Sketch geändert werden müsste, damit ein von dir genannter Teil von loop()
+      nur im allerersten Durchlauf läuft, ohne ihn nach setup() zu verschieben, und woran man das im
+      Simulator erkennt. Eine Beschreibung in Worten genügt.
+    needs: [repeated]
+    fallback: "Wie müsstest du den Sketch ändern, damit die erste Anweisung von {code} nur im allerersten Durchlauf läuft, ohne sie nach setup() zu verschieben?"
+  - id: program-flow-change-message
+    level: 4
+    task: >-
+      Lass entscheiden, wohin zwei neue Ausgaben auf dem seriellen Monitor gehören: eine, die einmal beim
+      Start erscheint, und eine, die in jedem Durchlauf erscheint. Lass begründen, welche davon in diese
+      Funktion gehört, und woran man im Simulator den Unterschied sieht.
+    fallback: "Du willst eine Meldung einmal beim Start und eine zweite in jedem Durchlauf ausgeben: Welche der beiden gehört in {code}, und woran erkennst du im Simulator den Unterschied?"
+  - id: program-flow-change-reset
+    level: 4
+    task: >-
+      Lass beschreiben, wie der Sketch geändert werden müsste, damit diese Variable in jedem Durchlauf von
+      loop() wieder mit ihrem Anfangswert beginnt, und wie sich das Verhalten dadurch ändert.
+    needs: [state]
+    fallback: "Wie müsstest du den Sketch ändern, damit {name} in jedem Durchlauf von loop() wieder mit dem Anfangswert beginnt, und wie ändert sich dadurch das Verhalten?"

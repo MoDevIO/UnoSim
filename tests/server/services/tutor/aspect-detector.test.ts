@@ -17,6 +17,7 @@ const CASES: Readonly<Record<AspectId, { readonly positive: string; readonly neg
   pins: { positive: "void setup() { pinMode(13, OUTPUT); }\nvoid loop() {}", negative: EMPTY },
   timing: { positive: "void setup() {}\nvoid loop() { delay(100); }", negative: EMPTY },
   "program-flow": { positive: EMPTY, negative: "int value = 1;" },
+  diagrams: { positive: "void setup() {}\nvoid loop() { while (digitalRead(2) == LOW) { delay(1); } }", negative: "void setup() {}\nvoid loop() { do { delay(1); } while (digitalRead(2) == LOW); }" },
 };
 
 function ids(code: string): AspectId[] {
@@ -72,7 +73,8 @@ describe("aspect detector", () => {
   it("finds a global written in loop() as the state of the program", () => {
     const code = "int count = 0;\nvoid setup() {}\nvoid loop() { count++; }";
     const flow = detectAspects(code).find(({ id }) => id === "program-flow");
-    expect(flow?.sites.find((site) => site.function === "loop")).toMatchObject({ names: ["count"], has: ["state"] });
+    expect(flow?.sites.find((site) => site.function === "loop")).toMatchObject({ code: "loop()", names: ["count", "loop"], has: ["state", "repeated"] });
+    expect(flow?.sites.find((site) => site.function === "setup")).toMatchObject({ code: "setup()", names: ["setup"], has: [] });
   });
 
   it("yields nothing for text that is no sketch, and stays fast on a long one", () => {

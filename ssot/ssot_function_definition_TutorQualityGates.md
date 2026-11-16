@@ -242,8 +242,9 @@ With the switch on and aspect files present:
 
 1. **Detection.** The application detects the aspects of the current sketch
    from its syntax tree, without macro expansion: variables, expressions,
-   branching, loops, functions, arrays, scope, serial, pins, timing and
-   program flow. Each aspect has places ("sites": function, lines, a quotable
+   branching, loops, functions, arrays, scope, serial, pins, timing,
+   program flow and diagrams (the `if`, `while` and `for` statements an
+   activity diagram can be drawn for). Each aspect has places ("sites": function, lines, a quotable
    code text, the identifiers that name it, the features it offers) and a
    weight. A site id does not contain line numbers.
 2. **Planning.** The planner is deterministic: the same sketch, answers and
@@ -275,6 +276,12 @@ With the switch on and aspect files present:
      until "Weiter", and for "Automatik", no request is sent. Each planned
      question carries the aspects the learner can choose from
      (`aspectChoices`) and the chosen one.
+   - The diagram aspect exists only when the request can show a diagram, and
+     keeps the statements the application can draw. It asks about statements
+     other aspects ask about too, so it is planned only when the learner
+     chose it, the teacher listed it or one of its questions is in progress;
+     it is always offered in the list. Each of its assignments shows a
+     diagram.
    - A new aspect starts on level 3 when the mean of the last three ratings
      is at least 4, on level 1 when it is at most 2, otherwise on level 2.
    - Clarification, hints, reference answers and skipping add no rating; a
@@ -305,7 +312,10 @@ With the switch on and aspect files present:
    builds the activity diagram itself: the control statement of the site
    (`if` with `else if` and `else`, `while`, `for`; branches with or without
    braces; a `return` ends its path), with runs of plain statements as one
-   action each. The provider's proposal is not used and no further provider
+   action each. The diagram follows the UML notation: a decision node is
+   an empty diamond, each outgoing edge carries its condition as a guard in
+   brackets and the edge taken otherwise is `[sonst]`; a loop is drawn the
+   same way. The provider's proposal is not used and no further provider
    call is made. The diagram passes the same validation and rendering as a
    provider proposal; the validator accepts this variant (`excerpt:
    "statement"`) only when it equals what the application builds for the

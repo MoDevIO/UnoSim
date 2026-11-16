@@ -14,12 +14,12 @@ import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner
 const revision = "4".repeat(40);
 const catalogTopic = validateCurriculumTopic(curriculumTopicSchema.parse(parseYaml(fixtureText("tutor-quality/TQ-REG-003-variables-and-serial.yaml"))));
 
-function courseContent(withAspects = true): TutorPlanningContentContext & { progressionState: NonNullable<TutorPlanningContentContext["progressionState"]> } {
+function courseContent(withAspects = true, aspectIds?: readonly string[]): TutorPlanningContentContext & { progressionState: NonNullable<TutorPlanningContentContext["progressionState"]> } {
   return {
     revision,
     tutor: {
       status: "valid", manifest: { schemaVersion: 1, topics: [], strategies: [] }, topics: [catalogTopic], strategies: [],
-      ...(withAspects ? { aspects: aspectFixtures() } : {}),
+      ...(withAspects ? { aspects: aspectFixtures(aspectIds) } : {}),
     },
     progressionState: createTutorProgressionState(revision),
   };
@@ -226,5 +226,59 @@ describe("aspect flow in the Tutor service", () => {
     expect(buildAssignmentGuidance(shown.next.assignment).join(" ")).toContain("Eingebauter Fehler, nur für deine Bewertung: Im Code lautet die Bedingung");
     const hidden = await followUp(false);
     expect([hidden.next.questionId, hidden.next.assignment?.graphicNote]).toEqual(["branching-predict-value", undefined]);
+  });
+
+  describe("with the aspects for functions, the program flow and diagrams", () => {
+    const WITH_FUNCTION = `${TEMPERATURE_CONTROLLER}\nint clamp(int value, int limit) {\n  if (value > limit) {\n    return limit;\n  }\n  return value;\n}\nvoid report() { Serial.println(clamp(7, 5)); }\n`;
+    const content = (ids: readonly string[], diagrams = true) => {
+      return { ...courseContent(true, ids), ...(diagrams ? { diagrams: true } : {}) };
+    };
+    const start = async (code: string, context: ReturnType<typeof content>) => {
+      const plan = await new CurriculumTutorAdapter({ aspectPlanning: true }).planInitial({ code, history: [], difficulty: 30, courseContent: context });
+      if (!plan || "kind" in plan) throw new Error("plan expected");
+      return plan;
+    };
+
+    it("asks about a function of the sketch by its name, and about setup() and loop() as learners write them", async () => {
+      const functions = await start(WITH_FUNCTION, content(["functions"]));
+      expect(functions.topicId).toBe("aspect-functions");
+      expect(functions.question).toMatch(/`(clamp|report)`/);
+      const flow = await start(TEMPERATURE_CONTROLLER, content(["program-flow"]));
+      expect(flow.topicId).toBe("aspect-program-flow");
+      expect(flow.question).toMatch(/`(setup|loop)\(\)`/);
+      expect(hasUnanchoredReference(flow.question)).toBe(false);
+    });
+
+    it("offers the diagram aspect only where a diagram can be shown, and plans it only on request", async () => {
+      const offered = await start(TEMPERATURE_CONTROLLER, content(["branching", "diagrams"]));
+      expect(offered.aspectChoices?.map(({ id }) => id)).toEqual(["branching", "diagrams"]);
+      expect(offered.topicId).toBe("aspect-branching");
+      const hidden = await start(TEMPERATURE_CONTROLLER, content(["branching", "diagrams"], false));
+      expect(hidden.aspectChoices?.map(({ id }) => id)).toEqual(["branching"]);
+      // Without another aspect the diagram aspect still waits for the learner's choice.
+      const alone = await new CurriculumTutorAdapter({ aspectPlanning: true }).planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content(["diagrams"]) });
+      expect(alone).toMatchObject({ kind: "blocked", progressionBlockedReason: "content-exhausted" });
+    });
+
+    it("asks every question of a chosen diagram aspect with a diagram of a statement that can be drawn", async () => {
+      const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+      const context = content(["branching", "diagrams"]);
+      const first = await start(TEMPERATURE_CONTROLLER, context);
+      const aspects = context.progressionState.aspects;
+      if (!aspects) throw new Error("aspect state expected");
+      setFocus(aspects, "diagrams");
+      let question = first.question;
+      const seen: string[] = [];
+      for (let turn = 0; turn < 4; turn++) {
+        const next = await adapter.planFollowup({ code: TEMPERATURE_CONTROLLER, history: [], currentQuestion: question, rating: 5, difficulty: 30, courseContent: context });
+        if (!next || "kind" in next || next.topicId !== "aspect-diagrams") break;
+        expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: context })?.kind).toBe(next.assignment?.graphic);
+        expect(next.assignment?.graphic).toBeDefined();
+        seen.push(next.questionId);
+        question = next.question;
+      }
+      expect(seen.length).toBeGreaterThanOrEqual(2);
+      expect(seen).toContain("diagrams-find-error");
+    });
   });
 });

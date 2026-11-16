@@ -8,8 +8,8 @@ export function fixtureText(path: string): string {
 }
 
 /** The aspect files as UnoSim-Examples ships them; the copies under tests/fixtures keep the tests self-contained. */
-export function aspectFixtures(): AspectDefinition[] {
-  return ["branching", "loops", "variables"].map((id) =>
+export function aspectFixtures(ids: readonly string[] = ["branching", "loops", "variables"]): AspectDefinition[] {
+  return ids.map((id) =>
     validateAspectDefinition(aspectDefinitionSchema.parse(parseYaml(fixtureText(`tutor-aspects/${id}.yaml`)))));
 }
 

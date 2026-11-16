@@ -66,6 +66,9 @@ export function validateAspectDefinition(aspect: AspectDefinition): AspectDefini
       throw new Error(`The fallback of ${assignment.id} refers to an element it does not name`);
     }
   }
+  // The diagram aspect has nothing to ask without the diagram the application draws.
+  const bare = aspect.id === "diagrams" ? aspect.assignments.find(({ graphic }) => graphic === undefined) : undefined;
+  if (bare) throw new Error(`Assignment ${bare.id} of the diagram aspect needs a graphic`);
   for (const level of ASPECT_LEVELS) {
     if (aspect.assignments.filter((assignment) => assignment.level === level).length < MIN_ASSIGNMENTS_PER_LEVEL) {
       throw new Error(`Aspect ${aspect.id} needs at least ${MIN_ASSIGNMENTS_PER_LEVEL} assignments on level ${level}`);

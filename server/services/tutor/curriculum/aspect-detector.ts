@@ -7,14 +7,14 @@ import type { SyntaxNode } from "@lezer/common";
  * at ("sites") and a weight that says how much of the sketch the aspect carries.
  */
 export const ASPECT_IDS = [
-  "variables", "expressions", "branching", "loops", "functions", "arrays", "scope", "serial", "pins", "timing", "program-flow",
+  "variables", "expressions", "branching", "loops", "functions", "arrays", "scope", "serial", "pins", "timing", "program-flow", "diagrams",
 ] as const;
 export type AspectId = typeof ASPECT_IDS[number];
 
 /** What a site offers; a question assignment names what it needs (`needs`). */
 export const SITE_FEATURES = [
   "condition", "relational", "variable", "constant", "type", "initial-value", "else-branch", "else-if", "early-return", "nested",
-  "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "mode", "interval", "state",
+  "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "mode", "interval", "state", "repeated",
 ] as const;
 export type SiteFeature = typeof SITE_FEATURES[number];
 
@@ -283,7 +283,9 @@ class Collector {
     this.branchCount += branches;
     if (has.has("nested")) this.nesting++;
     if (has.has("early-return")) this.earlyReturns++;
-    this.add("branching", { function: inFunction, node, code: this.source.compact(condition ?? node), names: condition ? identifiers(this.source, condition) : [], has });
+    const site = { function: inFunction, node, code: this.source.compact(condition ?? node), names: condition ? identifiers(this.source, condition) : [], has };
+    this.add("branching", site);
+    if (node.name === "IfStatement") this.add("diagrams", site);
   }
 
   private loop(node: SyntaxNode, inFunction: string | undefined): void {
@@ -297,7 +299,9 @@ class Collector {
     const inner = descendants(node);
     if (inner.some(({ name }) => LOOP_NODES.has(name))) has.add("nested");
     if (inner.some(({ name }) => name === "SubscriptExpression")) has.add("index");
-    this.add("loops", { function: inFunction, node, code: this.source.compact(condition ?? node), names: identifiers(this.source, condition ?? node), has });
+    const site = { function: inFunction, node, code: this.source.compact(condition ?? node), names: identifiers(this.source, condition ?? node), has };
+    this.add("loops", site);
+    if (node.name !== "DoStatement") this.add("diagrams", site);
   }
 
   private expression(node: SyntaxNode, inFunction: string | undefined): void {
@@ -346,8 +350,11 @@ class Collector {
     this.stateNames = loopBody ? this.writtenGlobals(loopBody) : [];
     for (const definition of entries) {
       const name = this.functionName(definition) ?? "";
-      const state = name === "loop" && this.stateNames.length > 0;
-      this.add("program-flow", { function: name, node: definition, code: `void ${name}()`, names: state ? this.stateNames : [], has: new Set(state ? ["state"] : []) });
+      const repeated = name === "loop";
+      const state = repeated && this.stateNames.length > 0;
+      const has = new Set<SiteFeature>([...(repeated ? ["repeated" as const] : []), ...(state ? ["state" as const] : [])]);
+      // A question names the function as learners write it, `loop()`; the state it keeps comes first among the names.
+      this.add("program-flow", { function: name, node: definition, code: `${name}()`, names: state ? [...this.stateNames, name] : [name], has });
     }
   }
 
@@ -370,6 +377,8 @@ class Collector {
       pins: present("pins", count("pins", 4) + bonus(any("pins", "input") && any("pins", "output"), 3)),
       timing: present("timing", 1 + count("timing", 2) + bonus(any("timing", "interval"), 5)),
       "program-flow": present("program-flow", 2 + bonus(this.stateNames.length > 0, 4)),
+      // The statements an activity diagram can be drawn for; they are asked about only on request.
+      diagrams: present("diagrams", 1),
     };
   }
 }
