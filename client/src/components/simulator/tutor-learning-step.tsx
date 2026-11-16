@@ -191,7 +191,7 @@ function TutorAspectChooser({ choices, focus, disabled, onChoose }: {
         value={focus ?? ""}
         disabled={disabled}
         onChange={(event) => onChoose(event.target.value || null)}
-        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-ui-sm text-foreground"
+        className="w-auto min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-0.5 text-ui-xs text-foreground"
       >
         <option value="">Automatik</option>
         {choices.map(({ id: aspectId, title, state }) => (
