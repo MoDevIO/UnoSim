@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UmlCodeContext } from "@shared/tutor-uml";
-import { activityExcerptProposal } from "../../../../../server/services/tutor/uml/excerpt";
+import { activityErrorNote, activityExcerptProposal } from "../../../../../server/services/tutor/uml/excerpt";
 import { exportTutorUml } from "../../../../../server/services/tutor/uml/export";
 import { validateTutorUmlProposal } from "../../../../../server/services/tutor/uml/validate";
 import { TEMPERATURE_CONTROLLER } from "../support/aspect-fixtures";
@@ -76,5 +76,43 @@ describe("activity excerpt built from the code", () => {
     const shortened = { ...proposal, body: [{ ...first, condition: "raw == 1" }] };
     expect(validateTutorUmlProposal(tampered, context(TEMPERATURE_CONTROLLER))).toEqual({ ok: false, reason: "invalid-evidence" });
     expect(validateTutorUmlProposal(shortened, context(TEMPERATURE_CONTROLLER))).toEqual({ ok: false, reason: "invalid-evidence" });
+  });
+
+  describe("with one deliberate error", () => {
+    it("reverses the first ordered comparison and says so for the rating", () => {
+      const proposal = activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(temperature < TEMP_MIN)", true);
+      expect(proposal?.excerpt).toBe("statement-with-error");
+      expect(proposal?.body).toMatchObject([{ type: "decision", condition: "temperature > TEMP_MIN" }]);
+      expect(activityErrorNote(TEMPERATURE_CONTROLLER, "(temperature < TEMP_MIN)")).toBe("Im Code lautet die Bedingung `temperature < TEMP_MIN`, im Diagramm steht `temperature > TEMP_MIN`.");
+      const checked = validateTutorUmlProposal(proposal, context(TEMPERATURE_CONTROLLER));
+      expect(checked.ok).toBe(true);
+      if (checked.ok && checked.proposal.status === "diagram") expect(exportTutorUml(checked.proposal)).toContain("title Ausschnitt mit einem eingebauten Fehler");
+    });
+
+    it("lets the branches change places when no comparison is ordered", () => {
+      const proposal = activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(raw == 0)", true);
+      const [first] = proposal?.body ?? [];
+      if (first?.type !== "decision") throw new Error("decision expected");
+      expect([first.whenTrue.length, first.whenFalse.length]).toEqual([0, 1]);
+      expect(activityErrorNote(TEMPERATURE_CONTROLLER, "(raw == 0)")).toContain("vertauscht");
+    });
+
+    it("is the same on every call and differs from the correct diagram", () => {
+      const once = activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(temperature < TEMP_MIN)", true);
+      expect(activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(temperature < TEMP_MIN)", true)).toEqual(once);
+      expect(once?.body).not.toEqual(activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(temperature < TEMP_MIN)")?.body);
+    });
+
+    it("rejects the correct diagram under the error variant and any other error", () => {
+      const correct = activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(temperature < TEMP_MIN)");
+      const mislabeled = { ...correct, excerpt: "statement-with-error" };
+      expect(validateTutorUmlProposal(mislabeled, context(TEMPERATURE_CONTROLLER))).toEqual({ ok: false, reason: "invalid-evidence" });
+    });
+
+    it("has no error to build where nothing can change", () => {
+      const code = sketch("  while (digitalRead(2)) { delay(10); }");
+      expect(activityExcerptProposal(context(code), "digitalRead(2)", true)).toBeUndefined();
+      expect(activityErrorNote(code, "digitalRead(2)")).toBeUndefined();
+    });
   });
 });

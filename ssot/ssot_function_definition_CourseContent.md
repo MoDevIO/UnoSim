@@ -508,7 +508,7 @@ assignments:
     task: <what the question must make the learner do, addressed to the model>
     needs: [condition, variable]   # what the chosen place must offer
     fallback: "Betrachte die Bedingung {code} in {function}: ...?"
-    graphic: activity   # optional
+    graphic: activity   # optional; `activity-error` shows the diagram with one deliberate error to find
 ~~~
 
 An assignment holds no finished question. `task` tells the model what to ask

@@ -90,7 +90,8 @@ export const umlArduinoActivityProposalSchema = z.strictObject({
 export const umlExcerptActivityProposalSchema = z.strictObject({
   ...base,
   kind: z.literal("activity"),
-  excerpt: z.literal("statement"),
+  /** `statement-with-error`: the application changed exactly one place, for a find-the-error question. */
+  excerpt: z.enum(["statement", "statement-with-error"]),
   body: boundedArray(stepSchema, 12, 1),
 });
 export type UmlExcerptActivityProposal = z.infer<

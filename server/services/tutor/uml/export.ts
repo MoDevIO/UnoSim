@@ -70,7 +70,7 @@ function activityDiagram(
     );
   else if ("excerpt" in proposal)
     output.push(
-      `title Ausschnitt: Zeilen ${proposal.scope.startLine} bis ${proposal.scope.endLine}`,
+      `title ${proposal.excerpt === "statement-with-error" ? "Ausschnitt mit einem eingebauten Fehler" : "Ausschnitt"}: Zeilen ${proposal.scope.startLine} bis ${proposal.scope.endLine}`,
       ...activity(proposal.body, true),
       "stop",
     );

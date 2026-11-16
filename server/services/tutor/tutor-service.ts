@@ -1,5 +1,5 @@
 import { activityExcerptProposal } from "./uml/excerpt";
-import { prepareTutorUml, withoutTutorGraphics, type PreparedTutorUml } from "./uml/service";
+import { prepareTutorUml, tutorUmlRenderer, withoutTutorGraphics, type PreparedTutorUml } from "./uml/service";
 import { TUTOR_UML_PROMPT_DIRECTIVES } from "./uml/prompt";
 import type { TutorUmlArtifactHandle } from "./uml/artifacts";
 import type { UmlCodeContext } from "@shared/tutor-uml";
@@ -990,6 +990,12 @@ export class TutorService {
     private readonly umlOptions: Pick<Parameters<typeof prepareTutorUml>[2], "renderer" | "artifacts"> = {},
   ) {}
 
+  /** Tells the planner whether this request can show a diagram the application builds. */
+  private async withDiagrams(courseContent: TutorPlanningContentContext | undefined, profile: TutorGraphicsProfile | undefined): Promise<TutorPlanningContentContext | undefined> {
+    if (!courseContent || !profile) return courseContent;
+    return (await (this.umlOptions.renderer ?? tutorUmlRenderer).available()) ? { ...courseContent, diagrams: true } : courseContent;
+  }
+
   private async finalGraphics(result: TutorContentResult, input: {
     profile?: TutorGraphicsProfile; mode?: TutorGraphicsMode; proposal?: unknown;
     model: string; credential: string; signal?: AbortSignal;
@@ -1004,7 +1010,7 @@ export class TutorService {
     const codeContext: UmlCodeContext = { question: result.question, code: input.code, entryFile: input.source.entryFile ?? "sketch.ino", board: input.source.board ?? "uno", headers: Object.fromEntries((input.source.headers ?? []).map(h => [h.name, h.content])) };
     // An assignment that asks for a diagram gets the one the application builds from the code (stage 3).
     const own = this.planningExtension?.questionGraphic?.({ code: input.sketchText, currentQuestion: result.question, courseContent: input.courseContent });
-    const proposal = (own && activityExcerptProposal(codeContext, own.siteCode)) ?? input.proposal;
+    const proposal = (own && activityExcerptProposal(codeContext, own.siteCode, own.kind === "activity-error")) ?? input.proposal;
     const prepared: PreparedTutorUml = await prepareTutorUml(this.provider, codeContext, { ...this.umlOptions, mode: input.retained ? "auto" : input.mode, proposal, model: input.model, credential: input.credential, signal: input.signal });
     const { _diagramArtifact, ...publicDiagram } = prepared;
     if (input.retained && !prepared.diagram && prepared.graphicStatus !== "not-useful" && input.retained.graphic) return { result: { ...text, ...input.retained.graphic }, _diagramArtifact: input.retained.diagramArtifact };
@@ -1131,7 +1137,7 @@ export class TutorService {
     // Planner, strategy and prompt see the same project: a topic the sketch's facts select (an array, a
     // type, a Serial call) must not depend on which file the declaration sits in.
     const sketchText = tutorSketchText(code, source);
-    const transaction = beginTutorPlanningTransaction(courseContent);
+    const transaction = beginTutorPlanningTransaction(await this.withDiagrams(courseContent, graphicsProfile));
     const planningResult = await this.planQuestion(request, sketchText, transaction);
     if (options.completeWhenBlocked && isTutorPlanningBlocked(planningResult)) {
       transaction.commit();
@@ -1192,7 +1198,7 @@ export class TutorService {
     const requestCredential = this.resolveCredential(credential);
     const parsedHistory = history.map((entry) => tutorDialogTurnSchema.parse(entry));
     const sketchText = tutorSketchText(code, source);
-    const transaction = beginTutorPlanningTransaction(courseContent);
+    const transaction = beginTutorPlanningTransaction(await this.withDiagrams(courseContent, graphicsProfile));
     if (isClearlyNonLearningAnswer(answer)) {
       return this.nonLearningAnswer({ sketchText, history: parsedHistory, question, difficulty, requestedModel, signal, support }, transaction);
     }
@@ -1631,7 +1637,7 @@ export const TUTOR_PROMPT_REVISION = {
   // v13: question assignments of the aspect flow: the application names aspect, level and site, per rating
   // for a follow-up question, and the model words the question.
   // v14/v15: a level 4 assignment with two parts names both in the question ("erstens", "zweitens").
-  id: "tutor-prompts-v15",
+  id: "tutor-prompts-v16",
   sources: TUTOR_PROMPT_TEMPLATE_SOURCES,
   templateDigest: digestTutorPromptTemplates(TUTOR_PROMPT_TEMPLATE_SOURCES),
 } as const;

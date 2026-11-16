@@ -2,6 +2,7 @@ import type { TutorAnswerRating } from "@shared/tutor";
 import { namesAssignmentSite } from "../assignment-prompt";
 import type { StrategyResolution } from "../strategy/effective-tutor-strategy";
 import type { TutorAspectChoice, TutorPlan, TutorPlanningBlocked } from "../tutor-planning";
+import { activityErrorNote } from "../uml/excerpt";
 import { detectAspects, type DetectedAspect } from "./aspect-detector";
 import { leaveOpen, openStep, planNext, recordAnswer, syncSketch, type AspectStep } from "./aspect-planner";
 import { ASPECT_LEVEL_NAMES, type AspectDefinition, type AspectLevel } from "./aspect-schema";
@@ -21,6 +22,8 @@ export interface AspectFlowInput {
   readonly strategy: StrategyResolution;
   /** The teacher's aspects of the Example, in their order; they come before the rest. */
   readonly preferredAspects?: readonly string[];
+  /** The request can show a diagram the application builds; without it no find-the-error question is asked. */
+  readonly diagrams?: boolean;
 }
 
 const QUESTION_KIND: Readonly<Record<AspectLevel, TutorPlan["questionKind"]>> = { 1: "recall", 2: "concept", 3: "prediction", 4: "transfer" };
@@ -85,6 +88,7 @@ function toPlan(input: AspectFlowInput, { aspect, assignment, level, site, fallb
       task: assignment.task,
       site: { ...(site.function ? { function: site.function } : {}), line: site.line, endLine: site.endLine, code: site.code, names: [...site.names] },
       ...(assignment.graphic ? { graphic: assignment.graphic } : {}),
+      ...(assignment.graphic === "activity-error" ? { graphicNote: activityErrorNote(input.code, site.code) } : {}),
     },
   };
 }
@@ -102,7 +106,12 @@ function exhausted(input: AspectFlowInput): TutorPlanningBlocked {
 }
 
 function next(input: AspectFlowInput, session: AspectSessionState, aspects: readonly DetectedAspect[]): TutorPlan | TutorPlanningBlocked {
-  const step = planNext(session, aspects, input.definitions, input.preferredAspects);
+  let step = planNext(session, aspects, drawable(input), input.preferredAspects);
+  if (step?.assignment.graphic === "activity-error" && activityErrorNote(input.code, step.site.code) === undefined) {
+    // This statement cannot be drawn: the question is withdrawn uncounted and the flow plans without such assignments.
+    withdraw(session);
+    step = planNext(session, aspects, drawable({ ...input, diagrams: false }), input.preferredAspects);
+  }
   return step ? toPlan(input, step, choices(input, session, aspects)) : exhausted(input);
 }
 
@@ -112,15 +121,25 @@ function ownsQuestion(session: AspectSessionState, question: string): boolean {
   return open !== undefined && (question === open.fallback || namesAssignmentSite(question, { code: open.siteCode, names: open.siteNames }));
 }
 
+/** The open assignment was never delivered: it does not count. */
+function withdraw(session: AspectSessionState): void {
+  if (!session.open) return;
+  const progress = session.progress[session.open.aspectId];
+  if (progress) progress.asked = Math.max(0, progress.asked - 1);
+  session.open = undefined;
+}
+
 /** A question the flow did not plan was answered: its open assignment, if any, was never delivered. */
 function dropForeign(session: AspectSessionState, question: string): boolean {
   if (ownsQuestion(session, question)) return false;
-  if (session.open) {
-    const progress = session.progress[session.open.aspectId];
-    if (progress) progress.asked = Math.max(0, progress.asked - 1);
-    session.open = undefined;
-  }
+  withdraw(session);
   return true;
+}
+
+/** The definitions to plan with: a find-the-error question needs a diagram the request can show. */
+function drawable({ definitions, diagrams }: AspectFlowInput): readonly AspectDefinition[] {
+  if (diagrams) return definitions;
+  return definitions.map((definition) => ({ ...definition, assignments: definition.assignments.filter(({ graphic }) => graphic !== "activity-error") }));
 }
 
 /** Whether the sketch has an aspect the repository can ask about. */
@@ -164,9 +183,9 @@ export function aspectLeaveQuestion(input: AspectFlowInput, currentQuestion: str
 }
 
 /** The site of the delivered question when its assignment asks for an activity diagram. */
-export function aspectQuestionGraphic(input: AspectFlowInput, currentQuestion: string): { kind: "activity"; siteCode: string } | null {
+export function aspectQuestionGraphic(input: AspectFlowInput, currentQuestion: string): { kind: "activity" | "activity-error"; siteCode: string } | null {
   const { session, aspects } = prepare(input);
   if (!ownsQuestion(session, currentQuestion)) return null;
   const step = openStep(session, aspects, input.definitions);
-  return step?.assignment.graphic === "activity" ? { kind: "activity", siteCode: step.site.code } : null;
+  return step?.assignment.graphic ? { kind: step.assignment.graphic, siteCode: step.site.code } : null;
 }

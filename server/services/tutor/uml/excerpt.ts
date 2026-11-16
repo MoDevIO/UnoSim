@@ -130,33 +130,97 @@ function head(doc: UmlSourceDocument, statement: SyntaxNode): string {
   return doc.text.slice(statement.from, body?.from ?? statement.to);
 }
 
+const RELATIONAL = /(?<![<>=!-])(<=|>=|<|>)(?![<>=])/;
+const REVERSED: Readonly<Record<string, string>> = { "<": ">", ">": "<", "<=": ">=", ">=": "<=" };
+
+type Controlled = Exclude<UmlActivityStep, { type: "action" }>;
+
+function nested(step: UmlActivityStep): UmlActivityStep[][] {
+  if (step.type === "decision") return [step.whenTrue, step.whenFalse];
+  return step.type === "loop" ? [step.body] : [];
+}
+
+/** The first step, in reading order, that `fits`, replaced by `change(step)`; null when none fits. */
+function changeFirst(steps: readonly UmlActivityStep[], fits: (step: Controlled) => boolean, change: (step: Controlled) => UmlActivityStep): UmlActivityStep[] | null {
+  for (const [index, step] of steps.entries()) {
+    if (step.type === "action") continue;
+    if (fits(step)) return steps.with(index, change(step));
+    const lists = nested(step);
+    for (const [position, list] of lists.entries()) {
+      const changed = changeFirst(list, fits, change);
+      if (!changed) continue;
+      const [first, second] = lists.with(position, changed);
+      return steps.with(index, step.type === "decision" ? { ...step, whenTrue: first, whenFalse: second } : { ...step, body: first });
+    }
+  }
+  return null;
+}
+
+/**
+ * One deliberate error for a find-the-error question, always the same for the same statement: the first
+ * ordered comparison is reversed; without one, the branches of the first decision change places.
+ */
+export function injectActivityError(steps: readonly UmlActivityStep[]): { readonly body: UmlActivityStep[]; readonly note: string } | null {
+  let note = "";
+  const reversed = changeFirst(steps, ({ condition }) => RELATIONAL.test(condition), (step) => {
+    const condition = step.condition.replace(RELATIONAL, (operator) => REVERSED[operator] ?? operator);
+    note = `Im Code lautet die Bedingung \`${step.condition}\`, im Diagramm steht \`${condition}\`.`;
+    return { ...step, condition };
+  });
+  if (reversed) return { body: reversed, note };
+  const swappable = (step: Controlled) => step.type === "decision" && !isDeepStrictEqual(step.whenTrue, step.whenFalse);
+  const swapped = changeFirst(steps, swappable, (step) => {
+    note = `Im Diagramm sind die Zweige [ja] und [nein] der Bedingung \`${step.condition}\` vertauscht.`;
+    return step.type === "decision" ? { ...step, whenTrue: step.whenFalse, whenFalse: step.whenTrue } : step;
+  });
+  return swapped ? { body: swapped, note } : null;
+}
+
 /** Whether the excerpt proposal is exactly what the application builds for its scope. */
 export function proveActivityExcerpt(proposal: UmlExcerptActivityProposal, docs: readonly UmlSourceDocument[]): boolean {
   const doc = docs.find(({ file }) => file === proposal.scope.file);
   const statement = doc && controlStatements(doc).find((node) => isDeepStrictEqual(refOf(doc, node), proposal.scope));
-  const built = doc && statement ? buildActivityExcerpt(doc, statement) : null;
+  const correct = doc && statement ? buildActivityExcerpt(doc, statement) : null;
+  const built = correct && proposal.excerpt === "statement-with-error" ? injectActivityError(correct)?.body ?? null : correct;
   return built !== null && isDeepStrictEqual(built, proposal.body);
+}
+
+/** The control statement of the entry file whose head holds `siteCode`, with its steps (null when it cannot be shown). */
+function siteStatement(context: UmlCodeContext, siteCode: string): { doc: UmlSourceDocument; statement: SyntaxNode; steps: UmlActivityStep[] | null } | undefined {
+  const doc = readUmlSources(context)?.find(({ file }) => file === context.entryFile);
+  const wanted = squeeze(siteCode);
+  const statement = doc && wanted ? controlStatements(doc).find((node) => squeeze(head(doc, node)).includes(wanted)) : undefined;
+  return doc && statement ? { doc, statement, steps: buildActivityExcerpt(doc, statement) } : undefined;
 }
 
 /**
  * The excerpt proposal for the control statement whose head holds `siteCode`, in the entry file. Undefined
  * when the sources cannot be read, no such statement exists or it cannot be shown.
  */
-export function activityExcerptProposal(context: UmlCodeContext, siteCode: string): UmlExcerptActivityProposal | undefined {
-  const doc = readUmlSources(context)?.find(({ file }) => file === context.entryFile);
-  const wanted = squeeze(siteCode);
-  const statement = doc && wanted ? controlStatements(doc).find((node) => squeeze(head(doc, node)).includes(wanted)) : undefined;
-  const body = doc && statement ? buildActivityExcerpt(doc, statement) : null;
-  if (!doc || !statement || !body || body.length === 0) return undefined;
-  const scope = refOf(doc, statement);
+export function activityExcerptProposal(context: UmlCodeContext, siteCode: string, withError = false): UmlExcerptActivityProposal | undefined {
+  const found = siteStatement(context, siteCode);
+  const body = found?.steps && withError ? injectActivityError(found.steps)?.body : found?.steps;
+  if (!found || !body || body.length === 0) return undefined;
+  const scope = refOf(found.doc, found.statement);
   return {
     version: 1,
     profile: TUTOR_UML_PROFILE,
     status: "diagram",
     kind: "activity",
-    excerpt: "statement",
-    purpose: `Ablauf der Anweisung in den Zeilen ${scope.startLine} bis ${scope.endLine} als Kontext zur Frage`,
+    excerpt: withError ? "statement-with-error" : "statement",
+    purpose: withError
+      ? `Ablauf der Anweisung in den Zeilen ${scope.startLine} bis ${scope.endLine} mit genau einem eingebauten Fehler`
+      : `Ablauf der Anweisung in den Zeilen ${scope.startLine} bis ${scope.endLine} als Kontext zur Frage`,
     scope,
     body,
   };
+}
+
+/**
+ * What the application changed in the find-the-error diagram of the statement whose head holds `siteCode`,
+ * for the model's rating. Undefined when no such diagram can be built from this code.
+ */
+export function activityErrorNote(code: string, siteCode: string): string | undefined {
+  const steps = siteStatement({ question: "-", code, entryFile: "sketch.ino", board: "uno" }, siteCode)?.steps;
+  return steps ? injectActivityError(steps)?.note : undefined;
 }

@@ -39,6 +39,15 @@ assignments:
       wenn die Bedingung erfüllt ist und der Zweig die Funktion vorzeitig verlässt.
     needs: [condition, early-return]
     fallback: "Was geschieht mit den Anweisungen, die in {function} nach der Verzweigung mit der Bedingung {code} stehen, wenn diese Bedingung erfüllt ist?"
+  - id: branching-find-diagram-error
+    level: 3
+    task: >-
+      Lass den Fehler im gezeigten Aktivitätsdiagramm dieser Verzweigung finden: Welche Stelle des Diagramms
+      weicht vom Code ab, und wie würde sich der Sketch verhalten, wenn er so abliefe wie im Diagramm.
+      Nenne in der Frage die geprüfte Variable, aber nicht die Bedingung selbst.
+    needs: [condition, variable, relational]
+    fallback: "Das Aktivitätsdiagramm zur Verzweigung in {function}, die {name} prüft, enthält genau einen Fehler: Welche Stelle weicht vom Code ab, und wie würde sich der Sketch dann verhalten?"
+    graphic: activity-error
   - id: branching-predict-value
     level: 3
     task: >-

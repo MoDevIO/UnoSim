@@ -13,6 +13,8 @@ export interface TutorPlanningContentContext {
   /** The Example's reviewed program (without the annotation), the binding of its reference answers. */
   readonly exampleProgram?: ReviewedProgram;
   readonly progressionState?: TutorProgressionState;
+  /** The request can show a diagram the application builds (negotiated profile, renderer available). */
+  readonly diagrams?: boolean;
 }
 
 /**
@@ -32,7 +34,10 @@ export interface TutorAssignment {
     readonly code: string;
     readonly names: readonly string[];
   };
-  readonly graphic?: "activity";
+  /** `activity-error`: the diagram holds one deliberate error and the question asks to find it. */
+  readonly graphic?: "activity" | "activity-error";
+  /** What the application changed in an `activity-error` diagram; for the model's rating only. */
+  readonly graphicNote?: string;
 }
 
 /** The assignment that follows when the answer being rated receives one of `ratings`. */
@@ -206,5 +211,5 @@ export interface TutorPlanningExtension {
     readonly currentQuestion: string;
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
-  }): { readonly kind: "activity"; readonly siteCode: string } | undefined;
+  }): { readonly kind: "activity" | "activity-error"; readonly siteCode: string } | undefined;
 }

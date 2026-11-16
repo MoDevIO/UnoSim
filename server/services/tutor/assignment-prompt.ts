@@ -9,14 +9,16 @@ export const TUTOR_ASSIGNMENT_GUIDANCE_TEXT = {
   followUp: "Frageauftrag der Anwendung für die Folgefrage (verbindlich für `question`, Vorrang vor allgemeinen Hinweisen zur Folgefrage). Er hängt von deinem answerRating ab:",
   rule: "Die Frage betrifft genau diese Stelle und nennt sie wörtlich: den Code der Stelle in Backticks oder einen ihrer Bezeichner. Sie nennt die gesuchte Antwort nicht.",
   parts: "Verlangt ein Auftrag der Stufe 4 zwei Teile (etwa eine Änderung und eine Beobachtung im Simulator), nennt die Frage beide ausdrücklich als Teile der erwarteten Antwort, mit „erstens“ und „zweitens“, und bleibt dabei ein einziger Fragesatz.",
+  errorDiagram: "Die Anwendung zeigt zur Frage ein Aktivitätsdiagramm dieser Anweisung, in das sie genau einen Fehler eingebaut hat. Die Frage fordert auf, den Fehler im Diagramm durch Vergleich mit dem Code zu finden und zu begründen; sie verrät weder die Stelle noch die Art des Fehlers. Eingebauter Fehler, nur für deine Bewertung:",
   weak: "Bei answerRating 1 oder 2 bleibt die aktuelle Frage offen: gib im feedback einen Hinweis und wiederhole in `question` die aktuelle Frage sinngemäß.",
 } as const;
 
-function describe({ aspectTitle, level, levelName, task, site }: TutorAssignment): string {
+function describe({ aspectTitle, level, levelName, task, site, graphic, graphicNote }: TutorAssignment): string {
   const place = site.function ? `Funktion \`${site.function}()\`, Zeile ${site.line}` : `Zeile ${site.line}`;
   const quoted = site.names.map((name) => "`" + name + "`").join(", ");
   const names = quoted ? ` Bezeichner: ${quoted}.` : "";
-  return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}`;
+  const diagram = graphic === "activity-error" && graphicNote ? ` ${TUTOR_ASSIGNMENT_GUIDANCE_TEXT.errorDiagram} ${graphicNote}` : "";
+  return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}${diagram}`;
 }
 
 /** Only a level 4 assignment asks for a change and its observation; lower levels read stiff with the rule. */

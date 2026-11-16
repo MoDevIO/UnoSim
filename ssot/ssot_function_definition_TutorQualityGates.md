@@ -305,6 +305,15 @@ With the switch on and aspect files present:
    scope. A statement that holds `break`, `continue`, `switch`, `do`, code
    after a `return` or an empty loop body gets no application-built diagram;
    the provider's proposal is then handled as before.
+   With `graphic: activity-error` the application changes exactly one place
+   of that diagram, always the same for the same statement: the first
+   ordered comparison is reversed; without one, the branches of the first
+   decision change places. The diagram's title says that it holds an error,
+   the prompt tells the provider what was changed (for the rating only), and
+   the question asks to find it. Such an assignment is planned only when the
+   request can show the diagram (negotiated profile, renderer available) and
+   the statement can be drawn; otherwise the flow plans as if the
+   assignment did not exist.
 
 The deterministic tests are `aspect-detector.test.ts`, `aspect-planner.test.ts`,
 `aspect-flow.test.ts` and `uml/excerpt.test.ts` under `tests/server/services/tutor/`: each aspect

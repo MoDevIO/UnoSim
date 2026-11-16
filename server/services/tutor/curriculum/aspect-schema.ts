@@ -37,7 +37,7 @@ const assignmentSchema = z.object({
   needs: boundedArray(z.enum(SITE_FEATURES), 6).optional(),
   /** The question the learner gets when the model's wording does not name the site. */
   fallback: boundedText(400),
-  graphic: z.enum(["activity"]).optional(),
+  graphic: z.enum(["activity", "activity-error"]).optional(),
 }).strict();
 
 export const aspectDefinitionSchema = z.object({

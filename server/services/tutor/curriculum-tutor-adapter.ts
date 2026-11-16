@@ -180,7 +180,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     if (question) markQuestionLeft(context.state, context.topic.id, question.id);
   }
 
-  questionGraphic(input: { readonly code: string; readonly currentQuestion: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): { readonly kind: "activity"; readonly siteCode: string } | undefined {
+  questionGraphic(input: { readonly code: string; readonly currentQuestion: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): { readonly kind: "activity" | "activity-error"; readonly siteCode: string } | undefined {
     return this.aspects(input, (flow) => aspectQuestionGraphic(flow, input.currentQuestion)) ?? undefined;
   }
 
@@ -206,7 +206,7 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
       const state = snapshot.progressionState ?? createTutorProgressionState(snapshot.revision);
       if (state.revision !== snapshot.revision) resetTutorProgressionState(state, snapshot.revision);
       const annotation = (snapshot.exampleId ?? input.exampleId) === undefined ? undefined : snapshot.exampleTutorAnnotation;
-      return step({ code: input.code, state, definitions, revision: snapshot.revision, strategy: this.resolveSnapshotStrategy(snapshot, undefined, "LEARN"), ...(annotation?.aspects ? { preferredAspects: annotation.aspects } : {}) });
+      return step({ code: input.code, state, definitions, revision: snapshot.revision, strategy: this.resolveSnapshotStrategy(snapshot, undefined, "LEARN"), ...(annotation?.aspects ? { preferredAspects: annotation.aspects } : {}), ...(snapshot.diagrams ? { diagrams: true } : {}) });
     } catch (error) {
       this.logger.warn(`Aspect planning failed; continuing without a plan: ${describeError(error)}`);
       return null;
