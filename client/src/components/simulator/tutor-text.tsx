@@ -4,7 +4,7 @@ export function TutorText({ text }: { readonly text: string }) {
   const parts = text.split("`").map((part, index) => {
     const start = offset;
     offset += part.length + 1;
-    return index % 2 ? <code key={start}>{part}</code> : part;
+    return index % 2 ? <code key={start} className="rounded-sm bg-muted px-1 py-0.5 font-normal text-[0.92em] [font-family:var(--font-code)]">{part}</code> : part;
   });
   return <>{parts}</>;
 }

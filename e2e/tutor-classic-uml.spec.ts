@@ -169,10 +169,11 @@ for (const negative of [
   await expect(page.locator("#tutor-answer")).toBeEnabled(); await expect(page.getByTestId("tutor-uml")).toHaveCount(0);
   expect(renderCalls).toBe(0); expect(modelCalls).toEqual(["initial", "graphic"]);
 });
-test("an explicit not-useful keeps its explanation state without retry or busy spinner", async ({ page }) => {
+test("an explicit not-useful shows the question alone, without retry or busy spinner", async ({ page }) => {
   proposal = { version: 1, profile: "uml1-classic-v1", status: "not-useful", reason: "answer-leak", explanation: "Die Grafik würde die gesuchte Begründung verraten." }; question = it086Question;
   await open(page, it086Code);
-  await expect(page.getByText("Zu dieser Frage ist keine hilfreiche zusätzliche UML-Grafik verfügbar.", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("tutor-question")).toBeVisible();
+  await expect(page.getByTestId("tutor-uml")).toHaveCount(0); await expect(page.getByText(/UML-Grafik/)).toHaveCount(0);
   await expect(page.locator("#tutor-answer")).toBeEnabled(); expect(modelCalls).toEqual(["initial", "graphic"]); expect(renderCalls).toBe(0);
   await expect(page.getByTestId("tutor-pending")).toBeEmpty();
 });
