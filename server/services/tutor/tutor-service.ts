@@ -689,6 +689,11 @@ function stripProviderPlanningMetadata(result: TutorContentResult): TutorContent
   return content;
 }
 
+/** The aspects the learner can choose from, as the planned question carries them. */
+function aspectChoiceFields({ aspectChoices, aspectFocus }: TutorPlan): Pick<TutorContentResult, "aspectChoices" | "aspectFocus"> {
+  return { ...(aspectChoices ? { aspectChoices: [...aspectChoices] } : {}), ...(aspectFocus ? { aspectFocus } : {}) };
+}
+
 function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): TutorContentResult {
   const scaffoldFeedback = plan.scaffold ? `Hinweis: ${plan.scaffold.hint}` : undefined;
   let feedback = result.feedback;
@@ -710,8 +715,7 @@ function applyPlanningResult(result: TutorContentResult, plan: TutorPlan): Tutor
     indicatorId: plan.indicatorId,
     questionKind: plan.questionKind,
     contentRevision: plan.contentRevision,
-    ...(plan.aspectChoices ? { aspectChoices: [...plan.aspectChoices] } : {}),
-    ...(plan.aspectFocus ? { aspectFocus: plan.aspectFocus } : {}),
+    ...aspectChoiceFields(plan),
     ...(feedback ? { feedback } : {}),
     ...(plan.strategyId ? { strategyId: plan.strategyId } : {}),
     ...(plan.strategySource ? { strategySource: plan.strategySource } : {}),

@@ -404,12 +404,12 @@ export function useTutor(
   const [modelsLoading, setModelsLoading] = useState(false);
   const [question, setQuestion] = useState<TutorResponse | null>(null);
   const [focusProgress, setFocusProgress] = useState<TutorFocusProgress | null>(null);
-  const [aspectFocus, setAspectFocusState] = useState<string | null>(null);
+  const [aspectFocus, setAspectFocus] = useState<string | null>(null);
   // Requests read the choice from a ref, so choosing does not rebuild the request callbacks.
   const aspectFocusRef = useRef<string | null>(null);
-  const setAspectFocus = useCallback((aspectId: string | null) => {
+  const chooseAspectFocus = useCallback((aspectId: string | null) => {
     aspectFocusRef.current = aspectId;
-    setAspectFocusState(aspectId);
+    setAspectFocus(aspectId);
   }, []);
   const [history, setHistory] = useState<readonly TutorDialogTurn[]>([]);
   const [transcript, setTranscript] = useState<readonly TutorTranscriptEntry[]>([]);
@@ -450,7 +450,7 @@ export function useTutor(
     graphicSubjects.current = { question: null, held: null };
     reportTutorReviewReset();
     aspectFocusRef.current = null;
-    setAspectFocusState(null);
+    setAspectFocus(null);
     abortPendingTutorRequests();
     // The aborted request may still wait for the shared catalog; the new situation must not wait with it.
     loadingRequest.current = null;
@@ -860,7 +860,7 @@ export function useTutor(
     question,
     focusProgress,
     aspectFocus,
-    setAspectFocus,
+    setAspectFocus: chooseAspectFocus,
     history,
     transcript,
     support,
@@ -902,7 +902,7 @@ export function useTutor(
     question,
     focusProgress,
     aspectFocus,
-    setAspectFocus,
+    chooseAspectFocus,
     history,
     answer,
     submitAnswer,

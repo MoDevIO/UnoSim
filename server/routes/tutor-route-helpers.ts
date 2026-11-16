@@ -144,6 +144,15 @@ export function commitTutorSession(content: TutorRequestContent | undefined, ses
  * Returns undefined for the free Tutor, or after an error response was sent;
  * callers tell both apart by `res.headersSent`.
  */
+/**
+ * Keeps the aspect the learner chose to deepen in the session: an id, `null` to clear it, absent to leave
+ * it. It takes effect with the next question that is planned.
+ */
+export function rememberAspectFocus(content: TutorRequestContent | undefined, aspectFocus: string | null | undefined): void {
+  const aspects = content?.content.progressionState.aspects;
+  if (aspectFocus !== undefined && aspects) setFocus(aspects, aspectFocus);
+}
+
 export async function resolveTutorContent(
   req: Request,
   res: Response,
@@ -152,8 +161,6 @@ export async function resolveTutorContent(
   resolver: TutorCourseContentResolver | undefined,
   sessions: TutorCourseContentSessionStore,
   signal: AbortSignal,
-  /** The aspect the learner chose to deepen: an id, `null` to clear it, absent to leave it. */
-  aspectFocus?: string | null,
 ): Promise<TutorRequestContent | undefined> {
   if (signal.aborted) return undefined;
   if (sessionHandle === undefined && request === undefined) return undefined;
@@ -169,8 +176,6 @@ export async function resolveTutorContent(
       responseError(res, 400, "INVALID_REQUEST", "Der Tutor-Kontext ist abgelaufen oder ungültig.");
       return undefined;
     }
-    // The choice belongs to the session and takes effect with the next question that is planned.
-    if (aspectFocus !== undefined && pinned.progressionState.aspects) setFocus(pinned.progressionState.aspects, aspectFocus);
     return { identity, content: pinned, session: sessionHandle };
   }
   if (request === undefined) return undefined;

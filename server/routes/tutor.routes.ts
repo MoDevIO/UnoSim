@@ -29,7 +29,7 @@ import {
   enforceTutorRateLimit,
   mapProviderError,
   requireRequestCredential,
-  resolveTutorContent,
+  resolveTutorContent, rememberAspectFocus,
   responseError,
   tutorSource,
 } from "./tutor-route-helpers";
@@ -152,8 +152,8 @@ export function registerTutorRoutes(
         deps.courseContent,
         sessionStore,
         signal,
-        parsed.data.aspectFocus,
       );
+      rememberAspectFocus(content, parsed.data.aspectFocus);
       if (signal.aborted) return;
       if (res.headersSent) return;
       const options = questionOptions(parsed.data);
@@ -284,8 +284,8 @@ export function registerTutorRoutes(
         deps.courseContent,
         sessionStore,
         signal,
-        parsed.data.aspectFocus,
       );
+      rememberAspectFocus(content, parsed.data.aspectFocus);
       if (signal.aborted) return;
       if (res.headersSent) return;
       const options = dialogOptions(parsed.data);

@@ -47,6 +47,10 @@ const focusAreaSchema = z.object({
 
 export type ExampleFocusArea = z.infer<typeof focusAreaSchema>;
 
+function validAspects({ schemaVersion, aspects }: { readonly schemaVersion: number; readonly aspects?: readonly string[] }): boolean {
+  return aspects === undefined || (schemaVersion !== 1 && new Set(aspects).size === aspects.length);
+}
+
 export const embeddedTutorAnnotationSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   focus: boundedArray(focusAreaSchema, 8, 1).optional(),
@@ -64,7 +68,7 @@ export const embeddedTutorAnnotationSchema = z.object({
   if (value.schemaVersion !== 3 && value.focus?.some(({ questions }) => questions.some(({ reference }) => reference !== undefined))) {
     context.addIssue({ code: "custom", path: ["focus"], message: "reference answers require schemaVersion 3" });
   }
-  if (value.aspects !== undefined && (value.schemaVersion === 1 || new Set(value.aspects).size !== value.aspects.length)) {
+  if (!validAspects(value)) {
     context.addIssue({ code: "custom", path: ["aspects"], message: "aspects require schemaVersion 2 and must be unique" });
   }
   if (value.afterFocus !== undefined && value.focus === undefined) {

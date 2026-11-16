@@ -50,7 +50,7 @@ import {
   enforceTutorRateLimit,
   mapProviderError,
   requireRequestCredential,
-  resolveTutorContent,
+  resolveTutorContent, rememberAspectFocus,
   responseError,
   tutorSource,
   type TutorRequestContent,
@@ -305,8 +305,8 @@ async function runSupportAction<T>(
       context.courseContent,
       context.sessionStore,
       signal,
-      request.aspectFocus,
     );
+    rememberAspectFocus(content, request.aspectFocus);
     if (signal.aborted || res.headersSent) return;
     const run = action(content);
     const outcome = await context.supportStore.run(
