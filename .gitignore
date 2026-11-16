@@ -104,3 +104,6 @@ server/arduino-cache/
 
 # Local Tutor review exports (learner answers and sketches); development only
 tutor_reviews/
+
+# Locally rendered dependency-cruiser graphs
+/graph*.svg
