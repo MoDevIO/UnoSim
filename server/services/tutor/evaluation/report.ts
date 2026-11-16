@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { canonicalDigest, sha256 } from "./canonical";
+import { canonicalDigest, sha256 } from "../canonical";
 import { TUTOR_QUALITY_JUDGE_PROMPT_REVISION } from "./judge";
 import { tutorTemperatureFor } from "../model-profile";
 import { TUTOR_PROMPT_REVISION } from "../tutor-service";

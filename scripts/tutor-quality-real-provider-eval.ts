@@ -4,7 +4,7 @@ import { accessSync, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { sha256 } from "../server/services/tutor/evaluation/canonical";
+import { sha256 } from "../server/services/tutor/canonical";
 import { severeFindings } from "../server/services/tutor/evaluation/quality-verdict";
 import { createAnchorCourseContent, ANCHOR_COURSE_CONTENT_FIXTURE_IDS, type AnchorCourseContentFixtureId } from "../server/services/tutor/evaluation/anchor-course-content";
 import { config } from "../server/config";

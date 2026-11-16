@@ -70,7 +70,7 @@ import {
 } from "./learning-support";
 import { arrayCapacities } from "./curriculum/sketch-facts";
 import { INLINE_FOCUS_TOPIC_PREFIX } from "./curriculum/inline-focus-topic";
-import { canonicalDigest } from "./evaluation/canonical";
+import { canonicalDigest } from "./canonical";
 import { Logger } from "@shared/logger";
 
 const TUTOR_CONCRETE_REFERENCE_GUIDANCE = "Wenn eine Frage auf ein konkretes Sketch-Element zielt und mehrere Bezeichner oder Stellen infrage kommen, nenne den konkreten Bezeichner und genügend lokale Code-Stelle (zum Beispiel Deklaration, Schleife oder Aufruf), damit die Frage ohne Raten verständlich ist. Vermeide bei möglicher Mehrdeutigkeit unklare Formulierungen wie ‚die Integer-Variable‘, ‚dieser Wert‘ oder ‚dort‘. Frage nur nach durch den aktuellen Sketch belegten Fakten.";

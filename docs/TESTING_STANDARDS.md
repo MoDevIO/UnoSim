@@ -72,6 +72,21 @@ the shell pipeline against controlled output, including new findings after a
 successful full check, exact known enum members, malformed output and tool
 failures. CI retains the raw gate log in its clean-room artifacts.
 
+## Reachability gate
+
+`npm run check:reachability` runs dependency-cruiser with
+`.dependency-cruiser.cjs`. It complements Knip: Knip accepts every script in
+`scripts/` as a root, this gate accepts only what ships.
+
+| Rule | Meaning |
+|---|---|
+| `runtime-reachable` | Every module under `client/src`, `server`, `shared` and `packages/avr-emulator/src` is reachable from the client entry, the emulator worker, the server entry or the compile worker, or is listed as offline tooling |
+| `no-tooling-in-runtime` | Runtime modules do not import offline tooling, script code or tests |
+
+The gate runs in the pre-push hook, in `./run-tests.sh` after the Knip gate and
+in CI. List a path under `OFFLINE_TOOLING` only when it is tooling started from
+`scripts/`; do not list runtime code there to silence a finding.
+
 ## Pin capability reference and registry tabs
 
 `packages/avr-emulator/tests/boards/pin-reference.test.ts` checks bus and

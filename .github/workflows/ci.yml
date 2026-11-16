@@ -85,6 +85,8 @@ jobs:
         run: |
           npm run test:knip
           ./run-tests.sh --knip-gate-only
+      - name: Reachability gate (dependency-cruiser)
+        run: npm run check:reachability
       - name: Deterministic Tutor quality hard gate
         run: npm run test:tutor-quality
       - run: npm run test:unit:emulator

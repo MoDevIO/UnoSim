@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalDigest, canonicalJson } from "../../../../../server/services/tutor/evaluation/canonical";
+import { canonicalDigest, canonicalJson } from "../../../../server/services/tutor/canonical";
 
 describe("Tutor Quality canonical values", () => {
   it("serializes object keys in UTF-8 byte order before hashing", () => {
