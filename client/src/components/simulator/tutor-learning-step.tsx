@@ -173,26 +173,32 @@ function useFeedbackInView(stepRef: RefObject<HTMLDivElement | null>, awaitingNe
 }
 
 /**
- * Lets the learner choose the aspect of the sketch to deepen. The choice travels with the next request and
- * applies from the next question the Tutor plans; choosing the chosen aspect again clears it.
+ * Lets the learner choose the aspect of the sketch to deepen; "Automatik" leaves the order to the Tutor.
+ * Choosing an aspect asks about it at once; while the next question is held the choice applies after it.
  */
-function TutorAspectChooser({ choices, focus, onChoose }: {
+function TutorAspectChooser({ choices, focus, disabled, onChoose }: {
   readonly choices: readonly TutorAspectChoice[];
   readonly focus: string | null;
+  readonly disabled: boolean;
   readonly onChoose: (aspectId: string | null) => void;
 }) {
+  const id = useId();
   return (
-    <fieldset className="min-w-0 border-t border-border pt-3" data-testid="tutor-aspect-choice">
-      <legend className="float-left w-full text-ui-xs font-semibold text-muted-foreground">Was möchtest du vertiefen?</legend>
-      <div className="mt-1 flex flex-wrap gap-1.5 clear-both">
-        {choices.map(({ id, title, state }) => (
-          <Button key={id} type="button" size="sm" variant={focus === id ? "default" : "outline"} aria-pressed={focus === id} onClick={() => onChoose(focus === id ? null : id)}>
-            {title}{state === "shown" && <span className="sr-only"> (schon gezeigt)</span>}{state === "shown" && <span aria-hidden="true"> ✓</span>}
-          </Button>
+    <div className="flex min-w-0 items-center gap-2" data-testid="tutor-aspect-choice">
+      <label htmlFor={id} className="shrink-0 text-ui-xs font-semibold text-muted-foreground">Vertiefen</label>
+      <select
+        id={id}
+        value={focus ?? ""}
+        disabled={disabled}
+        onChange={(event) => onChoose(event.target.value || null)}
+        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-ui-sm text-foreground"
+      >
+        <option value="">Automatik</option>
+        {choices.map(({ id: aspectId, title, state }) => (
+          <option key={aspectId} value={aspectId}>{state === "shown" ? `${title} ✓` : title}</option>
         ))}
-      </div>
-      {focus && <p className="mt-1 text-ui-xs text-muted-foreground" data-testid="tutor-aspect-choice-note">Gilt ab der nächsten neuen Frage.</p>}
-    </fieldset>
+      </select>
+    </div>
   );
 }
 
@@ -241,6 +247,9 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
           <TutorEntry entry={skippedEntry} placement="previous" />
         </section>
       )}
+      {question.aspectChoices && question.aspectChoices.length > 1 && (
+        <TutorAspectChooser choices={question.aspectChoices} focus={tutor.aspectFocus} disabled={tutor.isLoading} onChoose={actions.chooseAspect} />
+      )}
       <section aria-labelledby={headingId} data-testid="tutor-question" className="min-w-0">
         <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">{questionHeading}</h3>
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
@@ -257,9 +266,6 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
       {tutor.awaitingNext
         ? <TutorContinue onContinue={actions.continueToNextQuestion} />
         : <TutorComposer tutor={tutor} actions={actions} pendingLabel={pendingLabel} canRequest={canRequest} />}
-      {question.aspectChoices && question.aspectChoices.length > 1 && (
-        <TutorAspectChooser choices={question.aspectChoices} focus={tutor.aspectFocus} onChoose={tutor.setAspectFocus} />
-      )}
     </>
   );
 }

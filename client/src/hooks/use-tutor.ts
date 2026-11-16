@@ -53,7 +53,8 @@ export interface TutorPanelState {
   readonly focusProgress: TutorFocusProgress | null;
   /** The aspect the learner chose to deepen; null without a choice. It applies from the next planned question. */
   readonly aspectFocus: string | null;
-  readonly setAspectFocus: (aspectId: string | null) => void;
+  /** Chooses the aspect; with a sketch and an open question the Tutor asks about the chosen aspect at once. */
+  readonly setAspectFocus: (aspectId: string | null, sketch?: string | TutorSketch) => void;
   readonly history: readonly TutorDialogTurn[];
   /** Everything the learner sees in order: answers, clarifications, hints, the reference answer and skips. */
   readonly transcript: readonly TutorTranscriptEntry[];
@@ -407,6 +408,8 @@ export function useTutor(
   const [aspectFocus, setAspectFocus] = useState<string | null>(null);
   // Requests read the choice from a ref, so choosing does not rebuild the request callbacks.
   const aspectFocusRef = useRef<string | null>(null);
+  // Set for the one support request that leaves the open question because the learner chose an aspect.
+  const refocusPending = useRef(false);
   const chooseAspectFocus = useCallback((aspectId: string | null) => {
     aspectFocusRef.current = aspectId;
     setAspectFocus(aspectId);
@@ -775,6 +778,7 @@ export function useTutor(
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...(question?.aspectChoices?.length ? { aspectFocus: aspectFocusRef.current } : {}),
+        ...(refocusPending.current ? { refocus: true as const } : {}),
         ...supportBinding(support, actionId),
       }, controller.signal, getTutorFailure, diagnosticTraceId, graphicsProfile);
       if (!result || controller.signal.aborted) return;
@@ -797,10 +801,19 @@ export function useTutor(
       if (controller.signal.aborted || isAbortError(requestError)) return;
       failWith(requestError, { kind: "support", graphicsMode, graphicsProfile, action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
+      refocusPending.current = false;
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
     }
   }, [availableModels, capabilities, courseContentSession, credential, effectiveDifficulty, fail, failWith, finishLoading, heldNext, history, question, selectedModel, clearError, support]);
+
+  const chooseAspect = useCallback((aspectId: string | null, sketch?: string | TutorSketch) => {
+    chooseAspectFocus(aspectId);
+    // "Automatik" and a choice made while the next question is held change the plan, not the open question.
+    if (aspectId === null || sketch === undefined || !question || !support || heldNext || isLoading) return;
+    refocusPending.current = true;
+    void requestSupport("skip", sketch);
+  }, [chooseAspectFocus, heldNext, isLoading, question, requestSupport, support]);
 
   const failedRequest = failure?.request;
   const retryFor = useCallback((current: string | TutorSketch): (() => void) | null => {
@@ -860,7 +873,7 @@ export function useTutor(
     question,
     focusProgress,
     aspectFocus,
-    setAspectFocus: chooseAspectFocus,
+    setAspectFocus: chooseAspect,
     history,
     transcript,
     support,
@@ -902,7 +915,7 @@ export function useTutor(
     question,
     focusProgress,
     aspectFocus,
-    chooseAspectFocus,
+    chooseAspect,
     history,
     answer,
     submitAnswer,

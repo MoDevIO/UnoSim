@@ -288,6 +288,7 @@ function TutorPlaceholder({
       void tutor.requestSupport(action, request);
     },
     openSettings: () => setView("settings"),
+    chooseAspect: (aspectId) => tutor.setAspectFocus(aspectId, request),
     continueToNextQuestion: tutor.continueToNextQuestion,
     retry: tutor.retryFor(request),
   } : null;

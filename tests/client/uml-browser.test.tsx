@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { useTutor } from "@/hooks/use-tutor";
 import { TutorLearningStep } from "@/components/simulator/tutor-learning-step";
 import { activity } from "../server/services/tutor/uml/contract-fixtures";
@@ -123,28 +123,41 @@ it("never sends a negotiated response through the legacy Mermaid renderer", asyn
   expect(result.current.question?.mermaid).toBeUndefined(); expect(result.current.question?.graphicStatus).toBe("unavailable");
 });
 
-it("lets the learner choose an aspect and sends the choice with the next answer", async () => {
-  const bodies: Record<string, unknown>[] = [];
+it("offers the aspects in a list with Automatik and asks about a chosen aspect at once", async () => {
+  const requests: { url: string; body: Record<string, unknown> }[] = [];
   const aspectChoices = [{ id: "branching", title: "Verzweigungen", state: "shown" }, { id: "variables", title: "Variablen", state: "open" }];
+  const session = "33333333-3333-4333-8333-333333333333";
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
     if (String(url) === "/api/config") return new Response(JSON.stringify({ tutor: { provider: "kiconnect" } }));
-    bodies.push(JSON.parse(String(init?.body)));
-    return new Response(JSON.stringify({ ...question, topic: "Verzweigungen", topicId: "aspect-branching", indicatorId: "level-2", aspectChoices, courseContentSession: "33333333-3333-4333-8333-333333333333" }));
+    requests.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+    const planned = { topic: "Verzweigungen", topicId: "aspect-branching", indicatorId: "level-2", aspectChoices };
+    if (String(url).endsWith("support")) {
+      return new Response(JSON.stringify({ provider: "kiconnect", model: "m", action: "skip", courseContentSession: session, support: { ...support, questionHandle: "44444444-4444-4444-8444-444444444444" }, next: { question: "Welche Aufgabe hat `raw`?", responseStyle: "normal", ...planned, topic: "Variablen", topicId: "aspect-variables", aspectFocus: "variables" } }));
+    }
+    return new Response(JSON.stringify({ ...question, ...planned, courseContentSession: session }));
   });
   const { result } = renderHook(() => useTutor());
   act(() => result.current.setCredential("key"));
   await act(() => result.current.generateQuestion(CODE));
-  const actions = {} as Parameters<typeof TutorLearningStep>[0]["actions"];
+  const actions = { chooseAspect: (id: string | null) => result.current.setAspectFocus(id, CODE) } as Parameters<typeof TutorLearningStep>[0]["actions"];
   const view = render(<TutorLearningStep tutor={result.current} actions={actions} />);
   expect(screen.getByTestId("tutor-question")).toHaveTextContent("Verzweigungen · Stufe 2 von 4: Erklären");
-  const chip = screen.getByRole("button", { name: "Variablen" });
-  expect(chip).toHaveAttribute("aria-pressed", "false");
-  act(() => chip.click());
+  const list = screen.getByLabelText("Vertiefen") as HTMLSelectElement;
+  expect([...list.options].map(({ text }) => text)).toEqual(["Automatik", "Verzweigungen ✓", "Variablen"]);
+  expect(list.value).toBe("");
+
+  await act(async () => { fireEvent.change(list, { target: { value: "variables" } }); });
+  await waitFor(() => expect([result.current.error, requests.length, result.current.question?.question]).toEqual([null, 2, "Welche Aufgabe hat `raw`?"]));
   view.rerender(<TutorLearningStep tutor={result.current} actions={actions} />);
-  expect(screen.getByRole("button", { name: "Variablen" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByTestId("tutor-aspect-choice-note")).toBeInTheDocument();
+  expect((screen.getByLabelText("Vertiefen") as HTMLSelectElement).value).toBe("variables");
+  expect(requests.at(-1)).toMatchObject({ url: "/api/tutor/support", body: { action: "skip", refocus: true, aspectFocus: "variables" } });
+
+  const before = requests.length;
+  await act(async () => { fireEvent.change(screen.getByLabelText("Vertiefen"), { target: { value: "" } }); });
+  expect(result.current.aspectFocus).toBeNull();
+  expect(requests).toHaveLength(before);
   act(() => result.current.setAnswer("Antwort"));
   await act(() => result.current.submitAnswer(CODE));
-  expect(bodies.at(-1)?.aspectFocus).toBe("variables");
-  expect(bodies[0]).not.toHaveProperty("aspectFocus");
+  expect(requests.at(-1)?.body).toMatchObject({ aspectFocus: null });
+  expect(requests.at(-1)?.body).not.toHaveProperty("refocus");
 });

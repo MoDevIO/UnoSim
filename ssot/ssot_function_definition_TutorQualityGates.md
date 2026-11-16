@@ -265,7 +265,14 @@ With the switch on and aspect files present:
      heaviest open one. The learner's choice travels with each request
      (`aspectFocus`: an aspect id, `null` to clear it), is kept in the
      session and applies from the next question that is planned; choosing an
-     aspect that was finished on this sketch opens it again. Each planned
+     aspect that was finished on this sketch opens it again. The Tutor
+     offers the aspects as a list above the question, with "Automatik" as
+     the default. Choosing an aspect asks about it at once: the client sends
+     the support action `skip` with `refocus: true` and the chosen
+     `aspectFocus`, which leaves the open question without the two
+     clarifications a plain skip needs (section 8); the left question adds
+     no rating and counts for the cap. While the next question is held
+     until "Weiter", and for "Automatik", no request is sent. Each planned
      question carries the aspects the learner can choose from
      (`aspectChoices`) and the chosen one.
    - A new aspect starts on level 3 when the mean of the last three ratings

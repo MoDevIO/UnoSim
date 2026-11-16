@@ -673,7 +673,10 @@ async function skip(
   key: string,
 ): Promise<ActionResult<TutorSupportResponse>> {
   const { request, question, view, signal, content, context } = scope;
+  // Choosing an aspect to deepen leaves the question at once; a plain skip needs two clarifications first.
+  const refocus = request.refocus === true && typeof request.aspectFocus === "string";
   if (
+    !refocus &&
     !supportStateView(
       view.handle,
       question,
