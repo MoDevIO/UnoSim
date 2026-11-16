@@ -93,9 +93,6 @@ export class RegistryManager {
   private readonly telemetry = {
     incomingEvents: 0,
     sentBatches: 0,
-    serialOutputEvents: 0, // track serial output events
-    serialOutputBytes: 0, // bytes in current interval
-    serialOutputBytesTotal: 0, // cumulative bytes since start
     // timestamp at which the simulation was paused (if present)
     pauseTimestamp: null as number | null,
     lastReportTime: Date.now(),
@@ -264,7 +261,7 @@ export class RegistryManager {
     let serialBytesPerSecond = 0;
     let serialIntendedBytesPerSecond = 0;
     let serialDroppedBytesPerSecond = 0;
-    let serialBytesTotal = this.telemetry.serialOutputBytesTotal;
+    let serialBytesTotal = 0;
     let batcherTelemetry: SerialOutputTelemetry | null = null;
 
     if (this.serialOutputBatcher) {
@@ -350,8 +347,6 @@ export class RegistryManager {
     // Reset counters for next period
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
-    this.telemetry.serialOutputEvents = 0;
-    this.telemetry.serialOutputBytes = 0;
     this.telemetry.lastReportTime = now;
 
     if (!this.destroyed) {
@@ -441,9 +436,6 @@ export class RegistryManager {
     // Reset telemetry counters and restart heartbeat
     this.telemetry.incomingEvents = 0;
     this.telemetry.sentBatches = 0;
-    this.telemetry.serialOutputEvents = 0;
-    this.telemetry.serialOutputBytes = 0;
-    this.telemetry.serialOutputBytesTotal = 0;
     this.telemetry.lastReportTime = Date.now();
     
     if (this.onTelemetryCallback && this.enableTelemetry) {
@@ -499,25 +491,6 @@ export class RegistryManager {
       this.registry.push(pinRecord);
     }
     this.isDirty = true;
-    this.telemetry.incomingEvents++;
-  }
-
-  /**
-   * Telemetry-only: called when a pin value change is observed outside of the
-   * registry collection. These events do not mutate the registry itself.
-   */
-  updatePinValue(_pin: number, _value: number): void {
-    if (this.destroyed) return;
-    // count the incoming event for telemetry purposes
-    this.telemetry.incomingEvents++;
-    // no structural change, so nothing else to do
-  }
-
-  /**
-   * Telemetry-only counterpart for PWM changes.
-   */
-  updatePinPWM(_pin: number, _value: number): void {
-    if (this.destroyed) return;
     this.telemetry.incomingEvents++;
   }
 
@@ -705,17 +678,6 @@ export class RegistryManager {
     return { shouldSend: false, reason: "" };
   }
 
-
-
-  /**
-   * Track a serial output event (called when serial data is sent)
-   */
-  trackSerialOutput(bytes: number = 0): void {
-    if (this.destroyed) return;
-    this.telemetry.serialOutputEvents++;
-    this.telemetry.serialOutputBytes += bytes;
-    this.telemetry.serialOutputBytesTotal += bytes;
-  }
 
   /**
    * Enable message queuing until first registry is sent

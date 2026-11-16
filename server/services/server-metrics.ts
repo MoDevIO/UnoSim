@@ -106,10 +106,6 @@ class CompileMetricsTracker {
   private maxCompileDurationMs = 0;
   private maxQueueWaitTimeMs = 0;
   
-  recordCompileStart(): number {
-    return Date.now();
-  }
-  
   recordCompileComplete(startTime: number, queueWaitTimeMs: number, success: boolean, timedOut: boolean): void {
     const duration = Date.now() - startTime;
     
