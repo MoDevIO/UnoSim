@@ -1,0 +1,1336 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for server/services/tutor/curriculum/aspect-detector.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/services/tutor/curriculum</a> aspect-detector.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">94.38% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>286/303</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">81.77% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>184/225</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">95.29% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>81/85</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">98.11% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>208/212</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5297x</span>
+<span class="cline-any cline-yes">5009x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">468494x</span>
+<span class="cline-any cline-yes">649522x</span>
+<span class="cline-any cline-yes">468494x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">365667x</span>
+<span class="cline-any cline-yes">347241x</span>
+<span class="cline-any cline-yes">347241x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">365667x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">7219x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">117441x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9628x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8048x</span>
+<span class="cline-any cline-yes">8048x</span>
+<span class="cline-any cline-yes">8048x</span>
+<span class="cline-any cline-yes">41665x</span>
+<span class="cline-any cline-yes">41665x</span>
+<span class="cline-any cline-yes">19499x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8048x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10909x</span>
+<span class="cline-any cline-yes">73233x</span>
+<span class="cline-any cline-yes">13468x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6176x</span>
+<span class="cline-any cline-yes">6176x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">2747x</span>
+<span class="cline-any cline-yes">2747x</span>
+<span class="cline-any cline-yes">2747x</span>
+<span class="cline-any cline-yes">2747x</span>
+<span class="cline-any cline-yes">2747x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1734x</span>
+<span class="cline-any cline-yes">1017x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1898x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">435139x</span>
+<span class="cline-any cline-yes">5012x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2574x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2431x</span>
+<span class="cline-any cline-yes">2431x</span>
+<span class="cline-any cline-yes">7579x</span>
+<span class="cline-any cline-yes">7579x</span>
+<span class="cline-any cline-yes">2431x</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">143x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">68780x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">68780x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">68444x</span>
+<span class="cline-any cline-yes">4576x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">23461x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2580x</span>
+<span class="cline-any cline-yes">18187x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1936x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9976x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">167676x</span>
+<span class="cline-any cline-yes">88850x</span>
+<span class="cline-any cline-yes">88850x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7386x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">86437x</span>
+<span class="cline-any cline-yes">86437x</span>
+<span class="cline-any cline-yes">84006x</span>
+<span class="cline-any cline-yes">84001x</span>
+<span class="cline-any cline-yes">81277x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1019x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1019x</span>
+<span class="cline-any cline-yes">1019x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">1015x</span>
+<span class="cline-any cline-yes">723x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">292x</span>
+<span class="cline-any cline-yes">292x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2431x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">4576x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-yes">2288x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">135x</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2724x</span>
+<span class="cline-any cline-yes">2724x</span>
+<span class="cline-any cline-yes">144x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6175x</span>
+<span class="cline-any cline-yes">12350x</span>
+<span class="cline-any cline-yes">6175x</span>
+<span class="cline-any cline-yes">6175x</span>
+<span class="cline-any cline-yes">6175x</span>
+<span class="cline-any cline-yes">6175x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">349x</span>
+<span class="cline-any cline-yes">349x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">349x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-yes">75690x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">174x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">87456x</span>
+<span class="cline-any cline-yes">348x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">348x</span>
+<span class="cline-any cline-yes">348x</span>
+<span class="cline-any cline-yes">348x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">1584x</span>
+<span class="cline-any cline-yes">2639x</span>
+<span class="cline-any cline-yes">2640x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">880x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">726x</span>
+<span class="cline-any cline-yes">726x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">726x</span>
+<span class="cline-any cline-yes">578x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1076x</span>
+<span class="cline-any cline-yes">1076x</span>
+<span class="cline-any cline-yes">4024x</span>
+<span class="cline-any cline-yes">4024x</span>
+<span class="cline-any cline-yes">4024x</span>
+<span class="cline-any cline-yes">4024x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">92552x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">176x</span>
+<span class="cline-any cline-yes">1936x</span>
+<span class="cline-any cline-yes">1076x</span>
+<span class="cline-any cline-yes">1779x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { parser } from "@lezer/cpp";
+import type { SyntaxNode } from "@lezer/common";
+&nbsp;
+/**
+ * The aspects of a sketch the Tutor can ask about (Tutor concept, stage 2). The detector reads the syntax
+ * tree only: no macro expansion, no type checking. An aspect it finds comes with the places it was found
+ * at ("sites") and a weight that says how much of the sketch the aspect carries.
+ */
+export const ASPECT_IDS = [
+  "variables", "expressions", "branching", "loops", "functions", "arrays", "scope", "serial", "pins", "timing", "program-flow",
+] as const;
+export type AspectId = typeof ASPECT_IDS[number];
+&nbsp;
+/** What a site offers; a question assignment names what it needs (`needs`). */
+export const SITE_FEATURES = [
+  "condition", "relational", "variable", "constant", "type", "initial-value", "else-branch", "else-if", "early-return", "nested",
+  "counter", "bound", "index", "parameter", "return-value", "call", "output-value", "input", "output", "pin", "mode", "interval", "state",
+] as const;
+export type SiteFeature = typeof SITE_FEATURES[number];
+&nbsp;
+export interface AspectSite {
+  /** Stable while the code of the site stays the same; line numbers are not part of it. */
+  readonly id: string;
+  readonly function?: string;
+  readonly line: number;
+  readonly endLine: number;
+  /** The text a question can quote: a condition, a declaration, a call. */
+  readonly code: string;
+  /** Identifiers of the sketch that name the site; a question about it must use one of them or quote `code`. */
+  readonly names: readonly string[];
+  readonly has: readonly SiteFeature[];
+}
+&nbsp;
+export interface DetectedAspect {
+  readonly id: AspectId;
+  readonly weight: number;
+  readonly sites: readonly AspectSite[];
+}
+&nbsp;
+const MAX_SOURCE_CHARS = 200_000;
+const MAX_SITES_PER_ASPECT = 24;
+const MAX_SITE_CODE_CHARS = 120;
+const ENTRY_FUNCTIONS = new Set(["setup", "loop"]);
+const PIN_CALLS = new Set(["pinMode", "digitalRead", "digitalWrite", "analogRead", "analogWrite"]);
+const PIN_INPUT_CALLS = new Set(["digitalRead", "analogRead"]);
+/** `pinMode` prepares a pin; it neither reads nor writes a signal a learner could observe. */
+function pinFeature(callee: string): SiteFeature {
+  if (callee === "pinMode") return "mode";
+  return PIN_INPUT_CALLS.has(callee) ? "input" : "output";
+}
+&nbsp;
+const TIMING_CALLS = new Set(["delay", "delayMicroseconds", "millis", "micros"]);
+const SERIAL_OUTPUT_CALLS = new Set(["print", "println", "write"]);
+const SERIAL_INPUT_CALLS = new Set(["read", "available", "parseInt", "parseFloat", "readString", "readStringUntil", "peek"]);
+const LOOP_NODES = new Set(["ForStatement", "WhileStatement", "DoStatement"]);
+const BRANCH_NODES = new Set(["IfStatement", "SwitchStatement"]);
+const NOT_A_NAME = new Set(["HIGH", "LOW", "INPUT", "OUTPUT", "INPUT_PULLUP", "true", "false", "Serial", "LED_BUILTIN"]);
+&nbsp;
+type Site = { function?: string; node: SyntaxNode; code: string; names: string[]; has: Set&lt;SiteFeature&gt; };
+type Collected = Record&lt;AspectId, Site[]&gt;;
+&nbsp;
+function kids(node: SyntaxNode): SyntaxNode[] {
+  const list: SyntaxNode[] = [];
+  for (let child = node.firstChild; child; child = child.nextSibling) list.push(child);
+  return list;
+}
+&nbsp;
+function descendants(node: SyntaxNode, into: SyntaxNode[] = []): SyntaxNode[] {
+  for (const child of kids(node)) {
+    into.push(child);
+    descendants(child, into);
+  }
+  return into;
+}
+&nbsp;
+class Source {
+  private readonly lineStarts: number[] = [0];
+  constructor(readonly text: string) {
+    for (let index = text.indexOf("\n"); index &gt;= 0; index = text.indexOf("\n", index + 1)) this.lineStarts.push(index + 1);
+  }
+  of(node: SyntaxNode): string {
+    return this.text.slice(node.from, node.to);
+  }
+  compact(node: SyntaxNode): string {
+    return this.of(node).replaceAll(/\s+/g, " ").trim().slice(0, MAX_SITE_CODE_CHARS);
+  }
+  line(offset: number): number {
+    let low = 0;
+    let high = this.lineStarts.length - 1;
+    while (low &lt; high) {
+      const middle = (low + high + 1) &gt;&gt; 1;
+      if ((this.lineStarts[middle] ?? <span class="branch-1 cbranch-no" title="branch not covered" >0) &lt;= o</span>ffset) low = middle;
+      else high = middle - 1;
+    }
+    return low + 1;
+  }
+}
+&nbsp;
+function identifiers(source: Source, node: SyntaxNode): string[] {
+  const own = node.name === "Identifier" ? <span class="branch-0 cbranch-no" title="branch not covered" >[node] : [</span>];
+  const names = [...own, ...descendants(node).filter(({ name }) =&gt; name === "Identifier")].map((id) =&gt; source.of(id));
+  return [...new Set(names.filter((name) =&gt; !NOT_A_NAME.has(name)))];
+}
+&nbsp;
+/** The called name: `delay` for `delay(1)`, `Serial.print` for `Serial.print(x)`. */
+function calleeName(source: Source, call: SyntaxNode): string {
+  const callee = call.firstChild;
+  return callee ? source.of(callee).replaceAll(/\s+/g, "") : <span class="branch-1 cbranch-no" title="branch not covered" >"";</span>
+}
+&nbsp;
+function declaredNames(source: Source, declaration: SyntaxNode): { name: string; array: boolean; initialized: boolean }[] {
+  const result: { name: string; array: boolean; initialized: boolean }[] = [];
+  for (const child of kids(declaration)) {
+    const initialized = child.name === "InitDeclarator";
+    const declarator = initialized ? child.firstChild : child;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!declarator) <span class="cstat-no" title="statement not covered" >continue;</span>
+    if (declarator.name === "Identifier") result.push({ name: source.of(declarator), array: false, initialized });
+    if (declarator.name === "ArrayDeclarator" &amp;&amp; declarator.firstChild?.name === "Identifier") {
+      result.push({ name: source.of(declarator.firstChild), array: true, initialized });
+    }
+  }
+  return result;
+}
+&nbsp;
+function typeText(source: Source, declaration: SyntaxNode): string {
+  const type = kids(declaration).find(({ name }) =&gt; name === "PrimitiveType" || name === "SizedTypeSpecifier" || name === "TypeIdentifier");
+  return type ? source.of(type).replaceAll(/\s+/g, " ") : <span class="branch-1 cbranch-no" title="branch not covered" >"";</span>
+}
+&nbsp;
+function hasKeyword(declaration: SyntaxNode, keyword: string): boolean {
+  return kids(declaration).some(({ name }) =&gt; name === keyword);
+}
+&nbsp;
+function enclosing(node: SyntaxNode, names: ReadonlySet&lt;string&gt;): SyntaxNode | null {
+  for (let parent = node.parent; parent; parent = parent.parent) if (names.has(parent.name)) return parent;
+  return null;
+}
+&nbsp;
+/** An `if` that is the `else` part of another `if` belongs to that chain, not to a site of its own. */
+function isElseIf(node: SyntaxNode): boolean {
+  return node.name === "IfStatement" &amp;&amp; node.parent?.name === "IfStatement" &amp;&amp; node.prevSibling?.name === "else";
+}
+&nbsp;
+/** The ways of an `if` chain: one per condition, one more for a closing `else`. */
+function chainShape(node: SyntaxNode): { branches: number; elseIf: boolean; elseBranch: boolean } {
+  let branches = 0;
+  let elseIf = false;
+  for (let current: SyntaxNode | undefined = node; current; ) {
+    branches++;
+    const parts = kids(current);
+    const next: SyntaxNode | undefined = parts[parts.findIndex(({ name }) =&gt; name === "else") + 1];
+    const afterElse = parts.some(({ name }) =&gt; name === "else") ? next : undefined;
+    if (afterElse?.name !== "IfStatement") return { branches: branches + (afterElse ? 1 : 0), elseIf, elseBranch: afterElse !== undefined };
+    elseIf = true;
+    current = afterElse;
+  }
+  return { branches, elseIf, elseBranch: false };
+}
+&nbsp;
+function branchFeatures(source: Source, node: SyntaxNode, functionBody: SyntaxNode | undefined): { has: Set&lt;SiteFeature&gt;; branches: number } {
+  const has = new Set&lt;SiteFeature&gt;(["condition"]);
+  const inner = descendants(node);
+  let branches = inner.filter(({ name }) =&gt; name === "CaseStatement").length;
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (node.name === "IfStatement") {
+    const shape = chainShape(node);
+    branches = shape.branches;
+    if (shape.elseIf) has.add("else-if");
+    if (shape.elseBranch) has.add("else-branch");
+  }
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (inner.some((child) =&gt; BRANCH_NODES.has(child.name) &amp;&amp; !isElseIf(child))) <span class="cstat-no" title="statement not covered" >has.add("nested");</span>
+  // A return inside a branch ends the function early when statements follow the branch.
+  const followed = functionBody !== undefined &amp;&amp; source.text.slice(node.to, Math.max(node.to, functionBody.to - 1)).trim() !== "";
+  if (followed &amp;&amp; inner.some(({ name }) =&gt; name === "ReturnStatement")) has.add("early-return");
+  const condition = kids(node).find(({ name }) =&gt; name === "ConditionClause");
+  if (condition &amp;&amp; identifiers(source, condition).length &gt; 0) has.add("variable");
+  if (isRelational(source, condition)) has.add("relational");
+  return { has, branches };
+}
+&nbsp;
+function loopParts(node: SyntaxNode): { condition?: SyntaxNode; counter?: SyntaxNode } {
+  const parts = kids(node);
+  if (node.name === "ForStatement") {
+    return {
+      condition: parts.find(({ name }) =&gt; name === "BinaryExpression"),
+      counter: parts.find(({ name }) =&gt; name === "Declaration" || name === "AssignmentExpression"),
+    };
+  }
+  return { condition: parts.find(({ name }) =&gt; name === "ConditionClause" || name === "ParenthesizedExpression") };
+}
+&nbsp;
+const RELATIONAL_OPERATORS = new Set(["&lt;", "&gt;", "&lt;=", "&gt;="]);
+&nbsp;
+/** The condition compares by order, so it has a boundary a value can sit exactly on. */
+function isRelational(source: Source, condition: SyntaxNode | undefined): boolean {
+  return condition !== undefined &amp;&amp; descendants(condition).some((node) =&gt; node.name === "CompareOp" &amp;&amp; RELATIONAL_OPERATORS.has(source.of(node)));
+}
+&nbsp;
+function operatorCount(node: SyntaxNode): number {
+  const own = node.name === "BinaryExpression" ? 1 : <span class="branch-1 cbranch-no" title="branch not covered" >0;</span>
+  return own + descendants(node).filter(({ name }) =&gt; name === "BinaryExpression").length;
+}
+&nbsp;
+const FUNCTION_NODE = new Set(["FunctionDefinition"]);
+&nbsp;
+/** Walks the tree once and files every node under the aspects it shows. */
+class Collector {
+  readonly sites: Collected = Object.fromEntries(ASPECT_IDS.map((id) =&gt; [id, [] as Site[]])) as Collected;
+  private readonly all: SyntaxNode[];
+  private readonly globals = new Set&lt;string&gt;();
+  private readonly types = new Set&lt;string&gt;();
+  private branchCount = 0;
+  private nesting = 0;
+  private earlyReturns = 0;
+  private calls = 0;
+  private stateNames: string[] = [];
+&nbsp;
+  constructor(private readonly source: Source, root: SyntaxNode) {
+    this.all = descendants(root);
+    for (const node of this.all) this.visit(node);
+    this.ownFunctions();
+    this.programFlow();
+  }
+&nbsp;
+  private add(aspect: AspectId, site: Site): void {
+    if (this.sites[aspect].length &lt; MAX_SITES_PER_ASPECT) this.sites[aspect].push(site);
+  }
+&nbsp;
+  private functionName(definition: SyntaxNode | null): string | undefined {
+    const declarator = definition &amp;&amp; kids(definition).find(({ name }) =&gt; name === "FunctionDeclarator");
+    const id = declarator?.firstChild;
+    return id ? this.source.of(id) : undefined;
+  }
+&nbsp;
+  private body(definition: SyntaxNode | null): SyntaxNode | undefined {
+    return definition ? kids(definition).find(({ name }) =&gt; name === "CompoundStatement") : undefined;
+  }
+&nbsp;
+  private visit(node: SyntaxNode): void {
+    const owner = enclosing(node, FUNCTION_NODE);
+    const inFunction = this.functionName(owner);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (node.name === "PreprocDirective") <span class="cstat-no" title="statement not covered" >this.define(node);</span>
+    else if (node.name === "Declaration") this.declaration(node, owner, inFunction);
+    else <span class="missing-if-branch" title="if path not taken" >I</span>if (node.name === "StructSpecifier") <span class="cstat-no" title="statement not covered" >this.struct(node);</span>
+    else if (BRANCH_NODES.has(node.name)) this.branch(node, owner, inFunction);
+    else if (LOOP_NODES.has(node.name)) this.loop(node, inFunction);
+    else if (node.name === "BinaryExpression") this.expression(node, inFunction);
+    else if (node.name === "CallExpression") this.call(node, inFunction);
+  }
+&nbsp;
+<span class="fstat-no" title="function not covered" >  private d</span>efine(node: SyntaxNode): void {
+    const id = <span class="cstat-no" title="statement not covered" >node.firstChild?.name === "#define" ? kids(node).<span class="fstat-no" title="function not covered" >find(({</span> name }) =&gt; <span class="cstat-no" title="statement not covered" >name === "Identifier")</span> : undefined;</span>
+<span class="cstat-no" title="statement not covered" >    if (id) <span class="cstat-no" title="statement not covered" >this.add("variables", { node, code: this.source.compact(node), names: [this.source.of(id)], has: new Set(["constant", "initial-value"]) });</span></span>
+  }
+&nbsp;
+  private declaration(node: SyntaxNode, owner: SyntaxNode | null, inFunction: string | undefined): void {
+    if (node.parent?.name === "ForStatement") return;
+    const type = typeText(this.source, node);
+    const kind: SiteFeature = hasKeyword(node, "const") ? "constant" : "variable";
+    const code = this.source.compact(node);
+    for (const { name, array, initialized } of declaredNames(this.source, node)) {
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (type) this.types.add(type);
+      const has = new Set&lt;SiteFeature&gt;(initialized ? ["type", kind, "initial-value"] : <span class="branch-1 cbranch-no" title="branch not covered" >["type", kind])</span>;
+      this.add(array ? "arrays" : "variables", { function: inFunction, node, code, names: [name], has });
+      if (owner) this.localScope(node, name, inFunction, code);
+      else this.globals.add(name);
+    }
+  }
+&nbsp;
+  private localScope(node: SyntaxNode, name: string, inFunction: string | undefined, code: string): void {
+    if (hasKeyword(node, "static")) this.add("scope", { function: inFunction, node, code, names: [name], has: new Set(["variable", "state"]) });
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (this.globals.has(name)) <span class="cstat-no" title="statement not covered" >this.add("scope", { function: inFunction, node, code, names: [name], has: new Set(["variable"]) });</span>
+  }
+&nbsp;
+<span class="fstat-no" title="function not covered" >  private s</span>truct(node: SyntaxNode): void {
+    const id = <span class="cstat-no" title="statement not covered" >node.parent?.name === "Declaration" ? undefined : kids(node).<span class="fstat-no" title="function not covered" >find(({</span> name }) =&gt; <span class="cstat-no" title="statement not covered" >name === "TypeIdentifier")</span>;</span>
+<span class="cstat-no" title="statement not covered" >    if (id) <span class="cstat-no" title="statement not covered" >this.add("arrays", { node, code: `struct ${this.source.of(id)}`, names: [this.source.of(id)], has: new Set(["type"]) });</span></span>
+  }
+&nbsp;
+  private branch(node: SyntaxNode, owner: SyntaxNode | null, inFunction: string | undefined): void {
+    if (isElseIf(node)) return;
+    const { has, branches } = branchFeatures(this.source, node, this.body(owner));
+    const condition = kids(node).find(({ name }) =&gt; name === "ConditionClause");
+    this.branchCount += branches;
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (has.has("nested")) <span class="cstat-no" title="statement not covered" >this.nesting++;</span>
+    if (has.has("early-return")) this.earlyReturns++;
+    this.add("branching", { function: inFunction, node, code: this.source.compact(condition ?? <span class="branch-1 cbranch-no" title="branch not covered" >node)</span>, names: condition ? identifiers(this.source, condition) : <span class="branch-1 cbranch-no" title="branch not covered" >[], h</span>as });
+  }
+&nbsp;
+  private loop(node: SyntaxNode, inFunction: string | undefined): void {
+    const { condition, counter } = loopParts(node);
+    const has = new Set&lt;SiteFeature&gt;();
+    const counterNames = counter ? identifiers(this.source, counter) : [];
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (condition) has.add("condition");
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (isRelational(this.source, condition)) has.add("relational");
+    if (counter) has.add("counter");
+    if (condition &amp;&amp; identifiers(this.source, condition).some((name) =&gt; !counterNames.includes(name))) has.add("bound");
+    const inner = descendants(node);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (inner.some(({ name }) =&gt; LOOP_NODES.has(name))) <span class="cstat-no" title="statement not covered" >has.add("nested");</span>
+    if (inner.some(({ name }) =&gt; name === "SubscriptExpression")) has.add("index");
+    this.add("loops", { function: inFunction, node, code: this.source.compact(condition ?? <span class="branch-1 cbranch-no" title="branch not covered" >node)</span>, names: identifiers(this.source, condition ?? <span class="branch-1 cbranch-no" title="branch not covered" >node)</span>, has });
+  }
+&nbsp;
+  private expression(node: SyntaxNode, inFunction: string | undefined): void {
+    const outermost = node.parent?.name !== "BinaryExpression" &amp;&amp; node.parent?.name !== "ParenthesizedExpression";
+    if (!outermost || operatorCount(node) &lt; 2) return;
+    this.add("expressions", { function: inFunction, node, code: this.source.compact(node), names: identifiers(this.source, node), has: new Set(["variable"]) });
+  }
+&nbsp;
+  private call(node: SyntaxNode, inFunction: string | undefined): void {
+    const callee = calleeName(this.source, node);
+    const args = kids(node).find(({ name }) =&gt; name === "ArgumentList");
+    const site = { function: inFunction, node, code: this.source.compact(node), names: args ? identifiers(this.source, args) : <span class="branch-1 cbranch-no" title="branch not covered" >[] }</span>;
+    if (PIN_CALLS.has(callee)) this.add("pins", { ...site, has: new Set(["pin", pinFeature(callee)]) });
+    if (TIMING_CALLS.has(callee)) this.add("timing", { ...site, has: new Set(callee.startsWith("delay") ? [] : <span class="branch-1 cbranch-no" title="branch not covered" >["interval"])</span> });
+    if (callee.startsWith("Serial.")) this.add("serial", { ...site, has: serialFeatures(callee, site.names) });
+  }
+&nbsp;
+  private ownFunctions(): void {
+    for (const definition of this.all.filter(({ name }) =&gt; name === "FunctionDefinition")) {
+      const name = this.functionName(definition);
+      if (!name || ENTRY_FUNCTIONS.has(name)) continue;
+      const declarator = kids(definition).find((child) =&gt; child.name === "FunctionDeclarator");
+      const has = new Set&lt;SiteFeature&gt;();
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (declarator &amp;&amp; descendants(declarator).some((child) =&gt; child.name === "ParameterDeclaration")) has.add("parameter");
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (typeText(this.source, definition) !== "void") has.add("return-value");
+      const called = this.all.filter((node) =&gt; node.name === "CallExpression" &amp;&amp; calleeName(this.source, node) === name).length;
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (called &gt; 0) has.add("call");
+      this.calls += called;
+      const code = declarator ? `${typeText(this.source, definition)} ${this.source.compact(declarator)}`.trim() : <span class="branch-1 cbranch-no" title="branch not covered" >name;</span>
+      this.add("functions", { function: name, node: definition, code, names: [name], has });
+    }
+  }
+&nbsp;
+  /** A global written in loop() keeps its value over the passes: the state of the program. */
+  private writtenGlobals(loopBody: SyntaxNode): string[] {
+    const written = descendants(loopBody)
+      .filter(({ name }) =&gt; name === "AssignmentExpression" || name === "UpdateExpression")
+      .map((node) =&gt; (node.firstChild?.name === "Identifier" ? node.firstChild : <span class="branch-1 cbranch-no" title="branch not covered" >node.lastChild))</span>
+      .flatMap((target) =&gt; (target?.name === "Identifier" ? [this.source.of(target)] : <span class="branch-1 cbranch-no" title="branch not covered" >[]))</span>;
+    return [...new Set(written.filter((name) =&gt; this.globals.has(name)))];
+  }
+&nbsp;
+  private programFlow(): void {
+    const entries = this.all.filter((node) =&gt; node.name === "FunctionDefinition" &amp;&amp; ENTRY_FUNCTIONS.has(this.functionName(node) ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>);
+    const loopBody = this.body(entries.find((definition) =&gt; this.functionName(definition) === "loop") ?? null);
+    this.stateNames = loopBody ? this.writtenGlobals(loopBody) : [];
+    for (const definition of entries) {
+      const name = this.functionName(definition) ?? <span class="branch-1 cbranch-no" title="branch not covered" >"";</span>
+      const state = name === "loop" &amp;&amp; this.stateNames.length &gt; 0;
+      this.add("program-flow", { function: name, node: definition, code: `void ${name}()`, names: state ? this.stateNames : [], has: new Set(state ? ["state"] : []) });
+    }
+  }
+&nbsp;
+  weights(): Record&lt;AspectId, number&gt; {
+    const { sites } = this;
+    const count = (aspect: AspectId, cap: number) =&gt; Math.min(sites[aspect].length, cap);
+    const any = (aspect: AspectId, feature: SiteFeature) =&gt; sites[aspect].some(({ has }) =&gt; has.has(feature));
+    const bonus = (condition: boolean, value: number) =&gt; (condition ? value : 0);
+    /** Zero for an aspect the sketch does not show, whatever its bonuses add up to. */
+    const present = (aspect: AspectId, weight: number) =&gt; bonus(sites[aspect].length &gt; 0, weight);
+    return {
+      variables: present("variables", count("variables", 6) + Math.min(this.types.size, 4)),
+      expressions: count("expressions", 4) * 2,
+      branching: this.branchCount * 3 + this.nesting * 2 + this.earlyReturns * 3,
+      loops: count("loops", 4) * 4 + bonus(any("loops", "nested"), 2) + bonus(any("loops", "bound"), 2),
+      functions: count("functions", 4) * 3 + Math.min(this.calls, 3) + bonus(any("functions", "parameter"), 2) + bonus(any("functions", "return-value"), 2),
+      arrays: count("arrays", 3) * 3 + bonus(any("loops", "index"), 3),
+      scope: count("scope", 3) * 3,
+      serial: present("serial", count("serial", 3) + bonus(any("serial", "output-value"), 2) + bonus(any("serial", "input"), 3)),
+      pins: present("pins", count("pins", 4) + bonus(any("pins", "input") &amp;&amp; any("pins", "output"), 3)),
+      timing: present("timing", 1 + count("timing", 2) + bonus(any("timing", "interval"), 5)),
+      "program-flow": present("program-flow", 2 + bonus(this.stateNames.length &gt; 0, 4)),
+    };
+  }
+}
+&nbsp;
+function serialFeatures(callee: string, argumentNames: readonly string[]): Set&lt;SiteFeature&gt; {
+  const method = callee.slice("Serial.".length);
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (SERIAL_INPUT_CALLS.has(method)) <span class="cstat-no" title="statement not covered" >return new Set(["input"]);</span>
+  // `Serial.begin` and its kind set the interface up; only print, println and write put something on the monitor.
+  if (!SERIAL_OUTPUT_CALLS.has(method)) return new Set(["mode"]);
+  return new Set(argumentNames.length &gt; 0 ? ["output", "output-value"] : ["output"]);
+}
+&nbsp;
+function publicSites(source: Source, aspect: AspectId, sites: readonly Site[]): AspectSite[] {
+  const seen = new Map&lt;string, number&gt;();
+  return sites.map(({ function: inFunction, node, code, names, has }) =&gt; {
+    const base = `${aspect}:${inFunction ?? ""}:${code}`;
+    const occurrence = (seen.get(base) ?? 0) + 1;
+    seen.set(base, occurrence);
+    return {
+      id: occurrence === 1 ? base : `${base}#${occurrence}`,
+      ...(inFunction ? { function: inFunction } : {}),
+      line: source.line(node.from),
+      endLine: source.line(Math.max(node.from, node.to - 1)),
+      code,
+      names,
+      has: SITE_FEATURES.filter((feature) =&gt; has.has(feature)),
+    };
+  });
+}
+&nbsp;
+/**
+ * The aspects found in the sketch, heaviest first; aspects of equal weight keep the order of `ASPECT_IDS`.
+ * A sketch that is too large or cannot be parsed yields no aspects.
+ */
+export function detectAspects(code: string): DetectedAspect[] {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (code.length &gt; MAX_SOURCE_CHARS) <span class="cstat-no" title="statement not covered" >return [];</span>
+  const source = new Source(code);
+  const collector = new Collector(source, parser.parse(code).topNode);
+  const { sites } = collector;
+  const weights = collector.weights();
+  return ASPECT_IDS
+    .filter((id) =&gt; weights[id] &gt; 0 &amp;&amp; sites[id].length &gt; 0)
+    .map((id) =&gt; ({ id, weight: weights[id], sites: publicSites(source, id, sites[id]) }))
+    .sort((left, right) =&gt; right.weight - left.weight);
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-11-16T08:37:20.573Z
+            </div>
+        <script src="../../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
+    </body>
+</html>
+    

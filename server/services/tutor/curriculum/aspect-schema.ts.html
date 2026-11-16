@@ -1,0 +1,340 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for server/services/tutor/curriculum/aspect-schema.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/services/tutor/curriculum</a> aspect-schema.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">95.12% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>39/41</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">78.12% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>25/32</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>11/11</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">96.77% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>30/31</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">890x</span>
+<span class="cline-any cline-yes">124034x</span>
+<span class="cline-any cline-yes">124034x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">216x</span>
+<span class="cline-any cline-yes">890x</span>
+<span class="cline-any cline-yes">890x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-yes">335x</span>
+<span class="cline-any cline-yes">335x</span>
+<span class="cline-any cline-yes">615x</span>
+<span class="cline-any cline-yes">615x</span>
+<span class="cline-any cline-yes">335x</span>
+<span class="cline-any cline-yes">334x</span>
+<span class="cline-any cline-yes">333x</span>
+<span class="cline-any cline-yes">332x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">36x</span>
+<span class="cline-any cline-yes">1328x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">466x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">882x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { z } from "zod";
+import { boundedArray } from "@shared/bounded-array";
+import { ASPECT_IDS, SITE_FEATURES } from "./aspect-detector";
+import { hasUnanchoredReference } from "../question-concreteness";
+&nbsp;
+/**
+ * An aspect file of the Course Content (`tutor/aspects/&lt;id&gt;.yaml`): what the learner should be able to do
+ * with one aspect of a sketch, and the question assignments that probe it on four levels. An assignment
+ * holds no finished question: it tells the model what to ask about a place the server chose.
+ */
+export const ASPECT_LEVELS = [1, 2, 3, 4] as const;
+export type AspectLevel = typeof ASPECT_LEVELS[number];
+/** 1 recognize, 2 explain, 3 predict, 4 change. */
+export const ASPECT_LEVEL_NAMES: Readonly&lt;Record&lt;AspectLevel, string&gt;&gt; = { 1: "Erkennen", 2: "Erklären", 3: "Vorhersagen", 4: "Verändern" };
+export const MIN_ASSIGNMENTS_PER_LEVEL = 2;
+&nbsp;
+const SAFE_ID = /^[a-z][a-z0-9-]{0,63}$/;
+/** The slots a fallback question may use; the server fills them from the chosen site. */
+const FALLBACK_SLOTS = ["code", "function", "name"] as const;
+const SLOT = /\{([a-z]+)\}/g;
+&nbsp;
+const hasControlCharacters = (value: string): boolean =&gt; [...value].some((character) =&gt; {
+  const code = character.codePointAt(0) ?? <span class="branch-1 cbranch-no" title="branch not covered" >0;</span>
+  return code &lt;= 8 || code === 11 || code === 12 || (code &gt;= 14 &amp;&amp; code &lt;= 31) || code === 127;
+});
+&nbsp;
+const boundedText = (max: number) =&gt; z.string().trim().min(1).max(max)
+  .refine((value) =&gt; !hasControlCharacters(value), "Control characters are not allowed")
+  .refine((value) =&gt; !/https?:\/\//i.test(value), "URLs are not allowed in aspect text");
+&nbsp;
+const assignmentSchema = z.object({
+  id: z.string().regex(SAFE_ID),
+  level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  /** What the question must make the learner do, addressed to the model. */
+  task: boundedText(600),
+  /** What the site must offer; without it the assignment cannot be chosen for that site. */
+  needs: boundedArray(z.enum(SITE_FEATURES), 6).optional(),
+  /** The question the learner gets when the model's wording does not name the site. */
+  fallback: boundedText(400),
+  graphic: z.enum(["activity"]).optional(),
+}).strict();
+&nbsp;
+export const aspectDefinitionSchema = z.object({
+  schemaVersion: z.literal(1),
+  id: z.enum(ASPECT_IDS),
+  title: boundedText(80),
+  objective: boundedText(300),
+  assignments: boundedArray(assignmentSchema, 48),
+}).strict();
+&nbsp;
+export type AspectDefinition = z.infer&lt;typeof aspectDefinitionSchema&gt;;
+export type AspectAssignment = AspectDefinition["assignments"][number];
+&nbsp;
+/** Rules a schema cannot express; throws with the first violation, like `validateCurriculumTopic`. */
+export function validateAspectDefinition(aspect: AspectDefinition): AspectDefinition {
+  const ids = new Set&lt;string&gt;();
+  for (const assignment of aspect.assignments) {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (ids.has(assignment.id)) <span class="cstat-no" title="statement not covered" >throw new Error(`Duplicate assignment: ${assignment.id}`);</span>
+    ids.add(assignment.id);
+    const slots = [...assignment.fallback.matchAll(SLOT)].map((match) =&gt; match[1] ?? <span class="branch-1 cbranch-no" title="branch not covered" >"")</span>;
+    const unknown = slots.find((slot) =&gt; !(FALLBACK_SLOTS as readonly string[]).includes(slot));
+    if (unknown !== undefined) throw new Error(`Unknown slot {${unknown}} in the fallback of ${assignment.id}`);
+    if (!slots.includes("code") &amp;&amp; !slots.includes("name")) throw new Error(`The fallback of ${assignment.id} must name its site with {code} or {name}`);
+    if ((assignment.fallback.match(/\?/g) ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>.length !== 1) throw new Error(`The fallback of ${assignment.id} must be exactly one question`);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (hasUnanchoredReference(fillFallback(assignment.fallback, { code: "x", function: "loop", name: "x" }))) {
+<span class="cstat-no" title="statement not covered" >      throw new Error(`The fallback of ${assignment.id} refers to an element it does not name`);</span>
+    }
+  }
+  for (const level of ASPECT_LEVELS) {
+    if (aspect.assignments.filter((assignment) =&gt; assignment.level === level).length &lt; MIN_ASSIGNMENTS_PER_LEVEL) {
+      throw new Error(`Aspect ${aspect.id} needs at least ${MIN_ASSIGNMENTS_PER_LEVEL} assignments on level ${level}`);
+    }
+  }
+  return aspect;
+}
+&nbsp;
+/** Puts the site into a fallback question; code and names are quoted, so the question names its place. */
+export function fillFallback(fallback: string, site: { readonly code: string; readonly function?: string; readonly name?: string }): string {
+  const values: Record&lt;string, string&gt; = {
+    code: `\`${site.code.replaceAll("`", "'")}\``,
+    function: site.function ? `\`${site.function}()\`` : "dem Sketch",
+    name: `\`${site.name ?? <span class="branch-1 cbranch-no" title="branch not covered" >site.code.replaceAll("`", "'")}\</span>``,
+  };
+  return fallback.replaceAll(SLOT, (whole, slot: string) =&gt; values[slot] ?? <span class="branch-1 cbranch-no" title="branch not covered" >whole)</span>;
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-11-16T08:37:20.573Z
+            </div>
+        <script src="../../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
+    </body>
+</html>
+    
