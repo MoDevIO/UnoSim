@@ -1,0 +1,83 @@
+schemaVersion: 1
+id: functions
+title: Funktionen
+objective: >-
+  Die Lernenden können für eine eigene Funktion des Sketches erklären, was sie entgegennimmt, tut und
+  zurückgibt, ihr Ergebnis für konkrete Aufrufe vorhersagen, sie mit Testfällen prüfen und gezielt verändern.
+assignments:
+  - id: functions-find-signature
+    level: 1
+    task: >-
+      Lass am Funktionskopf ablesen, welche Werte diese Funktion entgegennimmt und was sie zurückgibt.
+      Frage nicht nach dem Zweck.
+    fallback: "Betrachte die Funktion {name} mit dem Kopf {code}: Welche Werte nimmt sie entgegen, und was gibt sie zurück?"
+  - id: functions-find-calls
+    level: 1
+    task: >-
+      Lass benennen, an welchen Stellen des Sketches diese Funktion aufgerufen wird und in welcher Funktion
+      diese Stellen stehen.
+    needs: [call]
+    fallback: "An welchen Stellen des Sketches wird die Funktion {name} aufgerufen, und in welcher Funktion stehen diese Stellen?"
+  - id: functions-explain-purpose
+    level: 2
+    task: >-
+      Lass erklären, welche Aufgabe diese Funktion im Sketch übernimmt und was der Sketch davon hat, dass
+      diese Aufgabe in einer eigenen Funktion steht.
+    fallback: "Welche Aufgabe übernimmt die Funktion {name} im Sketch, und was hat der Sketch davon, dass sie eine eigene Funktion ist?"
+  - id: functions-explain-parameter
+    level: 2
+    task: >-
+      Lass erklären, woher ein Parameter dieser Funktion bei einem Aufruf seinen Wert bekommt und was mit dem
+      Wert an der Aufrufstelle geschieht, wenn die Funktion den Parameter verändert.
+    needs: [parameter, call]
+    fallback: "Woher bekommt ein Parameter der Funktion {name} bei einem Aufruf seinen Wert, und was geschieht an der Aufrufstelle, wenn die Funktion ihn verändert?"
+  - id: functions-explain-return
+    level: 2
+    task: >-
+      Lass erklären, was an einer Aufrufstelle mit dem Wert geschieht, den diese Funktion zurückgibt, und was
+      geschähe, wenn der Aufruf dort allein als Anweisung stünde.
+    needs: [return-value, call]
+    fallback: "Was geschieht an einer Aufrufstelle mit dem Wert, den die Funktion {name} zurückgibt, und was geschähe, wenn der Aufruf dort allein stünde?"
+  - id: functions-predict-result
+    level: 3
+    task: >-
+      Nenne einen konkreten Aufruf dieser Funktion mit selbst gewählten Argumenten und lass vorhersagen,
+      welchen Wert er zurückgibt. Fordere dazu auf, die Vorhersage mit einer Ausgabe auf dem seriellen
+      Monitor im Simulator zu prüfen.
+    needs: [parameter, return-value]
+    fallback: "Wähle konkrete Argumente für einen Aufruf der Funktion {name} und sage vorher, welchen Wert sie zurückgibt; wie prüfst du das im Simulator?"
+  - id: functions-predict-order
+    level: 3
+    task: >-
+      Lass vorhersagen, in welcher Reihenfolge der Sketch seine Anweisungen ausführt, sobald er einen Aufruf
+      dieser Funktion erreicht, und wo er nach dem Ende der Funktion weitermacht.
+    needs: [call]
+    fallback: "Der Sketch erreicht einen Aufruf der Funktion {name}: Welche Anweisungen laufen dann in welcher Reihenfolge, und wo geht es nach dem Ende der Funktion weiter?"
+  - id: functions-predict-effect
+    level: 3
+    task: >-
+      Lass vorhersagen, was im Simulator zu beobachten ist, wenn diese Funktion genau einmal läuft, und fordere
+      dazu auf, das zu prüfen.
+    fallback: "Was ist im Simulator zu beobachten, wenn die Funktion {name} genau einmal läuft, und wie prüfst du das?"
+  - id: functions-change-test-cases
+    level: 4
+    task: >-
+      Lass Testfälle für diese Funktion entwerfen, wie in einem Unit-Test: drei Aufrufe mit ihren erwarteten
+      Rückgabewerten, darunter ein Grenzfall, und eine Begründung, warum gerade diese Aufrufe die Funktion
+      gut prüfen. Verlange keinen Testcode.
+    needs: [parameter, return-value]
+    fallback: "Mit welchen drei Aufrufen der Funktion {name} und welchen erwarteten Rückgabewerten würdest du sie testen, wenn einer davon ein Grenzfall sein soll?"
+  - id: functions-change-parameter
+    level: 4
+    task: >-
+      Lass beschreiben, wie diese Funktion einen weiteren Parameter bekommen könnte, damit ein Wert, der
+      bisher fest in ihr steht, von außen kommt, und was sich dadurch an ihren Aufrufen ändern muss.
+      Verlange keine fertige Codezeile.
+    fallback: "Wie könntest du der Funktion {name} einen weiteren Parameter geben, damit ein bisher fest eingetragener Wert von außen kommt, und was muss sich an ihren Aufrufen ändern?"
+  - id: functions-change-reuse
+    level: 4
+    task: >-
+      Lass überlegen, an welcher weiteren Stelle des Sketches diese Funktion sinnvoll aufgerufen werden
+      könnte oder welcher wiederkehrende Teil des Sketches sich nach ihrem Vorbild in eine eigene Funktion
+      auslagern ließe, und woran man im Simulator sieht, dass sich das Verhalten nicht ändert.
+    fallback: "Welchen weiteren Teil des Sketches könntest du nach dem Vorbild der Funktion {name} in eine eigene Funktion auslagern, und woran siehst du im Simulator, dass sich das Verhalten nicht ändert?"

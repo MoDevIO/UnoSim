@@ -51,6 +51,11 @@ describe("aspect files", () => {
     expect(() => validateAspectDefinition(aspectDefinitionSchema.parse(change(raw)))).toThrow(message);
   });
 
+  it("reject a diagram aspect with an assignment that shows no diagram", () => {
+    const raw = { ...(JSON.parse(JSON.stringify(definitions[0])) as Record<string, unknown>), id: "diagrams" };
+    expect(() => validateAspectDefinition(aspectDefinitionSchema.parse(raw))).toThrow(/needs a graphic/);
+  });
+
   it("reject an aspect the detector does not know and a feature a site cannot offer", () => {
     const raw = JSON.parse(JSON.stringify(definitions[0])) as { id: string; assignments: { needs?: string[] }[] };
     expect(aspectDefinitionSchema.safeParse({ ...raw, id: "pointers" }).success).toBe(false);

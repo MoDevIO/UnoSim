@@ -26,6 +26,10 @@ const preamble = [
 ];
 /** Only an excerpt shows a return inside a branch: the function ends there, the path does not rejoin. */
 const ENDS_WITH_RETURN = /(?:^|\n)return\b[^\n]*$/;
+/**
+ * UML notation: the decision node stays empty, each outgoing edge carries its guard in brackets, and the
+ * edge taken otherwise is `[sonst]`.
+ */
 function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] {
   return steps.flatMap((step) => {
     if (step.type === "action")
@@ -34,16 +38,16 @@ function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] 
         : [`:${literal(step.code)};`];
     if (step.type === "decision")
       return [
-        `if (${literal(step.condition)}) then ([ja])`,
+        `if () then ([${literal(step.condition)}])`,
         ...activity(step.whenTrue, excerpt),
-        "else ([nein])",
+        "else ([sonst])",
         ...activity(step.whenFalse, excerpt),
         "endif",
       ];
     return [
-      `while (${literal(step.condition)}) is ([ja])`,
+      `while () is ([${literal(step.condition)}])`,
       ...activity(step.body, excerpt),
-      "endwhile ([nein])",
+      "endwhile ([sonst])",
     ];
   });
 }
@@ -65,7 +69,7 @@ function activityDiagram(
       "repeat",
       `:${literal("loop()")};`,
       ...activity(proposal.loop.body),
-      "repeat while (true) is ([immer])",
+      "repeat while () is ([immer])",
       "detach",
     );
   else if ("excerpt" in proposal)

@@ -518,7 +518,9 @@ only the slots `{code}`, `{function}` and `{name}`, contains `{code}` or
 `{name}`, is exactly one question and passes the wording rule of
 [TutorQualityGates](ssot_function_definition_TutorQualityGates.md) invariant
 10. Every aspect file provides at least two assignments on each of the four
-levels. `id` is unique within the manifest and equals the `id` of the file.
+levels. `id` is unique within the manifest and equals the `id` of the file. In
+the aspect file `diagrams` every assignment carries a `graphic`: that aspect
+asks about the activity diagram the application draws.
 
 Aspect files are part of the Tutor bundle: a missing, hash-mismatched or
 invalid aspect file invalidates the whole Tutor capability, like a Topic. A

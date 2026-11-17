@@ -363,7 +363,7 @@ Akzeptanzkriterien steht in
 | `UNOSIM_LLM_BASE_URL` | `https://chat.kiconnect.nrw/api/v1` | OpenAI-kompatibler Endpunkt für den Tutor |
 | `UNOSIM_LLM_TIMEOUT_MS` | `30000` | maximale Dauer eines Tutor-Aufrufs |
 | `UNOSIM_TUTOR_DIAGNOSTICS_ENABLED` | `false` in Produktion/Tests, `true` in Entwicklung | erlaubt begrenzte Tutor-Metadaten im Debug-Tab; zusätzlich muss der Nutzer den Debug-Modus aktivieren; keine Rohdialoge oder Zugangsdaten |
-| `UNOSIM_TUTOR_ASPECT_PLANNING` | `false` | `true` lässt den Tutor nach Aspekten des Sketches planen statt nach dem Themenkatalog, sofern die Kursinhalte Aspektdateien (`tutor/aspects/`) enthalten; ohne Aspektdateien ändert der Schalter nichts |
+| `UNOSIM_TUTOR_ASPECT_PLANNING` | `false` | `true` lässt den Tutor nach Aspekten des Sketches planen statt nach dem Themenkatalog, sofern die Kursinhalte Aspektdateien (`tutor/aspects/`) enthalten; ohne Aspektdateien ändert der Schalter nichts; `npm run dev` und `npm run dev:full` schalten ihn für die lokale Entwicklung ein |
 | `UNOSIM_TUTOR_AUTO_MODELS` | `openai-gpt5.5` | exakte Modell-IDs, die **Automatic** verwenden darf, in dieser Reihenfolge; leer = **Automatic** aus, nur manuelle Wahl |
 | `TUTOR_RATE_LIMIT_MAX_REQUESTS` | `20` | Tutor-Anfragen pro Identität und Fenster |
 | `TUTOR_RATE_LIMIT_WINDOW_MS` | `60000` | Fenster für das Tutor-Limit |

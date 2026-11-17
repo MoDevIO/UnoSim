@@ -170,7 +170,7 @@ export function injectActivityError(steps: readonly UmlActivityStep[]): { readon
   if (reversed) return { body: reversed, note };
   const swappable = (step: Controlled) => step.type === "decision" && !isDeepStrictEqual(step.whenTrue, step.whenFalse);
   const swapped = changeFirst(steps, swappable, (step) => {
-    note = `Im Diagramm sind die Zweige [ja] und [nein] der Bedingung \`${step.condition}\` vertauscht.`;
+    note = `Im Diagramm sind die Zweige hinter den Kanten \`[${step.condition}]\` und \`[sonst]\` vertauscht.`;
     return step.type === "decision" ? { ...step, whenTrue: step.whenFalse, whenFalse: step.whenTrue } : step;
   });
   return swapped ? { body: swapped, note } : null;
@@ -187,7 +187,18 @@ export function proveActivityExcerpt(proposal: UmlExcerptActivityProposal, docs:
 
 /** The control statement of the entry file whose head holds `siteCode`, with its steps (null when it cannot be shown). */
 function siteStatement(context: UmlCodeContext, siteCode: string): { doc: UmlSourceDocument; statement: SyntaxNode; steps: UmlActivityStep[] | null } | undefined {
-  const doc = readUmlSources(context)?.find(({ file }) => file === context.entryFile);
+  return statementIn(entryDocument(context), siteCode);
+}
+
+function entryDocument(context: UmlCodeContext): UmlSourceDocument | undefined {
+  return readUmlSources(context)?.find(({ file }) => file === context.entryFile);
+}
+
+function sketchContext(code: string): UmlCodeContext {
+  return { question: "-", code, entryFile: "sketch.ino", board: "uno" };
+}
+
+function statementIn(doc: UmlSourceDocument | undefined, siteCode: string): { doc: UmlSourceDocument; statement: SyntaxNode; steps: UmlActivityStep[] | null } | undefined {
   const wanted = squeeze(siteCode);
   const statement = doc && wanted ? controlStatements(doc).find((node) => squeeze(head(doc, node)).includes(wanted)) : undefined;
   return doc && statement ? { doc, statement, steps: buildActivityExcerpt(doc, statement) } : undefined;
@@ -221,6 +232,12 @@ export function activityExcerptProposal(context: UmlCodeContext, siteCode: strin
  * for the model's rating. Undefined when no such diagram can be built from this code.
  */
 export function activityErrorNote(code: string, siteCode: string): string | undefined {
-  const steps = siteStatement({ question: "-", code, entryFile: "sketch.ino", board: "uno" }, siteCode)?.steps;
+  const steps = siteStatement(sketchContext(code), siteCode)?.steps;
   return steps ? injectActivityError(steps)?.note : undefined;
+}
+
+/** Those of `siteCodes` whose control statement the application can draw as an activity diagram. */
+export function drawableSiteCodes(code: string, siteCodes: readonly string[]): Set<string> {
+  const doc = entryDocument(sketchContext(code));
+  return new Set(siteCodes.filter((siteCode) => (statementIn(doc, siteCode)?.steps?.length ?? 0) > 0));
 }

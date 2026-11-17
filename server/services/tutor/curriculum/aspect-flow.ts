@@ -2,7 +2,7 @@ import type { TutorAnswerRating } from "@shared/tutor";
 import { namesAssignmentSite } from "../assignment-prompt";
 import type { StrategyResolution } from "../strategy/effective-tutor-strategy";
 import type { TutorAspectChoice, TutorPlan, TutorPlanningBlocked } from "../tutor-planning";
-import { activityErrorNote } from "../uml/excerpt";
+import { activityErrorNote, drawableSiteCodes } from "../uml/excerpt";
 import { detectAspects, type DetectedAspect } from "./aspect-detector";
 import { leaveOpen, openStep, planNext, recordAnswer, syncSketch, type AspectStep } from "./aspect-planner";
 import { ASPECT_LEVEL_NAMES, type AspectDefinition, type AspectLevel } from "./aspect-schema";
@@ -29,12 +29,35 @@ export interface AspectFlowInput {
 const QUESTION_KIND: Readonly<Record<AspectLevel, TutorPlan["questionKind"]>> = { 1: "recall", 2: "concept", 3: "prediction", 4: "transfer" };
 const ASPECT_TOPIC_PREFIX = "aspect-";
 
-function prepare({ code, state }: AspectFlowInput): { session: AspectSessionState; aspects: DetectedAspect[] } {
-  const session = state.aspects ?? createAspectSessionState();
-  state.aspects = session;
-  const aspects = detectAspects(code);
-  syncSketch(session, aspects);
-  return { session, aspects };
+/** The aspect that asks about activity diagrams the application draws from the sketch. */
+const DIAGRAMS_ASPECT = "diagrams";
+
+/** The diagram aspect keeps the statements that can be drawn, and exists only where a diagram can be shown. */
+function withDrawableSites(input: AspectFlowInput, aspects: readonly DetectedAspect[]): DetectedAspect[] {
+  return aspects.flatMap((aspect) => {
+    if (aspect.id !== DIAGRAMS_ASPECT) return [aspect];
+    if (!input.diagrams) return [];
+    const drawable = drawableSiteCodes(input.code, aspect.sites.map(({ code }) => code));
+    const sites = aspect.sites.filter(({ code }) => drawable.has(code));
+    return sites.length > 0 ? [{ ...aspect, sites }] : [];
+  });
+}
+
+function prepare(input: AspectFlowInput): { session: AspectSessionState; aspects: DetectedAspect[] } {
+  const session = input.state.aspects ?? createAspectSessionState();
+  input.state.aspects = session;
+  const detected = detectAspects(input.code);
+  syncSketch(session, detected);
+  return { session, aspects: withDrawableSites(input, detected) };
+}
+
+/**
+ * The aspects to plan from. The diagram aspect asks about statements other aspects ask about too, so it is
+ * planned only when the learner chose it, the teacher listed it or one of its questions is in progress.
+ */
+function plannable(input: AspectFlowInput, session: AspectSessionState, aspects: readonly DetectedAspect[]): readonly DetectedAspect[] {
+  const wanted = [session.focusAspectId, session.activeAspectId, ...(input.preferredAspects ?? [])].includes(DIAGRAMS_ASPECT);
+  return wanted ? aspects : aspects.filter(({ id }) => id !== DIAGRAMS_ASPECT);
 }
 
 function strategyFields({ strategy }: AspectFlowInput) {
@@ -106,11 +129,12 @@ function exhausted(input: AspectFlowInput): TutorPlanningBlocked {
 }
 
 function next(input: AspectFlowInput, session: AspectSessionState, aspects: readonly DetectedAspect[]): TutorPlan | TutorPlanningBlocked {
-  let step = planNext(session, aspects, drawable(input), input.preferredAspects);
+  const planned = plannable(input, session, aspects);
+  let step = planNext(session, planned, drawable(input), input.preferredAspects);
   if (step?.assignment.graphic === "activity-error" && activityErrorNote(input.code, step.site.code) === undefined) {
     // This statement cannot be drawn: the question is withdrawn uncounted and the flow plans without such assignments.
     withdraw(session);
-    step = planNext(session, aspects, drawable({ ...input, diagrams: false }), input.preferredAspects);
+    step = planNext(session, planned, drawable({ ...input, diagrams: false }), input.preferredAspects);
   }
   return step ? toPlan(input, step, choices(input, session, aspects)) : exhausted(input);
 }

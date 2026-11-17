@@ -1,0 +1,80 @@
+schemaVersion: 1
+id: diagrams
+title: UML-Aktivitätsdiagramme
+objective: >-
+  Die Lernenden können das Aktivitätsdiagramm einer Verzweigung oder Schleife des Sketches lesen, es dem
+  Code zuordnen, einen Ablauf darin verfolgen, Abweichungen vom Code finden und Änderungen übertragen.
+assignments:
+  - id: diagrams-find-decision
+    level: 1
+    task: >-
+      Lass im gezeigten Aktivitätsdiagramm den Entscheidungsknoten benennen, der zu dieser Bedingung gehört,
+      und woran man ihn erkennt: an der Raute und an den Bedingungen in eckigen Klammern an den abgehenden Kanten.
+    needs: [condition]
+    fallback: "Betrachte das Aktivitätsdiagramm zur Anweisung mit {code} in {function}: Woran erkennst du im Diagramm die Stelle, an der diese Bedingung geprüft wird?"
+    graphic: activity
+  - id: diagrams-count-paths
+    level: 1
+    task: >-
+      Lass zählen, wie viele verschiedene Wege im gezeigten Aktivitätsdiagramm vom Startknoten zum Ende führen,
+      und zu jedem Weg die Bedingungen an seinen Kanten nennen.
+    needs: [condition]
+    fallback: "Betrachte das Aktivitätsdiagramm zur Anweisung mit {code} in {function}: Wie viele verschiedene Wege führen darin vom Startknoten zum Ende?"
+    graphic: activity
+  - id: diagrams-explain-guards
+    level: 2
+    task: >-
+      Lass erklären, was die Beschriftungen in eckigen Klammern an den Kanten des gezeigten Aktivitätsdiagramms
+      bedeuten, insbesondere [sonst], und welcher Teil des Codes zu welcher dieser Kanten gehört.
+    needs: [condition]
+    fallback: "Im Aktivitätsdiagramm zur Anweisung mit {code} in {function} tragen die Kanten Beschriftungen in eckigen Klammern: Was bedeuten sie, und welcher Teil des Codes gehört zu welcher Kante?"
+    graphic: activity
+  - id: diagrams-explain-nodes
+    level: 2
+    task: >-
+      Lass erklären, welche Zeilen des Codes im gezeigten Aktivitätsdiagramm zu einer Aktion zusammengefasst
+      sind und wozu die Raute ohne Beschriftung dient, in der die Wege wieder zusammenlaufen.
+    needs: [condition]
+    fallback: "Im Aktivitätsdiagramm zur Anweisung mit {code} in {function} laufen Wege in einer Raute ohne Beschriftung zusammen: Wozu dient sie, und welche Codezeilen bilden eine Aktion?"
+    graphic: activity
+  - id: diagrams-find-error
+    level: 3
+    task: >-
+      Lass den Fehler im gezeigten Aktivitätsdiagramm finden: Welche Stelle des Diagramms weicht vom Code ab,
+      und wie würde sich der Sketch verhalten, wenn er so abliefe wie im Diagramm.
+      Nenne in der Frage die geprüfte Variable, aber nicht die Bedingung selbst.
+    needs: [condition, variable]
+    fallback: "Das Aktivitätsdiagramm zur Anweisung in {function}, die {name} prüft, enthält genau einen Fehler: Welche Stelle weicht vom Code ab, und wie würde sich der Sketch dann verhalten?"
+    graphic: activity-error
+  - id: diagrams-trace-value
+    level: 3
+    task: >-
+      Nenne einen konkreten Wert für die geprüfte Größe und lass im gezeigten Aktivitätsdiagramm den Weg vom
+      Startknoten bis zum Ende verfolgen: über welche Kanten und durch welche Aktionen er führt.
+    needs: [condition, variable]
+    fallback: "Betrachte das Aktivitätsdiagramm zur Anweisung mit {code} in {function}: Wähle einen konkreten Wert für {name} und beschreibe, über welche Kanten und Aktionen der Weg vom Start zum Ende führt?"
+    graphic: activity
+  - id: diagrams-change-case
+    level: 4
+    task: >-
+      Lass beschreiben, wie sich das gezeigte Aktivitätsdiagramm ändert, wenn der Code um einen weiteren Fall
+      mit eigener Bedingung ergänzt wird: welche Knoten und Kanten hinzukommen und welche Beschriftungen sie tragen.
+    needs: [condition]
+    fallback: "Der Code der Anweisung mit {code} in {function} bekommt einen weiteren Fall mit eigener Bedingung: Welche Knoten und Kanten kommen im Aktivitätsdiagramm hinzu, und wie sind sie beschriftet?"
+    graphic: activity
+  - id: diagrams-change-boundary
+    level: 4
+    task: >-
+      Lass beschreiben, was sich am gezeigten Aktivitätsdiagramm ändert, wenn die Bedingung im Code so
+      geändert wird, dass auch der Grenzfall auf diesen Weg führt, und was am Diagramm gleich bleibt.
+    needs: [condition, relational]
+    fallback: "Die Bedingung {code} in {function} wird so geändert, dass auch der Grenzfall auf diesen Weg führt: Was ändert sich am Aktivitätsdiagramm, und was bleibt gleich?"
+    graphic: activity
+  - id: diagrams-change-swap
+    level: 4
+    task: >-
+      Lass beschreiben, wie Code und Aktivitätsdiagramm aussähen, wenn die Bedingung umgekehrt formuliert
+      und dafür die beiden Wege vertauscht würden, und ob sich das Verhalten des Sketches dadurch ändert.
+    needs: [condition]
+    fallback: "Die Bedingung {code} in {function} wird umgekehrt formuliert und die beiden Wege werden vertauscht: Wie sieht das Aktivitätsdiagramm dann aus, und ändert sich das Verhalten des Sketches?"
+    graphic: activity

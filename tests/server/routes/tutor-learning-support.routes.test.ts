@@ -142,10 +142,10 @@ async function openDialog(post: Awaited<ReturnType<typeof start>>["post"], code 
     }
     return response;
   };
-  const act = async (action: "clarify" | "hint" | "reveal" | "skip", options: { actionId?: string } = {}) => {
+  const act = async (action: "clarify" | "hint" | "reveal" | "skip", options: { actionId?: string; extra?: Record<string, unknown> } = {}) => {
     const response = await post("/api/tutor/support", {
       code: state.code, credential: "key", history: [], action, courseContentSession: state.courseContentSession,
-      ...bind(), ...(options.actionId ? { actionId: options.actionId } : {}),
+      ...bind(), ...(options.actionId ? { actionId: options.actionId } : {}), ...options.extra,
     });
     if (response.status === 200) {
       expect(tutorSupportResponseSchema.safeParse(response.body).success).toBe(true);
@@ -213,6 +213,20 @@ describe("learning support over HTTP: thresholds and unlocks", () => {
     expect(dialog.state.support.questionHandle).not.toBe(handle);
     // The skipped area is not reported as understood (R-SUP-5).
     expect(skipped.body.focusProgress?.understoodAreas ?? 0).toBe(0);
+  });
+
+  it("leaves the question at once when the learner chose another aspect, and only then", async () => {
+    const { post } = await start();
+    const dialog = await toPredictionQuestion(post);
+    const handle = dialog.state.support.questionHandle;
+
+    // The flag alone, or with "Automatik", does not lift the lock of a plain skip.
+    expect((await dialog.act("skip", { extra: { refocus: true } })).body.error.code).toBe("SUPPORT_LOCKED");
+    expect((await dialog.act("skip", { extra: { refocus: true, aspectFocus: null } })).body.error.code).toBe("SUPPORT_LOCKED");
+    const chosen = await dialog.act("skip", { extra: { refocus: true, aspectFocus: "variables" } });
+    expect(chosen.status).toBe(200);
+    expect(chosen.body.action).toBe("skip");
+    expect(dialog.state.support.questionHandle).not.toBe(handle);
   });
 
   it("unlocks the reference answer after the third own answer and keeps the question until then", async () => {

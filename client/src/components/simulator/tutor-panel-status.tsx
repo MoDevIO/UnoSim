@@ -47,6 +47,8 @@ export interface TutorPanelActions {
   readonly startNewRound: () => void;
   readonly submitAnswer: () => void;
   readonly requestSupport: (action: TutorSupportAction) => void;
+  /** Chooses the aspect to deepen (null: the Tutor decides) and, for an aspect, asks about it at once. */
+  readonly chooseAspect: (aspectId: string | null) => void;
   readonly openSettings: () => void;
   /** Shows the next question an answer already received (LearningQuestions 10.7). */
   readonly continueToNextQuestion: () => void;

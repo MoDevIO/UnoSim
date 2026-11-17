@@ -52,8 +52,7 @@ it.each([
     ).toEqual([]);
     if (valid.proposal.kind === "activity") {
       expect(image.svg).toContain("ready");
-      expect(image.svg).toContain("[ja]");
-      expect(image.svg).toContain("[nein]");
+      expect(image.svg).toContain("[sonst]");
     }
     if (valid.proposal.kind === "class") {
       expect(image.svg).toContain("void go(int x)");
@@ -148,7 +147,7 @@ it("renders a proven loop back edge and a proven self call with the same closed 
       valid.proposal.kind,
     );
     if (valid.proposal.kind === "activity") {
-      expect(source).toContain("endwhile ([nein])");
+      expect(source).toContain("endwhile ([sonst])");
       expect(image.svg).toContain("tick();");
     } else {
       expect(source).toContain("P1 -> P1");

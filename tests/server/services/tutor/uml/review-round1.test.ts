@@ -145,7 +145,7 @@ it("renders setup once and an actual repeated loop back edge with no end symbol"
   expect(image.svg.match(/>loop\(\)<\/text>/g)).toHaveLength(1);
   // One filled start circle, no classic bullseye or false exit for the app-owned unconditional cycle.
   expect(image.svg.match(/<ellipse\b/g)).toHaveLength(1);
-  expect(image.svg).not.toContain("[nein]");
+  expect(image.svg).not.toContain("[sonst]");
   // A real side route must go upward and rejoin below setup and above loop.
   // The renderer once drew label/goto through the actions without such an arrow.
   const attribute = (element: string, name: string) =>
@@ -286,8 +286,7 @@ it("retains supported code decisions inside the app-owned repeated callback cycl
   const source = exportTutorUml(valid.proposal);
   const image = await new TutorUmlRenderer().render(source, "activity");
   expect(image.svg).toContain("ready");
-  expect(image.svg).toContain("[ja]");
-  expect(image.svg).toContain("[nein]");
+  expect(image.svg).toContain("[sonst]");
   expect(image.svg).toContain("[immer]");
   expect(image.svg.match(/<ellipse\b/g)).toHaveLength(1);
 });

@@ -57,6 +57,8 @@ export const tutorSupportRequestSchema = z
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
     aspectFocus: tutorAspectFocusRequestSchema,
+    /** With `skip` and a chosen `aspectFocus`: the learner changed the aspect, so the question may be left at once. */
+    refocus: z.literal(true).optional(),
   })
   .strict()
   .superRefine(rejectEntryHeaderCollision);
