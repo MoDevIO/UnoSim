@@ -186,7 +186,7 @@ describe("HTTP authorization middleware", () => {
       },
     );
     const server = await new Promise<http.Server>((resolve) => {
-      const listeningServer = app.listen(0, () => resolve(listeningServer));
+      const listeningServer = app.listen(0, "127.0.0.1", () => resolve(listeningServer));
     });
     servers.push(server);
     const address = server.address();
@@ -214,7 +214,7 @@ describe("HTTP authorization middleware", () => {
       (_req, res) => res.json({ subject: res.locals.unosimIdentity.subject }),
     );
     const server = await new Promise<http.Server>((resolve) => {
-      const listeningServer = app.listen(0, () => resolve(listeningServer));
+      const listeningServer = app.listen(0, "127.0.0.1", () => resolve(listeningServer));
     });
     servers.push(server);
     const address = server.address();
