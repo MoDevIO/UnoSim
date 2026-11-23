@@ -196,10 +196,12 @@ describe("LocalCompiler public compile behavior", () => {
     const simulation = await new Promise<{ code: number | null; stderr: string }>((resolve, reject) => {
       const process = spawn(files.exeFile, [], { stdio: ["ignore", "ignore", "pipe"] });
       let stderr = "";
+      // The run takes about 200 ms; under the coverage pass it took more than 5 s, so the bound only
+      // catches a hang and stays below the 30 s test timeout.
       const timer = setTimeout(() => {
         process.kill("SIGKILL");
         reject(new Error("simulation timed out"));
-      }, 5000);
+      }, 20_000);
       process.stderr?.on("data", (data: Buffer) => { stderr += data.toString(); });
       process.once("error", reject);
       process.once("close", (code) => {
