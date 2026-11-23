@@ -31,14 +31,16 @@ describe("activity excerpt built from the code", () => {
     expect(first.whenFalse).toMatchObject([{ type: "decision", condition: "temperature > TEMP_MAX" }]);
   });
 
-  it("ends the path at an early return", () => {
+  it("rejoins a branch with an early return in a merge and ends the excerpt once", () => {
     const { proposal, source } = valid(TEMPERATURE_CONTROLLER, "(raw == 0)");
     const [first] = proposal.body;
     if (first.type !== "decision") throw new Error("decision expected");
     expect(first.whenFalse).toEqual([]);
     expect(first.whenTrue.at(-1)).toMatchObject({ type: "action" });
     const lines = source.split("\n");
-    expect(lines[lines.findIndex((line) => line.includes("return")) + 1]).toBe("stop");
+    expect(lines.filter((line) => line === "stop")).toHaveLength(1);
+    expect(lines.at(-2)).toBe("stop");
+    expect(lines[lines.findIndex((line) => line.includes("return")) + 1]).toBe("case ([sonst])");
   });
 
   it("unfolds a for loop into its start, its condition and its step", () => {
