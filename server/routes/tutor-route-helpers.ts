@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { config } from "../config";
 import { TutorProviderError } from "../services/tutor/llm-provider";
 import type { TutorSource } from "../services/tutor/tutor-service";
+import type { TutorPlanningContentContext } from "../services/tutor/tutor-planning";
 import type { BoardId } from "@shared/boards";
 import type { RequestIdentity } from "../security/access-control";
 import {
@@ -151,6 +152,15 @@ export function commitTutorSession(content: TutorRequestContent | undefined, ses
 export function rememberAspectFocus(content: TutorRequestContent | undefined, aspectFocus: string | null | undefined): void {
   const aspects = content?.content.progressionState.aspects;
   if (aspectFocus !== undefined && aspects) setFocus(aspects, aspectFocus);
+}
+
+/**
+ * The course content as the planner gets it for this request: marked when the learner switched planning by
+ * aspects off. The session keeps the unmarked content, so the next request decides anew.
+ */
+export function planningContent(content: TutorRequestContent | undefined, aspectPlanning: false | undefined): TutorPlanningContentContext | undefined {
+  if (!content || aspectPlanning === undefined) return content?.content;
+  return { ...content.content, aspectPlanning };
 }
 
 export async function resolveTutorContent(

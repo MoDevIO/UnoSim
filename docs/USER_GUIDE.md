@@ -295,17 +295,21 @@ Tutors.
 Ohne Tutor-Inhalte – und auch, wenn GitHub gerade nicht erreichbar ist – arbeitet
 er als freier Tutor direkt mit deinem Sketch.
 
-### Grafiken zu Tutorfragen anfordern
+### Fragen nach Aspekten des Sketches
 
-Unter **File → Settings → Tutor** kannst du **Grafiken immer anfordern** einschalten.
-Die Einstellung bleibt lokal gespeichert und gilt ab der nächsten angeforderten
-Frage, auch nach Überspringen. Standardmäßig entscheidet der Tutor weiterhin selbst.
-Eine zusätzliche Grafikanfrage kann mehr Zeit und Modellaufrufe benötigen.
+In den **Einstellungen** des Tutors ist **Nach Aspekten des Sketches fragen**
+eingeschaltet. Der Tutor erkennt dann im Sketch Aspekte wie Variablen,
+Verzweigungen, Schleifen oder Funktionen und fragt gezielt danach. Findet er
+mehrere, kannst du über der Frage wählen, welchen Aspekt du vertiefen willst.
+Ausgeschaltet fragt der Tutor nach den Themen der Kursinhalte. Die Einstellung
+bleibt lokal gespeichert und gilt ab der nächsten Frage. Ohne Aspektdateien in
+den Kursinhalten ändert sie nichts.
 
+### Grafiken zu Tutorfragen
+
+Der Tutor entscheidet selbst, ob eine Grafik eine Frage verständlicher macht.
 Die Grafik gehört zur endgültigen Frage. Eine Folgegrafik erscheint zusammen mit
-der Folgefrage erst nach **Weiter**. Hilfe, Musterantwort und eine offen bleibende
-Frage lösen keine zusätzliche Grafikanfrage aus. Ein Wechsel des Schalters ändert
-bereits laufende Anfragen nicht.
+der Folgefrage erst nach **Weiter**.
 
 Bei einem Server mit klassischem UML-Profil werden Aktivitäts-, Klassen- oder
 Sequenzdiagramme verwendet. Aktionen, Klassen und Aufrufe müssen zum gesendeten

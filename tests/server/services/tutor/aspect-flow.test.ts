@@ -172,7 +172,7 @@ describe("aspect flow in the Tutor service", () => {
   });
 
   it("names the site for the diagram only when the assignment asks for one", async () => {
-    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const adapter = new CurriculumTutorAdapter();
     const content = courseContent();
     const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
     if (!plan || "kind" in plan) throw new Error("plan expected");
@@ -186,7 +186,7 @@ describe("aspect flow in the Tutor service", () => {
   });
 
   it("offers the sketch's aspects for the learner to choose and names the chosen one", async () => {
-    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const adapter = new CurriculumTutorAdapter();
     const content = courseContent();
     const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
     if (!plan || "kind" in plan) throw new Error("plan expected");
@@ -201,7 +201,7 @@ describe("aspect flow in the Tutor service", () => {
   });
 
   it("asks the aspects a teacher listed for the Example first", async () => {
-    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const adapter = new CurriculumTutorAdapter();
     const content = { ...courseContent(), exampleId: "temperaturregler", exampleTutorAnnotation: { schemaVersion: 2 as const, aspects: ["variables"] } };
     const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
     if (!plan || "kind" in plan) throw new Error("plan expected");
@@ -209,7 +209,7 @@ describe("aspect flow in the Tutor service", () => {
   });
 
   it("asks to find the error in a diagram only when the request can show one", async () => {
-    const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+    const adapter = new CurriculumTutorAdapter();
     const followUp = async (diagrams: boolean) => {
       const content = { ...courseContent(), ...(diagrams ? { diagrams: true } : {}) };
       const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
@@ -234,7 +234,7 @@ describe("aspect flow in the Tutor service", () => {
       return { ...courseContent(true, ids), ...(diagrams ? { diagrams: true } : {}) };
     };
     const start = async (code: string, context: ReturnType<typeof content>) => {
-      const plan = await new CurriculumTutorAdapter({ aspectPlanning: true }).planInitial({ code, history: [], difficulty: 30, courseContent: context });
+      const plan = await new CurriculumTutorAdapter().planInitial({ code, history: [], difficulty: 30, courseContent: context });
       if (!plan || "kind" in plan) throw new Error("plan expected");
       return plan;
     };
@@ -256,12 +256,12 @@ describe("aspect flow in the Tutor service", () => {
       const hidden = await start(TEMPERATURE_CONTROLLER, content(["branching", "diagrams"], false));
       expect(hidden.aspectChoices?.map(({ id }) => id)).toEqual(["branching"]);
       // Without another aspect the diagram aspect still waits for the learner's choice.
-      const alone = await new CurriculumTutorAdapter({ aspectPlanning: true }).planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content(["diagrams"]) });
+      const alone = await new CurriculumTutorAdapter().planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content(["diagrams"]) });
       expect(alone).toMatchObject({ kind: "blocked", progressionBlockedReason: "content-exhausted" });
     });
 
     it("asks every question of a chosen diagram aspect with a diagram of a statement that can be drawn", async () => {
-      const adapter = new CurriculumTutorAdapter({ aspectPlanning: true });
+      const adapter = new CurriculumTutorAdapter();
       const context = content(["branching", "diagrams"]);
       const first = await start(TEMPERATURE_CONTROLLER, context);
       const aspects = context.progressionState.aspects;

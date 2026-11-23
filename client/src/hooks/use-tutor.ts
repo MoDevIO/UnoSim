@@ -1,7 +1,6 @@
 import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
 import { boundTutorUmlResponse, normalizeTutorUmlPayload } from "@/lib/tutor-uml-image";
-import type { TutorGraphicsMode } from "@shared/tutor-graphics";
-import { readTutorGraphicsMode } from "@/lib/tutor-graphics-preference";
+import { aspectPlanningRequestField } from "@/lib/tutor-aspect-preference";
 import { rejectTutorDiagnosticResponse, bindTutorDiagnosticResponse, reportTutorGraphic, reportTutorReviewAction, reportTutorReviewRatingSummary, reportTutorReviewReset, setTutorDiagnosticsAvailable, tutorDiagnosticFetch, tutorRequestTrace } from "@/lib/tutor-diagnostics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -108,9 +107,9 @@ export type TutorRequestKind = "question" | "answer" | "support";
 /** A failed request with all it sent, so that a repeat sends the same content with the same action id. */
 type TutorFailedRequest = (
   | { readonly kind: "models" }
-  | { readonly kind: "question"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
-  | { readonly kind: "answer"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
-  | { readonly kind: "support"; readonly graphicsMode: TutorGraphicsMode; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
+  | { readonly kind: "question"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
+  | { readonly kind: "answer"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
+  | { readonly kind: "support"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
 
 export type TutorFailedRequestKind = TutorFailedRequest["kind"];
 
@@ -333,11 +332,10 @@ function answerBindingFor(
   sketch: TutorSketch,
   pending: { current: { readonly key: string; readonly actionId: string } | null },
   repeatedActionId?: string,
-  graphicsMode: TutorGraphicsMode = "auto",
   graphicsProfile?: typeof TUTOR_UML_PROFILE | null,
 ) {
   if (!support) return { actionId: undefined, binding: {} };
-  const actionId = repeatedActionId ?? actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}|${graphicsMode}|${graphicsProfile ?? "legacy"}`);
+  const actionId = repeatedActionId ?? actionIdFor(pending, `${support.questionHandle}|answer|${answer}|${sketchKey(sketch)}|${graphicsProfile ?? "legacy"}`);
   return { actionId, binding: supportBinding(support, actionId) };
 }
 
@@ -560,7 +558,7 @@ export function useTutor(
     setIsLoading(false);
   }, []);
 
-  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string, graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!capabilities.canUseTutor) return;
     clearError();
     if (!sketch.code.trim()) {
@@ -593,7 +591,7 @@ export function useTutor(
           credential,
           ...(requestedModel ? { model: requestedModel } : {}),
           difficulty: requestDifficulty,
-          ...(graphicsMode === "always" ? { graphicsMode } : {}),
+          ...aspectPlanningRequestField(),
         ...(graphicsProfile ? { graphicsProfile } : {}),
           // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3).
           ...getCourseContentRequest(undefined, courseContent),
@@ -615,7 +613,7 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "question", graphicsMode, graphicsProfile, sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "question", graphicsProfile, sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -681,14 +679,14 @@ export function useTutor(
   }, [applyDialogResponse, courseContentSession]);
 
   /** Sends one answer as it is given; a repeat passes the action id of the failed attempt (R-SUP-1). */
-  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
+  const sendAnswer = useCallback(async (sketch: TutorSketch, submittedAnswer: string, repeatedActionId?: string, diagnosticTraceId?: string, graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!question || heldNext) return;
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     if (selectedModel !== "auto" && !requestedModel) setSelectedModel("auto");
     const currentQuestion = question;
     const currentHistory = history;
     const currentSupport = support;
-    const { actionId, binding } = answerBindingFor(currentSupport, submittedAnswer, sketch, pendingAction, repeatedActionId, graphicsMode, graphicsProfile);
+    const { actionId, binding } = answerBindingFor(currentSupport, submittedAnswer, sketch, pendingAction, repeatedActionId, graphicsProfile);
 
     clearError();
     setIsLoading(true);
@@ -705,7 +703,7 @@ export function useTutor(
         credential,
         ...(requestedModel ? { model: requestedModel } : {}),
         difficulty: effectiveDifficulty,
-        ...(graphicsMode === "always" ? { graphicsMode } : {}),
+        ...aspectPlanningRequestField(),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...aspectRequestFields(question, aspectFocusRef.current, false),
@@ -720,7 +718,7 @@ export function useTutor(
       // Keep the current question, answer, and history intact so a failed
       // request can be retried deliberately by the learner.
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "answer", graphicsMode, graphicsProfile, sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}), diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "answer", graphicsProfile, sketch, answer: submittedAnswer, ...(actionId ? { actionId } : {}), diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -753,7 +751,7 @@ export function useTutor(
     setHeldNext(null);
   }, [heldNext]);
 
-  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string, diagnosticTraceId?: string, graphicsMode = readTutorGraphicsMode(), graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
+  const requestSupport = useCallback(async (action: TutorSupportAction, input: string | TutorSketch, repeatedActionId?: string, diagnosticTraceId?: string, graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
     if (!capabilities.canUseTutor || !question || !support || heldNext) return;
     clearError();
     const sketch = asTutorSketch(input);
@@ -764,7 +762,7 @@ export function useTutor(
     const requestedModel = getRequestedModel(selectedModel, availableModels);
     const currentQuestion = question;
     const actionId = repeatedActionId
-      ?? actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}|${sketchKey(sketch)}|${graphicsMode}|${graphicsProfile ?? "legacy"}`);
+      ?? actionIdFor(pendingAction, `${support.questionHandle}|${action}|${support.clarifications}|${support.answerAttempts}|${sketchKey(sketch)}|${graphicsProfile ?? "legacy"}`);
     setIsLoading(true);
     setPendingRequest("support");
     const controller = new AbortController();
@@ -780,7 +778,7 @@ export function useTutor(
         credential,
         ...(requestedModel ? { model: requestedModel } : {}),
         difficulty: effectiveDifficulty,
-        ...(graphicsMode === "always" ? { graphicsMode } : {}),
+        ...aspectPlanningRequestField(),
         ...(graphicsProfile ? { graphicsProfile } : {}),
         ...getCourseContentRequest(courseContentSession, dialogCourseContent.current),
         ...aspectRequestFields(question, aspectFocusRef.current, refocusPending.current),
@@ -804,7 +802,7 @@ export function useTutor(
       setSupport(result.support ?? null);
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "support", graphicsMode, graphicsProfile, action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "support", graphicsProfile, action, sketch, actionId, diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       refocusPending.current = false;
       activeTutorRequests.current.delete(controller);
@@ -828,12 +826,12 @@ export function useTutor(
     if (sketchKey(failedRequest.sketch) !== sketchKey(asTutorSketch(current))) return null;
     switch (failedRequest.kind) {
       case "question":
-        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
+        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile);
       case "answer":
         if (answer.trim() !== failedRequest.answer) return null;
-        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
+        return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile);
       case "support":
-        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsMode, failedRequest.graphicsProfile);
+        return () => void requestSupport(failedRequest.action, failedRequest.sketch, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile);
     }
   }, [answer, failedRequest, loadModels, requestQuestion, requestSupport, sendAnswer]);
 

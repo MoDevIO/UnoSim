@@ -28,6 +28,7 @@ import {
   commitTutorSession,
   enforceTutorRateLimit,
   mapProviderError,
+  planningContent,
   requireRequestCredential,
   resolveTutorContent, rememberAspectFocus,
   responseError,
@@ -54,38 +55,32 @@ type TutorRouteDeps = {
 };
 
 type GraphicsRequest = Parameters<typeof tutorSource>[0] & {
-  graphicsMode?: NonNullable<Parameters<TutorService["generateQuestion"]>[7]>;
   graphicsProfile?: NonNullable<
-    Parameters<TutorService["generateQuestion"]>[8]
+    Parameters<TutorService["generateQuestion"]>[7]
   >;
 };
 function questionOptions(
   data: GraphicsRequest,
 ): [
   source?: Parameters<TutorService["generateQuestion"]>[6],
-  graphicsMode?: GraphicsRequest["graphicsMode"],
   graphicsProfile?: GraphicsRequest["graphicsProfile"],
 ] {
   const source = tutorSource(data);
-  if (data.graphicsProfile !== undefined)
-    return [source[0], data.graphicsMode, data.graphicsProfile];
-  if (data.graphicsMode !== undefined) return [source[0], data.graphicsMode];
-  return source;
+  return data.graphicsProfile === undefined
+    ? source
+    : [source[0], data.graphicsProfile];
 }
 function dialogOptions(
   data: GraphicsRequest,
 ): [
   source?: Parameters<TutorService["generateDialogResponse"]>[9],
   support?: undefined,
-  graphicsMode?: GraphicsRequest["graphicsMode"],
   graphicsProfile?: GraphicsRequest["graphicsProfile"],
 ] {
   const source = tutorSource(data);
-  if (data.graphicsProfile !== undefined)
-    return [source[0], undefined, data.graphicsMode, data.graphicsProfile];
-  if (data.graphicsMode !== undefined)
-    return [source[0], undefined, data.graphicsMode];
-  return source;
+  return data.graphicsProfile === undefined
+    ? source
+    : [source[0], undefined, data.graphicsProfile];
 }
 
 export function registerTutorRoutes(
@@ -162,7 +157,7 @@ export function registerTutorRoutes(
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
-        content?.content,
+        planningContent(content, parsed.data.aspectPlanning),
         signal,
         ...options,
       );
@@ -297,7 +292,7 @@ export function registerTutorRoutes(
         parsed.data.credential,
         parsed.data.model,
         parsed.data.difficulty,
-        content?.content,
+        planningContent(content, parsed.data.aspectPlanning),
         signal,
         ...options,
       );

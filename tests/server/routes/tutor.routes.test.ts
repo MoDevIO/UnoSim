@@ -673,4 +673,23 @@ describe("Tutor Course Content session lifecycle", () => {
     const invalid = await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectFocus: "Not An Id" });
     expect(invalid.status).toBe(400);
   });
+
+  it("marks the planner's content of one request when the learner switched planning by aspects off", async () => {
+    const service = {
+      generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }),
+      generateDialogResponse: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Weiter?" } }),
+    };
+    const { url } = await startSessions(service);
+    const first = await post(url, "/api/tutor/question", { ...questionBody, aspectPlanning: false });
+    const session = (first.body as { courseContentSession: string }).courseContentSession;
+    const planningOf = (call: number) => (service.generateDialogResponse.mock.calls[call]?.[7] as { aspectPlanning?: false }).aspectPlanning;
+
+    expect((service.generateQuestion.mock.calls[0]?.[4] as { aspectPlanning?: false }).aspectPlanning).toBe(false);
+    await post(url, "/api/tutor/dialog", dialogBody(session));
+    expect(planningOf(0)).toBeUndefined();
+    await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectPlanning: false });
+    expect(planningOf(1)).toBe(false);
+    const switchedOn = await post(url, "/api/tutor/dialog", { ...dialogBody(session), aspectPlanning: true });
+    expect(switchedOn.status).toBe(400);
+  });
 });

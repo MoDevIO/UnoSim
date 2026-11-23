@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TUTOR_GRAPHICS_MODES } from "./tutor-graphics";
 import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
@@ -51,12 +50,13 @@ export const tutorSupportRequestSchema = z
     ...tutorSupportBindingFields,
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
-    graphicsMode: z.enum(TUTOR_GRAPHICS_MODES).optional(),
     graphicsProfile: z.literal("uml1-classic-v1").optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
     aspectFocus: tutorAspectFocusRequestSchema,
+    /** Sent only as false: the learner switched planning by the aspects of the sketch off. */
+    aspectPlanning: z.literal(false).optional(),
     /** With `skip` and a chosen `aspectFocus`: the learner changed the aspect, so the question may be left at once. */
     refocus: z.literal(true).optional(),
   })

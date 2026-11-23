@@ -815,8 +815,8 @@ Ziel ist eine einzelne verständliche Frage. Zusätzliche interne Metadaten wie 
 
 Neue Clients lesen `/api/config.tutorGraphics` vor der Profilwahl. Ein
 angekündigtes Profil wird als optionales `graphicsProfile` je Anfrage gesendet
-und gemeinsam mit `graphicsMode` vor dem ersten Await eingefroren; Retry und
-Fingerprint verwenden diese ursprünglichen Werte. Ohne Profil gilt der
+und vor dem ersten Await eingefroren; Retry und Fingerprint verwenden diesen
+ursprünglichen Wert. Ohne Profil gilt der
 bisherige Vertrag. Profilanfragen erhalten keinen stillen Mermaid-Ersatz.
 
 Das Modell schlägt im Feld `diagram` eine strikte Struktur mit Codebelegen und
@@ -825,9 +825,9 @@ und ein app-eigener Arduino-Laufzeitkatalog legitimieren nur unterstützte Forme
 Der Server erzeugt aus festen Vorlagen Aktivitäts-, Klassen- oder
 Sequenzdiagramme mit dem klassischen Symbolsatz. Modelltext ist keine
 PlantUML-Anweisung. Appstatus ist `provided`, `not-useful` oder `unavailable`.
-Ein ausdrückliches `not-useful` beendet den Grafikpfad auch bei `always`.
-`auto` verursacht keinen zusätzlichen Modellaufruf, `always` höchstens einen.
-Bekannt fehlender Renderer/Artefaktplatz verhindert diese Nachforderung.
+Ein ausdrückliches `not-useful` beendet den Grafikpfad. Ohne gültigen Vorschlag
+des Modells gibt es keine Grafik; die Anwendung fordert keinen nach und macht
+keinen zusätzlichen Modellaufruf.
 
 Lokales Rendern ist begrenzt auf 10 Sekunden, 256 MiB Java-Heap pro Prozess,
 zwei aktive Prozesse und acht Wartende, 512 KiB SVG, 2400 × 4000 Einheiten und
@@ -855,13 +855,7 @@ Der lokale Tutor-Renderer unterstützt einen explizit begrenzten Syntaxumfang. U
 
 Das LLM DARF eine Lernfrage optional durch eine kleine grafische Darstellung in **Mermaid** ergänzen, wenn dies den fachlichen Zusammenhang verständlicher macht.
 
-**Expliziter Modus für neue Fragen:** Settings → „Grafiken immer anfordern“ ist standardmäßig aus und wird lokal unter `unoTutorGraphicsMode` gespeichert. Fehlendes `graphicsMode` oder `auto` behält die bisherige Automatik ohne Zusatzaufruf. `always` fordert im Primärprompt eine Grafik an. Nach endgültiger Fragenwahl wird eine noch passende, geprüfte Grafik übernommen; andernfalls folgt höchstens ein Grafikaufruf (`tutor-question-graphic-v1`) mit demselben tatsächlich verwendeten Modell, Zugang, vollständigem Sketch und Boardkontext. Nur das strikte Objekt `{ mermaid }` wird angenommen; es darf weder Bewertung noch Frage oder Fortschritt verändern. Die bestehende Sicherheitsprüfung und das begrenzte Browserformat bleiben bestehen.
-
-Dies gilt für erste/neue Fragen, neue Folgefragen und `skip` mit nächster Frage. Keine Nachforderung für eine offen gehaltene Frage, Hinweise/Klärung (auch als Texteingabe), Musterantwort, Abschluss ohne Frage, „Weiter“, Replay oder Remount. Der Browser friert den Modus vor dem ersten Await je Aktion ein und verwendet ihn beim Retry erneut; ein Moduswechsel mit derselben Aktionskennung ist ein Fingerprintkonflikt. Die Grafik bleibt Teil derselben abbrechbaren Transaktion, deren Lernfortschritt erst danach höchstens einmal übernommen wird.
-
-Nur im expliziten Modus nennt der app-eigene Status `graphicStatus` die technische Bereitstellung: `provided` oder `unavailable`. Bei `unavailable` erscheint „Grafik konnte nicht bereitgestellt werden.“ Bei einer späteren Rendererablehnung erscheint „Grafik konnte nicht dargestellt werden.“ Gültiger Lerninhalt bleibt nutzbar; keine automatische weitere Generierung. Gehaltene Folgefrage, Grafik und Fehlerhinweis erscheinen gemeinsam erst mit „Weiter“. Technische Bereitstellung bestätigt weder fachliche Passung noch fehlenden Lösungsverrat.
-
-Diagnoseereignisse dürfen `graphicsMode` und `graphicAttempt` (0/1) enthalten. Der Review hält Requestmodus, Antwortstatus und `graphic`-Einträge mit Zustand (`kept`, `requested`, `provided`, `rejected`, `failed`), Zusatzversuch, endgültiger Frage, festem Grund und Grafikpromptrevision fest. Bestehende Bereinigung, Größenlimits und Erfassungsepochen gelten unverändert; kein SVG oder Rohproviderlog. Grafikgenerierung zählt als Tutor-Generierung zum Evaluationsbudget, nicht als Judge-Aufruf.
+Die Anwendung fordert keine Grafik nach: Es gibt keinen Grafikmodus und keinen eigenen Grafikaufruf. Eine Grafik entsteht nur, wenn das Modell sie mit der Frage vorschlägt und sie zur endgültigen Frage gehört. Gehaltene Folgefrage und Grafik erscheinen gemeinsam erst mit „Weiter“. Bei einer Rendererablehnung im Browser erscheint „Grafik konnte nicht dargestellt werden.“; gültiger Lerninhalt bleibt nutzbar.
 
 
 Geeignete Darstellungen sind insbesondere:

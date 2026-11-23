@@ -13,7 +13,7 @@ afterEach(async () => { server?.closeAllConnections(); await new Promise<void>(r
 const code = "void arbeiten() {\n x++;\n}";
 const question = "Welche Anweisung folgt auf den Aufruf von arbeiten?";
 const proposal = { version: 1, profile: "uml1-classic-v1", status: "diagram", kind: "activity", purpose: "Zeigt die Schritte der Funktion für den Vergleich.", scope: { file: "main.ino", startLine: 1, endLine: 3 }, body: [{ type: "action", code: "x++;", ref: { file: "main.ino", startLine: 2, endLine: 2 } }] };
-async function fixture(options: { initialStatus?: "provided" | "not-useful" | "unavailable"; philosophicalFirst?: boolean } = {}) {
+async function fixture(options: { initialStatus?: "provided" | "not-useful" | "unavailable"; philosophicalFirst?: boolean; proposeEveryQuestion?: boolean } = {}) {
   const calls: string[] = [];
   let providePrimary = true; let initials = 0; let explanations = 0; let dialogs = 0;
   const retained: unknown[] = [];
@@ -30,9 +30,8 @@ async function fixture(options: { initialStatus?: "provided" | "not-useful" | "u
       if (dialog && ++dialogs === 1 && options.philosophicalFirst) return { model: "response-label", result: { question, responseStyle: "philosophical" as const, feedback: "Ordne deine Überlegung dem aktuellen Sketch zu." } };
       const asked = dialog || ++initials === 1 ? question : "Welche Rolle hat die Reihenfolge in arbeiten?";
       const result = { model: "response-label", result: { question: asked, responseStyle: "normal" as const, ...(dialog ? { feedback: "Betrachte die Reihenfolge der Anweisungen.", answerRating: 2 as const } : {}) }, ...(providePrimary ? { diagramProposal: options.initialStatus === "not-useful" ? { version: 1, profile: "uml1-classic-v1", status: "not-useful", reason: "no-useful-context", explanation: "Keine zusätzliche hilfreiche Darstellung." } : proposal } : {}) };
-      providePrimary = false; return result;
+      providePrimary = options.proposeEveryQuestion === true && !dialog; return result;
     },
-    generateGraphic: async () => { calls.push("extra"); return { model: "response-label", result: { diagram: proposal } }; },
   }, undefined, { renderer: { available: async () => options.initialStatus !== "unavailable", render: async () => { calls.push("render"); return { svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"></svg>', width: 100, height: 100, bytes: 74, rendererRevision: "test-v1" }; } } });
   const app = express(); app.use(express.json());
   app.use((_req, res, next) => { res.locals.unosimIdentity = { subject: "uml-route-owner", roles: ["user"] }; next(); });
@@ -42,7 +41,7 @@ async function fixture(options: { initialStatus?: "provided" | "not-useful" | "u
   });
   registerTutorRoutes(app, { service, supportStore, disableRateLimit: true });
   server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server!.once("listening", resolve));
-  const base = { code, entryFile: "main.ino", credential: "key", graphicsMode: "always", graphicsProfile: "uml1-classic-v1" };
+  const base = { code, entryFile: "main.ino", credential: "key", graphicsProfile: "uml1-classic-v1" };
   const post = async (endpoint: string, body: object) => {
     const response = await fetch(`http://127.0.0.1:${(server!.address() as {port:number}).port}/api/tutor/${endpoint}`, { method: "POST", headers: { "content-type": "application/json", "x-unosim-tutor-debug": "1" }, body: JSON.stringify({ ...base, ...body }) });
     return { status: response.status, body: await response.json() };
@@ -78,7 +77,7 @@ it("the review contains the normalized proposal and never contains the image or 
 });
 
 it("keeps typed help and clarifications text-only, then renders only the skipped-to question", async () => {
-  const { post, calls, retained } = await fixture();
+  const { post, calls, retained } = await fixture({ proposeEveryQuestion: true });
   const first = await post("question", { learningSupport: true });
   const binding = { supportSession: first.body.support.session, questionHandle: first.body.support.questionHandle, history: [] };
   const help = await post("dialog", { ...binding, question, answer: "Ich brauche einen Hinweis", actionId: crypto.randomUUID() });
@@ -91,16 +90,16 @@ it("keeps typed help and clarifications text-only, then renders only the skipped
   const skip = { ...binding, action: "skip", actionId: crypto.randomUUID() };
   const next = await post("support", skip);
   expect(next.status).toBe(200); expect(next.body.next.diagram.image.svg).toContain("<svg"); expect(next.body.next).not.toHaveProperty("_diagramArtifact");
-  expect(calls).toEqual(["primary", "render", "explanation", "explanation", "explanation", "primary", "extra", "render"]);
+  expect(calls).toEqual(["primary", "render", "explanation", "explanation", "explanation", "primary", "render"]);
   const replay = await post("support", skip);
-  expect(replay.status).toBe(200); expect(replay.body.next.diagram).toEqual(next.body.next.diagram); expect(calls).toHaveLength(8);
+  expect(replay.status).toBe(200); expect(replay.body.next.diagram).toEqual(next.body.next.diagram); expect(calls).toHaveLength(7);
   expect(JSON.stringify(retained)).not.toContain("<svg");
 });
-it("preserves the exact old service call arity when profile, mode and project files are absent", async () => {
+it("preserves the exact old service call arity when profile and project files are absent", async () => {
   const { post, service } = await fixture();
   const initial = vi.spyOn(service, "generateQuestion");
   const dialog = vi.spyOn(service, "generateDialogResponse");
-  const legacy = { graphicsProfile: undefined, graphicsMode: undefined, entryFile: undefined };
+  const legacy = { graphicsProfile: undefined, entryFile: undefined };
   expect((await post("question", legacy)).status).toBe(200);
   expect(initial.mock.calls[0]).toHaveLength(6);
   expect((await post("dialog", { ...legacy, history: [], question, answer: "Die Anweisung erhöht x." })).status).toBe(200);
@@ -151,7 +150,7 @@ it.each(["finish", "abort"] as const)("keeps an admitted HTTP replay through evi
   });
   const controller = new AbortController();
   const url = `http://127.0.0.1:${(server!.address() as {port:number}).port}/api/tutor/dialog`;
-  const replay = fetch(url, { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", connection: "close" }, body: JSON.stringify({ code, entryFile: "main.ino", credential: "key", graphicsMode: "always", graphicsProfile: "uml1-classic-v1", ...request }) });
+  const replay = fetch(url, { method: "POST", signal: controller.signal, headers: { "content-type": "application/json", connection: "close" }, body: JSON.stringify({ code, entryFile: "main.ino", credential: "key", graphicsProfile: "uml1-classic-v1", ...request }) });
   try {
     await admitted.promise;
     await run(owner, session, "last", "fp", async () => ({ body: {}, update: {} }));

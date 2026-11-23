@@ -37,16 +37,11 @@ const image = {
   rendererRevision: "test-v1",
 };
 function setup(available = true) {
-  const calls: unknown[] = [];
   const renders: string[] = [];
   const provider: LLMProvider = {
     listModels: async () => [],
     generateLearningQuestion: async () => {
       throw Error("unexpected primary");
-    },
-    generateGraphic: async (request) => {
-      calls.push(request);
-      return { model: "resolved", result: { diagram: proposal } };
     },
   };
   const renderer = {
@@ -59,39 +54,23 @@ function setup(available = true) {
   return {
     provider,
     renderer,
-    calls,
     renders,
     artifacts: new TutorUmlArtifacts<TutorUmlDiagram>(),
   };
 }
 describe("final question UML preparation", () => {
-  it("auto does not call the provider when the proposal is absent", async () => {
+  it("without a proposal of the model there is no diagram and nothing is rendered", async () => {
     const s = setup();
-    const result = await prepareTutorUml(s.provider, context, {
-      ...s,
-      mode: "auto",
-      model: "alias",
-      credential: "key",
-    });
+    const result = await prepareTutorUml(context, { ...s });
     expect(result.graphicStatus).toBeUndefined();
-    expect(s.calls).toHaveLength(0);
+    expect(s.renders).toHaveLength(0);
   });
-  it("always uses one request with the callable alias and final source files", async () => {
+  it("a valid proposal is rendered and bound to its owner", async () => {
     const s = setup();
     await withTutorUmlArtifacts("owner", undefined, async () => {
-      const result = await prepareTutorUml(s.provider, context, {
-        ...s,
-        mode: "always",
-        model: "callable-alias",
-        credential: "key",
-      });
+      const result = await prepareTutorUml(context, { ...s, proposal });
       expect(result.graphicStatus).toBe("provided");
       expect(result.diagram?.image).toBeUndefined();
-      expect(s.calls).toHaveLength(1);
-      expect(s.calls[0]).toMatchObject({ model: "callable-alias" });
-      expect(
-        JSON.parse((s.calls[0] as { userPrompt: string }).userPrompt),
-      ).toMatchObject(context);
       const wire = serializeTutorDiagram({ ...result }, "owner", s.artifacts);
       expect(wire).not.toHaveProperty("_diagramArtifact");
       expect(wire.diagram?.image?.svg).toBe(image.svg);
@@ -101,13 +80,19 @@ describe("final question UML preparation", () => {
     });
     expect(s.renders).toHaveLength(1);
   });
-  it("primary not-useful stops without render or extra provider call", async () => {
+  it("a rejected proposal is unavailable and never asked for again", async () => {
     const s = setup();
-    const result = await prepareTutorUml(s.provider, context, {
+    const result = await prepareTutorUml(context, {
       ...s,
-      mode: "always",
-      model: "alias",
-      credential: "key",
+      proposal: { invalid: true },
+    });
+    expect(result.graphicStatus).toBe("unavailable");
+    expect(s.renders).toHaveLength(0);
+  });
+  it("a not-useful proposal stops without render", async () => {
+    const s = setup();
+    const result = await prepareTutorUml(context, {
+      ...s,
       proposal: {
         version: 1,
         profile: "uml1-classic-v1",
@@ -117,31 +102,21 @@ describe("final question UML preparation", () => {
       },
     });
     expect(result.graphicStatus).toBe("not-useful");
-    expect(s.calls).toHaveLength(0);
     expect(s.renders).toHaveLength(0);
   });
-  it("known missing renderer prevents the paid extra call", async () => {
+  it("a missing renderer leaves a valid proposal unavailable", async () => {
     const s = setup(false);
-    const result = await prepareTutorUml(s.provider, context, {
-      ...s,
-      mode: "always",
-      model: "alias",
-      credential: "key",
-    });
+    const result = await prepareTutorUml(context, { ...s, proposal });
     expect(result.graphicStatus).toBe("unavailable");
-    expect(s.calls).toHaveLength(0);
+    expect(s.renders).toHaveLength(0);
   });
-  it("a valid primary proposal renders without an extra call", async () => {
+  it("a valid primary proposal renders", async () => {
     const s = setup();
-    const result = await prepareTutorUml(s.provider, context, {
+    const result = await prepareTutorUml(context, {
       ...s,
-      mode: "always",
-      model: "alias",
-      credential: "key",
       proposal,
     });
     expect(result.graphicStatus).toBe("provided");
-    expect(s.calls).toHaveLength(0);
     expect(s.renders).toHaveLength(1);
     s.artifacts.release(result._diagramArtifact!);
   });
@@ -174,20 +149,18 @@ describe("Tutor service profile integration", () => {
       undefined,
       undefined,
       { entryFile: "main.ino" },
-      "auto",
       "uml1-classic-v1",
     );
     expect(result.result.question).toBe(context.question);
     expect(result.result.graphicStatus).toBe("provided");
     expect(result.result.diagram?.image).toBeUndefined();
-    expect(s.calls).toHaveLength(0);
     expect(primary[0]).toMatchObject({
       systemPrompt: expect.stringContaining("UML-Zusatz"),
     });
   });
 });
 
-it("full owner capacity prevents a paid graphic call and preserves text availability", async () => {
+it("full owner capacity leaves the proposal unrendered and preserves text availability", async () => {
   const s = setup();
   const held = [];
   for (;;) {
@@ -196,14 +169,8 @@ it("full owner capacity prevents a paid graphic call and preserves text availabi
     held.push(reservation);
   }
   await withTutorUmlArtifacts("owner", undefined, async () => {
-    const result = await prepareTutorUml(s.provider, context, {
-      ...s,
-      mode: "always",
-      model: "alias",
-      credential: "key",
-    });
+    const result = await prepareTutorUml(context, { ...s, proposal });
     expect(result.graphicStatus).toBe("unavailable");
-    expect(s.calls).toHaveLength(0);
     expect(s.renders).toHaveLength(0);
   });
   for (const token of held) s.artifacts.release(token);
@@ -220,13 +187,10 @@ it("abort during rendering releases the reservation and never returns a diagram"
   };
   await expect(
     withTutorUmlArtifacts("owner", undefined, () =>
-      prepareTutorUml(s.provider, context, {
+      prepareTutorUml(context, {
         ...s,
         renderer,
         proposal,
-        mode: "always",
-        model: "alias",
-        credential: "key",
         signal: abort.signal,
       }),
     ),
@@ -243,34 +207,14 @@ it("abort during rendering releases the reservation and never returns a diagram"
 it("request-finally releases an unadopted rendered artifact", async () => {
   const s = setup();
   const result = await withTutorUmlArtifacts("owner", undefined, () =>
-    prepareTutorUml(s.provider, context, {
+    prepareTutorUml(context, {
       ...s,
       proposal,
-      mode: "auto",
-      model: "alias",
-      credential: "key",
     }),
   );
   expect(s.artifacts.wireDiagram(result._diagramArtifact!, "owner")).toBeNull();
 });
-it("a rejected primary proposal gets at most one extra attempt and never recurses", async () => {
-  const s = setup();
-  s.provider.generateGraphic = async (request) => {
-    s.calls.push(request);
-    return { model: "m", result: { diagram: { invalid: true } } };
-  };
-  const result = await prepareTutorUml(s.provider, context, {
-    ...s,
-    proposal: { invalid: true },
-    mode: "always",
-    model: "alias",
-    credential: "key",
-  });
-  expect(result.graphicStatus).toBe("unavailable");
-  expect(s.calls).toHaveLength(1);
-  expect(s.renders).toHaveLength(0);
-});
-it("renderer failures preserve the valid question and never request another graphic", async () => {
+it("renderer failures preserve the valid question", async () => {
   const s = setup();
   const { TutorService } =
     await import("../../../../../server/services/tutor/tutor-service");
@@ -296,14 +240,12 @@ it("renderer failures preserve the valid question and never request another grap
     undefined,
     undefined,
     { entryFile: "main.ino" },
-    "always",
     "uml1-classic-v1",
   );
   expect(result.result).toMatchObject({
     question: context.question,
     graphicStatus: "unavailable",
   });
-  expect(s.calls).toHaveLength(0);
   expect(JSON.stringify(result)).not.toContain("private renderer output");
 });
 it("the primary profile prompt identifies the actual entry and separate headers", async () => {
@@ -329,63 +271,13 @@ it("the primary profile prompt identifies the actual entry and separate headers"
       entryFile: "main.ino",
       headers: [{ name: "helper.h", content: "int helper;" }],
     },
-    "auto",
     "uml1-classic-v1",
   );
   expect(prompt).toContain('"entryFile":"main.ino"');
   expect(prompt).toContain('"headers":{"helper.h":"int helper;"}');
   expect(prompt).toContain(String.raw`"code":"void arbeiten() {\n x++;\n}"`);
 });
-it("the extra request follows the actual callable alias rather than response model metadata", async () => {
-  const s = setup();
-  s.provider.generateLearningQuestion = async (request) => {
-    request.onModelSelected?.("actual-callable-alias");
-    return {
-      model: "response-version-label",
-      result: { question: context.question, responseStyle: "normal" },
-    };
-  };
-  const { TutorService } =
-    await import("../../../../../server/services/tutor/tutor-service");
-  const result = await new TutorService(s.provider, undefined, {
-    renderer: s.renderer,
-    artifacts: s.artifacts,
-  }).generateQuestion(
-    context.code,
-    "key",
-    undefined,
-    40,
-    undefined,
-    undefined,
-    { entryFile: "main.ino" },
-    "always",
-    "uml1-classic-v1",
-  );
-  expect(result.result.graphicStatus).toBe("provided");
-  expect(s.calls).toHaveLength(1);
-  expect(s.calls[0]).toMatchObject({ model: "actual-callable-alias" });
-  s.artifacts.release(result._diagramArtifact!);
-});
-it("the graphic-only call rejects a wrapper with extra learning fields", async () => {
-  const s = setup();
-  s.provider.generateGraphic = async (request) => {
-    s.calls.push(request);
-    return {
-      model: "m",
-      result: { diagram: proposal, question: "Eine fremde Frage?" },
-    };
-  };
-  const result = await prepareTutorUml(s.provider, context, {
-    ...s,
-    mode: "always",
-    model: "alias",
-    credential: "key",
-  });
-  expect(result.graphicStatus).toBe("unavailable");
-  expect(s.renders).toHaveLength(0);
-  expect(s.calls).toHaveLength(1);
-});
-it("a planner replacement discards a primary proposal and asks once about the actual final question", async () => {
+it("a planner replacement discards the primary proposal of the replaced question", async () => {
   const s = setup();
   const { TutorService } =
     await import("../../../../../server/services/tutor/tutor-service");
@@ -437,17 +329,12 @@ it("a planner replacement discards a primary proposal and asks once about the ac
     content,
     undefined,
     { entryFile: "main.ino" },
-    "always",
     "uml1-classic-v1",
   );
   expect(response.result.question).toBe(finalQuestion);
-  expect(s.calls).toHaveLength(1);
-  expect(
-    JSON.parse((s.calls[0] as { userPrompt: string }).userPrompt).question,
-  ).toBe(finalQuestion);
   expect(response.followUpSource).toBe("planner");
-  expect(s.renders).toHaveLength(1);
-  s.artifacts.release(response._diagramArtifact!);
+  expect(response.result.diagram).toBeUndefined();
+  expect(s.renders).toHaveLength(0);
 });
 it("an aborted renderer leaves progression uncommitted", async () => {
   const s = setup();
@@ -507,7 +394,6 @@ it("an aborted renderer leaves progression uncommitted", async () => {
         content,
         controller.signal,
         { entryFile: "main.ino" },
-        "always",
         "uml1-classic-v1",
       ),
     ),
@@ -531,13 +417,10 @@ it("cancellation releases artifact capacity while an uncooperative renderer is s
       });
     },
   };
-  const pending = prepareTutorUml(s.provider, context, {
+  const pending = prepareTutorUml(context, {
     ...s,
     renderer,
     proposal,
-    mode: "auto",
-    model: "alias",
-    credential: "key",
     signal: controller.signal,
   });
   const rejected = expect(pending).rejects.toMatchObject({
@@ -590,7 +473,6 @@ it("the dialog primary prompt preserves exact entry code and separate header ref
       headers: [{ name: "helper.h", content: "int helper;\nvoid helfen();" }],
     },
     undefined,
-    "auto",
     "uml1-classic-v1",
   );
   expect(prompt).toContain('"entryFile":"main.ino"');
@@ -598,5 +480,4 @@ it("the dialog primary prompt preserves exact entry code and separate header ref
     String.raw`"headers":{"helper.h":"int helper;\nvoid helfen();"}`,
   );
   expect(prompt).toContain(String.raw`"code":"void arbeiten() {\n x++;\n}"`);
-  expect(s.calls).toHaveLength(0);
 });

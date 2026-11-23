@@ -303,7 +303,6 @@ function requestRecord(endpoint: Endpoint, body: Record<string, unknown>, run: T
   const action = body.action;
   return {
     endpoint,
-    ...(endpoint !== "models" ? { graphicsMode: body.graphicsMode === "always" ? "always" as const : "auto" as const } : {}),
     ...(endpoint !== "models" && body.graphicsProfile === "uml1-classic-v1" ? { graphicsProfile: "uml1-classic-v1" as const } : {}),
     ...(action === "clarify" || action === "hint" || action === "reveal" || action === "skip" ? { action } : {}),
     ...(endpoint === "dialog" && typeof body.question === "string" ? { askedQuestion: redactedText(body.question, 2_000, run, credential)! } : {}),

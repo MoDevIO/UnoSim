@@ -25,7 +25,7 @@ it.each([false, true])("sends the profile only to an advertised server (%s)", as
   expect(bodies[0].graphicsProfile).toBe(advertised ? "uml1-classic-v1" : undefined);
 });
 
-it.each(["question", "dialog", "support"])("retries %s with its original profile, mode and action fingerprint", async (endpoint) => {
+it.each(["question", "dialog", "support"])("retries %s with its original profile and action fingerprint", async (endpoint) => {
   const bodies: Record<string, unknown>[] = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -37,7 +37,6 @@ it.each(["question", "dialog", "support"])("retries %s with its original profile
     }
     return new Response(JSON.stringify(endpoint === "support" && String(url).endsWith("support") ? { action: "hint", explanation: "Betrachte run.", ...question } : question));
   });
-  localStorage.setItem("unoTutorGraphicsMode", "always");
   const { result } = renderHook(() => useTutor());
   await act(async () => {});
   act(() => result.current.setCredential("key"));
@@ -46,7 +45,6 @@ it.each(["question", "dialog", "support"])("retries %s with its original profile
   let pending!: Promise<void>;
   act(() => { pending = endpoint === "question" ? result.current.generateQuestion(CODE) : endpoint === "dialog" ? result.current.submitAnswer(CODE) : result.current.requestSupport("hint", CODE); });
   await waitFor(() => expect(bodies).toHaveLength(1));
-  localStorage.setItem("unoTutorGraphicsMode", "auto");
   release(); await act(() => pending);
   act(() => result.current.retryFor(CODE)!());
   await waitFor(() => expect(bodies).toHaveLength(2));

@@ -25,7 +25,7 @@ export interface TutorQualityScenario {
   readonly provider: ProviderBehavior;
   readonly difficulty?: TutorDifficulty;
   readonly courseContent?: TutorPlanningContentContext;
-  /** The aspect flow plans instead of the Topic catalog (Tutor concept, stage 2). */
+  /** The aspect flow plans instead of the Topic catalog (Tutor concept, stage 2); a scenario opts in. */
   readonly aspectPlanning?: boolean;
 }
 
@@ -56,7 +56,11 @@ export async function runTutorQualityScenario(scenario: TutorQualityScenario): P
   const stateBefore = cloneState(scenario.courseContent?.progressionState);
   // TutorQuality SSOT §5: only the external provider is faked; Course Content is always planned by
   // the real adapter, so a scenario cannot script a planning outcome.
-  const planning = scenario.courseContent ? new CurriculumTutorAdapter({ aspectPlanning: scenario.aspectPlanning ?? false }) : undefined;
+  const planning = scenario.courseContent ? new CurriculumTutorAdapter() : undefined;
+  // The learner's switch is on by default; a scenario that does not opt in plans as if it were off.
+  const courseContent = scenario.courseContent && !scenario.aspectPlanning
+    ? { ...scenario.courseContent, aspectPlanning: false as const }
+    : scenario.courseContent;
   const service = new TutorService(provider, planning);
   try {
     const response = scenario.action.kind === "initial"
@@ -65,7 +69,7 @@ export async function runTutorQualityScenario(scenario: TutorQualityScenario): P
         "fake-credential",
         undefined,
         scenario.difficulty,
-        scenario.courseContent,
+        courseContent,
       )
       : await service.generateDialogResponse(
         scenario.code,
@@ -75,7 +79,7 @@ export async function runTutorQualityScenario(scenario: TutorQualityScenario): P
         "fake-credential",
         undefined,
         scenario.difficulty,
-        scenario.courseContent,
+        courseContent,
       );
     return {
       id: scenario.id,

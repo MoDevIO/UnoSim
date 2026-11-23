@@ -49,6 +49,7 @@ import {
   commitTutorSession,
   enforceTutorRateLimit,
   mapProviderError,
+  planningContent,
   requireRequestCredential,
   resolveTutorContent, rememberAspectFocus,
   responseError,
@@ -246,7 +247,6 @@ function activeQuestion(
 }
 
 type DialogRequest = SketchFields & {
-  readonly graphicsMode?: NonNullable<TutorSupportRequest["graphicsMode"]>;
   readonly graphicsProfile?: NonNullable<
     TutorSupportRequest["graphicsProfile"]
   >;
@@ -259,6 +259,7 @@ type DialogRequest = SketchFields & {
   readonly courseContent?: NonNullable<TutorSupportRequest["courseContent"]>;
   readonly courseContentSession?: string;
   readonly aspectFocus?: string | null;
+  readonly aspectPlanning?: false;
   readonly supportSession?: string;
   readonly questionHandle?: string;
   readonly actionId?: string;
@@ -478,14 +479,6 @@ async function answerQuestion(
   key: string,
 ): Promise<ActionResult<Record<string, unknown>>> {
   const { request, question, content, signal, context } = scope;
-  const graphicOptions: [
-    graphicsMode?: TutorSupportRequest["graphicsMode"],
-    graphicsProfile?: TutorSupportRequest["graphicsProfile"],
-  ] = [];
-  if (request.graphicsProfile !== undefined)
-    graphicOptions.push(request.graphicsMode, request.graphicsProfile);
-  else if (request.graphicsMode !== undefined)
-    graphicOptions.push(request.graphicsMode);
   const generated = await context.service.generateDialogResponse(
     request.code,
     request.history,
@@ -494,7 +487,7 @@ async function answerQuestion(
     request.credential,
     request.model,
     request.difficulty,
-    content?.content,
+    planningContent(content, request.aspectPlanning),
     signal,
     sourceOf(request),
     {
@@ -505,7 +498,7 @@ async function answerQuestion(
         ? { diagramArtifact: question.diagramArtifact }
         : {}),
     },
-    ...graphicOptions,
+    ...(request.graphicsProfile === undefined ? [] : [request.graphicsProfile]),
   );
   signal.throwIfAborted();
   // Only an answer to the subject counts; a reply that leads away from the sketch does not (R-SUP-1).
@@ -693,10 +686,9 @@ async function skip(
     credential: request.credential,
     requestedModel: request.model,
     difficulty: request.difficulty,
-    courseContent: content?.content,
+    courseContent: planningContent(content, request.aspectPlanning),
     signal,
     source: sourceOf(request),
-    graphicsMode: request.graphicsMode,
     ...(request.graphicsProfile
       ? { graphicsProfile: request.graphicsProfile }
       : {}),

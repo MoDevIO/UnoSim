@@ -233,8 +233,11 @@ by a real model; the complementary live/HTTP requirements are in
 
 ## 9. Aspect flow
 
-Status: implemented behind the switch `UNOSIM_TUTOR_ASPECT_PLANNING` (off by
-default). While it is off, or for Course Content without aspect files
+Status: implemented, on by default. The learner can switch it off in the Tutor
+settings ("Nach Aspekten des Sketches fragen", stored in the browser as
+`unoTutorAspectPlanning`); every request then carries `aspectPlanning: false`
+and the switch applies from the next question. While it is off, or for Course
+Content without aspect files
 ([CourseContent 7.1](ssot_function_definition_CourseContent.md#71-aspect-files)),
 the Topic catalog plans as before.
 
