@@ -2,11 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useSimulatorFileSystem } from "../../../client/src/hooks/useSimulatorFileSystem";
 
+const downloadTabs = vi.fn();
 vi.mock("@/hooks/use-file-manager", () => ({
   useFileManager: ({ onFilesLoaded }: { onFilesLoaded: (files: Array<{ name: string; content: string }>, replaceAll: boolean) => void }) => ({
     fileInputRef: { current: null },
     onLoadFiles: vi.fn(),
-    downloadAllFiles: vi.fn(),
+    downloadAllFiles: downloadTabs,
     handleHiddenFileInput: vi.fn(),
     triggerFilesLoaded: onFilesLoaded,
   }),
@@ -131,5 +132,14 @@ describe("useSimulatorFileSystem behavior", () => {
     expect(state.setTabs).toHaveBeenCalledWith([expect.objectContaining({ name: "01-blink.ino", content: "blink" })]);
     expect(state.setCode).toHaveBeenCalledWith("blink");
     expect(state.setIsModified).toHaveBeenCalledWith(false);
+  });
+
+  it("downloads the editor's content of the active file, not the content its tab had when it was opened", () => {
+    const { state, result } = setup({ code: "// edited or loaded from outside" });
+    act(() => result.current.downloadAllFiles());
+    expect(downloadTabs).toHaveBeenLastCalledWith([
+      expect.objectContaining({ name: "sketch.ino", content: "// edited or loaded from outside" }),
+      state.tabs[1],
+    ]);
   });
 });

@@ -180,12 +180,18 @@ export function useSimulatorFileSystem({
     [toast],
   );
 
-  const { fileInputRef, onLoadFiles, downloadAllFiles, handleHiddenFileInput } =
+  const { fileInputRef, onLoadFiles, downloadAllFiles: downloadTabs, handleHiddenFileInput } =
     useFileManager({
       tabs,
       onFilesLoaded: handleUserFilesLoaded,
       toast: toastAdapter,
     });
+
+  // The editor holds the active file: edits, and code loaded from outside, reach its tab only on a tab change.
+  const downloadAllFiles = useCallback(
+    () => downloadTabs(syncActiveTabContent(tabs)),
+    [downloadTabs, syncActiveTabContent, tabs],
+  );
 
   const handleLoadExample = useCallback(
     (
