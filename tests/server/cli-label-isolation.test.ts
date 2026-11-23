@@ -110,8 +110,8 @@ describe("CLI Label Session Isolation", () => {
         res.end();
       });
 
-      stubServer.listen(0, () => {
-        API_BASE = "http://localhost:" + (stubServer.address() as any).port;
+      stubServer.listen(0, "127.0.0.1", () => {
+        API_BASE = "http://127.0.0.1:" + (stubServer.address() as any).port;
         resolve();
       });
     });

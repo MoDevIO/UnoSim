@@ -25,6 +25,8 @@ export default [
       "temp/**",
       // Gitignored local review evidence, outside the TypeScript projects.
       "local-temp/**",
+      // Gitignored local Tutor review exports and the scripts written next to them.
+      "tutor_reviews/**",
       // Local output of npm run test:tutor-quality (gitignored, holds frozen harness copies).
       ".tutor-quality-output/**",
       "*.sqlite",

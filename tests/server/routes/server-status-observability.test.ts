@@ -22,14 +22,14 @@ describe("GET /api/status - Phase 3.9 Observability Metrics", () => {
     // Start server on random port
     server = createServer(app);
     await new Promise<void>((resolve) => {
-      server.listen(0, () => resolve());
+      server.listen(0, "127.0.0.1", () => resolve());
     });
     
     const address = server.address();
     if (typeof address === "string") {
       baseUrl = address;
     } else {
-      baseUrl = `http://localhost:${address?.port}`;
+      baseUrl = `http://127.0.0.1:${address?.port}`;
     }
   });
 

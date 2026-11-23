@@ -134,10 +134,10 @@ async function createStubServer(): Promise<{ server: http.Server; baseUrl: strin
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, () => resolve());
+    server.listen(0, "127.0.0.1", () => resolve());
   });
 
-  const baseUrl = `http://localhost:${(server.address() as any).port}`;
+  const baseUrl = `http://127.0.0.1:${(server.address() as any).port}`;
   await new Promise((resolve) => setTimeout(resolve, 100));
   return { server, baseUrl };
 }
