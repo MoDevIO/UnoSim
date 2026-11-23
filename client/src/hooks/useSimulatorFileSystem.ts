@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 
 import { useFileManager } from "@/hooks/use-file-manager";
 import { setActiveExternalExampleContext } from "@/lib/external-examples";
+import { withOriginalFileNames } from "@/lib/opened-file-names";
 import { generateUuidV4 } from "@/lib/uuid";
 import type { Sketch } from "@shared/schema";
 import type { ToastFn } from "@/hooks/use-toast";
@@ -161,13 +162,18 @@ export function useSimulatorFileSystem({
     [onReplaceAllFiles, setTabs, setActiveTabId, setCode, setIsModified, syncActiveTabContent, tabs],
   );
 
-  /** Files the learner opens: another project than any loaded Example, so the Tutor starts over. */
+  /**
+   * Files the learner opens: another project than any loaded Example, so the Tutor starts over. A file
+   * downloaded twice comes back as `sketch(1).ino`; it gets its original name, so saving it again does not
+   * add another number.
+   */
   const handleUserFilesLoaded = useCallback(
     (files: SourceFileInput[], replaceAll: boolean) => {
       if (replaceAll) setActiveExternalExampleContext(null);
-      handleFilesLoaded(files, replaceAll);
+      const kept = replaceAll ? [] : tabs.map(({ name }) => name);
+      handleFilesLoaded(withOriginalFileNames(files, kept), replaceAll);
     },
-    [handleFilesLoaded],
+    [handleFilesLoaded, tabs],
   );
 
   const toastAdapter = useMemo(

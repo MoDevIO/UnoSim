@@ -125,6 +125,20 @@ describe("useSimulatorFileSystem behavior", () => {
     expect(state.setTabs).toHaveBeenLastCalledWith([...state.tabs, expect.objectContaining({ name: "extra.h" })]);
   });
 
+  it("opens a file the browser numbered under its original name, unless an open tab has that name", () => {
+    const { state, result } = setup();
+    act(() => result.current.handleFilesLoaded([
+      { name: "sketch(1)(1).ino", path: "sketch(1)(1).ino", content: "ino" },
+      { name: "pins (2).h", path: "lib/pins (2).h", content: "pins" },
+    ], true));
+    expect(state.setTabs).toHaveBeenLastCalledWith([
+      expect.objectContaining({ name: "sketch.ino", path: "sketch.ino" }),
+      expect.objectContaining({ name: "pins.h", path: "lib/pins.h" }),
+    ]);
+    act(() => result.current.handleFilesLoaded([{ name: "header(1).h", content: "copy" }], false));
+    expect(state.setTabs).toHaveBeenLastCalledWith([...state.tabs, expect.objectContaining({ name: "header(1).h" })]);
+  });
+
   it("loads an example as the only active file", () => {
     const { state, result } = setup();
     act(() => result.current.handleLoadExample("01-blink.ino", "blink"));
