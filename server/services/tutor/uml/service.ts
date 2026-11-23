@@ -116,12 +116,13 @@ function initialDisposition(
   }
   return { proposal: primary.proposal };
 }
+/** Without a model call of its own, a failure before rendering can only come from asking the renderer. */
 function failureReason(
   error: unknown,
   rendering: boolean,
 ): Parameters<typeof reportTutorDiagnostic>[0]["reason"] {
   if (error instanceof UmlRenderError) return error.kind;
-  return rendering ? "renderer-failed" : "provider-unavailable";
+  return rendering ? "renderer-failed" : "renderer-unavailable";
 }
 function preparationFailed(
   error: unknown,

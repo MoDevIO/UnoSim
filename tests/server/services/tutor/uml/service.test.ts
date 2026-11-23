@@ -481,3 +481,20 @@ it("the dialog primary prompt preserves exact entry code and separate header ref
   );
   expect(prompt).toContain(String.raw`"code":"void arbeiten() {\n x++;\n}"`);
 });
+it("reports a renderer that fails to answer as unavailable, not as a provider failure", async () => {
+  const s = setup();
+  const { withTutorDiagnostics, getTutorReview } = await import("../../../../../server/services/tutor/tutor-diagnostics");
+  const review = await withTutorDiagnostics(
+    { traceId: crypto.randomUUID(), requestId: crypto.randomUUID(), operation: "question", credential: "key" },
+    async () => {
+      const result = await prepareTutorUml(context, {
+        ...s,
+        proposal,
+        renderer: { ...s.renderer, available: async () => { throw new Error("probe failed"); } },
+      });
+      expect(result.graphicStatus).toBe("unavailable");
+      return getTutorReview({ id: "test", templateDigest: "a".repeat(64) })!;
+    },
+  );
+  expect(review.entries).toContainEqual(expect.objectContaining({ kind: "uml", state: "unavailable", reason: "renderer-unavailable" }));
+});
