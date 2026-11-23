@@ -37,6 +37,20 @@ export const tutorQuestionRequestSchema = z
   .strict()
   .superRefine(rejectEntryHeaderCollision);
 
+/** The sketch whose aspects a new learning round can start with; no provider is asked. */
+export const tutorStartAspectsRequestSchema = z
+  .object({
+    code: z.string().min(1).max(INPUT_LIMITS.compile.maxCodeChars),
+    ...projectFilesRequestFields,
+    board: boardIdSchema.optional(),
+    graphicsProfile: z.literal("uml1-classic-v1").optional(),
+    courseContent: tutorCourseContentContextSchema.optional(),
+    /** Sent only as false: the learner switched planning by the aspects of the sketch off. */
+    aspectPlanning: z.literal(false).optional(),
+  })
+  .strict()
+  .superRefine(rejectEntryHeaderCollision);
+
 export const tutorModelsRequestSchema = z
   .object({
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),

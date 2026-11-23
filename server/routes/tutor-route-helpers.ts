@@ -17,6 +17,7 @@ import { ExamplesError } from "../services/examples/examples-error";
 import type { RequestContext } from "../services/examples/source-provider";
 import type { TutorCourseContentContext } from "@shared/tutor";
 import { setFocus } from "../services/tutor/curriculum/aspect-planner";
+import { createAspectSessionState } from "../services/tutor/curriculum/competence-state";
 
 /** Shared request handling of the Tutor routes. */
 
@@ -147,11 +148,18 @@ export function commitTutorSession(content: TutorRequestContent | undefined, ses
  */
 /**
  * Keeps the aspect the learner chose to deepen in the session: an id, `null` to clear it, absent to leave
- * it. It takes effect with the next question that is planned.
+ * it. It takes effect with the next question that is planned. A fresh session, as the first question of a
+ * round starts one, gets its aspect state here, so a choice made on the start screen is kept.
  */
 export function rememberAspectFocus(content: TutorRequestContent | undefined, aspectFocus: string | null | undefined): void {
-  const aspects = content?.content.progressionState.aspects;
-  if (aspectFocus !== undefined && aspects) setFocus(aspects, aspectFocus);
+  if (aspectFocus === undefined || !content) return;
+  const state = content.content.progressionState;
+  if (aspectFocus === null) {
+    if (state.aspects) setFocus(state.aspects, null);
+    return;
+  }
+  state.aspects ??= createAspectSessionState();
+  setFocus(state.aspects, aspectFocus);
 }
 
 /**

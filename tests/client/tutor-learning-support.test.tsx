@@ -145,6 +145,41 @@ describe("useTutor learning support", () => {
 });
 
 describe("useTutor: a new learning question after a dialog completed by skipping (review R8)", () => {
+  it("looks up the start aspects after a pause and sends the noted aspect with the first question of each round", async () => {
+    const bodies = mockServer({
+      "/api/tutor/aspects": () => json({ aspectChoices: [{ id: "variables", title: "Variablen", state: "open" }] }),
+      "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support() }),
+    });
+    const { result } = renderHook(() => useTutor());
+    act(() => result.current.setCredential("personal-key"));
+    act(() => {
+      result.current.refreshStartAspects("void setup() {}");
+      result.current.refreshStartAspects(SKETCH);
+      result.current.refreshStartAspects(SKETCH);
+    });
+    expect(result.current.startAspects.status).toBe("loading");
+    await waitFor(() => expect(result.current.startAspects.status).toBe("ready"), { timeout: 3_000 });
+    const lookups = bodies.filter(({ url }) => url === "/api/tutor/aspects");
+    expect(lookups.map(({ body }) => body.code)).toEqual([SKETCH]);
+    expect(lookups[0]?.body).not.toHaveProperty("credential");
+
+    // Choosing on the start screen only notes the aspect.
+    act(() => result.current.setAspectFocus("variables", SKETCH));
+    expect(bodies.some(({ url }) => url === "/api/tutor/question")).toBe(false);
+    await act(() => result.current.generateQuestion(SKETCH, "variables"));
+    const questions = () => bodies.filter(({ url }) => url === "/api/tutor/question");
+    expect(questions().at(-1)?.body.aspectFocus).toBe("variables");
+
+    // A new round ends the dialog but keeps the aspect noted for it.
+    await act(() => result.current.generateQuestion(SKETCH, "variables"));
+    expect(result.current.aspectFocus).toBe("variables");
+    expect(questions()).toHaveLength(2);
+    expect(questions().at(-1)?.body.aspectFocus).toBe("variables");
+    await act(() => result.current.generateQuestion(SKETCH));
+    expect(result.current.aspectFocus).toBeNull();
+    expect(questions().at(-1)?.body).not.toHaveProperty("aspectFocus");
+  });
+
   it("starts with an empty transcript and no completion", async () => {
     mockServer({
       "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support({ clarifications: 2, canSkip: true }) }),

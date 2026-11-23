@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TutorDialogTurn } from "@shared/tutor";
 import { buildAssignmentGuidance, namesAssignmentSite } from "../../../../server/services/tutor/assignment-prompt";
 import { createTutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
@@ -8,6 +8,7 @@ import { aspectFixtures, fixtureText, TEMPERATURE_CONTROLLER } from "./support/a
 import { curriculumTopicSchema, validateCurriculumTopic } from "../../../../server/services/tutor/curriculum/curriculum-schema";
 import { parse as parseYaml } from "yaml";
 import { CurriculumTutorAdapter } from "../../../../server/services/tutor/curriculum-tutor-adapter";
+import { TutorService } from "../../../../server/services/tutor/tutor-service";
 import { setFocus } from "../../../../server/services/tutor/curriculum/aspect-planner";
 import { runTutorQualityScenario } from "./support/tutor-quality-scenario-runner";
 
@@ -270,6 +271,22 @@ describe("aspect flow in the Tutor service", () => {
       expect(adapter.aspectChoices({ code: "void setup() {}\nvoid loop() {}", courseContent: context })).toEqual({ aspectChoices: [] });
       expect(adapter.aspectChoices({ code: TEMPERATURE_CONTROLLER, courseContent: { ...context, aspectPlanning: false } })).toBeUndefined();
       expect(adapter.aspectChoices({ code: TEMPERATURE_CONTROLLER, courseContent: courseContent(false) })).toBeUndefined();
+    });
+
+    it("offers the start aspects before the first question, asking no provider and leaving the session as it is", async () => {
+      const provider = { generateQuestion: vi.fn(), generateDialogResponse: vi.fn(), listModels: vi.fn() };
+      const available = vi.fn().mockResolvedValue(true);
+      const service = new TutorService(provider as never, new CurriculumTutorAdapter(), { renderer: { available } as never });
+      const context = content(["branching", "diagrams"], false);
+      const before = structuredClone(context.progressionState);
+      const ids = (offered: { aspectChoices?: readonly { id: string }[] }) => offered.aspectChoices?.map(({ id }) => id);
+
+      // The diagram aspect needs a request that can show the diagram the application builds.
+      expect(ids(await service.startAspects({ code: TEMPERATURE_CONTROLLER, courseContent: context }))).toEqual(["branching"]);
+      expect(ids(await service.startAspects({ code: TEMPERATURE_CONTROLLER, courseContent: context, graphicsProfile: "uml1-classic-v1" }))).toEqual(["branching", "diagrams"]);
+      expect(context.progressionState).toEqual(before);
+      expect(Object.values(provider).every((call) => call.mock.calls.length === 0)).toBe(true);
+      expect(await service.startAspects({ code: TEMPERATURE_CONTROLLER, courseContent: { ...context, aspectPlanning: false } })).toEqual({});
     });
 
     it("delivers the aspects with a question the free Tutor asks after the aspects ran out", async () => {

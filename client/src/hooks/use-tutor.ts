@@ -25,6 +25,7 @@ import type { TutorReferenceView } from "@shared/tutor-support";
 import { INPUT_LIMITS } from "@shared/input-limits";
 import { getServerCapabilities, type ServerCapabilities } from "@/lib/server-capabilities";
 import { refreshExternalExamplesCatalog, resolveTutorCourseContent, useExternalExamples } from "@/lib/external-examples";
+import { useTutorStartAspects, type TutorStartAspectsState } from "@/hooks/use-tutor-start-aspects";
 
 interface TutorConfig {
   readonly provider: string;
@@ -54,6 +55,10 @@ export interface TutorPanelState {
   readonly aspectFocus: string | null;
   /** Chooses the aspect; with a sketch and an open question the Tutor asks about the chosen aspect at once. */
   readonly setAspectFocus: (aspectId: string | null, sketch?: string | TutorSketch) => void;
+  /** The aspects a new learning round can start with, for the start screen; it asks no provider. */
+  readonly startAspects: TutorStartAspectsState;
+  /** Looks the start aspects up for this sketch, after a pause in editing; an unchanged sketch is not asked again. */
+  readonly refreshStartAspects: (sketch: string | TutorSketch) => void;
   readonly history: readonly TutorDialogTurn[];
   /** Everything the learner sees in order: answers, clarifications, hints, the reference answer and skips. */
   readonly transcript: readonly TutorTranscriptEntry[];
@@ -87,7 +92,8 @@ export interface TutorPanelState {
   readonly retryFor: (current: string | TutorSketch) => (() => void) | null;
   /** What the running request does, for the waiting message. */
   readonly pendingRequest: TutorRequestKind;
-  readonly generateQuestion: (sketch: string | TutorSketch) => Promise<void>;
+  /** Starts a question; `startFocus` is the aspect chosen on the start screen, kept across a new round. */
+  readonly generateQuestion: (sketch: string | TutorSketch, startFocus?: string) => Promise<void>;
 }
 
 /**
@@ -107,7 +113,7 @@ export type TutorRequestKind = "question" | "answer" | "support";
 /** A failed request with all it sent, so that a repeat sends the same content with the same action id. */
 type TutorFailedRequest = (
   | { readonly kind: "models" }
-  | { readonly kind: "question"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty }
+  | { readonly kind: "question"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly difficulty: TutorDifficulty; readonly aspectFocus?: string }
   | { readonly kind: "answer"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly sketch: TutorSketch; readonly answer: string; readonly actionId?: string }
   | { readonly kind: "support"; readonly graphicsProfile?: typeof TUTOR_UML_PROFILE | null; readonly action: TutorSupportAction; readonly sketch: TutorSketch; readonly actionId: string }) & { readonly diagnosticTraceId?: string };
 
@@ -234,6 +240,11 @@ function getCourseContentRequest(
   if (courseContentSession) return { courseContentSession };
   if (courseContent) return { courseContent };
   return {};
+}
+
+/** The aspect chosen on the start screen, as a field of the first question of a round. */
+function startFocusField(startFocus: string | undefined): { aspectFocus?: string } {
+  return startFocus ? { aspectFocus: startFocus } : {};
 }
 
 /** The learner's aspect choice as request fields; only a question of the aspect flow offers a choice. */
@@ -399,6 +410,11 @@ export function useTutor(
   const dialogCourseContent = useRef<TutorCourseContentContext | undefined>(undefined);
   const [courseContentSession, setCourseContentSession] = useState<string | undefined>();
   const umlProfile = useRef<typeof TUTOR_UML_PROFILE | undefined>(undefined);
+  const startGraphicsProfile = useCallback(() => umlProfile.current, []);
+  const startAspectLookup = useTutorStartAspects(startGraphicsProfile, learningSituation);
+  const lookUpStartAspects = startAspectLookup.refreshStartAspects;
+  const refreshStartAspects = useCallback((input: string | TutorSketch) => lookUpStartAspects(sketchRequestFields(asTutorSketch(input))), [lookUpStartAspects]);
+  const { startAspects } = startAspectLookup;
   const [config, setConfig] = useState<TutorConfig>(DEFAULT_CONFIG);
   const [credential, setCredential] = useState("");
   const [selectedModel, setSelectedModel] = useState("auto");
@@ -558,7 +574,7 @@ export function useTutor(
     setIsLoading(false);
   }, []);
 
-  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string, graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null) => {
+  const requestQuestion = useCallback(async (sketch: TutorSketch, requestDifficulty: TutorDifficulty, diagnosticTraceId?: string, graphicsProfile: typeof TUTOR_UML_PROFILE | null = umlProfile.current ?? null, startFocus?: string) => {
     if (!capabilities.canUseTutor) return;
     clearError();
     if (!sketch.code.trim()) {
@@ -595,6 +611,7 @@ export function useTutor(
         ...(graphicsProfile ? { graphicsProfile } : {}),
           // A new learning question starts a fresh didactic session (LearningQuestions SSOT 2.3).
           ...getCourseContentRequest(undefined, courseContent),
+          ...startFocusField(startFocus),
           learningSupport: true,
         }),
       }, { traceId: diagnosticTraceId });
@@ -613,7 +630,7 @@ export function useTutor(
       setAnswer("");
     } catch (requestError) {
       if (controller.signal.aborted || isAbortError(requestError)) return;
-      failWith(requestError, { kind: "question", graphicsProfile, sketch, difficulty: requestDifficulty, diagnosticTraceId: tutorRequestTrace(controller.signal) });
+      failWith(requestError, { kind: "question", graphicsProfile, sketch, difficulty: requestDifficulty, ...startFocusField(startFocus), diagnosticTraceId: tutorRequestTrace(controller.signal) });
     } finally {
       activeTutorRequests.current.delete(controller);
       finishLoading(controller);
@@ -622,17 +639,19 @@ export function useTutor(
 
   const resetDialog = useCallback(() => clearDialog(configuredDifficulty), [clearDialog, configuredDifficulty]);
 
-  const generateQuestion = useCallback(async (input: string | TutorSketch) => {
+  const generateQuestion = useCallback(async (input: string | TutorSketch, startFocus?: string) => {
     if (!capabilities.canUseTutor) return;
     const sketch = asTutorSketch(input);
     // Any dialog state ends here, also a dialog completed by skipping without an answer (review R8).
     if (question !== null || history.length > 0 || transcript.length > 0 || completed) {
       resetDialog();
-      await requestQuestion(sketch, configuredDifficulty);
+      // The aspect chosen on the start screen belongs to the new round.
+      if (startFocus) chooseAspectFocus(startFocus);
+      await requestQuestion(sketch, configuredDifficulty, undefined, undefined, startFocus);
       return;
     }
-    await requestQuestion(sketch, effectiveDifficulty);
-  }, [capabilities, completed, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog, transcript.length]);
+    await requestQuestion(sketch, effectiveDifficulty, undefined, undefined, startFocus);
+  }, [capabilities, chooseAspectFocus, completed, configuredDifficulty, effectiveDifficulty, history.length, question, requestQuestion, resetDialog, transcript.length]);
 
   // Everything an answer books is applied at once; only showing the next question waits for the learner.
   const applyDialogResponse = useCallback((response: TutorResponse, update: ReturnType<typeof buildDialogResponseUpdate>) => {
@@ -826,7 +845,7 @@ export function useTutor(
     if (sketchKey(failedRequest.sketch) !== sketchKey(asTutorSketch(current))) return null;
     switch (failedRequest.kind) {
       case "question":
-        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile);
+        return () => void requestQuestion(failedRequest.sketch, failedRequest.difficulty, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile, failedRequest.aspectFocus);
       case "answer":
         if (answer.trim() !== failedRequest.answer) return null;
         return () => void sendAnswer(failedRequest.sketch, failedRequest.answer, failedRequest.actionId, failedRequest.diagnosticTraceId, failedRequest.graphicsProfile);
@@ -877,6 +896,8 @@ export function useTutor(
     focusProgress,
     aspectFocus,
     setAspectFocus: chooseAspect,
+    startAspects,
+    refreshStartAspects,
     history,
     transcript,
     support,
@@ -919,6 +940,8 @@ export function useTutor(
     focusProgress,
     aspectFocus,
     chooseAspect,
+    startAspects,
+    refreshStartAspects,
     history,
     answer,
     submitAnswer,

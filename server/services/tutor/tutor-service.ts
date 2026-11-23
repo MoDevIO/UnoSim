@@ -1022,6 +1022,28 @@ export class TutorService {
     return offered ? { ...result, ...aspectChoiceFields(offered) } : result;
   }
 
+  /**
+   * The aspects a new learning round can start with, before its first question: the round starts a fresh
+   * session, so the choices come from the course content as it is resolved now. No provider is asked and no
+   * session changes. While the teacher's focus will ask first, the focus says so as `active`.
+   */
+  async startAspects(input: {
+    readonly code: string;
+    readonly source?: TutorSource | BoardId;
+    readonly courseContent?: TutorPlanningContentContext;
+    readonly graphicsProfile?: TutorGraphicsProfile;
+  }): Promise<Pick<TutorContentResult, "aspectChoices" | "aspectFocus" | "focusProgress">> {
+    const sketchText = tutorSketchText(input.code, asTutorSource(input.source ?? {}));
+    const courseContent = await this.withDiagrams(input.courseContent, input.graphicsProfile);
+    const offered = this.planningExtension?.aspectChoices?.({ code: sketchText, courseContent });
+    const focus = this.planningExtension?.focusProgress?.({ code: sketchText, courseContent, focusAsked: false })?.progress;
+    const focusFirst = focus?.state === "open";
+    return {
+      ...(offered ? aspectChoiceFields(offered) : {}),
+      ...(focus ? { focusProgress: focusFirst ? { ...focus, state: "active" as const } : focus } : {}),
+    };
+  }
+
   /** The Example's objectives, plus what the focus left open: the free Tutor works on it next. */
   private learningObjectives(code: string, courseContent?: TutorPlanningContentContext): readonly string[] | undefined {
     const objectives = courseContent?.exampleTutorAnnotation?.learningObjectives;
