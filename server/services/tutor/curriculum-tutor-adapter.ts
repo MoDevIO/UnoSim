@@ -47,7 +47,7 @@ import {
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
 import {
-  aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
+  aspectAnsweredPlan, aspectFlowApplies, aspectOffer, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
 } from "./curriculum/aspect-flow";
 import type { AspectDefinition } from "./curriculum/aspect-schema";
 
@@ -177,7 +177,20 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return this.aspects(input, (flow) => aspectQuestionGraphic(flow, input.currentQuestion)) ?? undefined;
   }
 
-/**
+  /**
+   * The aspects of the sketch to choose from with any delivered turn, also one the focus or the free Tutor
+   * planned; empty when the sketch has none. Undefined while the aspect flow is not in charge. It reads a copy
+   * of the session, so the committed turn stays as it is.
+   */
+  aspectChoices(input: { readonly code: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Pick<TutorPlan, "aspectChoices" | "aspectFocus"> | undefined {
+    const snapshot = input.courseContent;
+    if (!snapshot || !this.aspectDefinitions(snapshot, input.exampleId)) return undefined;
+    const copy = snapshot.progressionState ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) } : snapshot;
+    const offered = this.aspects({ ...input, courseContent: copy }, aspectOffer);
+    return offered?.aspectChoices ? offered : { aspectChoices: [] };
+  }
+
+  /**
    * The aspect files that plan for this request (Tutor concept, stage 2), unless the learner switched planning
    * by aspects off; undefined while the Topic catalog or a free Tutor is in charge.
    */

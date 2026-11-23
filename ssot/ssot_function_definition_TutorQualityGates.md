@@ -276,9 +276,14 @@ With the switch on and aspect files present:
      `aspectFocus`, which leaves the open question without the two
      clarifications a plain skip needs (section 8); the left question adds
      no rating and counts for the cap. While the next question is held
-     until "Weiter", and for "Automatik", no request is sent. Each planned
-     question carries the aspects the learner can choose from
-     (`aspectChoices`) and the chosen one.
+     until "Weiter", and for "Automatik", no request is sent. Every delivered
+     turn carries the aspects the learner can choose from (`aspectChoices`)
+     and the chosen one, also a turn the teacher's focus or the free Tutor
+     planned; an empty list means the sketch has no aspect, a missing one
+     that the flow is not in charge. While the switch is on, the list is
+     always shown, also with a single aspect. When there is nothing to
+     choose it is disabled and says why: no aspects in the Course Content,
+     none in the sketch, or the teacher's focus question runs first.
    - The diagram aspect exists only when the request can show a diagram, and
      keeps the statements the application can draw. It asks about statements
      other aspects ask about too, so it is planned only when the learner

@@ -176,6 +176,12 @@ export function aspectStartPlan(input: AspectFlowInput): TutorPlan | TutorPlanni
   return next(input, session, aspects);
 }
 
+/** The aspects the learner can choose from with any delivered turn, whatever planned it. */
+export function aspectOffer(input: AspectFlowInput): Pick<TutorPlan, "aspectChoices" | "aspectFocus"> {
+  const { session, aspects } = prepare(input);
+  return choices(input, session, aspects);
+}
+
 /** The plan of the question being answered, for the dialog prompt; null when the flow did not plan it. */
 export function aspectAnsweredPlan(input: AspectFlowInput, currentQuestion: string): TutorPlan | null {
   const { session, aspects } = prepare(input);

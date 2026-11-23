@@ -686,7 +686,7 @@ function stripProviderPlanningMetadata(result: TutorContentResult): TutorContent
 }
 
 /** The aspects the learner can choose from, as the planned question carries them. */
-function aspectChoiceFields({ aspectChoices, aspectFocus }: TutorPlan): Pick<TutorContentResult, "aspectChoices" | "aspectFocus"> {
+function aspectChoiceFields({ aspectChoices, aspectFocus }: Pick<TutorPlan, "aspectChoices" | "aspectFocus">): Pick<TutorContentResult, "aspectChoices" | "aspectFocus"> {
   return { ...(aspectChoices ? { aspectChoices: [...aspectChoices] } : {}), ...(aspectFocus ? { aspectFocus } : {}) };
 }
 
@@ -1003,11 +1003,23 @@ export class TutorService {
     return { result: { ...text, ...publicDiagram }, ...(_diagramArtifact ? { _diagramArtifact } : {}) };
   }
 
-  /** Adds the focus state of the delivered turn; it comes from the session the turn was committed to. */
+  /**
+   * Adds the focus state of the delivered turn and the aspects to choose from; both come from the session
+   * the turn was committed to. A turn the aspect flow did not plan offers the aspects too, so the choice stays
+   * in place while the flow is on.
+   */
   private withFocusProgress(result: TutorContentResult, code: string, courseContent?: TutorPlanningContentContext): TutorContentResult {
     const focusAsked = result.topicId?.startsWith(INLINE_FOCUS_TOPIC_PREFIX) ?? false;
     const summary = this.planningExtension?.focusProgress?.({ code, courseContent, focusAsked });
-    return summary ? { ...result, focusProgress: summary.progress } : result;
+    const withFocus = summary ? { ...result, focusProgress: summary.progress } : result;
+    return this.withAspectChoices(withFocus, code, courseContent);
+  }
+
+  /** Adds the aspects to choose from unless the aspect flow planned the turn and named them already. */
+  private withAspectChoices(result: TutorContentResult, code: string, courseContent?: TutorPlanningContentContext): TutorContentResult {
+    if (result.aspectChoices) return result;
+    const offered = this.planningExtension?.aspectChoices?.({ code, courseContent });
+    return offered ? { ...result, ...aspectChoiceFields(offered) } : result;
   }
 
   /** The Example's objectives, plus what the focus left open: the free Tutor works on it next. */
@@ -1272,7 +1284,7 @@ export class TutorService {
     return {
       model: input.requestedModel ?? "fallback",
       // In the learning-support cycle the question keeps its identity (R-SUP-6), so it is asked unchanged.
-      result: applyStrategyMetadata(withRetainedGraphic(input.support ? { ...fallback, question: input.question } : fallback, input.question, input.support), strategy),
+      result: this.withAspectChoices(applyStrategyMetadata(withRetainedGraphic(input.support ? { ...fallback, question: input.question } : fallback, input.question, input.support), strategy), input.sketchText, transaction.courseContent),
       followUpSource: "application-fallback",
       withoutProvider: true,
       ...(input.support?.diagramArtifact ? { _diagramArtifact: input.support.diagramArtifact } : {}),

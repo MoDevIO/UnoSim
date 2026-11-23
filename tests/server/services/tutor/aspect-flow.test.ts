@@ -260,6 +260,24 @@ describe("aspect flow in the Tutor service", () => {
       expect(alone).toMatchObject({ kind: "blocked", progressionBlockedReason: "content-exhausted" });
     });
 
+    it("offers the aspects with a turn it did not plan, without changing the session, and none when switched off", async () => {
+      const adapter = new CurriculumTutorAdapter();
+      const context = content(["diagrams"]);
+      const before = structuredClone(context.progressionState);
+      // The diagram aspect alone is never planned unasked; the choice is what lets the learner ask for it.
+      expect(adapter.aspectChoices({ code: TEMPERATURE_CONTROLLER, courseContent: context })?.aspectChoices?.map(({ id }) => id)).toEqual(["diagrams"]);
+      expect(context.progressionState).toEqual(before);
+      expect(adapter.aspectChoices({ code: "void setup() {}\nvoid loop() {}", courseContent: context })).toEqual({ aspectChoices: [] });
+      expect(adapter.aspectChoices({ code: TEMPERATURE_CONTROLLER, courseContent: { ...context, aspectPlanning: false } })).toBeUndefined();
+      expect(adapter.aspectChoices({ code: TEMPERATURE_CONTROLLER, courseContent: courseContent(false) })).toBeUndefined();
+    });
+
+    it("delivers the aspects with a question the free Tutor asks after the aspects ran out", async () => {
+      const trace = await runTutorQualityScenario({ id: "aspect/free-offer", code: TEMPERATURE_CONTROLLER, action: { kind: "initial" }, provider: { kind: "result", result: { question: NAMED } }, courseContent: content(["diagrams"]), aspectPlanning: true });
+      expect(trace.result?.topicId?.startsWith("aspect-")).not.toBe(true);
+      expect(trace.result?.aspectChoices?.map(({ id }) => id)).toEqual(["diagrams"]);
+    });
+
     it("asks every question of a chosen diagram aspect with a diagram of a statement that can be drawn", async () => {
       const adapter = new CurriculumTutorAdapter();
       const context = content(["branching", "diagrams"]);
