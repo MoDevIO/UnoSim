@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for client/src/lib/tutor-graphics-preference.ts</title>
+    <title>Code coverage report for client/src/lib/tutor-aspect-preference.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">client/src/lib</a> tutor-graphics-preference.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">client/src/lib</a> tutor-aspect-preference.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">88.88% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/7</span>
+                <span class='fraction'>8/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>6/7</span>
             </div>
         
             
@@ -75,29 +75,50 @@
 <a name='L10'></a><a href='#L10'>10</a>
 <a name='L11'></a><a href='#L11'>11</a>
 <a name='L12'></a><a href='#L12'>12</a>
-<a name='L13'></a><a href='#L13'>13</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">150x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">235x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { TUTOR_GRAPHICS_STORAGE_KEY, type TutorGraphicsMode } from "@shared/tutor-graphics";
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">138x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/** The learner's choice whether the Tutor plans by the aspects of the sketch; on until switched off. */
+const STORAGE_KEY = "unoTutorAspectPlanning";
 &nbsp;
-let memoryMode: TutorGraphicsMode = "auto";
+let memoryValue = true;
 &nbsp;
-export function readTutorGraphicsMode(): TutorGraphicsMode {
-  try { return localStorage.getItem(TUTOR_GRAPHICS_STORAGE_KEY) === "always" ? "always" : "auto"; }
-  catch { return memoryMode; }
+export function readTutorAspectPlanning(): boolean {
+  try { return localStorage.getItem(STORAGE_KEY) !== "off"; }
+  catch { <span class="cstat-no" title="statement not covered" >return memoryValue; }</span>
 }
-export function writeTutorGraphicsMode(mode: TutorGraphicsMode): void {
-  memoryMode = mode;
-  try { localStorage.setItem(TUTOR_GRAPHICS_STORAGE_KEY, mode); } catch { /* Storage may be disabled. */ }
+&nbsp;
+export function writeTutorAspectPlanning(enabled: boolean): void {
+  memoryValue = enabled;
+  try { localStorage.setItem(STORAGE_KEY, enabled ? <span class="branch-0 cbranch-no" title="branch not covered" >"on" : "</span>off"); } catch { /* Storage may be disabled. */ }
+}
+&nbsp;
+/** The request field: only a learner who switched planning by aspects off sends it. */
+export function aspectPlanningRequestField(): { aspectPlanning?: false } {
+  return readTutorAspectPlanning() ? {} : { aspectPlanning: false };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -106,7 +127,7 @@ export function writeTutorGraphicsMode(mode: TutorGraphicsMode): void {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-23T19:01:43.310Z
+                at 2026-11-23T19:07:49.824Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
