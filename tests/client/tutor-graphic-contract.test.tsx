@@ -143,3 +143,9 @@ describe("GQ-04: a held follow-up question and its graphic appear together, once
     }
   });
 });
+
+it("shows an explicit failure for a delivered graphic the renderer cannot draw", async () => {
+  render(<MermaidPreview source={"flowchart LR\nA -.-> B"} subject={{}} showFailure />);
+  expect(await screen.findByText("Grafik konnte nicht dargestellt werden.")).toBeInTheDocument();
+  expect(screen.queryByTestId("tutor-mermaid")).toBeNull();
+});

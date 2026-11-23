@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TUTOR_GRAPHICS_MODES } from "./tutor-graphics";
 import { TUTOR_DIAGNOSTIC_REASONS } from "./tutor-diagnostic-vocabulary";
 import { boundedArray } from "./bounded-array";
 import { INPUT_LIMITS } from "./input-limits";
@@ -141,18 +140,6 @@ const replayEntrySchema = z
   })
   .strict();
 
-const graphicEntrySchema = z
-  .object({
-    kind: z.literal("graphic"),
-    mode: z.literal("always"),
-    state: z.enum(["kept", "requested", "provided", "rejected", "failed"]),
-    attempt: z.number().int().min(0).max(1),
-    question: redacted(QUESTION_CHARS),
-    promptRevision: z.literal("tutor-question-graphic-v1"),
-    reason: z.enum(TUTOR_DIAGNOSTIC_REASONS).optional(),
-  })
-  .strict();
-
 export const tutorReviewDiagramSchema = z
   .object({
     profile: z.literal("uml1-classic-v1"),
@@ -167,7 +154,6 @@ const umlEntrySchema = z
     kind: z.literal("uml"),
     profile: z.literal("uml1-classic-v1"),
     state: z.enum(["provided", "not-useful", "unavailable", "rejected"]),
-    attempt: z.number().int().min(0).max(1),
     question: redacted(QUESTION_CHARS),
     promptRevision: z.literal("tutor-uml1-classic-v1-r3"),
     rendererRevision: z.string().min(1).max(160),
@@ -182,7 +168,6 @@ export const tutorReviewServerEntrySchema = z.discriminatedUnion("kind", [
   classificationEntrySchema,
   factsEntrySchema,
   replayEntrySchema,
-  graphicEntrySchema,
   umlEntrySchema,
 ]);
 export type TutorReviewServerEntry = z.infer<
@@ -279,7 +264,6 @@ const requestSchema = z
     answer: redacted(INPUT_LIMITS.tutor.maxAnswerChars).optional(),
     difficulty: z.number().int().min(1).max(100).optional(),
     requestedModel: redacted(128).optional(),
-    graphicsMode: z.enum(TUTOR_GRAPHICS_MODES).optional(),
     graphicsProfile: z.literal("uml1-classic-v1").optional(),
     courseContent: z
       .object({
@@ -647,7 +631,6 @@ export function redactTutorReviewServerEntry(
           before: free(entry.before),
           after: free(entry.after),
         };
-      case "graphic":
       case "outcome":
         return { ...entry, question: free(entry.question) };
       case "uml":

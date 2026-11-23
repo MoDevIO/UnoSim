@@ -34,18 +34,17 @@ Ein Schritt hat `stepId`, `sequence`, `at` (Browserzeit), `kind`, `status` und o
 - `status`: `open` (noch ohne Antwort), `completed`, `failed`, `aborted`, `recorded` (lokaler Schritt).
 - `traceId`, `requestId`, `attempt`, `relatesTo`: Eine Wiederholung derselben Aktion hat dieselbe `traceId`, `attempt` > 1 und `relatesTo` auf den ersten Versuch. Lokale Schritte verweisen mit `relatesTo` auf ihren Request.
 - `contextId`: der gesendete Codekontext.
-- `request`: `endpoint`, `action`, `askedQuestion` (die beantwortete Frage), `answer`, `difficulty`, `requestedModel`, `graphicsMode` (`auto`/`always`), `graphicsProfile` (optional `uml1-classic-v1`), `courseContent` (nur Kennungen), `continuesCourseSession`, `history[]`. Ein Historieneintrag verweist mit `{ stepId }` auf den einzigen abgeschlossenen Antwortschritt mit derselben Frage, Antwort, demselben Feedback und derselben Bewertung, in Reihenfolge der Historie; sonst mit `{ importId }` auf seinen wörtlichen Eintrag.
+- `request`: `endpoint`, `action`, `askedQuestion` (die beantwortete Frage), `answer`, `difficulty`, `requestedModel`, `graphicsProfile` (optional `uml1-classic-v1`), `courseContent` (nur Kennungen), `continuesCourseSession`, `history[]`. Ein Historieneintrag verweist mit `{ stepId }` auf den einzigen abgeschlossenen Antwortschritt mit derselben Frage, Antwort, demselben Feedback und derselben Bewertung, in Reihenfolge der Historie; sonst mit `{ importId }` auf seinen wörtlichen Eintrag.
 - `response`: das Ausgelieferte, also `question` (bei `answer` die Folgefrage), `feedback`, `answerRating`, `responseStyle`, `learnerInput`, `questionStatus`, `topic`, `difficulty`, `mermaid`, `diagram` (Profil, Art, Beitrag, normalisierter Vorschlag als `proposalJson`, Rendererrevision), `graphicStatus` (`provided`/`unavailable`/`not-useful`), `model`, `explanation`, `reference` (nur eine gezeigte Musterantwort), `next` (nach einem Überspringen die nächste Frage mit `question`, `feedback`, `topic`, `difficulty`, `mermaid`, `graphicStatus`, `learning`, `focusProgress`), `completed`, `learning` (Themen-, Fragen- und Strategiekennungen, Kursrevision), `support` (Zähler ohne Handles), `focusProgress`.
 - `server`: `status` (`received`, `unavailable`, `invalid`, `disabled`), `promptRevision` (`id`, `templateDigest`), `guidanceRevision`, `dropped` (vom Server an seiner Grenze verworfene Einträge), `entries[]`. Ein Block über 128 KiB, mit falschem Schema oder fremder Trace-/Request-ID gilt als `invalid`:
   - `draft`: normalisierter Modellentwurf je Versuch (Frage, Feedback, Bewertung, Antwortstil, Thema, Schwierigkeit, Mermaid). Überlange oder falsch typisierte Grafikfelder fehlen; die technischen Ereignisse nennen dann den Grund.
   - `decision`: `trigger` mit `before` und `after`, gesetzt an der tatsächlichen Entscheidungsstelle.
   - `outcome`: Ergebnisquelle (`provider`, `planner`, `application-fallback`), `retained`, `withoutProvider`, endgültige Frage, Grafik `kept`, `discarded` oder `none`.
-  - `graphic`: explizite Anforderung für die endgültige Frage, mit `mode: always`, `state` (`kept`, `requested`, `provided`, `rejected`, `failed`), `attempt` (Zusatzversuch 0/1), bereinigter `question`, fester `promptRevision` und optionalem festen `reason`. Kein Rohoutput des Grafikaufrufs.
   - `classification`: Einstufung der Eingabe durch den Server.
   - `facts`: die deterministischen Sketchfakten des Prompts als JSON-Text.
   - `replay`: ein wiederholtes gespeichertes Ergebnis ohne neuen Modellaufruf.
 - `failure`: `httpStatus`, fester `code`.
-- `events[]`: optional mit `graphicsMode` und `graphicAttempt` (0/1); die technischen Diagnoseereignisse dieses Requests (Modell, Dauer, Grafikstationen bis `renderer: rendered`).
+- `events[]`: die technischen Diagnoseereignisse dieses Requests (Modell, Dauer, Grafikstationen bis `renderer: rendered`).
 
 ## Vollständigkeit und Grenzen
 
@@ -69,7 +68,7 @@ Brechende Formatänderungen erhöhen `formatVersion`. Kompatible Ergänzungen f�
 Das ausgehandelte Profil `uml1-classic-v1` hält den geprüften Vorschlag samt
 Codeverweisen als JSON-Text fest, ebenso Art, konkreten Beitrag und die
 Rendererrevision. Das gilt auch für die nächste Frage nach Überspringen.
-Servereinträge `kind: uml` nennen Status, Zusatzversuch (0/1), endgültige Frage,
+Servereinträge `kind: uml` nennen Status, endgültige Frage,
 Promptrevision, Rendererrevision und festen Ablehnungsgrund. Ein akzeptiertes
 Profil bestätigt den technischen Vertrag und bekannte Belegregeln; es bestätigt
 keine allgemeine fachliche Qualität.

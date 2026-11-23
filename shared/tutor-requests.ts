@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TUTOR_GRAPHICS_MODES } from "./tutor-graphics";
 import { boardIdSchema } from "./boards";
 import { INPUT_LIMITS } from "./input-limits";
 import { projectFilesRequestFields, rejectEntryHeaderCollision } from "./schema";
@@ -25,12 +24,13 @@ export const tutorQuestionRequestSchema = z
     board: boardIdSchema.optional(),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
-    graphicsMode: z.enum(TUTOR_GRAPHICS_MODES).optional(),
     graphicsProfile: z.literal("uml1-classic-v1").optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
     aspectFocus: tutorAspectFocusRequestSchema,
+    /** Sent only as false: the learner switched planning by the aspects of the sketch off. */
+    aspectPlanning: z.literal(false).optional(),
     /** Opts into the learning-support cycle (LearningQuestions 3.10); the response then carries `support`. */
     learningSupport: z.literal(true).optional(),
   })
@@ -53,12 +53,13 @@ export const tutorDialogRequestSchema = z
     answer: z.string().trim().min(1).max(INPUT_LIMITS.tutor.maxAnswerChars),
     credential: z.string().min(1).max(INPUT_LIMITS.tutor.maxCredentialChars).optional(),
     model: tutorModelSchema.optional(),
-    graphicsMode: z.enum(TUTOR_GRAPHICS_MODES).optional(),
     graphicsProfile: z.literal("uml1-classic-v1").optional(),
     difficulty: tutorDifficultySchema.default(TUTOR_DEFAULT_DIFFICULTY),
     courseContent: tutorCourseContentContextSchema.optional(),
     courseContentSession: tutorCourseContentSessionSchema.optional(),
     aspectFocus: tutorAspectFocusRequestSchema,
+    /** Sent only as false: the learner switched planning by the aspects of the sketch off. */
+    aspectPlanning: z.literal(false).optional(),
     // Compatibility rule (LearningQuestions 9.1): without these three fields the dialog keeps the MVP behavior.
     supportSession: tutorSupportBindingFields.supportSession.optional(),
     questionHandle: tutorSupportBindingFields.questionHandle.optional(),

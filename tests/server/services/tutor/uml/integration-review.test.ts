@@ -5,7 +5,6 @@ import {
   getTutorReview,
   withTutorDiagnostics,
 } from "../../../../../server/services/tutor/tutor-diagnostics";
-import type { LLMProvider } from "../../../../../server/services/tutor/llm-provider";
 
 const context = {
   question: "Welche Rolle hat die Reihenfolge in arbeiten?",
@@ -29,12 +28,6 @@ const proposal = {
     },
   ],
 };
-const noPrimary: LLMProvider = {
-  listModels: async () => [],
-  generateLearningQuestion: async () => {
-    throw new Error("unexpected");
-  },
-};
 async function reviewed(run: () => Promise<unknown>) {
   return withTutorDiagnostics(
     {
@@ -54,11 +47,8 @@ async function reviewed(run: () => Promise<unknown>) {
 }
 it("preserves the normalized validated proposal and evidence after a render failure without SVG or credentials", async () => {
   const { result, review } = await reviewed(() =>
-    prepareTutorUml(noPrimary, context, {
-      mode: "auto",
+    prepareTutorUml(context, {
       proposal,
-      model: "alias",
-      credential: "access-secret",
       renderer: {
         available: async () => true,
         render: async () => {
@@ -102,18 +92,9 @@ it("preserves the schema-valid normalized graphic-only candidate rejected for in
       },
     ],
   };
-  const provider: LLMProvider = {
-    ...noPrimary,
-    generateGraphic: async () => ({
-      model: "m",
-      result: { diagram: candidate },
-    }),
-  };
   const { result, review } = await reviewed(() =>
-    prepareTutorUml(provider, context, {
-      mode: "always",
-      model: "alias",
-      credential: "access-secret",
+    prepareTutorUml(context, {
+      proposal: candidate,
       renderer: {
         available: async () => true,
         render: async () => {
@@ -127,7 +108,6 @@ it("preserves the schema-valid normalized graphic-only candidate rejected for in
     (entry) => entry.kind === "uml" && entry.state === "rejected",
   );
   expect(rejected).toMatchObject({
-    attempt: 1,
     reason: "invalid-evidence",
     proposalJson: expect.any(String),
   });
@@ -162,18 +142,9 @@ it.each(["unknown-fields", "over-original-byte-limit"])(
               whenFalse: Array.from({ length: 12 }, () => action),
             })),
           };
-    const provider: LLMProvider = {
-      ...noPrimary,
-      generateGraphic: async () => ({
-        model: "m",
-        result: { diagram: candidate },
-      }),
-    };
     const { review } = await reviewed(() =>
-      prepareTutorUml(provider, context, {
-        mode: "always",
-        model: "alias",
-        credential: "access-secret",
+      prepareTutorUml(context, {
+        proposal: candidate,
         renderer: {
           available: async () => true,
           render: async () => {

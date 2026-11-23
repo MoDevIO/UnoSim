@@ -47,7 +47,7 @@ import {
 } from "./curriculum/progression-state";
 import type { CurriculumQuestion, CurriculumTopic } from "./curriculum/curriculum-schema";
 import {
-  aspectAnsweredPlan, aspectFlowApplies, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
+  aspectAnsweredPlan, aspectFlowApplies, aspectOffer, aspectFollowupPlan, aspectLeaveQuestion, aspectQuestionGraphic, aspectRetryPlan, aspectStartPlan, type AspectFlowInput,
 } from "./curriculum/aspect-flow";
 import type { AspectDefinition } from "./curriculum/aspect-schema";
 
@@ -59,11 +59,6 @@ export interface CurriculumTutorAdapterDependencies {
   readonly factExtractor?: SketchFactExtractor;
   readonly topicMatcher?: TopicMatcher;
   readonly planner?: LearningPlanner;
-  /**
-   * The aspect flow (Tutor concept, stage 2) plans instead of the Topic catalog, for Course Content that
-   * provides aspect files. Off by default: the catalog stays in charge until the flow has passed its runs.
-   */
-  readonly aspectPlanning?: boolean;
 }
 
 type TutorFollowupInput = {
@@ -83,10 +78,8 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
   private readonly factExtractor: SketchFactExtractor;
   private readonly topicMatcher: TopicMatcher;
   private readonly planner: LearningPlanner;
-  private readonly aspectPlanning: boolean;
 
   constructor(deps: CurriculumTutorAdapterDependencies = {}) {
-    this.aspectPlanning = deps.aspectPlanning ?? false;
     this.factExtractor = deps.factExtractor ?? new DefaultSketchFactExtractor();
     this.topicMatcher = deps.topicMatcher ?? new DefaultTopicMatcher();
     this.planner = deps.planner ?? new DefaultLearningPlanner();
@@ -184,9 +177,25 @@ export class CurriculumTutorAdapter implements TutorPlanningExtension {
     return this.aspects(input, (flow) => aspectQuestionGraphic(flow, input.currentQuestion)) ?? undefined;
   }
 
-  /** The aspect files that plan for this request; undefined while the Topic catalog or a free Tutor is in charge. */
+  /**
+   * The aspects of the sketch to choose from with any delivered turn, also one the focus or the free Tutor
+   * planned; empty when the sketch has none. Undefined while the aspect flow is not in charge. It reads a copy
+   * of the session, so the committed turn stays as it is.
+   */
+  aspectChoices(input: { readonly code: string; readonly exampleId?: string; readonly courseContent?: TutorPlanningContentContext }): Pick<TutorPlan, "aspectChoices" | "aspectFocus"> | undefined {
+    const snapshot = input.courseContent;
+    if (!snapshot || !this.aspectDefinitions(snapshot, input.exampleId)) return undefined;
+    const copy = snapshot.progressionState ? { ...snapshot, progressionState: cloneTutorProgressionState(snapshot.progressionState) } : snapshot;
+    const offered = this.aspects({ ...input, courseContent: copy }, aspectOffer);
+    return offered?.aspectChoices ? offered : { aspectChoices: [] };
+  }
+
+  /**
+   * The aspect files that plan for this request (Tutor concept, stage 2), unless the learner switched planning
+   * by aspects off; undefined while the Topic catalog or a free Tutor is in charge.
+   */
   private aspectDefinitions(snapshot: TutorPlanningContentContext | undefined, requestedExampleId?: string): readonly AspectDefinition[] | undefined {
-    if (!this.aspectPlanning || snapshot?.tutor?.status !== "valid" || !snapshot.tutor.aspects?.length) return undefined;
+    if (snapshot?.aspectPlanning === false || snapshot?.tutor?.status !== "valid" || !snapshot.tutor.aspects?.length) return undefined;
     const annotation = (snapshot.exampleId ?? requestedExampleId) === undefined ? undefined : snapshot.exampleTutorAnnotation;
     // A teacher who set `afterFocus: free` wants the free Tutor after the focus, not the aspect flow.
     if (annotation?.focus !== undefined && annotation.afterFocus === "free") return undefined;

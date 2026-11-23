@@ -25,7 +25,7 @@ it.each([false, true])("sends the profile only to an advertised server (%s)", as
   expect(bodies[0].graphicsProfile).toBe(advertised ? "uml1-classic-v1" : undefined);
 });
 
-it.each(["question", "dialog", "support"])("retries %s with its original profile, mode and action fingerprint", async (endpoint) => {
+it.each(["question", "dialog", "support"])("retries %s with its original profile and action fingerprint", async (endpoint) => {
   const bodies: Record<string, unknown>[] = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -37,7 +37,6 @@ it.each(["question", "dialog", "support"])("retries %s with its original profile
     }
     return new Response(JSON.stringify(endpoint === "support" && String(url).endsWith("support") ? { action: "hint", explanation: "Betrachte run.", ...question } : question));
   });
-  localStorage.setItem("unoTutorGraphicsMode", "always");
   const { result } = renderHook(() => useTutor());
   await act(async () => {});
   act(() => result.current.setCredential("key"));
@@ -46,7 +45,6 @@ it.each(["question", "dialog", "support"])("retries %s with its original profile
   let pending!: Promise<void>;
   act(() => { pending = endpoint === "question" ? result.current.generateQuestion(CODE) : endpoint === "dialog" ? result.current.submitAnswer(CODE) : result.current.requestSupport("hint", CODE); });
   await waitFor(() => expect(bodies).toHaveLength(1));
-  localStorage.setItem("unoTutorGraphicsMode", "auto");
   release(); await act(() => pending);
   act(() => result.current.retryFor(CODE)!());
   await waitFor(() => expect(bodies).toHaveLength(2));
@@ -160,4 +158,29 @@ it("offers the aspects in a list with Automatik and asks about a chosen aspect a
   await act(() => result.current.submitAnswer(CODE));
   expect(requests.at(-1)?.body).toMatchObject({ aspectFocus: null });
   expect(requests.at(-1)?.body).not.toHaveProperty("refocus");
+});
+
+it.each([
+  { name: "without aspects in the course content", fields: {}, note: "Für diesen Sketch gibt es keine Aspekte in den Kursinhalten." },
+  { name: "without an aspect in the sketch", fields: { aspectChoices: [] }, note: "Im Sketch ist noch kein Aspekt erkennbar." },
+  { name: "during the teacher's focus", fields: { aspectChoices: [{ id: "variables", title: "Variablen", state: "open" }], focusProgress: { state: "active", understoodAreas: 0, totalAreas: 1, openAreas: ["Ablauf"] } }, note: "Erst die Fragen der Lehrkraft, danach kannst du einen Aspekt wählen." },
+  { name: "with a single aspect", fields: { aspectChoices: [{ id: "variables", title: "Variablen", state: "open" }] }, note: undefined },
+])("keeps the aspect list in place $name and says why it cannot be used", async ({ fields, note }) => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => new Response(JSON.stringify(String(url) === "/api/config" ? { tutor: { provider: "kiconnect" } } : { ...question, ...fields })));
+  const { result } = renderHook(() => useTutor());
+  act(() => result.current.setCredential("key"));
+  await act(() => result.current.generateQuestion(CODE));
+  const actions = { chooseAspect: vi.fn() } as unknown as Parameters<typeof TutorLearningStep>[0]["actions"];
+  const view = render(<TutorLearningStep tutor={result.current} actions={actions} />);
+  const list = screen.getByLabelText("Vertiefen") as HTMLSelectElement;
+  if (note) {
+    expect(list).toBeDisabled();
+    expect(list).toHaveAccessibleDescription(note);
+  } else {
+    expect(list).toBeEnabled();
+    expect([...list.options].map(({ text }) => text)).toEqual(["Automatik", "Variablen"]);
+  }
+  localStorage.setItem("unoTutorAspectPlanning", "off");
+  view.rerender(<TutorLearningStep tutor={result.current} actions={actions} />);
+  expect(screen.queryByTestId("tutor-aspect-choice")).toBeNull();
 });

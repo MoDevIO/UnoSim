@@ -13,12 +13,8 @@ import {
   TUTOR_UML_LIMITS,
   type TutorUmlKind,
 } from "@shared/tutor-uml-profile";
-import type { TutorGraphicsMode } from "@shared/tutor-graphics";
-import type { LLMProvider } from "../llm-provider";
 import {
-  beginTutorProviderAttempt,
   reportTutorDiagnostic,
-  reportTutorModel,
   reportTutorReview,
 } from "../tutor-diagnostics";
 import {
@@ -29,7 +25,7 @@ import {
 import { TutorUmlRenderer } from "./renderer";
 import { validateTutorUmlProposal } from "./validate";
 import { exportTutorUml } from "./export";
-import { TUTOR_UML_PROMPT_DIRECTIVES, UML_PROMPT_REVISION } from "./prompt";
+import { UML_PROMPT_REVISION } from "./prompt";
 import { UML_RENDERER_REVISION, UmlRenderError } from "./limits";
 import type { RenderedUmlImage } from "./svg";
 import type {
@@ -72,10 +68,7 @@ export interface PreparedTutorUml {
   readonly _diagramArtifact?: TutorUmlArtifactHandle;
 }
 interface PreparationOptions {
-  readonly mode?: TutorGraphicsMode;
   readonly proposal?: unknown;
-  readonly model: string;
-  readonly credential: string;
   readonly signal?: AbortSignal;
   readonly renderer?: {
     available(): Promise<boolean>;
@@ -107,51 +100,29 @@ type PreparationReport = (
   reason?: Parameters<typeof reportTutorDiagnostic>[0]["reason"],
   normalized?: unknown,
 ) => void;
+/** Without a usable proposal of the model there is no diagram; the application never asks for one. */
 function initialDisposition(
   primary: UmlValidation | undefined,
-  mode: TutorGraphicsMode | undefined,
   report: PreparationReport,
-): PreparedTutorUml | undefined {
-  if (primary && !primary.ok) report("rejected", primary.reason);
-  if (primary?.ok && primary.proposal.status === "not-useful") {
-    report("not-useful", primary.proposal.reason, primary.proposal);
-    return { graphicStatus: "not-useful" };
+): { readonly prepared: PreparedTutorUml } | { readonly proposal: ValidUmlProposal } {
+  if (!primary) return { prepared: {} };
+  if (!primary.ok) {
+    report("rejected", primary.reason);
+    return { prepared: { graphicStatus: "unavailable" } };
   }
-  if (!primary?.ok && mode !== "always")
-    return primary ? { graphicStatus: "unavailable" } : {};
-  return undefined;
+  if (primary.proposal.status === "not-useful") {
+    report("not-useful", primary.proposal.reason, primary.proposal);
+    return { prepared: { graphicStatus: "not-useful" } };
+  }
+  return { proposal: primary.proposal };
 }
-async function generateProposal(
-  generate: NonNullable<LLMProvider["generateGraphic"]>,
-  context: UmlCodeContext,
-  options: PreparationOptions,
-): Promise<unknown> {
-  const response = await generate(
-    {
-      model: options.model,
-      systemPrompt: `Erzeuge ausschließlich ein JSON-Objekt mit dem Feld diagram.\n${TUTOR_UML_PROMPT_DIRECTIVES}`,
-      userPrompt: JSON.stringify(context),
-    },
-    options.credential,
-    options.signal,
-  );
-  options.signal?.throwIfAborted();
-  reportTutorModel(options.model, response.model);
-  return response.model &&
-    response.result &&
-    typeof response.result === "object" &&
-    !Array.isArray(response.result) &&
-    Object.keys(response.result).length === 1 &&
-    "diagram" in response.result
-    ? response.result.diagram
-    : undefined;
-}
+/** Without a model call of its own, a failure before rendering can only come from asking the renderer. */
 function failureReason(
   error: unknown,
   rendering: boolean,
 ): Parameters<typeof reportTutorDiagnostic>[0]["reason"] {
   if (error instanceof UmlRenderError) return error.kind;
-  return rendering ? "renderer-failed" : "provider-unavailable";
+  return rendering ? "renderer-failed" : "renderer-unavailable";
 }
 function preparationFailed(
   error: unknown,
@@ -256,7 +227,6 @@ async function renderPreparedUml(
 }
 /** Optional preparation happens after the final question is selected and before the planning commit. */
 export async function prepareTutorUml(
-  provider: LLMProvider,
   context: UmlCodeContext,
   options: PreparationOptions,
 ): Promise<PreparedTutorUml> {
@@ -265,9 +235,8 @@ export async function prepareTutorUml(
   const scope = scopes.getStore();
   let reservation: TutorUmlReservation | null = null;
   let committed = false;
-  let attempt = 0;
-  let proposed = options.proposal;
-  let normalizedCandidate = normalizedReviewCandidate(proposed);
+  const proposed = options.proposal;
+  const normalizedCandidate = normalizedReviewCandidate(proposed);
   let rendering = false;
   const releaseReservation = () => {
     if (reservation) artifacts.release(reservation);
@@ -282,15 +251,12 @@ export async function prepareTutorUml(
       stage: "content",
       outcome: state === "not-useful" ? "not-provided" : state,
       graphicsProfile: TUTOR_UML_PROFILE,
-      graphicsMode: options.mode ?? "auto",
-      graphicAttempt: attempt,
       ...(reason ? { reason } : {}),
     });
     reportTutorReview({
       kind: "uml",
       profile: TUTOR_UML_PROFILE,
       state,
-      attempt,
       question: context.question,
       promptRevision: UML_PROMPT_REVISION,
       rendererRevision: UML_RENDERER_REVISION,
@@ -304,8 +270,8 @@ export async function prepareTutorUml(
       proposed === undefined
         ? undefined
         : validateTutorUmlProposal(proposed, context);
-    const initial = initialDisposition(primary, options.mode, report);
-    if (initial) return initial;
+    const initial = initialDisposition(primary, report);
+    if ("prepared" in initial) return initial.prepared;
     if (!(await renderer.available())) {
       report("unavailable", "renderer-unavailable");
       return { graphicStatus: "unavailable" };
@@ -320,31 +286,7 @@ export async function prepareTutorUml(
     options.signal?.addEventListener("abort", releaseReservation, {
       once: true,
     });
-    if (!primary?.ok) {
-      if (!provider.generateGraphic) {
-        report("unavailable", "provider-unavailable");
-        return { graphicStatus: "unavailable" };
-      }
-      attempt = 1;
-      beginTutorProviderAttempt();
-      reportTutorModel(options.model);
-      proposed = await generateProposal(
-        provider.generateGraphic.bind(provider),
-        context,
-        options,
-      );
-      normalizedCandidate = normalizedReviewCandidate(proposed);
-    }
-    const checked = validateTutorUmlProposal(proposed, context);
-    if (!checked.ok) {
-      report("rejected", checked.reason);
-      return { graphicStatus: "unavailable" };
-    }
-    if (checked.proposal.status === "not-useful") {
-      report("not-useful", checked.proposal.reason, checked.proposal);
-      return { graphicStatus: "not-useful" };
-    }
-    return await renderPreparedUml(checked.proposal, context, {
+    return await renderPreparedUml(initial.proposal, context, {
       renderer,
       artifacts,
       reservation,

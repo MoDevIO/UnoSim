@@ -101,10 +101,8 @@ function serverEntryLines(entry: TutorReviewServerEntry): string[] {
         ...line("Bewertung", entry.answerRating === undefined ? undefined : `${entry.answerRating}/5`, "      "),
         ...line("Antwortstil", entry.responseStyle, "      "), ...block("Mermaid", entry.mermaid, "      "),
       ];
-    case "graphic":
-      return [...line("Grafikanforderung", [entry.mode, entry.state, `Zusatzversuch ${entry.attempt}`, entry.promptRevision, entry.reason].filter(Boolean).join(", ")), ...block("Zugeordnete Frage", entry.question)];
     case "uml": {
-      const decision = [`${entry.state}, Zusatzversuch ${entry.attempt}`, entry.reason].filter(Boolean).join(", ");
+      const decision = [entry.state, entry.reason].filter(Boolean).join(", ");
       return [...line("UML-Profil", entry.profile), ...line("UML-Entscheidung", decision), ...line("UML-Renderer", entry.rendererRevision), ...block("UML-Vorschlag", entry.proposalJson)];
     }
     case "decision":
@@ -214,7 +212,6 @@ function nextLines(next: NonNullable<TutorReviewStep["response"]>["next"]): stri
 function requestLines(step: TutorReviewStep, refs: TutorReviewStepRefs): string[] {
   const request = step.request;
   return [
-    ...line("Grafikmodus", request?.graphicsMode),
     ...line("UML-Profil", request?.graphicsProfile),
     ...block("Beantwortete Frage", request?.askedQuestion),
     ...block("Antwort", request?.answer),

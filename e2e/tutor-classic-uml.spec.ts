@@ -15,8 +15,9 @@ const saved = { baseUrl: config.tutor.baseUrl, models: config.tutor.autoModels }
 let apiUrl: string;
 let proposal: unknown;
 let question = "";
+/** The model's next question after an answer; a repeat of the asked one would be replaced by the application. */
+let followUp = "";
 let sourceFile = "main.ino";
-let primaryHasDiagram = false;
 let unavailable = false;
 let modelCalls: string[] = [];
 let renderCalls = 0;
@@ -34,10 +35,10 @@ test.beforeAll(async () => {
   const provider = express(); provider.use(express.json());
   provider.get("/models", (_req, res) => res.json({ data: [{ id: "classic-model" }] }));
   provider.post("/chat/completions", (req, res) => {
-    const graphic = String(req.body.messages?.[0]?.content ?? "").startsWith("Erzeuge ausschließlich ein JSON-Objekt mit dem Feld diagram.");
     const dialog = String(req.body.messages?.[1]?.content ?? "").startsWith("Führe den sokratischen Lerndialog");
-    modelCalls.push(graphic ? "graphic" : dialog ? "dialog" : "initial");
-    const content = graphic ? { diagram: boundProposal() } : { question: dialog ? `Nächste Frage: ${question}` : question, responseStyle: "normal", ...(dialog ? { feedback: "Richtig.", answerRating: 5 } : {}), ...(primaryHasDiagram ? { diagram: boundProposal() } : {}) };
+    modelCalls.push(dialog ? "dialog" : "initial");
+    // The model proposes the diagram with its question; the application never asks for one separately.
+    const content = { question: dialog ? followUp || `Nächste Frage: ${question}` : question, responseStyle: "normal", ...(dialog ? { feedback: "Richtig.", answerRating: 5 } : {}), diagram: boundProposal() };
     res.json({ model: "classic-model", choices: [{ message: { content: JSON.stringify(content) } }] });
   });
   config.tutor.baseUrl = await listen(provider);
@@ -55,8 +56,8 @@ test.afterAll(async () => {
   config.tutor.baseUrl = saved.baseUrl;
   (config.tutor as { autoModels: readonly string[] }).autoModels = saved.models;
 });
-test.beforeEach(() => { modelCalls = []; renderCalls = 0; unavailable = false; primaryHasDiagram = false; lastResponse = {}; });
-async function open(page: Page, code: string, always = true) {
+test.beforeEach(() => { modelCalls = []; renderCalls = 0; unavailable = false; followUp = ""; lastResponse = {}; });
+async function open(page: Page, code: string) {
   await page.setViewportSize({ width: 1200, height: 1000 });
   await page.addInitScript(() => {
     localStorage.setItem("unoExperimentalWorkspaceLayout", "1");
@@ -74,14 +75,12 @@ async function open(page: Page, code: string, always = true) {
     lastResponse = await response.json();
     await route.fulfill({ status: response.status(), contentType: "application/json", body: JSON.stringify(lastResponse) });
   });
+  // The Tutor negotiates the UML profile from /api/config; a question asked before that goes out without it.
+  const configServed = page.waitForResponse("**/api/config");
   await page.goto("/");
+  await configServed;
   await page.waitForFunction(() => Boolean((globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__));
   await page.evaluate((value) => ((globalThis as unknown as Record<string, unknown>).__MONACO_EDITOR__ as { setValue(code: string): void }).setValue(value), code);
-  await page.evaluate(() => globalThis.dispatchEvent(new CustomEvent("open-settings")));
-  const toggle = page.getByRole("checkbox", { name: "Grafiken immer anfordern" });
-  await expect(toggle).not.toBeChecked();
-  if (always) await toggle.check();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByTestId("tutor-setup-action").click();
   await page.getByLabel("API-Key", { exact: true }).fill("CONTROLLED_UML_E2E_KEY");
   await page.getByTestId("tutor-apply-key").click();
@@ -113,7 +112,7 @@ for (const fixture of [
   if (fixture.name === "activity") { expect(result.polygons).toBeGreaterThanOrEqual(2); expect(result.ellipses).toBeGreaterThanOrEqual(2); }
   if (fixture.name === "class") expect(result.polygons).toBeGreaterThanOrEqual(1);
   if (fixture.name === "sequence") expect(result.dashed).toBeGreaterThanOrEqual(3);
-  expect(modelCalls).toEqual(["initial", "graphic"]); expect(renderCalls).toBe(1);
+  expect(modelCalls).toEqual(["initial"]); expect(renderCalls).toBe(1);
   await expect(page.getByTestId("tutor-uml").locator("svg")).toHaveCount(0);
   for (const scale of [1, 1.5]) for (const width of [320, 480, 800]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -137,26 +136,22 @@ for (const fixture of [
   const dialog = page.getByRole("dialog", { name: "UML-Grafik zur aktuellen Frage" }); await expect(dialog).toBeVisible();
   await expect(dialog.locator("img")).toHaveAttribute("src", url!);
   await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0); await expect(trigger).toBeFocused();
-  expect(modelCalls).toHaveLength(2); expect(renderCalls).toBe(1);
+  expect(modelCalls).toHaveLength(1); expect(renderCalls).toBe(1);
 });
 
-test("auto accepts a useful primary proposal without a graphic model call", async ({ page }) => {
-  proposal = classes; question = "Wie stehen Base und Child in Beziehung?"; primaryHasDiagram = true;
-  await open(page, classCode, false); await expect(page.getByTestId("tutor-uml").locator("img")).toBeVisible();
-  expect(modelCalls).toEqual(["initial"]); expect(renderCalls).toBe(1);
-});
 test("a next image stays hidden until Weiter and reuses its delivered rendering", async ({ page }) => {
   proposal = activity; question = "Wie verzweigt der Ablauf und wo treffen die beiden Pfade wieder zusammen?";
+  followUp = "Welche Anweisung wird in run nach on(); oder off(); in jedem Fall ausgeführt?";
   await open(page, activityCode); const previous = await page.getByTestId("tutor-uml").locator("img").getAttribute("src");
   await page.locator("#tutor-answer").fill("Beide Pfade erreichen after."); await page.getByTestId("tutor-send-answer").click();
   await expect(page.getByTestId("tutor-continue")).toBeVisible();
   const nextQuestion = String(lastResponse.question);
-  expect(nextQuestion).not.toBe(question);
+  expect(nextQuestion).toBe(followUp);
   await expect(page.getByTestId("tutor-question")).not.toContainText(nextQuestion);
   expect(await page.getByTestId("tutor-uml").locator("img").getAttribute("src")).toBe(previous);
-  expect(renderCalls).toBe(2); expect(modelCalls).toEqual(["initial", "graphic", "dialog", "graphic"]);
+  expect(renderCalls).toBe(2); expect(modelCalls).toEqual(["initial", "dialog"]);
   await page.getByTestId("tutor-continue").click(); await expect(page.getByTestId("tutor-question")).toContainText(nextQuestion);
-  await expect(page.getByTestId("tutor-uml").locator("img")).toBeVisible(); expect(renderCalls).toBe(2); expect(modelCalls).toHaveLength(4);
+  await expect(page.getByTestId("tutor-uml").locator("img")).toBeVisible(); expect(renderCalls).toBe(2); expect(modelCalls).toHaveLength(2);
 });
 for (const negative of [
   { name: "comment action", code: "void setup() {\n // on();\n}\nvoid loop() {}", question: "Wie wird on im Ablauf erreicht?", diagram: { ...activity, scope: { file: "main.ino", startLine: 1, endLine: 4 }, body: [{ type: "action", code: "on();", ref: { file: "main.ino", startLine: 2, endLine: 2 } }] } },
@@ -167,17 +162,17 @@ for (const negative of [
   await open(page, negative.code);
   await expect(page.getByText("Grafik konnte nicht bereitgestellt werden.", { exact: true })).toBeVisible();
   await expect(page.locator("#tutor-answer")).toBeEnabled(); await expect(page.getByTestId("tutor-uml")).toHaveCount(0);
-  expect(renderCalls).toBe(0); expect(modelCalls).toEqual(["initial", "graphic"]);
+  expect(renderCalls).toBe(0); expect(modelCalls).toEqual(["initial"]);
 });
 test("an explicit not-useful shows the question alone, without retry or busy spinner", async ({ page }) => {
   proposal = { version: 1, profile: "uml1-classic-v1", status: "not-useful", reason: "answer-leak", explanation: "Die Grafik würde die gesuchte Begründung verraten." }; question = it086Question;
   await open(page, it086Code);
   await expect(page.getByTestId("tutor-question")).toBeVisible();
   await expect(page.getByTestId("tutor-uml")).toHaveCount(0); await expect(page.getByText(/UML-Grafik/)).toHaveCount(0);
-  await expect(page.locator("#tutor-answer")).toBeEnabled(); expect(modelCalls).toEqual(["initial", "graphic"]); expect(renderCalls).toBe(0);
+  await expect(page.locator("#tutor-answer")).toBeEnabled(); expect(modelCalls).toEqual(["initial"]); expect(renderCalls).toBe(0);
   await expect(page.getByTestId("tutor-pending")).toBeEmpty();
 });
-test("known unavailable renderer keeps the text and avoids the graphic model call", async ({ page }) => {
+test("known unavailable renderer keeps the text", async ({ page }) => {
   unavailable = true; proposal = activity; question = "Wie verzweigt der Ablauf?";
   await open(page, activityCode);
   await expect(page.getByText("Grafik konnte nicht bereitgestellt werden.", { exact: true })).toBeVisible();
@@ -195,5 +190,5 @@ test("renders the pinned Arduino callback cycle without an invented endpoint", a
   expect(result.text.match(/setup\(\)/g)).toHaveLength(1);
   expect(result.text.match(/loop\(\)/g)).toHaveLength(1);
   expect(result.minFont).toBeGreaterThanOrEqual(14);
-  expect(modelCalls).toEqual(["initial", "graphic"]); expect(renderCalls).toBe(1);
+  expect(modelCalls).toEqual(["initial"]); expect(renderCalls).toBe(1);
 });

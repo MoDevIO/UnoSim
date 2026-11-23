@@ -1,4 +1,3 @@
-import { readTutorGraphicsMode, writeTutorGraphicsMode } from "@/lib/tutor-graphics-preference";
 import * as React from "react";
 import {
   Dialog,
@@ -99,7 +98,6 @@ export default function SettingsDialog({
   readonly onOpenChange: (open: boolean) => void;
   readonly capabilities?: ServerCapabilities;
 }) {
-  const [graphicsMode, setGraphicsMode] = React.useState(readTutorGraphicsMode);
   const [color, setColor] = React.useState<string>(() => {
     try {
       return globalThis.localStorage.getItem(STORAGE_KEY) || DEFAULT_COLOR;
@@ -340,15 +338,6 @@ export default function SettingsDialog({
             </SettingsRow>
           </SettingsSection>
 
-          <SettingsSection title="Tutor" description="Grafiken zu neu erzeugten Tutorfragen.">
-            <SettingsRow label="Grafiken immer anfordern" description="Fordert zu neuen Tutorfragen eine Grafik an. Das kann zusätzliche Wartezeit und Modellanfragen verursachen.">
-              <Checkbox aria-label="Grafiken immer anfordern" checked={graphicsMode === "always"} onCheckedChange={(value) => {
-                const mode = value === true ? "always" : "auto";
-                writeTutorGraphicsMode(mode);
-                setGraphicsMode(mode);
-              }} />
-            </SettingsRow>
-          </SettingsSection>
           <SimulationEngineSection />
           <SerialMonitorSection />
 

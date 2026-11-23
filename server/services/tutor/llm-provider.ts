@@ -56,8 +56,6 @@ export class TutorProviderError extends Error {
 }
 
 export interface LLMProvider {
-  /** One graphic-only generation, counted as a Tutor call rather than a Judge call. */
-  generateGraphic?(request: LLMProviderRequest, credential: string, signal?: AbortSignal): Promise<ProviderStructuredResult>;
   listModels(credential: string, signal?: AbortSignal): Promise<readonly string[]>;
   generateLearningQuestion(
     request: LLMProviderRequest,

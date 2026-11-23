@@ -529,8 +529,8 @@ An application that does not know the `aspects` field rejects the manifest as
 an unknown field; a repository therefore adds aspect files only after every
 consuming application supports them.
 
-The aspect files are used only while the application's aspect flow is switched
-on (`UNOSIM_TUTOR_ASPECT_PLANNING`); the flow is specified in
+The aspect files are used unless the learner switched planning by aspects off
+in the Tutor settings; the flow is specified in
 [TutorQualityGates section 9](ssot_function_definition_TutorQualityGates.md#9-aspect-flow).
 
 ## 8. Topic model

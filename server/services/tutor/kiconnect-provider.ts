@@ -278,10 +278,6 @@ export class KiconnectProvider implements LLMProvider, StructuredLLMProvider {
     }
   }
 
-  async generateGraphic(request: LLMProviderRequest, credential: string, signal?: AbortSignal): Promise<ProviderStructuredResult> {
-    return this.generateStructuredResponse({ ...request, temperature: tutorTemperatureFor(request.model) }, credential, signal);
-  }
-
   async generateStructuredResponse(
     request: StructuredLLMProviderRequest,
     credential: string,

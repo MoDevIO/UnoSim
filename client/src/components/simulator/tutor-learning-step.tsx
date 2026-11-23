@@ -5,7 +5,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } f
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
-import type { TutorAspectChoice, TutorSupportState } from "@shared/tutor";
+import type { TutorAspectChoice, TutorFocusProgress, TutorResponse, TutorSupportState } from "@shared/tutor";
+import { readTutorAspectPlanning } from "@/lib/tutor-aspect-preference";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
 import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
@@ -172,32 +173,46 @@ function useFeedbackInView(stepRef: RefObject<HTMLDivElement | null>, awaitingNe
   }, [awaitingNext, stepRef]);
 }
 
+/** Why the learner cannot choose an aspect right now; undefined when the choice is open. */
+function aspectChoiceNote(question: Pick<TutorResponse, "aspectChoices">, focusProgress: TutorFocusProgress | null): string | undefined {
+  if (!question.aspectChoices) return "Für diesen Sketch gibt es keine Aspekte in den Kursinhalten.";
+  if (question.aspectChoices.length === 0) return "Im Sketch ist noch kein Aspekt erkennbar.";
+  if (focusProgress?.state === "active") return "Erst die Fragen der Lehrkraft, danach kannst du einen Aspekt wählen.";
+  return undefined;
+}
+
 /**
  * Lets the learner choose the aspect of the sketch to deepen; "Automatik" leaves the order to the Tutor.
- * Choosing an aspect asks about it at once; while the next question is held the choice applies after it.
+ * While planning by aspects is on it is always there; when there is nothing to choose it is disabled and
+ * says why. Choosing an aspect asks about it at once; while the next question is held the choice applies
+ * after it.
  */
-function TutorAspectChooser({ choices, focus, disabled, onChoose }: {
+function TutorAspectChooser({ choices, focus, disabled, note, onChoose }: {
   readonly choices: readonly TutorAspectChoice[];
   readonly focus: string | null;
   readonly disabled: boolean;
+  readonly note?: string;
   readonly onChoose: (aspectId: string | null) => void;
 }) {
   const id = useId();
+  const noteId = useId();
   return (
-    <div className="flex min-w-0 items-center gap-2" data-testid="tutor-aspect-choice">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1" data-testid="tutor-aspect-choice">
       <label htmlFor={id} className="shrink-0 text-ui-xs font-semibold text-muted-foreground">Vertiefen</label>
       <select
         id={id}
-        value={focus ?? ""}
-        disabled={disabled}
+        value={note ? "" : focus ?? ""}
+        disabled={disabled || note !== undefined}
+        aria-describedby={note ? noteId : undefined}
         onChange={(event) => onChoose(event.target.value || null)}
-        className="w-auto min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-0.5 text-ui-xs text-foreground"
+        className="w-auto min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-0.5 text-ui-xs text-foreground disabled:opacity-60"
       >
         <option value="">Automatik</option>
-        {choices.map(({ id: aspectId, title, state }) => (
+        {!note && choices.map(({ id: aspectId, title, state }) => (
           <option key={aspectId} value={aspectId}>{state === "shown" ? `${title} ✓` : title}</option>
         ))}
       </select>
+      {note && <span id={noteId} className="min-w-0 text-ui-xs text-muted-foreground" data-testid="tutor-aspect-note">{note}</span>}
     </div>
   );
 }
@@ -247,8 +262,8 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
           <TutorEntry entry={skippedEntry} placement="previous" />
         </section>
       )}
-      {question.aspectChoices && question.aspectChoices.length > 1 && (
-        <TutorAspectChooser choices={question.aspectChoices} focus={tutor.aspectFocus} disabled={tutor.isLoading} onChoose={actions.chooseAspect} />
+      {readTutorAspectPlanning() && (
+        <TutorAspectChooser choices={question.aspectChoices ?? []} focus={tutor.aspectFocus} disabled={tutor.isLoading} note={aspectChoiceNote(question, tutor.focusProgress)} onChoose={actions.chooseAspect} />
       )}
       <section aria-labelledby={headingId} data-testid="tutor-question" className="min-w-0">
         <h3 id={headingId} className="text-ui-xs font-semibold text-muted-foreground">{questionHeading}</h3>

@@ -15,6 +15,8 @@ export interface TutorPlanningContentContext {
   readonly progressionState?: TutorProgressionState;
   /** The request can show a diagram the application builds (negotiated profile, renderer available). */
   readonly diagrams?: boolean;
+  /** The learner switched planning by the aspects of the sketch off; the Topic catalog plans instead. */
+  readonly aspectPlanning?: false;
 }
 
 /**
@@ -212,4 +214,10 @@ export interface TutorPlanningExtension {
     readonly exampleId?: string;
     readonly courseContent?: TutorPlanningContentContext;
   }): { readonly kind: "activity" | "activity-error"; readonly siteCode: string } | undefined;
+  /** The aspects of the sketch to choose from with any delivered turn; undefined while the aspect flow is off. */
+  aspectChoices?(input: {
+    readonly code: string;
+    readonly exampleId?: string;
+    readonly courseContent?: TutorPlanningContentContext;
+  }): Pick<TutorPlan, "aspectChoices" | "aspectFocus"> | undefined;
 }

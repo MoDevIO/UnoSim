@@ -358,6 +358,25 @@ describe("Tutor model transparency (LearningQuestions 7.3, 10.9)", () => {
     fireEvent.click(screen.getByTestId("tutor-clear-key"));
     expect(tutor.clearCredential).toHaveBeenCalledOnce();
   });
+
+  it("plans by aspects until the learner switches it off, then sends the switch with each request", async () => {
+    try {
+      settings("auto", null);
+      const toggle = screen.getByRole("checkbox", { name: "Nach Aspekten des Sketches fragen" });
+      expect(toggle).toBeChecked();
+      const bodies = mockServer({ "/api/tutor/question": () => json({ question: QUESTION, provider: "kiconnect", model: "m", support: support() }) });
+      await startDialog();
+      expect(bodies.find(({ url }) => url === "/api/tutor/question")?.body).not.toHaveProperty("aspectPlanning");
+
+      fireEvent.click(toggle);
+      expect(toggle).not.toBeChecked();
+      expect(localStorage.getItem("unoTutorAspectPlanning")).toBe("off");
+      await startDialog();
+      expect(bodies.filter(({ url }) => url === "/api/tutor/question").at(-1)?.body.aspectPlanning).toBe(false);
+    } finally {
+      localStorage.removeItem("unoTutorAspectPlanning");
+    }
+  });
 });
 
 describe("Tutor retry repeats exactly the request that failed (review R1)", () => {

@@ -1,14 +1,17 @@
 import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { TutorPanelState } from "@/hooks/use-tutor";
 import { getStatusTextClass } from "@/lib/status-semantics";
+import { readTutorAspectPlanning, writeTutorAspectPlanning } from "@/lib/tutor-aspect-preference";
 import { TutorTransparencyNote } from "./tutor-text";
 
 const FIELD = "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-ui-sm text-foreground outline-hidden focus-visible:ring-1 focus-visible:ring-ring";
 const FIELD_LABEL = "text-ui-xs font-medium text-foreground";
 
 /**
- * Access, model and difficulty (LearningQuestions 10.8, 10.9); loaded when the learner opens it, the page's
+ * Access, model, difficulty (LearningQuestions 10.8, 10.9) and planning by aspects; loaded when the learner opens it, the page's
  * start does not need it. Opening and leaving it keep the question, the draft and the history.
  */
 export function TutorSettingsView({ tutor, onApply, hasQuestion = false }: {
@@ -18,6 +21,7 @@ export function TutorSettingsView({ tutor, onApply, hasQuestion = false }: {
   readonly hasQuestion?: boolean;
 }) {
   const serverMissing = !tutor.capabilities.canUseTutor;
+  const [aspectPlanning, setAspectPlanning] = useState(readTutorAspectPlanning);
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-4 text-left pr-[calc(1rem+var(--ui-floating-nav-inset))]" data-testid="tutor-api-key-view">
       <div>
@@ -92,6 +96,25 @@ export function TutorSettingsView({ tutor, onApply, hasQuestion = false }: {
           />
           <p className="mt-1 text-ui-xs text-muted-foreground" data-testid="tutor-effective-difficulty">
             Aktuelle Schwierigkeit dieser Lernrunde: {tutor.effectiveDifficulty} von 100. Der Tutor passt sie nach bewerteten Antworten an.
+          </p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="tutor-aspect-planning"
+              checked={aspectPlanning}
+              onCheckedChange={(value) => {
+                writeTutorAspectPlanning(value === true);
+                setAspectPlanning(value === true);
+              }}
+              aria-describedby="tutor-aspect-planning-help"
+              data-testid="tutor-aspect-planning"
+            />
+            <label htmlFor="tutor-aspect-planning" className={FIELD_LABEL}>Nach Aspekten des Sketches fragen</label>
+          </div>
+          <p id="tutor-aspect-planning-help" className="mt-1 text-ui-xs text-muted-foreground">
+            Der Tutor wählt seine Fragen nach den Aspekten des Sketches, etwa Variablen, Verzweigungen oder Schleifen, und bietet sie zur Auswahl an. Ausgeschaltet fragt er nach den Themen der Kursinhalte. Gilt ab der nächsten Frage.
           </p>
         </div>
 
