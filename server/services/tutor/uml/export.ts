@@ -24,29 +24,27 @@ const preamble = [
   "skinparam classBackgroundColor #FFFFFF",
   "skinparam participantBackgroundColor #FFFFFF",
 ];
-/** Only an excerpt shows a return inside a branch: the function ends there, the path does not rejoin. */
-const ENDS_WITH_RETURN = /(?:^|\n)return\b[^\n]*$/;
 /**
  * UML notation: the decision node stays empty, each outgoing edge carries its guard in brackets, and the
- * edge taken otherwise is `[sonst]`.
+ * edge taken otherwise is `[sonst]`. Both edges rejoin in a merge node, also after a `return` (its action
+ * still shows it). A decision is a two-case `switch`: unlike `if`, it gives an empty branch its own column,
+ * so no guard is drawn across the other branch's edge.
  */
-function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] {
+function activity(steps: readonly UmlActivityStep[]): string[] {
   return steps.flatMap((step) => {
-    if (step.type === "action")
-      return excerpt && ENDS_WITH_RETURN.test(step.code)
-        ? [`:${literal(step.code)};`, "stop"]
-        : [`:${literal(step.code)};`];
+    if (step.type === "action") return [`:${literal(step.code)};`];
     if (step.type === "decision")
       return [
-        `if () then ([${literal(step.condition)}])`,
-        ...activity(step.whenTrue, excerpt),
-        "else ([sonst])",
-        ...activity(step.whenFalse, excerpt),
-        "endif",
+        "switch ()",
+        `case ([${literal(step.condition)}])`,
+        ...activity(step.whenTrue),
+        "case ([sonst])",
+        ...activity(step.whenFalse),
+        "endswitch",
       ];
     return [
       `while () is ([${literal(step.condition)}])`,
-      ...activity(step.body, excerpt),
+      ...activity(step.body),
       "endwhile ([sonst])",
     ];
   });
@@ -56,7 +54,6 @@ function activityDiagram(
 ): string[] {
   const output = [
     "skinparam conditionEndStyle diamond",
-    "skinparam conditionStyle InsideDiamond",
     "skinparam activityBackgroundColor #FFFFFF",
     "skinparam activityBorderColor #202020",
     "start",
@@ -75,7 +72,7 @@ function activityDiagram(
   else if ("excerpt" in proposal)
     output.push(
       `title ${proposal.excerpt === "statement-with-error" ? "Ausschnitt mit einem eingebauten Fehler" : "Ausschnitt"}: Zeilen ${proposal.scope.startLine} bis ${proposal.scope.endLine}`,
-      ...activity(proposal.body, true),
+      ...activity(proposal.body),
       "stop",
     );
   else output.push(...activity(proposal.body), "stop");
