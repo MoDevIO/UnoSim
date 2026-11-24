@@ -192,6 +192,16 @@ export const tutorModelsResponseSchema = z
   })
   .strict();
 
+/** The aspects a new learning round can start with (`POST /api/tutor/aspects`); empty fields as in a question. */
+export const tutorStartAspectsResponseSchema = z
+  .object({
+    aspectChoices: boundedArray(tutorAspectChoiceSchema, 16).optional(),
+    aspectFocus: tutorAspectIdSchema.optional(),
+    focusProgress: tutorFocusProgressSchema.optional(),
+  })
+  .strict();
+export type TutorStartAspects = z.infer<typeof tutorStartAspectsResponseSchema>;
+
 export const tutorContentResultSchema = z.preprocess(withDefaultResponseStyle, tutorContentResultUnionSchema);
 
 export type TutorContentResult = z.infer<typeof tutorContentResultSchema>;

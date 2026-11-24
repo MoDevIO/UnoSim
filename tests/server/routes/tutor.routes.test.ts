@@ -674,6 +674,57 @@ describe("Tutor Course Content session lifecycle", () => {
     expect(invalid.status).toBe(400);
   });
 
+  it("plans the first question of a fresh session for the aspect chosen on the start screen", async () => {
+    const service = { generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }) };
+    const { url } = await startSessions(service);
+
+    const response = await post(url, "/api/tutor/question", { ...questionBody, aspectFocus: "variables" });
+
+    expect(response.status).toBe(200);
+    const planned = service.generateQuestion.mock.calls[0]?.[4] as { progressionState: { aspects?: { focusAspectId?: string } } };
+    expect(planned.progressionState.aspects?.focusAspectId).toBe("variables");
+  });
+
+  it("looks up the start aspects without a credential, a provider or a session", async () => {
+    const aspects = { aspectChoices: [{ id: "variables", title: "Variablen", state: "open" }] };
+    const service = { startAspects: vi.fn().mockResolvedValue(aspects), generateQuestion: vi.fn() };
+    const { url, store } = await startSessions(service);
+
+    const response = await post(url, "/api/tutor/aspects", { code: "int x = 1;", board: "uno", courseContent, aspectPlanning: false });
+
+    expect(response).toEqual({ status: 200, body: aspects });
+    const input = service.startAspects.mock.calls[0]?.[0] as { code: string; source: unknown; courseContent: { aspectPlanning?: false } };
+    expect([input.code, input.source, input.courseContent.aspectPlanning]).toEqual(["int x = 1;", "uno", false]);
+    expect(service.generateQuestion).not.toHaveBeenCalled();
+    expect(store.stats().sessions).toBe(0);
+    expect((await post(url, "/api/tutor/aspects", { code: "int x;", credential: "secret" })).status).toBe(400);
+  });
+
+  it("gives the start aspects their own allowance, apart from questions and answers", async () => {
+    const tutorLimiter = { checkLimit: vi.fn().mockReturnValue({ allowed: true }) };
+    const aspectsLimiter = { checkLimit: vi.fn().mockReturnValue({ allowed: false, retryAfter: 7 }) };
+    const app = express();
+    app.use(express.json());
+    app.use((_req, res, next) => {
+      res.locals.unosimIdentity = { subject: "local.learner-a", roles: ["user"] };
+      next();
+    });
+    registerTutorRoutes(app, {
+      service: { startAspects: vi.fn() } as never,
+      rateLimiter: tutorLimiter,
+      aspectsRateLimiter: aspectsLimiter,
+      logger: { warn: vi.fn(), error: vi.fn() },
+    });
+    const listening = await listen(app);
+    server = listening.server;
+
+    const response = await post(listening.url, "/api/tutor/aspects", { code: "int x;" });
+
+    expect(response.status).toBe(429);
+    expect(aspectsLimiter.checkLimit).toHaveBeenCalledWith("local.learner-a");
+    expect(tutorLimiter.checkLimit).not.toHaveBeenCalled();
+  });
+
   it("marks the planner's content of one request when the learner switched planning by aspects off", async () => {
     const service = {
       generateQuestion: vi.fn().mockResolvedValue({ model: "pilot-model", result: { question: "Frage?" } }),

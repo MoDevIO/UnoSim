@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { TutorPanelState, TutorTranscriptEntry } from "@/hooks/use-tutor";
 import type { TutorAspectChoice, TutorFocusProgress, TutorResponse, TutorSupportState } from "@shared/tutor";
 import { readTutorAspectPlanning } from "@/lib/tutor-aspect-preference";
+import { startAspectFocus } from "@/hooks/use-tutor-start-aspects";
 import { TutorEntry, TutorHelpOffer } from "./tutor-dialog-parts";
 import { PENDING_LABELS, TutorErrorNotice, TutorPending, type TutorPanelActions } from "./tutor-panel-status";
 import { TutorText, TutorTransparencyNote } from "./tutor-text";
@@ -181,11 +182,18 @@ function aspectChoiceNote(question: Pick<TutorResponse, "aspectChoices">, focusP
   return undefined;
 }
 
+/** Why the start screen offers no aspect; undefined while the choice is open or still looked up. */
+function startAspectNote(state: TutorPanelState["startAspects"]): string | undefined {
+  if (state.status === "failed") return "Die Aspekte des Sketches lassen sich gerade nicht ermitteln.";
+  if (state.status !== "ready") return undefined;
+  return aspectChoiceNote(state.aspects, state.aspects.focusProgress ?? null);
+}
+
 /**
  * Lets the learner choose the aspect of the sketch to deepen; "Automatik" leaves the order to the Tutor.
  * While planning by aspects is on it is always there; when there is nothing to choose it is disabled and
- * says why. Choosing an aspect asks about it at once; while the next question is held the choice applies
- * after it.
+ * says why. With an open question, choosing an aspect asks about it at once; while the next question is
+ * held the choice applies after it. On the start screen it is only noted for the first question.
  */
 function TutorAspectChooser({ choices, focus, disabled, note, onChoose }: {
   readonly choices: readonly TutorAspectChoice[];
@@ -325,6 +333,15 @@ export function TutorLearningStep({ tutor, actions }: {
 
         {credentialConfigured && !question && (
           <div className="flex flex-col items-start gap-3" data-testid="tutor-start">
+            {readTutorAspectPlanning() && (
+              <TutorAspectChooser
+                choices={tutor.startAspects.status === "ready" ? tutor.startAspects.aspects.aspectChoices ?? [] : []}
+                focus={startAspectFocus(tutor.startAspects, tutor.aspectFocus) ?? null}
+                disabled={tutor.isLoading || tutor.startAspects.status !== "ready"}
+                note={startAspectNote(tutor.startAspects)}
+                onChoose={actions.chooseAspect}
+              />
+            )}
             {last && <TutorEntry entry={last} placement="previous" />}
             {tutor.completed ? (
               <output className="text-foreground" aria-live="polite" data-testid="tutor-completed">
@@ -335,7 +352,7 @@ export function TutorLearningStep({ tutor, actions }: {
             )}
             <Button
               type="button"
-              onClick={tutor.completed ? actions.startNewRound : actions.startQuestion}
+              onClick={actions.startQuestion}
               disabled={tutor.isLoading || !canRequest}
               data-testid="tutor-start-question"
             >

@@ -26,6 +26,8 @@ const TutorHistoryView = React.lazy(() => import("./tutor-dialog-parts").then((m
 const TutorLearningStep = React.lazy(() => import("./tutor-learning-step").then((module) => ({ default: module.TutorLearningStep })));
 const TutorSettingsView = React.lazy(() => import("./tutor-settings-view").then((module) => ({ default: module.TutorSettingsView })));
 import { ensureExternalExamplesCatalog } from "@/lib/external-examples";
+import { startAspectFocus } from "@/hooks/use-tutor-start-aspects";
+import { readTutorAspectPlanning } from "@/lib/tutor-aspect-preference";
 import { getTutorQuestionVisualState } from "@/lib/tutor-visual-state";
 import { getStatusTextClass } from "@/lib/status-semantics";
 import {
@@ -269,11 +271,18 @@ function TutorPlaceholder({
   const tutorIdentityClassName = getStatusTextClass(tutorReady ? "success" : "idle");
   const request = sketch ?? code;
   const hasHistory = tutor ? tutor.transcript.length > 0 || tutor.focusProgress !== null : false;
+  // The start screen offers the aspects of the sketch before the first question.
+  const startScreen = tutor !== undefined && view === "step" && tutor.capabilities.canUseTutor
+    && tutor.credential.trim().length > 0 && tutor.question === null && readTutorAspectPlanning();
+  const refreshStartAspects = tutor?.refreshStartAspects;
+  useEffect(() => {
+    if (startScreen && refreshStartAspects) refreshStartAspects(request);
+  }, [refreshStartAspects, request, startScreen]);
 
   const actions: TutorPanelActions | null = tutor ? {
     startQuestion: () => {
       ensureExternalExamplesCatalog();
-      void tutor.generateQuestion(request);
+      void tutor.generateQuestion(request, startAspectFocus(tutor.startAspects, tutor.aspectFocus));
     },
     startNewRound: () => {
       setView("step");

@@ -331,6 +331,7 @@ describe("experimental workspace layout", () => {
       setCredential: vi.fn(), clearCredential: vi.fn(), selectedModel: "auto", setSelectedModel: vi.fn(), lastUsedModel: null,
       configuredDifficulty: 30, effectiveDifficulty: 30, setConfiguredDifficulty: vi.fn(), sessionRating: null, ratedAnswerCount: 0,
       availableModels: [], modelsLoading: false, loadModels: vi.fn(), question: null, focusProgress: null, history: [], transcript: [],
+      aspectFocus: null as string | null, setAspectFocus: vi.fn(), startAspects: { status: "idle" } as TutorPanelState["startAspects"], refreshStartAspects: vi.fn(),
       support: null, completed: false, requestSupport: vi.fn(), answer: "", setAnswer: vi.fn(), submitAnswer: vi.fn(), resetDialog: vi.fn(),
       isLoading: false, error: null, errorCode: null, failedRequest: null, retryFor: () => null, awaitingNext: false, continueToNextQuestion: vi.fn(), pendingRequest: "question", generateQuestion,
     } satisfies TutorPanelState;
@@ -348,8 +349,29 @@ describe("experimental workspace layout", () => {
     fireEvent.click(screen.getByTestId("tutor-apply-key"));
     expect(screen.queryByTestId("tutor-setup-action")).not.toBeInTheDocument();
     expect(screen.getByTestId("tutor-transparency")).toBeInTheDocument();
+    // The start screen looks up the aspects of the sketch; until they are known the list cannot be used.
+    expect(base.refreshStartAspects).toHaveBeenCalledWith("void setup(){}");
+    expect(screen.getByLabelText("Vertiefen")).toBeDisabled();
     fireEvent.click(screen.getByTestId("tutor-start-question"));
-    expect(generateQuestion).toHaveBeenCalledWith("void setup(){}");
+    expect(generateQuestion).toHaveBeenCalledWith("void setup(){}", undefined);
+
+    // An aspect chosen on the start screen is only noted; the first question is planned for it.
+    const startAspects = { status: "ready", aspects: { aspectChoices: [{ id: "variables", title: "Variablen", state: "open" }] } } as const;
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key", startAspects }} />);
+    const list = screen.getByLabelText("Vertiefen") as HTMLSelectElement;
+    expect([...list.options].map(({ text }) => text)).toEqual(["Automatik", "Variablen"]);
+    fireEvent.change(list, { target: { value: "variables" } });
+    expect(base.setAspectFocus).toHaveBeenCalledWith("variables", "void setup(){}");
+    expect(generateQuestion).toHaveBeenCalledOnce();
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key", startAspects, aspectFocus: "variables" }} />);
+    expect(screen.getByLabelText("Vertiefen")).toHaveValue("variables");
+    fireEvent.click(screen.getByTestId("tutor-start-question"));
+    expect(generateQuestion).toHaveBeenLastCalledWith("void setup(){}", "variables");
+    // A choice the sketch no longer offers is not sent.
+    rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key", startAspects, aspectFocus: "branching" }} />);
+    expect(screen.getByLabelText("Vertiefen")).toHaveValue("");
+    fireEvent.click(screen.getByTestId("tutor-start-question"));
+    expect(generateQuestion).toHaveBeenLastCalledWith("void setup(){}", undefined);
 
     rerender(<TutorWorkspacePlaceholder code="void setup(){}" tutor={{ ...base, credential: "key", isLoading: true }} />);
     expect(screen.getByTestId("tutor-start-question")).toBeDisabled();

@@ -174,3 +174,23 @@ export class TutorRateLimiter extends IdentityRateLimiter {
 
 export const getTutorRateLimiter = (): TutorRateLimiter =>
   TutorRateLimiter.getInstance();
+
+/**
+ * The start screen looks up the aspects of the sketch while the learner edits it; that asks no provider, so
+ * it has its own allowance and never uses up the one for questions and answers.
+ */
+export class TutorAspectsRateLimiter extends IdentityRateLimiter {
+  private static instance: TutorAspectsRateLimiter | null = null;
+
+  private constructor(config: Partial<RateLimitConfig> = {}) {
+    super("Tutor aspects", { maxRequests: 60, windowMs: 60_000, blockDurationMs: 30_000, ...config });
+  }
+
+  static getInstance(config?: Partial<RateLimitConfig>): TutorAspectsRateLimiter {
+    TutorAspectsRateLimiter.instance ??= new TutorAspectsRateLimiter(config);
+    return TutorAspectsRateLimiter.instance;
+  }
+}
+
+export const getTutorAspectsRateLimiter = (): TutorAspectsRateLimiter =>
+  TutorAspectsRateLimiter.getInstance();

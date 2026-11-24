@@ -10,10 +10,11 @@ import {
   tutorDialogRequestSchema,
   tutorModelsRequestSchema,
   tutorQuestionRequestSchema,
+  tutorStartAspectsRequestSchema,
 } from "@shared/tutor-requests";
 import { config } from "../config";
 import { Logger } from "@shared/logger";
-import { getTutorRateLimiter } from "../services/rate-limiter";
+import { getTutorAspectsRateLimiter, getTutorRateLimiter } from "../services/rate-limiter";
 import { KiconnectProvider } from "../services/tutor/kiconnect-provider";
 import { TutorProviderError } from "../services/tutor/llm-provider";
 import type { TutorService } from "../services/tutor/tutor-service";
@@ -48,6 +49,8 @@ type TutorRouteDeps = {
       identity: string,
     ) => { allowed: true } | { allowed: false; retryAfter: number };
   };
+  /** The allowance of the start screen's aspect lookup; it asks no provider. */
+  readonly aspectsRateLimiter?: NonNullable<TutorRouteDeps["rateLimiter"]>;
   readonly disableRateLimit?: boolean;
   readonly courseContent?: TutorCourseContentResolver;
   readonly sessionStore?: TutorCourseContentSessionStore;
@@ -92,6 +95,9 @@ export function registerTutorRoutes(
   const rateLimiter =
     deps.rateLimiter ??
     (deps.disableRateLimit ? undefined : getTutorRateLimiter());
+  const aspectsRateLimiter =
+    deps.aspectsRateLimiter ??
+    (deps.disableRateLimit ? undefined : getTutorAspectsRateLimiter());
   const sessionStore =
     deps.sessionStore ?? new TutorCourseContentSessionStore();
   const supportStore =
@@ -199,6 +205,51 @@ export function registerTutorRoutes(
         500,
         "PROVIDER_UNAVAILABLE",
         "Die Tutor-Anfrage ist fehlgeschlagen.",
+      );
+    }
+  });
+
+  // The aspects a new learning round can start with: no provider, no credential, no session (a new round
+  // starts a fresh one), so the learner can choose before the first question.
+  app.post("/api/tutor/aspects", async (req, res) => {
+    const signal = bindRequestAbortSignal(req, res);
+    if (!enforceTutorRateLimit(res, { ...deps, rateLimiter: aspectsRateLimiter }))
+      return;
+
+    const parsed = tutorStartAspectsRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      responseError(res, 400, "INVALID_REQUEST", "Der Sketch ist ungültig.");
+      return;
+    }
+
+    try {
+      const content = await resolveTutorContent(
+        req,
+        res,
+        parsed.data.courseContent,
+        undefined,
+        deps.courseContent,
+        sessionStore,
+        signal,
+      );
+      if (signal.aborted || res.headersSent) return;
+      const [source] = tutorSource(parsed.data);
+      const aspects = await service.startAspects({
+        code: parsed.data.code,
+        source,
+        courseContent: planningContent(content, parsed.data.aspectPlanning),
+        graphicsProfile: parsed.data.graphicsProfile,
+      });
+      if (signal.aborted) return;
+      res.json(aspects);
+    } catch {
+      if (signal.aborted) return;
+      logger.error("Tutor aspect lookup failed");
+      responseError(
+        res,
+        500,
+        "PROVIDER_UNAVAILABLE",
+        "Die Aspekte des Sketches konnten nicht ermittelt werden.",
       );
     }
   });
