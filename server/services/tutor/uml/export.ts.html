@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>55/55</span>
+                <span class='fraction'>54/54</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.93% </span>
+                <span class="strong">92.85% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>31/33</span>
+                <span class='fraction'>26/28</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>48/48</span>
+                <span class='fraction'>46/46</span>
             </div>
         
             
@@ -203,10 +203,7 @@
 <a name='L138'></a><a href='#L138'>138</a>
 <a name='L139'></a><a href='#L139'>139</a>
 <a name='L140'></a><a href='#L140'>140</a>
-<a name='L141'></a><a href='#L141'>141</a>
-<a name='L142'></a><a href='#L142'>142</a>
-<a name='L143'></a><a href='#L143'>143</a>
-<a name='L144'></a><a href='#L144'>144</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L141'></a><a href='#L141'>141</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -233,7 +230,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -241,11 +238,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">49x</span>
 <span class="cline-any cline-yes">53x</span>
-<span class="cline-any cline-yes">42x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -263,7 +258,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">27x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -375,29 +369,27 @@ const preamble = [
   "skinparam classBackgroundColor #FFFFFF",
   "skinparam participantBackgroundColor #FFFFFF",
 ];
-/** Only an excerpt shows a return inside a branch: the function ends there, the path does not rejoin. */
-const ENDS_WITH_RETURN = /(?:^|\n)return\b[^\n]*$/;
 /**
  * UML notation: the decision node stays empty, each outgoing edge carries its guard in brackets, and the
- * edge taken otherwise is `[sonst]`.
+ * edge taken otherwise is `[sonst]`. Both edges rejoin in a merge node, also after a `return` (its action
+ * still shows it). A decision is a two-case `switch`: unlike `if`, it gives an empty branch its own column,
+ * so no guard is drawn across the other branch's edge.
  */
-function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] {
+function activity(steps: readonly UmlActivityStep[]): string[] {
   return steps.flatMap((step) =&gt; {
-    if (step.type === "action")
-      return excerpt &amp;&amp; ENDS_WITH_RETURN.test(step.code)
-        ? [`:${literal(step.code)};`, "stop"]
-        : [`:${literal(step.code)};`];
+    if (step.type === "action") return [`:${literal(step.code)};`];
     if (step.type === "decision")
       return [
-        `if () then ([${literal(step.condition)}])`,
-        ...activity(step.whenTrue, excerpt),
-        "else ([sonst])",
-        ...activity(step.whenFalse, excerpt),
-        "endif",
+        "switch ()",
+        `case ([${literal(step.condition)}])`,
+        ...activity(step.whenTrue),
+        "case ([sonst])",
+        ...activity(step.whenFalse),
+        "endswitch",
       ];
     return [
       `while () is ([${literal(step.condition)}])`,
-      ...activity(step.body, excerpt),
+      ...activity(step.body),
       "endwhile ([sonst])",
     ];
   });
@@ -407,7 +399,6 @@ function activityDiagram(
 ): string[] {
   const output = [
     "skinparam conditionEndStyle diamond",
-    "skinparam conditionStyle InsideDiamond",
     "skinparam activityBackgroundColor #FFFFFF",
     "skinparam activityBorderColor #202020",
     "start",
@@ -426,7 +417,7 @@ function activityDiagram(
   else if ("excerpt" in proposal)
     output.push(
       `title ${proposal.excerpt === "statement-with-error" ? "Ausschnitt mit einem eingebauten Fehler" : "Ausschnitt"}: Zeilen ${proposal.scope.startLine} bis ${proposal.scope.endLine}`,
-      ...activity(proposal.body, true),
+      ...activity(proposal.body),
       "stop",
     );
   else output.push(...activity(proposal.body), "stop");
@@ -499,7 +490,7 @@ export function exportTutorUml(proposal: ValidUmlProposal): string {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-11-23T19:07:49.824Z
+                at 2026-11-24T06:09:14.750Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
