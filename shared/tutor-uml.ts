@@ -93,6 +93,17 @@ export const umlExcerptActivityProposalSchema = z.strictObject({
   /** `statement-with-error`: the application changed exactly one place, for a find-the-error question. */
   excerpt: z.enum(["statement", "statement-with-error"]),
   body: boundedArray(stepSchema, 12, 1),
+  /**
+   * The decision stands directly in `loop()`, where a return starts the next pass. `inputs` are the
+   * statements of `loop()` before it that set the variables of its condition: the next pass runs them again.
+   * Empty when the condition reads its value itself, as `digitalRead(2) == LOW` does.
+   */
+  enclosing: z
+    .strictObject({
+      function: z.literal("loop"),
+      inputs: boundedArray(z.strictObject({ type: z.literal("action"), code: text, ref: umlSourceRefSchema }), 3),
+    })
+    .optional(),
 });
 export type UmlExcerptActivityProposal = z.infer<
   typeof umlExcerptActivityProposalSchema

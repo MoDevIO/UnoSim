@@ -31,16 +31,67 @@ describe("activity excerpt built from the code", () => {
     expect(first.whenFalse).toMatchObject([{ type: "decision", condition: "temperature > TEMP_MAX" }]);
   });
 
-  it("rejoins a branch with an early return in a merge and ends the excerpt once", () => {
+  it("leads a return in loop() back to the statement that sets the condition, through a merge node (review6)", () => {
     const { proposal, source } = valid(TEMPERATURE_CONTROLLER, "(raw == 0)");
-    const [first] = proposal.body;
-    if (first.type !== "decision") throw new Error("decision expected");
-    expect(first.whenFalse).toEqual([]);
-    expect(first.whenTrue.at(-1)).toMatchObject({ type: "action" });
+    expect(proposal.enclosing).toEqual({ function: "loop", inputs: [{ type: "action", code: "int raw = analogRead(sensorPin);", ref: { file: "sketch.ino", startLine: 16, endLine: 16 } }] });
     const lines = source.split("\n");
-    expect(lines.filter((line) => line === "stop")).toHaveLength(1);
-    expect(lines.at(-2)).toBe("stop");
-    expect(lines[lines.findIndex((line) => line.includes("return")) + 1]).toBe("case ([sonst])");
+    const start = lines.indexOf("repeat");
+    // The merge node, then the statement that reads raw with its line as a note.
+    expect(lines.slice(start, start + 3)).toEqual(["repeat", ":int raw <U+003D> analogRead<U+0028>sensorPin<U+0029><U+003B>;", "note right: Zeile 16"]);
+    // The branch with its return is the one node on the way back; the decision is the loop's own node.
+    expect(lines.find((line) => line.startsWith("backward :"))).toMatch(/return<U\+003B>;$/);
+    expect(lines).toContain("repeat while () is ([raw <U+003D><U+003D> 0]) not ([sonst])");
+    expect(lines).not.toContain("stop");
+    expect(lines.slice(-4)).toEqual(["(A)", `note right: weiter nach Zeile ${proposal.scope.endLine}`, "detach", "@enduml"]);
+  });
+
+  it("leads a return back to the decision itself when its condition reads the value itself", () => {
+    const code = sketch("  if (digitalRead(2) == LOW) {\n    digitalWrite(8, LOW);\n    return;\n  }\n  delay(1);");
+    const { proposal, source } = valid(code, "digitalRead(2) == LOW");
+    expect(proposal.enclosing).toEqual({ function: "loop", inputs: [] });
+    const lines = source.split("\n");
+    // The merge node leads straight to the decision: the next pass reads the pin again there.
+    expect(lines[lines.indexOf("repeat") + 1]).toMatch(/^backward :/);
+    expect(lines).toContain("repeat while () is ([digitalRead<U+0028>2<U+0029> <U+003D><U+003D> LOW]) not ([sonst])");
+    expect(lines).not.toContain("stop");
+  });
+
+  it("widens a narrow node on the way back, so that the way up passes beside its guard", () => {
+    const code = sketch("  if (digitalRead(2) == LOW) {\n    return;\n  }\n  delay(1);");
+    const back = valid(code, "digitalRead(2) == LOW").source.split("\n").find((line) => line.startsWith("backward :")) ?? "";
+    const guard = "[digitalRead(2) == LOW]";
+    expect(back).toMatch(/^backward :return<U\+003B>(<U\+00A0>)+;$/);
+    expect(back.match(/<U\+00A0>/g)?.length ?? 0).toBeGreaterThanOrEqual(2 * guard.length - "return;".length);
+    // A node wide enough already keeps its text as it is.
+    expect(valid(TEMPERATURE_CONTROLLER, "(raw == 0)").source).not.toContain("<U+00A0>");
+  });
+
+  it("rejects an excerpt whose loop() inputs were changed", () => {
+    const { proposal } = valid(TEMPERATURE_CONTROLLER, "(raw == 0)");
+    const forged = { ...proposal, enclosing: { function: "loop", inputs: [{ type: "action", code: "int raw = 0;", ref: { file: "sketch.ino", startLine: 16, endLine: 16 } }] } };
+    expect(validateTutorUmlProposal(forged, context(TEMPERATURE_CONTROLLER)).ok).toBe(false);
+    const { enclosing: _dropped, ...without } = proposal;
+    expect(validateTutorUmlProposal(without, context(TEMPERATURE_CONTROLLER)).ok).toBe(false);
+  });
+
+  it.each([
+    ["a condition on a global", "int raw = 0;\nvoid setup() {}\nvoid loop() {\n  if (raw == 0) {\n    Serial.println(1);\n    return;\n  }\n  delay(1);\n}"],
+    ["a helper function", "void setup() {}\nvoid loop() {}\nvoid check(int raw) {\n  if (raw == 0) {\n    Serial.println(1);\n    return;\n  }\n  delay(1);\n}"],
+  ])("ends a return in its own final node, without a merge node, for %s", (_name, code) => {
+    const { proposal, source } = valid(code, "(raw == 0)");
+    expect(proposal.enclosing).toBeUndefined();
+    const lines = source.split("\n");
+    expect(lines[lines.findIndex((line) => line.startsWith(":return")) + 1]).toBe("stop");
+    // An if, not a switch: a switch draws a merge node with a single incoming edge here.
+    expect(lines).toContain("if () then ([raw <U+003D><U+003D> 0])");
+    expect(lines).not.toContain("switch ()");
+    expect(lines.slice(-4)).toEqual(["(A)", `note right: weiter nach Zeile ${proposal.scope.endLine}`, "detach", "@enduml"]);
+  });
+
+  it("lets an excerpt without a return leave through the connector, not a final node", () => {
+    const { source } = valid(TEMPERATURE_CONTROLLER, "(temperature < TEMP_MIN)");
+    expect(source.split("\n")).not.toContain("stop");
+    expect(source).toContain("\n(A)\n");
   });
 
   it("unfolds a for loop into its start, its condition and its step", () => {
@@ -95,7 +146,12 @@ describe("activity excerpt built from the code", () => {
       const proposal = activityExcerptProposal(context(TEMPERATURE_CONTROLLER), "(raw == 0)", true);
       const [first] = proposal?.body ?? [];
       if (first?.type !== "decision") throw new Error("decision expected");
-      expect([first.whenTrue.length, first.whenFalse.length]).toEqual([0, 1]);
+      // The branch with its actions and its own return node now stands behind [sonst].
+      expect([first.whenTrue.length, first.whenFalse.length]).toEqual([0, 2]);
+      // On the way back as well: the swapped branch returns under [sonst].
+      const checked = validateTutorUmlProposal(proposal, context(TEMPERATURE_CONTROLLER));
+      if (!checked.ok || checked.proposal.status !== "diagram") throw new Error("valid excerpt expected");
+      expect(exportTutorUml(checked.proposal)).toContain("repeat while () is ([sonst]) not ([raw <U+003D><U+003D> 0])");
       expect(activityErrorNote(TEMPERATURE_CONTROLLER, "(raw == 0)")).toContain("vertauscht");
     });
 
