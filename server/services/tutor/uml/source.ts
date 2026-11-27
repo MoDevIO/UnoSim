@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import { parser } from "@lezer/cpp";
 import { BOARD_CATALOG } from "@shared/boards";
 import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
@@ -64,6 +65,59 @@ function hasOwn(
     Reflect.getOwnPropertyDescriptor(value, key) !== undefined
   );
 }
+const COMMENTS = new Set(["Comment", "LineComment", "BlockComment"]);
+/** Syntax nodes are created on access; the same node is the same type at the same span. */
+const same = (a: SyntaxNode | null | undefined, b: SyntaxNode | null | undefined): boolean =>
+  !!a && !!b && a.type === b.type && a.from === b.from && a.to === b.to;
+const directiveText = (text: string, node: SyntaxNode): string =>
+  text.slice(node.from, node.to).replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, " ").trim();
+/**
+ * Whether the guard of a header (`#ifndef X` / `#define X` first, `#endif` last, nothing else outside)
+ * is what `directives` start and end with. Such a guard only keeps a second inclusion out.
+ */
+function isIncludeGuard(text: string, root: SyntaxNode, directives: readonly SyntaxNode[]): boolean {
+  if (directives.length < 3) return false;
+  const top = children(root).filter((node) => !COMMENTS.has(node.name));
+  const [open, define] = directives;
+  const close = directives.at(-1)!;
+  const guard = /^#\s*ifndef\s+(\w+)$/.exec(directiveText(text, open))?.[1];
+  return (
+    guard !== undefined &&
+    same(top[0], open) && same(top[1], define) && same(top.at(-1), close) &&
+    new RegExp(String.raw`^#\s*define\s+${guard}$`).test(directiveText(text, define)) &&
+    /^#\s*endif$/.test(directiveText(text, close))
+  );
+}
+/** A quoted include names a file next to the one that includes it, as the compiler looks it up first. */
+function includedFile(includer: string, target: string): string {
+  return posix.normalize(posix.join(posix.dirname(includer), target));
+}
+/**
+ * Preprocessing that cannot change the code the parser sees: `#include "…"` of a file that was sent
+ * along (looked up next to the including file) and, in a header, `#pragma once` or an include guard. Every other directive rejects the file.
+ */
+function harmlessPreprocessing(
+  file: string,
+  text: string,
+  root: SyntaxNode,
+  nodes: readonly SyntaxNode[],
+  header: boolean,
+  headers: UmlCodeContext["headers"],
+): boolean {
+  const all = nodes.filter((node) => /Preproc/.test(node.name));
+  const directives = all.filter((node) => node.name === "PreprocDirective" && same(node.parent, root));
+  const known = (node: SyntaxNode | null) => directives.some((directive) => same(directive, node));
+  // A directive anywhere else than at file level (or not recognized as one) stays unexplained.
+  if (all.some((node) => !known(node) && !known(node.parent))) return false;
+  const guarded = header && isIncludeGuard(text, root, directives);
+  const rest = guarded ? directives.slice(2, -1) : directives;
+  return rest.every((node) => {
+    const directive = directiveText(text, node);
+    if (header && /^#\s*pragma\s+once$/.test(directive)) return true;
+    const include = /^#\s*include\s*"([^"\n]+)"$/.exec(directive);
+    return include !== null && hasOwn(headers, includedFile(file, include[1]));
+  });
+}
 /** No macro expansion or compiler claim: ambiguous preprocessing and any parse error reject the evidence. */
 export function readUmlSources(
   context: UmlCodeContext,
@@ -87,11 +141,7 @@ export function readUmlSources(
     // Preprocessor directives must not silently change the apparent tree. Includes are
     // only accepted when their exact target is among the files sent to the provider.
     if (nodes.some((node) => node.type.isError)) return null;
-    for (const node of nodes.filter((node) => /Preproc/.test(node.name))) {
-      const directive = text.slice(node.from, node.to).trim();
-      const include = /^#\s*include\s*"([^"\n]+)"\s*$/.exec(directive);
-      if (!include || !hasOwn(context.headers, include[1])) return null;
-    }
+    if (!harmlessPreprocessing(file, text, root, nodes, file !== context.entryFile, context.headers)) return null;
     docs.push({ file, text, root, nodes });
   }
   return docs;
