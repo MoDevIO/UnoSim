@@ -10,6 +10,7 @@ export const TUTOR_ASSIGNMENT_GUIDANCE_TEXT = {
   rule: "Die Frage betrifft genau diese Stelle und nennt sie wörtlich: den Code der Stelle in Backticks oder einen ihrer Bezeichner. Sie nennt die gesuchte Antwort nicht.",
   parts: "Verlangt ein Auftrag der Stufe 4 zwei Teile (etwa eine Änderung und eine Beobachtung im Simulator), nennt die Frage beide ausdrücklich als Teile der erwarteten Antwort, mit „erstens“ und „zweitens“, und bleibt dabei ein einziger Fragesatz.",
   errorDiagram: "Die Anwendung zeigt zur Frage ein Aktivitätsdiagramm dieser Anweisung, in das sie genau einen Fehler eingebaut hat. Die Frage fordert auf, den Fehler im Diagramm durch Vergleich mit dem Code zu finden und zu begründen; sie verrät weder die Stelle noch die Art des Fehlers. Eingebauter Fehler, nur für deine Bewertung:",
+  graphic: "Zur Frage zeigt die Anwendung eine Grafik. Die Frage verlangt nichts, was wörtlich in der Grafik steht und nur abgelesen werden müsste, etwa eine Kantenbeschriftung oder den Text eines Knotens; sie fragt nach Bedeutung, Zuordnung zum Code oder Ablauf. Das gilt auch bei niedriger Schwierigkeit.",
   weak: "Bei answerRating 1 oder 2 bleibt die aktuelle Frage offen: gib im feedback einen Hinweis und wiederhole in `question` die aktuelle Frage sinngemäß.",
 } as const;
 
@@ -21,6 +22,11 @@ function describe({ aspectTitle, level, levelName, task, site, graphic, graphicN
   return `Aspekt „${aspectTitle}“, Stufe ${level} von 4 (${levelName}). Auftrag: ${task} Stelle im Sketch: ${place}: \`${site.code}\`.${names}${diagram}`;
 }
 
+/** A question beside a graphic must not be answered by reading a label off it (review6: "Welche Kantenbeschriftung …?"). */
+function graphicRule(assignments: readonly TutorAssignment[]): string[] {
+  return assignments.some(({ graphic }) => graphic) ? [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.graphic] : [];
+}
+
 /** Only a level 4 assignment asks for a change and its observation; lower levels read stiff with the rule. */
 function partsRule(assignments: readonly TutorAssignment[]): string[] {
   return assignments.some(({ level }) => level === 4) ? [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.parts] : [];
@@ -28,7 +34,7 @@ function partsRule(assignments: readonly TutorAssignment[]): string[] {
 
 export function buildAssignmentGuidance(assignment: TutorAssignment | undefined): string[] {
   if (!assignment) return [];
-  return [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.initial, describe(assignment), TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule, ...partsRule([assignment])];
+  return [TUTOR_ASSIGNMENT_GUIDANCE_TEXT.initial, describe(assignment), TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule, ...graphicRule([assignment]), ...partsRule([assignment])];
 }
 
 function ratingsText(ratings: readonly number[]): string {
@@ -43,6 +49,7 @@ export function buildFollowUpAssignmentGuidance(previews: readonly TutorFollowUp
     ...previews.map(({ ratings, assignment }) => `- Bei answerRating ${ratingsText(ratings)}: ${describe(assignment)}`),
     `- ${TUTOR_ASSIGNMENT_GUIDANCE_TEXT.weak}`,
     TUTOR_ASSIGNMENT_GUIDANCE_TEXT.rule,
+    ...graphicRule(previews.map(({ assignment }) => assignment)),
     ...partsRule(previews.map(({ assignment }) => assignment)),
   ];
 }

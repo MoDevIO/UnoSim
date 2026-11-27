@@ -160,7 +160,8 @@ for (const negative of [
 ]) test(`rejects ${negative.name} while retaining the exact usable question`, async ({ page }) => {
   proposal = negative.diagram; question = negative.question;
   await open(page, negative.code);
-  await expect(page.getByText("Grafik konnte nicht bereitgestellt werden.", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("tutor-question")).toContainText(negative.question.replaceAll("`", ""));
+  await expect(page.getByText(/Grafik/)).toHaveCount(0);
   await expect(page.locator("#tutor-answer")).toBeEnabled(); await expect(page.getByTestId("tutor-uml")).toHaveCount(0);
   expect(renderCalls).toBe(0); expect(modelCalls).toEqual(["initial"]);
 });
@@ -175,7 +176,8 @@ test("an explicit not-useful shows the question alone, without retry or busy spi
 test("known unavailable renderer keeps the text", async ({ page }) => {
   unavailable = true; proposal = activity; question = "Wie verzweigt der Ablauf?";
   await open(page, activityCode);
-  await expect(page.getByText("Grafik konnte nicht bereitgestellt werden.", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("tutor-question")).toContainText(question);
+  await expect(page.getByText(/Grafik/)).toHaveCount(0);
   await expect(page.locator("#tutor-answer")).toBeEnabled(); expect(modelCalls).toEqual(["initial"]); expect(renderCalls).toBe(0);
 });
 

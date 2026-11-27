@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { SyntaxNode } from "@lezer/common";
 import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
 import type { UmlActivityStep, UmlCodeContext, UmlExcerptActivityProposal, UmlSourceRef } from "@shared/tutor-uml";
-import { children, codeText, nodesNamed, readUmlSources, sourceLine, type UmlSourceDocument } from "./source";
+import { children, codeText, forHeader, functionName, nodesNamed, readUmlSources, sourceLine, type UmlSourceDocument } from "./source";
 
 /**
  * The activity diagram of one control statement, built by the application from the code (Tutor concept,
@@ -48,6 +48,12 @@ function bodySteps(doc: UmlSourceDocument, body: SyntaxNode | undefined): UmlAct
     if (SIMPLE_STATEMENTS.has(statement.name)) {
       // Code after a return never runs; a diagram of it would show a path that does not exist.
       if (statement.name === "ReturnStatement" && index !== statements.length - 1) throw new Unsupported();
+      // A return leaves the function: its own node, so that the diagram can end its path there.
+      if (statement.name === "ReturnStatement") {
+        steps.push(...actions(doc, run), ...actions(doc, [statement]));
+        run = [];
+        return;
+      }
       run.push(statement);
       return;
     }
@@ -83,17 +89,11 @@ function loopStep(doc: UmlSourceDocument, statement: SyntaxNode, condition: stri
 
 /** `for (init; condition; update) body` runs as: init, then while (condition) { body; update }. */
 function forSteps(doc: UmlSourceDocument, statement: SyntaxNode): UmlActivityStep[] {
-  const parts = children(statement);
-  const open = parts.find(({ name }) => name === "(");
-  const close = parts.find(({ name }) => name === ")");
-  const body = withoutComments(parts).at(-1);
-  if (!open || !close || !body || body === close) throw new Unsupported();
-  const header = doc.text.slice(open.to, close.from).split(";").map((part) => part.trim());
-  if (header.length !== 3) throw new Unsupported();
-  const [init, condition, update] = header;
-  const ref = { file: doc.file, startLine: sourceLine(doc, open.from), endLine: sourceLine(doc, close.from) };
+  const head = forHeader(doc, statement);
+  if (!head) throw new Unsupported();
+  const { init, condition, update, ref } = head;
   const action = (code: string): UmlActivityStep[] => (code ? [{ type: "action", code: `${code};`, ref }] : []);
-  return [...action(init), loopStep(doc, statement, condition, [...bodySteps(doc, body), ...action(update)])];
+  return [...action(init), loopStep(doc, statement, condition, [...bodySteps(doc, head.body), ...action(update)])];
 }
 
 function controlSteps(doc: UmlSourceDocument, statement: SyntaxNode): UmlActivityStep[] {
@@ -176,13 +176,49 @@ export function injectActivityError(steps: readonly UmlActivityStep[]): { readon
   return swapped ? { body: swapped, note } : null;
 }
 
+/** The variables a statement sets: declared with a value, assigned or stepped. */
+function setNames(doc: UmlSourceDocument, statement: SyntaxNode): string[] {
+  const parts = children(statement);
+  const targets =
+    statement.name === "Declaration"
+      ? parts.filter(({ name }) => name === "InitDeclarator").map((node) => node.firstChild)
+      : parts.filter(({ name }) => name === "AssignmentExpression" || name === "UpdateExpression").map((node) => children(node).find(({ name }) => name === "Identifier"));
+  return targets.flatMap((target) => (target?.name === "Identifier" ? [codeText(doc, target)] : []));
+}
+
+const MAX_INPUTS = 3;
+
+/**
+ * For a decision directly in `loop()`: the statements of `loop()` before it that set a variable of its
+ * condition, which the next pass after a return runs again; none when the condition reads its value itself
+ * through a call (`digitalRead(2) == LOW`). Undefined for any other statement, and where the condition
+ * depends on a value set elsewhere (a global) or too many statements set it.
+ */
+function enclosingLoop(doc: UmlSourceDocument, statement: SyntaxNode): UmlExcerptActivityProposal["enclosing"] {
+  const block = statement.parent;
+  const definition = block?.parent;
+  if (statement.name !== "IfStatement" || block?.name !== "CompoundStatement") return undefined;
+  if (definition?.name !== "FunctionDefinition" || definition.parent?.name !== "Program" || functionName(doc, definition) !== "loop") return undefined;
+  const clause = children(statement).find(({ name }) => name === "ConditionClause");
+  if (!clause) return undefined;
+  const inClause = doc.nodes.filter((node) => node.from >= clause.from && node.to <= clause.to);
+  const tested = new Set(inClause.filter(({ name }) => name === "Identifier").map((node) => codeText(doc, node)));
+  const inputs = withoutComments(children(block))
+    .filter((node) => node.to <= statement.from && setNames(doc, node).some((name) => tested.has(name)))
+    .map((node) => ({ type: "action" as const, code: codeText(doc, node).trim(), ref: refOf(doc, node) }));
+  const readsItself = inClause.some(({ name }) => name === "CallExpression");
+  if (inputs.length > MAX_INPUTS || (inputs.length === 0 && !readsItself)) return undefined;
+  return { function: "loop", inputs };
+}
+
 /** Whether the excerpt proposal is exactly what the application builds for its scope. */
 export function proveActivityExcerpt(proposal: UmlExcerptActivityProposal, docs: readonly UmlSourceDocument[]): boolean {
   const doc = docs.find(({ file }) => file === proposal.scope.file);
   const statement = doc && controlStatements(doc).find((node) => isDeepStrictEqual(refOf(doc, node), proposal.scope));
-  const correct = doc && statement ? buildActivityExcerpt(doc, statement) : null;
+  if (!doc || !statement) return false;
+  const correct = buildActivityExcerpt(doc, statement);
   const built = correct && proposal.excerpt === "statement-with-error" ? injectActivityError(correct)?.body ?? null : correct;
-  return built !== null && isDeepStrictEqual(built, proposal.body);
+  return built !== null && isDeepStrictEqual(built, proposal.body) && isDeepStrictEqual(enclosingLoop(doc, statement), proposal.enclosing);
 }
 
 /** The control statement of the entry file whose head holds `siteCode`, with its steps (null when it cannot be shown). */
@@ -213,6 +249,7 @@ export function activityExcerptProposal(context: UmlCodeContext, siteCode: strin
   const body = found?.steps && withError ? injectActivityError(found.steps)?.body : found?.steps;
   if (!found || !body || body.length === 0) return undefined;
   const scope = refOf(found.doc, found.statement);
+  const enclosing = enclosingLoop(found.doc, found.statement);
   return {
     version: 1,
     profile: TUTOR_UML_PROFILE,
@@ -224,6 +261,7 @@ export function activityExcerptProposal(context: UmlCodeContext, siteCode: strin
       : `Ablauf der Anweisung in den Zeilen ${scope.startLine} bis ${scope.endLine} als Kontext zur Frage`,
     scope,
     body,
+    ...(enclosing ? { enclosing } : {}),
   };
 }
 

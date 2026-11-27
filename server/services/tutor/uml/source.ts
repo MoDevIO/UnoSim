@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import { parser } from "@lezer/cpp";
 import { BOARD_CATALOG } from "@shared/boards";
 import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
@@ -64,6 +65,67 @@ function hasOwn(
     Reflect.getOwnPropertyDescriptor(value, key) !== undefined
   );
 }
+const COMMENTS = new Set(["Comment", "LineComment", "BlockComment"]);
+/** Syntax nodes are created on access; the same node is the same type at the same span. */
+const same = (a: SyntaxNode | null | undefined, b: SyntaxNode | null | undefined): boolean =>
+  !!a && !!b && a.type === b.type && a.from === b.from && a.to === b.to;
+/** A directive's text without its comments, which the parser gives as child nodes of the directive. */
+function directiveText(text: string, node: SyntaxNode): string {
+  let result = "";
+  let at = node.from;
+  for (const comment of children(node).filter(({ name }) => COMMENTS.has(name))) {
+    result += `${text.slice(at, comment.from)} `;
+    at = comment.to;
+  }
+  return (result + text.slice(at, node.to)).trim();
+}
+/**
+ * Whether the guard of a header (`#ifndef X` / `#define X` first, `#endif` last, nothing else outside)
+ * is what `directives` start and end with. Such a guard only keeps a second inclusion out.
+ */
+function isIncludeGuard(text: string, root: SyntaxNode, directives: readonly SyntaxNode[]): boolean {
+  if (directives.length < 3) return false;
+  const top = children(root).filter((node) => !COMMENTS.has(node.name));
+  const [open, define] = directives;
+  const close = directives.at(-1)!;
+  const guard = /^#\s*ifndef\s+(\w+)$/.exec(directiveText(text, open))?.[1];
+  return (
+    guard !== undefined &&
+    same(top[0], open) && same(top[1], define) && same(top.at(-1), close) &&
+    new RegExp(String.raw`^#\s*define\s+${guard}$`).test(directiveText(text, define)) &&
+    /^#\s*endif$/.test(directiveText(text, close))
+  );
+}
+/** A quoted include names a file next to the one that includes it, as the compiler looks it up first. */
+function includedFile(includer: string, target: string): string {
+  return posix.normalize(posix.join(posix.dirname(includer), target));
+}
+/**
+ * Preprocessing that cannot change the code the parser sees: `#include "…"` of a file that was sent
+ * along (looked up next to the including file) and, in a header, `#pragma once` or an include guard. Every other directive rejects the file.
+ */
+function harmlessPreprocessing(
+  file: string,
+  text: string,
+  root: SyntaxNode,
+  nodes: readonly SyntaxNode[],
+  header: boolean,
+  headers: UmlCodeContext["headers"],
+): boolean {
+  const all = nodes.filter((node) => /Preproc/.test(node.name));
+  const directives = all.filter((node) => node.name === "PreprocDirective" && same(node.parent, root));
+  const known = (node: SyntaxNode | null) => directives.some((directive) => same(directive, node));
+  // A directive anywhere else than at file level (or not recognized as one) stays unexplained.
+  if (all.some((node) => !known(node) && !known(node.parent))) return false;
+  const guarded = header && isIncludeGuard(text, root, directives);
+  const rest = guarded ? directives.slice(2, -1) : directives;
+  return rest.every((node) => {
+    const directive = directiveText(text, node);
+    if (header && /^#\s*pragma\s+once$/.test(directive)) return true;
+    const include = /^#\s*include\s*"([^"\n]+)"$/.exec(directive);
+    return include !== null && hasOwn(headers, includedFile(file, include[1]));
+  });
+}
 /** No macro expansion or compiler claim: ambiguous preprocessing and any parse error reject the evidence. */
 export function readUmlSources(
   context: UmlCodeContext,
@@ -87,11 +149,7 @@ export function readUmlSources(
     // Preprocessor directives must not silently change the apparent tree. Includes are
     // only accepted when their exact target is among the files sent to the provider.
     if (nodes.some((node) => node.type.isError)) return null;
-    for (const node of nodes.filter((node) => /Preproc/.test(node.name))) {
-      const directive = text.slice(node.from, node.to).trim();
-      const include = /^#\s*include\s*"([^"\n]+)"\s*$/.exec(directive);
-      if (!include || !hasOwn(context.headers, include[1])) return null;
-    }
+    if (!harmlessPreprocessing(file, text, root, nodes, file !== context.entryFile, context.headers)) return null;
     docs.push({ file, text, root, nodes });
   }
   return docs;
@@ -191,20 +249,83 @@ function proveControlStep(
   return proveBranches(doc, branches, step);
 }
 /** The complete selected function body is retained: omission cannot invent adjacency. */
+/** The parts of `for (init; condition; update) body`; `ref` spans its head, where init and update stand. */
+export interface ForHeader {
+  readonly init: string;
+  readonly condition: string;
+  readonly update: string;
+  readonly ref: UmlSourceRef;
+  readonly body: SyntaxNode;
+}
+export function forHeader(
+  doc: UmlSourceDocument,
+  statement: SyntaxNode,
+): ForHeader | undefined {
+  const parts = children(statement);
+  const open = parts.find(({ name }) => name === "(");
+  const close = parts.find(({ name }) => name === ")");
+  const body = parts.findLast(({ name }) => !COMMENTS.has(name));
+  if (!open || !close || !body || body.from < close.to) return undefined;
+  const header = doc.text.slice(open.to, close.from).split(";").map((part) => part.trim());
+  if (header.length !== 3) return undefined;
+  const [init, condition, update] = header;
+  const ref = { file: doc.file, startLine: sourceLine(doc, open.from), endLine: sourceLine(doc, close.from) };
+  return { init, condition, update, ref, body };
+}
+const sameRef = (left: UmlSourceRef, right: UmlSourceRef): boolean =>
+  left.file === right.file && left.startLine === right.startLine && left.endLine === right.endLine;
+/** An action that stands for a part of a `for` head: the part with its semicolon, referring to the head. */
+const isHeadAction = (step: UmlActivityStep | undefined, code: string, head: ForHeader): boolean =>
+  step?.type === "action" && normalizedCode(step.code) === `${code};` && sameRef(step.ref, head.ref);
+/**
+ * A `for` statement is shown as it runs: its init as an action, then a loop over its condition whose body
+ * ends with the update as an action (the shape the application's own excerpt builds). Returns how many
+ * steps it took, 0 when they do not prove it.
+ */
+function proveFor(
+  doc: UmlSourceDocument,
+  statement: SyntaxNode,
+  steps: readonly UmlActivityStep[],
+): number {
+  const head = forHeader(doc, statement);
+  if (head?.body.name !== "CompoundStatement") return 0;
+  if (!head.condition || /^(?:true|false|\d+)$/.test(head.condition)) return 0;
+  const used = head.init ? 1 : 0;
+  if (head.init && !isHeadAction(steps[0], head.init, head)) return 0;
+  const loop = steps[used];
+  if (
+    loop?.type !== "loop" ||
+    !matchesRef(doc, statement, loop.ref) ||
+    normalizedCode(loop.condition) !== head.condition
+  )
+    return 0;
+  if (head.update && !isHeadAction(loop.body.at(-1), head.update, head)) return 0;
+  const inner = head.update ? loop.body.slice(0, -1) : loop.body;
+  return proveActivity(doc, head.body, inner) ? used + 1 : 0;
+}
 export function proveActivity(
   doc: UmlSourceDocument,
   block: SyntaxNode,
   steps: readonly UmlActivityStep[],
 ): boolean {
   const statements = statementChildren(block);
-  if (statements.length !== steps.length) return false;
-  return statements.every((statement, index) => {
-    const step = steps[index];
-    if (!matchesRef(doc, statement, step.ref)) return false;
-    return step.type === "action"
-      ? proveAction(doc, block, statement, step, index, statements.length)
-      : proveControlStep(doc, statement, step);
-  });
+  let at = 0;
+  for (const [index, statement] of statements.entries()) {
+    if (statement.name === "ForStatement") {
+      const used = proveFor(doc, statement, steps.slice(at));
+      if (used === 0) return false;
+      at += used;
+      continue;
+    }
+    const step = steps[at++];
+    if (!step || !matchesRef(doc, statement, step.ref)) return false;
+    const proven =
+      step.type === "action"
+        ? proveAction(doc, block, statement, step, index, statements.length)
+        : proveControlStep(doc, statement, step);
+    if (!proven) return false;
+  }
+  return at === steps.length;
 }
 export function scopedFunction(
   docs: readonly UmlSourceDocument[],

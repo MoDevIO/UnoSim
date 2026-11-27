@@ -433,6 +433,26 @@ function runtimeValueBindings(docs: readonly UmlSourceDocument[]): Set<string> {
       for (const child of children(declaration)) declarator(doc, child);
   return names;
 }
+/**
+ * `Serial.begin(…)`, `Serial.println(…)`: a method of the core's serial object, which never calls back
+ * into `setup` or `loop`. Only while the sketch declares no `Serial` of its own; a macro would already
+ * have rejected the sources.
+ */
+function isCoreSerialCall(
+  doc: UmlSourceDocument,
+  target: SyntaxNode,
+  values: ReadonlySet<string>,
+): boolean {
+  if (target.name !== "FieldExpression" || values.has("Serial")) return false;
+  const [object, field, ...rest] = children(target);
+  return (
+    rest.length === 0 &&
+    object?.name === "Identifier" &&
+    codeText(doc, object) === "Serial" &&
+    field?.name === "FieldIdentifier" &&
+    doc.text.slice(object.to, field.from).trim() === "."
+  );
+}
 function hasUnsupportedRuntimeCall(
   doc: UmlSourceDocument,
   block: SyntaxNode,
@@ -452,6 +472,7 @@ function hasUnsupportedRuntimeCall(
       if (operands.length !== 1) return true;
       target = operands[0];
     }
+    if (target && isCoreSerialCall(doc, target, values)) return false;
     // Pointer, subscript, cast, callable-object/member and unresolved qualified
     // targets need binding/type facts this runtime proof intentionally lacks.
     return (

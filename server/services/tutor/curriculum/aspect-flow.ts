@@ -110,7 +110,8 @@ function toPlan(input: AspectFlowInput, { aspect, assignment, level, site, fallb
       levelName: ASPECT_LEVEL_NAMES[level],
       task: assignment.task,
       site: { ...(site.function ? { function: site.function } : {}), line: site.line, endLine: site.endLine, code: site.code, names: [...site.names] },
-      ...(assignment.graphic ? { graphic: assignment.graphic } : {}),
+      // Only a request that can show the graphic gets it in its assignment; the prompt words the question for it.
+      ...(assignment.graphic && input.diagrams ? { graphic: assignment.graphic } : {}),
       ...(assignment.graphic === "activity-error" ? { graphicNote: activityErrorNote(input.code, site.code) } : {}),
     },
   };
@@ -214,6 +215,7 @@ export function aspectLeaveQuestion(input: AspectFlowInput, currentQuestion: str
 
 /** The site of the delivered question when its assignment asks for an activity diagram. */
 export function aspectQuestionGraphic(input: AspectFlowInput, currentQuestion: string): { kind: "activity" | "activity-error"; siteCode: string } | null {
+  if (!input.diagrams) return null;
   const { session, aspects } = prepare(input);
   if (!ownsQuestion(session, currentQuestion)) return null;
   const step = openStep(session, aspects, input.definitions);

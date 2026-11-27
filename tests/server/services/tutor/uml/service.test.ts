@@ -274,8 +274,8 @@ it("the primary profile prompt identifies the actual entry and separate headers"
     "uml1-classic-v1",
   );
   expect(prompt).toContain('"entryFile":"main.ino"');
-  expect(prompt).toContain('"headers":{"helper.h":"int helper;"}');
-  expect(prompt).toContain(String.raw`"code":"void arbeiten() {\n x++;\n}"`);
+  expect(prompt).toContain('{"file":"helper.h","lines":["1| int helper;"]}');
+  expect(prompt).toContain('{"file":"main.ino","lines":["1| void arbeiten() {","2|  x++;","3| }"]}');
 });
 it("a planner replacement discards the primary proposal of the replaced question", async () => {
   const s = setup();
@@ -476,10 +476,8 @@ it("the dialog primary prompt preserves exact entry code and separate header ref
     "uml1-classic-v1",
   );
   expect(prompt).toContain('"entryFile":"main.ino"');
-  expect(prompt).toContain(
-    String.raw`"headers":{"helper.h":"int helper;\nvoid helfen();"}`,
-  );
-  expect(prompt).toContain(String.raw`"code":"void arbeiten() {\n x++;\n}"`);
+  expect(prompt).toContain('{"file":"helper.h","lines":["1| int helper;","2| void helfen();"]}');
+  expect(prompt).toContain('{"file":"main.ino","lines":["1| void arbeiten() {","2|  x++;","3| }"]}');
 });
 it("reports a renderer that fails to answer as unavailable, not as a provider failure", async () => {
   const s = setup();
