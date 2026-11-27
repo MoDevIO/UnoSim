@@ -12,6 +12,7 @@ describe("preprocessing the UML evidence accepts", () => {
     ["#pragma once after a file comment", `// Matrixfunktionen\n#pragma once\n${BODY}`],
     ["an include guard", `#ifndef MAT_FUNC_H\n#define MAT_FUNC_H\n\n${BODY}\n#endif\n`],
     ["an include guard with comments around it", `/* Kopf */\n#ifndef MAT_FUNC_H\n#define MAT_FUNC_H\n${BODY}#endif // MAT_FUNC_H\n`],
+    ["an include guard with block comments in its directives", `#ifndef MAT_FUNC_H /* Kopf */\n#define MAT_FUNC_H\n${BODY}#endif /* MAT_FUNC_H */\n`],
     ["an include guard around a sent include", `#ifndef MAT_FUNC_H\n#define MAT_FUNC_H\n#include "mat_func.h"\n${BODY}#endif\n`],
   ])("%s in a header", (_name, header) => {
     expect(read(header)?.map(({ file }) => file)).toEqual(["mat_func.h", "main.ino"]);

@@ -69,8 +69,16 @@ const COMMENTS = new Set(["Comment", "LineComment", "BlockComment"]);
 /** Syntax nodes are created on access; the same node is the same type at the same span. */
 const same = (a: SyntaxNode | null | undefined, b: SyntaxNode | null | undefined): boolean =>
   !!a && !!b && a.type === b.type && a.from === b.from && a.to === b.to;
-const directiveText = (text: string, node: SyntaxNode): string =>
-  text.slice(node.from, node.to).replaceAll(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, " ").trim();
+/** A directive's text without its comments, which the parser gives as child nodes of the directive. */
+function directiveText(text: string, node: SyntaxNode): string {
+  let result = "";
+  let at = node.from;
+  for (const comment of children(node).filter(({ name }) => COMMENTS.has(name))) {
+    result += `${text.slice(at, comment.from)} `;
+    at = comment.to;
+  }
+  return (result + text.slice(at, node.to)).trim();
+}
 /**
  * Whether the guard of a header (`#ifndef X` / `#define X` first, `#endif` last, nothing else outside)
  * is what `directives` start and end with. Such a guard only keeps a second inclusion out.
@@ -256,9 +264,7 @@ export function forHeader(
   const parts = children(statement);
   const open = parts.find(({ name }) => name === "(");
   const close = parts.find(({ name }) => name === ")");
-  const body = parts
-    .filter(({ name }) => !["Comment", "LineComment", "BlockComment"].includes(name))
-    .at(-1);
+  const body = parts.findLast(({ name }) => !COMMENTS.has(name));
   if (!open || !close || !body || body.from < close.to) return undefined;
   const header = doc.text.slice(open.to, close.from).split(";").map((part) => part.trim());
   if (header.length !== 3) return undefined;
@@ -282,7 +288,7 @@ function proveFor(
   steps: readonly UmlActivityStep[],
 ): number {
   const head = forHeader(doc, statement);
-  if (!head || head.body.name !== "CompoundStatement") return 0;
+  if (head?.body.name !== "CompoundStatement") return 0;
   if (!head.condition || /^(?:true|false|\d+)$/.test(head.condition)) return 0;
   const used = head.init ? 1 : 0;
   if (head.init && !isHeadAction(steps[0], head.init, head)) return 0;

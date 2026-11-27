@@ -80,11 +80,10 @@ function activity(steps: readonly UmlActivityStep[], excerpt = false): string[] 
 const lines = ({ startLine, endLine }: { readonly startLine: number; readonly endLine: number }): string =>
   startLine === endLine ? `Zeile ${startLine}` : `Zeilen ${startLine} bis ${endLine}`;
 /** The regular path of an excerpt goes on after its last line: a connector, not the program's end. */
-const goesOn = (proposal: UmlExcerptActivityProposal): string[] => [
-  "(A)",
-  `note right: ${literal(`weiter nach Zeile ${proposal.scope.endLine}`)}`,
-  "detach",
-];
+function goesOn(proposal: UmlExcerptActivityProposal): string[] {
+  const note = literal(`weiter nach Zeile ${proposal.scope.endLine}`);
+  return ["(A)", `note right: ${note}`, "detach"];
+}
 /**
  * The way back leaves the decision to the right, carrying its guard, and turns up in the middle of its node;
  * a node narrower than twice the guard would turn up through the guard's text. Invisible no-break spaces at
