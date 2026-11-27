@@ -318,17 +318,13 @@ Code passen. Die Grafik steht auf hellem Grund in ihrer natürlichen Größe;
 schließt du sie. Themewechsel und Vergrößern erzeugen keine neue Modellanfrage.
 Ältere Server behalten ihr bisheriges Mermaid-Format.
 
-Auch mit eingeschaltetem Schalter kann der Tutor auf eine Grafik verzichten:
-**Zu dieser Frage ist keine hilfreiche zusätzliche UML-Grafik verfügbar.** ist ein zulässiges
-Ergebnis, etwa bei einer unklaren Frage oder wenn die Grafik die Antwort verraten
-würde. Die Codeprüfung unterstützt bewusst nur eindeutige Ausschnitte und keine
-vollständige C++-Semantik. Eine technisch akzeptierte Grafik ist deshalb weiter
-fachlich zu beurteilen.
-
-Falls das Modell keine nutzbare Grafik liefert, bleibt die Frage beantwortbar und
-zeigt **Grafik konnte nicht bereitgestellt werden.** Lehnt der lokale Renderer die
-Syntax ab, steht dort **Grafik konnte nicht dargestellt werden.** Der Schalter
-fordert Grafiken ausdrücklich an; ihre fachliche Qualität ist weiter zu prüfen.
+Viele Fragen kommen ohne Grafik aus, etwa wenn eine Grafik nicht hilft, die
+Antwort verraten würde oder sich nicht eindeutig aus dem Code belegen lässt. Die
+Frage steht dann ohne Hinweis allein; den Grund zeigt der Debug-Mitschnitt. Die
+Codeprüfung unterstützt bewusst nur eindeutige Ausschnitte und keine vollständige
+C++-Semantik. Eine technisch akzeptierte Grafik ist deshalb weiter fachlich zu
+beurteilen. Lehnt der lokale Renderer eine bereits gelieferte Grafik ab, steht
+dort **Grafik konnte nicht dargestellt werden.**
 
 ### Tutor-Diagnose im Debug-Tab
 

@@ -68,9 +68,8 @@ it.each(["provided", "unavailable", "not-useful"])("holds a next %s graphic with
   act(() => result.current.continueToNextQuestion());
   view.rerender(<TutorLearningStep tutor={result.current} actions={actions} />);
   if (status === "provided") expect(await screen.findByTestId("tutor-uml")).toBeInTheDocument();
-  // A question without a graphic says nothing about it; only a failed one is reported.
-  else if (status === "unavailable") expect(screen.getByText("Grafik konnte nicht bereitgestellt werden.")).toBeInTheDocument();
-  else expect(screen.queryByText(/UML-Grafik/)).toBeNull();
+  // A question without a graphic says nothing about it, whether none was useful or none could be provided.
+  else expect(screen.queryByText(/Grafik/)).toBeNull();
   expect(JSON.stringify(result.current.transcript)).not.toContain("<svg");
 });
 

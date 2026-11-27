@@ -1,5 +1,4 @@
 import { TutorUmlPreview } from "./tutor-uml-preview";
-import { TUTOR_GRAPHIC_UNAVAILABLE } from "@shared/tutor-graphics";
 import { MermaidPreview } from "./tutor-mermaid-preview";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight, ArrowUp, CircleHelp } from "lucide-react";
@@ -278,7 +277,6 @@ function TutorQuestionStep({ tutor, actions, pendingLabel, canRequest }: {
         <p className="mt-1 font-medium leading-relaxed text-foreground"><TutorText text={question.question} /></p>
         {question.diagram && <TutorUmlPreview diagram={question.diagram} subject={question} />}
         {!question.diagram && question.mermaid && <MermaidPreview source={question.mermaid} subject={question} showFailure={question.graphicStatus === "provided"} />}
-        {question.graphicStatus === "unavailable" && <output className="mt-2 block text-ui-sm text-muted-foreground">{TUTOR_GRAPHIC_UNAVAILABLE}</output>}
       </section>
       {/* Present before the feedback arrives, so that screen readers announce it with its rating. */}
       <div ref={stepRef} aria-live="polite" data-testid="tutor-current-step">
