@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TutorDialogTurn } from "@shared/tutor";
-import { buildAssignmentGuidance, namesAssignmentSite } from "../../../../server/services/tutor/assignment-prompt";
+import { buildAssignmentGuidance, namesAssignmentSite, TUTOR_ASSIGNMENT_GUIDANCE_TEXT } from "../../../../server/services/tutor/assignment-prompt";
 import { createTutorProgressionState } from "../../../../server/services/tutor/curriculum/progression-state";
 import { hasUnanchoredReference } from "../../../../server/services/tutor/question-concreteness";
 import type { TutorPlanningContentContext } from "../../../../server/services/tutor/tutor-planning";
@@ -174,16 +174,28 @@ describe("aspect flow in the Tutor service", () => {
 
   it("names the site for the diagram only when the assignment asks for one", async () => {
     const adapter = new CurriculumTutorAdapter();
-    const content = courseContent();
+    const content = { ...courseContent(), diagrams: true };
     const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
     if (!plan || "kind" in plan) throw new Error("plan expected");
     // The first question explains a branch: its diagram would show the answer.
     expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: plan.question, courseContent: content })).toBeUndefined();
     const next = await adapter.planFollowup({ code: TEMPERATURE_CONTROLLER, history: [], currentQuestion: plan.question, rating: 5, difficulty: 30, courseContent: content });
     if (!next || "kind" in next) throw new Error("follow-up expected");
-    expect(next.assignment?.graphic).toBe("activity");
-    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: content })).toEqual({ kind: "activity", siteCode: next.assignment?.site.code });
+    expect(next.assignment?.graphic).toBeDefined();
+    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: content })).toEqual({ kind: next.assignment?.graphic, siteCode: next.assignment?.site.code });
     expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: "Was ist ein Pin?", courseContent: content })).toBeUndefined();
+  });
+
+  it("promises no graphic to a request that cannot show one", async () => {
+    const adapter = new CurriculumTutorAdapter();
+    const content = courseContent();
+    const plan = await adapter.planInitial({ code: TEMPERATURE_CONTROLLER, history: [], difficulty: 30, courseContent: content });
+    if (!plan || "kind" in plan) throw new Error("plan expected");
+    const next = await adapter.planFollowup({ code: TEMPERATURE_CONTROLLER, history: [], currentQuestion: plan.question, rating: 5, difficulty: 30, courseContent: content });
+    if (!next || "kind" in next) throw new Error("follow-up expected");
+    expect(next.assignment?.graphic).toBeUndefined();
+    expect(adapter.questionGraphic({ code: TEMPERATURE_CONTROLLER, currentQuestion: next.question, courseContent: content })).toBeUndefined();
+    expect(buildAssignmentGuidance(next.assignment)).not.toContain(TUTOR_ASSIGNMENT_GUIDANCE_TEXT.graphic);
   });
 
   it("offers the sketch's aspects for the learner to choose and names the chosen one", async () => {
@@ -225,8 +237,11 @@ describe("aspect flow in the Tutor service", () => {
     expect(shown.next.question).not.toContain("TEMP_MIN");
     expect(shown.graphic?.kind).toBe("activity-error");
     expect(buildAssignmentGuidance(shown.next.assignment).join(" ")).toContain("Eingebauter Fehler, nur für deine Bewertung: Im Code lautet die Bedingung");
+    // Beside a graphic the question asks for no label that is only read off it (review6).
+    expect(buildAssignmentGuidance(shown.next.assignment)).toContain(TUTOR_ASSIGNMENT_GUIDANCE_TEXT.graphic);
     const hidden = await followUp(false);
     expect([hidden.next.questionId, hidden.next.assignment?.graphicNote]).toEqual(["branching-predict-value", undefined]);
+    expect(buildAssignmentGuidance(hidden.next.assignment)).not.toContain(TUTOR_ASSIGNMENT_GUIDANCE_TEXT.graphic);
   });
 
   describe("with the aspects for functions, the program flow and diagrams", () => {
