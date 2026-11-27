@@ -68,7 +68,7 @@ it("accepts exactly ten action nodes plus generated start/end at the twelve-node
     ).ok,
   ).toBe(false);
 });
-it("accepts a supported while body and rejects early return/break and for-loop flattening", () => {
+it("accepts a supported while body and rejects early return/break and a for loop without its update", () => {
   const code = "void run() {\n while (ready) {\n  tick();\n }\n after();\n}";
   const proposal = {
     ...activity,
@@ -84,10 +84,12 @@ it("accepts a supported while body and rejects early return/break and for-loop f
     ],
   };
   expect(check(proposal, code).ok).toBe(true);
+  // Without init and update a for loop is this while loop.
+  expect(check(proposal, code.replace("while (ready)", "for (;ready;)")).ok).toBe(true);
   for (const changed of [
     code.replace("tick();", "return;"),
     code.replace("tick();", "break;"),
-    code.replace("while (ready)", "for (;ready;)"),
+    code.replace("while (ready)", "for (;ready;step())"),
   ])
     expect(check(proposal, changed).ok).toBe(false);
 });

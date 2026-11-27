@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { SyntaxNode } from "@lezer/common";
 import { TUTOR_UML_PROFILE } from "@shared/tutor-uml-profile";
 import type { UmlActivityStep, UmlCodeContext, UmlExcerptActivityProposal, UmlSourceRef } from "@shared/tutor-uml";
-import { children, codeText, nodesNamed, readUmlSources, sourceLine, type UmlSourceDocument } from "./source";
+import { children, codeText, forHeader, nodesNamed, readUmlSources, sourceLine, type UmlSourceDocument } from "./source";
 
 /**
  * The activity diagram of one control statement, built by the application from the code (Tutor concept,
@@ -83,17 +83,11 @@ function loopStep(doc: UmlSourceDocument, statement: SyntaxNode, condition: stri
 
 /** `for (init; condition; update) body` runs as: init, then while (condition) { body; update }. */
 function forSteps(doc: UmlSourceDocument, statement: SyntaxNode): UmlActivityStep[] {
-  const parts = children(statement);
-  const open = parts.find(({ name }) => name === "(");
-  const close = parts.find(({ name }) => name === ")");
-  const body = withoutComments(parts).at(-1);
-  if (!open || !close || !body || body === close) throw new Unsupported();
-  const header = doc.text.slice(open.to, close.from).split(";").map((part) => part.trim());
-  if (header.length !== 3) throw new Unsupported();
-  const [init, condition, update] = header;
-  const ref = { file: doc.file, startLine: sourceLine(doc, open.from), endLine: sourceLine(doc, close.from) };
+  const head = forHeader(doc, statement);
+  if (!head) throw new Unsupported();
+  const { init, condition, update, ref } = head;
   const action = (code: string): UmlActivityStep[] => (code ? [{ type: "action", code: `${code};`, ref }] : []);
-  return [...action(init), loopStep(doc, statement, condition, [...bodySteps(doc, body), ...action(update)])];
+  return [...action(init), loopStep(doc, statement, condition, [...bodySteps(doc, head.body), ...action(update)])];
 }
 
 function controlSteps(doc: UmlSourceDocument, statement: SyntaxNode): UmlActivityStep[] {
