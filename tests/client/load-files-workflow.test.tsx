@@ -213,14 +213,42 @@ describe("Load Files workflow", () => {
     const sketch = new File(["void setup() {}"], "new.ino", { type: "text/plain" });
     Object.defineProperty(sketch, "text", { value: () => Promise.resolve("void setup() {}") });
     fireEvent.change(input!, { target: { files: [sketch] } });
-    expect(await screen.findByText("Sketch ersetzen?")).toBeInTheDocument();
+    expect(await screen.findByText("Replace current sketch?")).toBeInTheDocument();
+    // Without a header file there is nothing to add instead.
+    expect(screen.queryByRole("button", { name: "Add headers only" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ja (Sketch ersetzen)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace sketch" }));
     expect(onFilesLoaded).toHaveBeenCalledWith(
       [{ name: "new.ino", path: "new.ino", content: "void setup() {}" }],
       true,
     );
     expect(inputClick).not.toHaveBeenCalled();
+    inputClick.mockRestore();
+  });
+
+  it("adds only the header files, or nothing on cancel, when a sketch comes with headers", async () => {
+    const { onFilesLoaded, inputClick } = renderWorkflow();
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const files = () => {
+      const sketch = new File(["void setup() {}"], "new.ino", { type: "text/plain" });
+      Object.defineProperty(sketch, "text", { value: () => Promise.resolve("void setup() {}") });
+      const header = new File(["#pragma once"], "pins.h", { type: "text/plain" });
+      Object.defineProperty(header, "text", { value: () => Promise.resolve("#pragma once") });
+      return [sketch, header];
+    };
+
+    fireEvent.change(input, { target: { files: files() } });
+    expect(await screen.findByText(/the header file/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Replace current sketch?")).not.toBeInTheDocument());
+    expect(onFilesLoaded).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { files: files() } });
+    fireEvent.click(await screen.findByRole("button", { name: "Add headers only" }));
+    expect(onFilesLoaded).toHaveBeenCalledWith(
+      [{ name: "pins.h", path: "pins.h", content: "#pragma once" }],
+      false,
+    );
     inputClick.mockRestore();
   });
 });

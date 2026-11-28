@@ -289,22 +289,20 @@ export function SketchTabs({
     setPendingFilesToLoad(null);
   };
 
-  const handleReplaceConfirmNo = () => {
-    // Only add .h files, skip the .ino
-    if (pendingFilesToLoad && onFilesLoaded) {
-      const hFiles = pendingFilesToLoad.filter((f) => f.name.endsWith(".h"));
-      if (hFiles.length > 0) {
-        onFilesLoaded(hFiles, false); // false = don't replace all
-        toast({
-          title: "Header files loaded",
-          description: `${hFiles.length} header file(s) added`,
-        });
-      } else {
-        toast({
-          title: "No header files",
-          description: "Only .ino files were present.",
-        });
-      }
+  const pendingSketchName = pendingFilesToLoad?.find((f) => f.name.endsWith(".ino"))?.name;
+  const pendingHeaderNames = (pendingFilesToLoad ?? [])
+    .filter((f) => f.name.endsWith(".h"))
+    .map((f) => f.name);
+
+  // Keeps the current sketch and adds only the selected header files; offered only when there are any.
+  const handleAddHeadersOnly = () => {
+    const hFiles = (pendingFilesToLoad ?? []).filter((f) => f.name.endsWith(".h"));
+    if (hFiles.length > 0 && onFilesLoaded) {
+      onFilesLoaded(hFiles, false); // false = don't replace all
+      toast({
+        title: "Header files loaded",
+        description: `${hFiles.length} header file(s) added`,
+      });
     }
     setIsReplaceConfirmOpen(false);
     setPendingFilesToLoad(null);
@@ -559,28 +557,36 @@ export function SketchTabs({
       {/* Replace Sketch Confirmation Dialog */}
       <AlertDialog
         open={isReplaceConfirmOpen}
-        onOpenChange={setIsReplaceConfirmOpen}
+        onOpenChange={(open) => {
+          setIsReplaceConfirmOpen(open);
+          if (!open) setPendingFilesToLoad(null);
+        }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Sketch ersetzen?</AlertDialogTitle>
+            <AlertDialogTitle>Replace current sketch?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es wurde eine .ino-Datei zum Laden ausgewählt. Möchtest du den
-              aktuellen Sketch ersetzen?
-              <br />
-              <br />
-              <strong>Ja:</strong> Der aktuelle Sketch wird vollständig ersetzt
-              <br />
-              <strong>Nein:</strong> Nur die Header-Dateien (.h) werden
-              hinzugefügt
+              <span className="font-mono text-foreground">{pendingSketchName}</span>{" "}
+              replaces all open files of the current sketch.
             </AlertDialogDescription>
+            {pendingHeaderNames.length > 0 && (
+              <p className="text-ui-sm text-muted-foreground">
+                You can instead add only the header{" "}
+                {pendingHeaderNames.length === 1 ? "file " : "files "}
+                <span className="font-mono text-foreground">{pendingHeaderNames.join(", ")}</span>{" "}
+                to the current sketch.
+              </p>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleReplaceConfirmNo}>Nein (nur .h Dateien)</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleReplaceConfirmYes}
-            >
-              Ja (Sketch ersetzen)
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {pendingHeaderNames.length > 0 && (
+              <AlertDialogAction variant="secondary" onClick={handleAddHeadersOnly}>
+                Add headers only
+              </AlertDialogAction>
+            )}
+            <AlertDialogAction onClick={handleReplaceConfirmYes}>
+              Replace sketch
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
