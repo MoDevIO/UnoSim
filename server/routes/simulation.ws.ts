@@ -67,7 +67,7 @@ function rejectAdmission(
       ws,
       operationError(
         "RATE_LIMITED",
-        "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.",
+        "Rate limit reached: each user may have at most 5 running or waiting simulations.",
       ),
     );
   }
@@ -91,7 +91,7 @@ function rejectActiveLifecycle(ws: WebSocket, clientState: ClientState): void {
     operation: "start_simulation",
     ...operationError(
       "SIMULATION_ALREADY_ACTIVE",
-      "In dieser Sitzung läuft bereits eine Simulation oder wartet auf den Start. Bitte zuerst stoppen.",
+      "A simulation is already running or waiting to start in this session. Stop it first.",
     ),
   });
   // Resynchronise the client with the run that keeps going.
@@ -626,7 +626,7 @@ export function registerSimulationWebSocket(
         ws,
         operationError(
           "RATE_LIMITED",
-          `Rate-Limit: Bitte warte ${retryAfter} Sekunden, bevor du eine weitere Simulation startest.`,
+          `Rate limit: wait ${retryAfter} seconds before starting another simulation.`,
           retryAfter,
         ),
       );
@@ -673,7 +673,7 @@ export function registerSimulationWebSocket(
     clientState: ClientState,
   ): Promise<void> {
     if (!(deps.runtimeBackends ?? config.runtime.backends).includes("host-mock")) {
-      sendStartError(ws, operationError("RUNTIME_UNAVAILABLE", "Dieser Server bietet die serverseitige Simulation (Host-Mock) nicht an."));
+      sendStartError(ws, operationError("RUNTIME_UNAVAILABLE", "This server does not offer server-side simulation (host mock)."));
       return;
     }
     const admitted = await admitStart(ws, data, clientState);

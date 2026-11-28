@@ -65,15 +65,15 @@ describe("libraryListEntries (SSOT Libraries §5.2)", () => {
 describe("includeAction (SSOT Libraries §5.2, §6)", () => {
   const context = { localHeaders: ["sketch.ino"], fromFile: "sketch.ino" };
 
-  it("offers Einbinden for a package that is not selected", () => {
+  it("offers Include for a package that is not selected", () => {
     expect(includeAction(aunit, [], "void setup(){}", context)).toBe("include");
   });
 
-  it("offers Include einfügen when it is selected but the active file lacks the include", () => {
+  it("offers Insert include when it is selected but the active file lacks the include", () => {
     expect(includeAction(aunit, [AUNIT], "void setup(){}", context)).toBe("insert-include");
   });
 
-  it("says Bereits eingebunden when selection and include are both there", () => {
+  it("says Already included when selection and include are both there", () => {
     expect(includeAction(aunit, [AUNIT], "#include <AUnit.h>\n", context)).toBe("already-included");
   });
 
@@ -108,7 +108,7 @@ describe("startBlockReason (SSOT Libraries §9)", () => {
 describe("downloadNotice (SSOT Libraries §8.1)", () => {
   it("names the selected packages with exact versions, and is absent without any", () => {
     expect(downloadNotice([AUNIT, { name: "Zeta", version: "1.0.0" }])).toBe(
-      "Der Download enthält nur Quelltextdateien. Bibliotheksauswahl und Versionen sind nicht enthalten und müssen beim erneuten Laden wieder hinzugefügt werden. Bibliotheken: AUnit 1.7.1, Zeta 1.0.0",
+      "The download contains only source files. The library selection and versions are not included and must be added again after loading. Libraries: AUnit 1.7.1, Zeta 1.0.0",
     );
     expect(downloadNotice([])).toBeUndefined();
   });

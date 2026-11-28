@@ -19,6 +19,9 @@ klickbare Skizze ist ein Bedienungsentwurf und kein Nachweis einer bereits
 vorhandenen Bibliotheksunterstützung. Ein `verified`-Status setzt gesonderte
 Compile- und Laufzeitnachweise voraus.
 
+Die Oberfläche ist englisch; fett gesetzte Bezeichnungen wie **Include** sind
+die wörtlichen UI-Texte.
+
 ## 1. Ziel und gewählter Ansatz
 
 Studierende SOLLEN eine verfügbare Arduino-Bibliothek finden, ihrem eigenen
@@ -189,8 +192,8 @@ Ansichten mit Umschaltung gibt es nicht (Vereinfachung vom 2026-10-29):
 - Die Liste zeigt alle vom Server angebotenen Bibliotheken und zusätzlich die
   vom Projekt benötigten Versionen, die dieser Server nicht anbietet. Jeder
   Eintrag erscheint je Name und Version genau einmal.
-- Der Projektstatus steht direkt am Eintrag: **Im Projekt** für eine
-  ausgewählte Version, **Nicht verfügbar** für eine Version, die dieses
+- Der Projektstatus steht direkt am Eintrag: **In project** für eine
+  ausgewählte Version, **Not available** für eine Version, die dieses
   Deployment nicht bereitstellt. Eine benötigte, fehlende Version trägt
   beide Angaben. Die Zuordnung erfolgt über Name und exakte Version; eine
   andere angebotene Version desselben Pakets erscheint nicht als
@@ -210,8 +213,8 @@ Ein ausgewählter Eintrag zeigt Name, Version, Autor, die passende Aktion
 beziehungsweise den erreichten Zustand, Beschreibung, relevante
 Kompatibilitätshinweise, Lizenz, Dokumentation und den Beispieleinstieg. Eine
 separate Include-Vorschau gibt es nicht; das eingefügte Include ist danach im
-Editor sichtbar. Das Badge **Im Projekt** erscheint in den Details nur, solange
-nicht **✓ Bereits eingebunden** denselben Stand ausdrückt; in der Liste bleibt
+Editor sichtbar. Das Badge **In project** erscheint in den Details nur, solange
+nicht **✓ Already included** denselben Stand ausdrückt; in der Liste bleibt
 es erhalten (Reduktion vom 2026-10-29).
 Vom Kompatibilitätsstatus erscheint nur ein ausdrückliches **nicht
 unterstützt** für das aktuelle Board beziehungsweise die gewählte Engine,
@@ -219,26 +222,24 @@ mit Begründung; `verified` und `untested` werden im Dialog nicht angezeigt
 (Vereinfachung vom 2026-10-28). Solange keine Bibliothek gewählt ist, bleibt
 der Detailbereich leer. Auf dem Desktop stehen die Details rechts neben der
 Liste, auf schmalen Ansichten darunter. Direkte Abhängigkeiten sind als
-**Im Projekt** erkennbar. Technische Paketpfade und Installationsschritte sind keine
+**In project** erkennbar. Technische Paketpfade und Installationsschritte sind keine
 Bedienaufgabe für Studierende.
 
-Die Detailansicht bietet **Einbinden** oder, bei bereits ausgewählter
-Bibliothek ohne Include in der aktiven Datei, **Include einfügen**. Ist die
+Die Detailansicht bietet **Include** oder, bei bereits ausgewählter
+Bibliothek ohne Include in der aktiven Datei, **Insert include**. Ist die
 Version ausgewählt und das Include dort vorhanden, zeigt sie den erreichten
-Zustand **✓ Bereits eingebunden** als Status, nicht als Schaltfläche; es
+Zustand **✓ Already included** als Status, nicht als Schaltfläche; es
 entsteht keine doppelte Änderung. Diese Aktion steht als Hauptaktion an
-fester Stelle direkt unter Name und Autor. Bei **Einbinden** und **Include
-einfügen** folgt darunter die **Zieldatei** mit ihrem Dateinamen; der
-vollständige Pfad lässt sich bei Dateien in Ordnern aufklappen. Bei **✓
-Bereits eingebunden** entfällt die Zieldatei, weil nichts mehr geändert
-wird. **Minimalbeispiel öffnen** ist eine sekundäre Aktion am Ende der
+fester Stelle direkt unter Name und Autor. Bei **Include** und **Insert include** folgt darunter die **Target file** mit ihrem Dateinamen; der
+vollständige Pfad lässt sich bei Dateien in Ordnern aufklappen. Bei **✓ Already included** entfällt die Zieldatei, weil nichts mehr geändert
+wird. **Open minimal example** ist eine sekundäre Aktion am Ende der
 Details; bei genau einem Beispiel ohne Titel, bei mehreren mit dem jeweiligen
 Titel zur Unterscheidung.
 
 Fehlt die angeforderte Version auf diesem Deployment, zeigt ihr Eintrag in
-der Liste Name, angeforderte Version und **Nicht verfügbar**, die Details
+der Liste Name, angeforderte Version und **Not available**, die Details
 zusätzlich die Begründung. Für diesen
-Eintrag werden **Einbinden** und **Include einfügen** nicht angeboten. Eine
+Eintrag werden **Include** und **Insert include** nicht angeboten. Eine
 andere verfügbare Version wird weder als Ersatz aktiviert noch als bereits
 eingebunden dargestellt.
 
@@ -254,22 +255,22 @@ Suche, Auswahl, Einbinden und Schließen MÜSSEN per Tastatur erreichbar sein.
 Der Dialog besitzt eine zugängliche Beschriftung und ein geregeltes
 Fokusverhalten: Nach dem Schließen kehrt der Fokus zum auslösenden
 Bedienelement zurück (bei einem Menüeintrag zu dessen Menü), nach
-**Einbinden** in den Editor. Die Dialogabmessungen sind fest, damit sich
+**Include** in den Editor. Die Dialogabmessungen sind fest, damit sich
 Suche und Liste beim Suchen und Auswählen nicht verschieben. Liste und Details haben eine
 Mindesthöhe; reicht die Fensterhöhe dafür nicht, scrollt der Dialog als
 Ganzes, sodass eine fokussierte Aktion vollständig sichtbar ist. Abbrechen
-der Rückfrage zu **Minimalbeispiel öffnen** gibt den Fokus an diese
+der Rückfrage zu **Open minimal example** gibt den Fokus an diese
 Schaltfläche zurück. Auf schmalen Bildschirmen
 stehen Liste und Details untereinander; Inhalte und Aktionen müssen
 erreichbar bleiben. Namen, Status und Beispieltitel brechen auch bei großer
 Schrift um und werden nicht abgeschnitten.
 
-## 6. Aktion „Einbinden“
+## 6. Aktion „Include“
 
 **Ausgangszustand:** Ein Projekt und eine bearbeitbare Quelldatei sind offen;
 eine angebotene Bibliotheksversion ist im Dialog ausgewählt.
 
-**Trigger:** Die studierende Person wählt **Einbinden**.
+**Trigger:** Die studierende Person wählt **Include**.
 
 **Ergebnis:**
 
@@ -305,7 +306,7 @@ Für das Einfügen gilt:
 - `using namespace`, Testfunktionen sowie Änderungen an `setup()` oder
   `loop()` werden durch Einbinden nicht automatisch ergänzt.
 - Die Änderung am Quelltext ist eine regulär rückgängig machbare
-  Editoränderung. Die unmittelbare Aktion **Rückgängig** aus dem Hinweis
+  Editoränderung. Die unmittelbare Aktion **Undo** aus dem Hinweis
   entfernt die durch diese Aktion eingefügten Include-Zeilen und nimmt eine
   durch genau diese Aktion neu hinzugefügte direkte Abhängigkeit zurück.
   Bereits vorher ausgewählte Pakete und vorhandene Includes bleiben erhalten.
@@ -320,7 +321,7 @@ Für das Einfügen gilt:
   keine Projektabhängigkeit. Diese Editorhistorie bleibt auch dann bedienbar,
   wenn die gemeinsame Rückgängig-Aktion nicht mehr angeboten wird.
 
-Die erneute Einbindung derselben Version ist idempotent. **Include einfügen**
+Die erneute Einbindung derselben Version ist idempotent. **Insert include**
 ergänzt nur die aktive Datei und ändert keine bereits festgelegte Version.
 
 ## 7. Manuell geschriebene oder kopierte Includes
@@ -331,7 +332,7 @@ Hinweis mit einer Aktion zum Hinzufügen anbieten, zum Beispiel:
 
 > AUnit.h erkannt. AUnit fehlt noch in den Projektbibliotheken.
 
-Die Aktion nennt die konkrete Version, etwa **AUnit 1.7.1 hinzufügen**. Sie
+Die Aktion nennt die konkrete Version, etwa **Add AUnit 1.7.1**. Sie
 registriert diese Projektabhängigkeit und erhält die vorhandene Include-Zeile.
 Bloßes Tippen oder Einfügen von Quelltext installiert kein Paket, ändert keine
 Metadaten und wählt keine Version ohne ausdrückliche Aktion aus.
@@ -416,7 +417,7 @@ im zentralen Bibliothekskatalog:
   Einträge MUSS diese Zuordnung in das normale `libraries`-Feld überführen.
   Katalog- und Detailantwort sowie der aktive Projektzustand erhalten diese
   Liste unverändert. Das gilt sowohl beim Aufruf aus dem allgemeinen
-  Beispiele-Menü als auch bei **Minimalbeispiel öffnen** im Bibliotheksdialog.
+  Beispiele-Menü als auch bei **Open minimal example** im Bibliotheksdialog.
 - Die Ableitung erfolgt aus der Katalogdefinition, unabhängig davon, ob das
   Paket tatsächlich bereitgestellt ist. Bei fehlender Paketversion bleibt
   die Anforderung sichtbar. Die Oberfläche erfindet keine eigene
@@ -433,10 +434,10 @@ Eine gültige Anforderung einer auf diesem Deployment fehlenden Version bleibt
 beim Anzeigen des Beispiels erhalten; der Eintrag ist nicht verfügbar und der
 Build scheitert nachvollziehbar, statt eine andere Version zu verwenden.
 
-**Minimalbeispiel öffnen** lädt das Beispiel in der ersten Ausbaustufe in den
+**Open minimal example** lädt das Beispiel in der ersten Ausbaustufe in den
 aktuellen Browser-Tab. Vor dem Ersetzen fragt UnoSim ausdrücklich, ob die
 aktuellen Dateien und die Bibliotheksauswahl durch das Beispiel ersetzt werden
-sollen, und bietet **Ersetzen** und **Abbrechen** an. Diese Rückfrage ist Teil
+sollen, und bietet **Replace** und **Cancel** an. Diese Rückfrage ist Teil
 des neuen Bibliotheks-Einstiegs; sie wird nicht als bereits vorhandenes
 Verhalten aller bisherigen Beispielaufrufe vorausgesetzt.
 
@@ -448,7 +449,7 @@ Validierungsfehler erhalten den bisherigen Zustand. Die Bestätigung gilt für
 den Sketch, wie er beim Bestätigen war: Ändern sich Dateien oder
 Bibliotheksauswahl, während das Beispiel noch lädt, bleiben diese Änderungen
 erhalten und das Beispiel wird nicht übernommen. Während des Ladens zeigt
-UnoSim **Beispiel wird geladen …**. Ein Beispiel mit eigenem
+UnoSim **Loading example …**. Ein Beispiel mit eigenem
 `setup()` und `loop()` wird nicht als weitere `.ino`-Datei ergänzt und nicht
 automatisch gestartet.
 
@@ -642,7 +643,7 @@ void loop() {
 
 Die Ergebnisse erscheinen im vorhandenen seriellen Monitor. Der Sketch
 verwendet die originale Bibliothek; UnoSim ersetzt die Assertions nicht durch
-eigene JavaScript-Tests. **Einbinden** erzeugt nur die Abhängigkeit und das
+eigene JavaScript-Tests. **Include** erzeugt nur die Abhängigkeit und das
 Include; das vollständige Grundgerüst gehört zum eigenständigen Beispiel.
 
 Die erste Freigabe wird für **Uno + Browser-Emulation** geprüft. Erforderlich

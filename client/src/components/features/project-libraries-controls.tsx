@@ -13,12 +13,12 @@ export function LibraryHintsBar({ hints, onAdd }: { readonly hints: readonly Lib
         <div key={hint.header} className="flex flex-wrap items-center gap-2">
           <span>
             {hint.candidates.length === 1
-              ? `${hint.header} erkannt. ${hint.candidates[0].name} fehlt noch in den Projektbibliotheken.`
-              : `${hint.header} erkannt. Mehrere Bibliotheken stellen diesen Header bereit:`}
+              ? `${hint.header} detected. ${hint.candidates[0].name} is not in the project libraries yet.`
+              : `${hint.header} detected. Several libraries provide this header:`}
           </span>
           {hint.candidates.map((candidate) => (
             <Button key={`${candidate.name}@${candidate.version}`} size="sm" variant="outline" onClick={() => onAdd(candidate)}>
-              {candidate.name} {candidate.version} hinzufügen
+              Add {candidate.name} {candidate.version}
             </Button>
           ))}
         </div>

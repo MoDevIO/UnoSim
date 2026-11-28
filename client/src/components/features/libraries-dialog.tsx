@@ -42,12 +42,12 @@ const keyOf = (entry: LibraryRequirement) => `${entry.name}@${entry.version}`;
 function unsupportedText(label: string, statement: CompatibilityStatement): string | undefined {
   if (statement.status !== "unsupported") return undefined;
   const reason = statement.reason ? ` – ${statement.reason}` : "";
-  return `${label}: nicht unterstützt${reason}`;
+  return `${label}: not supported${reason}`;
 }
 
 /** The project status of a list entry, matched by name and exact version. */
 function entryBadges(entry: LibraryListEntry): string[] {
-  return [entry.inProject ? "Im Projekt" : undefined, entry.available ? undefined : "Nicht verfügbar"].filter((badge): badge is string => badge !== undefined);
+  return [entry.inProject ? "In project" : undefined, entry.available ? undefined : "Not available"].filter((badge): badge is string => badge !== undefined);
 }
 
 function matches(entry: LibraryListEntry, query: string): boolean {
@@ -58,7 +58,7 @@ function matches(entry: LibraryListEntry, query: string): boolean {
 /**
  * The Libraries dialog (SSOT Libraries §5): one list of the offered packages
  * and the required versions missing here, its search, details with
- * compatibility, and "Einbinden". Opening, searching and selecting change
+ * compatibility, and "Include". Opening, searching and selecting change
  * neither source nor selection.
  */
 export function LibrariesDialog({
@@ -78,7 +78,7 @@ export function LibrariesDialog({
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | undefined>();
   const [pendingExample, setPendingExample] = useState<string | undefined>();
-  // "Minimalbeispiel öffnen" that asked; Abbrechen returns the focus to it.
+  // "Open minimal example" that asked; Cancel returns the focus to it.
   const exampleTrigger = useRef<HTMLElement | null>(null);
 
   const entries = useMemo(() => libraryListEntries(catalog.packages, libraries), [catalog.packages, libraries]);
@@ -109,8 +109,8 @@ export function LibrariesDialog({
           <div className="flex min-h-0 min-w-0 flex-col gap-2">
             <Input
               type="search"
-              aria-label="Bibliotheken durchsuchen"
-              placeholder="Name oder Beschreibung"
+              aria-label="Search libraries"
+              placeholder="Name or description"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="w-full shrink-0"
@@ -137,13 +137,13 @@ export function LibrariesDialog({
             }}
           >
             <AlertDialogHeader>
-              <AlertDialogTitle>Aktuellen Sketch ersetzen?</AlertDialogTitle>
+              <AlertDialogTitle>Replace current sketch?</AlertDialogTitle>
               <AlertDialogDescription>
-                Das Minimalbeispiel ersetzt die aktuellen Dateien und die Bibliotheksauswahl. Ein laufender Sketch wird beendet.
+                The minimal example replaces the current files and the library selection. A running sketch is stopped.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setPendingExample(undefined)}>Abbrechen</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setPendingExample(undefined)}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   const exampleId = pendingExample;
@@ -155,7 +155,7 @@ export function LibrariesDialog({
                   }
                 }}
               >
-                Ersetzen
+                Replace
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -177,17 +177,17 @@ interface LibraryListProps {
 function LibraryList({ catalog, query, entries, listed, selectedKey, onSelect }: LibraryListProps) {
   const message = (text: string) => <p className="p-2 text-ui-sm text-muted-foreground">{text}</p>;
 
-  if (catalog.status === "loading") return message("Bibliotheken werden geladen …");
+  if (catalog.status === "loading") return message("Loading libraries …");
   if (catalog.status === "error") {
     return (
       <div className="flex flex-col items-start gap-2 p-2">
-        <p className="text-ui-sm text-status-error">Bibliotheken konnten nicht geladen werden. Die Projektauswahl bleibt erhalten.</p>
-        <Button size="sm" variant="outline" onClick={() => void catalog.retry()}>Erneut versuchen</Button>
+        <p className="text-ui-sm text-status-error">Libraries could not be loaded. The project selection is kept.</p>
+        <Button size="sm" variant="outline" onClick={() => void catalog.retry()}>Try again</Button>
       </div>
     );
   }
-  if (entries.length === 0) return message("Dieser Server bietet keine Bibliotheken an.");
-  if (listed.length === 0) return message(`Keine Treffer für „${query.trim()}“.`);
+  if (entries.length === 0) return message("This server offers no libraries.");
+  if (listed.length === 0) return message(`No matches for “${query.trim()}”.`);
   return (
     <ul className="flex flex-col gap-1">
       {listed.map((entry) => (
@@ -196,7 +196,7 @@ function LibraryList({ catalog, query, entries, listed, selectedKey, onSelect }:
             selected={selectedKey === keyOf(entry)}
             onSelect={() => onSelect(keyOf(entry))}
             title={`${entry.name} ${entry.version}`}
-            detail={entry.offered?.description ?? "Auf diesem Server nicht angeboten"}
+            detail={entry.offered?.description ?? "Not offered on this server"}
             badges={entryBadges(entry)}
           />
         </li>
@@ -237,7 +237,7 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
   const examples = entry.examples.filter((example) => example.exampleId);
   const exampleTitleId = useId();
   const warnings = [
-    unsupportedText("Kompilierung", compileCompatibility(entry, boardId)),
+    unsupportedText("Compilation", compileCompatibility(entry, boardId)),
     runtime ? unsupportedText(`Simulation (${ENGINE_LABELS[runtime]})`, runtimeCompatibility(entry, boardId, runtime)) : undefined,
   ].filter((warning): warning is string => warning !== undefined);
 
@@ -246,8 +246,8 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
       <div className="flex flex-col items-start gap-1">
         <h3 className="break-words text-ui-md font-semibold text-foreground">{entry.name} {entry.version}</h3>
         <p className="text-ui-xs text-muted-foreground">{entry.author}</p>
-        {/* "✓ Bereits eingebunden" already says so; the list keeps its "Im Projekt". */}
-        {selected && action !== "already-included" && <span data-testid="library-project-badge" className="rounded bg-muted px-1.5 text-ui-xs">Im Projekt</span>}
+        {/* "✓ Already included" already says so; the list keeps its "In project". */}
+        {selected && action !== "already-included" && <span data-testid="library-project-badge" className="rounded bg-muted px-1.5 text-ui-xs">In project</span>}
       </div>
       <IncludeButton action={action} activeFile={activeFile} onInclude={() => onInclude(entry)} onInsertInclude={() => onInsertInclude(entry)} />
       <p className="text-ui-sm text-foreground">{entry.description}</p>
@@ -257,7 +257,7 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
         </ul>
       )}
       <p className="text-ui-xs text-muted-foreground">
-        Lizenz {entry.license} · <a className="underline" href={entry.documentationUrl} target="_blank" rel="noreferrer">Dokumentation</a>
+        License {entry.license} · <a className="underline" href={entry.documentationUrl} target="_blank" rel="noreferrer">Documentation</a>
       </p>
       {examples.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -269,7 +269,7 @@ function PackageDetails({ entry, boardId, runtime, libraries, activeFile, onIncl
                 aria-describedby={examples.length > 1 ? `${exampleTitleId}-${index}` : undefined}
                 onClick={(event) => example.exampleId && onRequestExample(example.exampleId, event.currentTarget)}
               >
-                Minimalbeispiel öffnen
+                Open minimal example
               </Button>
               {/* A single example needs no title; several are told apart by theirs. */}
               {examples.length > 1 && <span id={`${exampleTitleId}-${index}`} className="min-w-0 break-words text-ui-xs text-muted-foreground">{example.title}</span>}
@@ -288,7 +288,7 @@ function IncludeButton(props: {
   readonly onInsertInclude: () => void;
 }) {
   if (!props.action) {
-    return <p className="text-ui-xs text-muted-foreground">Öffne eine .ino- oder .h-Datei, um die Bibliothek einzubinden.</p>;
+    return <p className="text-ui-xs text-muted-foreground">Open an .ino or .h file to include the library.</p>;
   }
   const withTarget = (action: ReactNode) => (
     <div className="flex min-w-0 flex-col items-start gap-1">
@@ -298,28 +298,28 @@ function IncludeButton(props: {
   );
   switch (props.action) {
     case "include":
-      return withTarget(<Button size="sm" onClick={props.onInclude}>Einbinden</Button>);
+      return withTarget(<Button size="sm" onClick={props.onInclude}>Include</Button>);
     case "insert-include":
-      return withTarget(<Button size="sm" onClick={props.onInsertInclude}>Include einfügen</Button>);
+      return withTarget(<Button size="sm" onClick={props.onInsertInclude}>Insert include</Button>);
     case "already-included":
       // Nothing changes any more, so no target file.
       return (
         <output className="flex items-center gap-1 text-ui-sm font-medium text-foreground">
           <Check aria-hidden className="h-4 w-4 shrink-0 text-status-success" />
-          Bereits eingebunden
+          Already included
         </output>
       );
     case "other-version":
-      return <p className="text-ui-xs text-muted-foreground">Das Projekt legt eine andere Version dieser Bibliothek fest.</p>;
+      return <p className="text-ui-xs text-muted-foreground">The project specifies a different version of this library.</p>;
     case "unavailable":
-      return <p className="text-ui-xs text-muted-foreground">Nicht verfügbar auf diesem Server.</p>;
+      return <p className="text-ui-xs text-muted-foreground">Not available on this server.</p>;
   }
 }
 
-/** The file "Einbinden" changes: its name, and the full path on request when it lies in a folder. */
+/** The file "Include" changes: its name, and the full path on request when it lies in a folder. */
 function TargetFile({ path }: { readonly path: string }) {
   const name = path.slice(path.lastIndexOf("/") + 1);
-  const label = <>Zieldatei: <strong className="font-medium text-foreground">{name}</strong></>;
+  const label = <>Target file: <strong className="font-medium text-foreground">{name}</strong></>;
   if (name === path) return <p className="break-all text-ui-xs text-muted-foreground">{label}</p>;
   return (
     <details className="min-w-0 max-w-full text-ui-xs text-muted-foreground">
@@ -330,12 +330,12 @@ function TargetFile({ path }: { readonly path: string }) {
 }
 
 function MissingDetails({ entry }: { readonly entry: LibraryListEntry }) {
-  const reason = entry.offered?.unavailableReason ?? `Version ${entry.version} wird auf diesem Server nicht angeboten. Eine andere Version wird nicht ersatzweise verwendet.`;
+  const reason = entry.offered?.unavailableReason ?? `Version ${entry.version} is not offered on this server. No other version is used in its place.`;
   return (
     <section aria-label={`${entry.name} ${entry.version}`} className="flex flex-col gap-2">
       <h3 className="break-words text-ui-md font-semibold text-foreground">{entry.name} {entry.version}</h3>
-      {entry.inProject && <span className="w-fit rounded bg-muted px-1.5 text-ui-xs">Im Projekt</span>}
-      <p className="text-ui-sm font-medium text-status-error">Nicht verfügbar</p>
+      {entry.inProject && <span className="w-fit rounded bg-muted px-1.5 text-ui-xs">In project</span>}
+      <p className="text-ui-sm font-medium text-status-error">Not available</p>
       <p className="text-ui-xs text-muted-foreground">{reason}</p>
     </section>
   );

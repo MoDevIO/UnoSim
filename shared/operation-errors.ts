@@ -1,5 +1,5 @@
 export const SYSTEM_BUSY_MESSAGE =
-  "Der Simulator ist momentan ausgelastet. Bitte in wenigen Sekunden erneut versuchen.";
+  "The simulator is busy right now. Please try again in a few seconds.";
 
 export type OperationErrorCode =
   | "RATE_LIMITED"

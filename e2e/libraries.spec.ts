@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // End-to-end check of the project libraries (ssot/ssot_function_definition_Libraries.md):
-// the dialog from the Sketch menu, "Einbinden" of AUnit, a real compile with the
+// the dialog from the Sketch menu, "Include" of AUnit, a real compile with the
 // provisioned package and the AUnit results in the serial monitor of a browser run.
 
 const ENGINE_KEY = "unoSimulationEngine";
@@ -50,7 +50,7 @@ async function expectLibrariesCount(page: Page, count: number): Promise<void> {
 /** Ready once the dialog moved the focus into its search and its open animation, which scales it, is over. */
 async function dialogReady(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Libraries" });
-  await expect(dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" })).toBeFocused();
+  await expect(dialog.getByRole("searchbox", { name: "Search libraries" })).toBeFocused();
   // A cancelled animation (an interrupted hover transition) rejects `finished`; it is over all the same.
   await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined))));
   return dialog;
@@ -76,9 +76,9 @@ const clipped = (element: HTMLElement) => element.scrollHeight > element.clientH
 
 async function includeLibrary(page: Page, query: string, entry: RegExp): Promise<void> {
   const dialog = await openDialog(page);
-  await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill(query);
+  await dialog.getByRole("searchbox", { name: "Search libraries" }).fill(query);
   await dialog.getByRole("button", { name: entry }).click();
-  await dialog.getByRole("button", { name: "Einbinden" }).click();
+  await dialog.getByRole("button", { name: "Include" }).click();
   await expect(dialog).toBeHidden();
 }
 
@@ -103,7 +103,7 @@ void loop() {
 `;
 
 test.describe("project libraries (SSOT Libraries)", () => {
-  test("Einbinden adds AUnit and its include; the browser run prints the AUnit results", async ({ page }) => {
+  test("Include adds AUnit and its include; the browser run prints the AUnit results", async ({ page }) => {
     await open(page, "browser");
     await expectLibrariesCount(page, 0);
     await setSketch(page, TESTS);
@@ -119,7 +119,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await expect(serial).not.toContainText("/tmp/");
   });
 
-  test("Einbinden adds a further catalog package; the browser run uses it", async ({ page }) => {
+  test("Include adds a further catalog package; the browser run uses it", async ({ page }) => {
     await open(page, "browser");
     await setSketch(page, RING_BUFFER);
 
@@ -131,13 +131,13 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await expect(page.locator('[data-testid="serial-output"]')).toContainText("ring 3 4 5", { timeout: COMPILE_TIMEOUT });
   });
 
-  test("Minimalbeispiel öffnen loads the Time example with its exact requirement and the clock runs", async ({ page }) => {
+  test("Open minimal example loads the Time example with its exact requirement and the clock runs", async ({ page }) => {
     await open(page, "browser");
     const dialog = await openDialog(page);
-    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("time");
+    await dialog.getByRole("searchbox", { name: "Search libraries" }).fill("time");
     await dialog.getByRole("button", { name: /^Time 1\.6\.1/ }).click();
-    await dialog.getByRole("button", { name: "Minimalbeispiel öffnen" }).click();
-    await page.getByRole("button", { name: "Ersetzen" }).click();
+    await dialog.getByRole("button", { name: "Open minimal example" }).click();
+    await page.getByRole("button", { name: "Replace" }).click();
     await expect(dialog).toBeHidden();
 
     await expect.poll(() => editorValue(page)).toContain("#include <TimeLib.h>");
@@ -153,11 +153,11 @@ test.describe("project libraries (SSOT Libraries)", () => {
     const code = `#include <AUnit.h>\n${TESTS}`;
     await setSketch(page, code);
 
-    await expect(page.getByText("AUnit.h erkannt. AUnit fehlt noch in den Projektbibliotheken.")).toBeVisible();
-    await page.getByRole("button", { name: "AUnit 1.7.1 hinzufügen" }).click();
+    await expect(page.getByText("AUnit.h detected. AUnit is not in the project libraries yet.")).toBeVisible();
+    await page.getByRole("button", { name: "Add AUnit 1.7.1" }).click();
 
     await expectLibrariesCount(page, 1);
-    await expect(page.getByText("AUnit.h erkannt.")).toBeHidden();
+    await expect(page.getByText("AUnit.h detected.")).toBeHidden();
     expect(await editorValue(page)).toBe(code);
   });
 
@@ -170,10 +170,10 @@ test.describe("project libraries (SSOT Libraries)", () => {
 
     await entry.click();
     const details = dialog.getByRole("region", { name: "AUnit 1.7.1" });
-    const target = details.getByText(/^Zieldatei: /);
+    const target = details.getByText(/^Target file: /);
     await expect(target).toBeVisible();
     // A file deep in folders, as in the reported screenshot; the details must wrap it, not overflow.
-    await target.evaluate((element) => { element.textContent = `Zieldatei: ${"AUnitMinimalExampleWithAVeryLongName".repeat(4)}.ino`; });
+    await target.evaluate((element) => { element.textContent = `Target file: ${"AUnitMinimalExampleWithAVeryLongName".repeat(4)}.ino`; });
     expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 
@@ -182,7 +182,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
       await page.setViewportSize({ width, height });
       await open(page, "browser");
       const dialog = await openDialogFromOptions(page);
-      const search = await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).boundingBox();
+      const search = await dialog.getByRole("searchbox", { name: "Search libraries" }).boundingBox();
       const list = await dialog.locator("ul").first().evaluate((element) => {
         const frame = element.closest(".unified-scroll-area") ?? element;
         const box = frame.getBoundingClientRect();
@@ -201,9 +201,9 @@ test.describe("project libraries (SSOT Libraries)", () => {
     const box = async () => (await dialog.boundingBox())?.height;
 
     const initial = await box();
-    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("no such library");
+    await dialog.getByRole("searchbox", { name: "Search libraries" }).fill("no such library");
     expect(await box()).toBe(initial);
-    await dialog.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }).fill("");
+    await dialog.getByRole("searchbox", { name: "Search libraries" }).fill("");
     await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
     expect(await box()).toBe(initial);
   });
@@ -217,7 +217,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
     // A long status line, as for a required version missing here.
     await entry.evaluate((element) => {
       const status = document.createElement("span");
-      status.textContent = "Im Projekt · Nicht verfügbar";
+      status.textContent = "In project · Not available";
       element.insertBefore(status, element.children[1]);
     });
 
@@ -229,14 +229,14 @@ test.describe("project libraries (SSOT Libraries)", () => {
     expect(await details.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 
-  test("on a low window with XXL text the dialog scrolls as a whole, so a focused Einbinden is fully visible", async ({ page }) => {
+  test("on a low window with XXL text the dialog scrolls as a whole, so a focused Include is fully visible", async ({ page }) => {
     await page.addInitScript(() => globalThis.localStorage.setItem("unoFontScale", "1.5"));
     await page.setViewportSize({ width: 640, height: 360 });
     await open(page, "browser");
     const dialog = await openDialogFromOptions(page);
     await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
 
-    const include = dialog.getByRole("button", { name: "Einbinden" });
+    const include = dialog.getByRole("button", { name: "Include" });
     await include.focus();
     // Every corner of the button is the topmost element there: nothing clips or covers it, once the focus scroll is over.
     // The probes sit inside the rounded corners, which belong to the parent.
@@ -249,7 +249,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
     await expect.poll(visible).toBe(true);
   });
 
-  test("closing returns the focus: Escape to the menu that opened it, Einbinden to the editor", async ({ page }) => {
+  test("closing returns the focus: Escape to the menu that opened it, Include to the editor", async ({ page }) => {
     await open(page, "browser");
     await setSketch(page, TESTS);
 
@@ -272,7 +272,7 @@ test.describe("project libraries (SSOT Libraries)", () => {
 
     const dialog = await openDialog(page);
     await dialog.getByRole("button", { name: /AUnit 1\.7\.1/ }).click();
-    await expect(dialog.getByText(/^Simulation \(Legacy\): nicht unterstützt – /)).toBeVisible();
+    await expect(dialog.getByText(/^Simulation \(Legacy\): not supported – /)).toBeVisible();
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: /start simulation/i }).click();

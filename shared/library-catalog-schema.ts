@@ -24,7 +24,7 @@ export const libraryPackageSchema = z.object({
   documentationUrl: z.url().max(500),
   /** Public headers: a written `#include` of one of them belongs to this package. */
   headers: boundedArray(z.string().regex(HEADER_NAME), 50, 1),
-  /** The includes "Einbinden" inserts. */
+  /** The includes "Include" inserts. */
   includes: boundedArray(z.string().regex(HEADER_NAME), 10, 1),
   dependencies: boundedArray(libraryRequirementSchema, INPUT_LIMITS.compile.maxLibraries),
   /** SHA-256 of the immutable package archive. */

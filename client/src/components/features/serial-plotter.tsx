@@ -136,7 +136,7 @@ export const SerialPlotter: React.FC<SerialPlotterProps> = ({ output }) => {
               <label
                 key={key}
                 className="flex items-center gap-1.5 cursor-pointer select-none group"
-                title="Klicken zum Ändern der Farbe"
+                title="Click to change the color"
               >
                 <span
                   className="inline-block w-3 h-3 rounded-sm ring-1 ring-inset ring-white/20 group-hover:ring-white/60 transition-shadow shrink-0"

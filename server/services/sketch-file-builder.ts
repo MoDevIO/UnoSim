@@ -57,7 +57,7 @@ export class SketchFileBuilder {
 
     if (!hasSetup && !hasLoop) {
       this.logger.warn(
-        "Weder setup() noch loop() gefunden - Code wird nur als Bibliothek kompiliert",
+        "Neither setup() nor loop() found - code is compiled as a library only",
       );
     }
 

@@ -48,7 +48,7 @@ export interface ActiveLibraryFile {
   readonly localHeaders: readonly string[];
 }
 
-/** What the "Rückgängig" of the last Einbinden may take back, while nothing changed since. */
+/** What the "Undo" of the last Include may take back, while nothing changed since. */
 interface UndoRecord {
   readonly tabId: string;
   readonly before: string;
@@ -140,7 +140,7 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
 
   const undo = (record: UndoRecord) => {
     if (undoRecord.current !== record || !undoIsCurrent(record)) {
-      latest.current.params.toast({ title: "Rückgängig nicht mehr möglich", description: "Seit dem Einbinden wurde weiter bearbeitet." });
+      latest.current.params.toast({ title: "Undo no longer possible", description: "The project was edited after including the library." });
       return;
     }
     undoRecord.current = null;
@@ -159,24 +159,24 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
     }
   });
 
-  /** "Einbinden" (§6); true when the package and its include are in place, false when nothing changed. */
+  /** "Include" (§6); true when the package and its include are in place, false when nothing changed. */
   const include = (entry: OfferedLibraryPackage): boolean => {
     const { toast, board, runtime, activeTabId } = latest.current.params;
     const loaded = latest.current.rules;
     if (!loaded) return false;
     if (!activeFile?.editable || !activeTabId) {
-      toast({ title: "Einbinden nicht möglich", description: "Öffne eine .ino- oder .h-Datei, in die das Include eingefügt werden kann.", variant: "destructive" });
+      toast({ title: "Cannot include library", description: "Open an .ino or .h file to insert the include into.", variant: "destructive" });
       return false;
     }
     const selected = latest.current.libraries.find((requirement) => requirement.name === entry.name);
     if (selected && selected.version !== entry.version) {
-      toast({ title: "Einbinden nicht möglich", description: `${entry.name} ist im Projekt bereits in Version ${selected.version} festgelegt.`, variant: "destructive" });
+      toast({ title: "Cannot include library", description: `The project already specifies ${entry.name} in version ${selected.version}.`, variant: "destructive" });
       return false;
     }
     const next = loaded.local.addRequirement(latest.current.libraries, entry);
     const resolution = loaded.shared.resolveLibraryGraph(next.libraries, available);
     if (resolution.problems.length > 0) {
-      toast({ title: "Einbinden nicht möglich", description: resolution.problems.map(loaded.shared.describeResolutionProblem).join("; "), variant: "destructive" });
+      toast({ title: "Cannot include library", description: resolution.problems.map(loaded.shared.describeResolutionProblem).join("; "), variant: "destructive" });
       return false;
     }
     const before = currentSource();
@@ -184,13 +184,13 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
     if (insertion.inserted.length > 0) writeSource(insertion.content);
     if (next.added) changeLibraries(next.libraries);
 
-    const title = `${entry.name} ${entry.version} eingebunden`;
-    const description = insertion.inserted.length > 0 ? `Include in ${activeFile.path} ergänzt.` : `Include in ${activeFile.path} war bereits vorhanden.`;
+    const title = `${entry.name} ${entry.version} included`;
+    const description = insertion.inserted.length > 0 ? `Include added to ${activeFile.path}.` : `${activeFile.path} already had the include.`;
     let record: UndoRecord | undefined;
     const shown = toast({
       title,
       description,
-      action: <ToastAction altText="Einbinden rückgängig machen" onClick={() => record && undo(record)}>Rückgängig</ToastAction>,
+      action: <ToastAction altText="Undo include" onClick={() => record && undo(record)}>Undo</ToastAction>,
     });
     record = {
       tabId: activeTabId,
@@ -214,7 +214,7 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
     if (insertion.inserted.length === 0) return;
     writeSource(insertion.content);
     const headers = insertion.inserted.map((header) => "<" + header + ">").join(", ");
-    toast({ title: "Include eingefügt", description: `${headers} in ${activeFile.path}` });
+    toast({ title: "Include inserted", description: `${headers} in ${activeFile.path}` });
   };
 
   /** Registers a requirement without touching the source (the hint of a written include, §7). */
@@ -222,7 +222,7 @@ export function useProjectLibraries(params: UseProjectLibrariesParams) {
     const next = latest.current.rules?.local.addRequirement(latest.current.libraries, requirement);
     if (!next?.added) return;
     changeLibraries(next.libraries);
-    latest.current.params.toast({ title: `${requirement.name} ${requirement.version} hinzugefügt`, description: "Die vorhandene Include-Zeile bleibt unverändert." });
+    latest.current.params.toast({ title: `${requirement.name} ${requirement.version} added`, description: "The existing include line is unchanged." });
   };
 
   /** The selection of a newly loaded sketch or example; an example without one has none (§8). */
