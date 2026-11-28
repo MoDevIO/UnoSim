@@ -8,6 +8,6 @@ import type { LibraryRequirement } from "@shared/libraries";
 export function downloadNotice(libraries: readonly LibraryRequirement[]): string | undefined {
   if (libraries.length === 0) return undefined;
   const names = [...libraries].sort((a, b) => a.name.localeCompare(b.name)).map((entry) => `${entry.name} ${entry.version}`).join(", ");
-  return "Der Download enthält nur Quelltextdateien. Bibliotheksauswahl und Versionen sind nicht enthalten und müssen beim erneuten Laden wieder hinzugefügt werden. " +
-    `Bibliotheken: ${names}`;
+  return "The download contains only source files. The library selection and versions are not included and must be added again after loading. " +
+    `Libraries: ${names}`;
 }

@@ -40,7 +40,7 @@ export function libraryListEntries(catalog: readonly OfferedLibraryPackage[], li
   return canonicalLibraries([...entries.values()]);
 }
 
-/** What the details offer for a package: Einbinden, Include einfügen, Bereits eingebunden, or nothing. */
+/** What the details offer for a package: Include, Insert include, Already included, or nothing. */
 export type IncludeAction = "include" | "insert-include" | "already-included" | "unavailable" | "other-version";
 
 export function includeAction(

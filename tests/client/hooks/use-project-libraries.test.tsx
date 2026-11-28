@@ -63,7 +63,7 @@ describe("useProjectLibraries (SSOT Libraries §5–§7)", () => {
     expect(hook.result.current.catalog.status).toBe("error");
   });
 
-  it("Einbinden adds the exact version and the include in one undoable action", async () => {
+  it("Include adds the exact version and the include in one undoable action", async () => {
     const { hook, editor, toast, setIsModified } = setup();
     await waitFor(() => expect(hook.result.current.catalog.status).toBe("ready"));
 
@@ -74,10 +74,10 @@ describe("useProjectLibraries (SSOT Libraries §5–§7)", () => {
     expect(hook.result.current.libraries).toEqual([AUNIT]);
     expect(editor.replaceContent).toHaveBeenCalledWith(`#include <AUnit.h>\n\n${SKETCH}`);
     expect(setIsModified).toHaveBeenCalledWith(true);
-    expect(toast.mock.calls.at(-1)![0]).toMatchObject({ title: "AUnit 1.7.1 eingebunden", description: "Include in sketch.ino ergänzt." });
+    expect(toast.mock.calls.at(-1)![0]).toMatchObject({ title: "AUnit 1.7.1 included", description: "Include added to sketch.ino." });
   });
 
-  it("Rückgängig takes back include and new dependency while nothing changed since", async () => {
+  it("Undo takes back include and new dependency while nothing changed since", async () => {
     const { hook, editor, toast, initial } = setup();
     await waitFor(() => expect(hook.result.current.catalog.status).toBe("ready"));
     act(() => hook.result.current.include(aunit));
@@ -89,7 +89,7 @@ describe("useProjectLibraries (SSOT Libraries §5–§7)", () => {
     expect(editor.replaceContent).toHaveBeenLastCalledWith(SKETCH);
   });
 
-  it("offers no Rückgängig after a later edit and overwrites nothing", async () => {
+  it("offers no Undo after a later edit and overwrites nothing", async () => {
     const { hook, editor, toast, initial } = setup();
     await waitFor(() => expect(hook.result.current.catalog.status).toBe("ready"));
     act(() => hook.result.current.include(aunit));

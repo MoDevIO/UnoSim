@@ -159,7 +159,7 @@ describe("simulation admission through /ws", () => {
       type: "operation_error",
       operation: "start_simulation",
       code: "RATE_LIMITED",
-      message: "Rate-Limit: Bitte warte 4 Sekunden, bevor du eine weitere Simulation startest.",
+      message: "Rate limit: wait 4 seconds before starting another simulation.",
       retryAfter: 4,
     });
     expect(harness.pool.acquireRunner).not.toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe("simulation admission through /ws", () => {
       type: "operation_error",
       operation: "start_simulation",
       code: "RATE_LIMITED",
-      message: "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.",
+      message: "Rate limit reached: each user may have at most 5 running or waiting simulations.",
     });
     expect(harness.pool.acquireRunner).toHaveBeenCalledTimes(5);
     expect(harness.admission.getStats()).toMatchObject({
@@ -257,7 +257,7 @@ describe("simulation admission through /ws", () => {
       type: "operation_error",
       operation: "start_simulation",
       code: "SYSTEM_BUSY",
-      message: "Der Simulator ist momentan ausgelastet. Bitte in wenigen Sekunden erneut versuchen.",
+      message: "The simulator is busy right now. Please try again in a few seconds.",
       retryAfter: 5,
     });
     expect(harness.pool.acquireRunner).toHaveBeenCalledTimes(1);

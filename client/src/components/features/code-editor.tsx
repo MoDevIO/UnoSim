@@ -167,7 +167,7 @@ interface CodeEditorAPI {
   goToLine?: (line: number) => void;
   insertSuggestionSmartly?: (suggestion: string, line?: number) => void;
   insertTextAtLine?: (line: number | undefined, text: string) => void;
-  /** Replaces the whole text as one change the editor's undo takes back (Libraries "Einbinden"). */
+  /** Replaces the whole text as one change the editor's undo takes back (Libraries "Include"). */
   replaceContent?: (text: string) => void;
   focus?: () => void;
   formatCode?: () => void;

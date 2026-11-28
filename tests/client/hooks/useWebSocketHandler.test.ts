@@ -286,8 +286,8 @@ describe("useWebSocketHandler", () => {
     });
   });
 
-  it("shows the Rate-Limit toast for a rejected simulation start", () => {
-    const message = "Rate-Limit erreicht: Pro Nutzer sind höchstens 5 laufende oder wartende Simulationen erlaubt.";
+  it("shows the rate limit toast for a rejected simulation start", () => {
+    const message = "Rate limit reached: each user may have at most 5 running or waiting simulations.";
     mockMessageQueue.push({
       type: "operation_error",
       operation: "start_simulation",
@@ -298,14 +298,14 @@ describe("useWebSocketHandler", () => {
     renderHook(() => useWebSocketHandler(params));
 
     expect(params.toast).toHaveBeenCalledWith({
-      title: "Rate-Limit",
+      title: "Rate limit",
       description: message,
       variant: "destructive",
     });
   });
 
   it("keeps the tab's running simulation when a second start is rejected", () => {
-    const message = "In dieser Sitzung läuft bereits eine Simulation oder wartet auf den Start. Bitte zuerst stoppen.";
+    const message = "A simulation is already running or waiting to start in this session. Stop it first.";
     mockMessageQueue.push({
       type: "operation_error",
       operation: "start_simulation",
@@ -317,7 +317,7 @@ describe("useWebSocketHandler", () => {
 
     expect(params.setSimulationStatus).not.toHaveBeenCalledWith("idle");
     expect(params.toast).toHaveBeenCalledWith({
-      title: "Simulation läuft bereits",
+      title: "Simulation already running",
       description: message,
       variant: "destructive",
     });
@@ -325,7 +325,7 @@ describe("useWebSocketHandler", () => {
   });
 
   it("shows the required SYSTEM_BUSY message", () => {
-    const message = "Der Simulator ist momentan ausgelastet. Bitte in wenigen Sekunden erneut versuchen.";
+    const message = "The simulator is busy right now. Please try again in a few seconds.";
     mockMessageQueue.push({
       type: "operation_error",
       operation: "start_simulation",

@@ -341,7 +341,7 @@ export function useArduinoSimulatorPage() {
   });
   const { replaceLibraries } = projectLibraries;
   const [librariesOpen, setLibrariesOpen] = useState(false);
-  // Closing returns the focus to the control that opened the dialog, after "Einbinden" to the editor.
+  // Closing returns the focus to the control that opened the dialog, after "Include" to the editor.
   const librariesFocusReturn = useRef<{ invoker: HTMLElement | null; toEditor: boolean }>({ invoker: null, toEditor: false });
   const openLibrariesDialog = useCallback(() => {
     librariesFocusReturn.current = { invoker: focusReturnTarget(document.activeElement), toEditor: false };
@@ -580,12 +580,12 @@ export function useArduinoSimulatorPage() {
   const markProject = useChangeGuard([code, tabs, projectLibraries.libraries]);
 
   /**
-   * "Minimalbeispiel öffnen", after the dialog's confirmation: files and libraries of the example replace the sketch together.
+   * "Open minimal example", after the dialog's confirmation: files and libraries of the example replace the sketch together.
    * The confirmation covered the sketch as it was; an edit made while the example loads is kept and the example is dropped.
    */
   const openLibraryExample = useCallback(async (exampleId: string) => {
     const unchanged = markProject();
-    const loading = toast({ title: "Beispiel wird geladen …" });
+    const loading = toast({ title: "Loading example …" });
     try {
       const response = await fetch(`/api/examples/${encodeURIComponent(exampleId)}`);
       const detail = response.ok ? ((await response.json()) as { title?: string; files?: Array<{ name: string; path?: string; content: string }>; libraries?: unknown }) : undefined;
@@ -593,16 +593,16 @@ export function useArduinoSimulatorPage() {
       if (!detail?.files?.length || !libraries.success) throw new Error("invalid example");
       loading.dismiss();
       if (!unchanged()) {
-        toast({ title: "Beispiel nicht geladen", description: "Der Sketch wurde während des Ladens geändert und bleibt erhalten." });
+        toast({ title: "Example not loaded", description: "The sketch changed while loading and is kept." });
         return;
       }
       setActiveExternalExampleContext(null);
       handleLoadExample(detail.files, detail.title ?? exampleId);
       replaceLibraries(libraries.data);
-      toast({ title: "Beispiel geladen", description: `${detail.title ?? exampleId} ersetzt den bisherigen Sketch.` });
+      toast({ title: "Example loaded", description: `${detail.title ?? exampleId} replaced the previous sketch.` });
     } catch {
       loading.dismiss();
-      toast({ title: "Beispiel konnte nicht geladen werden", description: "Der bisherige Sketch bleibt erhalten.", variant: "destructive" });
+      toast({ title: "Example could not be loaded", description: "The previous sketch is kept.", variant: "destructive" });
     }
   }, [handleLoadExample, markProject, replaceLibraries, toast]);
 

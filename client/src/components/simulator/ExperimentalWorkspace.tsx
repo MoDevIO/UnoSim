@@ -479,9 +479,9 @@ export function ExperimentalWorkspace({
       {visibleColumns.length === 0 ? (
         <div className="flex flex-1 items-center justify-center p-6" data-testid="workspace-empty-state">
           <div className="max-w-lg rounded-lg border border-dashed border-border p-8 text-center">
-            <h2 className="text-lg font-semibold">Keine Ansicht geöffnet</h2>
+            <h2 className="text-lg font-semibold">No view open</h2>
             <p className="mt-2 text-ui-sm text-muted-foreground">
-              Blende mindestens einen Workspace-Bereich ein, um weiterzuarbeiten.
+              Show at least one workspace area to continue.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               {(["code", "simulation", "tutor"] as WorkspaceColumn[]).map((column) => (

@@ -53,35 +53,35 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(screen.getByText("Arduino UNO · Emulation")).toBeInTheDocument();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toBeInTheDocument();
-    expect(screen.queryByText(/Wähle eine Bibliothek/)).toBeNull();
+    expect(screen.queryByText(/Select a library/)).toBeNull();
   });
 
   it("tells loading, a failed fetch with retry, an empty catalog and no hits apart", async () => {
     const user = userEvent.setup();
     const retry = vi.fn(async () => undefined);
     const { unmount } = render(<LibrariesDialog {...renderProps({ catalog: { status: "loading", packages: [], retry } })} />);
-    expect(screen.getByText("Bibliotheken werden geladen …")).toBeInTheDocument();
+    expect(screen.getByText("Loading libraries …")).toBeInTheDocument();
     unmount();
 
     const failed = render(<LibrariesDialog {...renderProps({ catalog: { status: "error", packages: [], retry } })} />);
-    await user.click(screen.getByRole("button", { name: "Erneut versuchen" }));
+    await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(retry).toHaveBeenCalledOnce();
     failed.unmount();
 
     const empty = render(<LibrariesDialog {...renderProps({ catalog: { status: "ready", packages: [], retry } })} />);
-    expect(screen.getByText("Dieser Server bietet keine Bibliotheken an.")).toBeInTheDocument();
+    expect(screen.getByText("This server offers no libraries.")).toBeInTheDocument();
     empty.unmount();
 
     render(<LibrariesDialog {...renderProps()} />);
-    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "servo");
-    expect(screen.getByText("Keine Treffer für „servo“.")).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: "Search libraries" }), "servo");
+    expect(screen.getByText("No matches for “servo”.")).toBeInTheDocument();
   });
 
   it("finds a package by its description", async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "unit testing");
+    await user.type(screen.getByRole("searchbox", { name: "Search libraries" }), "unit testing");
 
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toBeInTheDocument();
   });
@@ -95,10 +95,10 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     expect(within(details).queryByText(/#include/)).toBeNull();
     expect(within(details).getByText("Brian T. Park")).toBeInTheDocument();
-    expect(within(details).getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
-    expect(within(details).queryByText(/Kompilierung|Simulation \(/)).toBeNull();
-    expect(within(details).getByRole("link", { name: "Dokumentation" })).toHaveAttribute("href", aunit.documentationUrl);
-    await user.click(within(details).getByRole("button", { name: "Einbinden" }));
+    expect(within(details).getByText("Target file:", { exact: false })).toHaveTextContent("Target file: sketch.ino");
+    expect(within(details).queryByText(/Compilation|Simulation \(/)).toBeNull();
+    expect(within(details).getByRole("link", { name: "Documentation" })).toHaveAttribute("href", aunit.documentationUrl);
+    await user.click(within(details).getByRole("button", { name: "Include" }));
     expect(props.onInclude).toHaveBeenCalledWith(aunit);
   });
 
@@ -108,21 +108,21 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    expect(screen.getByText("Simulation (Legacy): nicht unterstützt – No libraries in the Legacy build.")).toBeInTheDocument();
+    expect(screen.getByText("Simulation (Legacy): not supported – No libraries in the Legacy build.")).toBeInTheDocument();
   });
 
-  it("offers Include einfügen for a selected package and states Bereits eingebunden without a second change", async () => {
+  it("offers Insert include for a selected package and states Already included without a second change", async () => {
     const user = userEvent.setup();
     const selected = [{ name: "AUnit", version: "1.7.1" }];
     const props = renderDialog({ libraries: selected });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
-    expect(screen.getByText("Im Projekt", { selector: "[data-testid=library-project-badge]" })).toBeInTheDocument();
-    expect(screen.getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
-    await user.click(screen.getByRole("button", { name: "Include einfügen" }));
+    expect(screen.getByText("In project", { selector: "[data-testid=library-project-badge]" })).toBeInTheDocument();
+    expect(screen.getByText("Target file:", { exact: false })).toHaveTextContent("Target file: sketch.ino");
+    await user.click(screen.getByRole("button", { name: "Insert include" }));
     expect(props.onInsertInclude).toHaveBeenCalledWith(aunit);
   });
 
-  it("states Bereits eingebunden as a status, not as a disabled button", async () => {
+  it("states Already included as a status, not as a disabled button", async () => {
     const user = userEvent.setup();
     renderDialog({
       libraries: [{ name: "AUnit", version: "1.7.1" }],
@@ -130,12 +130,12 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    expect(screen.getByRole("status")).toHaveTextContent("Bereits eingebunden");
-    expect(screen.queryByRole("button", { name: "Bereits eingebunden" })).toBeNull();
-    // The state says it all: no target file and no second "Im Projekt" in the details; the list keeps its status.
-    expect(screen.queryByText("Zieldatei:", { exact: false })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Already included");
+    expect(screen.queryByRole("button", { name: "Already included" })).toBeNull();
+    // The state says it all: no target file and no second "In project" in the details; the list keeps its status.
+    expect(screen.queryByText("Target file:", { exact: false })).toBeNull();
     expect(screen.queryByTestId("library-project-badge")).toBeNull();
-    expect(within(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).getByText("Im Projekt")).toBeInTheDocument();
+    expect(within(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).getByText("In project")).toBeInTheDocument();
   });
 
   it("lists an offered and a required missing version once each, marked by name and exact version", () => {
@@ -143,26 +143,26 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     expect(screen.getAllByRole("button", { name: /^AUnit / })).toHaveLength(2);
     const offered = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
-    expect(within(offered).queryByText("Im Projekt")).toBeNull();
-    expect(within(offered).queryByText("Nicht verfügbar")).toBeNull();
+    expect(within(offered).queryByText("In project")).toBeNull();
+    expect(within(offered).queryByText("Not available")).toBeNull();
     const required = screen.getByRole("button", { name: /AUnit 1\.6\.0/ });
-    expect(within(required).getByText("Im Projekt")).toBeInTheDocument();
-    expect(within(required).getByText("Nicht verfügbar")).toBeInTheDocument();
+    expect(within(required).getByText("In project")).toBeInTheDocument();
+    expect(within(required).getByText("Not available")).toBeInTheDocument();
   });
 
-  it("marks the selected offered version as Im Projekt and lists it only once", () => {
+  it("marks the selected offered version as In project and lists it only once", () => {
     renderDialog({ libraries: [{ name: "AUnit", version: "1.7.1" }] });
 
     const [listed] = screen.getAllByRole("button", { name: /^AUnit / });
     expect(screen.getAllByRole("button", { name: /^AUnit / })).toHaveLength(1);
-    expect(within(listed).getByText("Im Projekt")).toBeInTheDocument();
+    expect(within(listed).getByText("In project")).toBeInTheDocument();
   });
 
   it("finds a required missing version by its name", async () => {
     const user = userEvent.setup();
     renderDialog({ libraries: [{ name: "Zeta", version: "1.0.0" }] });
 
-    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "zeta");
+    await user.type(screen.getByRole("searchbox", { name: "Search libraries" }), "zeta");
 
     expect(screen.getAllByRole("button", { name: /Zeta 1\.0\.0/ })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /AUnit/ })).toBeNull();
@@ -174,9 +174,9 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     renderDialog({ activeFile: { path, editable: true, content: "void setup(){}\n", localHeaders: [path] } });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    const target = screen.getByText("Zieldatei:", { exact: false });
-    expect(target).toHaveTextContent("Zieldatei: AUnitMinimal.ino");
-    expect(screen.getByRole("button", { name: "Einbinden" }).parentElement).toHaveClass("flex-col");
+    const target = screen.getByText("Target file:", { exact: false });
+    expect(target).toHaveTextContent("Target file: AUnitMinimal.ino");
+    expect(screen.getByRole("button", { name: "Include" }).parentElement).toHaveClass("flex-col");
     expect(screen.getByText(path)).not.toBeVisible();
     await user.click(target);
     expect(screen.getByText(path)).toBeVisible();
@@ -188,7 +188,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     renderDialog();
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    expect(screen.getByText("Zieldatei:", { exact: false })).toHaveTextContent("Zieldatei: sketch.ino");
+    expect(screen.getByText("Target file:", { exact: false })).toHaveTextContent("Target file: sketch.ino");
     expect(screen.queryByText("sketch.ino", { selector: "p.break-all:not(:has(strong))" })).toBeNull();
   });
 
@@ -197,13 +197,13 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     const listed = screen.getByRole("button", { name: /AUnit 1\.7\.1/ });
     expect(within(listed).getByText("AUnit 1.7.1").parentElement).toBe(listed);
-    expect(within(listed).getByText("Im Projekt").parentElement?.parentElement).toBe(listed);
+    expect(within(listed).getByText("In project").parentElement?.parentElement).toBe(listed);
   });
 
   it("puts search and list in one column and leaves the details empty without a selection", () => {
     renderDialog();
 
-    const search = screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" });
+    const search = screen.getByRole("searchbox", { name: "Search libraries" });
     const list = screen.getByRole("button", { name: /AUnit 1\.7\.1/ }).closest("ul");
     expect(search.parentElement).toContainElement(list);
     expect(search).toHaveClass("w-full");
@@ -214,7 +214,7 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const user = userEvent.setup();
     const props = renderDialog();
 
-    await user.type(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }), "aunit");
+    await user.type(screen.getByRole("searchbox", { name: "Search libraries" }), "aunit");
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
     expect(props.onInclude).not.toHaveBeenCalled();
@@ -222,15 +222,15 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     expect(props.onOpenExample).not.toHaveBeenCalled();
   });
 
-  it("puts Einbinden before the description and shows a single example without its title", async () => {
+  it("puts Include before the description and shows a single example without its title", async () => {
     const user = userEvent.setup();
     renderDialog();
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    const include = screen.getByRole("button", { name: "Einbinden" });
+    const include = screen.getByRole("button", { name: "Include" });
     const description = within(screen.getByRole("region", { name: "AUnit 1.7.1" })).getByText(aunit.description);
     expect(include.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Minimalbeispiel öffnen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open minimal example" })).toBeInTheDocument();
     expect(screen.queryByText("AUnit minimal example")).toBeNull();
   });
 
@@ -243,13 +243,13 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const props = renderDialog({ catalog: { status: "ready", packages: [{ ...aunit, examples }], retry: vi.fn(async () => undefined) } });
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    const buttons = screen.getAllByRole("button", { name: "Minimalbeispiel öffnen" });
+    const buttons = screen.getAllByRole("button", { name: "Open minimal example" });
     expect(buttons).toHaveLength(2);
     expect(buttons[1]).toHaveAccessibleDescription("AUnit verbose example");
     expect(screen.getByText("AUnit minimal example")).toHaveClass("break-words");
     expect(screen.getByText("AUnit minimal example").parentElement).toHaveClass("flex-wrap");
     await user.click(buttons[1]);
-    await user.click(screen.getByRole("button", { name: "Ersetzen" }));
+    await user.click(screen.getByRole("button", { name: "Replace" }));
     expect(props.onOpenExample).toHaveBeenCalledWith("builtin-aunit-verbose");
   });
 
@@ -259,9 +259,9 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
 
     await user.click(screen.getByRole("button", { name: /AUnit 1\.6\.0/ }));
 
-    expect(within(screen.getByRole("region", { name: "AUnit 1.6.0" })).getByText("Nicht verfügbar")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Einbinden" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Include einfügen" })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "AUnit 1.6.0" })).getByText("Not available")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Include" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Insert include" })).toBeNull();
   });
 
   it("opens the minimal example only after confirming the replacement", async () => {
@@ -269,35 +269,35 @@ describe("LibrariesDialog (SSOT Libraries §5)", () => {
     const props = renderDialog();
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    await user.click(screen.getByRole("button", { name: "Minimalbeispiel öffnen" }));
-    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await user.click(screen.getByRole("button", { name: "Open minimal example" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onOpenExample).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Minimalbeispiel öffnen" }));
-    await user.click(screen.getByRole("button", { name: "Ersetzen" }));
+    await user.click(screen.getByRole("button", { name: "Open minimal example" }));
+    await user.click(screen.getByRole("button", { name: "Replace" }));
     expect(props.onOpenExample).toHaveBeenCalledWith("builtin-aunit");
   });
 
-  it("returns the focus to Minimalbeispiel öffnen when the replacement is cancelled", async () => {
+  it("returns the focus to Open minimal example when the replacement is cancelled", async () => {
     const user = userEvent.setup();
     renderDialog();
     await user.click(screen.getByRole("button", { name: /AUnit 1\.7\.1/ }));
 
-    await user.click(screen.getByRole("button", { name: "Minimalbeispiel öffnen" }));
-    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await user.click(screen.getByRole("button", { name: "Open minimal example" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Minimalbeispiel öffnen" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Open minimal example" })).toHaveFocus());
   });
 
   it("can be operated with the keyboard", async () => {
     const user = userEvent.setup();
     const props = renderDialog();
 
-    await user.click(screen.getByRole("searchbox", { name: "Bibliotheken durchsuchen" }));
+    await user.click(screen.getByRole("searchbox", { name: "Search libraries" }));
     await user.tab();
     expect(screen.getByRole("button", { name: /AUnit 1\.7\.1/ })).toHaveFocus();
     await user.keyboard("{Enter}");
-    screen.getByRole("button", { name: "Einbinden" }).focus();
+    screen.getByRole("button", { name: "Include" }).focus();
     await user.keyboard("{Enter}");
     expect(props.onInclude).toHaveBeenCalledWith(aunit);
   });

@@ -289,8 +289,8 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       if (message.code === "SIMULATION_ALREADY_ACTIVE") {
         // The earlier run of this tab continues; the server resends its status.
         params.toast?.({
-          title: "Simulation läuft bereits",
-          description: message.message || "Bitte die laufende Simulation zuerst stoppen.",
+          title: "Simulation already running",
+          description: message.message || "Stop the running simulation first.",
           variant: "destructive",
         });
         return;
@@ -298,7 +298,7 @@ export function useWebSocketHandler(params: UseWebSocketHandlerParams) {
       setSimulationStatus("idle");
       const isRateLimited = message.code === "RATE_LIMITED";
       params.toast?.({
-        title: isRateLimited ? "Rate-Limit" : "Start Failed",
+        title: isRateLimited ? "Rate limit" : "Start Failed",
         description: message.message || "Could not start simulation",
         variant: "destructive",
       });
